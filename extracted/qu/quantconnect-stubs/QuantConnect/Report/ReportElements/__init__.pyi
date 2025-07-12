@@ -49,25 +49,6 @@ class ReportElement(System.Object, QuantConnect.Report.ReportElements.IReportEle
         ...
 
 
-class EstimatedCapacityReportElement(QuantConnect.Report.ReportElements.ReportElement):
-    """Capacity Estimation Report Element"""
-
-    def __init__(self, name: str, key: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult) -> None:
-        """
-        Create a new capacity estimate
-        
-        :param name: Name of the widget
-        :param key: Location of injection
-        :param backtest: Backtest result object
-        :param live: Live result object
-        """
-        ...
-
-    def render(self) -> str:
-        """Render element"""
-        ...
-
-
 class SharpeRatioReportElement(QuantConnect.Report.ReportElements.ReportElement):
     """Class for render the Sharpe Ratio statistic for a report"""
 
@@ -142,6 +123,25 @@ class ParametersReportElement(QuantConnect.Report.ReportElements.ReportElement):
         
         :returns: Returns a string representing a HTML two column table.
         """
+        ...
+
+
+class EstimatedCapacityReportElement(QuantConnect.Report.ReportElements.ReportElement):
+    """Capacity Estimation Report Element"""
+
+    def __init__(self, name: str, key: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult) -> None:
+        """
+        Create a new capacity estimate
+        
+        :param name: Name of the widget
+        :param key: Location of injection
+        :param backtest: Backtest result object
+        :param live: Live result object
+        """
+        ...
+
+    def render(self) -> str:
+        """Render element"""
         ...
 
 

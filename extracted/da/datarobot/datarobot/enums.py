@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -129,7 +129,7 @@ ASYNC_PROCESS_STATUS = enum(
 LEADERBOARD_SORT_KEY = enum(PROJECT_METRIC="metric", SAMPLE_PCT="samplePct")
 
 
-class TARGET_TYPE:
+class TARGET_TYPE:  # pylint: disable=missing-class-docstring
     BINARY = "Binary"
     MULTICLASS = "Multiclass"
     MULTILABEL = "Multilabel"
@@ -137,7 +137,18 @@ class TARGET_TYPE:
     UNSTRUCTURED = "Unstructured"
     ANOMALY = "Anomaly"
     TEXT_GENERATION = "TextGeneration"
-    ALL = [BINARY, MULTICLASS, MULTILABEL, REGRESSION, UNSTRUCTURED, ANOMALY, TEXT_GENERATION]
+    AGENTIC_WORKFLOW = "AgenticWorkflow"
+
+    ALL = [
+        BINARY,
+        MULTICLASS,
+        MULTILABEL,
+        REGRESSION,
+        UNSTRUCTURED,
+        ANOMALY,
+        TEXT_GENERATION,
+        AGENTIC_WORKFLOW,
+    ]
 
 
 JOB_TYPE = enum(
@@ -570,9 +581,16 @@ class CUSTOM_MODEL_TARGET_TYPE(_SHARED_TARGET_TYPE):
     """Enum of valid custom model target types"""
 
     UNSTRUCTURED = "Unstructured"
-    REQUIRES_TARGET_NAME = ("Binary", "Multiclass", "Regression", "TextGeneration")
+    AGENTIC_WORKFLOW = "AgenticWorkflow"
+    REQUIRES_TARGET_NAME = (
+        "Binary",
+        "Multiclass",
+        "Regression",
+        "TextGeneration",
+        "AgenticWorkflow",
+    )
 
-    ALL = _SHARED_TARGET_TYPE.ALL + [UNSTRUCTURED]
+    ALL = _SHARED_TARGET_TYPE.ALL + [UNSTRUCTURED, AGENTIC_WORKFLOW]
 
 
 class CUSTOM_TASK_TARGET_TYPE(_SHARED_TARGET_TYPE):
@@ -1253,6 +1271,9 @@ class KeyValueEntityType(Enum):
     REGISTERED_MODEL = "registeredModel"
     CUSTOM_JOB = "customJob"
     CUSTOM_JOB_RUN = "customJobRun"
+    CUSTOM_MODEL_VERSION = "customModelVersion"
+    CUSTOM_APPLICATION_SOURCE_VERSION = "customApplicationSourceVersion"
+    CUSTOM_APPLICATION = "customApplication"
 
 
 class KeyValueType(Enum):
@@ -1458,6 +1479,8 @@ class VectorDatabaseSource(StrEnum):
 
     DATAROBOT = "DataRobot"
     EXTERNAL = "External"
+    PINECONE = "Pinecone"
+    ELASTICSEARCH = "Elasticsearch"
 
 
 class VectorDatabaseExecutionStatus(StrEnum):
@@ -1665,6 +1688,21 @@ class VectorDatabaseRetrievers(StrEnum):
     MULTI_STEP_RETRIEVER = "MULTI_STEP_RETRIEVER"
 
 
+class PineconeCloud(StrEnum):
+    """Pinecone cloud values."""
+
+    AWS = "aws"
+    GCP = "gcp"
+    AZURE = "azure"
+
+
+class VectorDatabaseMetadataCombinationStrategy(StrEnum):
+    """Strategy for combining metadata from multiple files when adding data to a vector database."""
+
+    REPLACE = "replace"
+    MERGE = "merge"
+
+
 class GuardConditionComparator(StrEnum):
     """The comparator used in a guard condition."""
 
@@ -1811,3 +1849,34 @@ class ListCustomTemplatesSortQueryParams(StrEnum):
     TEMPLATE_TYPE_DESCENDING = "-template_type"
     TEMPLATE_SUB_TYPE_ASCENDING = "template_sub_type"
     TEMPLATE_SUB_TYPE_DESCENDING = "-template_sub_type"
+
+
+class ChunkServiceDialect(StrEnum):
+    SNOWFLAKE = "snowflake"
+    BIGQUERY = "bigquery"
+    DATABRICKS = "databricks"
+    SPARK = "spark"
+    POSTGRES = "postgres"
+
+
+class ChunkingStrategy(StrEnum):
+    FEATURES = "features"
+    ROWS = "rows"
+
+
+class ChunkingPartitionMethod(StrEnum):
+    RANDOM = "random"
+    STRATIFIED = "stratified"
+    DATE = "date"
+
+
+class PlaygroundType(StrEnum):
+    RAG = "rag"
+    AGENTIC = "agentic"
+
+
+class ToolCallAccuracyArgumentComparisonMode(StrEnum):
+    """Defines how to compare tool call arguments in the tool call accuracy metric."""
+
+    EXACT_MATCH = "exact_match"
+    IGNORE_ARGUMENTS = "ignore_arguments"

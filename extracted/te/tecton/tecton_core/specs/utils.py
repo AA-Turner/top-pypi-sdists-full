@@ -79,9 +79,9 @@ def type_validator(instance: Any, attribute: attrs.Attribute, value: Any) -> Non
 
     # It would be better to assert on the affirmative (e.g. `assert inspect.is_class(attribute.type)`), but generic
     # types (e.g. `Optional[str]`) are not classes and do not have a documented way to identify them.
-    assert not isinstance(
-        attribute.type, str
-    ), f"Found unresolved type annotation `{attribute.type}` for attribute `{attribute.name}`. Do not use forward-declared types with the frozen_strict decorator."
+    assert not isinstance(attribute.type, str), (
+        f"Found unresolved type annotation `{attribute.type}` for attribute `{attribute.name}`. Do not use forward-declared types with the frozen_strict decorator."
+    )
     try:
         typeguard.check_type(attribute.name, value, attribute.type)
     except TypeError as e:

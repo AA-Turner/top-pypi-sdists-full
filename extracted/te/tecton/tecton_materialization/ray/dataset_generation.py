@@ -13,6 +13,9 @@ import pyarrow
 import pyarrow.dataset
 import pyarrow.fs
 import pyarrow.parquet as pq
+
+
+os.environ["RAY_DEDUP_LOGS"] = "0"
 import ray
 from pyarrow._dataset import WrittenFile
 
@@ -43,12 +46,10 @@ from tecton_materialization.ray.delta import DeltaWriter
 from tecton_materialization.ray.delta import OfflineStoreParams
 from tecton_materialization.ray.delta import write
 from tecton_materialization.ray.job_status import JobStatusClient
-from tecton_materialization.ray.job_status import MonitoringContextProvider
 from tecton_materialization.ray.materialization_utils import get_delta_writer
 from tecton_materialization.ray.materialization_utils import get_secret_resolver
 from tecton_materialization.ray.nodes import AddTimePartitionNode
 from tecton_materialization.ray.nodes import TimeSpec
-from tecton_proto.materialization.job_metadata__client_pb2 import TectonManagedStage
 from tecton_proto.materialization.materialization_task__client_pb2 import DatasetGenerationParameters
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
 from tecton_proto.materialization.params__client_pb2 import SecretMaterializationTaskParams
@@ -77,7 +78,6 @@ def run_dataset_generation(
     materialization_task_params: MaterializationTaskParams,
     secret_materialization_task_params: SecretMaterializationTaskParams,
     job_status_client: JobStatusClient,
-    executor: QueryTreeExecutor,
 ):
     # retrieve current region
     conf.set("CLUSTER_REGION", boto3.Session().region_name)
@@ -100,63 +100,59 @@ def run_dataset_generation(
         batch_schedule=None,
     )
 
-    table = get_delta_writer(
+    writer = get_delta_writer(
         materialization_task_params,
         store_params=store_params,
         table_uri=dataset_generation_params.result_path,
         join_keys=params.join_keys,
+        partition_type=offline_store.PartitionType.NONE,
     )
 
-    offline_stage_monitor = job_status_client.create_stage_monitor(
-        TectonManagedStage.StageType.OFFLINE_STORE,
-        "Store results to dataset location",
-    )
-
-    if should_not_use_ray_threads(dataset_generation_params):
-        logger.info("Using one thread for dataset generation")
-        run_dataset_generation_with_one_thread(
-            materialization_task_params,
+    if not use_legacy_spine_split(dataset_generation_params):
+        logger.info("Using QT parallelization for dataset generation")
+        run_dataset_generation_with_qt_parallelization(
+            secret_materialization_task_params,
             dataset_generation_params,
             job_status_client,
-            executor,
             params,
-            table,
-            offline_stage_monitor,
+            writer,
         )
     else:
         logger.info("Using Ray threads for dataset generation")
-        run_dataset_generation_with_ray_tasks(
+        run_dataset_generation_with_enforced_spine_splitting(
             materialization_task_params,
             secret_materialization_task_params,
             dataset_generation_params,
+            job_status_client,
             params,
-            table,
-            offline_stage_monitor,
+            writer,
         )
+    logger.info(f"Dataset generation for dataset_name={dataset_generation_params.dataset_name} completed.")
 
 
-def should_not_use_ray_threads(dataset_generation_params: DatasetGenerationParameters) -> bool:
-    disable_ray_str = str(dataset_generation_params.extra_config.get("disable_ray"))
-    return "disable_ray" in dataset_generation_params.extra_config and disable_ray_str.lower() == "true"
+def use_legacy_spine_split(dataset_generation_params: DatasetGenerationParameters) -> bool:
+    # Whether to use legacy spine splitting or or qt parallelizatio for RDG.
+    use_spine_split = str(dataset_generation_params.extra_config.get("use_legacy_spine_split", "true")).lower()
+    return use_spine_split == "true"
 
 
-def run_dataset_generation_with_ray_tasks(
+def run_dataset_generation_with_enforced_spine_splitting(
     materialization_task_params: MaterializationTaskParams,
     secret_materialization_task_params: SecretMaterializationTaskParams,
     dataset_generation_params: DatasetGenerationParameters,
+    job_status_client: JobStatusClient,
     params: Union[GetFeaturesInRangeParams, GetFeaturesForEventsParams],
-    table: DeltaWriter,
-    offline_stage_monitor: MonitoringContextProvider,
+    writer: DeltaWriter,
 ):
-    if "ray_thread_cpu" not in dataset_generation_params.extra_config:
-        cpu_per_task = DEFAULT_RAY_THREAD_CPU
-    else:
+    if "ray_thread_cpu" in dataset_generation_params.extra_config:
         cpu_per_task = int(dataset_generation_params.extra_config["ray_thread_cpu"])
-
-    if "ray_thread_memory_in_bytes" not in dataset_generation_params.extra_config:
-        memory_per_task_in_bytes = DEFAULT_RAY_THREAD_MEMORY_IN_BYTES
     else:
+        cpu_per_task = DEFAULT_RAY_THREAD_CPU
+
+    if "ray_thread_memory_in_bytes" in dataset_generation_params.extra_config:
         memory_per_task_in_bytes = int(dataset_generation_params.extra_config["ray_thread_memory_in_bytes"])
+    else:
+        memory_per_task_in_bytes = DEFAULT_RAY_THREAD_MEMORY_IN_BYTES
 
     target_scanned_offline_rows_per_partition = None
     if "target_scanned_offline_rows_per_partition" in dataset_generation_params.extra_config:
@@ -165,25 +161,27 @@ def run_dataset_generation_with_ray_tasks(
         )
 
     tasks = []
-    upload_tasks = []
-    with offline_stage_monitor():
+    qt_prep_monitor = job_status_client.create_stage_monitor(
+        "Prepare query tree and Ray tasks",
+    )
+    with qt_prep_monitor():
         if isinstance(params, GetFeaturesForEventsParams):
             time_column = params.timestamp_key
             spine_data = _load_user_provided_data(params.events)
-            if conf.get_bool("DUCKDB_ENABLE_SPINE_SPLIT") or target_scanned_offline_rows_per_partition:
-                spine_split_tables = pyarrow_split_spine(
-                    spine_data,
-                    params.join_keys,
-                    _extract_fdw_list(materialization_task_params),
-                    time_column,
-                    target_scanned_offline_rows_per_partition,
-                )
-                spine_split_files = write_split_tables_to_files(spine_split_tables)
-            else:
-                spine_split_files = write_split_tables_to_files([spine_data])
+            spine_split_tables = pyarrow_split_spine(
+                spine_data,
+                params.join_keys,
+                _extract_fdw_list(materialization_task_params),
+                time_column,
+                target_scanned_offline_rows_per_partition,
+            )
+            spine_split_files = write_split_tables_to_files(spine_split_tables)
             num_tasks = len(spine_split_files)
             for idx, spine_split_file in enumerate(spine_split_files):
                 spine_chunk = read_table_from_file(spine_split_file)
+                logger.info(
+                    f"Creating Ray task {idx} for dataset generation: num_cpus={cpu_per_task} memory={memory_per_task_in_bytes}"
+                )
                 tasks.append(
                     run_one_dataset_generation_ray_task.options(
                         num_cpus=cpu_per_task, memory=memory_per_task_in_bytes
@@ -222,6 +220,11 @@ def run_dataset_generation_with_ray_tasks(
             error = f"Unsupported params type: {type(params)}"
             raise ValueError(error)
 
+    upload_tasks = []
+    qt_exec_monitor = job_status_client.create_stage_monitor(
+        f"Execute {len(tasks)} query task(s)",
+    )
+    with qt_exec_monitor():
         remaining_tasks = tasks
         while remaining_tasks:
             ready_tasks, remaining_tasks = ray.wait(
@@ -239,12 +242,16 @@ def run_dataset_generation_with_ray_tasks(
                 )
             )
 
+    write_monitor = job_status_client.create_stage_monitor(
+        "Upload files to dataset location",
+    )
+    with write_monitor():
         files_list = ray.get(upload_tasks)
 
         # Each Ray task returns a list of AddFile objects. We need to commit all of them to the Delta table.
         files = [file for sublist in files_list for file in sublist]
-        table.add_files(files)
-        table.commit()
+        writer.add_files(files)
+        writer.commit()
 
 
 @ray.remote
@@ -259,9 +266,14 @@ def run_one_dataset_generation_ray_task(
     cpu_per_task,
     memory_per_task_in_bytes,
 ) -> List[transaction_writer_pb2.AddFile]:
+    logger.info(f"Running dataset generation with Ray task {idx} of {num_tasks}")
+
+    # All these confs are set within the ray task and do not affect the top-level session.
     conf.set("DUCKDB_DEBUG", "true")
     conf.set("TECTON_OFFLINE_RETRIEVAL_COMPUTE_MODE", "rift")
     conf.set("TECTON_RUNTIME_MODE", "MATERIALIZATION")
+    conf.set("DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED", "false")
+    conf.set(conf.QUERYTREE_ENABLE_PARTITIONED_EXECUTION.key, "false")
 
     if test_tmpdir:
         duckdb_factory.set_home_dir_override(test_tmpdir)
@@ -277,10 +289,9 @@ def run_one_dataset_generation_ray_task(
         duckdb_config=DuckDBConfig(
             num_threads=cpu_per_task,
             memory_limit_in_bytes=memory_per_task_in_bytes,
-            use_unique_extension_path=True,
+            use_unique_extension_path=False,
         ),
     )
-
     params = get_features_params_from_task_params(materialization_task_params, compute_mode=ComputeMode.RIFT)
     if isinstance(params, GetFeaturesForEventsParams):
         qt = get_features_from_params(params, spine=PyarrowDataframeWrapper(spine_chunk))
@@ -291,7 +302,6 @@ def run_one_dataset_generation_ray_task(
         error = f"Unsupported params type: {type(params)}"
         raise ValueError(error)
 
-    qt = _add_partition_column(qt, time_column)
     rewrite_tree_for_spine(qt)
     reader = executor.exec_qt(qt).result_table
     return write_to_tmp_buffer_table(reader)
@@ -312,67 +322,80 @@ def write_to_delta_table(
 def _load_user_provided_data(path: str) -> pyarrow.Table:
     spine = pq.read_table(path)
     logger.info(f"Reading spine with shape {spine.shape} and memory usage {spine.nbytes}")
-    logger.info(spine.schema)
+    logger.info(f"Spine schema:\n{spine.schema}")
     return spine
 
 
-def run_dataset_generation_with_one_thread(
-    materialization_task_params: MaterializationTaskParams,
+def run_dataset_generation_with_qt_parallelization(
+    secret_materialization_task_params: SecretMaterializationTaskParams,
     dataset_generation_params: DatasetGenerationParameters,
     job_status_client: JobStatusClient,
-    executor: QueryTreeExecutor,
     params: Union[GetFeaturesInRangeParams, GetFeaturesForEventsParams],
-    table: DeltaWriter,
-    offline_stage_monitor: MonitoringContextProvider,
+    writer: DeltaWriter,
 ):
-    qts = []
+    # Turn on qt parallelization for the query tree executor
+    conf.set("DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED", "true")
+    conf.set(conf.QUERYTREE_ENABLE_PARTITIONED_EXECUTION.key, "true")
 
-    if isinstance(params, GetFeaturesForEventsParams):
-        time_column = params.timestamp_key
-        spine_data = _load_user_provided_data(params.events)
-
-        if conf.DUCKDB_ENABLE_SPINE_SPLIT_FF.enabled():
-            target_scanned_offline_rows_per_partition = None
-            if "target_scanned_offline_rows_per_partition" in dataset_generation_params.extra_config:
-                target_scanned_offline_rows_per_partition = int(
-                    dataset_generation_params.extra_config.get("target_scanned_offline_rows_per_partition")
-                )
-
-            spine_split_files = pyarrow_split_spine(
-                spine_data,
-                params.join_keys,
-                _extract_fdw_list(materialization_task_params),
-                time_column,
-                # DEFAULT_TARGET_SCANNED_OFFLINE_ROWS_PER_PARTITION will be used.
-                target_scanned_offline_rows_per_partition,
-            )
-            for spine_split_file in spine_split_files:
-                spine_chunk = read_table_from_file(spine_split_file)
-                qt = get_features_from_params(params, spine=PyarrowDataframeWrapper(spine_chunk))
-                qts.append(qt)
-        else:
-            qts.append(get_features_from_params(params, spine=PyarrowDataframeWrapper(spine_data)))
-    elif isinstance(params, GetFeaturesInRangeParams):
-        time_column = valid_to()
-        entities = (
-            PyarrowDataframeWrapper(_load_user_provided_data(params.entities)) if params.entities is not None else None
-        )
-        qts.append(get_features_from_params(params, entities=entities))
+    if "ray_thread_cpu" in dataset_generation_params.extra_config:
+        cpu_per_task = int(dataset_generation_params.extra_config["ray_thread_cpu"])
     else:
-        error = f"Unsupported params type: {type(params)}"
-        raise ValueError(error)
+        cpu_per_task = DEFAULT_RAY_THREAD_CPU
 
-    qts = [_add_partition_column(qt, time_column) for qt in qts]
+    if "ray_thread_memory_in_bytes" in dataset_generation_params.extra_config:
+        memory_per_task_in_bytes = int(dataset_generation_params.extra_config["ray_thread_memory_in_bytes"])
+    else:
+        memory_per_task_in_bytes = DEFAULT_RAY_THREAD_MEMORY_IN_BYTES
 
-    for idx, qt in enumerate(qts):
-        job_status_client.set_query_index(idx, len(qts))
+    duckdb_config = DuckDBConfig(
+        num_threads=cpu_per_task,
+        memory_limit_in_bytes=memory_per_task_in_bytes,
+        use_unique_extension_path=False,
+    )
+    duckdb_factory.create_connection(duckdb_config)  # init connection to download & install extension
+
+    secret_resolver = get_secret_resolver(secret_materialization_task_params.secret_service_params)
+    executor = QueryTreeExecutor(
+        monitor=job_status_client,
+        secret_resolver=secret_resolver,
+        duckdb_config=duckdb_config,
+    )
+
+    qt_prep_monitor = job_status_client.create_stage_monitor(
+        "Prepare query tree",
+    )
+    with qt_prep_monitor():
+        if isinstance(params, GetFeaturesForEventsParams):
+            time_column = params.timestamp_key
+            spine_data = _load_user_provided_data(params.events)
+
+            qt = get_features_from_params(params, spine=PyarrowDataframeWrapper(spine_data))
+        elif isinstance(params, GetFeaturesInRangeParams):
+            time_column = valid_to()
+            entities = (
+                PyarrowDataframeWrapper(_load_user_provided_data(params.entities))
+                if params.entities is not None
+                else None
+            )
+            qt = get_features_from_params(params, entities=entities)
+        else:
+            error = f"Unsupported params type: {type(params)}"
+            raise ValueError(error)
         rewrite_tree_for_spine(qt)
+
+    qt_exec_monitor = job_status_client.create_stage_monitor(
+        "Execute query tree",
+    )
+    with qt_exec_monitor():
         reader = executor.exec_qt(qt).result_table
 
-        with offline_stage_monitor():
-            table.write(reader)
+    write_monitor = job_status_client.create_stage_monitor(
+        "Compute and upload dataset",
+    )
+    with write_monitor():
+        writer.write(reader)
 
-    table.commit()
+    writer.commit()
 
 
 def _extract_fdw_list(materialization_task_params: MaterializationTaskParams):

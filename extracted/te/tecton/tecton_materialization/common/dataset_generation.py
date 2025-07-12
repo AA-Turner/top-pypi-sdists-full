@@ -17,6 +17,7 @@ from tecton_core.query.node_interface import DataframeWrapper
 from tecton_core.query.node_interface import NodeRef
 from tecton_core.query.retrieval_params import GetFeaturesForEventsParams
 from tecton_core.query.retrieval_params import GetFeaturesInRangeParams
+from tecton_core.skew_config import SkewConfig
 
 
 def get_features_from_params(
@@ -37,6 +38,7 @@ def get_features_from_params(
                 spine=spine,
                 timestamp_key=params.timestamp_key,
                 from_source=params.from_source,
+                skew_config=params.skew_config,
             )
         elif isinstance(params.fco, FeatureDefinitionWrapper):
             return get_features_for_events_qt(
@@ -115,9 +117,10 @@ def get_features_for_events_for_feature_service_qt(
     spine: DataframeWrapper,
     timestamp_key: Optional[str],
     from_source: Optional[bool],
+    skew_config: SkewConfig,
 ) -> NodeRef:
     return _get_historical_features_for_feature_set(
-        dialect, compute_mode, feature_set_config, spine, timestamp_key, from_source
+        dialect, compute_mode, feature_set_config, spine, timestamp_key, from_source, skew_config
     )
 
 
@@ -128,17 +131,19 @@ def _get_historical_features_for_feature_set(
     spine: DataframeWrapper,
     timestamp_key: Optional[str],
     from_source: Optional[bool],
+    skew_config: SkewConfig,
 ) -> NodeRef:
     user_data_node = nodes.UserSpecifiedDataNode(dialect, compute_mode, spine, {"timestamp_key": timestamp_key})
     user_data_node = nodes.ConvertTimestampToUTCNode(dialect, compute_mode, user_data_node.as_ref(), timestamp_key)
 
     tree = builder.build_feature_set_config_querytree(
-        dialect,
-        compute_mode,
-        feature_set_config,
-        user_data_node.as_ref(),
-        timestamp_key,
-        from_source,
+        dialect=dialect,
+        compute_mode=compute_mode,
+        fsc=feature_set_config,
+        spine_node=user_data_node.as_ref(),
+        spine_time_field=timestamp_key,
+        from_source=from_source,
+        skew_config=skew_config,
     )
     return tree
 

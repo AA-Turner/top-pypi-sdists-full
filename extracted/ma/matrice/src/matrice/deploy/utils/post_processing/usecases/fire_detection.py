@@ -81,7 +81,7 @@ class FireSmokeUseCase(BaseProcessor):
         super().__init__("fire_smoke_detection")
         self.category = "hazard"
         self.smoothing_tracker = None  # Required for bbox smoothing
-
+        self._fire_smoke_recent_history = []
 
     def get_config_schema(self) -> Dict[str, Any]:
         """Get configuration schema for fire and smoke detection."""
@@ -228,8 +228,8 @@ class FireSmokeUseCase(BaseProcessor):
                     frame_number = start_frame
 
             # Step 10: Events and tracking stats
-            events = self._generate_events(fire_smoke_summary, alerts, config, frame_number=frame_number)
-            tracking_stats = self._generate_tracking_stats(
+            events_dict = self._generate_events(fire_smoke_summary, alerts, config, frame_number=frame_number)
+            tracking_stats_dict = self._generate_tracking_stats(
                 fire_smoke_summary, insights, summary_text, config,
                 frame_number=frame_number,
                 stream_info=stream_info
@@ -247,8 +247,8 @@ class FireSmokeUseCase(BaseProcessor):
                     "total_fire_smoke_detections": fire_smoke_summary.get("total_objects", 0),
                     "total_fire_detections": fire_smoke_summary.get("by_category", {}).get("fire", 0),
                     "total_smoke_detections": fire_smoke_summary.get("by_category", {}).get("smoke", 0),
-                    "events": events,
-                    "tracking_stats": tracking_stats,
+                    "events": events_dict,
+                    "tracking_stats": tracking_stats_dict,
                 },
                 usecase=self.name,
                 category=self.category,
@@ -527,13 +527,13 @@ class FireSmokeUseCase(BaseProcessor):
             alerts: List[Dict],
             config: FireSmokeConfig,
             frame_number: Optional[int] = None
-    ) -> List[Dict]:
+    ) -> Dict:
         """Generate structured events for fire and smoke detection output with frame-aware keys."""
         from datetime import datetime, timezone
 
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = [{frame_key: []}]
-        frame_events = events[0][frame_key]
+        events = {frame_key: []}
+        frame_events = events[frame_key]
 
         total = summary.get("total_objects", 0)
         by_category = summary.get("by_category", {})
@@ -633,14 +633,12 @@ class FireSmokeUseCase(BaseProcessor):
             config: FireSmokeConfig,
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
-    ) -> List[Dict]:
+    ) -> Dict:
         """Generate structured tracking stats for fire and smoke detection with frame-based keys."""
 
-        # Determine frame key
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-
-        tracking_stats = [{frame_key: []}]
-        frame_tracking_stats = tracking_stats[0][frame_key]
+        tracking_stats = {frame_key: []}
+        frame_tracking_stats = tracking_stats[frame_key]
 
         total = summary.get("total_objects", 0)
         by_category = summary.get("by_category", {})
@@ -648,6 +646,16 @@ class FireSmokeUseCase(BaseProcessor):
 
         total_fire = by_category.get("fire", 0)
         total_smoke = by_category.get("smoke", 0)
+
+        # Maintain rolling detection history
+        if frame_number is not None:
+            self._fire_smoke_recent_history.append({
+                "frame": frame_number,
+                "fire": total_fire,
+                "smoke": total_smoke,
+            })
+            if len(self._fire_smoke_recent_history) > 150:
+                self._fire_smoke_recent_history.pop(0)
 
         # Compute total bbox area for intensity percentage
         total_area = 0.0
@@ -667,16 +675,32 @@ class FireSmokeUseCase(BaseProcessor):
         threshold_area = 10000.0
         intensity_pct = min(100.0, (total_area / threshold_area) * 100)
 
-        # Build human-readable tracking text using timestamp-aware method
-        human_text = self._generate_human_text_for_tracking(
-            total_fire=total_fire,
-            total_smoke=total_smoke,
-            intensity_pct=intensity_pct,
-            insights=insights,
-            summary_text=summary_text,
-            frame_number=frame_number,
-            stream_info=stream_info  #  Ensure timestamp context is passed
-        )
+        # Generate human-readable tracking text (people-style format)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        start_timestamp = self._get_start_timestamp_str(stream_info)
+
+        human_lines = [f"CURRENT FRAME @ {current_timestamp}:"]
+        if total_fire > 0:
+            human_lines.append(f"\t- Fire regions detected: {total_fire}")
+        if total_smoke > 0:
+            human_lines.append(f"\t- Smoke clouds detected: {total_smoke}")
+        if total_fire == 0 and total_smoke == 0:
+            human_lines.append(f"\t- No fire or smoke detected")
+
+        human_lines.append("")
+        human_lines.append(f"ALERTS SINCE @ {start_timestamp}:")
+
+        recent_fire_detected = any(entry.get("fire", 0) > 0 for entry in self._fire_smoke_recent_history)
+        recent_smoke_detected = any(entry.get("smoke", 0) > 0 for entry in self._fire_smoke_recent_history)
+
+        if recent_fire_detected:
+            human_lines.append(f"\t- Fire alert")
+        if recent_smoke_detected:
+            human_lines.append(f"\t- Smoke alert")
+        if not recent_fire_detected and not recent_smoke_detected:
+            human_lines.append(f"\t- No fire or smoke detected in recent frames")
+
+        human_text = "\n".join(human_lines)
 
         tracking_stat = {
             "all_results_for_tracking": {
@@ -693,7 +717,6 @@ class FireSmokeUseCase(BaseProcessor):
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
-
     def _generate_human_text_for_tracking(
             self,
             total_fire: int,
@@ -705,33 +728,34 @@ class FireSmokeUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate structured and formatted human_text for tracking stats."""
-
-        # Get formatted timestamps using internal helpers
         current_time_str = self._get_current_timestamp_str(stream_info)
         start_time_str = self._get_start_timestamp_str(stream_info)
 
-        # Current frame status
-        current_lines = [f"CURRENT FRAME @ {current_time_str}:"]
+        human_text_lines = []
+        human_text_lines.append(f"CURRENT FRAME @ {current_time_str}:")
+
         if total_fire > 0:
-            current_lines.append("    - fire detected")
+            human_text_lines.append("\t- fire detected")
         if total_smoke > 0:
-            current_lines.append("    - smoke detected")
+            human_text_lines.append("\t- smoke detected")
         if total_fire == 0 and total_smoke == 0:
-            current_lines.append("    - no fire or smoke detected")
+            human_text_lines.append("\t- no fire or smoke detected")
 
-        # Since beginning (start_time_str) block
-        since_lines = [f"\nSINCE {start_time_str}:"]
-        if total_fire > 0 and total_smoke > 0:
-            since_lines.append("    - alert for fire and smoke")
-        elif total_fire > 0:
-            since_lines.append("    - alert for fire")
-        elif total_smoke > 0:
-            since_lines.append("    - alert for smoke")
-        else:
-            since_lines.append("    - no alert triggered")
+        human_text_lines.append("")  # Empty line for spacing
+        human_text_lines.append(f"ALERTS SINCE @ {start_time_str}:")
 
-        # Final human text
-        return "\n".join(current_lines + since_lines)
+        # Look into 150-frame history
+        recent_fire_detected = any(entry.get("fire", 0) > 0 for entry in self._fire_smoke_recent_history)
+        recent_smoke_detected = any(entry.get("smoke", 0) > 0 for entry in self._fire_smoke_recent_history)
+
+        if recent_fire_detected:
+            human_text_lines.append("\t- Fire alert")
+        if recent_smoke_detected:
+            human_text_lines.append("\t- Smoke alert")
+        if not recent_fire_detected and not recent_smoke_detected:
+            human_text_lines.append("\t- No fire or smoke detected in recent frames")
+
+        return "\n".join(human_text_lines)
 
     def _count_unique_tracks(self, summary: Dict) -> Optional[int]:
         """Count unique track IDs from detections, if tracking info exists."""

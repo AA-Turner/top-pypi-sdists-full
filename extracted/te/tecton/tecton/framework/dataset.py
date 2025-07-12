@@ -23,6 +23,7 @@ from tecton._internals.querytree_api import scan_dataset
 from tecton._internals.sdk_decorators import sdk_public_method
 from tecton.framework.data_frame import TectonDataFrame
 from tecton.tecton_context import TectonContext
+from tecton_core.compute_mode import ComputeMode
 from tecton_core.compute_mode import offline_retrieval_compute_mode
 from tecton_core.id_helper import IdHelper
 from tecton_proto.data.saved_feature_data_frame__client_pb2 import SavedFeatureDataFrame
@@ -129,16 +130,20 @@ class SavedDataset(Dataset):
 
     @sdk_public_method
     def to_dataframe(
-        self, start_time: Optional[datetime.datetime] = None, end_time: Optional[datetime.datetime] = None
+        self,
+        start_time: Optional[datetime.datetime] = None,
+        end_time: Optional[datetime.datetime] = None,
+        compute_mode: Optional[ComputeMode] = None,
     ) -> TectonDataFrame:
         """
         Loads the data and return it as TectonDataFrame
         :param start_time: The interval start time from when we want to retrieve the data.
         :param end_time: The interval end time until when we want to retrieve the data.
+        :param compute_mode: Override default compute mode (set via 'TECTON_OFFLINE_RETRIEVAL_COMPUTE_MODE')
 
         :return: A Tecton DataFrame containing the filtered data
         """
-        compute_mode = offline_retrieval_compute_mode(None)
+        compute_mode = compute_mode or offline_retrieval_compute_mode(None)
         return scan_dataset(self._proto, compute_mode, start_time=start_time, end_time=end_time)
 
     def _delete(self):

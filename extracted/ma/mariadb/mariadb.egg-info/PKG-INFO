@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: mariadb
-Version: 1.1.12
+Version: 1.1.13
 Summary: Python MariaDB extension
 Home-page: https://www.github.com/mariadb-corporation/mariadb-connector-python
 Author: Georg Richter

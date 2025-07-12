@@ -1,16 +1,18 @@
 import sys
 
 import click
+from rich.text import Text
 
 from tecton._internals import metadata_service
 from tecton.cli import printer
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton_proto.metadataservice import metadata_service__client_pb2 as metadata_service_pb2
 
 
-@click.group("user", cls=TectonGroup)
+@click.group("user", cls=TectonGroup, command_category=TectonCommandCategory.IDENTITY)
 def user():
-    """Manage users."""
+    """Manage Users."""
 
 
 @user.command("invite", help="Invite users to Tecton cluster")
@@ -47,9 +49,9 @@ def _invite_user(user_email: str) -> None:
         request = metadata_service_pb2.CreateClusterUserRequest(login_email=user_email)
         metadata_service.instance().CreateClusterUser(request)
     except Exception as e:
-        printer.safe_print(f"Failed to invite [{user_email}]: {e}", file=sys.stderr)
+        printer.rich_print(Text(f"Failed to invite [{user_email}]: {e}"), file=sys.stderr)
         sys.exit(1)
-    printer.safe_print(f"Successfully invited [{user_email}]")
+    printer.rich_print(Text(f"Successfully invited [{user_email}]"))
 
 
 def _delete_user(user_email: str) -> None:
@@ -61,6 +63,6 @@ def _delete_user(user_email: str) -> None:
         delete_request = metadata_service_pb2.DeleteClusterUserRequest(okta_id=okta_id)
         metadata_service.instance().DeleteClusterUser(delete_request)
     except Exception as e:
-        printer.safe_print(f"Failed to delete [{user_email}]: {e}", file=sys.stderr)
+        printer.rich_print(Text(f"Failed to delete [{user_email}]: {e}"), file=sys.stderr)
         sys.exit(1)
-    printer.safe_print(f"Successfully deleted [{user_email}]")
+    printer.rich_print(Text(f"Successfully deleted [{user_email}]"))

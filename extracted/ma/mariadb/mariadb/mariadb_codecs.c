@@ -24,6 +24,7 @@
 #define IS_DECIMAL_TYPE(type) \
 ((type) == MYSQL_TYPE_NEWDECIMAL || (type) == MYSQL_TYPE_DOUBLE || (type) == MYSQL_TYPE_FLOAT)
 
+#if PY_BIG_ENDIAN == 1
 static char *ma_byteswap(char *buf, size_t itemsize, size_t len)
 {
     char *p;
@@ -70,6 +71,7 @@ static char *ma_byteswap(char *buf, size_t itemsize, size_t len)
     }
     return buf;
 }
+#endif
 
 long MrdbIndicator_AsLong(PyObject *column)
 {
@@ -623,7 +625,7 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
         case MYSQL_TYPE_SET:
         case MYSQL_TYPE_ENUM:
         {
-            unsigned long len;
+            unsigned long len= 0;
             if ( self->fields[column].charsetnr == CHARSET_BINARY)
             {
                 self->values[column]=
@@ -631,10 +633,10 @@ field_fetch_fromtext(MrdbCursor *self, char *data, unsigned int column)
                                                        (Py_ssize_t)length[column]);
                 len= (unsigned long)length[column];
             } else {
-                self->values[column]=
+                if ((self->values[column]=
                     PyUnicode_FromStringAndSize((const char *)data,
-                                                (Py_ssize_t)length[column]);
-                len= (unsigned long)PyUnicode_GET_LENGTH(self->values[column]);
+                                                (Py_ssize_t)length[column])))
+                    len= (unsigned long)PyUnicode_GET_LENGTH(self->values[column]);
             }
             if (len > self->fields[column].max_length)
             {
@@ -883,12 +885,14 @@ field_fetch_callback(void *data, unsigned int column, unsigned char **row)
                 if (length > self->fields[column].max_length)
                     self->fields[column].max_length= length;
             } else {
-                 self->values[column]=
+                 if ((self->values[column]=
                  PyUnicode_FromStringAndSize((const char *)*row,
-                                             (Py_ssize_t)length);
-                 utf8len= (unsigned long)PyUnicode_GET_LENGTH(self->values[column]);
-                 if (utf8len > self->fields[column].max_length)
-                    self->fields[column].max_length= utf8len;
+                                             (Py_ssize_t)length)))
+                 {
+                     utf8len= (unsigned long)PyUnicode_GET_LENGTH(self->values[column]);
+                     if (utf8len > self->fields[column].max_length)
+                        self->fields[column].max_length= utf8len;
+                 }
             }
             *row+= length;
         }
@@ -1197,9 +1201,19 @@ mariadb_get_parameter_info(MrdbCursor *self,
             return 1;
         }
 
+        if (paramvalue.value && (PyFloat_Check(paramvalue.value) ||
+           (!strcmp(Py_TYPE(paramvalue.value)->tp_name, "decimal.Decimal") || !strcmp(Py_TYPE(paramvalue.value)->tp_name, "Decimal"))))
+        if (paramvalue.value != Py_None && pinfo.type == MYSQL_TYPE_NEWDECIMAL)
+        {
+            PyObject *res = PyObject_CallMethod((PyObject *)self, "_check_decimal_parameter", "O", paramvalue.value);
+            Py_XDECREF(res);
+            if (PyErr_Occurred())
+                return 1;
+        }
+
         if (pinfo.type == MYSQL_TYPE_LONGLONG)
         {
-            int64_t tmp= PyLong_AsLongLong(paramvalue.value);
+            PyLong_AsLongLong(paramvalue.value);
 
             if (PyErr_Occurred())
             {
@@ -1503,7 +1517,6 @@ mariadb_param_to_bind(MrdbCursor *self,
             if (!strcmp(Py_TYPE(value->value)->tp_name, "array.array") ||
                 !strcmp(Py_TYPE(value->value)->tp_name, "array"))
             {
-               PyObject *byte_array= NULL;
                Py_buffer v;
 
                bind->buffer= NULL;

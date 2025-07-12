@@ -27,6 +27,7 @@ from tecton.cli.cli_utils import confirm_or_exit
 from tecton.cli.cli_utils import display_principal
 from tecton.cli.cli_utils import display_table
 from tecton.cli.cli_utils import timestamp_to_string
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.cli.upload_utils import DEFAULT_MAX_WORKERS_THREADS
 from tecton.cli.upload_utils import UploadPart
@@ -49,9 +50,9 @@ from tecton_proto.modelartifactservice.model_artifact_service__client_pb2 import
 from tecton_proto.modelartifactservice.model_artifact_service__client_pb2 import UploadModelArtifactPartRequest
 
 
-@click.group("model", cls=TectonGroup)
+@click.group("model", cls=TectonGroup, command_category=TectonCommandCategory.INFRA)
 def model():
-    """Manage models."""
+    """Manage custom models."""
 
 
 @model.command("create")

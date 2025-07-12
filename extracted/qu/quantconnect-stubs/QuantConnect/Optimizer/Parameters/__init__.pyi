@@ -203,24 +203,6 @@ class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Para
         ...
 
 
-class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.OptimizationParameter):
-    """Defines the step based optimization parameter"""
-
-    @property
-    def value(self) -> str:
-        """Minimum value of optimization parameter, applicable for boundary conditions"""
-        ...
-
-    def __init__(self, name: str, value: str) -> None:
-        """
-        Creates a new instance
-        
-        :param name: The name of the parameter
-        :param value: The fixed value of this parameter
-        """
-        ...
-
-
 class ParameterSet(System.Object):
     """Represents a single combination of optimization parameters"""
 
@@ -245,6 +227,24 @@ class ParameterSet(System.Object):
 
     def to_string(self) -> str:
         """String representation of this parameter set"""
+        ...
+
+
+class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.OptimizationParameter):
+    """Defines the step based optimization parameter"""
+
+    @property
+    def value(self) -> str:
+        """Minimum value of optimization parameter, applicable for boundary conditions"""
+        ...
+
+    def __init__(self, name: str, value: str) -> None:
+        """
+        Creates a new instance
+        
+        :param name: The name of the parameter
+        :param value: The fixed value of this parameter
+        """
         ...
 
 

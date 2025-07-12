@@ -9,9 +9,11 @@ from tecton_proto.auditlog import metadata__client_pb2 as _metadata__client_pb2
 from tecton_proto.auth import principal__client_pb2 as _principal__client_pb2
 from tecton_proto.auth import service__client_pb2 as _service__client_pb2
 from tecton_proto.common import aws_credentials__client_pb2 as _aws_credentials__client_pb2
+from tecton_proto.common import compute_identity__client_pb2 as _compute_identity__client_pb2
 from tecton_proto.common import fco_locator__client_pb2 as _fco_locator__client_pb2
 from tecton_proto.common import id__client_pb2 as _id__client_pb2
 from tecton_proto.common import spark_schema__client_pb2 as _spark_schema__client_pb2
+from tecton_proto.configurationcheck import configurationcheck__client_pb2 as _configurationcheck__client_pb2
 from tecton_proto.consumption import consumption__client_pb2 as _consumption__client_pb2
 from tecton_proto.data import entity__client_pb2 as _entity__client_pb2
 from tecton_proto.data import fco__client_pb2 as _fco__client_pb2
@@ -42,6 +44,7 @@ from tecton_proto.feature_analytics import feature_analytics__client_pb2 as _fea
 from tecton_proto.materialization import job_metadata__client_pb2 as _job_metadata__client_pb2
 from tecton_proto.materialization import spark_cluster__client_pb2 as _spark_cluster__client_pb2
 from tecton_proto.validation import validator__client_pb2 as _validator__client_pb2
+from tecton_proto.workflows import workflow__client_pb2 as _workflow__client_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -173,45 +176,15 @@ class CreateSavedFeatureDataFrameResponse(_message.Message):
     saved_feature_dataframe: _saved_feature_data_frame__client_pb2.SavedFeatureDataFrame
     def __init__(self, saved_feature_dataframe: _Optional[_Union[_saved_feature_data_frame__client_pb2.SavedFeatureDataFrame, _Mapping]] = ...) -> None: ...
 
-class CreateServiceAccountRequest(_message.Message):
-    __slots__ = ["credentials_type", "description", "name"]
-    CREDENTIALS_TYPE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    credentials_type: _service_account__client_pb2.ServiceAccountCredentialsType
-    description: str
-    name: str
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., credentials_type: _Optional[_Union[_service_account__client_pb2.ServiceAccountCredentialsType, str]] = ...) -> None: ...
-
-class CreateServiceAccountResponse(_message.Message):
-    __slots__ = ["api_key", "client_secret", "created_at", "credentials_type", "description", "id", "is_active", "name"]
-    API_KEY_FIELD_NUMBER: _ClassVar[int]
-    CLIENT_SECRET_FIELD_NUMBER: _ClassVar[int]
-    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_TYPE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    IS_ACTIVE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    api_key: str
-    client_secret: str
-    created_at: _timestamp_pb2.Timestamp
-    credentials_type: _service_account__client_pb2.ServiceAccountCredentialsType
-    description: str
-    id: str
-    is_active: bool
-    name: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., is_active: bool = ..., api_key: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., credentials_type: _Optional[_Union[_service_account__client_pb2.ServiceAccountCredentialsType, str]] = ..., client_secret: _Optional[str] = ...) -> None: ...
-
 class CreateWorkspaceRequest(_message.Message):
     __slots__ = ["capabilities", "compute_identities", "workspace_name"]
     CAPABILITIES_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_IDENTITIES_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     capabilities: _workspace__client_pb2.WorkspaceCapabilities
-    compute_identities: _containers.RepeatedCompositeFieldContainer[_workspace__client_pb2.ComputeIdentity]
+    compute_identities: _containers.RepeatedCompositeFieldContainer[_compute_identity__client_pb2.ComputeIdentity]
     workspace_name: str
-    def __init__(self, workspace_name: _Optional[str] = ..., capabilities: _Optional[_Union[_workspace__client_pb2.WorkspaceCapabilities, _Mapping]] = ..., compute_identities: _Optional[_Iterable[_Union[_workspace__client_pb2.ComputeIdentity, _Mapping]]] = ...) -> None: ...
+    def __init__(self, workspace_name: _Optional[str] = ..., capabilities: _Optional[_Union[_workspace__client_pb2.WorkspaceCapabilities, _Mapping]] = ..., compute_identities: _Optional[_Iterable[_Union[_compute_identity__client_pb2.ComputeIdentity, _Mapping]]] = ...) -> None: ...
 
 class DateTimeRange(_message.Message):
     __slots__ = ["end", "start"]
@@ -259,21 +232,17 @@ class DeleteEntitiesResponse(_message.Message):
     job_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, job_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
-class DeleteServiceAccountRequest(_message.Message):
-    __slots__ = ["id"]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
-
-class DeleteServiceAccountResponse(_message.Message):
-    __slots__ = []
-    def __init__(self) -> None: ...
-
 class DeleteWorkspaceRequest(_message.Message):
     __slots__ = ["workspace"]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     workspace: str
     def __init__(self, workspace: _Optional[str] = ...) -> None: ...
+
+class DeleteWorkspaceResponse(_message.Message):
+    __slots__ = ["message"]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    message: str
+    def __init__(self, message: _Optional[str] = ...) -> None: ...
 
 class DurationRange(_message.Message):
     __slots__ = ["end", "start"]
@@ -283,8 +252,24 @@ class DurationRange(_message.Message):
     start: _duration_pb2.Duration
     def __init__(self, start: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., end: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...) -> None: ...
 
+class EnvironmentSearchResult(_message.Message):
+    __slots__ = ["dependencies", "description", "id", "is_custom_environment", "last_updated", "name"]
+    DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    IS_CUSTOM_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    dependencies: str
+    description: str
+    id: str
+    is_custom_environment: bool
+    last_updated: _timestamp_pb2.Timestamp
+    name: str
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., last_updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., is_custom_environment: bool = ..., dependencies: _Optional[str] = ...) -> None: ...
+
 class FcoSearchResult(_message.Message):
-    __slots__ = ["description", "fco_id", "fco_type", "feature_descriptions", "feature_tags", "features", "last_updated", "materialization_offline", "materialization_online", "name", "owner", "tags", "workplace_state_id", "workspace", "workspace_status"]
+    __slots__ = ["description", "fco_id", "fco_type", "feature_descriptions", "feature_tags", "features", "job_environment", "last_updated", "materialization_offline", "materialization_online", "name", "owner", "tags", "workplace_state_id", "workspace", "workspace_status"]
     class TagsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -298,6 +283,7 @@ class FcoSearchResult(_message.Message):
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     FEATURE_DESCRIPTIONS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_TAGS_FIELD_NUMBER: _ClassVar[int]
+    JOB_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZATION_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZATION_ONLINE_FIELD_NUMBER: _ClassVar[int]
@@ -313,6 +299,7 @@ class FcoSearchResult(_message.Message):
     feature_descriptions: _containers.RepeatedScalarFieldContainer[str]
     feature_tags: _containers.RepeatedCompositeFieldContainer[FeatureTags]
     features: _containers.RepeatedScalarFieldContainer[str]
+    job_environment: str
     last_updated: _timestamp_pb2.Timestamp
     materialization_offline: MaterializationEnabledSearchFilter
     materialization_online: MaterializationEnabledSearchFilter
@@ -322,7 +309,7 @@ class FcoSearchResult(_message.Message):
     workplace_state_id: str
     workspace: str
     workspace_status: WorkspaceCapabilitiesFilter
-    def __init__(self, fco_id: _Optional[str] = ..., workplace_state_id: _Optional[str] = ..., fco_type: _Optional[_Union[FcoType, str]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., owner: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., workspace: _Optional[str] = ..., last_updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., materialization_offline: _Optional[_Union[MaterializationEnabledSearchFilter, str]] = ..., materialization_online: _Optional[_Union[MaterializationEnabledSearchFilter, str]] = ..., workspace_status: _Optional[_Union[WorkspaceCapabilitiesFilter, str]] = ..., features: _Optional[_Iterable[str]] = ..., feature_descriptions: _Optional[_Iterable[str]] = ..., feature_tags: _Optional[_Iterable[_Union[FeatureTags, _Mapping]]] = ...) -> None: ...
+    def __init__(self, fco_id: _Optional[str] = ..., workplace_state_id: _Optional[str] = ..., fco_type: _Optional[_Union[FcoType, str]] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., owner: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., workspace: _Optional[str] = ..., last_updated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., materialization_offline: _Optional[_Union[MaterializationEnabledSearchFilter, str]] = ..., materialization_online: _Optional[_Union[MaterializationEnabledSearchFilter, str]] = ..., workspace_status: _Optional[_Union[WorkspaceCapabilitiesFilter, str]] = ..., features: _Optional[_Iterable[str]] = ..., feature_descriptions: _Optional[_Iterable[str]] = ..., feature_tags: _Optional[_Iterable[_Union[FeatureTags, _Mapping]]] = ..., job_environment: _Optional[str] = ...) -> None: ...
 
 class FeatureServerAutoScalingConfig(_message.Message):
     __slots__ = ["enabled", "max_node_count", "min_node_count"]
@@ -897,6 +884,16 @@ class GetJobsResponse(_message.Message):
     tasksWithAttempts: _containers.RepeatedCompositeFieldContainer[TaskWithAttempts]
     def __init__(self, tasksWithAttempts: _Optional[_Iterable[_Union[TaskWithAttempts, _Mapping]]] = ..., pagination: _Optional[_Union[PaginationResponse, _Mapping]] = ...) -> None: ...
 
+class GetLatestConfigurationCheckRunRequest(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
+class GetLatestConfigurationCheckRunResponse(_message.Message):
+    __slots__ = ["check_run"]
+    CHECK_RUN_FIELD_NUMBER: _ClassVar[int]
+    check_run: _configurationcheck__client_pb2.CheckRun
+    def __init__(self, check_run: _Optional[_Union[_configurationcheck__client_pb2.CheckRun, _Mapping]] = ...) -> None: ...
+
 class GetMaterializationRolesAllowlistRequest(_message.Message):
     __slots__ = ["workspace"]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -1069,20 +1066,6 @@ class GetSavedFeatureDataFrameResponse(_message.Message):
     saved_feature_dataframe: _saved_feature_data_frame__client_pb2.SavedFeatureDataFrame
     def __init__(self, saved_feature_dataframe: _Optional[_Union[_saved_feature_data_frame__client_pb2.SavedFeatureDataFrame, _Mapping]] = ...) -> None: ...
 
-class GetServiceAccountsRequest(_message.Message):
-    __slots__ = ["ids", "search"]
-    IDS_FIELD_NUMBER: _ClassVar[int]
-    SEARCH_FIELD_NUMBER: _ClassVar[int]
-    ids: _containers.RepeatedScalarFieldContainer[str]
-    search: str
-    def __init__(self, search: _Optional[str] = ..., ids: _Optional[_Iterable[str]] = ...) -> None: ...
-
-class GetServiceAccountsResponse(_message.Message):
-    __slots__ = ["service_accounts"]
-    SERVICE_ACCOUNTS_FIELD_NUMBER: _ClassVar[int]
-    service_accounts: _containers.RepeatedCompositeFieldContainer[ServiceAccount]
-    def __init__(self, service_accounts: _Optional[_Iterable[_Union[ServiceAccount, _Mapping]]] = ...) -> None: ...
-
 class GetServingStatusRequest(_message.Message):
     __slots__ = ["feature_package_id", "feature_service_id", "workspace"]
     FEATURE_PACKAGE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1235,6 +1218,24 @@ class GetVirtualDataSourceSummaryResponse(_message.Message):
     fco_summary: _summary__client_pb2.FcoSummary
     def __init__(self, fco_summary: _Optional[_Union[_summary__client_pb2.FcoSummary, _Mapping]] = ...) -> None: ...
 
+class GetWorkflowHistoryRequest(_message.Message):
+    __slots__ = ["id", "page_size", "page_token"]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    id: _id__client_pb2.Id
+    page_size: int
+    page_token: str
+    def __init__(self, id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class GetWorkflowHistoryResponse(_message.Message):
+    __slots__ = ["history_entries", "next_page_token"]
+    HISTORY_ENTRIES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    history_entries: _containers.RepeatedCompositeFieldContainer[_workflow__client_pb2.WorkflowHistoryEntry]
+    next_page_token: str
+    def __init__(self, history_entries: _Optional[_Iterable[_Union[_workflow__client_pb2.WorkflowHistoryEntry, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
 class GetWorkspaceRequest(_message.Message):
     __slots__ = ["workspace_name"]
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1274,12 +1275,14 @@ class GlobalSearchResponse(_message.Message):
     def __init__(self, results: _Optional[_Iterable[_Union[GlobalSearchResult, _Mapping]]] = ...) -> None: ...
 
 class GlobalSearchResult(_message.Message):
-    __slots__ = ["fco_result", "filter_result"]
+    __slots__ = ["env_result", "fco_result", "filter_result"]
+    ENV_RESULT_FIELD_NUMBER: _ClassVar[int]
     FCO_RESULT_FIELD_NUMBER: _ClassVar[int]
     FILTER_RESULT_FIELD_NUMBER: _ClassVar[int]
+    env_result: EnvironmentSearchResult
     fco_result: FcoSearchResult
     filter_result: FilterSearchResult
-    def __init__(self, fco_result: _Optional[_Union[FcoSearchResult, _Mapping]] = ..., filter_result: _Optional[_Union[FilterSearchResult, _Mapping]] = ...) -> None: ...
+    def __init__(self, fco_result: _Optional[_Union[FcoSearchResult, _Mapping]] = ..., filter_result: _Optional[_Union[FilterSearchResult, _Mapping]] = ..., env_result: _Optional[_Union[EnvironmentSearchResult, _Mapping]] = ...) -> None: ...
 
 class IngestAnalyticsRequest(_message.Message):
     __slots__ = ["events", "workspace"]
@@ -1352,6 +1355,30 @@ class ListApiKeysResponse(_message.Message):
     API_KEYS_FIELD_NUMBER: _ClassVar[int]
     api_keys: _containers.RepeatedCompositeFieldContainer[_tecton_api_key_dto__client_pb2.TectonApiKeyDto]
     def __init__(self, api_keys: _Optional[_Iterable[_Union[_tecton_api_key_dto__client_pb2.TectonApiKeyDto, _Mapping]]] = ...) -> None: ...
+
+class ListWorkflowsRequest(_message.Message):
+    __slots__ = ["page_size", "page_token", "partial_uniqueness_key", "partial_workflow_id", "type", "updated_within"]
+    PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    PARTIAL_UNIQUENESS_KEY_FIELD_NUMBER: _ClassVar[int]
+    PARTIAL_WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_WITHIN_FIELD_NUMBER: _ClassVar[int]
+    page_size: int
+    page_token: str
+    partial_uniqueness_key: str
+    partial_workflow_id: str
+    type: _workflow__client_pb2.WorkflowType
+    updated_within: DateTimeRange
+    def __init__(self, partial_workflow_id: _Optional[str] = ..., partial_uniqueness_key: _Optional[str] = ..., type: _Optional[_Union[_workflow__client_pb2.WorkflowType, str]] = ..., updated_within: _Optional[_Union[DateTimeRange, _Mapping]] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class ListWorkflowsResponse(_message.Message):
+    __slots__ = ["next_page_token", "workflows"]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    WORKFLOWS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    workflows: _containers.RepeatedCompositeFieldContainer[_workflow__client_pb2.WorkflowStateContainer]
+    def __init__(self, workflows: _Optional[_Iterable[_Union[_workflow__client_pb2.WorkflowStateContainer, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
 
 class ListWorkspacesRequest(_message.Message):
     __slots__ = []
@@ -1575,24 +1602,6 @@ class RestartMaterializationTaskResponse(_message.Message):
     new_materialization_task_id: _id__client_pb2.Id
     def __init__(self, error_message: _Optional[str] = ..., new_materialization_task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ...) -> None: ...
 
-class ServiceAccount(_message.Message):
-    __slots__ = ["created_at", "created_by", "credentials_type", "description", "id", "is_active", "name"]
-    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
-    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_TYPE_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    IS_ACTIVE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    created_at: _timestamp_pb2.Timestamp
-    created_by: _principal__client_pb2.PrincipalBasic
-    credentials_type: _service_account__client_pb2.ServiceAccountCredentialsType
-    description: str
-    id: str
-    is_active: bool
-    name: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., is_active: bool = ..., created_by: _Optional[_Union[_principal__client_pb2.PrincipalBasic, _Mapping]] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., credentials_type: _Optional[_Union[_service_account__client_pb2.ServiceAccountCredentialsType, str]] = ...) -> None: ...
-
 class SetFeatureServerConfigRequest(_message.Message):
     __slots__ = ["autoScalingConfig", "count"]
     AUTOSCALINGCONFIG_FIELD_NUMBER: _ClassVar[int]
@@ -1624,28 +1633,30 @@ class SuggestGlobalSearchFiltersResponse(_message.Message):
     def __init__(self, results: _Optional[_Iterable[_Union[GlobalSearchResult, _Mapping]]] = ...) -> None: ...
 
 class TaskAttemptDetails(_message.Message):
-    __slots__ = ["anyscale_url", "attempt_status", "cluster_config", "feature_end_time", "feature_start_time", "run_details", "task_id", "task_state", "task_type", "task_type_for_display"]
-    ANYSCALE_URL_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ["attempt_status", "cluster_config", "environment", "feature_end_time", "feature_start_time", "rift_instance_url", "run_details", "task_id", "task_state", "task_type", "task_type_for_display"]
     ATTEMPT_STATUS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     FEATURE_END_TIME_FIELD_NUMBER: _ClassVar[int]
     FEATURE_START_TIME_FIELD_NUMBER: _ClassVar[int]
+    RIFT_INSTANCE_URL_FIELD_NUMBER: _ClassVar[int]
     RUN_DETAILS_FIELD_NUMBER: _ClassVar[int]
     TASK_ID_FIELD_NUMBER: _ClassVar[int]
     TASK_STATE_FIELD_NUMBER: _ClassVar[int]
     TASK_TYPE_FIELD_NUMBER: _ClassVar[int]
     TASK_TYPE_FOR_DISPLAY_FIELD_NUMBER: _ClassVar[int]
-    anyscale_url: str
     attempt_status: _materialization_status__client_pb2.MaterializationAttemptStatus
     cluster_config: _feature_view__client_pb2.RiftClusterConfig
+    environment: str
     feature_end_time: _timestamp_pb2.Timestamp
     feature_start_time: _timestamp_pb2.Timestamp
+    rift_instance_url: str
     run_details: _job_metadata__client_pb2.TectonManagedInfo
     task_id: _id__client_pb2.Id
     task_state: _materialization_status__client_pb2.MaterializationStatusState
     task_type: _spark_cluster__client_pb2.TaskType
     task_type_for_display: _spark_cluster__client_pb2.TaskTypeForDisplay
-    def __init__(self, task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., task_type: _Optional[_Union[_spark_cluster__client_pb2.TaskType, str]] = ..., task_type_for_display: _Optional[_Union[_spark_cluster__client_pb2.TaskTypeForDisplay, str]] = ..., task_state: _Optional[_Union[_materialization_status__client_pb2.MaterializationStatusState, str]] = ..., attempt_status: _Optional[_Union[_materialization_status__client_pb2.MaterializationAttemptStatus, _Mapping]] = ..., run_details: _Optional[_Union[_job_metadata__client_pb2.TectonManagedInfo, _Mapping]] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.RiftClusterConfig, _Mapping]] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., anyscale_url: _Optional[str] = ...) -> None: ...
+    def __init__(self, task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., task_type: _Optional[_Union[_spark_cluster__client_pb2.TaskType, str]] = ..., task_type_for_display: _Optional[_Union[_spark_cluster__client_pb2.TaskTypeForDisplay, str]] = ..., task_state: _Optional[_Union[_materialization_status__client_pb2.MaterializationStatusState, str]] = ..., attempt_status: _Optional[_Union[_materialization_status__client_pb2.MaterializationAttemptStatus, _Mapping]] = ..., run_details: _Optional[_Union[_job_metadata__client_pb2.TectonManagedInfo, _Mapping]] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.RiftClusterConfig, _Mapping]] = ..., environment: _Optional[str] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., rift_instance_url: _Optional[str] = ...) -> None: ...
 
 class TaskWithAttempts(_message.Message):
     __slots__ = ["fco_locator", "feature_end_time", "feature_service_name", "feature_start_time", "feature_view_name", "last_task_state_change", "manually_triggered", "materialization_status", "plan_id", "taskState", "task_id", "task_type", "task_type_for_display"]
@@ -1677,32 +1688,6 @@ class TaskWithAttempts(_message.Message):
     task_type_for_display: _spark_cluster__client_pb2.TaskTypeForDisplay
     def __init__(self, fco_locator: _Optional[_Union[_fco_locator__client_pb2.FcoLocator, _Mapping]] = ..., taskState: _Optional[_Union[_materialization_status__client_pb2.MaterializationStatusState, str]] = ..., materialization_status: _Optional[_Union[_materialization_status__client_pb2.MaterializationStatus, _Mapping]] = ..., task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., task_type: _Optional[_Union[_spark_cluster__client_pb2.TaskType, str]] = ..., task_type_for_display: _Optional[_Union[_spark_cluster__client_pb2.TaskTypeForDisplay, str]] = ..., manually_triggered: bool = ..., last_task_state_change: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_view_name: _Optional[str] = ..., feature_service_name: _Optional[str] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., plan_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ...) -> None: ...
 
-class UpdateServiceAccountRequest(_message.Message):
-    __slots__ = ["description", "id", "is_active", "name"]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    IS_ACTIVE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    description: str
-    id: str
-    is_active: bool
-    name: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., is_active: bool = ...) -> None: ...
-
-class UpdateServiceAccountResponse(_message.Message):
-    __slots__ = ["created_at", "description", "id", "is_active", "name"]
-    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    ID_FIELD_NUMBER: _ClassVar[int]
-    IS_ACTIVE_FIELD_NUMBER: _ClassVar[int]
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    created_at: _timestamp_pb2.Timestamp
-    description: str
-    id: str
-    is_active: bool
-    name: str
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., is_active: bool = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
-
 class UpdateUserDeploymentSettingsRequest(_message.Message):
     __slots__ = ["field_mask", "user_deployment_settings"]
     FIELD_MASK_FIELD_NUMBER: _ClassVar[int]
@@ -1725,9 +1710,9 @@ class UpdateWorkspaceRequest(_message.Message):
     COMPUTE_IDENTITIES_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     capabilities: _workspace__client_pb2.WorkspaceCapabilities
-    compute_identities: _containers.RepeatedCompositeFieldContainer[_workspace__client_pb2.ComputeIdentity]
+    compute_identities: _containers.RepeatedCompositeFieldContainer[_compute_identity__client_pb2.ComputeIdentity]
     workspace: str
-    def __init__(self, workspace: _Optional[str] = ..., capabilities: _Optional[_Union[_workspace__client_pb2.WorkspaceCapabilities, _Mapping]] = ..., compute_identities: _Optional[_Iterable[_Union[_workspace__client_pb2.ComputeIdentity, _Mapping]]] = ...) -> None: ...
+    def __init__(self, workspace: _Optional[str] = ..., capabilities: _Optional[_Union[_workspace__client_pb2.WorkspaceCapabilities, _Mapping]] = ..., compute_identities: _Optional[_Iterable[_Union[_compute_identity__client_pb2.ComputeIdentity, _Mapping]]] = ...) -> None: ...
 
 class UpdateWorkspaceResponse(_message.Message):
     __slots__ = ["workspace"]

@@ -5,19 +5,21 @@ import click
 
 from tecton._internals import metadata_service
 from tecton.cli import printer
+from tecton.cli.cli_utils import click_exception_wrapper
 from tecton.cli.cli_utils import display_principal
 from tecton.cli.cli_utils import pprint_dict
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.identities import api_keys
 from tecton_core.errors import FailedPreconditionError
 from tecton_core.errors import TectonAPIValidationError
 from tecton_core.errors import TectonNotFoundError
 from tecton_core.id_helper import IdHelper
+from tecton_proto.data.service_account__client_pb2 import CreateServiceAccountRequest
+from tecton_proto.data.service_account__client_pb2 import DeleteServiceAccountRequest
+from tecton_proto.data.service_account__client_pb2 import GetServiceAccountsRequest
 from tecton_proto.data.service_account__client_pb2 import ServiceAccountCredentialsType
-from tecton_proto.metadataservice.metadata_service__client_pb2 import CreateServiceAccountRequest
-from tecton_proto.metadataservice.metadata_service__client_pb2 import DeleteServiceAccountRequest
-from tecton_proto.metadataservice.metadata_service__client_pb2 import GetServiceAccountsRequest
-from tecton_proto.metadataservice.metadata_service__client_pb2 import UpdateServiceAccountRequest
+from tecton_proto.data.service_account__client_pb2 import UpdateServiceAccountRequest
 from tecton_proto.serviceaccounts.service_accounts_service__client_pb2 import ActivateServiceAccountSecretRequest
 from tecton_proto.serviceaccounts.service_accounts_service__client_pb2 import CreateServiceAccountSecretRequest
 from tecton_proto.serviceaccounts.service_accounts_service__client_pb2 import DeactivateServiceAccountSecretRequest
@@ -25,7 +27,7 @@ from tecton_proto.serviceaccounts.service_accounts_service__client_pb2 import De
 from tecton_proto.serviceaccounts.service_accounts_service__client_pb2 import ListServiceAccountSecretsRequest
 
 
-@click.command("service-account", cls=TectonGroup)
+@click.command("service-account", cls=TectonGroup, command_category=TectonCommandCategory.IDENTITY)
 def service_account():
     """Manage Service Accounts."""
 
@@ -61,7 +63,7 @@ def create(name, description, json_out, oauth):
         else:
             service_account["client_secret"] = response.client_secret
         service_account["id"] = response.id
-        printer.safe_print(json.dumps(service_account, indent=4))
+        printer.safe_print(json.dumps(service_account, indent=4), plain=True)
     else:
         save_object = "API Key" if not oauth else "Client Secret"
         printer.safe_print(f"Save this {save_object} - you will not be able to get it again.")
@@ -90,6 +92,7 @@ def delete(id):
 @click.option("-n", "--name", help="Name of the Service Account")
 @click.option("-d", "--description", help="An optional, human readable description for this Service Account")
 @click.argument("id", required=True)
+@click_exception_wrapper
 def update(id, name, description):
     """Update the name or description of a Service Account."""
     request = UpdateServiceAccountRequest(id=id)
@@ -128,6 +131,7 @@ def activate(id):
 
 @service_account.command()
 @click.argument("id", required=True)
+@click_exception_wrapper
 def deactivate(id):
     """Deactivate a Service Account by its ID. This disables the Service Account but does not permanently delete it."""
     request = UpdateServiceAccountRequest(id=id, is_active=False)
@@ -175,7 +179,7 @@ def list(json_out, search_string):
             printer.safe_print(f"{'Active: ': <15}{k.is_active}")
             printer.safe_print()
     if json_out:
-        printer.safe_print(json.dumps(service_accounts, indent=4))
+        printer.safe_print(json.dumps(service_accounts, indent=4), plain=True)
 
 
 def _introspect(api_key):
@@ -210,7 +214,7 @@ def introspect_api_key(api_key, json_output):
         for key in api_key_details.copy():
             snake_case = key.replace(" ", "_").lower()
             api_key_details[snake_case] = api_key_details.pop(key)
-        printer.safe_print(f"{json.dumps(api_key_details)}")
+        printer.safe_print(f"{json.dumps(api_key_details)}", plain=True)
     else:
         pprint_dict(api_key_details, colwidth=16)
 
@@ -229,7 +233,7 @@ def create_secret(id, json_out):
     secret = response.secret
     if json_out:
         client_secret = {"secret_id": secret.secret_id, "secret": secret.secret}
-        printer.safe_print(json.dumps(client_secret, indent=4))
+        printer.safe_print(json.dumps(client_secret, indent=4), plain=True)
     else:
         printer.safe_print("Save this Client Secret - you will not be able to get it again.")
         printer.safe_print(f"Secret ID: {secret.secret_id}")
@@ -267,7 +271,7 @@ def list_secrets(id, json_out):
                 printer.safe_print(f"{'Updated At: ': <15}{k.updated_at}")
             printer.safe_print()
     if json_out:
-        printer.safe_print(json.dumps(secrets, indent=4))
+        printer.safe_print(json.dumps(secrets, indent=4), plain=True)
 
 
 @service_account.command()
@@ -287,7 +291,7 @@ def activate_secret(service_account_id, secret_id, json_out):
         secret = {"id": k.secret_id, "status": k.status, "createdAt": k.created_at}
         if k.updated_at:
             secret["updatedAt"] = k.updated_at
-        printer.safe_print(json.dumps(secret, indent=4))
+        printer.safe_print(json.dumps(secret, indent=4), plain=True)
     else:
         printer.safe_print("Successfully activated Client Secret")
         printer.safe_print(f"{'ID: ': <15}{k.secret_id}")
@@ -315,7 +319,7 @@ def deactivate_secret(service_account_id, secret_id, json_out):
         secret = {"id": k.secret_id, "status": k.status, "createdAt": k.created_at}
         if k.updated_at:
             secret["updatedAt"] = k.updated_at
-        printer.safe_print(json.dumps(secret, indent=4))
+        printer.safe_print(json.dumps(secret, indent=4), plain=True)
     else:
         printer.safe_print("Successfully deactivated Client Secret")
         printer.safe_print(f"{'ID: ': <15}{k.secret_id}")

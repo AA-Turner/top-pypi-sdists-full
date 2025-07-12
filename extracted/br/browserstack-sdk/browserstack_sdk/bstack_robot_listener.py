@@ -1,295 +1,295 @@
 # coding: UTF-8
 import sys
-bstack1111l1l_opy_ = sys.version_info [0] == 2
-bstack1l1l_opy_ = 2048
-bstack1llllll1_opy_ = 7
-def bstack1l1ll_opy_ (bstack1llll11_opy_):
-    global bstack1l11111_opy_
-    bstack11l11l_opy_ = ord (bstack1llll11_opy_ [-1])
-    bstack11l11ll_opy_ = bstack1llll11_opy_ [:-1]
-    bstack111ll1l_opy_ = bstack11l11l_opy_ % len (bstack11l11ll_opy_)
-    bstack1l1l11l_opy_ = bstack11l11ll_opy_ [:bstack111ll1l_opy_] + bstack11l11ll_opy_ [bstack111ll1l_opy_:]
-    if bstack1111l1l_opy_:
-        bstack1ll1_opy_ = unicode () .join ([unichr (ord (char) - bstack1l1l_opy_ - (bstack1l1l1l_opy_ + bstack11l11l_opy_) % bstack1llllll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1l1l11l_opy_)])
+bstack1l111l_opy_ = sys.version_info [0] == 2
+bstack1l1l1l_opy_ = 2048
+bstack11_opy_ = 7
+def bstack11l1111_opy_ (bstack111l111_opy_):
+    global bstack1l1l11_opy_
+    bstack1lll11l_opy_ = ord (bstack111l111_opy_ [-1])
+    bstack11l11l1_opy_ = bstack111l111_opy_ [:-1]
+    bstack1111lll_opy_ = bstack1lll11l_opy_ % len (bstack11l11l1_opy_)
+    bstack11lll11_opy_ = bstack11l11l1_opy_ [:bstack1111lll_opy_] + bstack11l11l1_opy_ [bstack1111lll_opy_:]
+    if bstack1l111l_opy_:
+        bstack111l11_opy_ = unicode () .join ([unichr (ord (char) - bstack1l1l1l_opy_ - (bstack1l111ll_opy_ + bstack1lll11l_opy_) % bstack11_opy_) for bstack1l111ll_opy_, char in enumerate (bstack11lll11_opy_)])
     else:
-        bstack1ll1_opy_ = str () .join ([chr (ord (char) - bstack1l1l_opy_ - (bstack1l1l1l_opy_ + bstack11l11l_opy_) % bstack1llllll1_opy_) for bstack1l1l1l_opy_, char in enumerate (bstack1l1l11l_opy_)])
-    return eval (bstack1ll1_opy_)
+        bstack111l11_opy_ = str () .join ([chr (ord (char) - bstack1l1l1l_opy_ - (bstack1l111ll_opy_ + bstack1lll11l_opy_) % bstack11_opy_) for bstack1l111ll_opy_, char in enumerate (bstack11lll11_opy_)])
+    return eval (bstack111l11_opy_)
 import os
 import threading
 from uuid import uuid4
 from itertools import zip_longest
 from collections import OrderedDict
 from robot.libraries.BuiltIn import BuiltIn
-from browserstack_sdk.bstack1111ll1lll_opy_ import RobotHandler
-from bstack_utils.capture import bstack111ll11l11_opy_
-from bstack_utils.bstack111ll11l1l_opy_ import bstack111l111l1l_opy_, bstack111ll1lll1_opy_, bstack111ll1l1l1_opy_
-from bstack_utils.bstack111llll111_opy_ import bstack11ll1llll1_opy_
-from bstack_utils.bstack111lll1111_opy_ import bstack11ll1ll1_opy_
+from browserstack_sdk.bstack1111lll11l_opy_ import RobotHandler
+from bstack_utils.capture import bstack111ll11l1l_opy_
+from bstack_utils.bstack111ll1ll1l_opy_ import bstack111l11lll1_opy_, bstack111ll1l1l1_opy_, bstack111ll1ll11_opy_
+from bstack_utils.bstack111lll1111_opy_ import bstack1l1ll111ll_opy_
+from bstack_utils.bstack111lll11l1_opy_ import bstack111lll111_opy_
 from bstack_utils.constants import *
-from bstack_utils.helper import bstack11ll1ll11_opy_, bstack1lllll1l11_opy_, Result, \
-    bstack111l111ll1_opy_, bstack1111ll1l1l_opy_
+from bstack_utils.helper import bstack11ll1lll_opy_, bstack1lllllllll_opy_, Result, \
+    bstack111l11l1l1_opy_, bstack111l111lll_opy_
 class bstack_robot_listener:
     ROBOT_LISTENER_API_VERSION = 2
     _lock = threading.Lock()
     store = {
-        bstack1l1ll_opy_ (u"࠭ࡣࡶࡴࡵࡩࡳࡺ࡟ࡩࡱࡲ࡯ࡤࡻࡵࡪࡦࠪཹ"): [],
-        bstack1l1ll_opy_ (u"ࠧࡨ࡮ࡲࡦࡦࡲ࡟ࡩࡱࡲ࡯ࡸེ࠭"): [],
-        bstack1l1ll_opy_ (u"ࠨࡶࡨࡷࡹࡥࡨࡰࡱ࡮ࡷཻࠬ"): []
+        bstack11l1111_opy_ (u"ࠨࡥࡸࡶࡷ࡫࡮ࡵࡡ࡫ࡳࡴࡱ࡟ࡶࡷ࡬ࡨཻࠬ"): [],
+        bstack11l1111_opy_ (u"ࠩࡪࡰࡴࡨࡡ࡭ࡡ࡫ࡳࡴࡱࡳࠨོ"): [],
+        bstack11l1111_opy_ (u"ࠪࡸࡪࡹࡴࡠࡪࡲࡳࡰࡹཽࠧ"): []
     }
-    bstack111l1111l1_opy_ = []
-    bstack111l1111ll_opy_ = []
+    bstack111l1lll1l_opy_ = []
+    bstack111l11111l_opy_ = []
     @staticmethod
-    def bstack111lll11ll_opy_(log):
-        if not ((isinstance(log[bstack1l1ll_opy_ (u"ࠩࡰࡩࡸࡹࡡࡨࡧོࠪ")], list) or (isinstance(log[bstack1l1ll_opy_ (u"ࠪࡱࡪࡹࡳࡢࡩࡨཽࠫ")], dict)) and len(log[bstack1l1ll_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬཾ")])>0) or (isinstance(log[bstack1l1ll_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭ཿ")], str) and log[bstack1l1ll_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ྀࠧ")].strip())):
+    def bstack111ll11lll_opy_(log):
+        if not ((isinstance(log[bstack11l1111_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬཾ")], list) or (isinstance(log[bstack11l1111_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭ཿ")], dict)) and len(log[bstack11l1111_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ྀࠧ")])>0) or (isinstance(log[bstack11l1111_opy_ (u"ࠧ࡮ࡧࡶࡷࡦ࡭ࡥࠨཱྀ")], str) and log[bstack11l1111_opy_ (u"ࠨ࡯ࡨࡷࡸࡧࡧࡦࠩྂ")].strip())):
             return
-        active = bstack11ll1llll1_opy_.bstack111lll11l1_opy_()
+        active = bstack1l1ll111ll_opy_.bstack111ll1l111_opy_()
         log = {
-            bstack1l1ll_opy_ (u"ࠧ࡭ࡧࡹࡩࡱཱྀ࠭"): log[bstack1l1ll_opy_ (u"ࠨ࡮ࡨࡺࡪࡲࠧྂ")],
-            bstack1l1ll_opy_ (u"ࠩࡷ࡭ࡲ࡫ࡳࡵࡣࡰࡴࠬྃ"): bstack1111ll1l1l_opy_().isoformat() + bstack1l1ll_opy_ (u"ࠪ࡞྄ࠬ"),
-            bstack1l1ll_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬ྅"): log[bstack1l1ll_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭྆")],
+            bstack11l1111_opy_ (u"ࠩ࡯ࡩࡻ࡫࡬ࠨྃ"): log[bstack11l1111_opy_ (u"ࠪࡰࡪࡼࡥ࡭྄ࠩ")],
+            bstack11l1111_opy_ (u"ࠫࡹ࡯࡭ࡦࡵࡷࡥࡲࡶࠧ྅"): bstack111l111lll_opy_().isoformat() + bstack11l1111_opy_ (u"ࠬࡠࠧ྆"),
+            bstack11l1111_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ࠧ྇"): log[bstack11l1111_opy_ (u"ࠧ࡮ࡧࡶࡷࡦ࡭ࡥࠨྈ")],
         }
         if active:
-            if active[bstack1l1ll_opy_ (u"࠭ࡴࡺࡲࡨࠫ྇")] == bstack1l1ll_opy_ (u"ࠧࡩࡱࡲ࡯ࠬྈ"):
-                log[bstack1l1ll_opy_ (u"ࠨࡪࡲࡳࡰࡥࡲࡶࡰࡢࡹࡺ࡯ࡤࠨྉ")] = active[bstack1l1ll_opy_ (u"ࠩ࡫ࡳࡴࡱ࡟ࡳࡷࡱࡣࡺࡻࡩࡥࠩྊ")]
-            elif active[bstack1l1ll_opy_ (u"ࠪࡸࡾࡶࡥࠨྋ")] == bstack1l1ll_opy_ (u"ࠫࡹ࡫ࡳࡵࠩྌ"):
-                log[bstack1l1ll_opy_ (u"ࠬࡺࡥࡴࡶࡢࡶࡺࡴ࡟ࡶࡷ࡬ࡨࠬྍ")] = active[bstack1l1ll_opy_ (u"࠭ࡴࡦࡵࡷࡣࡷࡻ࡮ࡠࡷࡸ࡭ࡩ࠭ྎ")]
-        bstack11ll1ll1_opy_.bstack11l1l1lll1_opy_([log])
+            if active[bstack11l1111_opy_ (u"ࠨࡶࡼࡴࡪ࠭ྉ")] == bstack11l1111_opy_ (u"ࠩ࡫ࡳࡴࡱࠧྊ"):
+                log[bstack11l1111_opy_ (u"ࠪ࡬ࡴࡵ࡫ࡠࡴࡸࡲࡤࡻࡵࡪࡦࠪྋ")] = active[bstack11l1111_opy_ (u"ࠫ࡭ࡵ࡯࡬ࡡࡵࡹࡳࡥࡵࡶ࡫ࡧࠫྌ")]
+            elif active[bstack11l1111_opy_ (u"ࠬࡺࡹࡱࡧࠪྍ")] == bstack11l1111_opy_ (u"࠭ࡴࡦࡵࡷࠫྎ"):
+                log[bstack11l1111_opy_ (u"ࠧࡵࡧࡶࡸࡤࡸࡵ࡯ࡡࡸࡹ࡮ࡪࠧྏ")] = active[bstack11l1111_opy_ (u"ࠨࡶࡨࡷࡹࡥࡲࡶࡰࡢࡹࡺ࡯ࡤࠨྐ")]
+        bstack111lll111_opy_.bstack11lll11l_opy_([log])
     def __init__(self):
-        self.messages = bstack111l11l1l1_opy_()
-        self._1111llll11_opy_ = None
-        self._111l11ll1l_opy_ = None
-        self._1111lll1ll_opy_ = OrderedDict()
-        self.bstack111ll111l1_opy_ = bstack111ll11l11_opy_(self.bstack111lll11ll_opy_)
-    @bstack111l111ll1_opy_(class_method=True)
+        self.messages = bstack111l1l1111_opy_()
+        self._111l1l111l_opy_ = None
+        self._1111ll1l11_opy_ = None
+        self._111l1ll11l_opy_ = OrderedDict()
+        self.bstack111llll11l_opy_ = bstack111ll11l1l_opy_(self.bstack111ll11lll_opy_)
+    @bstack111l11l1l1_opy_(class_method=True)
     def start_suite(self, name, attrs):
-        self.messages.bstack1111ll1l11_opy_()
-        if not self._1111lll1ll_opy_.get(attrs.get(bstack1l1ll_opy_ (u"ࠧࡪࡦࠪྏ")), None):
-            self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"ࠨ࡫ࡧࠫྐ"))] = {}
-        bstack111ll11111_opy_ = bstack111ll1l1l1_opy_(
-                bstack111l1l1l11_opy_=attrs.get(bstack1l1ll_opy_ (u"ࠩ࡬ࡨࠬྑ")),
+        self.messages.bstack111l1l1lll_opy_()
+        if not self._111l1ll11l_opy_.get(attrs.get(bstack11l1111_opy_ (u"ࠩ࡬ࡨࠬྑ")), None):
+            self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠪ࡭ࡩ࠭ྒ"))] = {}
+        bstack111l111ll1_opy_ = bstack111ll1ll11_opy_(
+                bstack111l1l11ll_opy_=attrs.get(bstack11l1111_opy_ (u"ࠫ࡮ࡪࠧྒྷ")),
                 name=name,
-                started_at=bstack1lllll1l11_opy_(),
-                file_path=os.path.relpath(attrs[bstack1l1ll_opy_ (u"ࠪࡷࡴࡻࡲࡤࡧࠪྒ")], start=os.getcwd()) if attrs.get(bstack1l1ll_opy_ (u"ࠫࡸࡵࡵࡳࡥࡨࠫྒྷ")) != bstack1l1ll_opy_ (u"ࠬ࠭ྔ") else bstack1l1ll_opy_ (u"࠭ࠧྕ"),
-                framework=bstack1l1ll_opy_ (u"ࠧࡓࡱࡥࡳࡹ࠭ྖ")
+                started_at=bstack1lllllllll_opy_(),
+                file_path=os.path.relpath(attrs[bstack11l1111_opy_ (u"ࠬࡹ࡯ࡶࡴࡦࡩࠬྔ")], start=os.getcwd()) if attrs.get(bstack11l1111_opy_ (u"࠭ࡳࡰࡷࡵࡧࡪ࠭ྕ")) != bstack11l1111_opy_ (u"ࠧࠨྖ") else bstack11l1111_opy_ (u"ࠨࠩྗ"),
+                framework=bstack11l1111_opy_ (u"ࠩࡕࡳࡧࡵࡴࠨ྘")
             )
-        threading.current_thread().current_suite_id = attrs.get(bstack1l1ll_opy_ (u"ࠨ࡫ࡧࠫྗ"), None)
-        self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"ࠩ࡬ࡨࠬ྘"))][bstack1l1ll_opy_ (u"ࠪࡸࡪࡹࡴࡠࡦࡤࡸࡦ࠭ྙ")] = bstack111ll11111_opy_
-    @bstack111l111ll1_opy_(class_method=True)
+        threading.current_thread().current_suite_id = attrs.get(bstack11l1111_opy_ (u"ࠪ࡭ࡩ࠭ྙ"), None)
+        self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠫ࡮ࡪࠧྚ"))][bstack11l1111_opy_ (u"ࠬࡺࡥࡴࡶࡢࡨࡦࡺࡡࠨྛ")] = bstack111l111ll1_opy_
+    @bstack111l11l1l1_opy_(class_method=True)
     def end_suite(self, name, attrs):
-        messages = self.messages.bstack1111ll11ll_opy_()
-        self._111l1ll1l1_opy_(messages)
+        messages = self.messages.bstack111l11llll_opy_()
+        self._111l1l11l1_opy_(messages)
         with self._lock:
-            for bstack111l1ll111_opy_ in self.bstack111l1111l1_opy_:
-                bstack111l1ll111_opy_[bstack1l1ll_opy_ (u"ࠫࡹ࡫ࡳࡵࡡࡵࡹࡳ࠭ྚ")][bstack1l1ll_opy_ (u"ࠬ࡮࡯ࡰ࡭ࡶࠫྛ")].extend(self.store[bstack1l1ll_opy_ (u"࠭ࡧ࡭ࡱࡥࡥࡱࡥࡨࡰࡱ࡮ࡷࠬྜ")])
-                bstack11ll1ll1_opy_.bstack1ll111l1l1_opy_(bstack111l1ll111_opy_)
-            self.bstack111l1111l1_opy_ = []
-            self.store[bstack1l1ll_opy_ (u"ࠧࡨ࡮ࡲࡦࡦࡲ࡟ࡩࡱࡲ࡯ࡸ࠭ྜྷ")] = []
-    @bstack111l111ll1_opy_(class_method=True)
+            for bstack111l1l1l11_opy_ in self.bstack111l1lll1l_opy_:
+                bstack111l1l1l11_opy_[bstack11l1111_opy_ (u"࠭ࡴࡦࡵࡷࡣࡷࡻ࡮ࠨྜ")][bstack11l1111_opy_ (u"ࠧࡩࡱࡲ࡯ࡸ࠭ྜྷ")].extend(self.store[bstack11l1111_opy_ (u"ࠨࡩ࡯ࡳࡧࡧ࡬ࡠࡪࡲࡳࡰࡹࠧྞ")])
+                bstack111lll111_opy_.bstack1l1l11lll1_opy_(bstack111l1l1l11_opy_)
+            self.bstack111l1lll1l_opy_ = []
+            self.store[bstack11l1111_opy_ (u"ࠩࡪࡰࡴࡨࡡ࡭ࡡ࡫ࡳࡴࡱࡳࠨྟ")] = []
+    @bstack111l11l1l1_opy_(class_method=True)
     def start_test(self, name, attrs):
-        self.bstack111ll111l1_opy_.start()
-        if not self._1111lll1ll_opy_.get(attrs.get(bstack1l1ll_opy_ (u"ࠨ࡫ࡧࠫྞ")), None):
-            self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"ࠩ࡬ࡨࠬྟ"))] = {}
-        driver = bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠪࡦࡸࡺࡡࡤ࡭ࡖࡩࡸࡹࡩࡰࡰࡇࡶ࡮ࡼࡥࡳࠩྠ"), None)
-        bstack111ll11l1l_opy_ = bstack111ll1l1l1_opy_(
-            bstack111l1l1l11_opy_=attrs.get(bstack1l1ll_opy_ (u"ࠫ࡮ࡪࠧྡ")),
+        self.bstack111llll11l_opy_.start()
+        if not self._111l1ll11l_opy_.get(attrs.get(bstack11l1111_opy_ (u"ࠪ࡭ࡩ࠭ྠ")), None):
+            self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠫ࡮ࡪࠧྡ"))] = {}
+        driver = bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠬࡨࡳࡵࡣࡦ࡯ࡘ࡫ࡳࡴ࡫ࡲࡲࡉࡸࡩࡷࡧࡵࠫྡྷ"), None)
+        bstack111ll1ll1l_opy_ = bstack111ll1ll11_opy_(
+            bstack111l1l11ll_opy_=attrs.get(bstack11l1111_opy_ (u"࠭ࡩࡥࠩྣ")),
             name=name,
-            started_at=bstack1lllll1l11_opy_(),
-            file_path=os.path.relpath(attrs[bstack1l1ll_opy_ (u"ࠬࡹ࡯ࡶࡴࡦࡩࠬྡྷ")], start=os.getcwd()),
-            scope=RobotHandler.bstack111l1lllll_opy_(attrs.get(bstack1l1ll_opy_ (u"࠭ࡳࡰࡷࡵࡧࡪ࠭ྣ"), None)),
-            framework=bstack1l1ll_opy_ (u"ࠧࡓࡱࡥࡳࡹ࠭ྤ"),
-            tags=attrs[bstack1l1ll_opy_ (u"ࠨࡶࡤ࡫ࡸ࠭ྥ")],
-            hooks=self.store[bstack1l1ll_opy_ (u"ࠩࡪࡰࡴࡨࡡ࡭ࡡ࡫ࡳࡴࡱࡳࠨྦ")],
-            bstack111lll1ll1_opy_=bstack11ll1ll1_opy_.bstack111lll1l1l_opy_(driver) if driver and driver.session_id else {},
+            started_at=bstack1lllllllll_opy_(),
+            file_path=os.path.relpath(attrs[bstack11l1111_opy_ (u"ࠧࡴࡱࡸࡶࡨ࡫ࠧྤ")], start=os.getcwd()),
+            scope=RobotHandler.bstack1111lllll1_opy_(attrs.get(bstack11l1111_opy_ (u"ࠨࡵࡲࡹࡷࡩࡥࠨྥ"), None)),
+            framework=bstack11l1111_opy_ (u"ࠩࡕࡳࡧࡵࡴࠨྦ"),
+            tags=attrs[bstack11l1111_opy_ (u"ࠪࡸࡦ࡭ࡳࠨྦྷ")],
+            hooks=self.store[bstack11l1111_opy_ (u"ࠫ࡬ࡲ࡯ࡣࡣ࡯ࡣ࡭ࡵ࡯࡬ࡵࠪྨ")],
+            bstack111lll11ll_opy_=bstack111lll111_opy_.bstack111lll1l11_opy_(driver) if driver and driver.session_id else {},
             meta={},
-            code=bstack1l1ll_opy_ (u"ࠥࡿࢂࠦ࡜࡯ࠢࡾࢁࠧྦྷ").format(bstack1l1ll_opy_ (u"ࠦࠥࠨྨ").join(attrs[bstack1l1ll_opy_ (u"ࠬࡺࡡࡨࡵࠪྩ")]), name) if attrs[bstack1l1ll_opy_ (u"࠭ࡴࡢࡩࡶࠫྪ")] else name
+            code=bstack11l1111_opy_ (u"ࠧࢁࡽࠡ࡞ࡱࠤࢀࢃࠢྩ").format(bstack11l1111_opy_ (u"ࠨࠠࠣྪ").join(attrs[bstack11l1111_opy_ (u"ࠧࡵࡣࡪࡷࠬྫ")]), name) if attrs[bstack11l1111_opy_ (u"ࠨࡶࡤ࡫ࡸ࠭ྫྷ")] else name
         )
-        self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"ࠧࡪࡦࠪྫ"))][bstack1l1ll_opy_ (u"ࠨࡶࡨࡷࡹࡥࡤࡢࡶࡤࠫྫྷ")] = bstack111ll11l1l_opy_
-        threading.current_thread().current_test_uuid = bstack111ll11l1l_opy_.bstack111l111111_opy_()
-        threading.current_thread().current_test_id = attrs.get(bstack1l1ll_opy_ (u"ࠩ࡬ࡨࠬྭ"), None)
-        self.bstack111ll111ll_opy_(bstack1l1ll_opy_ (u"ࠪࡘࡪࡹࡴࡓࡷࡱࡗࡹࡧࡲࡵࡧࡧࠫྮ"), bstack111ll11l1l_opy_)
-    @bstack111l111ll1_opy_(class_method=True)
+        self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠩ࡬ࡨࠬྭ"))][bstack11l1111_opy_ (u"ࠪࡸࡪࡹࡴࡠࡦࡤࡸࡦ࠭ྮ")] = bstack111ll1ll1l_opy_
+        threading.current_thread().current_test_uuid = bstack111ll1ll1l_opy_.bstack1111llll11_opy_()
+        threading.current_thread().current_test_id = attrs.get(bstack11l1111_opy_ (u"ࠫ࡮ࡪࠧྯ"), None)
+        self.bstack111ll111ll_opy_(bstack11l1111_opy_ (u"࡚ࠬࡥࡴࡶࡕࡹࡳ࡙ࡴࡢࡴࡷࡩࡩ࠭ྰ"), bstack111ll1ll1l_opy_)
+    @bstack111l11l1l1_opy_(class_method=True)
     def end_test(self, name, attrs):
-        self.bstack111ll111l1_opy_.reset()
-        bstack111l1l1ll1_opy_ = bstack1111lll11l_opy_.get(attrs.get(bstack1l1ll_opy_ (u"ࠫࡸࡺࡡࡵࡷࡶࠫྯ")), bstack1l1ll_opy_ (u"ࠬࡹ࡫ࡪࡲࡳࡩࡩ࠭ྰ"))
-        self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"࠭ࡩࡥࠩྱ"))][bstack1l1ll_opy_ (u"ࠧࡵࡧࡶࡸࡤࡪࡡࡵࡣࠪྲ")].stop(time=bstack1lllll1l11_opy_(), duration=int(attrs.get(bstack1l1ll_opy_ (u"ࠨࡧ࡯ࡥࡵࡹࡥࡥࡶ࡬ࡱࡪ࠭ླ"), bstack1l1ll_opy_ (u"ࠩ࠳ࠫྴ"))), result=Result(result=bstack111l1l1ll1_opy_, exception=attrs.get(bstack1l1ll_opy_ (u"ࠪࡱࡪࡹࡳࡢࡩࡨࠫྵ")), bstack111ll1ll1l_opy_=[attrs.get(bstack1l1ll_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬྶ"))]))
-        self.bstack111ll111ll_opy_(bstack1l1ll_opy_ (u"࡚ࠬࡥࡴࡶࡕࡹࡳࡌࡩ࡯࡫ࡶ࡬ࡪࡪࠧྷ"), self._1111lll1ll_opy_[attrs.get(bstack1l1ll_opy_ (u"࠭ࡩࡥࠩྸ"))][bstack1l1ll_opy_ (u"ࠧࡵࡧࡶࡸࡤࡪࡡࡵࡣࠪྐྵ")], True)
+        self.bstack111llll11l_opy_.reset()
+        bstack1111lll1l1_opy_ = bstack111l1ll1ll_opy_.get(attrs.get(bstack11l1111_opy_ (u"࠭ࡳࡵࡣࡷࡹࡸ࠭ྱ")), bstack11l1111_opy_ (u"ࠧࡴ࡭࡬ࡴࡵ࡫ࡤࠨྲ"))
+        self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠨ࡫ࡧࠫླ"))][bstack11l1111_opy_ (u"ࠩࡷࡩࡸࡺ࡟ࡥࡣࡷࡥࠬྴ")].stop(time=bstack1lllllllll_opy_(), duration=int(attrs.get(bstack11l1111_opy_ (u"ࠪࡩࡱࡧࡰࡴࡧࡧࡸ࡮ࡳࡥࠨྵ"), bstack11l1111_opy_ (u"ࠫ࠵࠭ྶ"))), result=Result(result=bstack1111lll1l1_opy_, exception=attrs.get(bstack11l1111_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭ྷ")), bstack111lll1l1l_opy_=[attrs.get(bstack11l1111_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ࠧྸ"))]))
+        self.bstack111ll111ll_opy_(bstack11l1111_opy_ (u"ࠧࡕࡧࡶࡸࡗࡻ࡮ࡇ࡫ࡱ࡭ࡸ࡮ࡥࡥࠩྐྵ"), self._111l1ll11l_opy_[attrs.get(bstack11l1111_opy_ (u"ࠨ࡫ࡧࠫྺ"))][bstack11l1111_opy_ (u"ࠩࡷࡩࡸࡺ࡟ࡥࡣࡷࡥࠬྻ")], True)
         with self._lock:
-            self.store[bstack1l1ll_opy_ (u"ࠨࡶࡨࡷࡹࡥࡨࡰࡱ࡮ࡷࠬྺ")] = []
+            self.store[bstack11l1111_opy_ (u"ࠪࡸࡪࡹࡴࡠࡪࡲࡳࡰࡹࠧྼ")] = []
         threading.current_thread().current_test_uuid = None
         threading.current_thread().current_test_id = None
-    @bstack111l111ll1_opy_(class_method=True)
+    @bstack111l11l1l1_opy_(class_method=True)
     def start_keyword(self, name, attrs):
-        self.messages.bstack1111ll1l11_opy_()
-        current_test_id = bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠩࡦࡹࡷࡸࡥ࡯ࡶࡢࡸࡪࡹࡴࡠ࡫ࡧࠫྻ"), None)
-        bstack111l1lll1l_opy_ = current_test_id if bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠪࡧࡺࡸࡲࡦࡰࡷࡣࡹ࡫ࡳࡵࡡ࡬ࡨࠬྼ"), None) else bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠫࡨࡻࡲࡳࡧࡱࡸࡤࡹࡵࡪࡶࡨࡣ࡮ࡪࠧ྽"), None)
-        if attrs.get(bstack1l1ll_opy_ (u"ࠬࡺࡹࡱࡧࠪ྾"), bstack1l1ll_opy_ (u"࠭ࠧ྿")).lower() in [bstack1l1ll_opy_ (u"ࠧࡴࡧࡷࡹࡵ࠭࿀"), bstack1l1ll_opy_ (u"ࠨࡶࡨࡥࡷࡪ࡯ࡸࡰࠪ࿁")]:
-            hook_type = bstack111l1l11l1_opy_(attrs.get(bstack1l1ll_opy_ (u"ࠩࡷࡽࡵ࡫ࠧ࿂")), bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠪࡧࡺࡸࡲࡦࡰࡷࡣࡹ࡫ࡳࡵࡡࡸࡹ࡮ࡪࠧ࿃"), None))
-            hook_name = bstack1l1ll_opy_ (u"ࠫࢀࢃࠧ࿄").format(attrs.get(bstack1l1ll_opy_ (u"ࠬࡱࡷ࡯ࡣࡰࡩࠬ࿅"), bstack1l1ll_opy_ (u"࿆࠭ࠧ")))
-            if hook_type in [bstack1l1ll_opy_ (u"ࠧࡃࡇࡉࡓࡗࡋ࡟ࡂࡎࡏࠫ࿇"), bstack1l1ll_opy_ (u"ࠨࡃࡉࡘࡊࡘ࡟ࡂࡎࡏࠫ࿈")]:
-                hook_name = bstack1l1ll_opy_ (u"ࠩ࡞ࡿࢂࡣࠠࡼࡿࠪ࿉").format(bstack111l11l1ll_opy_.get(hook_type), attrs.get(bstack1l1ll_opy_ (u"ࠪ࡯ࡼࡴࡡ࡮ࡧࠪ࿊"), bstack1l1ll_opy_ (u"ࠫࠬ࿋")))
-            bstack111l1l11ll_opy_ = bstack111ll1lll1_opy_(
-                bstack111l1l1l11_opy_=bstack111l1lll1l_opy_ + bstack1l1ll_opy_ (u"ࠬ࠳ࠧ࿌") + attrs.get(bstack1l1ll_opy_ (u"࠭ࡴࡺࡲࡨࠫ࿍"), bstack1l1ll_opy_ (u"ࠧࠨ࿎")).lower(),
+        self.messages.bstack111l1l1lll_opy_()
+        current_test_id = bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠫࡨࡻࡲࡳࡧࡱࡸࡤࡺࡥࡴࡶࡢ࡭ࡩ࠭྽"), None)
+        bstack1111ll11l1_opy_ = current_test_id if bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠬࡩࡵࡳࡴࡨࡲࡹࡥࡴࡦࡵࡷࡣ࡮ࡪࠧ྾"), None) else bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"࠭ࡣࡶࡴࡵࡩࡳࡺ࡟ࡴࡷ࡬ࡸࡪࡥࡩࡥࠩ྿"), None)
+        if attrs.get(bstack11l1111_opy_ (u"ࠧࡵࡻࡳࡩࠬ࿀"), bstack11l1111_opy_ (u"ࠨࠩ࿁")).lower() in [bstack11l1111_opy_ (u"ࠩࡶࡩࡹࡻࡰࠨ࿂"), bstack11l1111_opy_ (u"ࠪࡸࡪࡧࡲࡥࡱࡺࡲࠬ࿃")]:
+            hook_type = bstack111l11l1ll_opy_(attrs.get(bstack11l1111_opy_ (u"ࠫࡹࡿࡰࡦࠩ࿄")), bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠬࡩࡵࡳࡴࡨࡲࡹࡥࡴࡦࡵࡷࡣࡺࡻࡩࡥࠩ࿅"), None))
+            hook_name = bstack11l1111_opy_ (u"࠭ࡻࡾ࿆ࠩ").format(attrs.get(bstack11l1111_opy_ (u"ࠧ࡬ࡹࡱࡥࡲ࡫ࠧ࿇"), bstack11l1111_opy_ (u"ࠨࠩ࿈")))
+            if hook_type in [bstack11l1111_opy_ (u"ࠩࡅࡉࡋࡕࡒࡆࡡࡄࡐࡑ࠭࿉"), bstack11l1111_opy_ (u"ࠪࡅࡋ࡚ࡅࡓࡡࡄࡐࡑ࠭࿊")]:
+                hook_name = bstack11l1111_opy_ (u"ࠫࡠࢁࡽ࡞ࠢࡾࢁࠬ࿋").format(bstack1111lll111_opy_.get(hook_type), attrs.get(bstack11l1111_opy_ (u"ࠬࡱࡷ࡯ࡣࡰࡩࠬ࿌"), bstack11l1111_opy_ (u"࠭ࠧ࿍")))
+            bstack111l1111ll_opy_ = bstack111ll1l1l1_opy_(
+                bstack111l1l11ll_opy_=bstack1111ll11l1_opy_ + bstack11l1111_opy_ (u"ࠧ࠮ࠩ࿎") + attrs.get(bstack11l1111_opy_ (u"ࠨࡶࡼࡴࡪ࠭࿏"), bstack11l1111_opy_ (u"ࠩࠪ࿐")).lower(),
                 name=hook_name,
-                started_at=bstack1lllll1l11_opy_(),
-                file_path=os.path.relpath(attrs.get(bstack1l1ll_opy_ (u"ࠨࡵࡲࡹࡷࡩࡥࠨ࿏")), start=os.getcwd()),
-                framework=bstack1l1ll_opy_ (u"ࠩࡕࡳࡧࡵࡴࠨ࿐"),
-                tags=attrs[bstack1l1ll_opy_ (u"ࠪࡸࡦ࡭ࡳࠨ࿑")],
-                scope=RobotHandler.bstack111l1lllll_opy_(attrs.get(bstack1l1ll_opy_ (u"ࠫࡸࡵࡵࡳࡥࡨࠫ࿒"), None)),
+                started_at=bstack1lllllllll_opy_(),
+                file_path=os.path.relpath(attrs.get(bstack11l1111_opy_ (u"ࠪࡷࡴࡻࡲࡤࡧࠪ࿑")), start=os.getcwd()),
+                framework=bstack11l1111_opy_ (u"ࠫࡗࡵࡢࡰࡶࠪ࿒"),
+                tags=attrs[bstack11l1111_opy_ (u"ࠬࡺࡡࡨࡵࠪ࿓")],
+                scope=RobotHandler.bstack1111lllll1_opy_(attrs.get(bstack11l1111_opy_ (u"࠭ࡳࡰࡷࡵࡧࡪ࠭࿔"), None)),
                 hook_type=hook_type,
                 meta={}
             )
-            threading.current_thread().current_hook_uuid = bstack111l1l11ll_opy_.bstack111l111111_opy_()
-            threading.current_thread().current_hook_id = bstack111l1lll1l_opy_ + bstack1l1ll_opy_ (u"ࠬ࠳ࠧ࿓") + attrs.get(bstack1l1ll_opy_ (u"࠭ࡴࡺࡲࡨࠫ࿔"), bstack1l1ll_opy_ (u"ࠧࠨ࿕")).lower()
+            threading.current_thread().current_hook_uuid = bstack111l1111ll_opy_.bstack1111llll11_opy_()
+            threading.current_thread().current_hook_id = bstack1111ll11l1_opy_ + bstack11l1111_opy_ (u"ࠧ࠮ࠩ࿕") + attrs.get(bstack11l1111_opy_ (u"ࠨࡶࡼࡴࡪ࠭࿖"), bstack11l1111_opy_ (u"ࠩࠪ࿗")).lower()
             with self._lock:
-                self.store[bstack1l1ll_opy_ (u"ࠨࡥࡸࡶࡷ࡫࡮ࡵࡡ࡫ࡳࡴࡱ࡟ࡶࡷ࡬ࡨࠬ࿖")] = [bstack111l1l11ll_opy_.bstack111l111111_opy_()]
-                if bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠩࡦࡹࡷࡸࡥ࡯ࡶࡢࡸࡪࡹࡴࡠࡷࡸ࡭ࡩ࠭࿗"), None):
-                    self.store[bstack1l1ll_opy_ (u"ࠪࡸࡪࡹࡴࡠࡪࡲࡳࡰࡹࠧ࿘")].append(bstack111l1l11ll_opy_.bstack111l111111_opy_())
+                self.store[bstack11l1111_opy_ (u"ࠪࡧࡺࡸࡲࡦࡰࡷࡣ࡭ࡵ࡯࡬ࡡࡸࡹ࡮ࡪࠧ࿘")] = [bstack111l1111ll_opy_.bstack1111llll11_opy_()]
+                if bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠫࡨࡻࡲࡳࡧࡱࡸࡤࡺࡥࡴࡶࡢࡹࡺ࡯ࡤࠨ࿙"), None):
+                    self.store[bstack11l1111_opy_ (u"ࠬࡺࡥࡴࡶࡢ࡬ࡴࡵ࡫ࡴࠩ࿚")].append(bstack111l1111ll_opy_.bstack1111llll11_opy_())
                 else:
-                    self.store[bstack1l1ll_opy_ (u"ࠫ࡬ࡲ࡯ࡣࡣ࡯ࡣ࡭ࡵ࡯࡬ࡵࠪ࿙")].append(bstack111l1l11ll_opy_.bstack111l111111_opy_())
-            if bstack111l1lll1l_opy_:
-                self._1111lll1ll_opy_[bstack111l1lll1l_opy_ + bstack1l1ll_opy_ (u"ࠬ࠳ࠧ࿚") + attrs.get(bstack1l1ll_opy_ (u"࠭ࡴࡺࡲࡨࠫ࿛"), bstack1l1ll_opy_ (u"ࠧࠨ࿜")).lower()] = { bstack1l1ll_opy_ (u"ࠨࡶࡨࡷࡹࡥࡤࡢࡶࡤࠫ࿝"): bstack111l1l11ll_opy_ }
-            bstack11ll1ll1_opy_.bstack111ll111ll_opy_(bstack1l1ll_opy_ (u"ࠩࡋࡳࡴࡱࡒࡶࡰࡖࡸࡦࡸࡴࡦࡦࠪ࿞"), bstack111l1l11ll_opy_)
+                    self.store[bstack11l1111_opy_ (u"࠭ࡧ࡭ࡱࡥࡥࡱࡥࡨࡰࡱ࡮ࡷࠬ࿛")].append(bstack111l1111ll_opy_.bstack1111llll11_opy_())
+            if bstack1111ll11l1_opy_:
+                self._111l1ll11l_opy_[bstack1111ll11l1_opy_ + bstack11l1111_opy_ (u"ࠧ࠮ࠩ࿜") + attrs.get(bstack11l1111_opy_ (u"ࠨࡶࡼࡴࡪ࠭࿝"), bstack11l1111_opy_ (u"ࠩࠪ࿞")).lower()] = { bstack11l1111_opy_ (u"ࠪࡸࡪࡹࡴࡠࡦࡤࡸࡦ࠭࿟"): bstack111l1111ll_opy_ }
+            bstack111lll111_opy_.bstack111ll111ll_opy_(bstack11l1111_opy_ (u"ࠫࡍࡵ࡯࡬ࡔࡸࡲࡘࡺࡡࡳࡶࡨࡨࠬ࿠"), bstack111l1111ll_opy_)
         else:
-            bstack111ll1111l_opy_ = {
-                bstack1l1ll_opy_ (u"ࠪ࡭ࡩ࠭࿟"): uuid4().__str__(),
-                bstack1l1ll_opy_ (u"ࠫࡹ࡫ࡸࡵࠩ࿠"): bstack1l1ll_opy_ (u"ࠬࢁࡽࠡࡽࢀࠫ࿡").format(attrs.get(bstack1l1ll_opy_ (u"࠭࡫ࡸࡰࡤࡱࡪ࠭࿢")), attrs.get(bstack1l1ll_opy_ (u"ࠧࡢࡴࡪࡷࠬ࿣"), bstack1l1ll_opy_ (u"ࠨࠩ࿤"))) if attrs.get(bstack1l1ll_opy_ (u"ࠩࡤࡶ࡬ࡹࠧ࿥"), []) else attrs.get(bstack1l1ll_opy_ (u"ࠪ࡯ࡼࡴࡡ࡮ࡧࠪ࿦")),
-                bstack1l1ll_opy_ (u"ࠫࡸࡺࡥࡱࡡࡤࡶ࡬ࡻ࡭ࡦࡰࡷࠫ࿧"): attrs.get(bstack1l1ll_opy_ (u"ࠬࡧࡲࡨࡵࠪ࿨"), []),
-                bstack1l1ll_opy_ (u"࠭ࡳࡵࡣࡵࡸࡪࡪ࡟ࡢࡶࠪ࿩"): bstack1lllll1l11_opy_(),
-                bstack1l1ll_opy_ (u"ࠧࡳࡧࡶࡹࡱࡺࠧ࿪"): bstack1l1ll_opy_ (u"ࠨࡲࡨࡲࡩ࡯࡮ࡨࠩ࿫"),
-                bstack1l1ll_opy_ (u"ࠩࡧࡩࡸࡩࡲࡪࡲࡷ࡭ࡴࡴࠧ࿬"): attrs.get(bstack1l1ll_opy_ (u"ࠪࡨࡴࡩࠧ࿭"), bstack1l1ll_opy_ (u"ࠫࠬ࿮"))
+            bstack111llll111_opy_ = {
+                bstack11l1111_opy_ (u"ࠬ࡯ࡤࠨ࿡"): uuid4().__str__(),
+                bstack11l1111_opy_ (u"࠭ࡴࡦࡺࡷࠫ࿢"): bstack11l1111_opy_ (u"ࠧࡼࡿࠣࡿࢂ࠭࿣").format(attrs.get(bstack11l1111_opy_ (u"ࠨ࡭ࡺࡲࡦࡳࡥࠨ࿤")), attrs.get(bstack11l1111_opy_ (u"ࠩࡤࡶ࡬ࡹࠧ࿥"), bstack11l1111_opy_ (u"ࠪࠫ࿦"))) if attrs.get(bstack11l1111_opy_ (u"ࠫࡦࡸࡧࡴࠩ࿧"), []) else attrs.get(bstack11l1111_opy_ (u"ࠬࡱࡷ࡯ࡣࡰࡩࠬ࿨")),
+                bstack11l1111_opy_ (u"࠭ࡳࡵࡧࡳࡣࡦࡸࡧࡶ࡯ࡨࡲࡹ࠭࿩"): attrs.get(bstack11l1111_opy_ (u"ࠧࡢࡴࡪࡷࠬ࿪"), []),
+                bstack11l1111_opy_ (u"ࠨࡵࡷࡥࡷࡺࡥࡥࡡࡤࡸࠬ࿫"): bstack1lllllllll_opy_(),
+                bstack11l1111_opy_ (u"ࠩࡵࡩࡸࡻ࡬ࡵࠩ࿬"): bstack11l1111_opy_ (u"ࠪࡴࡪࡴࡤࡪࡰࡪࠫ࿭"),
+                bstack11l1111_opy_ (u"ࠫࡩ࡫ࡳࡤࡴ࡬ࡴࡹ࡯࡯࡯ࠩ࿮"): attrs.get(bstack11l1111_opy_ (u"ࠬࡪ࡯ࡤࠩ࿯"), bstack11l1111_opy_ (u"࠭ࠧ࿰"))
             }
-            if attrs.get(bstack1l1ll_opy_ (u"ࠬࡲࡩࡣࡰࡤࡱࡪ࠭࿯"), bstack1l1ll_opy_ (u"࠭ࠧ࿰")) != bstack1l1ll_opy_ (u"ࠧࠨ࿱"):
-                bstack111ll1111l_opy_[bstack1l1ll_opy_ (u"ࠨ࡭ࡨࡽࡼࡵࡲࡥࠩ࿲")] = attrs.get(bstack1l1ll_opy_ (u"ࠩ࡯࡭ࡧࡴࡡ࡮ࡧࠪ࿳"))
-            if not self.bstack111l1111ll_opy_:
-                self._1111lll1ll_opy_[self._1111ll11l1_opy_()][bstack1l1ll_opy_ (u"ࠪࡸࡪࡹࡴࡠࡦࡤࡸࡦ࠭࿴")].add_step(bstack111ll1111l_opy_)
-                threading.current_thread().current_step_uuid = bstack111ll1111l_opy_[bstack1l1ll_opy_ (u"ࠫ࡮ࡪࠧ࿵")]
-            self.bstack111l1111ll_opy_.append(bstack111ll1111l_opy_)
-    @bstack111l111ll1_opy_(class_method=True)
+            if attrs.get(bstack11l1111_opy_ (u"ࠧ࡭࡫ࡥࡲࡦࡳࡥࠨ࿱"), bstack11l1111_opy_ (u"ࠨࠩ࿲")) != bstack11l1111_opy_ (u"ࠩࠪ࿳"):
+                bstack111llll111_opy_[bstack11l1111_opy_ (u"ࠪ࡯ࡪࡿࡷࡰࡴࡧࠫ࿴")] = attrs.get(bstack11l1111_opy_ (u"ࠫࡱ࡯ࡢ࡯ࡣࡰࡩࠬ࿵"))
+            if not self.bstack111l11111l_opy_:
+                self._111l1ll11l_opy_[self._1111llll1l_opy_()][bstack11l1111_opy_ (u"ࠬࡺࡥࡴࡶࡢࡨࡦࡺࡡࠨ࿶")].add_step(bstack111llll111_opy_)
+                threading.current_thread().current_step_uuid = bstack111llll111_opy_[bstack11l1111_opy_ (u"࠭ࡩࡥࠩ࿷")]
+            self.bstack111l11111l_opy_.append(bstack111llll111_opy_)
+    @bstack111l11l1l1_opy_(class_method=True)
     def end_keyword(self, name, attrs):
-        messages = self.messages.bstack1111ll11ll_opy_()
-        self._111l1ll1l1_opy_(messages)
-        current_test_id = bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠬࡩࡵࡳࡴࡨࡲࡹࡥࡴࡦࡵࡷࡣ࡮ࡪࠧ࿶"), None)
-        bstack111l1lll1l_opy_ = current_test_id if current_test_id else bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"࠭ࡣࡶࡴࡵࡩࡳࡺ࡟ࡴࡷ࡬ࡸࡪࡥࡩࡥࠩ࿷"), None)
-        bstack111l11lll1_opy_ = bstack1111lll11l_opy_.get(attrs.get(bstack1l1ll_opy_ (u"ࠧࡴࡶࡤࡸࡺࡹࠧ࿸")), bstack1l1ll_opy_ (u"ࠨࡵ࡮࡭ࡵࡶࡥࡥࠩ࿹"))
-        bstack1111llllll_opy_ = attrs.get(bstack1l1ll_opy_ (u"ࠩࡰࡩࡸࡹࡡࡨࡧࠪ࿺"))
-        if bstack111l11lll1_opy_ != bstack1l1ll_opy_ (u"ࠪࡷࡰ࡯ࡰࡱࡧࡧࠫ࿻") and not attrs.get(bstack1l1ll_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬ࿼")) and self._1111llll11_opy_:
-            bstack1111llllll_opy_ = self._1111llll11_opy_
-        bstack111llll11l_opy_ = Result(result=bstack111l11lll1_opy_, exception=bstack1111llllll_opy_, bstack111ll1ll1l_opy_=[bstack1111llllll_opy_])
-        if attrs.get(bstack1l1ll_opy_ (u"ࠬࡺࡹࡱࡧࠪ࿽"), bstack1l1ll_opy_ (u"࠭ࠧ࿾")).lower() in [bstack1l1ll_opy_ (u"ࠧࡴࡧࡷࡹࡵ࠭࿿"), bstack1l1ll_opy_ (u"ࠨࡶࡨࡥࡷࡪ࡯ࡸࡰࠪက")]:
-            bstack111l1lll1l_opy_ = current_test_id if current_test_id else bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠩࡦࡹࡷࡸࡥ࡯ࡶࡢࡷࡺ࡯ࡴࡦࡡ࡬ࡨࠬခ"), None)
-            if bstack111l1lll1l_opy_:
-                bstack111lll111l_opy_ = bstack111l1lll1l_opy_ + bstack1l1ll_opy_ (u"ࠥ࠱ࠧဂ") + attrs.get(bstack1l1ll_opy_ (u"ࠫࡹࡿࡰࡦࠩဃ"), bstack1l1ll_opy_ (u"ࠬ࠭င")).lower()
-                self._1111lll1ll_opy_[bstack111lll111l_opy_][bstack1l1ll_opy_ (u"࠭ࡴࡦࡵࡷࡣࡩࡧࡴࡢࠩစ")].stop(time=bstack1lllll1l11_opy_(), duration=int(attrs.get(bstack1l1ll_opy_ (u"ࠧࡦ࡮ࡤࡴࡸ࡫ࡤࡵ࡫ࡰࡩࠬဆ"), bstack1l1ll_opy_ (u"ࠨ࠲ࠪဇ"))), result=bstack111llll11l_opy_)
-                bstack11ll1ll1_opy_.bstack111ll111ll_opy_(bstack1l1ll_opy_ (u"ࠩࡋࡳࡴࡱࡒࡶࡰࡉ࡭ࡳ࡯ࡳࡩࡧࡧࠫဈ"), self._1111lll1ll_opy_[bstack111lll111l_opy_][bstack1l1ll_opy_ (u"ࠪࡸࡪࡹࡴࡠࡦࡤࡸࡦ࠭ဉ")])
+        messages = self.messages.bstack111l11llll_opy_()
+        self._111l1l11l1_opy_(messages)
+        current_test_id = bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠧࡤࡷࡵࡶࡪࡴࡴࡠࡶࡨࡷࡹࡥࡩࡥࠩ࿸"), None)
+        bstack1111ll11l1_opy_ = current_test_id if current_test_id else bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠨࡥࡸࡶࡷ࡫࡮ࡵࡡࡶࡹ࡮ࡺࡥࡠ࡫ࡧࠫ࿹"), None)
+        bstack111l1111l1_opy_ = bstack111l1ll1ll_opy_.get(attrs.get(bstack11l1111_opy_ (u"ࠩࡶࡸࡦࡺࡵࡴࠩ࿺")), bstack11l1111_opy_ (u"ࠪࡷࡰ࡯ࡰࡱࡧࡧࠫ࿻"))
+        bstack111l1l1ll1_opy_ = attrs.get(bstack11l1111_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬ࿼"))
+        if bstack111l1111l1_opy_ != bstack11l1111_opy_ (u"ࠬࡹ࡫ࡪࡲࡳࡩࡩ࠭࿽") and not attrs.get(bstack11l1111_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ࠧ࿾")) and self._111l1l111l_opy_:
+            bstack111l1l1ll1_opy_ = self._111l1l111l_opy_
+        bstack111lll1lll_opy_ = Result(result=bstack111l1111l1_opy_, exception=bstack111l1l1ll1_opy_, bstack111lll1l1l_opy_=[bstack111l1l1ll1_opy_])
+        if attrs.get(bstack11l1111_opy_ (u"ࠧࡵࡻࡳࡩࠬ࿿"), bstack11l1111_opy_ (u"ࠨࠩက")).lower() in [bstack11l1111_opy_ (u"ࠩࡶࡩࡹࡻࡰࠨခ"), bstack11l1111_opy_ (u"ࠪࡸࡪࡧࡲࡥࡱࡺࡲࠬဂ")]:
+            bstack1111ll11l1_opy_ = current_test_id if current_test_id else bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠫࡨࡻࡲࡳࡧࡱࡸࡤࡹࡵࡪࡶࡨࡣ࡮ࡪࠧဃ"), None)
+            if bstack1111ll11l1_opy_:
+                bstack111ll1l11l_opy_ = bstack1111ll11l1_opy_ + bstack11l1111_opy_ (u"ࠧ࠳ࠢင") + attrs.get(bstack11l1111_opy_ (u"࠭ࡴࡺࡲࡨࠫစ"), bstack11l1111_opy_ (u"ࠧࠨဆ")).lower()
+                self._111l1ll11l_opy_[bstack111ll1l11l_opy_][bstack11l1111_opy_ (u"ࠨࡶࡨࡷࡹࡥࡤࡢࡶࡤࠫဇ")].stop(time=bstack1lllllllll_opy_(), duration=int(attrs.get(bstack11l1111_opy_ (u"ࠩࡨࡰࡦࡶࡳࡦࡦࡷ࡭ࡲ࡫ࠧဈ"), bstack11l1111_opy_ (u"ࠪ࠴ࠬဉ"))), result=bstack111lll1lll_opy_)
+                bstack111lll111_opy_.bstack111ll111ll_opy_(bstack11l1111_opy_ (u"ࠫࡍࡵ࡯࡬ࡔࡸࡲࡋ࡯࡮ࡪࡵ࡫ࡩࡩ࠭ည"), self._111l1ll11l_opy_[bstack111ll1l11l_opy_][bstack11l1111_opy_ (u"ࠬࡺࡥࡴࡶࡢࡨࡦࡺࡡࠨဋ")])
         else:
-            bstack111l1lll1l_opy_ = current_test_id if current_test_id else bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠫࡨࡻࡲࡳࡧࡱࡸࡤ࡮࡯ࡰ࡭ࡢ࡭ࡩ࠭ည"), None)
-            if bstack111l1lll1l_opy_ and len(self.bstack111l1111ll_opy_) == 1:
-                current_step_uuid = bstack11ll1ll11_opy_(threading.current_thread(), bstack1l1ll_opy_ (u"ࠬࡩࡵࡳࡴࡨࡲࡹࡥࡳࡵࡧࡳࡣࡺࡻࡩࡥࠩဋ"), None)
-                self._1111lll1ll_opy_[bstack111l1lll1l_opy_][bstack1l1ll_opy_ (u"࠭ࡴࡦࡵࡷࡣࡩࡧࡴࡢࠩဌ")].bstack111ll1ll11_opy_(current_step_uuid, duration=int(attrs.get(bstack1l1ll_opy_ (u"ࠧࡦ࡮ࡤࡴࡸ࡫ࡤࡵ࡫ࡰࡩࠬဍ"), bstack1l1ll_opy_ (u"ࠨ࠲ࠪဎ"))), result=bstack111llll11l_opy_)
+            bstack1111ll11l1_opy_ = current_test_id if current_test_id else bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"࠭ࡣࡶࡴࡵࡩࡳࡺ࡟ࡩࡱࡲ࡯ࡤ࡯ࡤࠨဌ"), None)
+            if bstack1111ll11l1_opy_ and len(self.bstack111l11111l_opy_) == 1:
+                current_step_uuid = bstack11ll1lll_opy_(threading.current_thread(), bstack11l1111_opy_ (u"ࠧࡤࡷࡵࡶࡪࡴࡴࡠࡵࡷࡩࡵࡥࡵࡶ࡫ࡧࠫဍ"), None)
+                self._111l1ll11l_opy_[bstack1111ll11l1_opy_][bstack11l1111_opy_ (u"ࠨࡶࡨࡷࡹࡥࡤࡢࡶࡤࠫဎ")].bstack111ll1lll1_opy_(current_step_uuid, duration=int(attrs.get(bstack11l1111_opy_ (u"ࠩࡨࡰࡦࡶࡳࡦࡦࡷ࡭ࡲ࡫ࠧဏ"), bstack11l1111_opy_ (u"ࠪ࠴ࠬတ"))), result=bstack111lll1lll_opy_)
             else:
-                self.bstack111l11ll11_opy_(attrs)
-            self.bstack111l1111ll_opy_.pop()
+                self.bstack1111ll1ll1_opy_(attrs)
+            self.bstack111l11111l_opy_.pop()
     def log_message(self, message):
         try:
-            if message.get(bstack1l1ll_opy_ (u"ࠩ࡫ࡸࡲࡲࠧဏ"), bstack1l1ll_opy_ (u"ࠪࡲࡴ࠭တ")) == bstack1l1ll_opy_ (u"ࠫࡾ࡫ࡳࠨထ"):
+            if message.get(bstack11l1111_opy_ (u"ࠫ࡭ࡺ࡭࡭ࠩထ"), bstack11l1111_opy_ (u"ࠬࡴ࡯ࠨဒ")) == bstack11l1111_opy_ (u"࠭ࡹࡦࡵࠪဓ"):
                 return
             self.messages.push(message)
             logs = []
-            if bstack11ll1llll1_opy_.bstack111lll11l1_opy_():
+            if bstack1l1ll111ll_opy_.bstack111ll1l111_opy_():
                 logs.append({
-                    bstack1l1ll_opy_ (u"ࠬࡺࡩ࡮ࡧࡶࡸࡦࡳࡰࠨဒ"): bstack1lllll1l11_opy_(),
-                    bstack1l1ll_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ࠧဓ"): message.get(bstack1l1ll_opy_ (u"ࠧ࡮ࡧࡶࡷࡦ࡭ࡥࠨန")),
-                    bstack1l1ll_opy_ (u"ࠨ࡮ࡨࡺࡪࡲࠧပ"): message.get(bstack1l1ll_opy_ (u"ࠩ࡯ࡩࡻ࡫࡬ࠨဖ")),
-                    **bstack11ll1llll1_opy_.bstack111lll11l1_opy_()
+                    bstack11l1111_opy_ (u"ࠧࡵ࡫ࡰࡩࡸࡺࡡ࡮ࡲࠪန"): bstack1lllllllll_opy_(),
+                    bstack11l1111_opy_ (u"ࠨ࡯ࡨࡷࡸࡧࡧࡦࠩပ"): message.get(bstack11l1111_opy_ (u"ࠩࡰࡩࡸࡹࡡࡨࡧࠪဖ")),
+                    bstack11l1111_opy_ (u"ࠪࡰࡪࡼࡥ࡭ࠩဗ"): message.get(bstack11l1111_opy_ (u"ࠫࡱ࡫ࡶࡦ࡮ࠪဘ")),
+                    **bstack1l1ll111ll_opy_.bstack111ll1l111_opy_()
                 })
                 if len(logs) > 0:
-                    bstack11ll1ll1_opy_.bstack11l1l1lll1_opy_(logs)
+                    bstack111lll111_opy_.bstack11lll11l_opy_(logs)
         except Exception as err:
             pass
     def close(self):
-        bstack11ll1ll1_opy_.bstack111l1l1111_opy_()
-    def bstack111l11ll11_opy_(self, bstack111l11llll_opy_):
-        if not bstack11ll1llll1_opy_.bstack111lll11l1_opy_():
+        bstack111lll111_opy_.bstack111l1l1l1l_opy_()
+    def bstack1111ll1ll1_opy_(self, bstack111l1llll1_opy_):
+        if not bstack1l1ll111ll_opy_.bstack111ll1l111_opy_():
             return
-        kwname = bstack1l1ll_opy_ (u"ࠪࡿࢂࠦࡻࡾࠩဗ").format(bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠫࡰࡽ࡮ࡢ࡯ࡨࠫဘ")), bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠬࡧࡲࡨࡵࠪမ"), bstack1l1ll_opy_ (u"࠭ࠧယ"))) if bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠧࡢࡴࡪࡷࠬရ"), []) else bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠨ࡭ࡺࡲࡦࡳࡥࠨလ"))
-        error_message = bstack1l1ll_opy_ (u"ࠤ࡮ࡻࡳࡧ࡭ࡦ࠼ࠣࡠࠧࢁ࠰ࡾ࡞ࠥࠤࢁࠦࡳࡵࡣࡷࡹࡸࡀࠠ࡝ࠤࡾ࠵ࢂࡢࠢࠡࡾࠣࡩࡽࡩࡥࡱࡶ࡬ࡳࡳࡀࠠ࡝ࠤࡾ࠶ࢂࡢࠢࠣဝ").format(kwname, bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠪࡷࡹࡧࡴࡶࡵࠪသ")), str(bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠫࡲ࡫ࡳࡴࡣࡪࡩࠬဟ"))))
-        bstack1111lll1l1_opy_ = bstack1l1ll_opy_ (u"ࠧࡱࡷ࡯ࡣࡰࡩ࠿ࠦ࡜ࠣࡽ࠳ࢁࡡࠨࠠࡽࠢࡶࡸࡦࡺࡵࡴ࠼ࠣࡠࠧࢁ࠱ࡾ࡞ࠥࠦဠ").format(kwname, bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"࠭ࡳࡵࡣࡷࡹࡸ࠭အ")))
-        bstack111l11111l_opy_ = error_message if bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"ࠧ࡮ࡧࡶࡷࡦ࡭ࡥࠨဢ")) else bstack1111lll1l1_opy_
-        bstack111l1l1lll_opy_ = {
-            bstack1l1ll_opy_ (u"ࠨࡶ࡬ࡱࡪࡹࡴࡢ࡯ࡳࠫဣ"): self.bstack111l1111ll_opy_[-1].get(bstack1l1ll_opy_ (u"ࠩࡶࡸࡦࡸࡴࡦࡦࡢࡥࡹ࠭ဤ"), bstack1lllll1l11_opy_()),
-            bstack1l1ll_opy_ (u"ࠪࡱࡪࡹࡳࡢࡩࡨࠫဥ"): bstack111l11111l_opy_,
-            bstack1l1ll_opy_ (u"ࠫࡱ࡫ࡶࡦ࡮ࠪဦ"): bstack1l1ll_opy_ (u"ࠬࡋࡒࡓࡑࡕࠫဧ") if bstack111l11llll_opy_.get(bstack1l1ll_opy_ (u"࠭ࡳࡵࡣࡷࡹࡸ࠭ဨ")) == bstack1l1ll_opy_ (u"ࠧࡇࡃࡌࡐࠬဩ") else bstack1l1ll_opy_ (u"ࠨࡋࡑࡊࡔ࠭ဪ"),
-            **bstack11ll1llll1_opy_.bstack111lll11l1_opy_()
+        kwname = bstack11l1111_opy_ (u"ࠬࢁࡽࠡࡽࢀࠫမ").format(bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"࠭࡫ࡸࡰࡤࡱࡪ࠭ယ")), bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠧࡢࡴࡪࡷࠬရ"), bstack11l1111_opy_ (u"ࠨࠩလ"))) if bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠩࡤࡶ࡬ࡹࠧဝ"), []) else bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠪ࡯ࡼࡴࡡ࡮ࡧࠪသ"))
+        error_message = bstack11l1111_opy_ (u"ࠦࡰࡽ࡮ࡢ࡯ࡨ࠾ࠥࡢࠢࡼ࠲ࢀࡠࠧࠦࡼࠡࡵࡷࡥࡹࡻࡳ࠻ࠢ࡟ࠦࢀ࠷ࡽ࡝ࠤࠣࢀࠥ࡫ࡸࡤࡧࡳࡸ࡮ࡵ࡮࠻ࠢ࡟ࠦࢀ࠸ࡽ࡝ࠤࠥဟ").format(kwname, bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠬࡹࡴࡢࡶࡸࡷࠬဠ")), str(bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"࠭࡭ࡦࡵࡶࡥ࡬࡫ࠧအ"))))
+        bstack111l1ll111_opy_ = bstack11l1111_opy_ (u"ࠢ࡬ࡹࡱࡥࡲ࡫࠺ࠡ࡞ࠥࡿ࠵ࢃ࡜ࠣࠢࡿࠤࡸࡺࡡࡵࡷࡶ࠾ࠥࡢࠢࡼ࠳ࢀࡠࠧࠨဢ").format(kwname, bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠨࡵࡷࡥࡹࡻࡳࠨဣ")))
+        bstack111l1lllll_opy_ = error_message if bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠩࡰࡩࡸࡹࡡࡨࡧࠪဤ")) else bstack111l1ll111_opy_
+        bstack111l1ll1l1_opy_ = {
+            bstack11l1111_opy_ (u"ࠪࡸ࡮ࡳࡥࡴࡶࡤࡱࡵ࠭ဥ"): self.bstack111l11111l_opy_[-1].get(bstack11l1111_opy_ (u"ࠫࡸࡺࡡࡳࡶࡨࡨࡤࡧࡴࠨဦ"), bstack1lllllllll_opy_()),
+            bstack11l1111_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭ဧ"): bstack111l1lllll_opy_,
+            bstack11l1111_opy_ (u"࠭࡬ࡦࡸࡨࡰࠬဨ"): bstack11l1111_opy_ (u"ࠧࡆࡔࡕࡓࡗ࠭ဩ") if bstack111l1llll1_opy_.get(bstack11l1111_opy_ (u"ࠨࡵࡷࡥࡹࡻࡳࠨဪ")) == bstack11l1111_opy_ (u"ࠩࡉࡅࡎࡒࠧါ") else bstack11l1111_opy_ (u"ࠪࡍࡓࡌࡏࠨာ"),
+            **bstack1l1ll111ll_opy_.bstack111ll1l111_opy_()
         }
-        bstack11ll1ll1_opy_.bstack11l1l1lll1_opy_([bstack111l1l1lll_opy_])
-    def _1111ll11l1_opy_(self):
-        for bstack111l1l1l11_opy_ in reversed(self._1111lll1ll_opy_):
-            bstack111l11l111_opy_ = bstack111l1l1l11_opy_
-            data = self._1111lll1ll_opy_[bstack111l1l1l11_opy_][bstack1l1ll_opy_ (u"ࠩࡷࡩࡸࡺ࡟ࡥࡣࡷࡥࠬါ")]
-            if isinstance(data, bstack111ll1lll1_opy_):
-                if not bstack1l1ll_opy_ (u"ࠪࡉࡆࡉࡈࠨာ") in data.bstack1111ll1ll1_opy_():
-                    return bstack111l11l111_opy_
+        bstack111lll111_opy_.bstack11lll11l_opy_([bstack111l1ll1l1_opy_])
+    def _1111llll1l_opy_(self):
+        for bstack111l1l11ll_opy_ in reversed(self._111l1ll11l_opy_):
+            bstack1111ll111l_opy_ = bstack111l1l11ll_opy_
+            data = self._111l1ll11l_opy_[bstack111l1l11ll_opy_][bstack11l1111_opy_ (u"ࠫࡹ࡫ࡳࡵࡡࡧࡥࡹࡧࠧိ")]
+            if isinstance(data, bstack111ll1l1l1_opy_):
+                if not bstack11l1111_opy_ (u"ࠬࡋࡁࡄࡊࠪီ") in data.bstack1111lll1ll_opy_():
+                    return bstack1111ll111l_opy_
             else:
-                return bstack111l11l111_opy_
-    def _111l1ll1l1_opy_(self, messages):
+                return bstack1111ll111l_opy_
+    def _111l1l11l1_opy_(self, messages):
         try:
-            bstack111l1ll1ll_opy_ = BuiltIn().get_variable_value(bstack1l1ll_opy_ (u"ࠦࠩࢁࡌࡐࡉࠣࡐࡊ࡜ࡅࡍࡿࠥိ")) in (bstack111l1ll11l_opy_.DEBUG, bstack111l1ll11l_opy_.TRACE)
+            bstack111l11ll1l_opy_ = BuiltIn().get_variable_value(bstack11l1111_opy_ (u"ࠨࠤࡼࡎࡒࡋࠥࡒࡅࡗࡇࡏࢁࠧု")) in (bstack1111ll1lll_opy_.DEBUG, bstack1111ll1lll_opy_.TRACE)
             for message, bstack111l111l11_opy_ in zip_longest(messages, messages[1:]):
-                name = message.get(bstack1l1ll_opy_ (u"ࠬࡳࡥࡴࡵࡤ࡫ࡪ࠭ီ"))
-                level = message.get(bstack1l1ll_opy_ (u"࠭࡬ࡦࡸࡨࡰࠬု"))
-                if level == bstack111l1ll11l_opy_.FAIL:
-                    self._1111llll11_opy_ = name or self._1111llll11_opy_
-                    self._111l11ll1l_opy_ = bstack111l111l11_opy_.get(bstack1l1ll_opy_ (u"ࠢ࡮ࡧࡶࡷࡦ࡭ࡥࠣူ")) if bstack111l1ll1ll_opy_ and bstack111l111l11_opy_ else self._111l11ll1l_opy_
+                name = message.get(bstack11l1111_opy_ (u"ࠧ࡮ࡧࡶࡷࡦ࡭ࡥࠨူ"))
+                level = message.get(bstack11l1111_opy_ (u"ࠨ࡮ࡨࡺࡪࡲࠧေ"))
+                if level == bstack1111ll1lll_opy_.FAIL:
+                    self._111l1l111l_opy_ = name or self._111l1l111l_opy_
+                    self._1111ll1l11_opy_ = bstack111l111l11_opy_.get(bstack11l1111_opy_ (u"ࠤࡰࡩࡸࡹࡡࡨࡧࠥဲ")) if bstack111l11ll1l_opy_ and bstack111l111l11_opy_ else self._1111ll1l11_opy_
         except:
             pass
     @classmethod
-    def bstack111ll111ll_opy_(self, event: str, bstack111l1llll1_opy_: bstack111l111l1l_opy_, bstack1111lll111_opy_=False):
-        if event == bstack1l1ll_opy_ (u"ࠨࡖࡨࡷࡹࡘࡵ࡯ࡈ࡬ࡲ࡮ࡹࡨࡦࡦࠪေ"):
-            bstack111l1llll1_opy_.set(hooks=self.store[bstack1l1ll_opy_ (u"ࠩࡷࡩࡸࡺ࡟ࡩࡱࡲ࡯ࡸ࠭ဲ")])
-        if event == bstack1l1ll_opy_ (u"ࠪࡘࡪࡹࡴࡓࡷࡱࡗࡰ࡯ࡰࡱࡧࡧࠫဳ"):
-            event = bstack1l1ll_opy_ (u"࡙ࠫ࡫ࡳࡵࡔࡸࡲࡋ࡯࡮ࡪࡵ࡫ࡩࡩ࠭ဴ")
-        if bstack1111lll111_opy_:
-            bstack1111lllll1_opy_ = {
-                bstack1l1ll_opy_ (u"ࠬ࡫ࡶࡦࡰࡷࡣࡹࡿࡰࡦࠩဵ"): event,
-                bstack111l1llll1_opy_.bstack111l1lll11_opy_(): bstack111l1llll1_opy_.bstack111l1l111l_opy_(event)
+    def bstack111ll111ll_opy_(self, event: str, bstack1111ll11ll_opy_: bstack111l11lll1_opy_, bstack111l11ll11_opy_=False):
+        if event == bstack11l1111_opy_ (u"ࠪࡘࡪࡹࡴࡓࡷࡱࡊ࡮ࡴࡩࡴࡪࡨࡨࠬဳ"):
+            bstack1111ll11ll_opy_.set(hooks=self.store[bstack11l1111_opy_ (u"ࠫࡹ࡫ࡳࡵࡡ࡫ࡳࡴࡱࡳࠨဴ")])
+        if event == bstack11l1111_opy_ (u"࡚ࠬࡥࡴࡶࡕࡹࡳ࡙࡫ࡪࡲࡳࡩࡩ࠭ဵ"):
+            event = bstack11l1111_opy_ (u"࠭ࡔࡦࡵࡷࡖࡺࡴࡆࡪࡰ࡬ࡷ࡭࡫ࡤࠨံ")
+        if bstack111l11ll11_opy_:
+            bstack111l11l11l_opy_ = {
+                bstack11l1111_opy_ (u"ࠧࡦࡸࡨࡲࡹࡥࡴࡺࡲࡨ့ࠫ"): event,
+                bstack1111ll11ll_opy_.bstack1111llllll_opy_(): bstack1111ll11ll_opy_.bstack111l111l1l_opy_(event)
             }
             with self._lock:
-                self.bstack111l1111l1_opy_.append(bstack1111lllll1_opy_)
+                self.bstack111l1lll1l_opy_.append(bstack111l11l11l_opy_)
         else:
-            bstack11ll1ll1_opy_.bstack111ll111ll_opy_(event, bstack111l1llll1_opy_)
-class bstack111l11l1l1_opy_:
+            bstack111lll111_opy_.bstack111ll111ll_opy_(event, bstack1111ll11ll_opy_)
+class bstack111l1l1111_opy_:
     def __init__(self):
-        self._111l11l11l_opy_ = []
-    def bstack1111ll1l11_opy_(self):
-        self._111l11l11l_opy_.append([])
-    def bstack1111ll11ll_opy_(self):
-        return self._111l11l11l_opy_.pop() if self._111l11l11l_opy_ else list()
+        self._1111ll1l1l_opy_ = []
+    def bstack111l1l1lll_opy_(self):
+        self._1111ll1l1l_opy_.append([])
+    def bstack111l11llll_opy_(self):
+        return self._1111ll1l1l_opy_.pop() if self._1111ll1l1l_opy_ else list()
     def push(self, message):
-        self._111l11l11l_opy_[-1].append(message) if self._111l11l11l_opy_ else self._111l11l11l_opy_.append([message])
-class bstack111l1ll11l_opy_:
-    FAIL = bstack1l1ll_opy_ (u"࠭ࡆࡂࡋࡏࠫံ")
-    ERROR = bstack1l1ll_opy_ (u"ࠧࡆࡔࡕࡓࡗ့࠭")
-    WARNING = bstack1l1ll_opy_ (u"ࠨ࡙ࡄࡖࡓ࠭း")
-    bstack111l1l1l1l_opy_ = bstack1l1ll_opy_ (u"ࠩࡌࡒࡋࡕ္ࠧ")
-    DEBUG = bstack1l1ll_opy_ (u"ࠪࡈࡊࡈࡕࡈ်ࠩ")
-    TRACE = bstack1l1ll_opy_ (u"࡙ࠫࡘࡁࡄࡇࠪျ")
-    bstack1111llll1l_opy_ = [FAIL, ERROR]
-def bstack111l111lll_opy_(bstack1111ll111l_opy_):
-    if not bstack1111ll111l_opy_:
+        self._1111ll1l1l_opy_[-1].append(message) if self._1111ll1l1l_opy_ else self._1111ll1l1l_opy_.append([message])
+class bstack1111ll1lll_opy_:
+    FAIL = bstack11l1111_opy_ (u"ࠨࡈࡄࡍࡑ࠭း")
+    ERROR = bstack11l1111_opy_ (u"ࠩࡈࡖࡗࡕࡒࠨ္")
+    WARNING = bstack11l1111_opy_ (u"࡛ࠪࡆࡘࡎࠨ်")
+    bstack111l111111_opy_ = bstack11l1111_opy_ (u"ࠫࡎࡔࡆࡐࠩျ")
+    DEBUG = bstack11l1111_opy_ (u"ࠬࡊࡅࡃࡗࡊࠫြ")
+    TRACE = bstack11l1111_opy_ (u"࠭ࡔࡓࡃࡆࡉࠬွ")
+    bstack111l1lll11_opy_ = [FAIL, ERROR]
+def bstack111l11l111_opy_(bstack111ll11111_opy_):
+    if not bstack111ll11111_opy_:
         return None
-    if bstack1111ll111l_opy_.get(bstack1l1ll_opy_ (u"ࠬࡺࡥࡴࡶࡢࡨࡦࡺࡡࠨြ"), None):
-        return getattr(bstack1111ll111l_opy_[bstack1l1ll_opy_ (u"࠭ࡴࡦࡵࡷࡣࡩࡧࡴࡢࠩွ")], bstack1l1ll_opy_ (u"ࠧࡶࡷ࡬ࡨࠬှ"), None)
-    return bstack1111ll111l_opy_.get(bstack1l1ll_opy_ (u"ࠨࡷࡸ࡭ࡩ࠭ဿ"), None)
-def bstack111l1l11l1_opy_(hook_type, current_test_uuid):
-    if hook_type.lower() not in [bstack1l1ll_opy_ (u"ࠩࡶࡩࡹࡻࡰࠨ၀"), bstack1l1ll_opy_ (u"ࠪࡸࡪࡧࡲࡥࡱࡺࡲࠬ၁")]:
+    if bstack111ll11111_opy_.get(bstack11l1111_opy_ (u"ࠧࡵࡧࡶࡸࡤࡪࡡࡵࡣࠪှ"), None):
+        return getattr(bstack111ll11111_opy_[bstack11l1111_opy_ (u"ࠨࡶࡨࡷࡹࡥࡤࡢࡶࡤࠫဿ")], bstack11l1111_opy_ (u"ࠩࡸࡹ࡮ࡪࠧ၀"), None)
+    return bstack111ll11111_opy_.get(bstack11l1111_opy_ (u"ࠪࡹࡺ࡯ࡤࠨ၁"), None)
+def bstack111l11l1ll_opy_(hook_type, current_test_uuid):
+    if hook_type.lower() not in [bstack11l1111_opy_ (u"ࠫࡸ࡫ࡴࡶࡲࠪ၂"), bstack11l1111_opy_ (u"ࠬࡺࡥࡢࡴࡧࡳࡼࡴࠧ၃")]:
         return
-    if hook_type.lower() == bstack1l1ll_opy_ (u"ࠫࡸ࡫ࡴࡶࡲࠪ၂"):
+    if hook_type.lower() == bstack11l1111_opy_ (u"࠭ࡳࡦࡶࡸࡴࠬ၄"):
         if current_test_uuid is None:
-            return bstack1l1ll_opy_ (u"ࠬࡈࡅࡇࡑࡕࡉࡤࡇࡌࡍࠩ၃")
+            return bstack11l1111_opy_ (u"ࠧࡃࡇࡉࡓࡗࡋ࡟ࡂࡎࡏࠫ၅")
         else:
-            return bstack1l1ll_opy_ (u"࠭ࡂࡆࡈࡒࡖࡊࡥࡅࡂࡅࡋࠫ၄")
-    elif hook_type.lower() == bstack1l1ll_opy_ (u"ࠧࡵࡧࡤࡶࡩࡵࡷ࡯ࠩ၅"):
+            return bstack11l1111_opy_ (u"ࠨࡄࡈࡊࡔࡘࡅࡠࡇࡄࡇࡍ࠭၆")
+    elif hook_type.lower() == bstack11l1111_opy_ (u"ࠩࡷࡩࡦࡸࡤࡰࡹࡱࠫ၇"):
         if current_test_uuid is None:
-            return bstack1l1ll_opy_ (u"ࠨࡃࡉࡘࡊࡘ࡟ࡂࡎࡏࠫ၆")
+            return bstack11l1111_opy_ (u"ࠪࡅࡋ࡚ࡅࡓࡡࡄࡐࡑ࠭၈")
         else:
-            return bstack1l1ll_opy_ (u"ࠩࡄࡊ࡙ࡋࡒࡠࡇࡄࡇࡍ࠭၇")
+            return bstack11l1111_opy_ (u"ࠫࡆࡌࡔࡆࡔࡢࡉࡆࡉࡈࠨ၉")

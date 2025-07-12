@@ -1,3 +1,5 @@
+from rich.panel import Panel
+
 from tecton.cli import printer
 from tecton_proto.metadataservice import metadata_service__client_pb2 as metadata_service_pb2
 
@@ -17,9 +19,14 @@ class PlanRenderingClient:
         """Print the tecton plan output to the console."""
         printer.safe_print(self.response.successful_plan_output.string_output)
 
+    def render_plan_to_string(self) -> str:
+        """Return the tecton plan output as a string."""
+        return self.response.successful_plan_output.string_output
+
     def print_empty_plan(self):
         """Print the no changes (empty plan) message to the console."""
-        printer.safe_print("🎉 The remote and local state are the same, nothing to do!")
+        empty_plan_message = "🎉 The remote and local state are the same, nothing to do!"
+        printer.rich_print(Panel(empty_plan_message, title="Plan", padding=1, expand=False, border_style="yellow"))
 
     def print_apply_warnings(self):
         """If tecton apply is run, print relevant plan-level warnings to console."""

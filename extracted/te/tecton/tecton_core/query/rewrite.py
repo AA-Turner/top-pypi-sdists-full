@@ -13,7 +13,9 @@ from tecton_core import conf
 from tecton_core import time_utils
 from tecton_core.compute_mode import ComputeMode
 from tecton_core.errors import TectonValidationError
+from tecton_core.pipeline.pipeline_common import get_start_end_from_feature_time_limits
 from tecton_core.pipeline.pipeline_common import get_time_window_from_data_source_node
+from tecton_core.query.builder import _should_account_for_batch_publish_timestamp
 from tecton_core.query.node_interface import NodeRef
 from tecton_core.query.node_interface import QueryNode
 from tecton_core.query.node_utils import get_first_input_node_of_class
@@ -307,17 +309,21 @@ class SpineTimePushdown(Rewrite):
                     node.mock_context,
                 )
 
+                skew_config = None
                 for n in node.inputs:
                     data_source_scan_node_ref = get_first_input_node_of_class(n, DataSourceScanNode, as_node_ref=True)
                     if data_source_scan_node_ref is None:
                         continue
                     data_source_scan_node = data_source_scan_node_ref.node
                     if data_source_scan_node is not None:
+                        skew_config = data_source_scan_node.skew_config
+
                         # this method will convert aligned_feature_time_limits to raw data time limits by accounting for FilteredSource offsets etc.
                         data_time_filter = get_time_window_from_data_source_node(
                             feature_time_limits,
                             node.feature_definition_wrapper.batch_materialization_schedule,
                             data_source_scan_node.ds_node,
+                            data_source_scan_node.skew_config,
                         )
                         if data_time_filter is not None:
                             data_source_scan_node_ref.node = attrs.evolve(
@@ -326,19 +332,49 @@ class SpineTimePushdown(Rewrite):
                                 end_time=data_time_filter.end,
                             )
 
+                timestamp_field = (
+                    node.feature_definition_wrapper.materialization_job_partition_timestamp
+                    if _should_account_for_batch_publish_timestamp(
+                        fdw=node.feature_definition_wrapper, skew_config=skew_config
+                    )
+                    else node.feature_definition_wrapper.timestamp_key
+                )
                 tree.node = FeatureTimeFilterNode(
-                    node.dialect,
-                    node.compute_mode,
-                    ConvertTimestampToUTCNode.for_feature_definition(
+                    dialect=node.dialect,
+                    compute_mode=node.compute_mode,
+                    input_node=ConvertTimestampToUTCNode.for_feature_definition(
                         node.dialect, node.compute_mode, node.feature_definition_wrapper, node.as_ref()
                     ),
-                    feature_time_limits,
-                    node.feature_definition_wrapper.time_range_policy,
-                    node.feature_definition_wrapper.timestamp_key,
-                    node.feature_definition_wrapper.timestamp_key,
+                    feature_data_time_limits=feature_time_limits,
+                    policy=node.feature_definition_wrapper.time_range_policy,
+                    start_timestamp_field=timestamp_field,
+                    end_timestamp_field=timestamp_field,
                 )
             elif isinstance(node, OfflineStoreScanNode):
                 tree.node = attrs.evolve(node, partition_time_filter=feature_time_limits)
+                if node.skew_config is not None:
+                    timestamp_field = (
+                        node.feature_definition_wrapper.materialization_job_partition_timestamp
+                        if _should_account_for_batch_publish_timestamp(
+                            fdw=node.feature_definition_wrapper, skew_config=node.skew_config
+                        )
+                        else node.feature_definition_wrapper.timestamp_key
+                    )
+                    ftl_start, ftl_end = get_start_end_from_feature_time_limits(feature_time_limits, node.skew_config)
+                    tree.node = FeatureTimeFilterNode(
+                        dialect=node.dialect,
+                        compute_mode=node.compute_mode,
+                        input_node=ConvertTimestampToUTCNode.for_feature_definition(
+                            node.dialect, node.compute_mode, node.feature_definition_wrapper, node.as_ref()
+                        ),
+                        feature_data_time_limits=pendulum.Period(
+                            start=ftl_start,
+                            end=ftl_end,
+                        ),
+                        policy=node.feature_definition_wrapper.time_range_policy,
+                        start_timestamp_field=timestamp_field,
+                        end_timestamp_field=timestamp_field,
+                    )
 
 
 # Mutates the input

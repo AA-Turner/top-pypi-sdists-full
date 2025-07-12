@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: orb-billing
-Version: 4.4.1
+Version: 4.4.2
 Summary: The official Python library for the orb API
 Project-URL: Homepage, https://github.com/orbcorp/orb-python
 Project-URL: Repository, https://github.com/orbcorp/orb-python
@@ -30,12 +30,13 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Orb Python API library
 
-[![PyPI version](https://github.com/orbcorp/orb-python/tree/main/<https://img.shields.io/pypi/v/orb-billing.svg?label=pypi%20(stable)>)](https://pypi.org/project/orb-billing/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/orb-billing.svg?label=pypi%20(stable))](https://pypi.org/project/orb-billing/)
 
 The Orb Python library provides convenient access to the Orb REST API from any Python 3.8+
 application. The library includes type definitions for all request params and response fields,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyundai_kia_connect_api
-Version: 3.42.4
+Version: 3.42.11
 Summary: Python Boilerplate contains all the boilerplate you need to create a Python package.
 Home-page: https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api
 Author: Fuat Akgun
@@ -37,7 +37,7 @@ Dynamic: summary
 Code Maintainers Wanted
 =======================
 
-I no longer have a Kia or Hyundai so don't maintain this like I used to.  Others who are interested in jumping in are welcome to join the project!   Even just pull requests are appreciated!
+I no longer have a Kia or Hyundai so don't maintain this like I used to.  Others who are interested in jumping in are welcome to join the project! Even just pull requests are appreciated!
 
 Introduction
 ============
@@ -157,7 +157,6 @@ Example of getting trip info of the current month and day (vm is VehicleManager 
                 if vehicle.day_trip_info is not None:
                     for trip in reversed(vehicle.day_trip_info.trip_list):  # show oldest first
                         print(f"{day.yyyymmdd},{trip.hhmmss},{trip.drive_time},{trip.idle_time},{trip.distance},{trip.avg_speed},{trip.max_speed}")
-
 
 CLI Usage
 =========

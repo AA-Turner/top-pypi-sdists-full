@@ -8,6 +8,7 @@ class DuckDBTreeRewriter:
         nodes.PartialAggNode: duckdb_nodes.PartialAggDuckDBNode,
         nodes.AsofJoinFullAggNode: duckdb_nodes.AsofJoinFullAggNodeDuckDBNode,
         nodes.AsofJoinNode: duckdb_nodes.AsofJoinDuckDBNode,
+        nodes.OnlinePartialAggNodeV2: duckdb_nodes.OnlinePartialAggNodeV2DuckDBNode,
     }
 
     def rewrite(

@@ -15,9 +15,17 @@ const burstSuccessRate = new Rate('burst_success_rate');
 
 // URL of your LangGraph server
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:9123';
+// LangSmith API key only needed with a custom server endpoint
+const LANGSMITH_API_KEY = __ENV.LANGSMITH_API_KEY;
+
+// Params for the runner
 const BURST_SIZE = parseInt(__ENV.BURST_SIZE || '100');
-const MODE = __ENV.MODE || 'single';
+
+// Params for the agent
+const DATA_SIZE = parseInt(__ENV.DATA_SIZE || '1000');
+const DELAY = parseInt(__ENV.DELAY || '0');
 const EXPAND = parseInt(__ENV.EXPAND || '50');
+const MODE = __ENV.MODE || 'single';
 
 // Burst testing configuration
 export let options = {
@@ -48,11 +56,19 @@ export default function() {
 
     // Prepare the request payload
     const headers = { 'Content-Type': 'application/json' };
+    if (LANGSMITH_API_KEY) {
+      headers['x-api-key'] = LANGSMITH_API_KEY;
+    }
 
     // Create a payload with the LangGraph agent configuration
     const payload = JSON.stringify({
       assistant_id: "benchmark",
-      input: {mode: MODE, expand: EXPAND},
+      input: {
+        data_size: DATA_SIZE,
+        delay: DELAY,
+        expand: EXPAND,
+        mode: MODE,
+      },
       config: {
         recursion_limit: EXPAND + 2,
       }

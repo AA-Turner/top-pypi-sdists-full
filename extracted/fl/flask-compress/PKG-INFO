@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Flask-Compress
-Version: 1.17
+Version: 1.18
 Summary: Compress responses in your Flask app with gzip, deflate, brotli or zstandard.
 Home-page: https://github.com/colour-science/flask-compress
 Author: Thomas Mansencal
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
@@ -26,8 +27,19 @@ License-File: LICENSE.txt
 Requires-Dist: flask
 Requires-Dist: brotli; platform_python_implementation != "PyPy"
 Requires-Dist: brotlicffi; platform_python_implementation == "PyPy"
-Requires-Dist: zstandard; platform_python_implementation != "PyPy"
-Requires-Dist: zstandard[cffi]; platform_python_implementation == "PyPy"
+Requires-Dist: pyzstd; python_version < "3.14"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Flask-Compress
 
@@ -123,7 +135,7 @@ def view():
 ### Cache example
 
 Flask-Compress can be integrated with caching mechanisms to serve compressed responses directly from the cache. This can significantly reduce server load and response times.
-Here is an example of how to configure Flask-Compress with caching using Flask-Caching.
+Here is an example of how to configure Flask-Compress with caching using [Flask-Caching](https://pypi.org/project/Flask-Caching/).
 The example demonstrates how to create a simple cache instance with a 1-hour timeout, and use it to cache compressed responses for incoming requests.
 
 ```python
@@ -152,6 +164,8 @@ compress.init_app(app)
 compress.cache = cache
 compress.cache_key = get_cache_key
 ```
+
+If you do not want to pull an external dependency, you can use a simple in-memory cache using `compress.cache = flask_compress.DictCache()`.
 
 ## Options
 

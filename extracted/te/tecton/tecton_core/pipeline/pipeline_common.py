@@ -6,6 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Set
+from typing import Tuple
 from typing import Union
 
 import pandas
@@ -13,11 +14,13 @@ import pandas
 import tecton_core.tecton_pendulum as pendulum
 from tecton_core import errors
 from tecton_core import time_utils
+from tecton_core.filter_utils import UNBOUNDED_FUTURE_TIMESTAMP
 from tecton_core.filter_utils import FilterDateTime
 from tecton_core.filter_utils import TectonTimeConstant
 from tecton_core.id_helper import IdHelper
+from tecton_core.skew_config import SkewConfig
 from tecton_proto.args.pipeline__client_pb2 import ConstantNode
-from tecton_proto.args.pipeline__client_pb2 import DataSourceNode
+from tecton_proto.args.pipeline__client_pb2 import DataSourceNode as DataSourceNodeProto
 from tecton_proto.args.pipeline__client_pb2 import Input as InputProto
 from tecton_proto.args.pipeline__client_pb2 import Pipeline
 from tecton_proto.args.pipeline__client_pb2 import PipelineNode
@@ -49,12 +52,6 @@ def _make_mode_to_type() -> Dict[str, Any]:
             ConnectDataFrame = DataFrame
 
         lookup["pyspark"] = (DataFrame, ConnectDataFrame)
-    except ImportError:
-        pass
-    try:
-        import snowflake.snowpark
-
-        lookup["snowpark"] = snowflake.snowpark.DataFrame
     except ImportError:
         pass
     return lookup
@@ -114,10 +111,41 @@ def check_transformation_type(
         raise TypeError(msg)
 
 
+def get_start_end_from_feature_time_limits(
+    feature_time_limits: pendulum.Period, skew_config: Optional[SkewConfig]
+) -> Tuple[Optional[pendulum.datetime], Optional[pendulum.datetime]]:
+    ftl_start = feature_time_limits.start if feature_time_limits is not None else None
+    ftl_end = feature_time_limits.end if feature_time_limits is not None else None
+
+    if skew_config is None:
+        return ftl_start, ftl_end
+
+    simulate_offline_store_materialized_until = (
+        pendulum.instance(skew_config.simulate_offline_store_materialized_until)
+        if skew_config.simulate_offline_store_materialized_until is not None
+        else None
+    )
+
+    if (
+        simulate_offline_store_materialized_until is not None
+        and ftl_start is not None
+        and simulate_offline_store_materialized_until < ftl_start
+    ):
+        msg = f"Invalid simulate_offline_store_materialized_until: {simulate_offline_store_materialized_until} is before the feature_time_limits start time: {ftl_start}."
+        raise ValueError(msg)
+
+    if skew_config.simulate_events_published_on_time:
+        # if simulate_offline_store_materialized_until is None, it will be unbounded
+        return ftl_start, simulate_offline_store_materialized_until or UNBOUNDED_FUTURE_TIMESTAMP
+    else:
+        return ftl_start, simulate_offline_store_materialized_until or ftl_end
+
+
 def get_time_window_from_data_source_node(
     feature_time_limits: Optional[pendulum.Period],
     schedule_interval: Optional[pendulum.Duration],
-    data_source_node: DataSourceNode,
+    data_source_node: DataSourceNodeProto,
+    skew_config: Optional[SkewConfig],
 ) -> Optional[pendulum.Period]:
     using_select_range = data_source_node.HasField("filter_start_time") or data_source_node.HasField("filter_end_time")
     if using_select_range:
@@ -135,8 +163,7 @@ def get_time_window_from_data_source_node(
         if start_date_time.is_unbounded_limit() and end_date_time.is_unbounded_limit():
             return None
 
-        ftl_start = feature_time_limits.start if feature_time_limits is not None else None
-        ftl_end = feature_time_limits.end if feature_time_limits is not None else None
+        ftl_start, ftl_end = get_start_end_from_feature_time_limits(feature_time_limits, skew_config)
 
         new_start = start_date_time.to_datetime(exact_reference_start=ftl_start, exact_reference_end=ftl_end)
         new_end = end_date_time.to_datetime(exact_reference_start=ftl_start, exact_reference_end=ftl_end)

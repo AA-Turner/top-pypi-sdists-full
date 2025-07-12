@@ -9,6 +9,14 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
 
 
+class CfdCache(QuantConnect.Securities.SecurityCache):
+    """CFD specific caching support"""
+
+
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class CfdExchange(QuantConnect.Securities.SecurityExchange):
     """CFD exchange class - information and helper tools for CFD exchange properties"""
 
@@ -25,10 +33,6 @@ class CfdExchange(QuantConnect.Securities.SecurityExchange):
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
-
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class Cfd(QuantConnect.Securities.Security):
@@ -84,10 +88,6 @@ class Cfd(QuantConnect.Securities.Security):
         :param quote_currency: The output quote currency
         """
         ...
-
-
-class CfdCache(QuantConnect.Securities.SecurityCache):
-    """CFD specific caching support"""
 
 
 class CfdHolding(QuantConnect.Securities.SecurityHolding):

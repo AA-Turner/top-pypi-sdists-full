@@ -14,7 +14,6 @@ import pandas
 from pyspark.sql import types as PysparkTypes
 
 from tecton_core import specs
-from tecton_core.compute_mode import ComputeMode
 from tecton_core.errors import TectonInternalError
 from tecton_core.pipeline.rtfv_pipeline import RealtimeFeaturePipeline
 from tecton_core.query.errors import UserCodeError
@@ -131,7 +130,7 @@ class SparkRealtimeFeaturePipeline(RealtimeFeaturePipeline):
             # by the feature names.
             for feature in self.udf_arg_idx_map:
                 if not feature.startswith(
-                    f"{udf_internal(ComputeMode.SPARK)}_{pipeline_node.feature_view_node.input_name}_{self._fv_id}"
+                    f"{udf_internal()}_{pipeline_node.feature_view_node.input_name}_{self._fv_id}"
                 ):
                     continue
                 idx = self.udf_arg_idx_map[feature]
@@ -149,7 +148,7 @@ class SparkRealtimeFeaturePipeline(RealtimeFeaturePipeline):
             # by the feature names.
             for feature in self.udf_arg_idx_map:
                 if not feature.startswith(
-                    f"{udf_internal(ComputeMode.SPARK)}_{pipeline_node.feature_view_node.input_name}_{self._fv_id}"
+                    f"{udf_internal()}_{pipeline_node.feature_view_node.input_name}_{self._fv_id}"
                 ):
                     continue
                 idx = self.udf_arg_idx_map[feature]
@@ -271,9 +270,9 @@ class SparkRealtimeFeaturePipeline(RealtimeFeaturePipeline):
         self._udf_args: List[pandas.Series] = args
 
         output_df = self._node_to_value(self._pipeline.root)
-        assert isinstance(
-            output_df, pandas.DataFrame
-        ), f"Transformer returns {str(output_df)}, but must return a pandas.DataFrame instead."
+        assert isinstance(output_df, pandas.DataFrame), (
+            f"Transformer returns {str(output_df)}, but must return a pandas.DataFrame instead."
+        )
 
         for field in self._output_schema:
             assert field.name in output_df.columns, (

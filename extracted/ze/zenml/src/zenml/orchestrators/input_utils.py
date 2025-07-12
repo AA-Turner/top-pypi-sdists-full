@@ -13,15 +13,13 @@
 #  permissions and limitations under the License.
 """Utilities for inputs."""
 
-import json
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
-from uuid import UUID
+from typing import TYPE_CHECKING, Dict, Optional
 
 from zenml.client import Client
 from zenml.config.step_configurations import Step
 from zenml.enums import StepRunInputArtifactType
 from zenml.exceptions import InputResolutionError
-from zenml.utils import pagination_utils, string_utils
+from zenml.utils import string_utils
 
 if TYPE_CHECKING:
     from zenml.models import PipelineRunResponse, StepRunResponse
@@ -32,7 +30,7 @@ def resolve_step_inputs(
     step: "Step",
     pipeline_run: "PipelineRunResponse",
     step_runs: Optional[Dict[str, "StepRunResponse"]] = None,
-) -> Tuple[Dict[str, "StepRunInputResponse"], List[UUID]]:
+) -> Dict[str, "StepRunInputResponse"]:
     """Resolves inputs for the current step.
 
     Args:
@@ -49,56 +47,26 @@ def resolve_step_inputs(
             resolved in runtime due to missing object.
 
     Returns:
-        The IDs of the input artifact versions and the IDs of parent steps of
-            the current step.
+        The input artifact versions.
     """
     from zenml.models import ArtifactVersionResponse
     from zenml.models.v2.core.step_run import StepRunInputResponse
+    from zenml.orchestrators.step_run_utils import fetch_step_runs_by_names
 
     step_runs = step_runs or {}
 
-    steps_to_fetch = set(step.spec.upstream_steps)
-    steps_to_fetch.update(
+    steps_to_fetch = set(
         input_.step_name for input_ in step.spec.inputs.values()
     )
     # Remove all the step runs that we've already fetched.
     steps_to_fetch.difference_update(step_runs.keys())
 
     if steps_to_fetch:
-        # The list of steps might be too big to fit in the default max URL
-        # length of 8KB supported by most servers. So we need to split it into
-        # smaller chunks.
-        steps_list = list(steps_to_fetch)
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        # stay under 6KB for good measure.
-        max_chunk_length = 6000
-
-        for step_name in steps_list:
-            current_chunk.append(step_name)
-            current_length += len(step_name) + 5  # 5 is for the JSON encoding
-
-            if current_length > max_chunk_length:
-                chunks.append(current_chunk)
-                current_chunk = []
-                current_length = 0
-
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        for chunk in chunks:
-            step_runs.update(
-                {
-                    run_step.name: run_step
-                    for run_step in pagination_utils.depaginate(
-                        Client().list_run_steps,
-                        pipeline_run_id=pipeline_run.id,
-                        project=pipeline_run.project_id,
-                        name="oneof:" + json.dumps(chunk),
-                    )
-                }
+        step_runs.update(
+            fetch_step_runs_by_names(
+                step_run_names=list(steps_to_fetch), pipeline_run=pipeline_run
             )
+        )
 
     input_artifacts: Dict[str, StepRunInputResponse] = {}
     for name, input_ in step.spec.inputs.items():
@@ -205,9 +173,4 @@ def resolve_step_inputs(
         else:
             step.config.parameters[name] = value_
 
-    parent_step_ids = [
-        step_runs[upstream_step].id
-        for upstream_step in step.spec.upstream_steps
-    ]
-
-    return input_artifacts, parent_step_ids
+    return input_artifacts

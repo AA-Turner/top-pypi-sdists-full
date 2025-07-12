@@ -8,6 +8,7 @@ from click import shell_completion
 from tecton._internals import metadata_service
 from tecton.cli import printer
 from tecton_core import conf
+from tecton_proto.common import compute_identity__client_pb2 as compute_identity_pb2
 from tecton_proto.data import workspace__client_pb2 as workspace_pb2
 from tecton_proto.metadataservice import metadata_service__client_pb2 as metadata_service_pb2
 
@@ -26,7 +27,7 @@ def create_workspace(workspace_name: str, materializable: bool):
 def update_workspace(
     workspace_name: str,
     capabilities: workspace_pb2.WorkspaceCapabilities,
-    compute_identities: List[workspace_pb2.ComputeIdentity],
+    compute_identities: List[compute_identity_pb2.ComputeIdentity],
 ):
     request = metadata_service_pb2.UpdateWorkspaceRequest(
         workspace=workspace_name, capabilities=capabilities, compute_identities=compute_identities
@@ -36,8 +37,8 @@ def update_workspace(
 
 def delete_workspace(workspace_name: str):
     request = metadata_service_pb2.DeleteWorkspaceRequest(workspace=workspace_name)
-    metadata_service.instance().DeleteWorkspace(request)
-    printer.safe_print(f'Deleted workspace "{workspace_name}".')
+    response = metadata_service.instance().DeleteWorkspace(request)
+    printer.safe_print(f'Deleted workspace "{workspace_name}, {response.message}".')
 
 
 def get_workspace(workspace_name: str):

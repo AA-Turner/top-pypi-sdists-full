@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -375,6 +375,8 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         information on the owners of a deployment
     prediction_environment : dict
         information on the prediction environment of a deployment
+    creator : dict
+        information about the creator of a deployment
     """
 
     _path = "deployments/"
@@ -433,6 +435,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             t.Key("governance", optional=True): t.Dict().allow_extra("*"),
             t.Key("owners", optional=True): t.Dict().allow_extra("*"),
             t.Key("prediction_environment", optional=True): t.Dict().allow_extra("*"),
+            t.Key("creator", optional=True): t.Dict().allow_extra("*"),
         }
     ).allow_extra("*")
 
@@ -455,6 +458,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         governance: Optional[Dict[str, Any]] = None,
         owners: Optional[Dict[str, Any]] = None,
         prediction_environment: Optional[Dict[str, Any]] = None,
+        creator: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.id = id
         self.label = label
@@ -473,11 +477,21 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         self.governance = governance
         self.owners = owners
         self.prediction_environment = prediction_environment
+        self.creator = creator
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.label or self.id})"
 
     @classmethod
+    @deprecated(
+        deprecated_since_version="v3.8",
+        will_remove_version="v3.12",
+        message=(
+            "This method is deprecated, please register the model with "
+            "'RegisteredModelVersion.create_for_leaderboard_item', "
+            "then use 'Deployment.create_from_registered_model_version' instead."
+        ),
+    )
     def create_from_learning_model(
         cls: Type[TDeployment],
         model_id: str,

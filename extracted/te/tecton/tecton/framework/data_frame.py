@@ -75,9 +75,6 @@ from tecton_spark.query import translate
 
 logger = logging.getLogger(__name__)
 
-# We have to use Any here because snowflake.snowpark.DataFrame is not a direct dependency of the SDK.
-snowpark_dataframe = Any
-
 _internal_index_column = "_tecton_internal_index_col"
 
 
@@ -176,6 +173,7 @@ class TectonDataFrame(DataframeWrapper):
 
     _spark_df: Optional[PySparkDataFrame] = None
     _pandas_df: Optional[pandas.DataFrame] = None
+    _arrow_table: Optional[pyarrow.Table] = None
     # This should not be accessed directly. use _querytree instead.
     _querytree_do_not_use: Optional[NodeRef] = attrs.field(default=None, repr=lambda x: "TectonQueryTree")
 
@@ -208,6 +206,7 @@ class TectonDataFrame(DataframeWrapper):
         environment: Optional[str] = None,
         extra_config: Optional[Dict[str, Any]] = None,
         compute_mode: Optional[Union[ComputeMode, str]] = None,
+        job_retry_times: Optional[int] = None,
     ) -> "materialization_api.DatasetJob":
         """
         Start a job to materialize a dataset from this TectonDataFrame.
@@ -222,6 +221,8 @@ class TectonDataFrame(DataframeWrapper):
                 the tecton runtime) which may be used to tune remote execution heuristics
                 (ie, what number to use when chunking the events dataframe)
         :param compute_mode: Override compute mode used in `get_features` call
+        :param job_retry_times: Max retry times of the job. If not specified, use the default Remote
+                Dateset Job retry times.
         :return: DatasetJob object
         """
         if conf.DUCKDB_ENABLE_SPINE_SPLIT_FF.enabled():
@@ -269,6 +270,7 @@ class TectonDataFrame(DataframeWrapper):
             tecton_materialization_runtime=tecton_materialization_runtime,
             environment=environment,
             extra_config=extra_config,
+            job_retry_times=job_retry_times,
         )
 
     @sdk_public_method
@@ -404,6 +406,9 @@ class TectonDataFrame(DataframeWrapper):
         if self._spark_df is not None:
             return convert_pandas_timestamps_from_spark(self._spark_to_pandas_wrapped(self._spark_df))
 
+        if self._arrow_table is not None:
+            return self._arrow_table.to_pandas()
+
         if self._querytree is not None:
             if self._compute_mode == ComputeMode.ATHENA:
                 output = self._to_pandas_from_athena(pretty_sql)
@@ -445,12 +450,36 @@ class TectonDataFrame(DataframeWrapper):
                 if df[col].dt.tz is None:
                     df[col] = df[col].dt.tz_localize("UTC", ambiguous="NaT", nonexistent="NaT")
                 # Convert to UTC
-                df[col] = df[col].dt.tz_convert("UTC").astype("datetime64[us, UTC]")
+                df[col] = df[col].dt.tz_convert("UTC").astype("datetime64[ns, UTC]")
 
         return df
 
-    def _to_arrow_reader(self) -> pyarrow.RecordBatchFileReader:
-        return translate.arrow_convert(self._querytree).to_arrow_reader()
+    def _to_arrow_reader(self) -> "pyarrow.RecordBatchReader":
+        if self._arrow_table is not None:
+            return self._arrow_table.to_reader()
+        elif self._pandas_df is not None:
+            return pyarrow.Table.from_pandas(self._pandas_df).to_reader()
+        elif self._querytree:
+            from tecton_core.query import query_tree_executor
+
+            assert self._compute_mode == ComputeMode.RIFT, "Query tree must be in Rift mode to convert to Arrow"
+            fv_dialect = get_pipeline_dialect(self._querytree)
+            if fv_dialect is not None and fv_dialect not in (
+                Dialect.SNOWFLAKE,
+                Dialect.PANDAS,
+                Dialect.BIGQUERY,
+            ):
+                msg = f"Rift does not support feature views of {fv_dialect.value} dialect."
+                raise ValueError(msg)
+
+            executor = query_tree_executor.QueryTreeExecutor(
+                secret_resolver=LocalDevSecretResolver(),
+                offline_store_options_providers=INTERACTIVE_OFFLINE_STORE_OPTIONS_PROVIDERS,
+                model_artifact_provider=MDSModelArtifactProvider(),
+            )
+            return executor.exec_qt(self._querytree).result_table
+        else:
+            raise NotImplementedError
 
     def _to_pandas_from_duckdb(self, pretty_sql: bool) -> pandas.DataFrame:
         from tecton_core.query import query_tree_executor
@@ -564,7 +593,7 @@ class TectonDataFrame(DataframeWrapper):
     @classmethod
     def _create(
         cls,
-        df: Union[PySparkDataFrame, pandas.DataFrame, NodeRef],
+        df: Union[PySparkDataFrame, pandas.DataFrame, NodeRef, pyarrow.Table],
         rewrite: bool = True,
     ):
         """Creates a Tecton DataFrame from a Spark or Pandas DataFrame."""
@@ -574,8 +603,10 @@ class TectonDataFrame(DataframeWrapper):
             return cls(spark_df=df, pandas_df=None)
         elif isinstance(df, NodeRef):
             return cls(spark_df=None, pandas_df=None, querytree_do_not_use=df, need_rewrite_tree=rewrite)
+        elif isinstance(df, pyarrow.Table):
+            return cls(spark_df=None, pandas_df=None, arrow_table=df)
 
-        msg = f"DataFrame must be of type pandas.DataFrame or pyspark.sql.Dataframe, not {type(df)}"
+        msg = f"Input must be of type pandas.DataFrame, pyspark.sql.Dataframe, pyarrow.Table, NodeRef, not {type(df)}"
         raise TypeError(msg)
 
     @classmethod
@@ -725,6 +756,8 @@ class TectonDataFrame(DataframeWrapper):
                 return self.to_spark()
             else:
                 return self.to_pandas()
+        elif self._arrow_table is not None:
+            return self._arrow_table.to_pandas()
         else:
             raise NotImplementedError
 
@@ -756,6 +789,8 @@ class TectonDataFrame(DataframeWrapper):
 
             arrow_schema = to_arrow_schema(self._spark_df.schema)
             return arrow_schema_to_tecton_schema(arrow_schema, ignore_unsupported_types=True)
+        elif self._arrow_table is not None:
+            return arrow_schema_to_tecton_schema(self._arrow_table.schema)
 
         # TODO(oleksii): implement schema conversion for other sources
         return Schema.from_dict({})

@@ -952,7 +952,7 @@ class Glm4vTextModel(Glm4vPreTrainedModel):
 @auto_docstring
 class Glm4vModel(Glm4vPreTrainedModel):
     base_model_prefix = ""
-    _checkpoint_conversion_mapping = None
+    _checkpoint_conversion_mapping = {}
     config_class = Glm4vConfig
     _no_split_modules = ["Glm4vTextDecoderLayer", "Glm4vVisionBlock"]
 
@@ -1053,7 +1053,8 @@ class Glm4vModel(Glm4vPreTrainedModel):
                 dtype=input_ids.dtype,
                 device=input_ids.device,
             )
-
+            image_index, video_index = 0, 0
+            video_group_index = 0
             attention_mask = attention_mask.to(total_input_ids.device)
             for i, input_ids in enumerate(total_input_ids):
                 input_ids = input_ids[attention_mask[i] == 1]
@@ -1083,8 +1084,6 @@ class Glm4vModel(Glm4vPreTrainedModel):
 
                 llm_pos_ids_list = []
                 video_frame_num = 1
-                image_index, video_index = 0, 0
-
                 for modality_type, start_idx, end_idx in input_type_group:
                     st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
 
@@ -1125,12 +1124,14 @@ class Glm4vModel(Glm4vPreTrainedModel):
                             t_index = torch.tensor(t_idx).view(-1, 1).expand(-1, llm_grid_h * llm_grid_w).flatten()
 
                             h_index = torch.arange(llm_grid_h).view(1, -1, 1).expand(1, -1, llm_grid_w).flatten()
-
                             w_index = torch.arange(llm_grid_w).view(1, 1, -1).expand(1, llm_grid_h, -1).flatten()
-
                             llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + st_idx)
 
-                        video_index += 1
+                        video_group_index += 1
+
+                        if video_group_index >= video_grid_thw[video_index][0]:
+                            video_index += 1
+                            video_group_index = 0
 
                         video_frame_num += 1
 
@@ -1179,7 +1180,13 @@ class Glm4vModel(Glm4vPreTrainedModel):
                 The temporal, height and width of feature shape of each video in LLM.
         """
         pixel_values_videos = pixel_values_videos.type(self.visual.dtype)
-        video_embeds = self.visual(pixel_values_videos, grid_thw=video_grid_thw)
+        # reshape video_grid_thw -> [b, 3] -> [1, h, w] * frames
+        temp_frames_hw = []
+        for t, h, w in video_grid_thw:
+            repeated_row = torch.tensor([1, h.item(), w.item()]).unsqueeze(0).repeat(t, 1)
+            temp_frames_hw.append(repeated_row)
+        flattened_video_grid_thw = torch.cat(temp_frames_hw, dim=0)
+        video_embeds = self.visual(pixel_values_videos, grid_thw=flattened_video_grid_thw)
         split_sizes = (video_grid_thw.prod(-1) // self.visual.spatial_merge_size**2).tolist()
         video_embeds = torch.split(video_embeds, split_sizes)
         return video_embeds
@@ -1379,7 +1386,7 @@ class Glm4vCausalLMOutputWithPast(ModelOutput):
 
 
 class Glm4vForConditionalGeneration(Glm4vPreTrainedModel, GenerationMixin):
-    _checkpoint_conversion_mapping = None
+    _checkpoint_conversion_mapping = {}
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):

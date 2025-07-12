@@ -20,7 +20,7 @@ import pcpp  # type: ignore[import-untyped]
 import requests
 
 # This script calls a lot of programs.
-# ruff: noqa: S603, S607, T201
+# ruff: noqa: S603, S607
 
 # Ignore f-strings in logging, these will eventually be replaced with t-strings.
 # ruff: noqa: G004
@@ -134,12 +134,19 @@ def check_sdl_version() -> None:
         sdl_version_str = subprocess.check_output(
             ["pkg-config", "sdl3", "--modversion"], universal_newlines=True
         ).strip()
-    except FileNotFoundError as exc:
-        msg = (
-            "libsdl3-dev or equivalent must be installed on your system and must be at least version"
-            f" {needed_version}.\nsdl3-config must be on PATH."
-        )
-        raise RuntimeError(msg) from exc
+    except FileNotFoundError:
+        try:
+            sdl_version_str = subprocess.check_output(["sdl3-config", "--version"], universal_newlines=True).strip()
+        except FileNotFoundError as exc:
+            msg = (
+                f"libsdl3-dev or equivalent must be installed on your system and must be at least version {needed_version}."
+                "\nsdl3-config must be on PATH."
+            )
+            raise RuntimeError(msg) from exc
+    except subprocess.CalledProcessError as exc:
+        if sys.version_info >= (3, 11):
+            exc.add_note(f"Note: {os.environ.get('PKG_CONFIG_PATH')=}")
+        raise
     logger.info(f"Found SDL {sdl_version_str}.")
     sdl_version = tuple(int(s) for s in sdl_version_str.split("."))
     if sdl_version < SDL_MIN_VERSION:
@@ -205,6 +212,12 @@ class SDLParser(pcpp.Preprocessor):  # type: ignore[misc]
                 buffer.write(f"#define {name} ...\n")
             return buffer.getvalue()
 
+    def on_file_open(self, is_system_include: bool, includepath: str) -> Any:  # noqa: ANN401, FBT001
+        """Ignore includes other than SDL headers."""
+        if not Path(includepath).parent.name == "SDL3":
+            raise FileNotFoundError
+        return super().on_file_open(is_system_include, includepath)
+
     def on_include_not_found(self, is_malformed: bool, is_system_include: bool, curdir: str, includepath: str) -> None:  # noqa: ARG002, FBT001
         """Remove bad includes such as stddef.h and stdarg.h."""
         assert "SDL3/SDL" not in includepath, (includepath, curdir)
@@ -249,23 +262,35 @@ class SDLParser(pcpp.Preprocessor):  # type: ignore[misc]
         return super().on_directive_handle(directive, tokens, if_passthru, preceding_tokens)
 
 
+def get_emscripten_include_dir() -> Path:
+    """Find and return the Emscripten include dir."""
+    # None of the EMSDK environment variables exist! Search PATH for Emscripten as a workaround
+    for path in os.environ["PATH"].split(os.pathsep)[::-1]:
+        if Path(path).match("upstream/emscripten"):
+            return Path(path, "system/include").resolve(strict=True)
+    raise AssertionError(os.environ["PATH"])
+
+
 check_sdl_version()
 
-if sys.platform == "win32" or sys.platform == "darwin":
+SDL_PARSE_PATH: Path | None = None
+SDL_BUNDLE_PATH: Path | None = None
+if (sys.platform == "win32" or sys.platform == "darwin") and "PYODIDE" not in os.environ:
     SDL_PARSE_PATH = unpack_sdl(SDL_PARSE_VERSION)
     SDL_BUNDLE_PATH = unpack_sdl(SDL_BUNDLE_VERSION)
 
 SDL_INCLUDE: Path
-if sys.platform == "win32":
+if sys.platform == "win32" and SDL_PARSE_PATH is not None:
     SDL_INCLUDE = SDL_PARSE_PATH / "include"
-elif sys.platform == "darwin":
+elif sys.platform == "darwin" and SDL_PARSE_PATH is not None:
     SDL_INCLUDE = SDL_PARSE_PATH / "Versions/A/Headers"
 else:  # Unix
     matches = re.findall(
         r"-I(\S+)",
         subprocess.check_output(["pkg-config", "sdl3", "--cflags"], universal_newlines=True),
     )
-    assert matches
+    if not matches:
+        matches = ["/usr/include"]
 
     for match in matches:
         if Path(match, "SDL3/SDL.h").is_file():
@@ -275,6 +300,7 @@ else:  # Unix
         raise AssertionError(matches)
     assert SDL_INCLUDE
 
+logger.info(f"{SDL_INCLUDE=}")
 
 EXTRA_CDEF = """
 #define SDLK_SCANCODE_MASK ...
@@ -350,14 +376,15 @@ extra_link_args: list[str] = []
 libraries: list[str] = []
 library_dirs: list[str] = []
 
-
-if sys.platform == "darwin":
+if "PYODIDE" in os.environ:
+    pass
+elif sys.platform == "darwin":
     extra_link_args += ["-framework", "SDL3"]
 else:
     libraries += ["SDL3"]
 
 # Bundle the Windows SDL DLL.
-if sys.platform == "win32":
+if sys.platform == "win32" and SDL_BUNDLE_PATH is not None:
     include_dirs.append(str(SDL_INCLUDE))
     ARCH_MAPPING = {"32bit": "x86", "64bit": "x64"}
     SDL_LIB_DIR = Path(SDL_BUNDLE_PATH, "lib/", ARCH_MAPPING[BIT_SIZE])
@@ -371,14 +398,16 @@ if sys.platform == "win32":
 
 # Link to the SDL framework on MacOS.
 # Delocate will bundle the binaries in a later step.
-if sys.platform == "darwin":
+if sys.platform == "darwin" and SDL_BUNDLE_PATH is not None:
     include_dirs.append(SDL_INCLUDE)
     extra_link_args += [f"-F{SDL_BUNDLE_PATH}/.."]
     extra_link_args += ["-rpath", f"{SDL_BUNDLE_PATH}/.."]
     extra_link_args += ["-rpath", "/usr/local/opt/llvm/lib/"]
 
-# Use sdl-config to link to SDL on Linux.
-if sys.platform not in ["win32", "darwin"]:
+if "PYODIDE" in os.environ:
+    extra_compile_args += ["--use-port=sdl3"]
+elif sys.platform not in ["win32", "darwin"]:
+    # Use sdl-config to link to SDL on Linux.
     extra_compile_args += (
         subprocess.check_output(["pkg-config", "sdl3", "--cflags"], universal_newlines=True).strip().split()
     )

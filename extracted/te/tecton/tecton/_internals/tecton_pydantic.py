@@ -57,7 +57,7 @@ class _BannedAnnotationsMeta(type(pydantic_v1.BaseModel)):
             if _annotation_has_banned_union(field_type):
                 msg = f"Invalid StrictModel annotation: {field_name}. Unions with Pydantic coercible types are not allowed."
                 raise TypeError(msg)
-        return super().__new__(cls, name, bases, namespace, **kwargs)
+        return super().__new__(cls, name, bases, namespace, **kwargs)  # pylint: disable=no-value-for-parameter,too-many-function-args
 
 
 class StrictModel(pydantic_v1.BaseModel, metaclass=_BannedAnnotationsMeta):
@@ -70,9 +70,9 @@ class StrictModel(pydantic_v1.BaseModel, metaclass=_BannedAnnotationsMeta):
     @pydantic_v1.validator("*", pre=True)
     def _validate_strict_type(cls, v, field):
         """Check value types before pydantic type coercion. Fails if types do not match according to Typeguard."""
-        assert (
-            field.annotation is not None
-        ), f"Missing annotation for {field.name} for {cls}. StrictModel requires that all fields have annotations."
+        assert field.annotation is not None, (
+            f"Missing annotation for {field.name} for {cls}. StrictModel requires that all fields have annotations."
+        )
 
         if _field_has_model_type(field):
             # Skip strict type checking on nested models. These nested models will run their own type checking.

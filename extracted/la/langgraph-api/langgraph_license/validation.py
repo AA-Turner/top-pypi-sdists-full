@@ -1,5 +1,9 @@
 """Noop license middleware"""
 
+import structlog
+
+logger = structlog.stdlib.get_logger(__name__)
+
 
 async def get_license_status() -> bool:
     """Always return true"""
@@ -17,6 +21,7 @@ async def check_license_periodically(_: int = 60):
     If the license ever fails, you could decide to log,
     raise an exception, or attempt a graceful shutdown.
     """
-    raise NotImplementedError(
+    await logger.ainfo(
         "This is a noop license middleware. No license check is performed."
     )
+    return None

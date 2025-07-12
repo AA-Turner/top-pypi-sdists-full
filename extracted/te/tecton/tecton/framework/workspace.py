@@ -493,3 +493,12 @@ def get_data_source(
     :param workspace: The name of the workspace.
     """
     return get_workspace(workspace).get_data_source(name)
+
+
+@sdk_public_method
+def get_dataset(name: str, workspace: str) -> Dataset:
+    """Returns a Dataset that has been saved to this workspace.
+    :param name: The name of the Dataset to retrieve.
+    :param workspace: The name of the workspace.
+    """
+    return get_workspace(workspace).get_dataset(name)

@@ -121,7 +121,7 @@ class ConsPair(metaclass=ConsType):
 
     def __eq__(self, other):
         return (
-            type(self) == type(other)
+            type(self) is type(other)
             and self.car == other.car
             and self.cdr == other.cdr
         )

@@ -11,7 +11,6 @@ class ComputeMode(str, Enum):
     """Represents the compute mode for training data generation queries."""
 
     SPARK = "spark"
-    SNOWFLAKE = "snowflake"
     ATHENA = "athena"
     RIFT = "rift"
 
@@ -28,7 +27,6 @@ class ComputeMode(str, Enum):
 
 _COMPUTE_MODE_TO_DIALECT = {
     ComputeMode.SPARK: Dialect.SPARK,
-    ComputeMode.SNOWFLAKE: Dialect.SNOWFLAKE,
     ComputeMode.ATHENA: Dialect.ATHENA,
     ComputeMode.RIFT: Dialect.DUCKDB,
 }
@@ -63,7 +61,6 @@ class BatchComputeMode(Enum):
     """Represents that compute mode for batch jobs associated with a FeatureView."""
 
     SPARK = compute_mode_pb2.BatchComputeMode.BATCH_COMPUTE_MODE_SPARK
-    SNOWFLAKE = compute_mode_pb2.BatchComputeMode.BATCH_COMPUTE_MODE_SNOWFLAKE
     RIFT = compute_mode_pb2.BatchComputeMode.BATCH_COMPUTE_MODE_RIFT
 
     @property
@@ -73,7 +70,6 @@ class BatchComputeMode(Enum):
 
 _STR_TO_BATCH = {
     "spark": BatchComputeMode.SPARK,
-    "snowflake": BatchComputeMode.SNOWFLAKE,
     "rift": BatchComputeMode.RIFT,
 }
 

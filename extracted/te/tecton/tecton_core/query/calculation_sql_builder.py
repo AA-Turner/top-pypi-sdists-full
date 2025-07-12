@@ -2,6 +2,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Dict
 from typing import Set
+from typing import Tuple
 
 import attrs
 import pypika.functions as fn
@@ -11,7 +12,6 @@ from pypika.enums import Equality
 from pypika.terms import ArithmeticExpression
 from pypika.terms import BasicCriterion
 from pypika.terms import Case
-from pypika.terms import Field
 from pypika.terms import LiteralValue
 from pypika.terms import Not
 from pypika.terms import Term
@@ -69,6 +69,68 @@ LOGICAL_OPERATOR_OPERATIONS: Set[calculation_node_pb2.OperationType.ValueType] =
     calculation_node_pb2.OperationType.OR,
 }
 
+DUCKDB_TRY_STRPTIME_DIRECTIVES_TO_SPARK = {
+    "a": None,  # Weekday as abbreviated name (Sun, Mon, etc)
+    "A": None,  # Weekday as full name (Sunday, Monday, etc)
+    "b": None,  # Month as abbreviated name (Jan, Feb, etc)
+    "B": None,  # Month as full name (January, February, etc)
+    "c": None,  # ISO date and time representation (1992-03-02 10:30:20)
+    # %d in duckdb does not restrict the day to zero padded; it accepts 1 to 2 digit valid day numbers with single digit days allowed to have 1 digit zero-padding.
+    # We use d in spark, which behaves the same except it allows for unlimited zero-padding.
+    "d": "d",  # Day of month as zero-padded decimal number (01-31)
+    # %f in duckdb interprets the digits as count of microseconds. e.g 12.1 is not twelve and one tenth of a second, but twelve seconds and one microsecond.
+    # To match this behavior as close as possible, we use SSSSSS in spark, where each S is a fractional second digit (while spark can parse upto nanosecond specified strings, it only supports microsecond precision).
+    # Note: in contrast to duckdb's microsecond interpretation, spark interprets 12.1 as twelve and one tenth of a second.
+    # Note: to achieve the most consistent cross-platform interpretation of fractional seconds, the timestamp strings should have a digit for every position in the franctional second portion (i.e. use trailing zeroes).
+    "f": "SSSSSS",  # Microsecond as decimal number, zero-padded (000000-999999)
+    "g": None,  # Millisecond as a decimal number, zero-padded (000-999), note: not supported in python
+    "G": None,  # ISO 8601 year with century representing the year that contains the greater part of the ISO week (see %V) (0001, 0002, ..., 9999)
+    # %H in duckdb does not restrict the hour to zero padded; it accepts 1 to 2 digit valid hour numbers with single digit hours allowed to have 1 digit zero-padding.
+    # We use H in spark, which behaves the same except it allows for unlimited zero-padding.
+    "H": "H",  # Hour (24-hour clock) as zero-padded decimal number (00-23)
+    "I": None,  # Hour (12-hour clock) as zero-padded decimal number (01-12)
+    "j": None,  # Day of year as zero-padded decimal number (001-366)
+    # %m in duckdb does not restrict the month to zero padded; it accepts any valid month number 1-12 with single digit months allowed to have 1 digit zero-padding.
+    # We use M in spark, which behaves the same except it allows for unlimited zero-padding.
+    "m": "M",  # Month as zero-padded decimal number (01-12)
+    # %M in duckdb does not restrict the minute to zero padded; it accepts any valid minute number 0-59 with single digit minutes allowed to have 1 digit zero-padding.
+    # We use m in spark, which behaves the same except it allows for unlimited zero-padding.
+    "M": "m",  # Minute as zero-padded decimal number (00-59)
+    "n": None,  # nanosecond as a decimal number, zero-padded (000000000-999999999), note: not supported in python
+    "p": None,  # Locale's AM/PM indicator (AM/PM)
+    # %S in duckdb does not restrict the second to zero padded; it accepts any valid second number 0-59 with single digit seconds allowed to have 1 digit zero-padding.
+    # We use s in spark, which behaves the same except it allows for unlimited zero-padding.
+    "S": "s",  # Second as zero-padded decimal number (00-59)
+    "u": None,  # ISO 8601 weekday as decimal number (1-7, 1=Monday)
+    "U": None,  # Week number of year, week 01 starts on first Sunday of year (00-53, Sunday first day), not ISO 8601 compliant
+    "V": None,  # ISO 8601 week number, monday is first day of week and week 01 is the week containing January 4 (01-53), not compatible with %Y (use %G instead)
+    "w": None,  # Weekday as decimal number (0-6, 0=Sunday)
+    "W": None,  # Week number of year, week 01 starts on the first Monday of the year (00-53), not ISO 8601 compliant
+    "x": None,  # ISO date representation (1992-03-02)
+    "X": None,  # ISO time representation (10:30:20)
+    "y": None,  # Year without century, zero-padded (00-99)
+    # %Y in duckdb does not restrict the year to zero padded; it accepts 1 to 4 digits.
+    # We use y in spark, which is flexible to number of digits, though it does accept 1 to more than 4.
+    "Y": "y",  # Year with century as a decimal number (2013, 2019, etc)
+    # %z in duckdb allows for 2 or 4 digit offsets, with or without a colon, with a leading + or - e.g. +00, -00, +0000, -0000, +00:00, -00:00. The supported value range is from -9999 to 9999.
+    # Spark has no such flexible equivalent, so we combine multiple formats specifiers using [] options: [XXX][X]
+    # XXX accepts 4 or 6 digit offsets with colon separators, with a leading + or -. This does mean that spark will accept seconds offsets, which duckdb does not.
+    # X accepts 2 or 4 digit offsets without colon separators, with a leading + or -. It also accepts 'Z' to indicate UTC, which duckdb does not.
+    # [XXX][X] means we check for matches to the XXX pattern (colon separated), and if that fails, we check for matches to the X pattern (no colon). Combined, this is a superset of the supported duckdb behaviors.
+    # Note: [XXX][X] means the timezone offset is optional in spark, which is different than duckdb where the timezone offset is required.
+    # TODO: Explore using a regex check to first confirm the offset is present.
+    # Note: Spark only supports certain value ranges for each offset component of hours, minutes, and seconds, with a max total offset of +-18 hours.
+    #   Hours: [-18, +18]
+    #   Minutes: [-59, +59]
+    #   Seconds: [-59, +59]
+    "z": "[XXX][X]",  # UTC offset in form +HHMM or -HHMM
+    "Z": None,  # Time zone name
+    "%": None,  # Literal % character
+}
+
+ISO_8601_FORMAT_DUCKDB = "%Y-%m-%dT%H:%M:%S.%f%z"
+ISO_8601_FORMAT_SPARK = "y-M-d'T'H:m:s.SSSSSS[XXX][X]"
+
 
 def _get_cast_string_for_numeric_dtype(dtype: data_types.DataType) -> str:
     if isinstance(dtype, data_types.Int32Type):
@@ -100,9 +162,23 @@ class CalculationSqlBuilder(ABC):
             return self._build_arithmetic_query(operation_node)
         elif operation_node.operation in LOGICAL_OPERATOR_OPERATIONS:
             return self._build_logical_operator_query(operation_node)
+        elif operation_node.operation == calculation_node_pb2.OperationType.TRY_STRPTIME:
+            return self._build_try_strptime_query(operation_node)
         else:
             msg = f"In Calculation sql generation, calculation operation {OperationType.Name(operation_node.operation)} not supported."
             raise TectonInternalError(msg)
+
+    def _extract_try_strptime_operands(self, operation_node: OperationNodeSpec) -> Tuple[Term, Term]:
+        if len(operation_node.operands) != 2:
+            msg = "Calculation function try_strptime must have exactly 2 operands."
+            raise TectonInternalError(msg)
+        timestamp_string_sql = self.ast_node_to_query_term(operation_node.operands[0])
+        format_string = self.ast_node_to_query_term(operation_node.operands[1])
+        return timestamp_string_sql, format_string
+
+    @abstractmethod
+    def _build_try_strptime_query(self, operation_node: OperationNodeSpec) -> Term:
+        raise NotImplementedError
 
     def _build_logical_operator_query(self, operation_node: OperationNodeSpec) -> Term:
         if operation_node.operation == calculation_node_pb2.OperationType.NOT:
@@ -128,9 +204,7 @@ class CalculationSqlBuilder(ABC):
             msg = "Calculation AND operator must have exactly 2 operands."
             raise TectonInternalError(msg)
 
-        operand_sqls = [
-            fn.Cast(self.ast_node_to_query_term(operand), "BOOLEAN").get_sql() for operand in operation_node.operands
-        ]
+        operand_sqls = [fn.Cast(self.ast_node_to_query_term(operand), "BOOLEAN") for operand in operation_node.operands]
         return LiteralValue(f"{operand_sqls[0]} AND {operand_sqls[1]}")
 
     def _build_logical_or_query(self, operation_node: OperationNodeSpec) -> Term:
@@ -138,9 +212,7 @@ class CalculationSqlBuilder(ABC):
             msg = "Calculation OR operator must have exactly 2 operands."
             raise TectonInternalError(msg)
 
-        operand_sqls = [
-            fn.Cast(self.ast_node_to_query_term(operand), "BOOLEAN").get_sql() for operand in operation_node.operands
-        ]
+        operand_sqls = [fn.Cast(self.ast_node_to_query_term(operand), "BOOLEAN") for operand in operation_node.operands]
         return LiteralValue(f"{operand_sqls[0]} OR {operand_sqls[1]}")
 
     def _build_coalesce_query(self, operation_node: OperationNodeSpec) -> Term:
@@ -208,7 +280,10 @@ class CalculationSqlBuilder(ABC):
         internal_column_name = self.column_reference_resolver.get_internal_column_name(
             column_reference_node.value, self.fdw
         )
-        return Field(internal_column_name)
+        # originally we used pypika.Field here since column references are fields in the table being queried
+        # however, Field adds quotes to the column name when get_sql() is called under some conditions
+        # we switched to LiteralValue because it will always reliably return the bare string, which works for our use case
+        return LiteralValue(internal_column_name)
 
     def _case_statement_node_to_query_term(self, case_statement_node: CaseStatementNodeSpec) -> Term:
         base_expression = Case()
@@ -237,6 +312,10 @@ class CalculationSqlBuilder(ABC):
 
 @attrs.define
 class DuckDBCalculationSqlBuilder(CalculationSqlBuilder):
+    def _build_try_strptime_query(self, operation_node: OperationNodeSpec) -> Term:
+        timestamp_string_sql, format_string = self._extract_try_strptime_operands(operation_node)
+        return LiteralValue(f"TRY_STRPTIME({timestamp_string_sql}, {format_string})")
+
     def _build_date_diff_query(self, operation_node: OperationNodeSpec) -> Term:
         if len(operation_node.operands) != 3:
             msg = "Calculation function date diff must have exactly 3 operands."
@@ -251,6 +330,22 @@ class DuckDBCalculationSqlBuilder(CalculationSqlBuilder):
 
 @attrs.define
 class SparkCalculationSqlBuilder(CalculationSqlBuilder):
+    @staticmethod
+    def _translate_format_string_to_spark(format_string: str) -> str:
+        # TODO: escape text in the format
+        # TODO: replace duckdb directives e.g. %z with spark equivalents
+        # for now, just return the appropriate spark format string
+        if format_string == ISO_8601_FORMAT_DUCKDB:
+            return ISO_8601_FORMAT_SPARK
+        else:
+            msg = f"Format string {format_string} not supported."
+            raise TectonInternalError(msg)
+
+    def _build_try_strptime_query(self, operation_node: OperationNodeSpec) -> Term:
+        timestamp_string_sql, format_string = self._extract_try_strptime_operands(operation_node)
+        translated_format_string = SparkCalculationSqlBuilder._translate_format_string_to_spark(format_string)
+        return LiteralValue(f'to_timestamp({timestamp_string_sql}, "{translated_format_string}")')
+
     @staticmethod
     def _get_spark_date_diff_sql_str(
         date_part: calculation_node_pb2.DatePart.ValueType, start_date_sql: str, end_date_sql: str
@@ -291,8 +386,8 @@ class SparkCalculationSqlBuilder(CalculationSqlBuilder):
             raise TectonInternalError(msg)
 
         [date_part_operand, start_date_operand, end_date_operand] = operation_node.operands
-        start_date_sql = self.ast_node_to_query_term(start_date_operand).get_sql()
-        end_date_sql = self.ast_node_to_query_term(end_date_operand).get_sql()
+        start_date_sql = self.ast_node_to_query_term(start_date_operand)
+        end_date_sql = self.ast_node_to_query_term(end_date_operand)
 
         date_value = date_part_operand.value
         spark_sql = SparkCalculationSqlBuilder._get_spark_date_diff_sql_str(date_value, start_date_sql, end_date_sql)

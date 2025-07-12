@@ -13,14 +13,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-tecton_proto/snowflake/location__client.proto\x12\x16tecton_proto.snowflake\"`\n\rStageLocation\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n\nstage_name\x18\x02 \x01(\tR\tstageName\x12\x12\n\x04path\x18\x03 \x01(\tR\x04pathB\x18\n\x14\x63om.tecton.snowflakeP\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n-tecton_proto/snowflake/location__client.proto\x12\x16tecton_proto.snowflake\"`\n\rStageLocation\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1d\n\nstage_name\x18\x02 \x01(\tR\tstageName\x12\x12\n\x04path\x18\x03 \x01(\tR\x04pathBE\n\x14\x63om.tecton.snowflakeP\x01Z+github.com/tecton-ai/tecton_proto/snowflake')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.snowflake.location__client_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  DESCRIPTOR._serialized_options = b'\n\024com.tecton.snowflakeP\001'
+  DESCRIPTOR._serialized_options = b'\n\024com.tecton.snowflakeP\001Z+github.com/tecton-ai/tecton_proto/snowflake'
   _STAGELOCATION._serialized_start=73
   _STAGELOCATION._serialized_end=169
 # @@protoc_insertion_point(module_scope)

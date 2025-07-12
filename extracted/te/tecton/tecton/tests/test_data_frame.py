@@ -15,7 +15,7 @@ class TestDataFrame(unittest.TestCase):
         expected_data = {"timestamp": ["2024-01-01 00:00:00", "2024-01-01 12:00:00"]}
         expected = pandas.DataFrame(expected_data).astype(
             {
-                "timestamp": "datetime64[us]",
+                "timestamp": "datetime64[ns]",
             }
         )
         expected["timestamp"] = expected["timestamp"].dt.tz_localize("UTC")
@@ -35,7 +35,7 @@ class TestDataFrame(unittest.TestCase):
         expected_data = {"timestamp": ["2024-01-01 00:00:00", "2024-01-01 12:00:00"]}
         expected = pandas.DataFrame(expected_data).astype(
             {
-                "timestamp": "datetime64[us]",
+                "timestamp": "datetime64[ns]",
             }
         )
         expected["timestamp"] = expected["timestamp"].dt.tz_localize("UTC")
@@ -57,8 +57,8 @@ class TestDataFrame(unittest.TestCase):
         }
         expected = pandas.DataFrame(expected_data).astype(
             {
-                "timestamp_naive": "datetime64[us]",
-                "timestamp_aware": "datetime64[us]",
+                "timestamp_naive": "datetime64[ns]",
+                "timestamp_aware": "datetime64[ns]",
             }
         )
         expected["timestamp_naive"] = expected["timestamp_naive"].dt.tz_localize("UTC")
@@ -79,7 +79,7 @@ class TestDataFrame(unittest.TestCase):
         expected_data = {"timestamp": ["2024-01-01 00:00:00", "2024-01-01 12:00:00"]}
         expected = pandas.DataFrame(expected_data).astype(
             {
-                "timestamp": "datetime64[us]",
+                "timestamp": "datetime64[ns]",
             }
         )
         expected["timestamp"] = expected["timestamp"].dt.tz_localize("UTC")
@@ -104,7 +104,7 @@ class TestDataFrame(unittest.TestCase):
         }
         expected = pandas.DataFrame(expected_data).astype(
             {
-                "timestamp": "datetime64[us]",
+                "timestamp": "datetime64[ns]",
                 "value": "float64",
             }
         )

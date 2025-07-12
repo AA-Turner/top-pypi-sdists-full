@@ -547,36 +547,40 @@ class VehicleMonitoringUseCase(BaseProcessor):
 
         return events
 
-
-    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: VehicleMonitoringConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str,
+                                 config: VehicleMonitoringConfig, frame_number: Optional[int] = None,
+                                 stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
         total_vehicles = counting_summary.get("total_count", 0)
-        total_vehicle_counts = counting_summary.get("total_vehicle_counts", 0)
+        total_vehicle_counts = counting_summary.get("total_vehicle_counts", {})
         cumulative_total = sum(total_vehicle_counts.values()) if total_vehicle_counts else 0
         # Add detailed track_ids_info (like people_counting)
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-                # Get formatted timestamps
+
+        # Get formatted timestamps
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
         # Build human-readable summary string in new format
         human_text_lines = []
-        
+
         # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if total_vehicles > 0:
             human_text_lines.append(f"    - Vehicles Detected: {total_vehicles}")
         else:
             human_text_lines.append("    - No Vehicles detected")
-        
+
         human_text_lines.append("")  # Empty line for spacing
-        
+
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"    - Total Vehicles Detected: {cumulative_total}")
+        for cat, count in total_vehicle_counts.items():
+            human_text_lines.append(f"        • {cat.capitalize()}: {count}")
 
         human_text = "\n".join(human_text_lines)
 
@@ -595,8 +599,6 @@ class VehicleMonitoringUseCase(BaseProcessor):
         frame_tracking_stats.append(tracking_stat)
 
         return tracking_stats
-
-
 
     def _count_categories(self, detections: list, config: VehicleMonitoringConfig) -> dict:
         """

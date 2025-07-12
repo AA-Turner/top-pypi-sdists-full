@@ -19,14 +19,14 @@ from tecton_proto.validation import validator__client_pb2 as validator_pb2
 
 __all__ = [
     "FeatureServiceSpec",
-    "FeatureSetItemSpec",
     "FeatureServiceSpecArgsSupplement",
+    "FeatureViewSelectionSpec",
 ]
 
 
 @utils.frozen_strict
 class FeatureServiceSpec(tecton_object_spec.TectonObjectSpec):
-    feature_set_items: Tuple["FeatureSetItemSpec", ...]
+    feature_view_selection_specs: Tuple["FeatureViewSelectionSpec", ...]
     online_serving_enabled: bool
     enable_online_caching: bool
     prevent_destroy: bool
@@ -41,7 +41,9 @@ class FeatureServiceSpec(tecton_object_spec.TectonObjectSpec):
             metadata=tecton_object_spec.TectonObjectMetadataSpec.from_data_proto(
                 proto.feature_service_id, proto.fco_metadata
             ),
-            feature_set_items=tuple(FeatureSetItemSpec.from_data_proto(item) for item in proto.feature_set_items),
+            feature_view_selection_specs=tuple(
+                FeatureViewSelectionSpec.from_data_proto(item) for item in proto.feature_set_items
+            ),
             online_serving_enabled=proto.online_serving_enabled,
             validation_args=validator_pb2.FcoValidationArgs(feature_service=proto.validation_args),
             enable_online_caching=proto.enable_online_caching,
@@ -60,8 +62,8 @@ class FeatureServiceSpec(tecton_object_spec.TectonObjectSpec):
             metadata=tecton_object_spec.TectonObjectMetadataSpec.from_args_proto(
                 proto.feature_service_id, proto.info, proto.version
             ),
-            feature_set_items=tuple(
-                FeatureSetItemSpec.from_args_proto(fp, supplement) for fp in proto.feature_references
+            feature_view_selection_specs=tuple(
+                FeatureViewSelectionSpec.from_args_proto(fp, supplement) for fp in proto.feature_references
             ),
             online_serving_enabled=proto.online_serving_enabled,
             enable_online_caching=proto.enable_online_caching,
@@ -107,7 +109,28 @@ class ServerGroupReferenceSpec:
 
 
 @utils.frozen_strict
-class FeatureSetItemSpec:
+class FeatureViewSelectionSpec:
+    """A specification class that represents a set of features from a single feature view in a feature service.
+
+    This class is a Python wrapper around the FeatureSetItem proto message, providing a more descriptive
+    name and type-safe interface for working with feature view selections in feature services. It defines
+    which features from a feature view should be included in a feature service, along with how they should
+    be joined with the spine data.
+
+    Note: This class was formerly called FeatureSetItemSpec. The underlying proto message remains
+    FeatureSetItem for backward compatibility.
+
+    Attributes:
+        feature_view_id (str): The unique identifier of the feature view from which features are being selected.
+        namespace (str): An optional namespace to group features from this feature view. Used to avoid naming
+            conflicts when the same feature view is included multiple times in a feature service.
+        feature_columns (Tuple[str, ...]): The list of feature columns to include from the feature view.
+            If empty, all features from the feature view will be included.
+        join_key_mappings (Tuple[utils.JoinKeyMappingSpec, ...]): A tuple of mappings that define how the
+            feature view's join keys map to the spine's join keys. This allows for renaming and remapping
+            of join keys when joining the feature view with the spine data.
+    """
+
     feature_view_id: str
     namespace: str
     feature_columns: Tuple[str, ...]
@@ -116,7 +139,15 @@ class FeatureSetItemSpec:
 
     @classmethod
     @typechecked
-    def from_data_proto(cls, proto: feature_service__data_pb2.FeatureSetItem) -> "FeatureSetItemSpec":
+    def from_data_proto(cls, proto: feature_service__data_pb2.FeatureSetItem) -> "FeatureViewSelectionSpec":
+        """Creates a FeatureViewSelectionSpec from a FeatureSetItem protocol buffer.
+
+        Args:
+            proto: The FeatureSetItem protocol buffer containing the feature set configuration.
+
+        Returns:
+            A new FeatureViewSelectionSpec instance with the configuration from the proto.
+        """
         join_key_mappings = []
         for join_configuration_item in proto.join_configuration_items:
             join_key_mappings.append(
@@ -137,7 +168,19 @@ class FeatureSetItemSpec:
     @typechecked
     def from_args_proto(
         cls, proto: feature_service__args_pb2.FeatureReference, supplement: FeatureServiceSpecArgsSupplement
-    ) -> "FeatureSetItemSpec":
+    ) -> "FeatureViewSelectionSpec":
+        """Creates a FeatureViewSelectionSpec from a FeatureReference proto and supplementary data.
+
+        This method handles both the basic feature set configuration and any join key overrides specified
+        in the feature reference.
+
+        Args:
+            proto: The FeatureReference protocol buffer containing the feature set configuration.
+            supplement: Additional data needed to construct the spec, including feature view information.
+
+        Returns:
+            A new FeatureViewSelectionSpec instance with the configuration from the proto and supplement.
+        """
         feature_view_id = id_helper.IdHelper.to_string(proto.feature_view_id)
         fv_spec = supplement.ids_to_feature_views[feature_view_id]
 
@@ -177,4 +220,4 @@ class FeatureSetItemSpec:
 
 # Resolve forward type declarations.
 attrs.resolve_types(FeatureServiceSpec, locals(), globals())
-attrs.resolve_types(FeatureSetItemSpec, locals(), globals())
+attrs.resolve_types(FeatureViewSelectionSpec, locals(), globals())

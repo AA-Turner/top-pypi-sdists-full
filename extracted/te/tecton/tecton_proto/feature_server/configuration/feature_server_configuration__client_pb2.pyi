@@ -79,7 +79,7 @@ class CanaryConfig(_message.Message):
     def __init__(self, feature_server_canary_id: _Optional[str] = ..., feature_server_canary_pod_name: _Optional[str] = ..., feature_server_canary_follower_endpoint: _Optional[str] = ...) -> None: ...
 
 class Column(_message.Message):
-    __slots__ = ["abstract_syntax_tree_root", "batch_table_feature_view_index", "data_type", "description", "feature_service_space_name", "feature_view_index", "feature_view_space_name", "tags"]
+    __slots__ = ["abstract_syntax_tree_root", "batch_table_feature_view_index", "data_type", "description", "feature_service_space_name", "feature_view_index", "feature_view_space_name", "input_column_name", "tags"]
     class TagsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -94,6 +94,7 @@ class Column(_message.Message):
     FEATURE_SERVICE_SPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEW_INDEX_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEW_SPACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    INPUT_COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     abstract_syntax_tree_root: _calculation_node__client_pb2.AbstractSyntaxTreeNode
     batch_table_feature_view_index: int
@@ -102,8 +103,9 @@ class Column(_message.Message):
     feature_service_space_name: str
     feature_view_index: int
     feature_view_space_name: str
+    input_column_name: str
     tags: _containers.ScalarMap[str, str]
-    def __init__(self, data_type: _Optional[_Union[_data_type__client_pb2.DataType, _Mapping]] = ..., feature_view_space_name: _Optional[str] = ..., feature_service_space_name: _Optional[str] = ..., feature_view_index: _Optional[int] = ..., batch_table_feature_view_index: _Optional[int] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., abstract_syntax_tree_root: _Optional[_Union[_calculation_node__client_pb2.AbstractSyntaxTreeNode, _Mapping]] = ...) -> None: ...
+    def __init__(self, data_type: _Optional[_Union[_data_type__client_pb2.DataType, _Mapping]] = ..., feature_view_space_name: _Optional[str] = ..., feature_service_space_name: _Optional[str] = ..., feature_view_index: _Optional[int] = ..., batch_table_feature_view_index: _Optional[int] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., abstract_syntax_tree_root: _Optional[_Union[_calculation_node__client_pb2.AbstractSyntaxTreeNode, _Mapping]] = ..., input_column_name: _Optional[str] = ...) -> None: ...
 
 class CompactTransformation(_message.Message):
     __slots__ = ["transformation_id", "transformation_mode", "user_defined_function_id"]

@@ -1,7 +1,6 @@
 from tecton_proto.auditlog import metadata__client_pb2 as _metadata__client_pb2
 from tecton_proto.auth import service__client_pb2 as _service__client_pb2
 from tecton_proto.data import service_account__client_pb2 as _service_account__client_pb2
-from tecton_proto.metadataservice import metadata_service__client_pb2 as _metadata_service__client_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

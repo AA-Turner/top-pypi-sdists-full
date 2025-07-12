@@ -112,13 +112,25 @@ app start --port 8000
         self.assertEqual(commands, expected_commands)
         self.assertEqual(comments, expected_comments)
 
+    def test_load_recipe_accepts_dotted_name(self):
+        # File exists as arthexis_com.gwr but load with dot
+        (self.recipes_dir / 'arthexis_com.gwr').write_text('cmd run')
+        commands, _ = console.load_recipe('arthexis.com')
+        self.assertEqual(commands, [['cmd', 'run']])
+
+    def test_load_recipe_accepts_dotted_path(self):
+        (self.recipes_dir / 'foo').mkdir()
+        (self.recipes_dir / 'foo' / 'bar.gwr').write_text('cmd go')
+        commands, _ = console.load_recipe('foo.bar')
+        self.assertEqual(commands, [['cmd', 'go']])
+
 
 class TestLoadRecipeColonSyntax(unittest.TestCase):
     def test_load_recipe_with_colon_repetition(self):
         content = (
-            """web app setup-app:
-    --project one --home first
-    --project two
+            """web app setup:
+    - one --home first
+    - two
 web:
  - static collect
  - server start-app --host 1 --port 2
@@ -133,8 +145,8 @@ web:
             os.remove(temp_name)
 
         expected = [
-            ['web', 'app', 'setup-app', '--project', 'one', '--home', 'first'],
-            ['web', 'app', 'setup-app', '--project', 'two'],
+            ['web', 'app', 'setup', 'one', '--home', 'first'],
+            ['web', 'app', 'setup', 'two'],
             ['web', 'static', 'collect'],
             ['web', 'server', 'start-app', '--host', '1', '--port', '2'],
         ]
@@ -142,9 +154,9 @@ web:
 
     def test_load_recipe_colon_without_indentation(self):
         content = (
-            """web app setup-app:
---project one
---project two
+            """web app setup:
+- one
+- two
 web:
 - static collect
 - server start-app --host 1 --port 2
@@ -159,8 +171,8 @@ web:
             os.remove(temp_name)
 
         expected = [
-            ['web', 'app', 'setup-app', '--project', 'one'],
-            ['web', 'app', 'setup-app', '--project', 'two'],
+            ['web', 'app', 'setup', 'one'],
+            ['web', 'app', 'setup', 'two'],
             ['web', 'static', 'collect'],
             ['web', 'server', 'start-app', '--host', '1', '--port', '2'],
         ]

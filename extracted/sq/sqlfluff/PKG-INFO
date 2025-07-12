@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff
-Version: 3.4.1
+Version: 3.4.2
 Summary: The SQL Linter for Humans
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -32,7 +32,7 @@ Project-URL: Changes, https://github.com/sqlfluff/sqlfluff/blob/main/CHANGELOG.m
 Project-URL: Issue Tracker, https://github.com/sqlfluff/sqlfluff/issues
 Project-URL: Twitter, https://twitter.com/SQLFluff
 Project-URL: Chat, https://github.com/sqlfluff/sqlfluff#sqlfluff-on-slack
-Keywords: sqlfluff,sql,linter,formatter,athena,bigquery,clickhouse,databricks,db2,duckdb,exasol,greenplum,hive,impala,materialize,mariadb,mysql,postgres,redshift,snowflake,soql,sparksql,sqlite,starrocks,teradata,trino,tsql,vertica,dbt
+Keywords: sqlfluff,sql,linter,formatter,athena,bigquery,clickhouse,databricks,db2,doris,duckdb,exasol,flink,greenplum,hive,impala,materialize,mariadb,mysql,postgres,redshift,snowflake,soql,sparksql,sqlite,starrocks,teradata,trino,tsql,vertica,dbt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -118,6 +118,7 @@ currently supports the following SQL dialects (though perhaps not in full):
 - [Databricks](https://databricks.com/) (note: this extends the `sparksql` dialect with
   [Unity Catalog](https://docs.databricks.com/data-governance/unity-catalog/index.html) syntax).
 - [Db2](https://www.ibm.com/analytics/db2)
+- [Doris](https://doris.apache.org/)
 - [DuckDB](https://duckdb.org/)
 - [Exasol](https://www.exasol.com/)
 - [Greenplum](https://greenplum.org/)

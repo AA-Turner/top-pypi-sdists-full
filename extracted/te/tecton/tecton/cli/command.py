@@ -3,16 +3,17 @@ import functools
 import sys
 import typing as t
 from dataclasses import dataclass
+from enum import Enum
 from typing import Callable
 from typing import List
 from typing import Optional
 
-import click
+import rich_click as click
 from click import Command
 from click import Context
-from click import HelpFormatter
 from click import echo
 from click import style
+from rich_click import RichGroup
 
 import tecton_core.tecton_pendulum as pendulum
 from tecton import tecton_context
@@ -28,6 +29,13 @@ from tecton_core import conf
 analytics = AnalyticsLogger()
 
 
+class TectonCommandCategory(Enum):
+    WORKSPACE = "Workspace"
+    IDENTITY = "Identity & Access"
+    INFRA = "Infrastructure"
+    OTHER = "Other"
+
+
 class TectonCommand(click.Command):
     # used by integration tests
     skip_config_check = False
@@ -40,11 +48,11 @@ class TectonCommand(click.Command):
         callback,
         requires_auth=True,
         uses_workspace=False,
-        is_main_command=False,
+        command_category=TectonCommandCategory.OTHER,
         deprecation_warning="",
         **kwargs,
     ):
-        self.is_main_command = is_main_command
+        self.command_category = command_category
         self.deprecation_warning = deprecation_warning
 
         @functools.wraps(callback)
@@ -120,14 +128,37 @@ class TectonCommand(click.Command):
             return ctx.invoke(self.callback, **ctx.params)
 
 
-class TectonGroup(click.Group):
+class TectonGroup(RichGroup):
     """Routes group.command calls to use TectonCommand instead of the base Click command"""
 
-    def __init__(self, is_main_command=False, *args, **kwargs):
+    def __init__(self, command_category=TectonCommandCategory.OTHER, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.is_main_command = is_main_command
+        self.command_category = command_category
 
     command_class = TectonCommand
+
+    def _register_command_in_group(self, command_name: str, category_name: str) -> None:
+        """Register a command in the appropriate command group for rich CLI display.
+
+        Args:
+            command_name: The name of the command to register
+            category_name: The category name to group the command under
+        """
+        if "tecton" not in click.rich_click.COMMAND_GROUPS:
+            click.rich_click.COMMAND_GROUPS["tecton"] = [
+                {"name": category.value, "commands": []} for category in TectonCommandCategory
+            ]
+
+        category_exists = any(group["name"] == category_name for group in click.rich_click.COMMAND_GROUPS["tecton"])
+        if category_exists:
+            for group in click.rich_click.COMMAND_GROUPS["tecton"]:
+                if group["name"] == category_name:
+                    if command_name not in group["commands"]:
+                        group["commands"].append(command_name)
+
+    def add_command(self, cmd: Command, name: Optional[str] = None) -> None:
+        self._register_command_in_group(cmd.name, cmd.command_category.value)
+        super().add_command(cmd, name)
 
     def add_deprecated_command(self, cmd: Command, name: str, new_target: t.Optional[str] = None) -> None:
         deprecation_warning = f" The command `{self.name} {name}` is deprecated and will removed in a future version."
@@ -142,36 +173,6 @@ class TectonGroup(click.Group):
 
 
 TectonGroup.group_class = TectonGroup
-
-
-class CategorizedTectonGroup(TectonGroup):
-    """A command group that splits main commands into a separate section header from the non-main commnads"""
-
-    def format_commands(self, ctx: Context, formatter: HelpFormatter) -> None:
-        main = []
-        other = []
-        all_commands = self.list_commands(ctx)
-        limit = formatter.width - 6 - max(len(name) for name in all_commands)
-
-        for name in all_commands:
-            command = self.get_command(ctx, name)
-
-            if command is None or command.hidden:
-                continue
-
-            help_record = (name, command.get_short_help_str(limit=limit))
-            if command.is_main_command:
-                main.append(help_record)
-            else:
-                other.append(help_record)
-
-        if main:
-            with formatter.section("Main commands"):
-                formatter.write_dl(main)
-
-        if other:
-            with formatter.section("Other commands"):
-                formatter.write_dl(other)
 
 
 @dataclass

@@ -48,36 +48,6 @@ class RiskManagementModel(System.Object, QuantConnect.Algorithm.Framework.Risk.I
         ...
 
 
-class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """Provides an implementation of IRiskManagementModel that wraps a PyObject object"""
-
-    def __init__(self, model: typing.Any) -> None:
-        """
-        Constructor for initialising the IRiskManagementModel class with wrapped PyObject object
-        
-        :param model: Model defining how risk is managed
-        """
-        ...
-
-    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
-        """
-        Manages the algorithm's risk at each time step
-        
-        :param algorithm: The algorithm instance
-        :param targets: The current portfolio targets to be assessed for risk
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
 class CompositeRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
     """
     Provides an implementation of IRiskManagementModel that combines multiple risk
@@ -173,17 +143,14 @@ class NullRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManageme
         ...
 
 
-class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
-    """
-    Provides an implementation of IRiskManagementModel that limits
-    the sector exposure to the specified percentage
-    """
+class RiskManagementModelPythonWrapper(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """Provides an implementation of IRiskManagementModel that wraps a PyObject object"""
 
-    def __init__(self, maximum_sector_exposure: float = 0.20) -> None:
+    def __init__(self, model: typing.Any) -> None:
         """
-        Initializes a new instance of the MaximumSectorExposureRiskManagementModel class
+        Constructor for initialising the IRiskManagementModel class with wrapped PyObject object
         
-        :param maximum_sector_exposure: The maximum exposure for any sector, defaults to 20% sector exposure.
+        :param model: Model defining how risk is managed
         """
         ...
 
@@ -231,6 +198,30 @@ class MaximumDrawdownPercentPortfolio(QuantConnect.Algorithm.Framework.Risk.Risk
         ...
 
 
+class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+    """
+    Provides an implementation of IRiskManagementModel that limits the drawdown
+    per holding to the specified percentage
+    """
+
+    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
+        """
+        Initializes a new instance of the MaximumDrawdownPercentPerSecurity class
+        
+        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for any single security holding, defaults to 5% drawdown per security
+        """
+        ...
+
+    def manage_risk(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> typing.Iterable[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]:
+        """
+        Manages the algorithm's risk at each time step
+        
+        :param algorithm: The algorithm instance
+        :param targets: The current portfolio targets to be assessed for risk
+        """
+        ...
+
+
 class TrailingStopRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
     """
     Provides an implementation of IRiskManagementModel that limits the maximum possible loss
@@ -255,17 +246,17 @@ class TrailingStopRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.Risk
         ...
 
 
-class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
+class MaximumSectorExposureRiskManagementModel(QuantConnect.Algorithm.Framework.Risk.RiskManagementModel):
     """
-    Provides an implementation of IRiskManagementModel that limits the drawdown
-    per holding to the specified percentage
+    Provides an implementation of IRiskManagementModel that limits
+    the sector exposure to the specified percentage
     """
 
-    def __init__(self, maximum_drawdown_percent: float = 0.05) -> None:
+    def __init__(self, maximum_sector_exposure: float = 0.20) -> None:
         """
-        Initializes a new instance of the MaximumDrawdownPercentPerSecurity class
+        Initializes a new instance of the MaximumSectorExposureRiskManagementModel class
         
-        :param maximum_drawdown_percent: The maximum percentage drawdown allowed for any single security holding, defaults to 5% drawdown per security
+        :param maximum_sector_exposure: The maximum exposure for any sector, defaults to 20% sector exposure.
         """
         ...
 
@@ -275,6 +266,15 @@ class MaximumDrawdownPercentPerSecurity(QuantConnect.Algorithm.Framework.Risk.Ri
         
         :param algorithm: The algorithm instance
         :param targets: The current portfolio targets to be assessed for risk
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
         """
         ...
 

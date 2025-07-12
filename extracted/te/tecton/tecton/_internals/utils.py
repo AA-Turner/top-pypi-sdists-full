@@ -19,6 +19,7 @@ from tecton_core.errors import TectonValidationError
 from tecton_core.fco_container import FcoContainer
 from tecton_core.id_helper import IdHelper
 from tecton_core.query.node_interface import DataframeWrapper
+from tecton_core.query_consts import MOCK_COLUMN_SEPARATOR
 from tecton_core.query_consts import udf_internal
 from tecton_core.spark_type_annotations import is_pyspark_df
 from tecton_proto.data.freshness_status__client_pb2 import FreshnessStatus
@@ -73,17 +74,24 @@ def validate_spine_dataframe(
             if not pandas.api.types.is_datetime64_any_dtype(data_type):
                 raise errors.INVALID_SPINE_TIME_KEY_TYPE_PANDAS(data_type)
         else:
-            import snowflake.snowpark
-            from snowflake.snowpark import types
-
-            if not isinstance(spine_df, snowflake.snowpark.DataFrame):
-                for field in spine_df.schema.fields:
-                    if field.name == timestamp_key and field.datatype != types.TimestampType():
-                        raise errors.INVALID_SPINE_TIME_KEY_TYPE_SNOWFLAKE(field.datatype)
+            raise errors.UNRECOGNIZED_EVENTS_DATAFRAME_TYPE(type(spine_df))
     if request_context_keys:
         for key in request_context_keys:
             if key not in spine_df.columns:
                 raise errors.MISSING_REQUEST_DATA_IN_SPINE(key, spine_df.columns)
+
+
+def get_mocked_feature_view_columns(columns: List[str]) -> Dict[str, List[str]]:
+    feature_view_to_features = {}
+
+    for column in columns:
+        if MOCK_COLUMN_SEPARATOR in column:
+            feature_view_name, feature_name = column.split(MOCK_COLUMN_SEPARATOR, 1)
+            if feature_view_name not in feature_view_to_features:
+                feature_view_to_features[feature_view_name] = []
+            feature_view_to_features[feature_view_name].append(feature_name)
+
+    return feature_view_to_features
 
 
 def format_seconds_into_highest_unit(total_seconds):

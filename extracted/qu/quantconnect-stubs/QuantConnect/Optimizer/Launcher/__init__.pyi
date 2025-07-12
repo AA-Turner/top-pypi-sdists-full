@@ -8,14 +8,6 @@ import QuantConnect.Optimizer.Parameters
 import System
 
 
-class Program(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def main(args: typing.List[str]) -> None:
-        ...
-
-
 class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
     """Optimizer implementation that launches Lean as a local process"""
 
@@ -55,6 +47,14 @@ class ConsoleLeanOptimizer(QuantConnect.Optimizer.LeanOptimizer):
         
         This method is protected.
         """
+        ...
+
+
+class Program(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def main(args: typing.List[str]) -> None:
         ...
 
 

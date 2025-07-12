@@ -22,13 +22,10 @@ from typing import (
     Callable,
     Coroutine,
     Deque,
-    Optional,
-    Union,
     cast,
 )
 from urllib.parse import urlencode
 
-from multidict import MultiDict
 from yarl import URL
 
 from ._compat import aio_cancel, aio_sleep, aio_spawn, aio_timeout, aio_wait
@@ -38,6 +35,8 @@ from .response import Response, ResponseJSON, ResponseWebSocket, parse_websocket
 from .utils import CIMultiDict, parse_headers
 
 if TYPE_CHECKING:
+    from multidict import MultiDict
+
     from .types import TJSON, TASGIApp, TASGIMessage, TASGIReceive, TASGIScope, TASGISend
 
 
@@ -53,7 +52,7 @@ class TestResponse(Response):
         msg = await self._receive()
         assert msg.get("type") == "http.response.start", "Invalid Response"
         self.status_code = int(msg.get("status", 502))
-        self.headers = cast(MultiDict, parse_headers(msg.get("headers", [])))
+        self.headers = cast("MultiDict", parse_headers(msg.get("headers", [])))
         self.content_type = self.headers.get("content-type")
         for cookie in self.headers.getall("set-cookie", []):
             self.cookies.load(cookie)
@@ -123,7 +122,7 @@ class TestWebSocketResponse(ResponseWebSocket):
 
 
 class ASGITestClient:
-    """The test client allows you to make requests against an ASGI application.
+    """Built-in test client for ASGI applications.
 
     Features:
 
@@ -151,10 +150,10 @@ class ASGITestClient:
         path: str,
         method: str = "GET",
         *,
-        query: Union[str, dict] = "",
-        headers: Optional[dict[str, str]] = None,
-        cookies: Optional[dict[str, str]] = None,
-        data: Union[bytes, str, dict, AsyncGenerator[Any, bytes]] = b"",
+        query: str | dict = "",
+        headers: dict[str, str] | None = None,
+        cookies: dict[str, str] | None = None,
+        data: bytes | str | dict | AsyncGenerator[Any, bytes] = b"",
         json: TJSON = None,
         follow_redirect: bool = True,
         timeout: float = 10.0,
@@ -214,9 +213,9 @@ class ASGITestClient:
     async def websocket(
         self,
         path: str,
-        query: Union[str, dict, None] = None,
-        headers: Optional[dict] = None,
-        cookies: Optional[dict] = None,
+        query: str | dict | None = None,
+        headers: dict | None = None,
+        cookies: dict | None = None,
     ):
         """Connect to a websocket."""
         pipe = Pipe()
@@ -250,9 +249,9 @@ class ASGITestClient:
     def build_scope(
         self,
         path: str,
-        headers: Union[dict, CIMultiDict, None] = None,
-        query: Union[str, dict, None] = None,
-        cookies: Optional[dict] = None,
+        headers: dict | CIMultiDict | None = None,
+        query: str | dict | None = None,
+        cookies: dict | None = None,
         **scope,
     ) -> TASGIScope:
         """Prepare a request scope."""
@@ -282,7 +281,7 @@ class ASGITestClient:
                 "query_string": url.raw_query_string.encode(),
                 "raw_path": url.raw_path.encode(),
                 "root_path": "",
-                "scheme": scope.get("type") == "http" and self.base_url.scheme or "ws",
+                "scheme": (scope.get("type") == "http" and self.base_url.scheme) or "ws",
                 "headers": [
                     (key.lower().encode(BASE_ENCODING), str(val).encode(BASE_ENCODING))
                     for key, val in (headers or {}).items()
@@ -321,11 +320,11 @@ def encode_multipart(data: dict) -> tuple[bytes, str]:
 
 class Pipe:
     __slots__ = (
-        "delay",
         "app_is_closed",
-        "client_is_closed",
         "app_queue",
+        "client_is_closed",
         "client_queue",
+        "delay",
     )
 
     def __init__(self, delay: float = 1e-3):
@@ -366,7 +365,7 @@ class Pipe:
             await aio_sleep(self.delay)
         return self.app_queue.popleft()
 
-    async def stream(self, data: Union[bytes, AsyncGenerator[Any, bytes]]):
+    async def stream(self, data: bytes | AsyncGenerator[Any, bytes]):
         if isinstance(data, bytes):
             return await self.send_to_app(
                 {"type": "http.request", "body": data, "more_body": False},
@@ -392,7 +391,7 @@ async def manage_lifespan(app, timeout: float = 3e-2):
     async with aio_spawn(safe_spawn) as task:
         await pipe.send_to_app({"type": "lifespan.startup"})
 
-        with suppress(TimeoutError, asyncio.TimeoutError):  # python 39, 310
+        with suppress(TimeoutError, asyncio.TimeoutError):  # python 310
             async with aio_timeout(timeout):
                 msg = await pipe.receive_from_client()
                 if msg["type"] == "lifespan.startup.failed":
@@ -401,6 +400,6 @@ async def manage_lifespan(app, timeout: float = 3e-2):
         yield
 
         await pipe.send_to_app({"type": "lifespan.shutdown"})
-        with suppress(TimeoutError, asyncio.TimeoutError):  # python 39, 310
+        with suppress(TimeoutError, asyncio.TimeoutError):  # python 310
             async with aio_timeout(timeout):
                 await pipe.receive_from_client()

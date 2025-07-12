@@ -246,7 +246,11 @@ class _QueryHelper:
             # The feature server returns int64s as strings, which need to be cast.
             return int(val)
         elif data_type.type == FeatureServerDataType.timestamp:
-            return datetime.strptime(val, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            # Trying to parse a string with microseconds using "%Y-%m-%dT%H:%M:%SZ" will raise a ValueError so we need to try both.
+            try:
+                return datetime.strptime(val, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            except ValueError:
+                return datetime.strptime(val, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         elif data_type.type == FeatureServerDataType.array:
             return [self._pb_to_python_value(vi, data_type.element_type) for vi in val.values]
         elif data_type.type == FeatureServerDataType.struct:

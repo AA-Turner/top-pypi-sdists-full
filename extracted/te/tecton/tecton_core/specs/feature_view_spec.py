@@ -55,23 +55,23 @@ from tecton_proto.validation import validator__client_pb2 as validator_pb2
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "FeatureViewSpec",
-    "MaterializedFeatureViewSpec",
-    "RealtimeFeatureViewSpec",
     "FeatureTableSpec",
+    "FeatureViewSpec",
+    "FeatureViewSpecArgsSupplement",
+    "MaterializedFeatureViewSpec",
     "MaterializedFeatureViewType",
     "OnlineBatchTablePart",
     "OnlineBatchTablePartTile",
-    "create_feature_view_spec_from_data_proto",
+    "RealtimeFeatureViewSpec",
     "create_feature_view_spec_from_args_proto",
-    "FeatureViewSpecArgsSupplement",
+    "create_feature_view_spec_from_data_proto",
+    "get_aggregate_features_from_feature_view_args",
     "get_batch_schedule_from_feature_view_args",
     "get_batch_trigger_from_feature_view_args",
     "get_is_continuous_from_feature_view_args",
     "get_join_keys_from_feature_view_args",
     "get_online_serving_keys_from_feature_view_args",
-    "get_aggregate_features_from_feature_view_args",
-    "resolve_timestamp_field",
+    "resolve_timestamp_field_for_materialized_feature_view",
 ]
 
 MIGRATE_TO_FEATURES_GUIDE_LINK = "https://docs.tecton.ai/docs/release-notes/upgrade-process/to-1_0-upgrade-guide"
@@ -235,7 +235,6 @@ class Attribute:
 @utils.frozen_strict
 class Calculation:
     name: str
-    column_dtype: DataType
     root: AbstractSyntaxTreeNodeSpec
     description: Optional[str]
     tags: Optional[Dict[str, str]]
@@ -244,7 +243,6 @@ class Calculation:
     def from_data_proto(cls, calculation_proto: feature_view__data_pb2.Calculation) -> "Calculation":
         return cls(
             name=calculation_proto.name,
-            column_dtype=data_types.Int64Type(),
             root=AbstractSyntaxTreeNodeSpec.from_proto(calculation_proto.abstract_syntax_tree_root),
             description=utils.get_field_or_none(calculation_proto, "description"),
             tags=dict(calculation_proto.tags) if calculation_proto.tags else None,
@@ -254,7 +252,6 @@ class Calculation:
     def from_args_proto(cls, calculation_proto: feature_view__data_pb2.Calculation) -> "Calculation":
         return cls(
             name=calculation_proto.name,
-            column_dtype=data_type_from_proto(calculation_proto.column_dtype),
             root=AbstractSyntaxTreeNodeSpec.from_proto(calculation_proto.abstract_syntax_tree_root),
             description=utils.get_field_or_none(calculation_proto, "description"),
             tags=dict(calculation_proto.tags) if calculation_proto.tags else None,
@@ -379,7 +376,7 @@ def build_calculation_metadata(calculation_features: Tuple[Calculation, ...]) ->
     return [
         FeatureMetadataSpec(
             name=calculation.name,
-            dtype=calculation.column_dtype,
+            dtype=calculation.root.dtype,
             description=calculation.description,
             tags=calculation.tags,
         )
@@ -419,11 +416,11 @@ def build_aggregate_metadata(
     view_schema_column_name_to_dtype = dict(view_schema.column_name_and_data_types())
     for aggregate_feature in aggregate_features:
         input_column_type = view_schema_column_name_to_dtype.get(aggregate_feature.input_feature_name, None)
-        assert (
-            input_column_type is not None
-        ), f"{aggregate_feature.input_feature_name} is not defined on the view schema"
+        assert input_column_type is not None, (
+            f"{aggregate_feature.input_feature_name} is not defined on the view schema"
+        )
         aggregate_output_column_type = get_aggregation_function_result_type(
-            aggregation_function_enum=aggregate_feature.function, feature_type=input_column_type
+            aggregation=aggregate_feature, feature_type=input_column_type
         )
         feature_metadata.append(
             FeatureMetadataSpec(
@@ -465,6 +462,7 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
     data_source_type: data_source_type_pb2.DataSourceType.ValueType
     incremental_backfills: bool
     timestamp_field: str
+    batch_publish_timestamp: Optional[str]
 
     # TODO(TEC-12321): Audit and fix feature view spec fields that should be required.
     pipeline: Optional[pipeline_pb2.Pipeline]
@@ -477,6 +475,7 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
     max_source_data_delay: pendulum.Duration
     materialized_data_path: Optional[str]
     published_features_path: Optional[str]
+    sink_config: Optional[feature_view__data_pb2.SinkConfig]
     time_range_policy: Optional[feature_view__data_pb2.MaterializationTimeRangePolicy.ValueType]
     materialization_state_transitions: Tuple[feature_view__data_pb2.MaterializationStateTransition, ...] = attrs.field(
         metadata={utils.LOCAL_REMOTE_DIVERGENCE_ALLOWED: True}
@@ -595,6 +594,7 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
             data_source_type=data_source_type,
             incremental_backfills=incremental_backfills,
             timestamp_field=utils.get_field_or_none(proto, "timestamp_key"),
+            batch_publish_timestamp=utils.get_field_or_none(proto.materialization_params, "batch_publish_timestamp"),
             type=fv_type,
             feature_store_format_version=proto.feature_store_format_version,
             materialization_enabled=proto.materialization_enabled,
@@ -661,8 +661,12 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
             if cache_config_in_seconds > 0
             else None,
             environment=proto.materialization_params.environment,
-            secrets=proto.secrets,
-            resource_providers=proto.resource_providers,
+            secrets=MappingProxyType(proto.secrets),
+            resource_providers=MappingProxyType(proto.resource_providers),
+            sink_config=proto.materialization_params.feature_publish_offline_store_config.sink_config
+            if proto.materialization_params.HasField("feature_publish_offline_store_config")
+            and proto.materialization_params.feature_publish_offline_store_config.HasField("sink_config")
+            else None,
         )
 
     @classmethod
@@ -746,9 +750,13 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
             secondary_key_rollup_outputs = None
 
         try:
-            timestamp_field = resolve_timestamp_field(proto, supplement.view_schema)
+            timestamp_field = resolve_timestamp_field_for_materialized_feature_view(proto, supplement.view_schema)
         except errors.TectonValidationError:
             raise
+
+        batch_publish_timestamp = utils.get_field_or_none(
+            proto.materialized_feature_view_args, "batch_publish_timestamp"
+        )
 
         return cls(
             metadata=tecton_object_spec.TectonObjectMetadataSpec.from_args_proto(
@@ -769,6 +777,7 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
             data_source_type=data_source_type,
             incremental_backfills=proto.materialized_feature_view_args.incremental_backfills,
             timestamp_field=timestamp_field,
+            batch_publish_timestamp=batch_publish_timestamp,
             type=fv_type,
             feature_store_format_version=proto.materialized_feature_view_args.feature_store_format_version
             if proto.materialized_feature_view_args.tecton_materialization_runtime != ""
@@ -825,8 +834,10 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
             tecton_materialization_runtime=proto.materialized_feature_view_args.tecton_materialization_runtime,
             cache_config=utils.get_field_or_none(proto, "cache_config"),
             environment=proto.materialized_feature_view_args.environment,
-            secrets=proto.secrets,
-            resource_providers=proto.resource_providers,
+            secrets=MappingProxyType(proto.secrets),
+            resource_providers=MappingProxyType(proto.resource_providers),
+            # Only populated from data proto for now because local dev flow is not supported yet.
+            sink_config=None,
         )
 
     @property
@@ -843,6 +854,8 @@ class MaterializedFeatureViewSpec(FeatureViewSpec):
         else:
             # Temporal feature view.
             non_feature_cols = {self.timestamp_field, *self.join_keys, "_anchor_time", "_ANCHOR_TIME"}
+            if self.batch_publish_timestamp is not None:
+                non_feature_cols.add(self.batch_publish_timestamp)
             cols = [col for col in self.materialization_schema.column_names() if col not in non_feature_cols]
             return cols
 
@@ -909,8 +922,8 @@ class RealtimeFeatureViewSpec(FeatureViewSpec):
                 Calculation.from_data_proto(calculation_data_proto)
                 for calculation_data_proto in proto.realtime_feature_view.calculations
             ),
-            secrets=proto.secrets,
-            resource_providers=proto.resource_providers,
+            secrets=MappingProxyType(proto.secrets),
+            resource_providers=MappingProxyType(proto.resource_providers),
         )
 
     @classmethod
@@ -946,8 +959,8 @@ class RealtimeFeatureViewSpec(FeatureViewSpec):
                 Calculation.from_args_proto(calculation_args_proto)
                 for calculation_args_proto in proto.realtime_args.calculations
             ),
-            secrets=proto.secrets,
-            resource_providers=proto.resource_providers,
+            secrets=MappingProxyType(proto.secrets),
+            resource_providers=MappingProxyType(proto.resource_providers),
         )
 
     @property
@@ -1292,7 +1305,7 @@ def get_join_keys_from_feature_view_args(proto: feature_view__args_pb2.FeatureVi
 
 
 @typechecked
-def resolve_timestamp_field(
+def resolve_timestamp_field_for_materialized_feature_view(
     feature_view_args: feature_view__args_pb2.FeatureViewArgs,
     view_schema: schema_pb2.Schema,
 ) -> str:
@@ -1350,9 +1363,9 @@ def create_aggregate_features(
         function_params = None
 
     if len(feature_aggregation.function_params) > 0:
-        assert (
-            function_params is not None
-        ), "function_params in the data proto should not be None since it is a non-empty dictionary in the args proto"
+        assert function_params is not None, (
+            "function_params in the data proto should not be None since it is a non-empty dictionary in the args proto"
+        )
     return feature_view__data_pb2.Aggregate(
         input_feature_name=feature_aggregation.column,
         output_feature_name=feature_aggregation.name,

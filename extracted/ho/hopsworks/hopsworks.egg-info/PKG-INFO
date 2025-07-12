@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 4.2.6
+Version: 4.3.1
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0
@@ -26,11 +26,11 @@ Requires-Dist: pyhumps==1.6.1
 Requires-Dist: requests
 Requires-Dist: furl
 Requires-Dist: boto3
-Requires-Dist: pandas<2.2.0
+Requires-Dist: pandas[mysql]<2.3.0
+Requires-Dist: numpy<2
 Requires-Dist: pyjks
 Requires-Dist: mock
 Requires-Dist: avro==1.11.3
-Requires-Dist: sqlalchemy
 Requires-Dist: PyMySQL[rsa]
 Requires-Dist: tzlocal
 Requires-Dist: fsspec
@@ -42,11 +42,13 @@ Requires-Dist: grpcio<2.0.0,>=1.49.1
 Requires-Dist: protobuf<5.0.0,>=4.25.4
 Requires-Dist: packaging
 Provides-Extra: python
-Requires-Dist: numpy<2; extra == "python"
 Requires-Dist: pyarrow>=10.0; extra == "python"
 Requires-Dist: confluent-kafka<=2.6.1; extra == "python"
 Requires-Dist: fastavro<=1.8.4,>=1.4.11; extra == "python"
 Requires-Dist: tqdm; extra == "python"
+Provides-Extra: sqlalchemy-1
+Requires-Dist: pandas<2.2.0; extra == "sqlalchemy-1"
+Requires-Dist: sqlalchemy<2.0.0; extra == "sqlalchemy-1"
 Provides-Extra: great-expectations
 Requires-Dist: great_expectations==0.18.12; extra == "great-expectations"
 Provides-Extra: dev-no-opt

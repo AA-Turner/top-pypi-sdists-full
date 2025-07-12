@@ -19,7 +19,6 @@ import copy
 import json
 import os
 import re
-import shutil
 import uuid
 import warnings
 from datetime import date, datetime, timezone
@@ -195,11 +194,11 @@ class Engine:
     def register_external_temporary_table(self, external_fg, alias):
         if not isinstance(external_fg, fg_mod.SpineGroup):
             external_dataset = external_fg.storage_connector.read(
-                external_fg.query,
+                external_fg.data_source.query,
                 external_fg.data_format,
                 external_fg.options,
                 external_fg.storage_connector._get_path(
-                    external_fg.path
+                    external_fg.data_source.path
                 ),  # cant rely on location since this method can be used before FG is saved
             )
         else:
@@ -607,6 +606,7 @@ class Engine:
         self,
         feature_group: Union[fg_mod.FeatureGroup, fg_mod.ExternalFeatureGroup],
         dataframe: Union[RDD, DataFrame],
+        serialized_column: str = "value",
     ):
         """Encodes all complex type features to binary using their avro type as schema."""
         encoded_dataframe = dataframe.select(
@@ -642,7 +642,7 @@ class Engine:
                         ]
                     ),
                     feature_group._get_encoded_avro_schema(),
-                ).alias("value"),
+                ).alias(serialized_column),
             ]
         )
 
@@ -650,25 +650,37 @@ class Engine:
         self,
         feature_group: Union[fg_mod.FeatureGroup, fg_mod.ExternalFeatureGroup],
         dataframe: Union[RDD, DataFrame],
+        serialized_column: str = "value",
     ):
         """
-        Deserializes 'value' column from binary using avro schema and unpacks it into columns.
+        Step 1: Deserializes 'value' column from binary using avro schema.
         """
-        decoded_dataframe = dataframe.select(
-            from_avro("value", feature_group._get_encoded_avro_schema()).alias("value")
-        ).select(col("value.*"))
-
-        """Decodes all complex type features from binary using their avro type as schema."""
-        return decoded_dataframe.select(
-            [
-                field["name"]
-                if field["name"] not in feature_group.get_complex_features()
-                else from_avro(
-                    field["name"], feature_group._get_feature_avro_schema(field["name"])
-                ).alias(field["name"])
-                for field in json.loads(feature_group.avro_schema)["fields"]
-            ]
+        decoded_dataframe = dataframe.withColumn(
+            serialized_column, from_avro(serialized_column, feature_group._get_encoded_avro_schema())
         )
+
+        """
+        Step 2: Replace complex fields in the 'value' column
+        """
+        new_value_fields = []
+        for field in json.loads(feature_group.avro_schema)["fields"]:
+            field_name = field["name"]
+            if field_name in feature_group.get_complex_features():
+                # re-apply from_avro on the nested field
+                decoded_field = from_avro(
+                    col(f"{serialized_column}.{field_name}"),
+                    feature_group._get_feature_avro_schema(field_name)
+                ).alias(field_name)
+            else:
+                decoded_field = col(f"{serialized_column}.{field_name}").alias(field_name)
+            new_value_fields.append(decoded_field)
+
+        """
+        Step 3: Rebuild the "value" struct
+        """
+        updated_value_col = struct(*new_value_fields).alias(serialized_column)
+
+        return decoded_dataframe.select(*[col(c) for c in decoded_dataframe.columns if c != serialized_column], updated_value_col)
 
     def get_training_data(
         self,
@@ -1144,22 +1156,18 @@ class Engine:
 
         # for external clients, download the file
         if client._is_external():
-            tmp_file = os.path.join(SparkFiles.getRootDirectory(), file_name)
+            tmp_file = f"/tmp/{file_name}"
             print("Reading key file from storage connector.")
             response = self._dataset_api.read_content(file, util.get_dataset_type(file))
 
             with open(tmp_file, "wb") as f:
                 f.write(response.content)
-        else:
-            self._spark_context.addFile(file)
 
-            # The file is not added to the driver current working directory
-            # We should add it manually by copying from the download location
-            # The file will be added to the executors current working directory
-            # before the next task is executed
-            shutil.copy(SparkFiles.get(file_name), file_name)
+            file = f"file://{tmp_file}"
 
-        return file_name
+        self._spark_context.addFile(file)
+
+        return SparkFiles.get(file_name)
 
     def profile(
         self,
@@ -1703,6 +1711,9 @@ class Engine:
     def read_feature_log(query, time_col):
         df = query.read()
         return df.drop("log_id", time_col)
+
+    def get_spark_version(self):
+        return self._spark_session.version
 
 
 class SchemaError(Exception):

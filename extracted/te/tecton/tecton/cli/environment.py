@@ -26,6 +26,7 @@ from tecton.cli import printer
 from tecton.cli.cli_utils import display_principal
 from tecton.cli.cli_utils import display_table
 from tecton.cli.cli_utils import timestamp_to_string
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.cli.environment_utils import MAX_ENVIRONMENTS_NAME_LENGTH
 from tecton.cli.environment_utils import download_dependencies
@@ -51,6 +52,7 @@ from tecton_proto.remoteenvironmentservice.remote_environment_service__client_pb
 from tecton_proto.remoteenvironmentservice.remote_environment_service__client_pb2 import GetPackagesUploadUrlRequest
 from tecton_proto.remoteenvironmentservice.remote_environment_service__client_pb2 import ListRemoteEnvironmentsRequest
 from tecton_proto.remoteenvironmentservice.remote_environment_service__client_pb2 import StartPackagesUploadRequest
+from tecton_proto.remoteenvironmentservice.remote_environment_service__client_pb2 import UpdateRemoteEnvironmentRequest
 
 
 DEFAULT_DEPENDENCY_RESOLUTION_TOOL = "uv"
@@ -103,7 +105,7 @@ class EnvironmentIdentifier:
         return False
 
 
-@click.command("environment", cls=TectonGroup)
+@click.command("environment", cls=TectonGroup, command_category=TectonCommandCategory.INFRA)
 def environment():
     """Manage Environments for Realtime and Rift job execution.
 
@@ -318,7 +320,7 @@ def _delete(environment_id: Optional[str] = None, name: Optional[str] = None, sk
         confirmation = "y" if skip_confirmation else input(confirmation_text).lower().strip()
         if confirmation == "y":
             try:
-                _delete_environment(environment_id=environment_to_delete.id)
+                delete_environment(environment_id=environment_to_delete.id)
                 printer.safe_print(f"✅ Marked environment '{environment_identifier.__str__()}' for deletion.")
             except Exception as e:
                 printer.safe_print(f"⛔ Failed to delete environment. error = {str(e)}, type= {type(e).__name__}")
@@ -336,6 +338,7 @@ def _display_environments(environments: List, verbose: bool = False):
         "Tecton Runtime Version",
         "Created By",
         "Created At",
+        "Batch Image URI",
     ]
     if verbose:
         headings.extend(["Description", "Status Details"])
@@ -351,6 +354,7 @@ def _display_environments(environments: List, verbose: bool = False):
             i.realtime_job_environment.tecton_transform_runtime_version or "N/A",
             display_principal(i.created_by_principal),
             timestamp_to_string(i.created_at),
+            i.rift_batch_job_environment.image_info.image_uri or "N/A",
         )
         if verbose:
             row += (i.description or "N/A", i.status_details or "N/A")
@@ -411,9 +415,9 @@ def _create_environment_with_requirements(
             printer.safe_print(f"{ERROR_MESSAGE_PREFIX} {e}", file=sys.stderr)
             sys.exit(1)
 
-        assert (
-            tecton_runtime_version or tecton_rift_version
-        ), f"`tecton-runtime` and/or `tecton[rift-materialization]` must be specified in the resolved requirements: \n{resolved_requirements_path.read_text()}"
+        assert tecton_runtime_version or tecton_rift_version, (
+            f"`tecton-runtime` and/or `tecton[rift-materialization]` must be specified in the resolved requirements: \n{resolved_requirements_path.read_text()}"
+        )
 
         printer.safe_print(
             f"\n💡 Creating environment '{name}' for job types:\n"
@@ -465,6 +469,11 @@ def _create_environment_with_requirements(
 def create_remote_environment(**kwargs):
     req = CreateRemoteEnvironmentRequest(**kwargs)
     return metadata_service.instance().CreateRemoteEnvironment(req)
+
+
+def update_environment_status(**kwargs):
+    req = UpdateRemoteEnvironmentRequest(**kwargs)
+    return metadata_service.instance().UpdateRemoteEnvironment(req)
 
 
 def _validate_input_requirements(input_requirements_path: Path):
@@ -603,7 +612,7 @@ def _run_dependency_resolution(
     return resolved_requirements_path, tecton_runtime_version, tecton_rift_version
 
 
-def _delete_environment(environment_id: str):
+def delete_environment(environment_id: str):
     try:
         req = DeleteRemoteEnvironmentsRequest()
         req.ids.append(environment_id)

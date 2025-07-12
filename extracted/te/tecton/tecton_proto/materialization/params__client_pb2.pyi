@@ -53,6 +53,12 @@ class FeatureExportInfo(_message.Message):
     feature_export_parameters: _materialization_task__client_pb2.FeatureExportParameters
     def __init__(self, feature_export_parameters: _Optional[_Union[_materialization_task__client_pb2.FeatureExportParameters, _Mapping]] = ...) -> None: ...
 
+class IcebergMaintenanceTaskInfo(_message.Message):
+    __slots__ = ["iceberg_maintenance_parameters"]
+    ICEBERG_MAINTENANCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    iceberg_maintenance_parameters: _materialization_task__client_pb2.IcebergMaintenanceParameters
+    def __init__(self, iceberg_maintenance_parameters: _Optional[_Union[_materialization_task__client_pb2.IcebergMaintenanceParameters, _Mapping]] = ...) -> None: ...
+
 class IngestTaskInfo(_message.Message):
     __slots__ = ["ingest_parameters"]
     INGEST_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
@@ -60,7 +66,7 @@ class IngestTaskInfo(_message.Message):
     def __init__(self, ingest_parameters: _Optional[_Union[_materialization_task__client_pb2.IngestMaterializationParameters, _Mapping]] = ...) -> None: ...
 
 class MaterializationTaskParams(_message.Message):
-    __slots__ = ["attempt_id", "batch_task_info", "canary_id", "data_observability_config", "dataset_generation_task_info", "dbfs_credentials_path", "deletion_task_info", "delta_log_table", "delta_maintenance_task_info", "dynamodb_cross_account_external_id", "dynamodb_cross_account_role", "dynamodb_cross_account_role_arn", "dynamodb_table_region", "entities", "feature_export_info", "feature_service", "feature_services", "feature_view", "feature_views", "idempotence_key", "ingest_task_info", "job_metadata_table", "job_metadata_table_type", "kms_key_arn", "materialization_task_id", "offline_store_path", "online_store_writer_config", "plan_id", "resource_providers", "secret_access_api_key", "secrets_api_service_url", "spark_job_execution_table", "stream_task_info", "transformations", "use_new_consumption_metrics", "virtual_data_sources"]
+    __slots__ = ["attempt_id", "batch_task_info", "canary_id", "data_observability_config", "dataset_generation_task_info", "dbfs_credentials_path", "deletion_task_info", "delta_log_table", "delta_maintenance_task_info", "dynamodb_cross_account_external_id", "dynamodb_cross_account_role", "dynamodb_cross_account_role_arn", "dynamodb_table_region", "entities", "feature_export_info", "feature_service", "feature_services", "feature_view", "feature_views", "iceberg_maintenance_task_info", "idempotence_key", "ingest_task_info", "job_metadata_table", "job_metadata_table_type", "kms_key_arn", "materialization_task_id", "offline_store_path", "online_store_writer_config", "plan_id", "resource_providers", "secret_access_api_key", "secrets_api_service_url", "spark_job_execution_table", "stream_task_info", "transformations", "use_new_consumption_metrics", "virtual_data_sources"]
     ATTEMPT_ID_FIELD_NUMBER: _ClassVar[int]
     BATCH_TASK_INFO_FIELD_NUMBER: _ClassVar[int]
     CANARY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -80,6 +86,7 @@ class MaterializationTaskParams(_message.Message):
     FEATURE_SERVICE_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEWS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEW_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_MAINTENANCE_TASK_INFO_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCE_KEY_FIELD_NUMBER: _ClassVar[int]
     INGEST_TASK_INFO_FIELD_NUMBER: _ClassVar[int]
     JOB_METADATA_TABLE_FIELD_NUMBER: _ClassVar[int]
@@ -116,6 +123,7 @@ class MaterializationTaskParams(_message.Message):
     feature_services: _containers.RepeatedScalarFieldContainer[str]
     feature_view: _feature_view__client_pb2.FeatureView
     feature_views: _containers.RepeatedCompositeFieldContainer[_feature_view__client_pb2.FeatureView]
+    iceberg_maintenance_task_info: IcebergMaintenanceTaskInfo
     idempotence_key: str
     ingest_task_info: IngestTaskInfo
     job_metadata_table: str
@@ -133,7 +141,7 @@ class MaterializationTaskParams(_message.Message):
     transformations: _containers.RepeatedCompositeFieldContainer[_transformation__client_pb2.Transformation]
     use_new_consumption_metrics: bool
     virtual_data_sources: _containers.RepeatedCompositeFieldContainer[_virtual_data_source__client_pb2.VirtualDataSource]
-    def __init__(self, feature_view: _Optional[_Union[_feature_view__client_pb2.FeatureView, _Mapping]] = ..., virtual_data_sources: _Optional[_Iterable[_Union[_virtual_data_source__client_pb2.VirtualDataSource, _Mapping]]] = ..., transformations: _Optional[_Iterable[_Union[_transformation__client_pb2.Transformation, _Mapping]]] = ..., entities: _Optional[_Iterable[_Union[_entity__client_pb2.Entity, _Mapping]]] = ..., resource_providers: _Optional[_Iterable[_Union[_resource_provider__client_pb2.ResourceProvider, _Mapping]]] = ..., feature_services: _Optional[_Iterable[str]] = ..., feature_views: _Optional[_Iterable[_Union[_feature_view__client_pb2.FeatureView, _Mapping]]] = ..., feature_service: _Optional[_Union[_feature_service__client_pb2.FeatureService, _Mapping]] = ..., materialization_task_id: _Optional[str] = ..., idempotence_key: _Optional[str] = ..., attempt_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., spark_job_execution_table: _Optional[str] = ..., job_metadata_table: _Optional[str] = ..., delta_log_table: _Optional[str] = ..., job_metadata_table_type: _Optional[_Union[_job_metadata__client_pb2.JobMetadataTableType, str]] = ..., dynamodb_table_region: _Optional[str] = ..., online_store_writer_config: _Optional[_Union[_config__client_pb2_1.OnlineStoreWriterConfiguration, _Mapping]] = ..., dynamodb_cross_account_role: _Optional[_Union[_aws_credentials__client_pb2.AwsIamRole, _Mapping]] = ..., dynamodb_cross_account_role_arn: _Optional[str] = ..., dynamodb_cross_account_external_id: _Optional[str] = ..., dbfs_credentials_path: _Optional[str] = ..., offline_store_path: _Optional[str] = ..., use_new_consumption_metrics: bool = ..., canary_id: _Optional[str] = ..., data_observability_config: _Optional[_Union[_config__client_pb2.DataObservabilityMaterializationConfig, _Mapping]] = ..., batch_task_info: _Optional[_Union[BatchTaskInfo, _Mapping]] = ..., stream_task_info: _Optional[_Union[StreamTaskInfo, _Mapping]] = ..., ingest_task_info: _Optional[_Union[IngestTaskInfo, _Mapping]] = ..., deletion_task_info: _Optional[_Union[DeletionTaskInfo, _Mapping]] = ..., delta_maintenance_task_info: _Optional[_Union[DeltaMaintenanceTaskInfo, _Mapping]] = ..., feature_export_info: _Optional[_Union[FeatureExportInfo, _Mapping]] = ..., dataset_generation_task_info: _Optional[_Union[DatasetGenerationTaskInfo, _Mapping]] = ..., secrets_api_service_url: _Optional[str] = ..., secret_access_api_key: _Optional[str] = ..., plan_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., kms_key_arn: _Optional[str] = ...) -> None: ...
+    def __init__(self, feature_view: _Optional[_Union[_feature_view__client_pb2.FeatureView, _Mapping]] = ..., virtual_data_sources: _Optional[_Iterable[_Union[_virtual_data_source__client_pb2.VirtualDataSource, _Mapping]]] = ..., transformations: _Optional[_Iterable[_Union[_transformation__client_pb2.Transformation, _Mapping]]] = ..., entities: _Optional[_Iterable[_Union[_entity__client_pb2.Entity, _Mapping]]] = ..., resource_providers: _Optional[_Iterable[_Union[_resource_provider__client_pb2.ResourceProvider, _Mapping]]] = ..., feature_services: _Optional[_Iterable[str]] = ..., feature_views: _Optional[_Iterable[_Union[_feature_view__client_pb2.FeatureView, _Mapping]]] = ..., feature_service: _Optional[_Union[_feature_service__client_pb2.FeatureService, _Mapping]] = ..., materialization_task_id: _Optional[str] = ..., idempotence_key: _Optional[str] = ..., attempt_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., spark_job_execution_table: _Optional[str] = ..., job_metadata_table: _Optional[str] = ..., delta_log_table: _Optional[str] = ..., job_metadata_table_type: _Optional[_Union[_job_metadata__client_pb2.JobMetadataTableType, str]] = ..., dynamodb_table_region: _Optional[str] = ..., online_store_writer_config: _Optional[_Union[_config__client_pb2_1.OnlineStoreWriterConfiguration, _Mapping]] = ..., dynamodb_cross_account_role: _Optional[_Union[_aws_credentials__client_pb2.AwsIamRole, _Mapping]] = ..., dynamodb_cross_account_role_arn: _Optional[str] = ..., dynamodb_cross_account_external_id: _Optional[str] = ..., dbfs_credentials_path: _Optional[str] = ..., offline_store_path: _Optional[str] = ..., use_new_consumption_metrics: bool = ..., canary_id: _Optional[str] = ..., data_observability_config: _Optional[_Union[_config__client_pb2.DataObservabilityMaterializationConfig, _Mapping]] = ..., batch_task_info: _Optional[_Union[BatchTaskInfo, _Mapping]] = ..., stream_task_info: _Optional[_Union[StreamTaskInfo, _Mapping]] = ..., ingest_task_info: _Optional[_Union[IngestTaskInfo, _Mapping]] = ..., deletion_task_info: _Optional[_Union[DeletionTaskInfo, _Mapping]] = ..., delta_maintenance_task_info: _Optional[_Union[DeltaMaintenanceTaskInfo, _Mapping]] = ..., feature_export_info: _Optional[_Union[FeatureExportInfo, _Mapping]] = ..., dataset_generation_task_info: _Optional[_Union[DatasetGenerationTaskInfo, _Mapping]] = ..., iceberg_maintenance_task_info: _Optional[_Union[IcebergMaintenanceTaskInfo, _Mapping]] = ..., secrets_api_service_url: _Optional[str] = ..., secret_access_api_key: _Optional[str] = ..., plan_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., kms_key_arn: _Optional[str] = ...) -> None: ...
 
 class SecretMaterializationTaskParams(_message.Message):
     __slots__ = ["secret_service_params"]
@@ -150,11 +158,13 @@ class SecretServiceParams(_message.Message):
     def __init__(self, secrets_api_service_url: _Optional[str] = ..., secret_access_api_key: _Optional[str] = ...) -> None: ...
 
 class StreamTaskInfo(_message.Message):
-    __slots__ = ["stream_parameters", "streaming_checkpoint_path", "streaming_trigger_interval_override"]
+    __slots__ = ["stream_parameters", "streaming_checkpoint_path", "streaming_trigger_interval_override", "streaming_trigger_realtime_mode"]
     STREAMING_CHECKPOINT_PATH_FIELD_NUMBER: _ClassVar[int]
     STREAMING_TRIGGER_INTERVAL_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    STREAMING_TRIGGER_REALTIME_MODE_FIELD_NUMBER: _ClassVar[int]
     STREAM_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     stream_parameters: _materialization_task__client_pb2.StreamMaterializationParameters
     streaming_checkpoint_path: str
     streaming_trigger_interval_override: str
-    def __init__(self, stream_parameters: _Optional[_Union[_materialization_task__client_pb2.StreamMaterializationParameters, _Mapping]] = ..., streaming_checkpoint_path: _Optional[str] = ..., streaming_trigger_interval_override: _Optional[str] = ...) -> None: ...
+    streaming_trigger_realtime_mode: bool
+    def __init__(self, stream_parameters: _Optional[_Union[_materialization_task__client_pb2.StreamMaterializationParameters, _Mapping]] = ..., streaming_checkpoint_path: _Optional[str] = ..., streaming_trigger_interval_override: _Optional[str] = ..., streaming_trigger_realtime_mode: bool = ...) -> None: ...

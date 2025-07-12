@@ -12,6 +12,7 @@ from typing import Optional
 from typing import Set
 
 from tecton_core import conf
+from tecton_core.errors import FailedPreconditionError
 from tecton_proto.args import repo_metadata__client_pb2 as repo_metadata_pb2
 from tecton_proto.common import id__client_pb2 as id_pb2
 
@@ -51,8 +52,8 @@ def ensure_prepare_repo(file_in_repo: Optional[str] = None) -> None:
         return
     root = _maybe_get_repo_root(file_in_repo)
     if root is None:
-        msg = "Feature repository root not found. Run `tecton init` to set it."
-        raise Exception(msg)
+        msg = "Feature repository root not found. Run `tecton init` to initialize a repository root in the current directory."
+        raise FailedPreconditionError(msg)
     paths = get_repo_files(root)
     file_set = {str(f) for f in paths}
     set_repo_data(RepoData(paths=paths, file_set=file_set, root=root))

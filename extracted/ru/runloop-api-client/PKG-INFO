@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 0.48.1
+Version: 0.48.2
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -35,7 +35,8 @@ Description-Content-Type: text/markdown
 
 # Runloop Python API library
 
-[![PyPI version](https://github.com/runloopai/api-client-python/tree/main/<https://img.shields.io/pypi/v/runloop_api_client.svg?label=pypi%20(stable)>)](https://pypi.org/project/runloop_api_client/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/runloop_api_client.svg?label=pypi%20(stable))](https://pypi.org/project/runloop_api_client/)
 
 The Runloop Python library provides convenient access to the Runloop REST API from any Python 3.8+
 application. The library includes type definitions for all request params and response fields,

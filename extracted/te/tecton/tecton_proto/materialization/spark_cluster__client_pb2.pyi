@@ -20,6 +20,7 @@ ENV_EMR: SparkExecutionEnvironment
 ENV_UNSPECIFIED: SparkExecutionEnvironment
 FEATURE_EXPORT: TaskType
 FEATURE_EXPORT_JOB: TaskTypeForDisplay
+ICEBERG_MAINTENANCE: TaskType
 INGEST: TaskType
 INGEST_JOB: TaskTypeForDisplay
 PLAN_INTEGRATION_TEST_BATCH: TaskType

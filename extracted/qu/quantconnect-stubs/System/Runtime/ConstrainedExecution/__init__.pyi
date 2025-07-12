@@ -6,23 +6,6 @@ import System
 import System.Runtime.ConstrainedExecution
 
 
-class PrePrepareMethodAttribute(System.Attribute):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
-
-    def __init__(self) -> None:
-        ...
-
-
-class Cer(Enum):
-    """Obsoletions.ConstrainedExecutionRegionMessage"""
-
-    NONE = 0
-
-    MAY_FAIL = 1
-
-    SUCCESS = 2
-
-
 class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
     """Ensures that all finalization code in derived classes is marked as critical."""
 
@@ -43,6 +26,16 @@ class Consistency(Enum):
     WILL_NOT_CORRUPT_STATE = 3
 
 
+class Cer(Enum):
+    """Obsoletions.ConstrainedExecutionRegionMessage"""
+
+    NONE = 0
+
+    MAY_FAIL = 1
+
+    SUCCESS = 2
+
+
 class ReliabilityContractAttribute(System.Attribute):
     """
     Defines a contract for reliability between the author of some code, and the developers who have a dependency on that code.
@@ -59,6 +52,13 @@ class ReliabilityContractAttribute(System.Attribute):
         ...
 
     def __init__(self, consistency_guarantee: System.Runtime.ConstrainedExecution.Consistency, cer: System.Runtime.ConstrainedExecution.Cer) -> None:
+        ...
+
+
+class PrePrepareMethodAttribute(System.Attribute):
+    """Obsoletions.ConstrainedExecutionRegionMessage"""
+
+    def __init__(self) -> None:
         ...
 
 

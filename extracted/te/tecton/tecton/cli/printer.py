@@ -1,68 +1,62 @@
 import os
-import platform
-import re
-import string
+import sys
 
-from yaspin import yaspin
-from yaspin.spinners import Spinners
+from rich.console import Console
+from rich.text import Text
 
 
 """
-A drop-in wrapper around `print` and `yaspin` that's primarily used to filter rich output
+A drop-in wrapper around `print` and Rich's spinner that's primarily used to filter rich output
 (i.e. emojis) from CLI output.
-
-By default, rich output is disabled in non-Mac environments or if TECTON_RICH_OUTPUT != "1".
 """
 
+REINITIALIZE_RICH_CONSOLE = os.environ.get("TECTON_REINITIALIZE_RICH_CONSOLE") == "true"
+SPINNER_TYPE = "point"
 
-def safe_string(s: str) -> str:
-    if not _rich_output():
-        return _filter_nonprintable(_filter_colors(_convert_emoji(s)))
-    return s
+_stdout_console = Console()
+_stderr_console = Console(file=sys.stderr)
+
+
+def _get_or_create_console(file):
+    """Get the appropriate console instance based on the file."""
+    if file == sys.stderr:
+        return _stderr_console
+    return _stdout_console
+
+
+def get_console(file=None):
+    """Get a console instance, reinitializing if needed."""
+    if REINITIALIZE_RICH_CONSOLE:
+        console = Console()
+        if file is not None:
+            console.file = file
+        return console
+    return _get_or_create_console(file)
 
 
 def safe_print(*objects, **kwargs):
-    # Mirrors Python3 print API (https://docs.python.org/3/library/functions.html#print)
-    filtered_objects = []
-    for o in objects:
-        if isinstance(o, str):
-            o = safe_string(o)
-        filtered_objects.append(o)
-    print(*filtered_objects, **kwargs)
+    """Use to print text to the console."""
+    file = kwargs.pop("file", sys.stdout)
+    ansi = kwargs.pop("ansi", False)
+    plain = kwargs.pop("plain", False)
+
+    if file not in (sys.stderr, sys.stdout):
+        msg = f"Invalid file: {file}"
+        raise ValueError(msg)
+
+    # Use standard print for plain output (useful for JSON)
+    if plain:
+        print(*objects, file=file, **kwargs)
+        return
+
+    print_console = get_console(file)
+
+    if ansi:
+        objects = [Text.from_ansi(obj) for obj in objects]
+
+    print_console.print(*objects, **kwargs)
 
 
-def safe_yaspin(spinner, text):
-    if not _rich_output():
-        return yaspin(Spinners.simpleDots, text=text)
-    return yaspin(spinner, text)
-
-
-def _rich_output() -> bool:
-    return platform.system() != "Windows" and (os.environ.get("TECTON_RICH_OUTPUT", "1") == "1")
-
-
-def _filter_colors(s) -> str:
-    # https://stackoverflow.com/questions/30425105/filter-special-chars-such-as-color-codes-from-shell-output
-    return re.sub(r"\x1b(\[.*?[@-~]|\].*?(\x07|\x1b\\))", "", s)
-
-
-def _filter_nonprintable(s) -> str:
-    printable = set(string.printable)
-    return "".join(filter(lambda x: x in printable, s))
-
-
-def _convert_emoji(s) -> str:
-    emoji_replacements = {
-        "⛔": "[FAIL]",
-        "✅": "[OK]",
-        "💡": "[Tip]",
-        "🎉": "[OK]",
-        "⚠️": "[WARNING]",
-        "↓": "-",
-        "↑": "-",
-        "⏳": "[IN_PROGRESS]",
-        "🔎": "[DEBUG]",
-    }
-    for k, v in emoji_replacements.items():
-        s = s.replace(k, v)
-    return s
+def rich_print(text, file=None):
+    """Use to print Rich Objects to the console."""
+    get_console(file).print(text)

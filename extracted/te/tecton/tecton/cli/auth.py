@@ -8,11 +8,12 @@ from tecton._internals.utils import cluster_url
 from tecton.cli import cli_utils
 from tecton.cli import printer
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton.identities import credentials
 from tecton.identities import okta
 
 
-@click.command(requires_auth=False, cls=TectonCommand)
+@click.command(requires_auth=False, cls=TectonCommand, command_category=TectonCommandCategory.IDENTITY)
 @click.argument("tecton_url", required=False)
 @click.option(
     "--manual/--no-manual",
@@ -50,14 +51,14 @@ def login(tecton_url: Optional[str], manual: bool, okta_session_token: Optional[
     printer.safe_print(f"✅ Updated configuration at {conf._LOCAL_TECTON_CONFIG_FILE}")
 
 
-@click.command(requires_auth=False, cls=TectonCommand)
+@click.command(requires_auth=False, cls=TectonCommand, command_category=TectonCommandCategory.IDENTITY)
 def logout():
     """Log out of current user session. This is a no-op if there is no logged in session."""
     conf.delete_okta_tokens()
     printer.safe_print("✅ Logged user out of session. Use `tecton login` to re-authenticate.")
 
 
-@click.command(cls=TectonCommand)
+@click.command(cls=TectonCommand, command_category=TectonCommandCategory.IDENTITY)
 def get_caller_identity():
     """
     Show the current User or API Key used to authenticate with Tecton.

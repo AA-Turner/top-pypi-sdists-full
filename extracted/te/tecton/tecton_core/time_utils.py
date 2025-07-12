@@ -202,7 +202,8 @@ def convert_proto_duration_for_version(duration: duration_pb2.Duration, version:
 
 def align_time_downwards(time: datetime.datetime, alignment: datetime.timedelta) -> datetime.datetime:
     excess_seconds = time.timestamp() % alignment.total_seconds()
-    return datetime.datetime.utcfromtimestamp(time.timestamp() - excess_seconds)
+    aligned_timestamp = time.timestamp() - excess_seconds
+    return datetime.datetime.fromtimestamp(aligned_timestamp, tz=datetime.timezone.utc)
 
 
 def align_epoch_downwards(int_timestamp_col: int, window_size: int) -> int:
@@ -212,7 +213,8 @@ def align_epoch_downwards(int_timestamp_col: int, window_size: int) -> int:
 def align_time_upwards(time: datetime.datetime, alignment: datetime.timedelta) -> datetime.datetime:
     excess_seconds = time.timestamp() % alignment.total_seconds()
     offset = 0 if excess_seconds == 0 else alignment.total_seconds() - excess_seconds
-    return datetime.datetime.utcfromtimestamp(time.timestamp() + offset)
+    aligned_timestamp = time.timestamp() + offset
+    return datetime.datetime.fromtimestamp(aligned_timestamp, tz=datetime.timezone.utc)
 
 
 def get_timezone_aware_datetime(time: Optional[datetime.datetime]) -> Optional[datetime.datetime]:

@@ -155,13 +155,11 @@ def register_feature_view_as_athena_table_if_necessary(
     # Athena querytree expects the registered table to match the materialization schema.
     # We can remove this special handling when non QT is removed.
     if feature_definition.is_continuous and conf.get_bool("USE_DEPRECATED_ATHENA_RETRIEVAL"):
-        if "timestamp" in hive_columns:
-            # Special madness about continuous aggregates
-            # The parquet files contain both a `timestamp` and an `_anchor_time` field. Same value in both, just a different type
-            del hive_columns["timestamp"]
+        # Special madness about continuous aggregates
+        # The parquet files contain both a `timestamp` and an `_anchor_time` field. Same value in both, just a different type
+        hive_columns.pop("timestamp", None)
 
-    if partition_by in hive_columns:
-        del hive_columns[partition_by]
+    hive_columns.pop(partition_by, None)
 
     athena_database = session.get_database()
     athena_table_spec = AthenaTableCreationSpec(

@@ -1,4 +1,5 @@
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tecton_proto.common import compute_identity__client_pb2 as _compute_identity__client_pb2
 from tecton_proto.spark_common import clusters__client_pb2 as _clusters__client_pb2
 from tecton_proto.spark_common import libraries__client_pb2 as _libraries__client_pb2
 from google.protobuf.internal import containers as _containers
@@ -87,6 +88,7 @@ class PythonMaterializationTask(_message.Message):
     DELETION: PythonMaterializationTask.TaskType
     DELTA_MAINTENANCE: PythonMaterializationTask.TaskType
     FEATURE_EXPORT: PythonMaterializationTask.TaskType
+    ICEBERG_MAINTENANCE: PythonMaterializationTask.TaskType
     INGEST: PythonMaterializationTask.TaskType
     MATERIALIZATION_PATH_URI_FIELD_NUMBER: _ClassVar[int]
     PLAN_INTEGRATION_TEST_BATCH: PythonMaterializationTask.TaskType
@@ -134,7 +136,8 @@ class RunSummary(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_state: _Optional[str] = ..., resource_locator: _Optional[str] = ..., additional_metadata: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class StartJobRequest(_message.Message):
-    __slots__ = ["databricks_jobs_api_version", "existing_cluster", "is_notebook", "libraries", "materialization_task", "new_cluster", "run_name", "timeout_seconds", "use_stepped_materialization"]
+    __slots__ = ["compute_identity", "databricks_jobs_api_version", "existing_cluster", "is_notebook", "libraries", "materialization_task", "new_cluster", "run_name", "timeout_seconds", "use_stepped_materialization"]
+    COMPUTE_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     DATABRICKS_JOBS_API_VERSION_FIELD_NUMBER: _ClassVar[int]
     EXISTING_CLUSTER_FIELD_NUMBER: _ClassVar[int]
     IS_NOTEBOOK_FIELD_NUMBER: _ClassVar[int]
@@ -144,6 +147,7 @@ class StartJobRequest(_message.Message):
     RUN_NAME_FIELD_NUMBER: _ClassVar[int]
     TIMEOUT_SECONDS_FIELD_NUMBER: _ClassVar[int]
     USE_STEPPED_MATERIALIZATION_FIELD_NUMBER: _ClassVar[int]
+    compute_identity: _compute_identity__client_pb2.ComputeIdentity
     databricks_jobs_api_version: str
     existing_cluster: _clusters__client_pb2.ExistingCluster
     is_notebook: bool
@@ -153,7 +157,7 @@ class StartJobRequest(_message.Message):
     run_name: str
     timeout_seconds: int
     use_stepped_materialization: bool
-    def __init__(self, new_cluster: _Optional[_Union[_clusters__client_pb2.NewCluster, _Mapping]] = ..., existing_cluster: _Optional[_Union[_clusters__client_pb2.ExistingCluster, _Mapping]] = ..., materialization_task: _Optional[_Union[PythonMaterializationTask, _Mapping]] = ..., run_name: _Optional[str] = ..., libraries: _Optional[_Iterable[_Union[_libraries__client_pb2.Library, _Mapping]]] = ..., timeout_seconds: _Optional[int] = ..., is_notebook: bool = ..., use_stepped_materialization: bool = ..., databricks_jobs_api_version: _Optional[str] = ...) -> None: ...
+    def __init__(self, new_cluster: _Optional[_Union[_clusters__client_pb2.NewCluster, _Mapping]] = ..., existing_cluster: _Optional[_Union[_clusters__client_pb2.ExistingCluster, _Mapping]] = ..., materialization_task: _Optional[_Union[PythonMaterializationTask, _Mapping]] = ..., run_name: _Optional[str] = ..., libraries: _Optional[_Iterable[_Union[_libraries__client_pb2.Library, _Mapping]]] = ..., timeout_seconds: _Optional[int] = ..., is_notebook: bool = ..., use_stepped_materialization: bool = ..., databricks_jobs_api_version: _Optional[str] = ..., compute_identity: _Optional[_Union[_compute_identity__client_pb2.ComputeIdentity, _Mapping]] = ...) -> None: ...
 
 class StartJobResponse(_message.Message):
     __slots__ = ["run_id"]

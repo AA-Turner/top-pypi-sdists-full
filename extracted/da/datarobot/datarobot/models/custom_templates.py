@@ -19,6 +19,7 @@ import trafaret as t
 from datarobot.enums import ListCustomTemplatesSortQueryParams
 from datarobot.models.api_object import APIObject
 from datarobot.utils import _from_api_dict, to_api
+from datarobot.utils.pagination import unpaginate
 
 
 class DefaultEnvironment(APIObject):
@@ -215,8 +216,12 @@ class CustomTemplate(APIObject):
             params["offset"] = offset
         if limit:
             params["limit"] = limit
-        response = cls._client.get(cls._path, params=params if params else None)
-        return [cls.from_server_data(d) for d in response.json()["data"]]
+
+        if offset is None:
+            data = unpaginate(cls._path, params, cls._client)
+        else:
+            data = cls._client.get(cls._path, params=params if params else None).json()["data"]
+        return [cls.from_server_data(d) for d in data]
 
     @classmethod
     def get(cls, template_id: str) -> CustomTemplate:

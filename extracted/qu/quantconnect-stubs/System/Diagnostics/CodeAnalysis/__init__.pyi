@@ -4,28 +4,6 @@ import System
 import System.Diagnostics.CodeAnalysis
 
 
-class ConstantExpectedAttribute(System.Attribute):
-    """Indicates that the specified method parameter expects a constant."""
-
-    @property
-    def min(self) -> System.Object:
-        """Indicates the minimum bound of the expected constant, inclusive."""
-        ...
-
-    @min.setter
-    def min(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def max(self) -> System.Object:
-        """Indicates the maximum bound of the expected constant, inclusive."""
-        ...
-
-    @max.setter
-    def max(self, value: System.Object) -> None:
-        ...
-
-
 class SuppressMessageAttribute(System.Attribute):
     """Suppresses reporting of a specific code analysis rule violation, allowing multiple suppressions on a single code artifact. Does not apply to compiler diagnostics."""
 
@@ -70,6 +48,28 @@ class SuppressMessageAttribute(System.Attribute):
         ...
 
     def __init__(self, category: str, check_id: str) -> None:
+        ...
+
+
+class ConstantExpectedAttribute(System.Attribute):
+    """Indicates that the specified method parameter expects a constant."""
+
+    @property
+    def min(self) -> System.Object:
+        """Indicates the minimum bound of the expected constant, inclusive."""
+        ...
+
+    @min.setter
+    def min(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def max(self) -> System.Object:
+        """Indicates the maximum bound of the expected constant, inclusive."""
+        ...
+
+    @max.setter
+    def max(self, value: System.Object) -> None:
         ...
 
 

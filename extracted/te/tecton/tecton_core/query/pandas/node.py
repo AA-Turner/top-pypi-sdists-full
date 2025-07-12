@@ -14,12 +14,10 @@ import pyarrow
 from tecton_core.query import node_interface
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import PartitionSelector
 from tecton_core.query.pandas.sql import SqlExecutor
 from tecton_core.schema import Schema
 
-
-if typing.TYPE_CHECKING:
-    import snowflake.snowpark
 
 # SqlExecNodes are responsible for executing the sql string produced by the query node and using its SqlExecutor to
 # output a pandas dataframe
@@ -53,10 +51,6 @@ class SqlExecNode:
     def _to_dataframe(self) -> pandas.DataFrame:
         pandas_df = self.sql_executor.read_sql(self.sql_string)
         return pandas_df
-
-    def to_snowpark(self) -> "snowflake.snowpark.DataFrame":
-        snowpark_df = self.sql_executor.sql_to_snowpark(self.sql_string)
-        return snowpark_df
 
 
 # PandasExecNodes are responsible for taking in a pandas dataframe, performing some pandas operation and outputting a
@@ -98,7 +92,9 @@ class ArrowExecNode:
         return df
 
     @abstractmethod
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
         raise NotImplementedError
 
     def _to_dataframe(self) -> pandas.DataFrame:
@@ -111,6 +107,11 @@ class ArrowExecNode:
     @property
     def input_names(self) -> Optional[List[str]]:
         return None
+
+    @property
+    def output_partitioning(self):
+        assert self.input_node is not None, f"{self.__class__} must implement output_partitioning property"
+        return self.input_node.output_partitioning
 
     def as_ref(self) -> NodeRef:
         return NodeRef(self)

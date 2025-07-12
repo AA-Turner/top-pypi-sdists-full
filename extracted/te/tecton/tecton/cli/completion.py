@@ -11,7 +11,7 @@ from tecton.cli.command import TectonCommand
 @click.option("--bash", default=False, is_flag=True, help="Generate a bash tab completion script.")
 @click.option("--fish", default=False, is_flag=True, help="Generate a fish tab completion script.")
 def completion(zsh, bash, fish):
-    """Generates a shell script to set up tab completion for Tecton. Zsh, bash, and fish shells are supported.
+    """Generates a shell script to set up tab completion. Zsh, bash, and fish shells are supported.
 
     See typical usage examples below:
 

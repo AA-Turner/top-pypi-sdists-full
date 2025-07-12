@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77.0.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cons"
+dynamic = ["version"]
+description = "An implementation of Lisp/Scheme-like cons in Python."
+readme = "README.md"
+license-files = ["LICENSE.txt"]
+authors = [
+    { name = "Brandon T. Willard", email = "brandonwillard+cons@gmail.com" },
+]
+requires-python = ">=3.9"
+dependencies = ["logical-unification>=0.4.0"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/pythological/python-cons"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["cons*"]
+exclude = ["tests*"]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "dirty-tag"

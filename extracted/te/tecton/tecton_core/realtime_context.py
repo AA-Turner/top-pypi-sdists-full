@@ -51,7 +51,7 @@ class RealtimeContext:
         self._row_level_data = _row_level_data
         self._secrets = secrets
         self._resources = resources
-        self._current_row_index = None
+        self._current_row_index = -1
 
     def __str__(self) -> str:
         return (
@@ -132,7 +132,7 @@ class RealtimeContext:
     def __next__(self) -> "RealtimeContext":
         self._current_row_index += 1
 
-        if self._current_row_index >= len(self._row_level_data):
+        if self._row_level_data is not None and self._current_row_index >= len(self._row_level_data):
             raise StopIteration
 
         return self

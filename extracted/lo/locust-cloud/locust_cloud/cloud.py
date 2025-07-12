@@ -94,7 +94,7 @@ def main(locustfiles: list[str] | None = None):
 
         if options.image_tag is not None:
             logger.log(
-                logging.DEBUG if options.image_tag == "master" else logging.INFO,
+                logging.DEBUG if options.image_tag in ["master", "latest"] else logging.INFO,
                 f"You have requested image tag {options.image_tag}",
             )
             payload["image_tag"] = options.image_tag
@@ -147,10 +147,9 @@ def main(locustfiles: list[str] | None = None):
 
         log_ws_url = js["log_ws_url"]
         session_id = js["session_id"]
-        webui_url = log_ws_url.replace("/socket-logs", "")
 
         def open_ui():
-            webbrowser.open_new_tab(webui_url)
+            webbrowser.open_new_tab("https://auth.locust.cloud/load-test")
 
         Thread(target=input_listener({"\r": open_ui, "\n": open_ui}), daemon=True).start()
 

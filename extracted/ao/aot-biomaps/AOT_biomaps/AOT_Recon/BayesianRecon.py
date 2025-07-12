@@ -1,17 +1,9 @@
 from AOT_biomaps.AOT_Recon.AlgebraicRecon import AlgebraicRecon
 from AOT_biomaps.AOT_Recon.ReconEnums import ReconType, OptimizerType, PotentialType, ProcessType
-from AOT_biomaps.Config import config
 from .AOT_Optimizers import MAPEM, DEPIERRO
 
 import warnings
 import numpy as np
-
-
-if config.get_process()  == 'gpu':
-    try:
-        from torch_scatter import scatter
-    except ImportError:
-        raise ImportError("torch_scatter and torch_sparse are required for GPU processing. Please install them using 'pip install torch-scatter torch-sparse' with correct link (follow instructions https://github.com/LucasDuclos/AcoustoOpticTomography/edit/main/README.md).")
 
 class BayesianRecon(AlgebraicRecon):
     """

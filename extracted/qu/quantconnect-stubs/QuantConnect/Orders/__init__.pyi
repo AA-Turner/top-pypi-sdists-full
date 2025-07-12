@@ -22,6 +22,357 @@ import System.Threading
 JsonConverter = typing.Any
 
 
+class Leg(System.Object):
+    """Basic order leg"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """The legs symbol"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def quantity(self) -> int:
+        """Quantity multiplier used to specify proper scale (and direction) of the leg within the strategy"""
+        ...
+
+    @quantity.setter
+    def quantity(self, value: int) -> None:
+        ...
+
+    @property
+    def order_price(self) -> typing.Optional[float]:
+        """Order limit price of the leg in case limit order is sent to the market on strategy execution"""
+        ...
+
+    @order_price.setter
+    def order_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @staticmethod
+    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, limit_price: typing.Optional[float] = None) -> QuantConnect.Orders.Leg:
+        """
+        Creates a new instance
+        
+        :param symbol: The symbol
+        :param quantity: The quantity
+        :param limit_price: Associated limit price if any
+        """
+        ...
+
+
+class OrderRequestType(Enum):
+    """Specifies the type of OrderRequest"""
+
+    SUBMIT = 0
+    """The request is a SubmitOrderRequest (0)"""
+
+    UPDATE = 1
+    """The request is a UpdateOrderRequest (1)"""
+
+    CANCEL = 2
+    """The request is a CancelOrderRequest (2)"""
+
+
+class OrderRequestStatus(Enum):
+    """Specifies the status of a request"""
+
+    UNPROCESSED = 0
+    """This is an unprocessed request (0)"""
+
+    PROCESSING = 1
+    """This request is partially processed (1)"""
+
+    PROCESSED = 2
+    """This request has been completely processed (2)"""
+
+    ERROR = 3
+    """This request encountered an error (3)"""
+
+
+class OrderResponseErrorCode(Enum):
+    """Error detail code"""
+
+    NONE = 0
+    """No error (0)"""
+
+    PROCESSING_ERROR = -1
+    """Unknown error (-1)"""
+
+    ORDER_ALREADY_EXISTS = -2
+    """Cannot submit because order already exists (-2)"""
+
+    INSUFFICIENT_BUYING_POWER = -3
+    """Not enough money to to submit order (-3)"""
+
+    BROKERAGE_MODEL_REFUSED_TO_SUBMIT_ORDER = -4
+    """Internal logic invalidated submit order (-4)"""
+
+    BROKERAGE_FAILED_TO_SUBMIT_ORDER = -5
+    """Brokerage submit error (-5)"""
+
+    BROKERAGE_FAILED_TO_UPDATE_ORDER = -6
+    """Brokerage update error (-6)"""
+
+    BROKERAGE_HANDLER_REFUSED_TO_UPDATE_ORDER = -7
+    """Internal logic invalidated update order (-7)"""
+
+    BROKERAGE_FAILED_TO_CANCEL_ORDER = -8
+    """Brokerage cancel error (-8)"""
+
+    INVALID_ORDER_STATUS = -9
+    """Only pending orders can be canceled (-9)"""
+
+    UNABLE_TO_FIND_ORDER = -10
+    """Missing order (-10)"""
+
+    ORDER_QUANTITY_ZERO = -11
+    """Cannot submit or update orders with zero quantity (-11)"""
+
+    UNSUPPORTED_REQUEST_TYPE = -12
+    """This type of request is unsupported (-12)"""
+
+    PRE_ORDER_CHECKS_ERROR = -13
+    """Unknown error during pre order request validation (-13)"""
+
+    MISSING_SECURITY = -14
+    """Security is missing. Probably did not subscribe (-14)"""
+
+    EXCHANGE_NOT_OPEN = -15
+    """Some order types require open exchange (-15)"""
+
+    SECURITY_PRICE_ZERO = -16
+    """Zero security price is probably due to bad data (-16)"""
+
+    FOREX_BASE_AND_QUOTE_CURRENCIES_REQUIRED = -17
+    """Need both currencies in cashbook to trade a pair (-17)"""
+
+    FOREX_CONVERSION_RATE_ZERO = -18
+    """Need conversion rate to account currency (-18)"""
+
+    SECURITY_HAS_NO_DATA = -19
+    """Should not attempt trading without at least one data point (-19)"""
+
+    EXCEEDED_MAXIMUM_ORDERS = -20
+    """Transaction manager's cache is full (-20)"""
+
+    MARKET_ON_CLOSE_ORDER_TOO_LATE = -21
+    """Below buffer time for MOC order to be placed before exchange closes. 15.5 minutes by default (-21)"""
+
+    INVALID_REQUEST = -22
+    """Request is invalid or null (-22)"""
+
+    REQUEST_CANCELED = -23
+    """Request was canceled by user (-23)"""
+
+    ALGORITHM_WARMING_UP = -24
+    """All orders are invalidated while algorithm is warming up (-24)"""
+
+    BROKERAGE_MODEL_REFUSED_TO_UPDATE_ORDER = -25
+    """Internal logic invalidated update order (-25)"""
+
+    QUOTE_CURRENCY_REQUIRED = -26
+    """Need quote currency in cashbook to trade (-26)"""
+
+    CONVERSION_RATE_ZERO = -27
+    """Need conversion rate to account currency (-27)"""
+
+    NON_TRADABLE_SECURITY = -28
+    """The order's symbol references a non-tradable security (-28)"""
+
+    NON_EXERCISABLE_SECURITY = -29
+    """The order's symbol references a non-exercisable security (-29)"""
+
+    ORDER_QUANTITY_LESS_THAN_LOT_SIZE = -30
+    """Cannot submit or update orders with quantity that is less than lot size (-30)"""
+
+    EXCEEDS_SHORTABLE_QUANTITY = -31
+    """The order's quantity exceeds the max shortable quantity set by the brokerage (-31)"""
+
+    INVALID_NEW_ORDER_STATUS = -32
+    """Cannot update/cancel orders with OrderStatus.New (-32)"""
+
+    EUROPEAN_OPTION_NOT_EXPIRED_ON_EXERCISE = -33
+    """Exercise time before expiry for European options (-33)"""
+
+    OPTION_ORDER_ON_STOCK_SPLIT = -34
+    """Option order is invalid due to underlying stock split (-34)"""
+
+    MARKET_ON_OPEN_NOT_ALLOWED_DURING_REGULAR_HOURS = -35
+    """
+    The Market On Open order was submitted during regular market hours,
+    which is not allowed. This order type must be submitted before the market opens.
+    """
+
+
+class OrderResponse(System.Object):
+    """
+    Represents a response to an OrderRequest. See OrderRequest.Response property for
+    a specific request's response value
+    """
+
+    @property
+    def order_id(self) -> int:
+        """Gets the order id"""
+        ...
+
+    @property
+    def error_message(self) -> str:
+        """
+        Gets the error message if the ErrorCode does not equal OrderResponseErrorCode.None, otherwise
+        gets string.Empty
+        """
+        ...
+
+    @property
+    def error_code(self) -> QuantConnect.Orders.OrderResponseErrorCode:
+        """Gets the error code for this response."""
+        ...
+
+    @property
+    def is_success(self) -> bool:
+        """
+        Gets true if this response represents a successful request, false otherwise
+        If this is an unprocessed response, IsSuccess will return false.
+        """
+        ...
+
+    @property
+    def is_error(self) -> bool:
+        """Gets true if this response represents an error, false otherwise"""
+        ...
+
+    @property
+    def is_processed(self) -> bool:
+        """Gets true if this response has been processed, false otherwise"""
+        ...
+
+    UNPROCESSED: QuantConnect.Orders.OrderResponse = ...
+    """Gets an OrderResponse for a request that has not yet been processed"""
+
+    @staticmethod
+    def error(request: QuantConnect.Orders.OrderRequest, error_code: QuantConnect.Orders.OrderResponseErrorCode, error_message: str) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response from a request"""
+        ...
+
+    @staticmethod
+    def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to the "New" order status"""
+        ...
+
+    @staticmethod
+    def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to an invalid order status"""
+        ...
+
+    @staticmethod
+    def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a missing security"""
+        ...
+
+    @staticmethod
+    def success(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create a successful response from a request"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    @staticmethod
+    def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a bad order id"""
+        ...
+
+    @staticmethod
+    def warming_up(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to algorithm still in warmup mode"""
+        ...
+
+    @staticmethod
+    def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
+        """Helper method to create an error response due to a zero order quantity"""
+        ...
+
+
+class OrderRequest(System.Object, metaclass=abc.ABCMeta):
+    """Represents a request to submit, update, or cancel an order"""
+
+    @property
+    @abc.abstractmethod
+    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
+        """Gets the type of this order request"""
+        ...
+
+    @property
+    def status(self) -> QuantConnect.Orders.OrderRequestStatus:
+        """Gets the status of this request"""
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Gets the UTC time the request was created"""
+        ...
+
+    @property
+    def order_id(self) -> int:
+        """Gets the order id the request acts on"""
+        ...
+
+    @order_id.setter
+    def order_id(self, value: int) -> None:
+        ...
+
+    @property
+    def tag(self) -> str:
+        """Gets a tag for this request"""
+        ...
+
+    @property
+    def response(self) -> QuantConnect.Orders.OrderResponse:
+        """
+        Gets the response for this request. If this request was never processed then this
+        will equal OrderResponse.Unprocessed. This value is never equal to null.
+        """
+        ...
+
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
+        """
+        Initializes a new instance of the OrderRequest class
+        
+        This method is protected.
+        
+        :param time: The time this request was created
+        :param order_id: The order id this request acts on, specify zero for SubmitOrderRequest
+        :param tag: A custom tag for the request
+        """
+        ...
+
+    def set_response(self, response: QuantConnect.Orders.OrderResponse, status: QuantConnect.Orders.OrderRequestStatus = ...) -> None:
+        """
+        Sets the Response for this request
+        
+        :param response: The response to this request
+        :param status: The current status of this request
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
 class OrderType(Enum):
     """Type of the order: market, limit or stop"""
 
@@ -62,6 +413,35 @@ class OrderType(Enum):
     """Trailing Stop Order Type - (11)"""
 
 
+class OrderDirection(Enum):
+    """Direction of the order"""
+
+    BUY = 0
+    """Buy Order (0)"""
+
+    SELL = 1
+    """Sell Order (1)"""
+
+    HOLD = 2
+    """Default Value - No Order Direction (2)"""
+
+
+class OrderPosition(Enum):
+    """Position of the order"""
+
+    BUY_TO_OPEN = 0
+    """Indicates the buy order will result in a long position, starting either from zero or an existing long position (0)"""
+
+    BUY_TO_CLOSE = 1
+    """Indicates the buy order is starting from an existing short position, resulting in a closed or long position (1)"""
+
+    SELL_TO_OPEN = 2
+    """Indicates the sell order will result in a short position, starting either from zero or an existing short position (2)"""
+
+    SELL_TO_CLOSE = 3
+    """Indicates the sell order is starting from an existing long position, resulting in a closed or short position (3)"""
+
+
 class OrderStatus(Enum):
     """Fill status of the order class."""
 
@@ -91,133 +471,6 @@ class OrderStatus(Enum):
 
     UPDATE_SUBMITTED = 9
     """Order update submitted to the market (9)"""
-
-
-class OrderDirection(Enum):
-    """Direction of the order"""
-
-    BUY = 0
-    """Buy Order (0)"""
-
-    SELL = 1
-    """Sell Order (1)"""
-
-    HOLD = 2
-    """Default Value - No Order Direction (2)"""
-
-
-class OrderSubmissionData(System.Object):
-    """
-    The purpose of this class is to store time and price information
-    available at the time an order was submitted.
-    """
-
-    @property
-    def bid_price(self) -> float:
-        """The bid price at order submission time"""
-        ...
-
-    @property
-    def ask_price(self) -> float:
-        """The ask price at order submission time"""
-        ...
-
-    @property
-    def last_price(self) -> float:
-        """The current price at order submission time"""
-        ...
-
-    def __init__(self, bid_price: float, ask_price: float, last_price: float) -> None:
-        """Initializes a new instance of the OrderSubmissionData class"""
-        ...
-
-    def clone(self) -> QuantConnect.Orders.OrderSubmissionData:
-        """Return a new instance clone of this object"""
-        ...
-
-
-class GroupOrderManager(System.Object):
-    """Manager of a group of orders"""
-
-    @property
-    def id(self) -> int:
-        """The unique order group Id"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """The group order quantity"""
-        ...
-
-    @property
-    def count(self) -> int:
-        """The total order count associated with this order group"""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """The limit price associated with this order group if any"""
-        ...
-
-    @limit_price.setter
-    def limit_price(self, value: float) -> None:
-        ...
-
-    @property
-    def order_ids(self) -> System.Collections.Generic.HashSet[int]:
-        """The order Ids in this group"""
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Order Direction Property based off Quantity."""
-        ...
-
-    @property
-    def absolute_quantity(self) -> float:
-        """Get the absolute quantity for this combo order"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, id: int, leg_count: int, quantity: float, limit_price: float = 0) -> None:
-        """
-        Creates a new instance of GroupOrderManager
-        
-        :param id: This order group unique Id
-        :param leg_count: The order leg count
-        :param quantity: The group order quantity
-        :param limit_price: The limit price associated with this order group if any
-        """
-        ...
-
-    @overload
-    def __init__(self, leg_count: int, quantity: float, limit_price: float = 0) -> None:
-        """
-        Creates a new instance of GroupOrderManager
-        
-        :param leg_count: The order leg count
-        :param quantity: The group order quantity
-        :param limit_price: The limit price associated with this order group if any
-        """
-        ...
-
-
-class OrderRequestType(Enum):
-    """Specifies the type of OrderRequest"""
-
-    SUBMIT = 0
-    """The request is a SubmitOrderRequest (0)"""
-
-    UPDATE = 1
-    """The request is a UpdateOrderRequest (1)"""
-
-    CANCEL = 2
-    """The request is a CancelOrderRequest (2)"""
 
 
 class UpdateOrderFields(System.Object):
@@ -335,6 +588,182 @@ class UpdateOrderRequest(QuantConnect.Orders.OrderRequest):
         Returns a string that represents the current object.
         
         :returns: A string that represents the current object.
+        """
+        ...
+
+
+class TimeInForce(System.Object, QuantConnect.Interfaces.ITimeInForceHandler, metaclass=abc.ABCMeta):
+    """Time In Force - defines the length of time over which an order will continue working before it is canceled"""
+
+    GOOD_TIL_CANCELED: QuantConnect.Orders.TimeInForce = ...
+    """Gets a GoodTilCanceledTimeInForce instance"""
+
+    DAY: QuantConnect.Orders.TimeInForce = ...
+    """Gets a DayTimeInForce instance"""
+
+    GOOD_TIL_DATE: typing.Callable[[datetime.datetime], QuantConnect.Orders.TimeInForce]
+    """Gets a GoodTilDateTimeInForce instance"""
+
+    def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
+        """
+        Checks if an order fill is valid
+        
+        :param security: The security matching the order
+        :param order: The order to be checked
+        :param fill: The order fill to be checked
+        :returns: Returns true if the order fill can be emitted, false otherwise.
+        """
+        ...
+
+    def is_order_expired(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
+        """
+        Checks if an order is expired
+        
+        :param security: The security matching the order
+        :param order: The order to be checked
+        :returns: Returns true if the order has expired, false otherwise.
+        """
+        ...
+
+
+class OrderProperties(System.Object, QuantConnect.Interfaces.IOrderProperties):
+    """Contains additional properties and settings for an order"""
+
+    @property
+    def time_in_force(self) -> QuantConnect.Orders.TimeInForce:
+        """Defines the length of time over which an order will continue working before it is cancelled"""
+        ...
+
+    @time_in_force.setter
+    def time_in_force(self, value: QuantConnect.Orders.TimeInForce) -> None:
+        ...
+
+    @property
+    def exchange(self) -> QuantConnect.Exchange:
+        """Defines the exchange name for a particular market"""
+        ...
+
+    @exchange.setter
+    def exchange(self, value: QuantConnect.Exchange) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the OrderProperties class"""
+        ...
+
+    @overload
+    def __init__(self, exchange: QuantConnect.Exchange) -> None:
+        """
+        Initializes a new instance of the OrderProperties class, with exchange param
+        Exchange name for market
+        
+        :param exchange: Exchange name for market
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
+class OrderSubmissionData(System.Object):
+    """
+    The purpose of this class is to store time and price information
+    available at the time an order was submitted.
+    """
+
+    @property
+    def bid_price(self) -> float:
+        """The bid price at order submission time"""
+        ...
+
+    @property
+    def ask_price(self) -> float:
+        """The ask price at order submission time"""
+        ...
+
+    @property
+    def last_price(self) -> float:
+        """The current price at order submission time"""
+        ...
+
+    def __init__(self, bid_price: float, ask_price: float, last_price: float) -> None:
+        """Initializes a new instance of the OrderSubmissionData class"""
+        ...
+
+    def clone(self) -> QuantConnect.Orders.OrderSubmissionData:
+        """Return a new instance clone of this object"""
+        ...
+
+
+class GroupOrderManager(System.Object):
+    """Manager of a group of orders"""
+
+    @property
+    def id(self) -> int:
+        """The unique order group Id"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """The group order quantity"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """The total order count associated with this order group"""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """The limit price associated with this order group if any"""
+        ...
+
+    @limit_price.setter
+    def limit_price(self, value: float) -> None:
+        ...
+
+    @property
+    def order_ids(self) -> System.Collections.Generic.HashSet[int]:
+        """The order Ids in this group"""
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Order Direction Property based off Quantity."""
+        ...
+
+    @property
+    def absolute_quantity(self) -> float:
+        """Get the absolute quantity for this combo order"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, id: int, leg_count: int, quantity: float, limit_price: float = 0) -> None:
+        """
+        Creates a new instance of GroupOrderManager
+        
+        :param id: This order group unique Id
+        :param leg_count: The order leg count
+        :param quantity: The group order quantity
+        :param limit_price: The limit price associated with this order group if any
+        """
+        ...
+
+    @overload
+    def __init__(self, leg_count: int, quantity: float, limit_price: float = 0) -> None:
+        """
+        Creates a new instance of GroupOrderManager
+        
+        :param leg_count: The order leg count
+        :param quantity: The group order quantity
+        :param limit_price: The limit price associated with this order group if any
         """
         ...
 
@@ -740,65 +1169,52 @@ class Order(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class OptionExerciseOrder(QuantConnect.Orders.Order):
-    """Option exercise order type definition"""
+class KrakenOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Kraken order properties"""
 
     @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Option Exercise Order Type"""
+    def post_only(self) -> bool:
+        """Post-only order (available when ordertype = limit)"""
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
+    @post_only.setter
+    def post_only(self, value: bool) -> None:
         ...
 
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New option exercise order constructor. We model option exercising as an underlying asset long/short order with strike equal to limit price.
-        This means that by exercising a call we get into long asset position, by exercising a put we get into short asset position.
-        
-        :param symbol: Option symbol we're seeking to exercise
-        :param quantity: Quantity of the option we're seeking to exercise. Must be a positive value.
-        :param time: Time the order was placed
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
+    @property
+    def fee_in_base(self) -> bool:
+        """If true or by default when selling, fees will be charged in base currency. If false will be ignored. Mutually exclusive with FeeInQuote."""
         ...
 
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
+    @fee_in_base.setter
+    def fee_in_base(self, value: bool) -> None:
         ...
 
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in option contracts quoted in options's currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
+    @property
+    def fee_in_quote(self) -> bool:
+        """If true or by default when buying, fees will be charged in quote currency. If false will be ignored. Mutually exclusive with FeeInBase."""
         ...
 
-
-class ReadOrdersResponseJsonConverter(JsonConverter):
-    """Api orders read response json converter"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Determines if can convert the given open type"""
+    @fee_in_quote.setter
+    def fee_in_quote(self, value: bool) -> None:
         ...
 
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Deserialize the given api order response"""
+    @property
+    def no_market_price_protection(self) -> bool:
+        """https://support.kraken.com/hc/en-us/articles/201648183-Market-Price-Protection"""
         ...
 
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Serialize the given api order response"""
+    @no_market_price_protection.setter
+    def no_market_price_protection(self, value: bool) -> None:
+        ...
+
+    @property
+    def conditional_order(self) -> QuantConnect.Orders.Order:
+        """Conditional close orders are triggered by execution of the primary order in the same quantity and opposite direction. Ordertypes can be the same with primary order."""
+        ...
+
+    @conditional_order.setter
+    def conditional_order(self, value: QuantConnect.Orders.Order) -> None:
         ...
 
 
@@ -839,6 +1255,222 @@ class ComboOrder(QuantConnect.Orders.Order, metaclass=abc.ABCMeta):
         Modifies the state of this order to match the update request
         
         :param request: The request to update this order object
+        """
+        ...
+
+
+class CancelOrderRequest(QuantConnect.Orders.OrderRequest):
+    """Defines a request to cancel an order"""
+
+    @property
+    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
+        """Gets Orders.OrderRequestType.Cancel"""
+        ...
+
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
+        """
+        Initializes a new instance of the CancelOrderRequest class
+        
+        :param time: The time this cancelation was requested
+        :param order_id: The order id to be canceled
+        :param tag: A new tag for the order
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class BinanceOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Binance brokerage"""
+
+    @property
+    def post_only(self) -> bool:
+        """
+        This flag will ensure the order executes only as a maker (no fee) order.
+        If part of the order results in taking liquidity rather than providing,
+        it will be rejected and no part of the order will execute.
+        Note: this flag is only applied to Limit orders.
+        """
+        ...
+
+    @post_only.setter
+    def post_only(self, value: bool) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
+class OrderUpdateEvent(System.Object):
+    """
+    Event that fires each time an order is updated in the brokerage side.
+    These are not status changes but mainly price changes, like the stop price of a trailing stop order.
+    """
+
+    @property
+    def order_id(self) -> int:
+        """The order ID."""
+        ...
+
+    @order_id.setter
+    def order_id(self, value: int) -> None:
+        ...
+
+    @property
+    def trailing_stop_price(self) -> float:
+        """The updated stop price for a TrailingStopOrder"""
+        ...
+
+    @trailing_stop_price.setter
+    def trailing_stop_price(self, value: float) -> None:
+        ...
+
+    @property
+    def stop_triggered(self) -> bool:
+        """Flag indicating whether stop has been triggered for a StopLimitOrder"""
+        ...
+
+    @stop_triggered.setter
+    def stop_triggered(self, value: bool) -> None:
+        ...
+
+
+class LimitOrder(QuantConnect.Orders.Order):
+    """Limit order type definition"""
+
+    @property
+    def limit_price(self) -> float:
+        """Limit price for this order."""
+        ...
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Limit Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New limit order constructor
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param limit_price: Price the order should be filled at if a limit order
+        :param time: Time the order was placed
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_default_tag(self) -> str:
+        """
+        Gets the default tag for this order
+        
+        :returns: The default tag.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class MarketOnCloseOrder(QuantConnect.Orders.Order):
+    """Market on close order type - submits a market order on exchange close"""
+
+    DEFAULT_SUBMISSION_TIME_BUFFER: datetime.timedelta = ...
+    """
+    Gets the default interval before market close that an MOC order may be submitted.
+    For example, US equity exchanges typically require MOC orders to be placed no later
+    than 15 minutes before market close, which yields a nominal time of 3:45PM.
+    This buffer value takes into account the 15 minutes and adds an additional 30 seconds
+    to account for other potential delays, such as LEAN order processing and placement of
+    the order to the exchange.
+    """
+
+    submission_time_buffer: datetime.timedelta = ...
+    """The interval before market close that an MOC order may be submitted."""
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """MarketOnClose Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Intiializes a new instance of the MarketOnCloseOrder class."""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        Intiializes a new instance of the MarketOnCloseOrder class.
+        
+        :param symbol: The security's symbol being ordered
+        :param quantity: The number of units to order
+        :param time: The current time
+        :param tag: A user defined tag for the order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
         """
         ...
 
@@ -889,6 +1521,169 @@ class ComboMarketOrder(QuantConnect.Orders.ComboOrder):
         ...
 
 
+class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
+    """Combo leg limit order type"""
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Combo Limit Leg Order Type"""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """Limit price for this order."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New limit order constructor
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param limit_price: Price the order should be filled at if a limit order
+        :param time: Time the order was placed
+        :param group_order_manager: Manager for the orders in the group
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+
+class OrderError(Enum):
+    """Specifies the possible error states during presubmission checks"""
+
+    CAN_NOT_UPDATE_FILLED_ORDER = -8
+    """Order has already been filled and cannot be modified (-8)"""
+
+    GENERAL_ERROR = -7
+    """General error in order (-7)"""
+
+    TIMESTAMP_ERROR = -6
+    """Order timestamp error. Order appears to be executing in the future (-6)"""
+
+    MAX_ORDERS_EXCEEDED = -5
+    """Exceeded maximum allowed orders for one analysis period (-5)"""
+
+    INSUFFICIENT_CAPITAL = -4
+    """Insufficient capital to execute order (-4)"""
+
+    MARKET_CLOSED = -3
+    """Attempting market order outside of market hours (-3)"""
+
+    NO_DATA = -2
+    """There is no data yet for this security - please wait for data (market order price not available yet) (-2)"""
+
+    ZERO_QUANTITY = -1
+    """Order quantity must not be zero (-1)"""
+
+    NONE = 0
+    """The order is OK (0)"""
+
+
+class MarketOrder(QuantConnect.Orders.Order):
+    """Market order type definition"""
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Market Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], price: float, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New market order constructor
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param time: Time the order was placed
+        :param price: Price of the order
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New market order constructor
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param time: Time the order was placed
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+
+class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Fix Interactive Brokers"""
+
+    @property
+    def account(self) -> str:
+        """The linked account for which to submit the order (only used by Financial Advisors)"""
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+
 class OrderField(Enum):
     """Specifies an order field that does not apply to all order types"""
 
@@ -906,433 +1701,6 @@ class OrderField(Enum):
 
     TRAILING_AS_PERCENTAGE = 4
     """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
-
-
-class ApiOrderResponse(QuantConnect.Api.StringRepresentation):
-    """Api order and order events reponse"""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """The symbol associated with this order"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def order(self) -> QuantConnect.Orders.Order:
-        """The order"""
-        ...
-
-    @order.setter
-    def order(self, value: QuantConnect.Orders.Order) -> None:
-        ...
-
-    @property
-    def events(self) -> typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent]:
-        """The order events"""
-        ...
-
-    @events.setter
-    def events(self, value: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """ApiOrderResponse empty constructor"""
-        ...
-
-    @overload
-    def __init__(self, order: QuantConnect.Orders.Order, events: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-        """Creates an instance of an ApiOrderResponse class using the given arguments"""
-        ...
-
-
-class OrdersResponseWrapper(QuantConnect.Api.RestResponse):
-    """Collection container for a list of orders for a project"""
-
-    @property
-    def length(self) -> int:
-        """Returns the total order collection length, not only the amount we are sending here"""
-        ...
-
-    @length.setter
-    def length(self, value: int) -> None:
-        ...
-
-    @property
-    def orders(self) -> typing.List[QuantConnect.Orders.ApiOrderResponse]:
-        """Collection of summarized Orders objects"""
-        ...
-
-    @orders.setter
-    def orders(self, value: typing.List[QuantConnect.Orders.ApiOrderResponse]) -> None:
-        ...
-
-
-class OrderRequestStatus(Enum):
-    """Specifies the status of a request"""
-
-    UNPROCESSED = 0
-    """This is an unprocessed request (0)"""
-
-    PROCESSING = 1
-    """This request is partially processed (1)"""
-
-    PROCESSED = 2
-    """This request has been completely processed (2)"""
-
-    ERROR = 3
-    """This request encountered an error (3)"""
-
-
-class OrderResponseErrorCode(Enum):
-    """Error detail code"""
-
-    NONE = 0
-    """No error (0)"""
-
-    PROCESSING_ERROR = -1
-    """Unknown error (-1)"""
-
-    ORDER_ALREADY_EXISTS = -2
-    """Cannot submit because order already exists (-2)"""
-
-    INSUFFICIENT_BUYING_POWER = -3
-    """Not enough money to to submit order (-3)"""
-
-    BROKERAGE_MODEL_REFUSED_TO_SUBMIT_ORDER = -4
-    """Internal logic invalidated submit order (-4)"""
-
-    BROKERAGE_FAILED_TO_SUBMIT_ORDER = -5
-    """Brokerage submit error (-5)"""
-
-    BROKERAGE_FAILED_TO_UPDATE_ORDER = -6
-    """Brokerage update error (-6)"""
-
-    BROKERAGE_HANDLER_REFUSED_TO_UPDATE_ORDER = -7
-    """Internal logic invalidated update order (-7)"""
-
-    BROKERAGE_FAILED_TO_CANCEL_ORDER = -8
-    """Brokerage cancel error (-8)"""
-
-    INVALID_ORDER_STATUS = -9
-    """Only pending orders can be canceled (-9)"""
-
-    UNABLE_TO_FIND_ORDER = -10
-    """Missing order (-10)"""
-
-    ORDER_QUANTITY_ZERO = -11
-    """Cannot submit or update orders with zero quantity (-11)"""
-
-    UNSUPPORTED_REQUEST_TYPE = -12
-    """This type of request is unsupported (-12)"""
-
-    PRE_ORDER_CHECKS_ERROR = -13
-    """Unknown error during pre order request validation (-13)"""
-
-    MISSING_SECURITY = -14
-    """Security is missing. Probably did not subscribe (-14)"""
-
-    EXCHANGE_NOT_OPEN = -15
-    """Some order types require open exchange (-15)"""
-
-    SECURITY_PRICE_ZERO = -16
-    """Zero security price is probably due to bad data (-16)"""
-
-    FOREX_BASE_AND_QUOTE_CURRENCIES_REQUIRED = -17
-    """Need both currencies in cashbook to trade a pair (-17)"""
-
-    FOREX_CONVERSION_RATE_ZERO = -18
-    """Need conversion rate to account currency (-18)"""
-
-    SECURITY_HAS_NO_DATA = -19
-    """Should not attempt trading without at least one data point (-19)"""
-
-    EXCEEDED_MAXIMUM_ORDERS = -20
-    """Transaction manager's cache is full (-20)"""
-
-    MARKET_ON_CLOSE_ORDER_TOO_LATE = -21
-    """Below buffer time for MOC order to be placed before exchange closes. 15.5 minutes by default (-21)"""
-
-    INVALID_REQUEST = -22
-    """Request is invalid or null (-22)"""
-
-    REQUEST_CANCELED = -23
-    """Request was canceled by user (-23)"""
-
-    ALGORITHM_WARMING_UP = -24
-    """All orders are invalidated while algorithm is warming up (-24)"""
-
-    BROKERAGE_MODEL_REFUSED_TO_UPDATE_ORDER = -25
-    """Internal logic invalidated update order (-25)"""
-
-    QUOTE_CURRENCY_REQUIRED = -26
-    """Need quote currency in cashbook to trade (-26)"""
-
-    CONVERSION_RATE_ZERO = -27
-    """Need conversion rate to account currency (-27)"""
-
-    NON_TRADABLE_SECURITY = -28
-    """The order's symbol references a non-tradable security (-28)"""
-
-    NON_EXERCISABLE_SECURITY = -29
-    """The order's symbol references a non-exercisable security (-29)"""
-
-    ORDER_QUANTITY_LESS_THAN_LOT_SIZE = -30
-    """Cannot submit or update orders with quantity that is less than lot size (-30)"""
-
-    EXCEEDS_SHORTABLE_QUANTITY = -31
-    """The order's quantity exceeds the max shortable quantity set by the brokerage (-31)"""
-
-    INVALID_NEW_ORDER_STATUS = -32
-    """Cannot update/cancel orders with OrderStatus.New (-32)"""
-
-    EUROPEAN_OPTION_NOT_EXPIRED_ON_EXERCISE = -33
-    """Exercise time before expiry for European options (-33)"""
-
-    OPTION_ORDER_ON_STOCK_SPLIT = -34
-    """Option order is invalid due to underlying stock split (-34)"""
-
-    MARKET_ON_OPEN_NOT_ALLOWED_DURING_REGULAR_HOURS = -35
-    """
-    The Market On Open order was submitted during regular market hours,
-    which is not allowed. This order type must be submitted before the market opens.
-    """
-
-
-class OrderResponse(System.Object):
-    """
-    Represents a response to an OrderRequest. See OrderRequest.Response property for
-    a specific request's response value
-    """
-
-    @property
-    def order_id(self) -> int:
-        """Gets the order id"""
-        ...
-
-    @property
-    def error_message(self) -> str:
-        """
-        Gets the error message if the ErrorCode does not equal OrderResponseErrorCode.None, otherwise
-        gets string.Empty
-        """
-        ...
-
-    @property
-    def error_code(self) -> QuantConnect.Orders.OrderResponseErrorCode:
-        """Gets the error code for this response."""
-        ...
-
-    @property
-    def is_success(self) -> bool:
-        """
-        Gets true if this response represents a successful request, false otherwise
-        If this is an unprocessed response, IsSuccess will return false.
-        """
-        ...
-
-    @property
-    def is_error(self) -> bool:
-        """Gets true if this response represents an error, false otherwise"""
-        ...
-
-    @property
-    def is_processed(self) -> bool:
-        """Gets true if this response has been processed, false otherwise"""
-        ...
-
-    UNPROCESSED: QuantConnect.Orders.OrderResponse = ...
-    """Gets an OrderResponse for a request that has not yet been processed"""
-
-    @staticmethod
-    def error(request: QuantConnect.Orders.OrderRequest, error_code: QuantConnect.Orders.OrderResponseErrorCode, error_message: str) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response from a request"""
-        ...
-
-    @staticmethod
-    def invalid_new_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to the "New" order status"""
-        ...
-
-    @staticmethod
-    def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to an invalid order status"""
-        ...
-
-    @staticmethod
-    def missing_security(request: QuantConnect.Orders.SubmitOrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a missing security"""
-        ...
-
-    @staticmethod
-    def success(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create a successful response from a request"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-    @staticmethod
-    def unable_to_find_order(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a bad order id"""
-        ...
-
-    @staticmethod
-    def warming_up(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to algorithm still in warmup mode"""
-        ...
-
-    @staticmethod
-    def zero_quantity(request: QuantConnect.Orders.OrderRequest) -> QuantConnect.Orders.OrderResponse:
-        """Helper method to create an error response due to a zero order quantity"""
-        ...
-
-
-class OrderRequest(System.Object, metaclass=abc.ABCMeta):
-    """Represents a request to submit, update, or cancel an order"""
-
-    @property
-    @abc.abstractmethod
-    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
-        """Gets the type of this order request"""
-        ...
-
-    @property
-    def status(self) -> QuantConnect.Orders.OrderRequestStatus:
-        """Gets the status of this request"""
-        ...
-
-    @property
-    def time(self) -> datetime.datetime:
-        """Gets the UTC time the request was created"""
-        ...
-
-    @property
-    def order_id(self) -> int:
-        """Gets the order id the request acts on"""
-        ...
-
-    @order_id.setter
-    def order_id(self, value: int) -> None:
-        ...
-
-    @property
-    def tag(self) -> str:
-        """Gets a tag for this request"""
-        ...
-
-    @property
-    def response(self) -> QuantConnect.Orders.OrderResponse:
-        """
-        Gets the response for this request. If this request was never processed then this
-        will equal OrderResponse.Unprocessed. This value is never equal to null.
-        """
-        ...
-
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
-        """
-        Initializes a new instance of the OrderRequest class
-        
-        This method is protected.
-        
-        :param time: The time this request was created
-        :param order_id: The order id this request acts on, specify zero for SubmitOrderRequest
-        :param tag: A custom tag for the request
-        """
-        ...
-
-    def set_response(self, response: QuantConnect.Orders.OrderResponse, status: QuantConnect.Orders.OrderRequestStatus = ...) -> None:
-        """
-        Sets the Response for this request
-        
-        :param response: The response to this request
-        :param status: The current status of this request
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class OrderSizing(System.Object):
-    """Provides methods for computing a maximum order size."""
-
-    @staticmethod
-    def adjust_by_lot_size(security: QuantConnect.Securities.Security, quantity: float) -> float:
-        """
-        Adjusts the provided order quantity to respect the securities lot size.
-        If the quantity is missing 1M part of the lot size it will be rounded up
-        since we suppose it's due to floating point error, this is required to avoid diff
-        between Py and C#
-        
-        :param security: The security instance
-        :param quantity: The desired quantity to adjust, can be signed
-        :returns: The signed adjusted quantity.
-        """
-        ...
-
-    @staticmethod
-    def get_order_size_for_maximum_value(security: QuantConnect.Securities.Security, maximum_order_value_in_account_currency: float, desired_order_size: float) -> float:
-        """
-        Adjust the provided order size to respect the maximum total order value
-        
-        :param security: The security object
-        :param maximum_order_value_in_account_currency: The maximum order value in units of the account currency
-        :param desired_order_size: The desired order size to adjust
-        :returns: The signed adjusted order size.
-        """
-        ...
-
-    @staticmethod
-    def get_order_size_for_percent_volume(security: QuantConnect.Securities.Security, maximum_percent_current_volume: float, desired_order_size: float) -> float:
-        """
-        Adjust the provided order size to respect maximum order size based on a percentage of current volume.
-        
-        :param security: The security object
-        :param maximum_percent_current_volume: The maximum percentage of the current bar's volume
-        :param desired_order_size: The desired order size to adjust
-        :returns: The signed adjusted order size.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> float:
-        """
-        Gets the remaining quantity to be ordered to reach the specified target quantity.
-        
-        :param algorithm: The algorithm instance
-        :param target: The portfolio target
-        :returns: The signed remaining quantity to be ordered.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget, security: QuantConnect.Securities.Security, account_for_fees: bool = False) -> float:
-        """
-        Gets the remaining quantity to be ordered to reach the specified target quantity.
-        
-        :param algorithm: The algorithm instance
-        :param target: The portfolio target
-        :param security: The target security
-        :param account_for_fees: True for taking into account the fee's in the order quantity. False, otherwise.
-        :returns: The signed remaining quantity to be ordered.
-        """
-        ...
 
 
 class OrderEvent(System.Object):
@@ -1583,420 +1951,6 @@ class OrderEvent(System.Object):
         ...
 
 
-class TimeInForce(System.Object, QuantConnect.Interfaces.ITimeInForceHandler, metaclass=abc.ABCMeta):
-    """Time In Force - defines the length of time over which an order will continue working before it is canceled"""
-
-    GOOD_TIL_CANCELED: QuantConnect.Orders.TimeInForce = ...
-    """Gets a GoodTilCanceledTimeInForce instance"""
-
-    DAY: QuantConnect.Orders.TimeInForce = ...
-    """Gets a DayTimeInForce instance"""
-
-    GOOD_TIL_DATE: typing.Callable[[datetime.datetime], QuantConnect.Orders.TimeInForce]
-    """Gets a GoodTilDateTimeInForce instance"""
-
-    def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
-        """
-        Checks if an order fill is valid
-        
-        :param security: The security matching the order
-        :param order: The order to be checked
-        :param fill: The order fill to be checked
-        :returns: Returns true if the order fill can be emitted, false otherwise.
-        """
-        ...
-
-    def is_order_expired(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> bool:
-        """
-        Checks if an order is expired
-        
-        :param security: The security matching the order
-        :param order: The order to be checked
-        :returns: Returns true if the order has expired, false otherwise.
-        """
-        ...
-
-
-class OrderProperties(System.Object, QuantConnect.Interfaces.IOrderProperties):
-    """Contains additional properties and settings for an order"""
-
-    @property
-    def time_in_force(self) -> QuantConnect.Orders.TimeInForce:
-        """Defines the length of time over which an order will continue working before it is cancelled"""
-        ...
-
-    @time_in_force.setter
-    def time_in_force(self, value: QuantConnect.Orders.TimeInForce) -> None:
-        ...
-
-    @property
-    def exchange(self) -> QuantConnect.Exchange:
-        """Defines the exchange name for a particular market"""
-        ...
-
-    @exchange.setter
-    def exchange(self, value: QuantConnect.Exchange) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the OrderProperties class"""
-        ...
-
-    @overload
-    def __init__(self, exchange: QuantConnect.Exchange) -> None:
-        """
-        Initializes a new instance of the OrderProperties class, with exchange param
-        Exchange name for market
-        
-        :param exchange: Exchange name for market
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
-        ...
-
-
-class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Provides an implementation of the OrderProperties specific to Tradier order."""
-
-    @property
-    def outside_regular_trading_hours(self) -> bool:
-        """
-        If set to true, allows orders to also trigger and fill outside of regular trading hours.
-        If on extended hours, the order will be valid only during the current extended session.
-        """
-        ...
-
-    @outside_regular_trading_hours.setter
-    def outside_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-
-class CancelOrderRequest(QuantConnect.Orders.OrderRequest):
-    """Defines a request to cancel an order"""
-
-    @property
-    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
-        """Gets Orders.OrderRequestType.Cancel"""
-        ...
-
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], order_id: int, tag: str) -> None:
-        """
-        Initializes a new instance of the CancelOrderRequest class
-        
-        :param time: The time this cancelation was requested
-        :param order_id: The order id to be canceled
-        :param tag: A new tag for the order
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class EzeOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to EZE brokerage"""
-
-    @property
-    def route(self) -> str:
-        """Gets or sets the route name as shown in Eze EMS."""
-        ...
-
-    @route.setter
-    def route(self, value: str) -> None:
-        ...
-
-    @property
-    def account(self) -> str:
-        """
-        Gets or sets a semi-colon separated list of trade or neutral accounts
-        the user has permission for, e.g., "TAL;TEST;USER1;TRADE" or "TAL;TEST;USER2;NEUTRAL".
-        """
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-    @property
-    def notes(self) -> str:
-        """Gets or sets the user message or notes."""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    def __init__(self, route: str = ..., account: str = ..., notes: str = ...) -> None:
-        """
-        Initializes a new instance with optional route, account, and notes.
-        
-        :param route: The trading route name (optional).
-        :param account: The trading account with specific permissions (optional).
-        :param notes: Optional notes about the order.
-        """
-        ...
-
-
-class CoinbaseOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Coinbase brokerage"""
-
-    @property
-    def post_only(self) -> bool:
-        """
-        This flag will ensure the order executes only as a maker (no fee) order.
-        If part of the order results in taking liquidity rather than providing,
-        it will be rejected and no part of the order will execute.
-        Note: this flag is only applied to Limit orders.
-        """
-        ...
-
-    @post_only.setter
-    def post_only(self, value: bool) -> None:
-        ...
-
-    @property
-    def self_trade_prevention_id(self) -> bool:
-        """
-        Gets or sets a value indicating whether self-trade prevention is enabled for this order.
-        Self-trade prevention helps prevent an order from crossing against the same user,
-        reducing the risk of unintentional trades within the same account.
-        """
-        ...
-
-    @self_trade_prevention_id.setter
-    def self_trade_prevention_id(self, value: bool) -> None:
-        ...
-
-
-class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Wolverine order properties"""
-
-    @property
-    def exchange_post_fix(self) -> str:
-        """The exchange post fix to apply if any"""
-        ...
-
-    @exchange_post_fix.setter
-    def exchange_post_fix(self, value: str) -> None:
-        ...
-
-
-class OrderPosition(Enum):
-    """Position of the order"""
-
-    BUY_TO_OPEN = 0
-    """Indicates the buy order will result in a long position, starting either from zero or an existing long position (0)"""
-
-    BUY_TO_CLOSE = 1
-    """Indicates the buy order is starting from an existing short position, resulting in a closed or long position (1)"""
-
-    SELL_TO_OPEN = 2
-    """Indicates the sell order will result in a short position, starting either from zero or an existing short position (2)"""
-
-    SELL_TO_CLOSE = 3
-    """Indicates the sell order is starting from an existing long position, resulting in a closed or short position (3)"""
-
-
-class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
-    """The terminal link order properties"""
-
-    class StrategyParameters(System.Object):
-        """Models an EMSX order strategy parameter"""
-
-        @property
-        def name(self) -> str:
-            """The strategy name"""
-            ...
-
-        @name.setter
-        def name(self, value: str) -> None:
-            ...
-
-        @property
-        def fields(self) -> typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]:
-            """The strategy fields"""
-            ...
-
-        @fields.setter
-        def fields(self, value: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
-            ...
-
-        def __init__(self, name: str, fields: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
-            """
-            Creates a new TerminalLink order strategy instance
-            
-            :param name: The strategy name
-            :param fields: The strategy fields
-            """
-            ...
-
-    class StrategyField(System.Object):
-        """Models an EMSX order strategy field"""
-
-        @property
-        def value(self) -> str:
-            """The strategy field value"""
-            ...
-
-        @value.setter
-        def value(self, value: str) -> None:
-            ...
-
-        @property
-        def has_value(self) -> bool:
-            """Whether the strategy field carries a value"""
-            ...
-
-        @has_value.setter
-        def has_value(self, value: bool) -> None:
-            ...
-
-        @overload
-        def __init__(self, value: str) -> None:
-            """
-            Creates a new TerminalLink order strategy field carrying a value.
-            
-            :param value: The strategy field value
-            """
-            ...
-
-        @overload
-        def __init__(self) -> None:
-            """Creates a new TerminalLink order strategy field without a value."""
-            ...
-
-    @property
-    def notes(self) -> str:
-        """The EMSX Instructions is the free form instructions that may be sent to the broker"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def handling_instruction(self) -> str:
-        """
-        The EMSX Handling Instruction is the instructions for handling the order or route.The values can be
-        preconfigured or a value customized by the broker.
-        """
-        ...
-
-    @handling_instruction.setter
-    def handling_instruction(self, value: str) -> None:
-        ...
-
-    @property
-    def execution_instruction(self) -> str:
-        """The execution instruction field"""
-        ...
-
-    @execution_instruction.setter
-    def execution_instruction(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_1(self) -> str:
-        """Custom user order notes 1"""
-        ...
-
-    @custom_notes_1.setter
-    def custom_notes_1(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_2(self) -> str:
-        """Custom user order notes 2"""
-        ...
-
-    @custom_notes_2.setter
-    def custom_notes_2(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_3(self) -> str:
-        """Custom user order notes 3"""
-        ...
-
-    @custom_notes_3.setter
-    def custom_notes_3(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_4(self) -> str:
-        """Custom user order notes 4"""
-        ...
-
-    @custom_notes_4.setter
-    def custom_notes_4(self, value: str) -> None:
-        ...
-
-    @property
-    def custom_notes_5(self) -> str:
-        """Custom user order notes 5"""
-        ...
-
-    @custom_notes_5.setter
-    def custom_notes_5(self, value: str) -> None:
-        ...
-
-    @property
-    def account(self) -> str:
-        """The EMSX account"""
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-    @property
-    def broker(self) -> str:
-        """The EMSX broker code"""
-        ...
-
-    @broker.setter
-    def broker(self, value: str) -> None:
-        ...
-
-    @property
-    def strategy(self) -> QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters:
-        """
-        The EMSX order strategy details.
-        Strategy parameters must be appended in the correct order as expected by EMSX.
-        """
-        ...
-
-    @strategy.setter
-    def strategy(self, value: QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters) -> None:
-        ...
-
-    @property
-    def automatic_position_sides(self) -> bool:
-        """Whether to automatically include the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
-        ...
-
-    @automatic_position_sides.setter
-    def automatic_position_sides(self, value: bool) -> None:
-        ...
-
-    @property
-    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
-        """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
-        ...
-
-    @position_side.setter
-    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
-        ...
-
-
 class OrderTicket(System.Object):
     """
     Provides a single reference to an order for the algorithm to maintain. As the order gets
@@ -2237,291 +2191,74 @@ class OrderTicket(System.Object):
         ...
 
 
-class TDAmeritradeOrderProperties(QuantConnect.Orders.OrderProperties):
-    """TDAmeritrade order properties"""
+class OrderExtensions(System.Object):
+    """Provides extension methods for the Order class and for the OrderStatus enumeration"""
+
+    @staticmethod
+    def is_closed(status: QuantConnect.Orders.OrderStatus) -> bool:
+        """
+        Determines if the specified status is in a closed state.
+        
+        :param status: The status to check
+        :returns: True if the status is OrderStatus.Filled, OrderStatus.Canceled, or OrderStatus.Invalid.
+        """
+        ...
+
+    @staticmethod
+    def is_fill(status: QuantConnect.Orders.OrderStatus) -> bool:
+        """
+        Determines if the specified status is a fill, that is, OrderStatus.Filled
+        order OrderStatus.PartiallyFilled
+        
+        :param status: The status to check
+        :returns: True if the status is OrderStatus.Filled or OrderStatus.PartiallyFilled, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    def is_limit_order(order_type: QuantConnect.Orders.OrderType) -> bool:
+        """
+        Determines whether or not the specified order is a limit order
+        
+        :param order_type: The order to check
+        :returns: True if the order is a limit order, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    def is_open(status: QuantConnect.Orders.OrderStatus) -> bool:
+        """
+        Determines if the specified status is in an open state.
+        
+        :param status: The status to check
+        :returns: True if the status is not OrderStatus.Filled, OrderStatus.Canceled, or OrderStatus.Invalid.
+        """
+        ...
+
+    @staticmethod
+    def is_stop_order(order_type: QuantConnect.Orders.OrderType) -> bool:
+        """
+        Determines whether or not the specified order is a stop order
+        
+        :param order_type: The order to check
+        :returns: True if the order is a stop order, false otherwise.
+        """
+        ...
 
 
-class LimitIfTouchedOrder(QuantConnect.Orders.Order):
-    """
-    In effect, a LimitIfTouchedOrder behaves opposite to the StopLimitOrder;
-    after a trigger price is touched, a limit order is set for some user-defined value above (below)
-    the trigger when selling (buying).
-    https://www.interactivebrokers.ca/en/index.php?f=45318
-    """
+class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Provides an implementation of the OrderProperties specific to Tradier order."""
 
     @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Order Type"""
-        ...
-
-    @property
-    def trigger_price(self) -> float:
-        """The price which, when touched, will trigger the setting of a limit order at LimitPrice."""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """The price at which to set the limit order following TriggerPrice being touched."""
-        ...
-
-    @property
-    def trigger_touched(self) -> bool:
-        """Whether or not the TriggerPrice has been touched."""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trigger_price: typing.Optional[float], limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+    def outside_regular_trading_hours(self) -> bool:
         """
-        New LimitIfTouchedOrder constructor.
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param trigger_price: Price which must be touched in order to then set a limit order
-        :param limit_price: Maximum price to fill the order
-        :param time: Time the order was placed
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
+        If set to true, allows orders to also trigger and fill outside of regular trading hours.
+        If on extended hours, the order will be valid only during the current extended session.
         """
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_default_tag(self) -> str:
-        """
-        Gets the default tag for this order
-        
-        :returns: The default tag.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency for a single unit.
-        A single unit here is a single share of stock, or a single barrel of oil, or the
-        cost of a single share in an option contract.
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class BrokerageOrderIdChangedEvent(System.Object):
-    """Event used when the brokerage order id has changed"""
-
-    @property
-    def order_id(self) -> int:
-        """The lean order ID."""
-        ...
-
-    @order_id.setter
-    def order_id(self, value: int) -> None:
-        ...
-
-    @property
-    def broker_id(self) -> typing.List[str]:
-        """Brokerage Id for this order"""
-        ...
-
-    @broker_id.setter
-    def broker_id(self, value: typing.List[str]) -> None:
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current BrokerageOrderIdChangedEvent.
-        
-        :returns: A string containing the order ID and associated brokerage IDs.
-        """
-        ...
-
-
-class StopLimitOrder(QuantConnect.Orders.Order):
-    """Stop Market Order Type Definition"""
-
-    @property
-    def stop_price(self) -> float:
-        """Stop price for this stop market order."""
-        ...
-
-    @property
-    def stop_triggered(self) -> bool:
-        """Signal showing the "StopLimitOrder" has been converted into a Limit Order"""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """Limit price for the stop limit order"""
-        ...
-
-    @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """StopLimit Order Type"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New Stop Market Order constructor -
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param stop_price: Price the order should be filled at if a limit order
-        :param limit_price: Maximum price to fill the order
-        :param time: Time the order was placed
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_default_tag(self) -> str:
-        """
-        Gets the default tag for this order
-        
-        :returns: The default tag.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class LimitOrder(QuantConnect.Orders.Order):
-    """Limit order type definition"""
-
-    @property
-    def limit_price(self) -> float:
-        """Limit price for this order."""
-        ...
-
-    @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Limit Order Type"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New limit order constructor
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param limit_price: Price the order should be filled at if a limit order
-        :param time: Time the order was placed
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_default_tag(self) -> str:
-        """
-        Gets the default tag for this order
-        
-        :returns: The default tag.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
         ...
 
 
@@ -2598,6 +2335,543 @@ class StopMarketOrder(QuantConnect.Orders.Order):
         :returns: A string that represents the current object.
         """
         ...
+
+
+class InteractiveBrokersOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Interactive Brokers"""
+
+    @property
+    def account(self) -> str:
+        """The linked account for which to submit the order (only used by Financial Advisors)"""
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+    @property
+    def fa_group(self) -> str:
+        """The account group for the order (only used by Financial Advisors)"""
+        ...
+
+    @fa_group.setter
+    def fa_group(self, value: str) -> None:
+        ...
+
+    @property
+    def fa_method(self) -> str:
+        """
+        The allocation method for the account group order (only used by Financial Advisors)
+        Supported allocation methods are: Equal, NetLiq, AvailableEquity, PctChange
+        """
+        ...
+
+    @fa_method.setter
+    def fa_method(self, value: str) -> None:
+        ...
+
+    @property
+    def fa_percentage(self) -> int:
+        """The percentage for the percent change method (only used by Financial Advisors)"""
+        ...
+
+    @fa_percentage.setter
+    def fa_percentage(self, value: int) -> None:
+        ...
+
+    @property
+    def fa_profile(self) -> str:
+        """The allocation profile to be used for the order (only used by Financial Advisors)"""
+        ...
+
+    @fa_profile.setter
+    def fa_profile(self, value: str) -> None:
+        ...
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Returns a new instance clone of this object"""
+        ...
+
+
+class CharlesSchwabOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Charles Schwab brokerage"""
+
+    @property
+    def extended_regular_trading_hours(self) -> bool:
+        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @extended_regular_trading_hours.setter
+    def extended_regular_trading_hours(self, value: bool) -> None:
+        ...
+
+
+class OrderJsonConverter(JsonConverter):
+    """Provides an implementation of JsonConverter that can deserialize Orders"""
+
+    @property
+    def can_write(self) -> bool:
+        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def create_order_from_j_object(j_object: typing.Any) -> QuantConnect.Orders.Order:
+        """
+        Create an order from a simple JObject
+        
+        :returns: Order Object.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class TerminalLinkOrderProperties(QuantConnect.Orders.OrderProperties):
+    """The terminal link order properties"""
+
+    class StrategyParameters(System.Object):
+        """Models an EMSX order strategy parameter"""
+
+        @property
+        def name(self) -> str:
+            """The strategy name"""
+            ...
+
+        @name.setter
+        def name(self, value: str) -> None:
+            ...
+
+        @property
+        def fields(self) -> typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]:
+            """The strategy fields"""
+            ...
+
+        @fields.setter
+        def fields(self, value: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
+            ...
+
+        def __init__(self, name: str, fields: typing.List[QuantConnect.Orders.TerminalLinkOrderProperties.StrategyField]) -> None:
+            """
+            Creates a new TerminalLink order strategy instance
+            
+            :param name: The strategy name
+            :param fields: The strategy fields
+            """
+            ...
+
+    class StrategyField(System.Object):
+        """Models an EMSX order strategy field"""
+
+        @property
+        def value(self) -> str:
+            """The strategy field value"""
+            ...
+
+        @value.setter
+        def value(self, value: str) -> None:
+            ...
+
+        @property
+        def has_value(self) -> bool:
+            """Whether the strategy field carries a value"""
+            ...
+
+        @has_value.setter
+        def has_value(self, value: bool) -> None:
+            ...
+
+        @overload
+        def __init__(self, value: str) -> None:
+            """
+            Creates a new TerminalLink order strategy field carrying a value.
+            
+            :param value: The strategy field value
+            """
+            ...
+
+        @overload
+        def __init__(self) -> None:
+            """Creates a new TerminalLink order strategy field without a value."""
+            ...
+
+    @property
+    def notes(self) -> str:
+        """The EMSX Instructions is the free form instructions that may be sent to the broker"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def handling_instruction(self) -> str:
+        """
+        The EMSX Handling Instruction is the instructions for handling the order or route.The values can be
+        preconfigured or a value customized by the broker.
+        """
+        ...
+
+    @handling_instruction.setter
+    def handling_instruction(self, value: str) -> None:
+        ...
+
+    @property
+    def execution_instruction(self) -> str:
+        """The execution instruction field"""
+        ...
+
+    @execution_instruction.setter
+    def execution_instruction(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_1(self) -> str:
+        """Custom user order notes 1"""
+        ...
+
+    @custom_notes_1.setter
+    def custom_notes_1(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_2(self) -> str:
+        """Custom user order notes 2"""
+        ...
+
+    @custom_notes_2.setter
+    def custom_notes_2(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_3(self) -> str:
+        """Custom user order notes 3"""
+        ...
+
+    @custom_notes_3.setter
+    def custom_notes_3(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_4(self) -> str:
+        """Custom user order notes 4"""
+        ...
+
+    @custom_notes_4.setter
+    def custom_notes_4(self, value: str) -> None:
+        ...
+
+    @property
+    def custom_notes_5(self) -> str:
+        """Custom user order notes 5"""
+        ...
+
+    @custom_notes_5.setter
+    def custom_notes_5(self, value: str) -> None:
+        ...
+
+    @property
+    def account(self) -> str:
+        """The EMSX account"""
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+    @property
+    def broker(self) -> str:
+        """The EMSX broker code"""
+        ...
+
+    @broker.setter
+    def broker(self, value: str) -> None:
+        ...
+
+    @property
+    def strategy(self) -> QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters:
+        """
+        The EMSX order strategy details.
+        Strategy parameters must be appended in the correct order as expected by EMSX.
+        """
+        ...
+
+    @strategy.setter
+    def strategy(self, value: QuantConnect.Orders.TerminalLinkOrderProperties.StrategyParameters) -> None:
+        ...
+
+    @property
+    def automatic_position_sides(self) -> bool:
+        """Whether to automatically include the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
+        ...
+
+    @automatic_position_sides.setter
+    def automatic_position_sides(self, value: bool) -> None:
+        ...
+
+    @property
+    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
+        """Can optionally specify the position side in the order direction (buy-to-open, sell-to-close, etc.) instead of the default (buy, sell)"""
+        ...
+
+    @position_side.setter
+    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
+        ...
+
+
+class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
+    """Combo limit order type"""
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Combo Limit Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Added a default constructor for JSON Deserialization:"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New limit order constructor
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param limit_price: Price the order should be filled at if a limit order
+        :param time: Time the order was placed
+        :param group_order_manager: Manager for the orders in the group
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+
+class MarketOnOpenOrder(QuantConnect.Orders.Order):
+    """Market on Open order type, submits a market order when the exchange opens"""
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """MarketOnOpen Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Intiializes a new instance of the MarketOnOpenOrder class."""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        Intiializes a new instance of the MarketOnOpenOrder class.
+        
+        :param symbol: The security's symbol being ordered
+        :param quantity: The number of units to order
+        :param time: The current time
+        :param tag: A user defined tag for the order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+
+class GroupOrderCacheManager(System.Object):
+    """Provides a thread-safe service for caching and managing original orders when they are part of a group."""
+
+    def try_get_group_cached_orders(self, order: QuantConnect.Orders.Order, orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
+        """
+        Attempts to retrieve all the orders in the combo group from the cache.
+        
+        :param order: Target order, which can be any of the legs of the combo
+        :param orders: List of orders in the combo
+        :returns: true if all the orders in the combo group were successfully retrieved from the cache; otherwise, false. If the retrieval fails, the target order is cached for future retrieval.
+        """
+        ...
+
+
+class CoinbaseOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Coinbase brokerage"""
+
+    @property
+    def post_only(self) -> bool:
+        """
+        This flag will ensure the order executes only as a maker (no fee) order.
+        If part of the order results in taking liquidity rather than providing,
+        it will be rejected and no part of the order will execute.
+        Note: this flag is only applied to Limit orders.
+        """
+        ...
+
+    @post_only.setter
+    def post_only(self, value: bool) -> None:
+        ...
+
+    @property
+    def self_trade_prevention_id(self) -> bool:
+        """
+        Gets or sets a value indicating whether self-trade prevention is enabled for this order.
+        Self-trade prevention helps prevent an order from crossing against the same user,
+        reducing the risk of unintentional trades within the same account.
+        """
+        ...
+
+    @self_trade_prevention_id.setter
+    def self_trade_prevention_id(self, value: bool) -> None:
+        ...
+
+
+class GDAXOrderProperties(QuantConnect.Orders.CoinbaseOrderProperties):
+    """
+    Contains additional properties and settings for an order submitted to GDAX brokerage
+    
+    GDAXOrderProperties is deprecated. Use CoinbaseOrderProperties instead.
+    """
+
+
+class BrokerageOrderIdChangedEvent(System.Object):
+    """Event used when the brokerage order id has changed"""
+
+    @property
+    def order_id(self) -> int:
+        """The lean order ID."""
+        ...
+
+    @order_id.setter
+    def order_id(self, value: int) -> None:
+        ...
+
+    @property
+    def broker_id(self) -> typing.List[str]:
+        """Brokerage Id for this order"""
+        ...
+
+    @broker_id.setter
+    def broker_id(self, value: typing.List[str]) -> None:
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current BrokerageOrderIdChangedEvent.
+        
+        :returns: A string containing the order ID and associated brokerage IDs.
+        """
+        ...
+
+
+class FixOrderProperites(QuantConnect.Orders.OrderProperties):
+    """FIX (Financial Information Exchange) order properties"""
+
+    @property
+    def handle_instruction(self) -> typing.Optional[str]:
+        """Instruction for order handling on Broker floor"""
+        ...
+
+    @handle_instruction.setter
+    def handle_instruction(self, value: typing.Optional[str]) -> None:
+        ...
+
+    @property
+    def notes(self) -> str:
+        """Free format text string"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    AUTOMATED_EXECUTION_ORDER_PRIVATE: str = ...
+    """Automated execution order, private, no broker intervention"""
+
+    AUTOMATED_EXECUTION_ORDER_PUBLIC: str = ...
+    """Automated execution order, public, broker, intervention OK"""
+
+    MANUAL_ORDER: str = ...
+    """Staged order, broker intervention required"""
+
+
+class TradingTechnologiesOrderProperties(QuantConnect.Orders.FixOrderProperites):
+    """Trading Technologies order properties"""
 
 
 class TrailingStopOrder(QuantConnect.Orders.StopMarketOrder):
@@ -2717,110 +2991,31 @@ class TrailingStopOrder(QuantConnect.Orders.StopMarketOrder):
         ...
 
 
-class MarketOnCloseOrder(QuantConnect.Orders.Order):
-    """Market on close order type - submits a market order on exchange close"""
-
-    DEFAULT_SUBMISSION_TIME_BUFFER: datetime.timedelta = ...
-    """
-    Gets the default interval before market close that an MOC order may be submitted.
-    For example, US equity exchanges typically require MOC orders to be placed no later
-    than 15 minutes before market close, which yields a nominal time of 3:45PM.
-    This buffer value takes into account the 15 minutes and adds an additional 30 seconds
-    to account for other potential delays, such as LEAN order processing and placement of
-    the order to the exchange.
-    """
-
-    submission_time_buffer: datetime.timedelta = ...
-    """The interval before market close that an MOC order may be submitted."""
+class BybitOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Class containing Bybit OrderProperties"""
 
     @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """MarketOnClose Order Type"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnCloseOrder class."""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+    def post_only(self) -> bool:
         """
-        Intiializes a new instance of the MarketOnCloseOrder class.
-        
-        :param symbol: The security's symbol being ordered
-        :param quantity: The number of units to order
-        :param time: The current time
-        :param tag: A user defined tag for the order
-        :param properties: The order properties for this order
+        This flag will ensure the order executes only as a maker (no fee) order.
+        If part of the order results in taking liquidity rather than providing,
+        it will be rejected and no part of the order will execute.
+        Note: this flag is only applied to Limit orders.
         """
         ...
 
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-
-class AlpacaOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Provides an implementation of the OrderProperties specific to Alpaca order."""
-
-    @property
-    def outside_regular_trading_hours(self) -> bool:
-        """Flag to allow orders to also trigger or fill outside of regular trading hours."""
-        ...
-
-    @outside_regular_trading_hours.setter
-    def outside_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-
-class FixOrderProperites(QuantConnect.Orders.OrderProperties):
-    """FIX (Financial Information Exchange) order properties"""
-
-    @property
-    def handle_instruction(self) -> typing.Optional[str]:
-        """Instruction for order handling on Broker floor"""
-        ...
-
-    @handle_instruction.setter
-    def handle_instruction(self, value: typing.Optional[str]) -> None:
+    @post_only.setter
+    def post_only(self, value: bool) -> None:
         ...
 
     @property
-    def notes(self) -> str:
-        """Free format text string"""
+    def reduce_only(self) -> typing.Optional[bool]:
+        """This flag will ensure your position can only reduce in size if the order is triggered."""
         ...
 
-    @notes.setter
-    def notes(self, value: str) -> None:
+    @reduce_only.setter
+    def reduce_only(self, value: typing.Optional[bool]) -> None:
         ...
-
-    AUTOMATED_EXECUTION_ORDER_PRIVATE: str = ...
-    """Automated execution order, private, no broker intervention"""
-
-    AUTOMATED_EXECUTION_ORDER_PUBLIC: str = ...
-    """Automated execution order, public, broker, intervention OK"""
-
-    MANUAL_ORDER: str = ...
-    """Staged order, broker intervention required"""
-
-
-class TradingTechnologiesOrderProperties(QuantConnect.Orders.FixOrderProperites):
-    """Trading Technologies order properties"""
 
 
 class GroupOrderExtensions(System.Object):
@@ -2882,27 +3077,264 @@ class GroupOrderExtensions(System.Object):
         ...
 
 
-class GroupOrderCacheManager(System.Object):
-    """Provides a thread-safe service for caching and managing original orders when they are part of a group."""
+class TimeInForceJsonConverter(JsonConverter):
+    """Provides an implementation of JsonConverter that can deserialize TimeInForce objects"""
 
-    def try_get_group_cached_orders(self, order: QuantConnect.Orders.Order, orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
+    @property
+    def can_write(self) -> bool:
+        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
         """
-        Attempts to retrieve all the orders in the combo group from the cache.
+        Determines whether this instance can convert the specified object type.
         
-        :param order: Target order, which can be any of the legs of the combo
-        :param orders: List of orders in the combo
-        :returns: true if all the orders in the combo group were successfully retrieved from the cache; otherwise, false. If the retrieval fails, the target order is cached for future retrieval.
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
         """
         ...
 
 
-class BybitOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Class containing Bybit OrderProperties"""
+class ReadOrdersResponseJsonConverter(JsonConverter):
+    """Api orders read response json converter"""
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Determines if can convert the given open type"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Deserialize the given api order response"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Serialize the given api order response"""
+        ...
+
+
+class ApiOrderResponse(QuantConnect.Api.StringRepresentation):
+    """Api order and order events reponse"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """The symbol associated with this order"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def order(self) -> QuantConnect.Orders.Order:
+        """The order"""
+        ...
+
+    @order.setter
+    def order(self, value: QuantConnect.Orders.Order) -> None:
+        ...
+
+    @property
+    def events(self) -> typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent]:
+        """The order events"""
+        ...
+
+    @events.setter
+    def events(self, value: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """ApiOrderResponse empty constructor"""
+        ...
+
+    @overload
+    def __init__(self, order: QuantConnect.Orders.Order, events: typing.List[QuantConnect.Orders.Serialization.SerializedOrderEvent], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """Creates an instance of an ApiOrderResponse class using the given arguments"""
+        ...
+
+
+class OrdersResponseWrapper(QuantConnect.Api.RestResponse):
+    """Collection container for a list of orders for a project"""
+
+    @property
+    def length(self) -> int:
+        """Returns the total order collection length, not only the amount we are sending here"""
+        ...
+
+    @length.setter
+    def length(self, value: int) -> None:
+        ...
+
+    @property
+    def orders(self) -> typing.List[QuantConnect.Orders.ApiOrderResponse]:
+        """Collection of summarized Orders objects"""
+        ...
+
+    @orders.setter
+    def orders(self, value: typing.List[QuantConnect.Orders.ApiOrderResponse]) -> None:
+        ...
+
+
+class TradeStationOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Represents the properties of an order in TradeStation."""
+
+    @property
+    def all_or_none(self) -> bool:
+        """
+        Enables the "All or None" feature for your order, ensuring it will only be filled completely or not at all.
+        Set to true to activate this feature, or false to allow partial fills.
+        """
+        ...
+
+    @all_or_none.setter
+    def all_or_none(self, value: bool) -> None:
+        ...
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
+        ...
 
     @property
     def post_only(self) -> bool:
         """
         This flag will ensure the order executes only as a maker (no fee) order.
+        If part of the order results in taking liquidity rather than providing,
+        it will be rejected and no part of the order will execute.
+        Note: this flag is only applied to Limit orders and equities.
+        """
+        ...
+
+    @post_only.setter
+    def post_only(self, value: bool) -> None:
+        ...
+
+
+class LimitIfTouchedOrder(QuantConnect.Orders.Order):
+    """
+    In effect, a LimitIfTouchedOrder behaves opposite to the StopLimitOrder;
+    after a trigger price is touched, a limit order is set for some user-defined value above (below)
+    the trigger when selling (buying).
+    https://www.interactivebrokers.ca/en/index.php?f=45318
+    """
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """Order Type"""
+        ...
+
+    @property
+    def trigger_price(self) -> float:
+        """The price which, when touched, will trigger the setting of a limit order at LimitPrice."""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """The price at which to set the limit order following TriggerPrice being touched."""
+        ...
+
+    @property
+    def trigger_touched(self) -> bool:
+        """Whether or not the TriggerPrice has been touched."""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, trigger_price: typing.Optional[float], limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New LimitIfTouchedOrder constructor.
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param trigger_price: Price which must be touched in order to then set a limit order
+        :param limit_price: Maximum price to fill the order
+        :param time: Time the order was placed
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_default_tag(self) -> str:
+        """
+        Gets the default tag for this order
+        
+        :returns: The default tag.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency for a single unit.
+        A single unit here is a single share of stock, or a single barrel of oil, or the
+        cost of a single share in an option contract.
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class FTXOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to FTX brokerage"""
+
+    @property
+    def post_only(self) -> bool:
+        """
+        This flag will ensure the order executes only as a maker (maker fee) order.
         If part of the order results in taking liquidity rather than providing,
         it will be rejected and no part of the order will execute.
         Note: this flag is only applied to Limit orders.
@@ -2914,34 +3346,37 @@ class BybitOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
     @property
-    def reduce_only(self) -> typing.Optional[bool]:
-        """This flag will ensure your position can only reduce in size if the order is triggered."""
+    def reduce_only(self) -> bool:
+        """If you send a reduce only order, it will only trade if it would decrease your position size."""
         ...
 
     @reduce_only.setter
-    def reduce_only(self, value: typing.Optional[bool]) -> None:
-        ...
-
-
-class BinanceOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Binance brokerage"""
-
-    @property
-    def post_only(self) -> bool:
-        """
-        This flag will ensure the order executes only as a maker (no fee) order.
-        If part of the order results in taking liquidity rather than providing,
-        it will be rejected and no part of the order will execute.
-        Note: this flag is only applied to Limit orders.
-        """
-        ...
-
-    @post_only.setter
-    def post_only(self, value: bool) -> None:
+    def reduce_only(self, value: bool) -> None:
         ...
 
     def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
         """Returns a new instance clone of this object"""
+        ...
+
+
+class RBIOrderProperties(QuantConnect.Orders.OrderProperties):
+    """RBI order properties"""
+
+
+class TastytradeOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to Tastytrade brokerage"""
+
+
+class AlpacaOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Provides an implementation of the OrderProperties specific to Alpaca order."""
+
+    @property
+    def outside_regular_trading_hours(self) -> bool:
+        """Flag to allow orders to also trigger or fill outside of regular trading hours."""
+        ...
+
+    @outside_regular_trading_hours.setter
+    def outside_regular_trading_hours(self, value: bool) -> None:
         ...
 
 
@@ -2989,596 +3424,27 @@ class IndiaOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
 
-class OrderExtensions(System.Object):
-    """Provides extension methods for the Order class and for the OrderStatus enumeration"""
-
-    @staticmethod
-    def is_closed(status: QuantConnect.Orders.OrderStatus) -> bool:
-        """
-        Determines if the specified status is in a closed state.
-        
-        :param status: The status to check
-        :returns: True if the status is OrderStatus.Filled, OrderStatus.Canceled, or OrderStatus.Invalid.
-        """
-        ...
-
-    @staticmethod
-    def is_fill(status: QuantConnect.Orders.OrderStatus) -> bool:
-        """
-        Determines if the specified status is a fill, that is, OrderStatus.Filled
-        order OrderStatus.PartiallyFilled
-        
-        :param status: The status to check
-        :returns: True if the status is OrderStatus.Filled or OrderStatus.PartiallyFilled, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    def is_limit_order(order_type: QuantConnect.Orders.OrderType) -> bool:
-        """
-        Determines whether or not the specified order is a limit order
-        
-        :param order_type: The order to check
-        :returns: True if the order is a limit order, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    def is_open(status: QuantConnect.Orders.OrderStatus) -> bool:
-        """
-        Determines if the specified status is in an open state.
-        
-        :param status: The status to check
-        :returns: True if the status is not OrderStatus.Filled, OrderStatus.Canceled, or OrderStatus.Invalid.
-        """
-        ...
-
-    @staticmethod
-    def is_stop_order(order_type: QuantConnect.Orders.OrderType) -> bool:
-        """
-        Determines whether or not the specified order is a stop order
-        
-        :param order_type: The order to check
-        :returns: True if the order is a stop order, false otherwise.
-        """
-        ...
-
-
-class FTXOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to FTX brokerage"""
-
-    @property
-    def post_only(self) -> bool:
-        """
-        This flag will ensure the order executes only as a maker (maker fee) order.
-        If part of the order results in taking liquidity rather than providing,
-        it will be rejected and no part of the order will execute.
-        Note: this flag is only applied to Limit orders.
-        """
-        ...
-
-    @post_only.setter
-    def post_only(self, value: bool) -> None:
-        ...
-
-    @property
-    def reduce_only(self) -> bool:
-        """If you send a reduce only order, it will only trade if it would decrease your position size."""
-        ...
-
-    @reduce_only.setter
-    def reduce_only(self, value: bool) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
-        ...
-
-
-class OrderUpdateEvent(System.Object):
-    """
-    Event that fires each time an order is updated in the brokerage side.
-    These are not status changes but mainly price changes, like the stop price of a trailing stop order.
-    """
-
-    @property
-    def order_id(self) -> int:
-        """The order ID."""
-        ...
-
-    @order_id.setter
-    def order_id(self, value: int) -> None:
-        ...
-
-    @property
-    def trailing_stop_price(self) -> float:
-        """The updated stop price for a TrailingStopOrder"""
-        ...
-
-    @trailing_stop_price.setter
-    def trailing_stop_price(self, value: float) -> None:
-        ...
-
-    @property
-    def stop_triggered(self) -> bool:
-        """Flag indicating whether stop has been triggered for a StopLimitOrder"""
-        ...
-
-    @stop_triggered.setter
-    def stop_triggered(self, value: bool) -> None:
-        ...
-
-
-class TastytradeOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Tastytrade brokerage"""
-
-
-class CharlesSchwabOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Charles Schwab brokerage"""
-
-    @property
-    def extended_regular_trading_hours(self) -> bool:
-        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
-        ...
-
-    @extended_regular_trading_hours.setter
-    def extended_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-
-class MarketOnOpenOrder(QuantConnect.Orders.Order):
-    """Market on Open order type, submits a market order when the exchange opens"""
+class OptionExerciseOrder(QuantConnect.Orders.Order):
+    """Option exercise order type definition"""
 
     @property
     def type(self) -> QuantConnect.Orders.OrderType:
-        """MarketOnOpen Order Type"""
+        """Option Exercise Order Type"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnOpenOrder class."""
+        """Added a default constructor for JSON Deserialization:"""
         ...
 
     @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
-        Intiializes a new instance of the MarketOnOpenOrder class.
+        New option exercise order constructor. We model option exercising as an underlying asset long/short order with strike equal to limit price.
+        This means that by exercising a call we get into long asset position, by exercising a put we get into short asset position.
         
-        :param symbol: The security's symbol being ordered
-        :param quantity: The number of units to order
-        :param time: The current time
-        :param tag: A user defined tag for the order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-
-class RBIOrderProperties(QuantConnect.Orders.OrderProperties):
-    """RBI order properties"""
-
-
-class OrderJsonConverter(JsonConverter):
-    """Provides an implementation of JsonConverter that can deserialize Orders"""
-
-    @property
-    def can_write(self) -> bool:
-        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def create_order_from_j_object(j_object: typing.Any) -> QuantConnect.Orders.Order:
-        """
-        Create an order from a simple JObject
-        
-        :returns: Order Object.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class OrderError(Enum):
-    """Specifies the possible error states during presubmission checks"""
-
-    CAN_NOT_UPDATE_FILLED_ORDER = -8
-    """Order has already been filled and cannot be modified (-8)"""
-
-    GENERAL_ERROR = -7
-    """General error in order (-7)"""
-
-    TIMESTAMP_ERROR = -6
-    """Order timestamp error. Order appears to be executing in the future (-6)"""
-
-    MAX_ORDERS_EXCEEDED = -5
-    """Exceeded maximum allowed orders for one analysis period (-5)"""
-
-    INSUFFICIENT_CAPITAL = -4
-    """Insufficient capital to execute order (-4)"""
-
-    MARKET_CLOSED = -3
-    """Attempting market order outside of market hours (-3)"""
-
-    NO_DATA = -2
-    """There is no data yet for this security - please wait for data (market order price not available yet) (-2)"""
-
-    ZERO_QUANTITY = -1
-    """Order quantity must not be zero (-1)"""
-
-    NONE = 0
-    """The order is OK (0)"""
-
-
-class InteractiveBrokersFixOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Fix Interactive Brokers"""
-
-    @property
-    def account(self) -> str:
-        """The linked account for which to submit the order (only used by Financial Advisors)"""
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-
-class TimeInForceJsonConverter(JsonConverter):
-    """Provides an implementation of JsonConverter that can deserialize TimeInForce objects"""
-
-    @property
-    def can_write(self) -> bool:
-        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class ComboLegLimitOrder(QuantConnect.Orders.ComboOrder):
-    """Combo leg limit order type"""
-
-    @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Combo Limit Leg Order Type"""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """Limit price for this order."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New limit order constructor
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param limit_price: Price the order should be filled at if a limit order
-        :param time: Time the order was placed
-        :param group_order_manager: Manager for the orders in the group
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-
-class InteractiveBrokersOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Contains additional properties and settings for an order submitted to Interactive Brokers"""
-
-    @property
-    def account(self) -> str:
-        """The linked account for which to submit the order (only used by Financial Advisors)"""
-        ...
-
-    @account.setter
-    def account(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_group(self) -> str:
-        """The account group for the order (only used by Financial Advisors)"""
-        ...
-
-    @fa_group.setter
-    def fa_group(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_method(self) -> str:
-        """
-        The allocation method for the account group order (only used by Financial Advisors)
-        Supported allocation methods are: Equal, NetLiq, AvailableEquity, PctChange
-        """
-        ...
-
-    @fa_method.setter
-    def fa_method(self, value: str) -> None:
-        ...
-
-    @property
-    def fa_percentage(self) -> int:
-        """The percentage for the percent change method (only used by Financial Advisors)"""
-        ...
-
-    @fa_percentage.setter
-    def fa_percentage(self, value: int) -> None:
-        ...
-
-    @property
-    def fa_profile(self) -> str:
-        """The allocation profile to be used for the order (only used by Financial Advisors)"""
-        ...
-
-    @fa_profile.setter
-    def fa_profile(self, value: str) -> None:
-        ...
-
-    @property
-    def outside_regular_trading_hours(self) -> bool:
-        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
-        ...
-
-    @outside_regular_trading_hours.setter
-    def outside_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Returns a new instance clone of this object"""
-        ...
-
-
-class KrakenOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Kraken order properties"""
-
-    @property
-    def post_only(self) -> bool:
-        """Post-only order (available when ordertype = limit)"""
-        ...
-
-    @post_only.setter
-    def post_only(self, value: bool) -> None:
-        ...
-
-    @property
-    def fee_in_base(self) -> bool:
-        """If true or by default when selling, fees will be charged in base currency. If false will be ignored. Mutually exclusive with FeeInQuote."""
-        ...
-
-    @fee_in_base.setter
-    def fee_in_base(self, value: bool) -> None:
-        ...
-
-    @property
-    def fee_in_quote(self) -> bool:
-        """If true or by default when buying, fees will be charged in quote currency. If false will be ignored. Mutually exclusive with FeeInBase."""
-        ...
-
-    @fee_in_quote.setter
-    def fee_in_quote(self, value: bool) -> None:
-        ...
-
-    @property
-    def no_market_price_protection(self) -> bool:
-        """https://support.kraken.com/hc/en-us/articles/201648183-Market-Price-Protection"""
-        ...
-
-    @no_market_price_protection.setter
-    def no_market_price_protection(self, value: bool) -> None:
-        ...
-
-    @property
-    def conditional_order(self) -> QuantConnect.Orders.Order:
-        """Conditional close orders are triggered by execution of the primary order in the same quantity and opposite direction. Ordertypes can be the same with primary order."""
-        ...
-
-    @conditional_order.setter
-    def conditional_order(self, value: QuantConnect.Orders.Order) -> None:
-        ...
-
-
-class GDAXOrderProperties(QuantConnect.Orders.CoinbaseOrderProperties):
-    """
-    Contains additional properties and settings for an order submitted to GDAX brokerage
-    
-    GDAXOrderProperties is deprecated. Use CoinbaseOrderProperties instead.
-    """
-
-
-class ComboLimitOrder(QuantConnect.Orders.ComboOrder):
-    """Combo limit order type"""
-
-    @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Combo Limit Order Type"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], group_order_manager: QuantConnect.Orders.GroupOrderManager, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New limit order constructor
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param limit_price: Price the order should be filled at if a limit order
-        :param time: Time the order was placed
-        :param group_order_manager: Manager for the orders in the group
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
-        """
-        Modifies the state of this order to match the update request
-        
-        :param request: The request to update this order object
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Orders.Order:
-        """
-        Creates a deep-copy clone of this order
-        
-        :returns: A copy of this order.
-        """
-        ...
-
-    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the order value in units of the security's quote currency
-        
-        This method is protected.
-        
-        :param security: The security matching this order's symbol
-        """
-        ...
-
-
-class MarketOrder(QuantConnect.Orders.Order):
-    """Market order type definition"""
-
-    @property
-    def type(self) -> QuantConnect.Orders.OrderType:
-        """Market Order Type"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Added a default constructor for JSON Deserialization:"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], price: float, tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New market order constructor
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
-        :param time: Time the order was placed
-        :param price: Price of the order
-        :param tag: User defined data tag for this order
-        :param properties: The order properties for this order
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
-        """
-        New market order constructor
-        
-        :param symbol: Symbol asset we're seeking to trade
-        :param quantity: Quantity of the asset we're seeking to trade
+        :param symbol: Option symbol we're seeking to exercise
+        :param quantity: Quantity of the option we're seeking to exercise. Must be a positive value.
         :param time: Time the order was placed
         :param tag: User defined data tag for this order
         :param properties: The order properties for this order
@@ -3595,93 +3461,12 @@ class MarketOrder(QuantConnect.Orders.Order):
 
     def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
         """
-        Gets the order value in units of the security's quote currency
+        Gets the order value in option contracts quoted in options's currency
         
         This method is protected.
         
         :param security: The security matching this order's symbol
         """
-        ...
-
-
-class Leg(System.Object):
-    """Basic order leg"""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """The legs symbol"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def quantity(self) -> int:
-        """Quantity multiplier used to specify proper scale (and direction) of the leg within the strategy"""
-        ...
-
-    @quantity.setter
-    def quantity(self, value: int) -> None:
-        ...
-
-    @property
-    def order_price(self) -> typing.Optional[float]:
-        """Order limit price of the leg in case limit order is sent to the market on strategy execution"""
-        ...
-
-    @order_price.setter
-    def order_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @staticmethod
-    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: int, limit_price: typing.Optional[float] = None) -> QuantConnect.Orders.Leg:
-        """
-        Creates a new instance
-        
-        :param symbol: The symbol
-        :param quantity: The quantity
-        :param limit_price: Associated limit price if any
-        """
-        ...
-
-
-class TradeStationOrderProperties(QuantConnect.Orders.OrderProperties):
-    """Represents the properties of an order in TradeStation."""
-
-    @property
-    def all_or_none(self) -> bool:
-        """
-        Enables the "All or None" feature for your order, ensuring it will only be filled completely or not at all.
-        Set to true to activate this feature, or false to allow partial fills.
-        """
-        ...
-
-    @all_or_none.setter
-    def all_or_none(self, value: bool) -> None:
-        ...
-
-    @property
-    def outside_regular_trading_hours(self) -> bool:
-        """If set to true, allows orders to also trigger or fill outside of regular trading hours."""
-        ...
-
-    @outside_regular_trading_hours.setter
-    def outside_regular_trading_hours(self, value: bool) -> None:
-        ...
-
-    @property
-    def post_only(self) -> bool:
-        """
-        This flag will ensure the order executes only as a maker (no fee) order.
-        If part of the order results in taking liquidity rather than providing,
-        it will be rejected and no part of the order will execute.
-        Note: this flag is only applied to Limit orders and equities.
-        """
-        ...
-
-    @post_only.setter
-    def post_only(self, value: bool) -> None:
         ...
 
 
@@ -3716,6 +3501,221 @@ class BitfinexOrderProperties(QuantConnect.Orders.OrderProperties):
 
     def clone(self) -> QuantConnect.Interfaces.IOrderProperties:
         """Returns a new instance clone of this object"""
+        ...
+
+
+class TDAmeritradeOrderProperties(QuantConnect.Orders.OrderProperties):
+    """TDAmeritrade order properties"""
+
+
+class EzeOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Contains additional properties and settings for an order submitted to EZE brokerage"""
+
+    @property
+    def route(self) -> str:
+        """Gets or sets the route name as shown in Eze EMS."""
+        ...
+
+    @route.setter
+    def route(self, value: str) -> None:
+        ...
+
+    @property
+    def account(self) -> str:
+        """
+        Gets or sets a semi-colon separated list of trade or neutral accounts
+        the user has permission for, e.g., "TAL;TEST;USER1;TRADE" or "TAL;TEST;USER2;NEUTRAL".
+        """
+        ...
+
+    @account.setter
+    def account(self, value: str) -> None:
+        ...
+
+    @property
+    def notes(self) -> str:
+        """Gets or sets the user message or notes."""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    def __init__(self, route: str = ..., account: str = ..., notes: str = ...) -> None:
+        """
+        Initializes a new instance with optional route, account, and notes.
+        
+        :param route: The trading route name (optional).
+        :param account: The trading account with specific permissions (optional).
+        :param notes: Optional notes about the order.
+        """
+        ...
+
+
+class WolverineOrderProperties(QuantConnect.Orders.OrderProperties):
+    """Wolverine order properties"""
+
+    @property
+    def exchange_post_fix(self) -> str:
+        """The exchange post fix to apply if any"""
+        ...
+
+    @exchange_post_fix.setter
+    def exchange_post_fix(self, value: str) -> None:
+        ...
+
+
+class OrderSizing(System.Object):
+    """Provides methods for computing a maximum order size."""
+
+    @staticmethod
+    def adjust_by_lot_size(security: QuantConnect.Securities.Security, quantity: float) -> float:
+        """
+        Adjusts the provided order quantity to respect the securities lot size.
+        If the quantity is missing 1M part of the lot size it will be rounded up
+        since we suppose it's due to floating point error, this is required to avoid diff
+        between Py and C#
+        
+        :param security: The security instance
+        :param quantity: The desired quantity to adjust, can be signed
+        :returns: The signed adjusted quantity.
+        """
+        ...
+
+    @staticmethod
+    def get_order_size_for_maximum_value(security: QuantConnect.Securities.Security, maximum_order_value_in_account_currency: float, desired_order_size: float) -> float:
+        """
+        Adjust the provided order size to respect the maximum total order value
+        
+        :param security: The security object
+        :param maximum_order_value_in_account_currency: The maximum order value in units of the account currency
+        :param desired_order_size: The desired order size to adjust
+        :returns: The signed adjusted order size.
+        """
+        ...
+
+    @staticmethod
+    def get_order_size_for_percent_volume(security: QuantConnect.Securities.Security, maximum_percent_current_volume: float, desired_order_size: float) -> float:
+        """
+        Adjust the provided order size to respect maximum order size based on a percentage of current volume.
+        
+        :param security: The security object
+        :param maximum_percent_current_volume: The maximum percentage of the current bar's volume
+        :param desired_order_size: The desired order size to adjust
+        :returns: The signed adjusted order size.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> float:
+        """
+        Gets the remaining quantity to be ordered to reach the specified target quantity.
+        
+        :param algorithm: The algorithm instance
+        :param target: The portfolio target
+        :returns: The signed remaining quantity to be ordered.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_unordered_quantity(algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget, security: QuantConnect.Securities.Security, account_for_fees: bool = False) -> float:
+        """
+        Gets the remaining quantity to be ordered to reach the specified target quantity.
+        
+        :param algorithm: The algorithm instance
+        :param target: The portfolio target
+        :param security: The target security
+        :param account_for_fees: True for taking into account the fee's in the order quantity. False, otherwise.
+        :returns: The signed remaining quantity to be ordered.
+        """
+        ...
+
+
+class StopLimitOrder(QuantConnect.Orders.Order):
+    """Stop Market Order Type Definition"""
+
+    @property
+    def stop_price(self) -> float:
+        """Stop price for this stop market order."""
+        ...
+
+    @property
+    def stop_triggered(self) -> bool:
+        """Signal showing the "StopLimitOrder" has been converted into a Limit Order"""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """Limit price for the stop limit order"""
+        ...
+
+    @property
+    def type(self) -> QuantConnect.Orders.OrderType:
+        """StopLimit Order Type"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor for JSON Deserialization:"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
+        """
+        New Stop Market Order constructor -
+        
+        :param symbol: Symbol asset we're seeking to trade
+        :param quantity: Quantity of the asset we're seeking to trade
+        :param stop_price: Price the order should be filled at if a limit order
+        :param limit_price: Maximum price to fill the order
+        :param time: Time the order was placed
+        :param tag: User defined data tag for this order
+        :param properties: The order properties for this order
+        """
+        ...
+
+    def apply_update_order_request(self, request: QuantConnect.Orders.UpdateOrderRequest) -> None:
+        """
+        Modifies the state of this order to match the update request
+        
+        :param request: The request to update this order object
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.Order:
+        """
+        Creates a deep-copy clone of this order
+        
+        :returns: A copy of this order.
+        """
+        ...
+
+    def get_default_tag(self) -> str:
+        """
+        Gets the default tag for this order
+        
+        :returns: The default tag.
+        """
+        ...
+
+    def get_value_impl(self, security: QuantConnect.Securities.Security) -> float:
+        """
+        Gets the order value in units of the security's quote currency
+        
+        This method is protected.
+        
+        :param security: The security matching this order's symbol
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
         ...
 
 

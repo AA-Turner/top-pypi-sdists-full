@@ -1,5 +1,5 @@
 #
-# Copyright 2021 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -141,11 +141,9 @@ class ExecutionEnvironment(APIObject):
         self.use_cases = use_cases
 
         if latest_version is not None:
-            latest_version.pop("image_id", None)  # "image_id" is being removed in RAPTOR-2460
             self.latest_version = ExecutionEnvironmentVersion(**latest_version)
 
         if latest_successful_version is not None:
-            latest_successful_version.pop("image_id", None)
             self.latest_successful_version = ExecutionEnvironmentVersion(
                 **latest_successful_version
             )

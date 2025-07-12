@@ -56,30 +56,6 @@ class FuturesOptionsExpiryFunctions(System.Object):
         ...
 
 
-class FutureOptionSymbol(System.Object):
-    """Static helper methods to resolve Futures Options Symbol-related tasks."""
-
-    @staticmethod
-    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> datetime.datetime:
-        """
-        Gets the last day of trading, aliased to be the Futures options' expiry
-        
-        :param symbol: Futures Options Symbol
-        :returns: Last day of trading date.
-        """
-        ...
-
-    @staticmethod
-    def is_standard(_: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Detects if the future option contract is standard, i.e. not weekly, not short-term, not mid-sized, etc.
-        
-        :param _: Symbol
-        :returns: true.
-        """
-        ...
-
-
 class FuturesOptionsUnderlyingMapper(System.Object):
     """Creates the underlying Symbol that corresponds to a futures options contract"""
 
@@ -106,6 +82,30 @@ class FuturesOptionsUnderlyingMapper(System.Object):
         :param future_option_expiration: Expiration date of the future option
         :param date: Date to search the future chain provider with. Optional, but required for CBOT based contracts
         :returns: Symbol if there is an underlying for the FOP, null if there's no underlying found for the Future Option.
+        """
+        ...
+
+
+class FutureOptionSymbol(System.Object):
+    """Static helper methods to resolve Futures Options Symbol-related tasks."""
+
+    @staticmethod
+    def get_last_day_of_trading(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> datetime.datetime:
+        """
+        Gets the last day of trading, aliased to be the Futures options' expiry
+        
+        :param symbol: Futures Options Symbol
+        :returns: Last day of trading date.
+        """
+        ...
+
+    @staticmethod
+    def is_standard(_: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Detects if the future option contract is standard, i.e. not weekly, not short-term, not mid-sized, etc.
+        
+        :param _: Symbol
+        :returns: true.
         """
         ...
 

@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from tecton_proto.common import id__client_pb2 as tecton__proto_dot_common_dot_id____client__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#tecton_proto/auth/acl__client.proto\x12\x11tecton_proto.auth\x1a$tecton_proto/common/id__client.proto\"\xa0\x01\n\x03\x41\x63l\x12\x1e\n\npermission\x18\x01 \x01(\tR\npermission\x12\x37\n\x0b\x61pi_key_ids\x18\x02 \x03(\x0b\x32\x17.tecton_proto.common.IdR\tapiKeyIds\x12\x19\n\x08okta_ids\x18\x03 \x03(\tR\x07oktaIds\x12%\n\x0f\x61pi_key_str_ids\x18\x04 \x03(\tR\x0c\x61piKeyStrIdsB;\n\x0f\x63om.tecton.authP\x01Z&github.com/tecton-ai/tecton_proto/auth')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#tecton_proto/auth/acl__client.proto\x12\x11tecton_proto.auth\x1a$tecton_proto/common/id__client.proto\"\xa0\x01\n\x03\x41\x63l\x12\x1e\n\npermission\x18\x01 \x01(\tR\npermission\x12\x19\n\x08okta_ids\x18\x03 \x03(\tR\x07oktaIds\x12\x37\n\x0b\x61pi_key_ids\x18\x02 \x03(\x0b\x32\x17.tecton_proto.common.IdR\tapiKeyIds\x12%\n\x0f\x61pi_key_str_ids\x18\x04 \x03(\tR\x0c\x61piKeyStrIdsB;\n\x0f\x63om.tecton.authP\x01Z&github.com/tecton-ai/tecton_proto/auth')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.auth.acl__client_pb2', globals())

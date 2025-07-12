@@ -24,7 +24,6 @@ from tecton._internals import errors
 from tecton._internals import metadata_service
 from tecton._internals import querytree_api
 from tecton._internals import sdk_decorators
-from tecton._internals import snowflake_api
 from tecton._internals import spark_api
 from tecton._internals import type_utils
 from tecton._internals import validations_api
@@ -32,6 +31,7 @@ from tecton._internals.ingestion import IngestionClient
 from tecton.framework import base_tecton_object
 from tecton.framework import configs
 from tecton.framework import data_frame
+from tecton.framework import repo_config
 from tecton_core import conf
 from tecton_core import id_helper
 from tecton_core import specs
@@ -186,12 +186,9 @@ class DataSource(base_tecton_object.BaseTectonObject):
             else:
                 _apply_translator = False
 
-        if compute_mode == ComputeMode.SNOWFLAKE and conf.get_bool("USE_DEPRECATED_SNOWFLAKE_RETRIEVAL"):
-            return snowflake_api.get_dataframe_for_data_source(self._spec, start_time, end_time)
-        else:
-            return querytree_api.get_dataframe_for_data_source(
-                compute_mode.default_dialect(), compute_mode, self._spec, start_time, end_time, _apply_translator
-            )
+        return querytree_api.get_dataframe_for_data_source(
+            compute_mode.default_dialect(), compute_mode, self._spec, start_time, end_time, _apply_translator
+        )
 
     @property
     def data_source_type(self) -> data_source_type_pb2.DataSourceType.ValueType:
@@ -378,7 +375,7 @@ class BatchSource(DataSource):
         class BatchSourceFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = BatchSourceFromSpec.__new__(BatchSourceFromSpec)
+        obj = BatchSourceFromSpec.__new__(BatchSourceFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             spec=spec,
@@ -506,6 +503,26 @@ class StreamSource(DataSource):
             ds_args.schema.CopyFrom(schema_container)
         if batch_config:
             batch_config._merge_batch_args(ds_args)
+
+        # Apply defaults for PushConfig from repo.yaml
+        if isinstance(stream_config, configs.PushConfig):
+            stream_source_defaults = repo_config.get_stream_source_defaults()
+            if stream_source_defaults.push_config:
+                # Apply ingest_server_group default if not specified
+                if (
+                    stream_config._args.ingest_server_group is None
+                    and stream_source_defaults.push_config.ingest_server_group is not None
+                ):
+                    stream_config._args.ingest_server_group = stream_source_defaults.push_config.ingest_server_group
+                # Apply transform_server_group default if not specified
+                if (
+                    stream_config._args.transform_server_group is None
+                    and stream_source_defaults.push_config.transform_server_group is not None
+                ):
+                    stream_config._args.transform_server_group = (
+                        stream_source_defaults.push_config.transform_server_group
+                    )
+
         stream_config._merge_stream_args(ds_args)
         info = base_tecton_object.TectonObjectInfo.from_args_proto(ds_args.info, ds_args.virtual_data_source_id)
         source_info = construct_fco_source_info(ds_args.virtual_data_source_id)
@@ -534,7 +551,7 @@ class StreamSource(DataSource):
         class StreamSourceFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = StreamSourceFromSpec.__new__(StreamSourceFromSpec)
+        obj = StreamSourceFromSpec.__new__(StreamSourceFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             spec=spec,

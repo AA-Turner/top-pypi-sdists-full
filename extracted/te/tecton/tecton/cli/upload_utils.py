@@ -39,7 +39,7 @@ def _calculate_part_count(file_size: int, part_size_mb: int) -> int:
         int: The total number of parts.
     """
     chunk_size = part_size_mb * 1024 * 1024
-    return int(math.ceil(file_size / chunk_size))
+    return math.ceil(file_size / chunk_size)
 
 
 def get_upload_parts(file_size: int) -> List[UploadPart]:

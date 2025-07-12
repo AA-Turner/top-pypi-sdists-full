@@ -122,6 +122,14 @@ class IllegalOperationError(ZenMLBaseException):
     """Raised when an illegal operation is attempted."""
 
 
+class RunStoppedException(ZenMLBaseException):
+    """Raised when a ZenML pipeline run gets stopped by the user."""
+
+
+class RunInterruptedException(ZenMLBaseException):
+    """Raised when a ZenML step gets interrupted for an unknown reason."""
+
+
 class MethodNotAllowedError(ZenMLBaseException):
     """Raised when the server does not allow a request method."""
 
@@ -220,3 +228,19 @@ class CustomFlavorImportError(ImportError):
 
 class MaxConcurrentTasksError(ZenMLBaseException):
     """Raised when the maximum number of concurrent tasks is reached."""
+
+
+class RunMonitoringError(ZenMLBaseException):
+    """Raised when an error occurs while monitoring a pipeline run."""
+
+    def __init__(
+        self,
+        original_exception: BaseException,
+    ) -> None:
+        """Initializes the error.
+
+        Args:
+            original_exception: The original exception that occurred while
+                monitoring the pipeline run.
+        """
+        self.original_exception = original_exception

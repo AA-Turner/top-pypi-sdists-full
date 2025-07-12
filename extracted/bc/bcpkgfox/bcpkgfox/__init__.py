@@ -225,7 +225,7 @@ def wait_for_element_disappear(object, type, timeout=10):
 
     return find_elements.backcode__dont_use__wait_for_d(driver, object, type, timeout=tempo)
 
-def selectfox(elemento, method, key, pure = None):
+def selectfox(elemento, method, key, relative = None):
     """
     Seleciona uma opção em um elemento <select>.
 
@@ -233,6 +233,7 @@ def selectfox(elemento, method, key, pure = None):
         - elemento: Elemento <select> encontrado pelo Selenium.
         - method: Método de seleção ('index', 'text' ou 'value').
         - key: Valor usado na seleção (índice, texto visível ou valor do atributo 'value').
+        - relative: Ao invés de selecionar um elemento identico, seleciona um elemento que apenas contém a 'key'
 
     - Exemplo:
         elemento_select = bc.find_element_with_wait("xpath", '//select[@value="VALUE_DO_PRIMEIRO_SELECT"]')
@@ -264,12 +265,12 @@ def selectfox(elemento, method, key, pure = None):
     if method == "text":
         elements = select.options
         for elm in elements:
-            if pure:
-                if key == elm.text:
+            if relative:
+                if key.lower().strip() in elm.text.lower().strip():
                     select.select_by_visible_text(elm.text)
                     return
             else:
-                if key.lower().strip() in elm.text.lower().strip():
+                if key == elm.text:
                     select.select_by_visible_text(elm.text)
                     return
 

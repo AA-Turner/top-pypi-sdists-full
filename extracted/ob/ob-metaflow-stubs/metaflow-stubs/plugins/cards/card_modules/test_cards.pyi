@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-01T15:21:03.530091                                                            #
+# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-11T23:29:18.552355                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -106,6 +106,14 @@ class TestRefreshComponentCard(metaflow.plugins.cards.card_modules.card.Metaflow
     def refresh(self, task, data):
         ...
     def reload_content_token(self, task, data):
+        ...
+    ...
+
+class TestImageCard(metaflow.plugins.cards.card_modules.card.MetaflowCard, metaclass=type):
+    """
+    Card that renders a tiny PNG using ``TaskToDict.parse_image``.
+    """
+    def render(self, task):
         ...
     ...
 

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # version
-__version__ = "v4.5.0"
+__version__ = "v4.6.0"
 
 # entry point for the deepgram python sdk
 import logging
@@ -336,6 +336,7 @@ from .client import (
     UpdatePromptOptions,
     UpdateSpeakOptions,
     InjectAgentMessageOptions,
+    InjectUserMessageOptions,
     FunctionCallResponse,
     AgentKeepAlive,
     # sub level

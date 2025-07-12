@@ -16,9 +16,12 @@ import attrs
 import pandas
 import pyarrow
 import pypika
+import pypika.functions
+import pypika.terms
 import sqlparse
 
 from tecton_core.compute_mode import ComputeMode
+from tecton_core.duckdb_factory import BUCKET_TRANSFORM_FUN
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.sql_compat import CompatFunctions
@@ -63,6 +66,10 @@ class NodeRef:
     def output_schema(self) -> Optional[Schema]:
         return self.node.output_schema
 
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return self.node.output_partitioning
+
     def pretty_str(
         self,
         node_id: bool = True,
@@ -97,8 +104,8 @@ class NodeRef:
 
         return tree_str + "\n" + "\n".join(node_columns)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        return self.node._to_query()
+    def _to_query(self, partition_selector: Optional["PartitionSelector"] = None) -> pypika.queries.QueryBuilder:
+        return self.node._to_query(partition_selector)
 
     def to_sql(self, pretty_sql: bool = False) -> str:
         """
@@ -110,8 +117,10 @@ class NodeRef:
         """
         return self.node.to_sql(pretty_sql=pretty_sql)
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
-        return self.node.to_arrow_reader(context)
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
+        return self.node.to_arrow_reader(context, partition_selector)
 
     def create_tree(self, node_id: bool = True, name: bool = True, description: bool = True) -> Tree:
         """Creates a Tree to represent the query tree which has this NodeRef as the root node.
@@ -165,9 +174,9 @@ class NodeRef:
 
         # Recursively handle all children.
         if self.input_names:
-            assert len(self.input_names) == len(
-                self.inputs
-            ), f"`input_names` has length {len(self.input_names)} but `inputs` has length {len(self.inputs)}"
+            assert len(self.input_names) == len(self.inputs), (
+                f"`input_names` has length {len(self.input_names)} but `inputs` has length {len(self.inputs)}"
+            )
             for input_name, i in zip(self.input_names, self.inputs):
                 prefix = f"[{input_name}] "
                 i._create_tree(
@@ -209,7 +218,8 @@ class QueryNode:
 
     def with_dialect(self, dialect: Dialect, compute_mode: Optional[ComputeMode] = None) -> "QueryNode":
         for node_ref in self.inputs:
-            node_ref.node = node_ref.node.with_dialect(dialect, compute_mode)
+            if isinstance(node_ref.node, QueryNode):
+                node_ref.node = node_ref.node.with_dialect(dialect, compute_mode)
         return attrs.evolve(self, dialect=dialect, func=CompatFunctions.for_dialect(dialect, compute_mode))
 
     def deepcopy(self) -> "QueryNode":
@@ -275,9 +285,10 @@ class QueryNode:
         """
         return []
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional["PartitionSelector"] = None) -> pypika.queries.QueryBuilder:
         """
         Attempts to recursively generate sql query for this and child nodes.
+        :param partition_selector:
         """
         raise NotImplementedError()
 
@@ -288,7 +299,24 @@ class QueryNode:
         """
         raise NotImplementedError
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        """
+        Partitioning of the output produced by this node
+        """
+        assert len(self.inputs), f"{self.__class__} must implement output_partitioning property"
+        if len(self.inputs) > 1:
+            assert all(
+                self.inputs[0].output_partitioning.is_equivalent(inp.output_partitioning) for inp in self.inputs[1:]
+            ), (
+                f"All inputs into {self.__class__} node must have the same partitioning: {[i.output_partitioning for i in self.inputs]}"
+            )
+
+        return self.inputs[0].output_partitioning
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
         raise NotImplementedError
 
 
@@ -335,12 +363,116 @@ class DataframeWrapper(ABC):
         """
         Get the results as arrow Table
         """
-        if not hasattr(self, "_arrow_table"):
+        if not hasattr(self, "_arrow_table") or self._arrow_table is None:
             self._arrow_table = pyarrow.Table.from_pandas(self.to_pandas())
         return self._arrow_table
 
     def to_spark(self):
         raise NotImplementedError
+
+
+class Partitioning(ABC):
+    @property
+    def number_of_partitions(self) -> int:
+        raise NotImplementedError
+
+    def is_equivalent(self, other: "Partitioning") -> bool:
+        raise NotImplementedError
+
+    def partition_expression(self, partition_by: pypika.Field) -> pypika.terms.Term:
+        raise NotImplementedError
+
+
+class SinglePartition(Partitioning):
+    @property
+    def number_of_partitions(self) -> int:
+        return 1
+
+    def is_equivalent(self, other: "Partitioning") -> bool:
+        return other.number_of_partitions == 1
+
+    def partition_expression(self, partition_by: pypika.Field) -> pypika.terms.Term:
+        return pypika.terms.LiteralValue(1)
+
+
+class JoinKeyHashPartitioning(Partitioning):
+    def __init__(self, join_keys: List[str], buckets: int) -> None:
+        self._join_keys = join_keys
+        self._buckets = buckets
+
+    @property
+    def number_of_partitions(self) -> int:
+        return self._buckets
+
+    def is_equivalent(self, other: "Partitioning") -> bool:
+        return (
+            isinstance(other, JoinKeyHashPartitioning)
+            and other._buckets == self._buckets
+            and other._join_keys[0] == self._join_keys[0]
+        )
+
+    def partition_expression(self, partition_by: pypika.Field) -> pypika.terms.Term:
+        return pypika.terms.Function(BUCKET_TRANSFORM_FUN, partition_by, pypika.terms.LiteralValue(str(self._buckets)))
+
+
+class JoinKeyRangePartitioning(Partitioning):
+    def __init__(self, join_keys: List[str], boundaries: List[Union[int, str]]) -> None:
+        self._join_keys = join_keys
+        self._boundaries = boundaries
+
+    @property
+    def number_of_partitions(self) -> int:
+        return len(self._boundaries) + 1
+
+    def is_equivalent(self, other: "Partitioning") -> bool:
+        return (
+            isinstance(other, JoinKeyRangePartitioning)
+            and other._join_keys == self._join_keys
+            and other._boundaries == self._boundaries
+        )
+
+    def partition_expression(self, partition_by: pypika.Field) -> pypika.terms.Term:
+        """
+        Find the partition index by join key value.
+        Iterates over list of boundaries until find the first boundary which is greater than current value
+        and returns its index.
+
+        Example:
+            boundaries: [3, 7, 10]
+            meaning we have 4 partitions: [-inf, 3), [3, 7), [7, 10), [10, inf)
+            input 2 -> should return 0
+            input 4 -> should return 1
+            input 7 -> should return 2
+            input 11 -> should return 3
+        """
+        case = pypika.Case()
+        for idx, boundary in enumerate(self._boundaries):
+            # WHEN entity_id < boundary THEN idx
+            case = case.when(partition_by < boundary, idx)
+        # ELSE last partition index
+        return case.else_(len(self._boundaries))
+
+    def boundaries_for_partition(self, partition_idx: int) -> Tuple[Any, Any]:
+        if partition_idx == 0:
+            return None, self._boundaries[0]
+
+        if partition_idx == len(self._boundaries):
+            return self._boundaries[-1], None
+
+        return self._boundaries[partition_idx - 1], self._boundaries[partition_idx]
+
+
+@dataclass
+class PartitionSelector:
+    partition_indexes: List[int]
+    total_number_of_partitions: int
+
+    def as_str(self) -> str:
+        return f"{[idx + 1 for idx in self.partition_indexes]} of {self.total_number_of_partitions} partitions"
+
+
+class EmptyPartition(Exception):
+    pass
 
 
 def recurse_query_tree(node_ref: NodeRef, f: Callable) -> None:

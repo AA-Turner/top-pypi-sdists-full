@@ -14,6 +14,7 @@ from colorama import Fore
 from tecton import version
 from tecton._internals.tecton_pydantic import pydantic_v1
 from tecton.cli import printer
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.framework import repo_config as repo_config_module
 from tecton_core import repo_file_handler
@@ -86,10 +87,14 @@ defaults:
 #     realtime_environment: tecton-python-extended:0.4
 #     transform_server_group: default_transform_server_group
 #     feature_server_group: default_feature_server_group
+#   stream_source:
+#     push_config:
+#       transform_server_group: default_transform_server_group
+#       ingest_server_group: default_ingest_server_group
 """
 
 
-@click.command("repo-config", cls=TectonGroup)
+@click.command("repo-config", cls=TectonGroup, command_category=TectonCommandCategory.WORKSPACE)
 def repo_config_group():
     """Create, inspect, or debug the repo configuration."""
 
@@ -134,7 +139,7 @@ def create_starter_repo_config(config_path: Path):
     sdk_version = version.get_version()
 
     # TODO (TEC-19058): hard-coded pending a process that publishes the environments at the same time as the SDK
-    environment = "tecton-core-1.1.0" if sdk_version != "99.99.99" else ""
+    environment = "tecton-core-1.2.0" if sdk_version != "99.99.99" else ""
     formatted_start_repo_config = _STARTER_REPO_CONFIG.format(current_version=sdk_version, environment=environment)
 
     with open(config_path, "w") as file:

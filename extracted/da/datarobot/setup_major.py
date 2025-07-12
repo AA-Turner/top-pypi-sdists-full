@@ -28,7 +28,7 @@ description = DESCRIPTION_TEMPLATE.format(
     extra_desc="",
     python_versions=python_versions,
     pip_package_name="datarobot",
-    docs_link="https://datarobot-public-api-client.readthedocs-hosted.com",
+    docs_link="https://docs.datarobot.com/en/docs/api/reference/sdk/",
 )
 
 packages = find_packages(exclude=["tests*", "*_experimental*"])

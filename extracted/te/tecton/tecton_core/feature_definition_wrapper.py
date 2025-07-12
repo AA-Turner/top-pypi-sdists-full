@@ -20,6 +20,7 @@ from tecton_core.id_helper import IdHelper
 from tecton_core.online_serving_index import OnlineServingIndex
 from tecton_core.pipeline import pipeline_common
 from tecton_core.pipeline.pipeline_common import uses_realtime_context
+from tecton_core.query_consts import effective_timestamp
 from tecton_core.query_consts import temp_indictor_column_name
 from tecton_core.schema import Schema
 from tecton_core.specs import LifetimeWindowSpec
@@ -41,6 +42,7 @@ from tecton_proto.common import secret__client_pb2 as secret_pb2
 from tecton_proto.common.framework_version__client_pb2 import FrameworkVersion as FrameworkVersionProto
 from tecton_proto.data import feature_view__client_pb2 as feature_view_pb2
 from tecton_proto.data.feature_view__client_pb2 import OfflineStoreParams
+from tecton_proto.data.feature_view__client_pb2 import SinkConfig
 
 
 logger = logging.getLogger(__name__)
@@ -144,11 +146,27 @@ class FeatureDefinitionWrapper:
 
     @property
     def time_key(self) -> Optional[str]:
-        if isinstance(
-            self.fv_spec,
-            (specs.MaterializedFeatureViewSpec, specs.FeatureTableSpec),
-        ):
+        if isinstance(self.fv_spec, (specs.MaterializedFeatureViewSpec, specs.FeatureTableSpec)):
             return self.fv_spec.timestamp_field
+        else:
+            return None
+
+    @property
+    def batch_publish_timestamp(self) -> Optional[str]:
+        if isinstance(self.fv_spec, specs.MaterializedFeatureViewSpec):
+            return self.fv_spec.batch_publish_timestamp
+        else:
+            return None
+
+    @property
+    def materialization_job_partition_timestamp(self) -> Optional[str]:
+        """
+        Returns the partition timestamp for the feature view. This is the timestamp that is used to partition materialization jobs.
+        """
+        if isinstance(self.fv_spec, specs.MaterializedFeatureViewSpec):
+            return self.batch_publish_timestamp or self.time_key
+        elif isinstance(self.fv_spec, specs.FeatureTableSpec):
+            return self.time_key
         else:
             return None
 
@@ -247,19 +265,33 @@ class FeatureDefinitionWrapper:
         return window_to_features
 
     @property
-    def partial_aggregate_group_by_columns(self) -> List[str]:
+    def base_partial_aggregate_group_by_columns(self) -> List[str]:
         """
-        The columns to group by for partial aggregations. This includes the join keys of the feature view, and the
-        aggregation secondary key if configured.
+        Base columns used for partial aggregation grouping. This includes the join keys of the feature view,
+        and the aggregation secondary key if configured.
         """
         if not self.is_temporal_aggregate:
-            msg = f"Feature View '{self.name}' does not have partial_agg_group_keys"
+            msg = f"Feature View '{self.name}' does not support partial aggregation."
             raise ValueError(msg)
-        return (
-            [*self.join_keys, self.fv_spec.aggregation_secondary_key]
-            if self.fv_spec.aggregation_secondary_key
-            else self.join_keys
-        )
+
+        group_by_columns = [*self.join_keys]
+        if self.fv_spec.aggregation_secondary_key:
+            group_by_columns.append(self.fv_spec.aggregation_secondary_key)
+
+        return group_by_columns
+
+    @property
+    def partial_aggregate_group_by_columns(self) -> List[str]:
+        """
+        Full set of columns to group by for partial aggregations. Builds upon the base set,
+        and adds additional fields (like effective_timestamp) when handling late-arriving data.
+        """
+        group_by_columns = self.base_partial_aggregate_group_by_columns.copy()
+
+        if self.fv_spec.batch_publish_timestamp:
+            group_by_columns.append(effective_timestamp())
+
+        return group_by_columns
 
     @property
     def has_offset_window(self) -> bool:
@@ -285,6 +317,11 @@ class FeatureDefinitionWrapper:
     def has_parquet_offline_store(self) -> bool:
         conf = self.offline_store_config or self.offline_store_params
         return conf.HasField("parquet")
+
+    @property
+    def has_iceberg_offline_store(self) -> bool:
+        conf = self.offline_store_config or self.offline_store_params
+        return conf.HasField("iceberg")
 
     @property
     def offline_store_config(self) -> OfflineFeatureStoreConfig:
@@ -511,6 +548,14 @@ class FeatureDefinitionWrapper:
         return self.fv_spec.published_features_path
 
     @property
+    def sink_config(self) -> Optional[SinkConfig]:
+        """Returns the sink to publish features"""
+        if not isinstance(self.fv_spec, specs.MaterializedFeatureViewSpec):
+            msg = "Invalid `sink_config` invocation. Publish Features is not supported.."
+            raise TypeError(msg)
+        return self.fv_spec.sink_config
+
+    @property
     def has_lifetime_aggregate(self) -> bool:
         """Returns if FV contains a lifetime aggregate. Fails for non-agg FVs."""
         if not self.is_temporal_aggregate:
@@ -718,6 +763,11 @@ class FeatureDefinitionWrapper:
         end = convert_timedelta_for_version(time_window.window_end, self.get_feature_store_format_version)
         assert start <= end
         return start, end
+
+    @property
+    def has_untiled_offline_store(self) -> bool:
+        # Currently only compaction fvs have an untiled offline store
+        return self.compaction_enabled
 
     @property
     def compaction_enabled(self) -> bool:

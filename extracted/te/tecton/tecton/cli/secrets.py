@@ -7,8 +7,8 @@ from tecton._internals import metadata_service
 from tecton.cli import printer
 from tecton.cli.cli_utils import click_exception_wrapper
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
-from tecton_core.errors import TectonNotFoundError
 from tecton_proto.secrets.secrets_service__client_pb2 import CreateSecretScopeRequest
 from tecton_proto.secrets.secrets_service__client_pb2 import DeleteSecretRequest
 from tecton_proto.secrets.secrets_service__client_pb2 import DeleteSecretScopeRequest
@@ -23,7 +23,7 @@ Your cluster may not have Tecton Secrets enabled. Please contact your Tecton sup
 if it can be enabled."""
 
 
-@click.command("secrets", cls=TectonGroup)
+@click.command("secrets", cls=TectonGroup, command_category=TectonCommandCategory.IDENTITY)
 def secrets():
     """Manage Tecton secrets and secret scopes."""
 
@@ -69,16 +69,11 @@ def delete_secret_scope(scope):
 def list_secrets(scope, json_out):
     """List secrets in a scope."""
     request = ListSecretsRequest(scope=scope)
-
-    try:
-        response = metadata_service.instance().ListSecrets(request)
-    except TectonNotFoundError as e:
-        printer.safe_print("Error: Secret scope not found", file=sys.stderr)
-        return
+    response = metadata_service.instance().ListSecrets(request)
 
     if json_out:
         names = [key.name for key in response.keys]
-        printer.safe_print(json.dumps(names))
+        printer.safe_print(json.dumps(names), plain=True)
     else:
         if len(response.keys) == 0:
             printer.safe_print("No secrets found")

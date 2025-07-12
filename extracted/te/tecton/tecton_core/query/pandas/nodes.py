@@ -37,6 +37,8 @@ from tecton_core.materialization_context import MaterializationContext
 from tecton_core.query.errors import UserCodeError
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import PartitionSelector
+from tecton_core.query.node_interface import SinglePartition
 from tecton_core.query.nodes import StagingNode
 from tecton_core.query.pandas.node import ArrowExecNode
 from tecton_core.query.pandas.node import SqlExecNode
@@ -49,6 +51,7 @@ from tecton_core.schema_validation import cast
 from tecton_core.schema_validation import cast_columns
 from tecton_core.schema_validation import tecton_schema_to_arrow_schema
 from tecton_core.secret_management import SecretResolver
+from tecton_core.skew_config import SkewConfig
 from tecton_proto.args.pipeline__client_pb2 import DataSourceNode
 from tecton_proto.args.pipeline__client_pb2 import PipelineNode
 from tecton_proto.args.pipeline__client_pb2 import TransformationNode
@@ -80,11 +83,18 @@ class PandasDataSourceScanNode(ArrowExecNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime]
     end_time: Optional[datetime]
+    skew_config: Optional[SkewConfig] = None
 
     def as_str(self):
         return "ArrowExec node for Pandas data source"
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         batch_source = self.ds.batch_source
         assert isinstance(batch_source, specs.PandasBatchSourceSpec)
 
@@ -140,11 +150,18 @@ class PyArrowDataSourceScanNode(ArrowExecNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime]
     end_time: Optional[datetime]
+    skew_config: Optional[SkewConfig] = None
 
     def as_str(self):
         return "ArrowExec node for PyArrow data source"
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         batch_source = self.ds.batch_source
         assert isinstance(batch_source, specs.PyArrowBatchSourceSpec)
 
@@ -161,9 +178,9 @@ class PyArrowDataSourceScanNode(ArrowExecNode):
         if isinstance(table_or_reader, pyarrow.Table):
             return self._get_reader_from_table(table_or_reader, cols)
         else:
-            assert isinstance(
-                table_or_reader, pyarrow.RecordBatchReader
-            ), "Invalid type of table_or_reader. Expected pyarrow.Table or pyarrow.RecordBatchReader"
+            assert isinstance(table_or_reader, pyarrow.RecordBatchReader), (
+                "Invalid type of table_or_reader. Expected pyarrow.Table or pyarrow.RecordBatchReader"
+            )
             return self._get_reader_from_raw_reader(table_or_reader, cols)
 
     def _get_reader_from_table(self, table: pyarrow.Table, cols: Optional[List[str]]) -> pyarrow.RecordBatchReader:
@@ -227,7 +244,9 @@ class PandasFeatureViewPipelineNode(ArrowExecNode):
     # Mock context with resources and secrets for testing
     mock_context: Optional[MaterializationContext]
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.Table:
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.Table:
         table = self._node_to_value(self.feature_definition_wrapper.pipeline.root, context)
         return table
 
@@ -238,6 +257,10 @@ class PandasFeatureViewPipelineNode(ArrowExecNode):
     @property
     def input_names(self) -> Optional[List[str]]:
         return list(self.inputs_map.keys())
+
+    @property
+    def output_partitioning(self):
+        return next(iter(self.inputs_map.values())).output_partitioning
 
     def as_str(self):
         s = f"ArrowExec node for feature view pipeline ({self.feature_definition_wrapper.name}) in Pandas mode"
@@ -250,9 +273,9 @@ class PandasFeatureViewPipelineNode(ArrowExecNode):
             return self._transformation_node_to_dataframe(pipeline_node.transformation_node, context)
         elif pipeline_node.HasField("data_source_node"):
             ds_query_node = self.inputs_map[pipeline_node.data_source_node.input_name].node
-            assert isinstance(
-                ds_query_node, (ArrowExecNode, StagingNode)
-            ), "A PandasFeatureViewPipelineNode cannot operate on standard DataSourceScanNodes. They must have been replaced by PandasDataNodes."
+            assert isinstance(ds_query_node, (ArrowExecNode, StagingNode)), (
+                "A PandasFeatureViewPipelineNode cannot operate on standard DataSourceScanNodes. They must have been replaced by PandasDataNodes."
+            )
             return ds_query_node.to_arrow_reader(context)
         elif pipeline_node.HasField("materialization_context_node") or pipeline_node.HasField("context_node"):
             feature_start_time = None
@@ -507,11 +530,20 @@ class PandasFeatureViewPipelineNode(ArrowExecNode):
 class ArrowDataNode(ArrowExecNode):
     input_reader: pyarrow.RecordBatchReader
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         return self.input_reader
 
     def _to_dataframe(self):
         return self.to_arrow_reader(None).read_pandas()
+
+    def as_str(self):
+        return "ArrowDataNode"
 
 
 @attrs.frozen
@@ -543,8 +575,10 @@ class PandasMultiOdfvPipelineNode(ArrowExecNode):
     def as_str(self):
         return f"ArrowExec node for RTFV execution of {', '.join([fdw.name for fdw, _ in self.feature_definition_namespaces])}"
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
-        reader = self.input_node.to_arrow_reader(context)
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
+        reader = self.input_node.to_arrow_reader(context, partition_selector)
 
         output_schema = reader.schema
         for fdw, namespace in self.feature_definition_namespaces:
@@ -621,6 +655,7 @@ class PandasRenameColsNode(ArrowExecNode):
     input_node: Union[ArrowExecNode, SqlExecNode]
     mapping: Optional[Dict[str, str]]
     drop: Optional[List[str]]
+    keep_original_columns_from_mapping: bool = False
 
     def _to_dataframe(self) -> pandas.DataFrame:
         input_df = self.input_node._to_dataframe()
@@ -632,8 +667,10 @@ class PandasRenameColsNode(ArrowExecNode):
             output_df = input_df.rename(self.mapping)
         return output_df
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
-        reader = self.input_node.to_arrow_reader(context)
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
+        reader = self.input_node.to_arrow_reader(context, partition_selector)
 
         input_schema = reader.schema
         output_fields = []
@@ -643,9 +680,11 @@ class PandasRenameColsNode(ArrowExecNode):
 
             field = input_schema.field(name)
             if self.mapping and name in self.mapping:
-                field = field.with_name(self.mapping[name])
-
-            output_fields.append(field)
+                if self.keep_original_columns_from_mapping:
+                    output_fields.append(field)
+                output_fields.append(field.with_name(self.mapping[name]))
+            else:
+                output_fields.append(field)
 
         output_schema = pyarrow.schema(output_fields)
 

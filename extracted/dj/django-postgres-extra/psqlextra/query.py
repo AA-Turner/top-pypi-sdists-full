@@ -1,19 +1,47 @@
 from collections import OrderedDict
 from itertools import chain
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from django.core.exceptions import SuspiciousOperation
-from django.db import connections, models, router
-from django.db.models import Expression, Q
+from django.db import models, router
+from django.db.backends.utils import CursorWrapper
+from django.db.models import Expression, Q, QuerySet
 from django.db.models.fields import NOT_PROVIDED
 
+from .expressions import ExcludedCol
+from .introspect import model_from_cursor, models_from_cursor
 from .sql import PostgresInsertQuery, PostgresQuery
 from .types import ConflictAction
 
-ConflictTarget = List[Union[str, Tuple[str]]]
+if TYPE_CHECKING:
+    from django.db.models.constraints import BaseConstraint
+    from django.db.models.indexes import Index
+
+ConflictTarget = Union[List[Union[str, Tuple[str]]], "BaseConstraint", "Index"]
 
 
-class PostgresQuerySet(models.QuerySet):
+TModel = TypeVar("TModel", bound=models.Model, covariant=True)
+
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
+    QuerySetBase = QuerySet[TModel]
+else:
+    QuerySetBase = QuerySet
+
+
+class PostgresQuerySet(QuerySetBase, Generic[TModel]):
     """Adds support for PostgreSQL specifics."""
 
     def __init__(self, model=None, query=None, using=None, hints=None):
@@ -27,8 +55,9 @@ class PostgresQuerySet(models.QuerySet):
         self.conflict_action = None
         self.conflict_update_condition = None
         self.index_predicate = None
+        self.update_values = None
 
-    def annotate(self, **annotations):
+    def annotate(self, **annotations) -> "Self":  # type: ignore[valid-type, override]
         """Custom version of the standard annotate function that allows using
         field names as annotated fields.
 
@@ -84,6 +113,7 @@ class PostgresQuerySet(models.QuerySet):
         action: ConflictAction,
         index_predicate: Optional[Union[Expression, Q, str]] = None,
         update_condition: Optional[Union[Expression, Q, str]] = None,
+        update_values: Optional[Dict[str, Union[Any, Expression]]] = None,
     ):
         """Sets the action to take when conflicts arise when attempting to
         insert/create a new row.
@@ -101,18 +131,24 @@ class PostgresQuerySet(models.QuerySet):
 
             update_condition:
                 Only update if this SQL expression evaluates to true.
+
+            update_values:
+                Optionally, values/expressions to use when rows
+                conflict. If not specified, all columns specified
+                in the rows are updated with the values you specified.
         """
 
         self.conflict_target = fields
         self.conflict_action = action
         self.conflict_update_condition = update_condition
         self.index_predicate = index_predicate
+        self.update_values = update_values
 
         return self
 
     def bulk_insert(
         self,
-        rows: List[dict],
+        rows: Iterable[Dict[str, Any]],
         return_model: bool = False,
         using: Optional[str] = None,
     ):
@@ -131,7 +167,7 @@ class PostgresQuerySet(models.QuerySet):
                 just dicts.
 
             using:
-                Name of the database connection to use for
+                Optional name of the database connection to use for
                 this query.
 
         Returns:
@@ -171,14 +207,17 @@ class PostgresQuerySet(models.QuerySet):
                 deduped_rows.append(row)
 
         compiler = self._build_insert_compiler(deduped_rows, using=using)
-        objs = compiler.execute_sql(return_id=not return_model)
-        if return_model:
-            return [
-                self._create_model_instance(dict(row, **obj), compiler.using)
-                for row, obj in zip(deduped_rows, objs)
-            ]
 
-        return [dict(row, **obj) for row, obj in zip(deduped_rows, objs)]
+        with compiler.connection.cursor() as cursor:
+            for sql, params in compiler.as_sql(return_id=not return_model):
+                cursor.execute(sql, params)
+
+                if return_model:
+                    return list(models_from_cursor(self.model, cursor))
+
+                return self._consume_cursor_as_dicts(
+                    cursor, original_rows=deduped_rows
+                )
 
     def insert(self, using: Optional[str] = None, **fields):
         """Creates a new record in the database.
@@ -199,14 +238,20 @@ class PostgresQuerySet(models.QuerySet):
         """
 
         if self.conflict_target or self.conflict_action:
-            compiler = self._build_insert_compiler([fields], using=using)
-            rows = compiler.execute_sql(return_id=True)
-
-            _, pk_db_column = self.model._meta.pk.get_attname_column()
-            if not rows or len(rows) == 0:
+            if not self.model or not self.model.pk:
                 return None
 
-            return rows[0][pk_db_column]
+            compiler = self._build_insert_compiler([fields], using=using)
+
+            with compiler.connection.cursor() as cursor:
+                for sql, params in compiler.as_sql(return_id=True):
+                    cursor.execute(sql, params)
+
+                row = cursor.fetchone()
+                if not row:
+                    return None
+
+            return row[0]
 
         # no special action required, use the standard Django create(..)
         return super().create(**fields).pk
@@ -234,30 +279,12 @@ class PostgresQuerySet(models.QuerySet):
             return super().create(**fields)
 
         compiler = self._build_insert_compiler([fields], using=using)
-        rows = compiler.execute_sql(return_id=False)
 
-        if not rows:
-            return None
+        with compiler.connection.cursor() as cursor:
+            for sql, params in compiler.as_sql(return_id=False):
+                cursor.execute(sql, params)
 
-        columns = rows[0]
-
-        # get a list of columns that are officially part of the model and
-        # preserve the fact that the attribute name
-        # might be different than the database column name
-        model_columns = {}
-        for field in self.model._meta.local_concrete_fields:
-            model_columns[field.column] = field.attname
-
-        # strip out any columns/fields returned by the db that
-        # are not present in the model
-        model_init_fields = {}
-        for column_name, column_value in columns.items():
-            try:
-                model_init_fields[model_columns[column_name]] = column_value
-            except KeyError:
-                pass
-
-        return self._create_model_instance(model_init_fields, compiler.using)
+            return model_from_cursor(self.model, cursor)
 
     def upsert(
         self,
@@ -266,6 +293,7 @@ class PostgresQuerySet(models.QuerySet):
         index_predicate: Optional[Union[Expression, Q, str]] = None,
         using: Optional[str] = None,
         update_condition: Optional[Union[Expression, Q, str]] = None,
+        update_values: Optional[Dict[str, Union[Any, Expression]]] = None,
     ) -> int:
         """Creates a new record or updates the existing one with the specified
         data.
@@ -288,17 +316,27 @@ class PostgresQuerySet(models.QuerySet):
             update_condition:
                 Only update if this SQL expression evaluates to true.
 
+            update_values:
+                Optionally, values/expressions to use when rows
+                conflict. If not specified, all columns specified
+                in the rows are updated with the values you specified.
+
         Returns:
             The primary key of the row that was created/updated.
         """
 
         self.on_conflict(
             conflict_target,
-            ConflictAction.UPDATE,
+            ConflictAction.UPDATE
+            if (update_condition or update_condition is None)
+            else ConflictAction.NOTHING,
             index_predicate=index_predicate,
             update_condition=update_condition,
+            update_values=update_values,
         )
-        return self.insert(**fields, using=using)
+
+        kwargs = {**fields, "using": using}
+        return self.insert(**kwargs)
 
     def upsert_and_get(
         self,
@@ -307,6 +345,7 @@ class PostgresQuerySet(models.QuerySet):
         index_predicate: Optional[Union[Expression, Q, str]] = None,
         using: Optional[str] = None,
         update_condition: Optional[Union[Expression, Q, str]] = None,
+        update_values: Optional[Dict[str, Union[Any, Expression]]] = None,
     ):
         """Creates a new record or updates the existing one with the specified
         data and then gets the row.
@@ -329,6 +368,11 @@ class PostgresQuerySet(models.QuerySet):
             update_condition:
                 Only update if this SQL expression evaluates to true.
 
+            update_values:
+                Optionally, values/expressions to use when rows
+                conflict. If not specified, all columns specified
+                in the rows are updated with the values you specified.
+
         Returns:
             The model instance representing the row
             that was created/updated.
@@ -339,8 +383,11 @@ class PostgresQuerySet(models.QuerySet):
             ConflictAction.UPDATE,
             index_predicate=index_predicate,
             update_condition=update_condition,
+            update_values=update_values,
         )
-        return self.insert_and_get(**fields, using=using)
+
+        kwargs = {**fields, "using": using}
+        return self.insert_and_get(**kwargs)
 
     def bulk_upsert(
         self,
@@ -350,6 +397,7 @@ class PostgresQuerySet(models.QuerySet):
         return_model: bool = False,
         using: Optional[str] = None,
         update_condition: Optional[Union[Expression, Q, str]] = None,
+        update_values: Optional[Dict[str, Union[Any, Expression]]] = None,
     ):
         """Creates a set of new records or updates the existing ones with the
         specified data.
@@ -376,6 +424,11 @@ class PostgresQuerySet(models.QuerySet):
             update_condition:
                 Only update if this SQL expression evaluates to true.
 
+            update_values:
+                Optionally, values/expressions to use when rows
+                conflict. If not specified, all columns specified
+                in the rows are updated with the values you specified.
+
         Returns:
             A list of either the dicts of the rows upserted, including the pk or
             the models of the rows upserted
@@ -386,46 +439,28 @@ class PostgresQuerySet(models.QuerySet):
             ConflictAction.UPDATE,
             index_predicate=index_predicate,
             update_condition=update_condition,
+            update_values=update_values,
         )
+
         return self.bulk_insert(rows, return_model, using=using)
 
-    def _create_model_instance(
-        self, field_values: dict, using: str, apply_converters: bool = True
-    ):
-        """Creates a new instance of the model with the specified field.
+    @staticmethod
+    def _consume_cursor_as_dicts(
+        cursor: CursorWrapper, *, original_rows: Iterable[Dict[str, Any]]
+    ) -> List[dict]:
+        cursor_description = cursor.description
 
-        Use this after the row was inserted into the database. The new
-        instance will marked as "saved".
-        """
-
-        converted_field_values = field_values.copy()
-
-        if apply_converters:
-            connection = connections[using]
-
-            for field in self.model._meta.local_concrete_fields:
-                if field.attname not in converted_field_values:
-                    continue
-
-                # converters can be defined on the field, or by
-                # the database back-end we're using
-                field_column = field.get_col(self.model._meta.db_table)
-                converters = field.get_db_converters(
-                    connection
-                ) + connection.ops.get_db_converters(field_column)
-
-                for converter in converters:
-                    converted_field_values[field.attname] = converter(
-                        converted_field_values[field.attname],
-                        field_column,
-                        connection,
-                    )
-
-        instance = self.model(**converted_field_values)
-        instance._state.db = using
-        instance._state.adding = False
-
-        return instance
+        return [
+            {
+                **original_row,
+                **{
+                    column.name: row[column_index]
+                    for column_index, column in enumerate(cursor_description)
+                    if row
+                },
+            }
+            for original_row, row in zip(original_rows, cursor)
+        ]
 
     def _build_insert_compiler(
         self, rows: Iterable[Dict], using: Optional[str] = None
@@ -447,7 +482,7 @@ class PostgresQuerySet(models.QuerySet):
 
         # ask the db router which connection to use
         using = (
-            using or self._db or router.db_for_write(self.model, **self._hints)
+            using or self._db or router.db_for_write(self.model, **self._hints)  # type: ignore[attr-defined]
         )
 
         # create model objects, we also have to detect cases
@@ -469,12 +504,17 @@ class PostgresQuerySet(models.QuerySet):
                     ).format(index)
                 )
 
-            objs.append(
-                self._create_model_instance(row, using, apply_converters=False)
-            )
+            obj = self.model(**row.copy())
+            obj._state.db = using
+            obj._state.adding = False
+            objs.append(obj)
 
         # get the fields to be used during update/insert
-        insert_fields, update_fields = self._get_upsert_fields(first_row)
+        insert_fields, update_values = self._get_upsert_fields(first_row)
+
+        # allow the user to override what should happen on update
+        if self.update_values is not None:
+            update_values = self.update_values
 
         # build a normal insert query
         query = PostgresInsertQuery(self.model)
@@ -482,7 +522,7 @@ class PostgresQuerySet(models.QuerySet):
         query.conflict_target = self.conflict_target
         query.conflict_update_condition = self.conflict_update_condition
         query.index_predicate = self.index_predicate
-        query.values(objs, insert_fields, update_fields)
+        query.insert_on_conflict_values(objs, insert_fields, update_values)
 
         compiler = query.get_compiler(using)
         return compiler
@@ -547,13 +587,13 @@ class PostgresQuerySet(models.QuerySet):
 
         model_instance = self.model(**kwargs)
         insert_fields = []
-        update_fields = []
+        update_values = {}
 
         for field in model_instance._meta.local_concrete_fields:
             has_default = field.default != NOT_PROVIDED
             if field.name in kwargs or field.column in kwargs:
                 insert_fields.append(field)
-                update_fields.append(field)
+                update_values[field.name] = ExcludedCol(field)
                 continue
             elif has_default:
                 insert_fields.append(field)
@@ -564,13 +604,13 @@ class PostgresQuerySet(models.QuerySet):
             # instead of a concrete field, we have to handle that
             if field.primary_key is True and "pk" in kwargs:
                 insert_fields.append(field)
-                update_fields.append(field)
+                update_values[field.name] = ExcludedCol(field)
                 continue
 
             if self._is_magical_field(model_instance, field, is_insert=True):
                 insert_fields.append(field)
 
             if self._is_magical_field(model_instance, field, is_insert=False):
-                update_fields.append(field)
+                update_values[field.name] = ExcludedCol(field)
 
-        return insert_fields, update_fields
+        return insert_fields, update_values

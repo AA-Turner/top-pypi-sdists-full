@@ -13,6 +13,7 @@ from tecton.cli import cli_utils
 from tecton.cli import printer
 from tecton.cli import repo_config
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton_core import http
 from tecton_core import repo_file_handler
 from tecton_proto.metadataservice import metadata_service__client_pb2 as metadata_service_pb2
@@ -123,7 +124,7 @@ def restore(commit_id, yes):
     printer.safe_print("Success")
 
 
-@click.command(requires_auth=False, cls=TectonCommand, is_main_command=True)
+@click.command(requires_auth=False, cls=TectonCommand, command_category=TectonCommandCategory.WORKSPACE)
 def init() -> None:
     """Initialize feature repo."""
     init_feature_repo()

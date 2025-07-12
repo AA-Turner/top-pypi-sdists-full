@@ -9192,6 +9192,8 @@ class ingest_api_FileOutputFormat(ConjureEnumType):
     '''PARQUET_TAR'''
     AVRO_STREAM = 'AVRO_STREAM'
     '''AVRO_STREAM'''
+    JSON_L = 'JSON_L'
+    '''JSON_L'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -15927,6 +15929,148 @@ class module_ValueType(ConjureEnumType):
 module_ValueType.__name__ = "ValueType"
 module_ValueType.__qualname__ = "ValueType"
 module_ValueType.__module__ = "nominal_api.module"
+
+
+class module_internal_BatchGetResolvedModuleDefinitionsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[module_internal_ModuleApplicationReference])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List["module_internal_ModuleApplicationReference"]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List["module_internal_ModuleApplicationReference"]:
+        return self._requests
+
+
+module_internal_BatchGetResolvedModuleDefinitionsRequest.__name__ = "BatchGetResolvedModuleDefinitionsRequest"
+module_internal_BatchGetResolvedModuleDefinitionsRequest.__qualname__ = "BatchGetResolvedModuleDefinitionsRequest"
+module_internal_BatchGetResolvedModuleDefinitionsRequest.__module__ = "nominal_api.module_internal"
+
+
+class module_internal_InternalModuleService(Service):
+    """This service provides internal APIs related to modules.
+    """
+
+    def batch_get_resolved_module_definitions(self, auth_header: str, request: "module_internal_BatchGetResolvedModuleDefinitionsRequest") -> List["module_internal_ResolvedModuleVersionDefinition"]:
+        """Returns the resolved module definitions for the given module-asset pairs. If any of modules have not been
+applied to their corresponding asset, this will throw.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/internal/scout/v2/module/resolved-module/batch-get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), List[module_internal_ResolvedModuleVersionDefinition], self._return_none_for_unknown_union_types)
+
+
+module_internal_InternalModuleService.__name__ = "InternalModuleService"
+module_internal_InternalModuleService.__qualname__ = "InternalModuleService"
+module_internal_InternalModuleService.__module__ = "nominal_api.module_internal"
+
+
+class module_internal_ModuleApplicationReference(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_name': ConjureFieldDefinition('moduleName', str),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_module_name', '_asset_rid']
+
+    def __init__(self, asset_rid: str, module_name: str) -> None:
+        self._module_name = module_name
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def module_name(self) -> str:
+        return self._module_name
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+module_internal_ModuleApplicationReference.__name__ = "ModuleApplicationReference"
+module_internal_ModuleApplicationReference.__qualname__ = "ModuleApplicationReference"
+module_internal_ModuleApplicationReference.__module__ = "nominal_api.module_internal"
+
+
+class module_internal_ResolvedModuleVersionDefinition(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_name': ConjureFieldDefinition('moduleName', str),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'resolved_parameters': ConjureFieldDefinition('resolvedParameters', List[module_ModuleVariable]),
+            'default_variables': ConjureFieldDefinition('defaultVariables', List[module_ModuleVariable]),
+            'functions': ConjureFieldDefinition('functions', List[module_Function])
+        }
+
+    __slots__: List[str] = ['_module_name', '_asset_rid', '_resolved_parameters', '_default_variables', '_functions']
+
+    def __init__(self, asset_rid: str, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_name: str, resolved_parameters: List["module_ModuleVariable"]) -> None:
+        self._module_name = module_name
+        self._asset_rid = asset_rid
+        self._resolved_parameters = resolved_parameters
+        self._default_variables = default_variables
+        self._functions = functions
+
+    @builtins.property
+    def module_name(self) -> str:
+        return self._module_name
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+    @builtins.property
+    def resolved_parameters(self) -> List["module_ModuleVariable"]:
+        return self._resolved_parameters
+
+    @builtins.property
+    def default_variables(self) -> List["module_ModuleVariable"]:
+        return self._default_variables
+
+    @builtins.property
+    def functions(self) -> List["module_Function"]:
+        return self._functions
+
+
+module_internal_ResolvedModuleVersionDefinition.__name__ = "ResolvedModuleVersionDefinition"
+module_internal_ResolvedModuleVersionDefinition.__qualname__ = "ResolvedModuleVersionDefinition"
+module_internal_ResolvedModuleVersionDefinition.__module__ = "nominal_api.module_internal"
 
 
 class persistent_compute_api_AppendResult(ConjureBeanType):
@@ -86483,6 +86627,8 @@ ingest_api_DataSourceRefName = str
 api_ErrorType = str
 
 scout_compute_api_ComputeWithUnitsRequest = scout_compute_api_ComputeNodeRequest
+
+scout_rids_api_GroupRid = str
 
 scout_rids_api_Version = int
 

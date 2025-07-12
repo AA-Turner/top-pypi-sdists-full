@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trcli
-Version: 1.10.0
+Version: 1.10.1
 License-File: LICENSE.md
 Requires-Dist: click==8.0.3
 Requires-Dist: pyyaml<7.0.0,>=6.0.0

@@ -7613,7 +7613,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
             for item in items:
                 try:
                     name, url, headers = item
-                    print(f'ame, {url=}, he')
+                    print(f'ame, {url=}, he, {name=}')
 
                     if name == 'tonapi':
                         async with aiohttp.ClientSession() as session:
@@ -7734,6 +7734,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
 async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False):
     result = None
     try:
+        print(f"get_nft_address_by_index start .. {address=}")
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -7764,13 +7765,14 @@ async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False
                                 'X-API-Key': key
                             }
                         ])
-        print(f"{items=}")
+        # print(f"{items=}")
 
         while True:
             random.shuffle(items)
             for item in items:
                 try:
                     name, url, headers = item
+                    print(f"{item=}")
 
                     if name == 'tonapi':
                         async with aiohttp.ClientSession() as session:
@@ -7809,6 +7811,7 @@ async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False
 async def get_collection_data(address, KEYS_JSON, is_test_only=False):
     result = {}
     try:
+        print(f"get_collection_data start.. {address=}")
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -7854,7 +7857,7 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                                 data = await response.json()
 
                         if 'error' in data or not data['success']: return
-                        print('success', data)
+                        print(f'success {data=}')
                         result['next_item_index'] = data['decoded']['next_item_index']
                         result['owner_address'] = data['decoded']['owner_address']
 
@@ -7916,13 +7919,13 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_royalty_params(address, KEYS_JSON, is_test_only=False):
     result = {}
     try:
+        print(f"get_royalty_params start.. {address=}")
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -7936,7 +7939,7 @@ async def get_royalty_params(address, KEYS_JSON, is_test_only=False):
                     if key:
                         items.append([
                             'tonapi',
-                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/get_collection_data',
+                            f'https://{pfx_testnet}tonapi.io/v2/blockchain/accounts/{address}/methods/royalty_params',
                             {
                                 'accept': 'application/json',
                                 'Authorization': f'Bearer {key}'
@@ -7968,7 +7971,7 @@ async def get_royalty_params(address, KEYS_JSON, is_test_only=False):
                                 data = await response.json()
 
                         if 'error' in data or not data['success']: return result
-                        print('success')
+                        print(f'success {data=}')
                         result['numerator'] = data['decoded']['numerator']
                         result['denominator'] = data['decoded']['denominator']
                         result['destination'] = data['decoded']['destination']

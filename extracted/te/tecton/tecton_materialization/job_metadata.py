@@ -18,9 +18,9 @@ from tecton_proto.materialization.job_metadata__client_pb2 import JobMetadataTab
 
 
 __all__ = (
-    "write_checkpoint",
-    "is_checkpoint_complete",
     "check_spark_job_uniqueness",
+    "is_checkpoint_complete",
+    "write_checkpoint",
 )
 
 try:

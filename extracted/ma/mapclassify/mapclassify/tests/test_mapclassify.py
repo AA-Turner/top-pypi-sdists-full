@@ -2,9 +2,33 @@ import types
 
 import numpy
 import pytest
+from matplotlib.testing.decorators import image_comparison
 
-from ..classifiers import *
-from ..classifiers import bin, bin1d, binC, load_example
+from ..classifiers import (
+    BoxPlot,
+    EqualInterval,
+    FisherJenks,
+    FisherJenksSampled,
+    HeadTailBreaks,
+    JenksCaspall,
+    JenksCaspallForced,
+    JenksCaspallSampled,
+    KClassifiers,
+    MaximumBreaks,
+    MaxP,
+    NaturalBreaks,
+    Percentiles,
+    PrettyBreaks,
+    Quantiles,
+    StdMean,
+    UserDefined,
+    bin,
+    bin1d,
+    binC,
+    gadf,
+    load_example,
+    quantile,
+)
 from ..pooling import Pooled
 
 RTOL = 0.0001
@@ -94,7 +118,7 @@ class TestMake:
         assert isinstance(self.q5r, types.FunctionType)
 
         assert hasattr(self.ei, "_options")
-        assert self.ei._options == dict()
+        assert self.ei._options == {}
         assert hasattr(self.q5r, "_options")
         assert self.q5r._options == {"k": 5, "rolling": True}
 
@@ -185,7 +209,7 @@ class TestBin1d:
     def test_bin1d(self):
         y = numpy.arange(100, dtype="float")
         bins = [25, 74, 100]
-        binIds = numpy.array(
+        bin_ids = numpy.array(
             [
                 0,
                 0,
@@ -291,20 +315,20 @@ class TestBin1d:
         )
         counts = numpy.array([26, 49, 25])
 
-        numpy.testing.assert_array_equal(binIds, bin1d(y, bins)[0])
+        numpy.testing.assert_array_equal(bin_ids, bin1d(y, bins)[0])
         numpy.testing.assert_array_equal(counts, bin1d(y, bins)[1])
 
 
 class TestNaturalBreaks:
     def setup_method(self):
-        self.V = load_example()
+        self.v = load_example()
 
     def test_natural_breaks(self):
         # assert expected, natural_breaks(values, k, itmax))
         assert True  # TODO: implement your test here
 
     def test_NaturalBreaks(self):
-        nb = NaturalBreaks(self.V, 5)
+        nb = NaturalBreaks(self.v, 5)
         assert nb.k == 5
         assert len(nb.counts) == 5
         numpy.testing.assert_array_almost_equal(
@@ -313,14 +337,14 @@ class TestNaturalBreaks:
 
     def test_NaturalBreaks_stability(self):
         for _ in range(10):
-            nb = NaturalBreaks(self.V, 5)
+            nb = NaturalBreaks(self.v, 5)
             assert nb.k == 5
             assert len(nb.counts) == 5
 
     def test_NaturalBreaks_randomData(self):
         for i in range(10):
-            V = numpy.random.random(50) * (i + 1)
-            nb = NaturalBreaks(V, 5)
+            v = numpy.random.random(50) * (i + 1)
+            nb = NaturalBreaks(v, 5)
             assert nb.k == 5
             assert len(nb.counts) == 5
 
@@ -331,10 +355,10 @@ class TestHeadTailBreaks:
         y = []
         for i in x:
             y.append(i ** (-2))
-        self.V = numpy.array(y)
+        self.v = numpy.array(y)
 
     def test_HeadTailBreaks(self):
-        htb = HeadTailBreaks(self.V)
+        htb = HeadTailBreaks(self.v)
         assert htb.k == 4
         assert len(htb.counts) == 4
         numpy.testing.assert_array_almost_equal(
@@ -342,8 +366,8 @@ class TestHeadTailBreaks:
         )
 
     def test_HeadTailBreaks_doublemax(self):
-        V = numpy.append(self.V, self.V.max())
-        htb = HeadTailBreaks(V)
+        v = numpy.append(self.v, self.v.max())
+        htb = HeadTailBreaks(v)
         assert htb.k == 4
         assert len(htb.counts) == 4
         numpy.testing.assert_array_almost_equal(
@@ -351,8 +375,8 @@ class TestHeadTailBreaks:
         )
 
     def test_HeadTailBreaks_float(self):
-        V = numpy.array([1 + 2**-52, 1, 1])
-        htb = HeadTailBreaks(V)
+        v = numpy.array([1 + 2**-52, 1, 1])
+        htb = HeadTailBreaks(v)
         assert htb.k == 2
         assert len(htb.counts) == 2
         numpy.testing.assert_array_almost_equal(htb.counts, numpy.array([2, 1]))
@@ -743,17 +767,24 @@ class TestPlots:
         n = 20
         self.data = numpy.array([numpy.arange(n) + i * n for i in range(1, 4)]).T
 
-    @pytest.mark.mpl_image_compare
+    ################################################################################
+    #
+    # * baseline images are initially generated in top directory `result_images/`
+    # * they must be moved to the appropriate location within `mapclassify/tests/`
+    #
+    ################################################################################
+
+    @image_comparison(["test_histogram_plot"], **pytest.image_comp_kws)
     def test_histogram_plot(self):
         ax = Quantiles(self.data).plot_histogram()
         return ax.get_figure()
 
-    @pytest.mark.mpl_image_compare
+    @image_comparison(["test_histogram_plot_despine"], **pytest.image_comp_kws)
     def test_histogram_plot_despine(self):
         ax = Quantiles(self.data).plot_histogram(despine=False)
         return ax.get_figure()
 
-    @pytest.mark.mpl_image_compare
+    @image_comparison(["test_histogram_plot_linewidth"], **pytest.image_comp_kws)
     def test_histogram_plot_linewidth(self):
         ax = Quantiles(self.data).plot_histogram(
             linewidth=3, linecolor="red", color="yellow"

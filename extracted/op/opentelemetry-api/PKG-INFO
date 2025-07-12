@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: opentelemetry-api
-Version: 1.34.1
+Version: 1.35.0
 Summary: OpenTelemetry Python API
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
 Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: OpenTelemetry
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

@@ -15,16 +15,20 @@ from tecton_proto.canary import type__client_pb2 as tecton__proto_dot_canary_dot
 from tecton_proto.data import feature_view__client_pb2 as tecton__proto_dot_data_dot_feature__view____client__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5tecton_proto/online_store_writer/config__client.proto\x12 tecton_proto.online_store_writer\x1a&tecton_proto/canary/type__client.proto\x1a,tecton_proto/data/feature_view__client.proto\"\x95\x03\n\x1eOnlineStoreWriterConfiguration\x12*\n\x11status_table_name\x18\x01 \x01(\tR\x0fstatusTableName\x12&\n\x0f\x64\x61ta_table_name\x18\x02 \x01(\tR\rdataTableName\x12*\n\x11\x63\x61nary_table_name\x18\x03 \x01(\tR\x0f\x63\x61naryTableName\x12@\n\x0b\x63\x61nary_type\x18\x04 \x01(\x0e\x32\x1f.tecton_proto.canary.CanaryTypeR\ncanaryType\x12\x1b\n\tcanary_id\x18\x05 \x01(\tR\x08\x63\x61naryId\x12\x38\n\x18\x63\x61nary_downsample_factor\x18\x06 \x01(\x05R\x16\x63\x61naryDownsampleFactor\x12T\n\x13online_store_params\x18\x08 \x01(\x0b\x32$.tecton_proto.data.OnlineStoreParamsR\x11onlineStoreParamsJ\x04\x08\x07\x10\x08\"\xaa\x01\n OnlineStoreMetadataConfiguration\x12\x30\n\x14\x65xecution_table_name\x18\x01 \x01(\tR\x12\x65xecutionTableName\x12T\n\x13online_store_params\x18\x02 \x01(\x0b\x32$.tecton_proto.data.OnlineStoreParamsR\x11onlineStoreParamsB \n\x1c\x63om.tecton.onlinestorewriterP\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n5tecton_proto/online_store_writer/config__client.proto\x12 tecton_proto.online_store_writer\x1a&tecton_proto/canary/type__client.proto\x1a,tecton_proto/data/feature_view__client.proto\"\xcf\x04\n\x1eOnlineStoreWriterConfiguration\x12*\n\x11status_table_name\x18\x01 \x01(\tR\x0fstatusTableName\x12&\n\x0f\x64\x61ta_table_name\x18\x02 \x01(\tR\rdataTableName\x12*\n\x11\x63\x61nary_table_name\x18\x03 \x01(\tR\x0f\x63\x61naryTableName\x12@\n\x0b\x63\x61nary_type\x18\x04 \x01(\x0e\x32\x1f.tecton_proto.canary.CanaryTypeR\ncanaryType\x12\x1b\n\tcanary_id\x18\x05 \x01(\tR\x08\x63\x61naryId\x12\x38\n\x18\x63\x61nary_downsample_factor\x18\x06 \x01(\x05R\x16\x63\x61naryDownsampleFactor\x12T\n\x13online_store_params\x18\x08 \x01(\x0b\x32$.tecton_proto.data.OnlineStoreParamsR\x11onlineStoreParams\x12w\n\rfeature_flags\x18\t \x03(\x0b\x32R.tecton_proto.online_store_writer.OnlineStoreWriterConfiguration.FeatureFlagsEntryR\x0c\x66\x65\x61tureFlags\x1a?\n\x11\x46\x65\x61tureFlagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\x08R\x05value:\x02\x38\x01J\x04\x08\x07\x10\x08\"\xaa\x01\n OnlineStoreMetadataConfiguration\x12\x30\n\x14\x65xecution_table_name\x18\x01 \x01(\tR\x12\x65xecutionTableName\x12T\n\x13online_store_params\x18\x02 \x01(\x0b\x32$.tecton_proto.data.OnlineStoreParamsR\x11onlineStoreParamsBU\n\x1c\x63om.tecton.onlinestorewriterP\x01Z3github.com/tecton-ai/tecton_proto/onlinestorewriter')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.online_store_writer.config__client_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  DESCRIPTOR._serialized_options = b'\n\034com.tecton.onlinestorewriterP\001'
+  DESCRIPTOR._serialized_options = b'\n\034com.tecton.onlinestorewriterP\001Z3github.com/tecton-ai/tecton_proto/onlinestorewriter'
+  _ONLINESTOREWRITERCONFIGURATION_FEATUREFLAGSENTRY._options = None
+  _ONLINESTOREWRITERCONFIGURATION_FEATUREFLAGSENTRY._serialized_options = b'8\001'
   _ONLINESTOREWRITERCONFIGURATION._serialized_start=178
-  _ONLINESTOREWRITERCONFIGURATION._serialized_end=583
-  _ONLINESTOREMETADATACONFIGURATION._serialized_start=586
-  _ONLINESTOREMETADATACONFIGURATION._serialized_end=756
+  _ONLINESTOREWRITERCONFIGURATION._serialized_end=769
+  _ONLINESTOREWRITERCONFIGURATION_FEATUREFLAGSENTRY._serialized_start=700
+  _ONLINESTOREWRITERCONFIGURATION_FEATUREFLAGSENTRY._serialized_end=763
+  _ONLINESTOREMETADATACONFIGURATION._serialized_start=772
+  _ONLINESTOREMETADATACONFIGURATION._serialized_end=942
 # @@protoc_insertion_point(module_scope)

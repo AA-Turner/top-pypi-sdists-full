@@ -6,6 +6,7 @@ import os.path
 import re
 import sys
 
+from google.protobuf import text_format
 from google.protobuf.json_format import MessageToJson
 from pyspark.sql import SparkSession
 
@@ -17,9 +18,11 @@ from tecton_materialization.delta_maintenance import run_delta_maintenance
 from tecton_materialization.entity_deletion import run_offline_store_deleter
 from tecton_materialization.entity_deletion import run_online_store_deleter
 from tecton_materialization.feature_export import feature_export_from_params
+from tecton_materialization.iceberg_maintenance import run_iceberg_maintenance
 from tecton_materialization.ingest_materialization import ingest_pushed_df
 from tecton_materialization.job_metadata import check_spark_job_uniqueness
 from tecton_materialization.stream_materialization import stream_materialize_from_params
+from tecton_proto.materialization.params__client_pb2 import SecretMaterializationTaskParams
 
 
 try:
@@ -88,6 +91,11 @@ def databricks_main(env):
     run_id = _run_id_from_dbutils(dbutils)
     serialized_params = dbutils.widgets.get("materialization_params")
 
+    secret_params = SecretMaterializationTaskParams()
+    text_proto = dbutils.widgets.get("secret_materialization_task_params")
+    if text_proto:
+        text_format.Parse(text_proto, secret_params)
+
     if serialized_params.startswith("s3://"):
         print(f"{serialized_params} appears to be an S3 URI, reading contents")
         bucket, key = _parse_bucket_key_from_uri(serialized_params)
@@ -106,10 +114,18 @@ def databricks_main(env):
             raise RuntimeError(msg)
 
     params = _deserialize_materialization_task_params(serialized_params)
-    main(params, run_id, spark, step=None)
+
+    main(params, run_id, spark, step=None, secret_params=secret_params)
 
 
-def main(params: MaterializationTaskParams, run_id, spark, step, skip_legacy_execution_table_check=False):
+def main(
+    params: MaterializationTaskParams,
+    run_id,
+    spark,
+    step,
+    skip_legacy_execution_table_check=False,
+    secret_params: SecretMaterializationTaskParams = None,
+):
     id_ = IdHelper.to_string(params.feature_view.feature_view_id)
     json_params = MessageToJson(params)
     redacted_json_params = redact_sensitive_fields_from_params(json_params)
@@ -147,12 +163,15 @@ def main(params: MaterializationTaskParams, run_id, spark, step, skip_legacy_exe
         elif params.HasField("delta_maintenance_task_info"):
             assert step is None
             run_delta_maintenance(spark, params)
+        elif params.HasField("iceberg_maintenance_task_info"):
+            assert step is None
+            run_iceberg_maintenance(spark, params)
         elif params.HasField("batch_task_info"):
             batch_materialize_from_params(spark, params, run_id, step=step, job_metadata_client=job_metadata_client)
         elif params.HasField("stream_task_info"):
             stream_materialize_from_params(spark, params, job_metadata_client=job_metadata_client)
         elif params.HasField("feature_export_info"):
-            feature_export_from_params(spark, params)
+            feature_export_from_params(spark, params, secret_params)
         elif params.HasField("dataset_generation_task_info"):
             dataset_generation_from_params(spark, params)
         else:

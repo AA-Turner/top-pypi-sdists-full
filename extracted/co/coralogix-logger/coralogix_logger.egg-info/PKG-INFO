@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
-Name: coralogix-logger
-Version: 2.0.6
+Metadata-Version: 2.4
+Name: coralogix_logger
+Version: 2.0.7
 Summary: Coralogix Python SDK
 Home-page: http://www.coralogix.com/
 Download-URL: https://github.com/coralogix/python-coralogix-sdk/archive/master.zip
@@ -36,6 +36,21 @@ Requires-Dist: requests>=2.24.0
 Provides-Extra: development
 Requires-Dist: wheel>=0.31.0; extra == "development"
 Requires-Dist: twine>=3.3.0; extra == "development"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Coralogix Python SDK
 ====================
@@ -80,4 +95,4 @@ Coralogix Python SDK
     :target: https://github.com/coralogix/python-coralogix-sdk/graphs/contributors
 
 This package provides logging suites integrated with `Coralogix` logs analytics platform.
-For watch how to use it, please, read `Coralogix Python SDK Docs <https://python-coralogix-sdk.readthedocs.io/en/latest/>`_.
+To see how to use it, please read `Coralogix Python SDK Docs <https://coralogix.com/docs/integrations/sdks/python-sdk/>`_.

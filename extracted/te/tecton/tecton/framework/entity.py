@@ -122,7 +122,7 @@ class Entity(base_tecton_object.BaseTectonObject):
         class EntityFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = EntityFromSpec.__new__(EntityFromSpec)
+        obj = EntityFromSpec.__new__(EntityFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(info=info, spec=spec, args=None, source_info=None)
         return obj
 

@@ -278,7 +278,7 @@ def get_token_refresh_if_needed():
     token = conf.get_or_none("OAUTH_ACCESS_TOKEN")
     if not token:
         return None
-    expiration = conf.get_or_none("OAUTH_ACCESS_TOKEN_EXPIRATION")
+    expiration = conf.get_float_or_none("OAUTH_ACCESS_TOKEN_EXPIRATION")
     if expiration and time.time() < int(expiration):
         return token
     else:
@@ -311,13 +311,3 @@ def get_user_profile() -> Optional[UserProfile]:
         email=response.get("email", ""),
         id=response.get("sub", ""),
     )
-
-
-if __name__ == "__main__":
-    # what does this do?
-    f = OktaAuthorizationFlow()
-    code, verifier, redirect_uri = f.get_authorization_code()
-    access_token, id_token, refresh_token, expiration = f.get_tokens(code, verifier, redirect_uri)
-
-    rf = RefreshFlow()
-    print(rf.get_tokens(refresh_token))

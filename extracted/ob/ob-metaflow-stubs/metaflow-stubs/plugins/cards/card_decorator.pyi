@@ -1,16 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-01T15:21:03.548625                                                            #
+# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-11T23:29:18.573125                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.decorators
 
+from ...metadata_provider.metadata import MetaDatum as MetaDatum
 from ...metaflow_current import current as current
 from ...user_configs.config_options import ConfigInput as ConfigInput
 from ...user_configs.config_parameters import dump_config_values as dump_config_values
@@ -23,6 +24,13 @@ TYPE_CHECK_REGEX: str
 ASYNC_TIMEOUT: int
 
 def warning_message(message, logger = None, ts = False):
+    ...
+
+class MetadataStateManager(object, metaclass=type):
+    def __init__(self, info_func):
+        ...
+    def register_metadata(self, card_uuid) -> typing.Tuple[bool, typing.Dict]:
+        ...
     ...
 
 class CardDecorator(metaflow.decorators.StepDecorator, metaclass=type):
@@ -58,6 +66,9 @@ class CardDecorator(metaflow.decorators.StepDecorator, metaclass=type):
             The or one of the cards attached to this step.
     """
     def __init__(self, *args, **kwargs):
+        ...
+    @classmethod
+    def all_cards_info(cls):
         ...
     def step_init(self, flow, graph, step_name, decorators, environment, flow_datastore, logger):
         ...

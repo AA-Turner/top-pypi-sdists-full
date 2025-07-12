@@ -13,7 +13,6 @@ from tecton_proto.common.secret__client_pb2 import SecretReference
 SPARK_SQL_MODE = "spark_sql"
 PYSPARK_MODE = "pyspark"
 SNOWFLAKE_SQL_MODE = "snowflake_sql"
-SNOWPARK_MODE = "snowpark"
 PANDAS_MODE = "pandas"
 PYTHON_MODE = "python"
 BIGQUERY_SQL_MODE = "bigquery_sql"
@@ -22,7 +21,6 @@ mode_str_to_proto_enum = {
     SPARK_SQL_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_SPARK_SQL,
     PYSPARK_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_PYSPARK,
     SNOWFLAKE_SQL_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_SNOWFLAKE_SQL,
-    SNOWPARK_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_SNOWPARK,
     PANDAS_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_PANDAS,
     PYTHON_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_PYTHON,
     BIGQUERY_SQL_MODE: transformation__args_proto.TransformationMode.TRANSFORMATION_MODE_BIGQUERY_SQL,
@@ -82,7 +80,7 @@ def get_transformation_mode_enum(mode: str, name: str) -> transformation__args_p
         raise errors.InvalidTransformationMode(
             name,
             mode,
-            [SPARK_SQL_MODE, PYSPARK_MODE, SNOWFLAKE_SQL_MODE, SNOWPARK_MODE, PANDAS_MODE, PYTHON_MODE],
+            [SPARK_SQL_MODE, PYSPARK_MODE, SNOWFLAKE_SQL_MODE, PANDAS_MODE, PYTHON_MODE],
         )
     else:
         return mode_enum

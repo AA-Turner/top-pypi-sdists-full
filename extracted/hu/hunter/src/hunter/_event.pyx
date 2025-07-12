@@ -1,4 +1,6 @@
-# cython: linetrace=True, language_level=3str, c_string_encoding=ascii
+# cython: linetrace=True, language_level=3str, c_string_encoding=ascii, freethreading_compatible=True
+cimport cython
+
 from functools import partial
 from linecache import getline
 from linecache import getlines
@@ -10,18 +12,12 @@ from tokenize import TokenError
 from tokenize import generate_tokens
 
 from cpython.pythread cimport PyThread_get_thread_ident
-from cpython.ref cimport Py_XINCREF
 from cpython.ref cimport PyObject
-from cython cimport auto_pickle
-
-from ._tracer cimport Tracer
-from .vendor._cymem.cymem cimport Pool
 
 from .const import SITE_PACKAGES_PATHS
 from .const import SYS_PREFIX_PATHS
 from .util import CYTHON_SUFFIX_RE
 from .util import LEADING_WHITESPACE_RE
-from .util import MISSING
 from .util import get_func_in_mro
 from .util import get_main_thread
 from .util import if_same_code
@@ -30,20 +26,24 @@ __all__ = 'Event',
 
 cdef object UNSET = object()
 
-cdef Pool mem = Pool()
-cdef PyObject** KIND_NAMES = make_kind_names(['call', 'exception', 'line', 'return', 'call', 'exception', 'return'])
 
-cdef inline PyObject** make_kind_names(list strings):
-    cdef PyObject** array = <PyObject**>mem.alloc(len(strings), sizeof(PyObject*))
-    cdef object name
-    for i, string in enumerate(strings):
-        name = intern(string)
-        Py_XINCREF(<PyObject*> name)
-        array[i] = <PyObject*> name
-    return <PyObject**>array
+cdef str CALL = 'call'
+cdef str EXCEPTION = 'exception'
+cdef str LINE = 'line'
+cdef str RETURN = 'return'
+
+cdef const PyObject** KIND_NAMES = [
+    <PyObject*>CALL,
+    <PyObject*>EXCEPTION,
+    <PyObject*>LINE,
+    <PyObject*>RETURN,
+    <PyObject*>CALL,
+    <PyObject*>EXCEPTION,
+    <PyObject*>RETURN,
+]
 
 
-@auto_pickle(False)
+@cython.auto_pickle(False)
 cdef class Event:
     """
     A wrapper object for Frame objects. Instances of this are passed to your custom functions or predicates.
@@ -55,23 +55,8 @@ cdef class Event:
         kind (str): A string like ``'call'``, ``'line'``, ``'return'`` or ``'exception'``.
         arg: A value that depends on ``kind``. Usually is ``None`` but for ``'return'`` or ``'exception'`` other values
             may be expected.
-        tracer (:class:`hunter.tracer.Tracer`): The :class:`~hunter.tracer.Tracer` instance that created the event.
-            Needed for the ``calls`` and ``depth`` fields.
     """
-    def __init__(self, FrameType frame, int kind, object arg, Tracer tracer=None, object depth=None, object calls=None,
-                 object threading_support=MISSING):
-        if tracer is None:
-            if depth is None:
-                raise TypeError('Missing argument: depth (required because tracer was not given).')
-            if calls is None:
-                raise TypeError('Missing argument: calls (required because tracer was not given).')
-            if threading_support is MISSING:
-                raise TypeError('Missing argument: threading_support (required because tracer was not given).')
-        else:
-            depth = tracer.depth
-            calls = tracer.calls
-            threading_support = tracer.threading_support
-
+    def __init__(self, FrameType frame, int kind, object arg, int depth, int calls, bint threading_support):
         self.arg = arg
         self.frame = frame
         self.kind = <str> KIND_NAMES[kind]
@@ -115,9 +100,9 @@ cdef class Event:
         cdef int position
 
         if self._instruction is UNSET:
-            position = PyFrame_GetLasti(self.frame)
+            position = Hunter_PyFrame_GetLasti(self.frame)
             co_code = PyCode_GetCode(self.code_getter())
-            if co_code and position >= 0:
+            if co_code and len(co_code) > position >= 0:
                 self._instruction = co_code[position]
             else:
                 self._instruction = None
@@ -159,8 +144,7 @@ cdef class Event:
             if self.builtin:
                 self._locals = {}
             else:
-                PyFrame_FastToLocals(self.frame)
-                self._locals = PyFrame_GetLocals(self.frame)
+                self._locals = Hunter_PyFrame_GetLocals(self.frame)
         return self._locals
 
     @property
@@ -172,7 +156,7 @@ cdef class Event:
             if self.builtin:
                 self._locals = {}
             else:
-                self._globals = PyFrame_GetGlobals(self.frame)
+                self._globals = Hunter_PyFrame_GetGlobals(self.frame)
         return self._globals
 
     @property
@@ -265,7 +249,7 @@ cdef class Event:
 
     cdef inline lineno_getter(self):
         if self._lineno is UNSET:
-            self._lineno = PyFrame_GetLineNumber(self.frame)
+            self._lineno = Hunter_PyFrame_GetLineNumber(self.frame)
         return self._lineno
 
     @property
@@ -274,7 +258,7 @@ cdef class Event:
 
     cdef inline CodeType code_getter(self):
         if self._code is UNSET:
-            return PyFrame_GetCode(self.frame)
+            return Hunter_PyFrame_GetCode(self.frame)
         else:
             return self._code
 

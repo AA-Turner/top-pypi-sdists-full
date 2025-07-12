@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.75
+Version: 0.0.76
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/pipecat
@@ -20,7 +20,7 @@ Requires-Dist: audioop-lts~=0.2.1; python_version >= "3.13"
 Requires-Dist: docstring_parser~=0.16
 Requires-Dist: loguru~=0.7.3
 Requires-Dist: Markdown~=3.7
-Requires-Dist: numpy~=1.26.4
+Requires-Dist: numpy>=1.26.4
 Requires-Dist: Pillow~=11.1.0
 Requires-Dist: protobuf~=5.29.3
 Requires-Dist: pydantic~=2.10.6
@@ -93,7 +93,7 @@ Requires-Dist: mlx-whisper~=0.4.2; extra == "mlx-whisper"
 Provides-Extra: moondream
 Requires-Dist: einops~=0.8.0; extra == "moondream"
 Requires-Dist: timm~=1.0.13; extra == "moondream"
-Requires-Dist: transformers~=4.48.0; extra == "moondream"
+Requires-Dist: transformers>=4.48.0; extra == "moondream"
 Provides-Extra: nim
 Provides-Extra: neuphonic
 Requires-Dist: pyneuphonic~=1.5.13; extra == "neuphonic"

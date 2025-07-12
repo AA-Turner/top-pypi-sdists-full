@@ -1,25 +1,19 @@
 import AOT_biomaps.Settings
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Acoustic.AcousticTools import reshape_field, calculate_envelope_squared
+from AOT_biomaps.AOT_Acoustic.AcousticTools import calculate_envelope_squared, CPU_hilbert
 
 import scipy.io
 import h5py
 import os
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from scipy.signal import hilbert
 from math import ceil
 from kwave.kgrid import kWaveGrid
 from kwave.kmedium import kWaveMedium
 from kwave.utils.signals import tone_burst
-if config.get_process() == 'gpu':
-    import cupy as cp
-
 from abc import ABC, abstractmethod
 from .AcousticEnums import TypeSim, Dim, FormatSave, WaveType
-
 
 
 ####### ABSTRACT CLASS #######
@@ -206,8 +200,6 @@ class AcousticField(ABC):
             self.field = None
             self.burst = None
             self.delayedSignal = None
-            if config.get_process() == 'gpu':
-                cp.cuda.Device(config.bestGPU).synchronize()
         except Exception as e:
             print(f"Error in __del__ method: {e}")
             raise
@@ -626,7 +618,7 @@ class AcousticField(ABC):
                         index += 1
 
             # Calculate the analytic envelope
-            envelope = np.abs(hilbert(acoustic_field, axis=2))
+            envelope = np.abs(CPU_hilbert(acoustic_field, axis=2))
             # Reorganize the array to have the shape (Times, Z, X)
             envelope_transposed = np.transpose(envelope, (2, 0, 1)).T
 
@@ -692,7 +684,7 @@ class AcousticField(ABC):
                 reorganized_data[y_idx, z_idx, :] = data[index, :]
 
             # Calculate the analytic envelope
-            envelope = np.abs(hilbert(reorganized_data, axis=2))
+            envelope = np.abs(CPU_hilbert(reorganized_data, axis=2))
             # Reorganize the array to have the shape (Times, Z, Y)
             envelope_transposed = np.transpose(envelope, (2, 0, 1))
             return envelope_transposed, y_range, z_range
@@ -769,7 +761,7 @@ class AcousticField(ABC):
 
             for y in range(reorganized_data.shape[1]):
                 for z in range(reorganized_data.shape[2]):
-                    EnveloppeField[:, y, z, :] = np.abs(hilbert(reorganized_data[:, y, z, :], axis=1))
+                    EnveloppeField[:, y, z, :] = np.abs(CPU_hilbert(reorganized_data[:, y, z, :], axis=1))
             self.field = np.transpose(EnveloppeField,  (3, 2, 1, 0))
             self.params['Xrange'] = [x_range[0], x_range[-1]]
             self.params['Yrange'] = [y_range[0], y_range[-1]]

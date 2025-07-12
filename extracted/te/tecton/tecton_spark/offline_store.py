@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import re
+import struct
 import time
 from abc import ABC
 from abc import abstractmethod
@@ -24,6 +25,8 @@ from pyspark.sql.types import LongType
 from pyspark.sql.types import StructType
 from pyspark.sql.types import TimestampType
 
+from tecton_core.time_utils import seconds_to_nanos
+
 
 try:
     # available in Spark >= 3.4
@@ -34,11 +37,12 @@ except ImportError:
 import tecton_core.tecton_pendulum as pendulum
 from tecton_core import time_utils as core_time_utils
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
-from tecton_core.offline_store import DATASET_PARTITION_SIZE
 from tecton_core.offline_store import TIME_PARTITION
+from tecton_core.offline_store import EntityBucketPartitionParams
 from tecton_core.offline_store import PartitionType
 from tecton_core.offline_store import _check_supported_offline_store_version
 from tecton_core.offline_store import datetime_to_partition_str
+from tecton_core.offline_store import get_time_column_for_offline_reader
 from tecton_core.offline_store import partition_col_for_parquet
 from tecton_core.offline_store import partition_size_for_delta
 from tecton_core.offline_store import partition_size_for_parquet
@@ -83,6 +87,8 @@ class OfflineStoreWriterParams:
 
     is_continuous: bool
 
+    upsert_by_batch_publish_timestamp: bool
+
 
 def get_offline_store_writer(
     params: OfflineStoreWriterParams, fd: FeatureDefinitionWrapper, version: int, spark: SparkSession
@@ -100,20 +106,20 @@ def get_offline_store_writer(
         partition_size = partition_size_for_parquet(fd).as_timedelta()
         partition_col = partition_col_for_parquet(fd)
         return ParquetWriter(params, spark, version, partition_size, partition_col)
-    # Remove default after database migration is complete.
-    # raise KeyError(case)
-    partition_size = partition_size_for_parquet(fd).as_timedelta()
-    partition_col = partition_col_for_parquet(fd)
-    return ParquetWriter(params, spark, version, partition_size, partition_col)
+    elif case == "iceberg":
+        return IcebergWriter(fd.id, params, fv_config.iceberg.num_entity_buckets, spark)
+    else:
+        msg = f"Invalid store type {case} for feature definition {fd.name}."
+        raise ValueError(msg)
 
 
 def get_dataset_generation_writer(params: OfflineStoreWriterParams, spark: SparkSession) -> "DeltaWriter":
     return DeltaWriter(
-        params,
-        spark,
-        FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_TIME_NANOSECONDS,
-        DATASET_PARTITION_SIZE,
-        PartitionType.RAW_TIMESTAMP,
+        params=params,
+        spark=spark,
+        version=FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_TIME_NANOSECONDS,
+        partition_size=None,
+        partition_type=PartitionType.NONE,
     )
 
 
@@ -134,11 +140,11 @@ def get_offline_store_reader(
         partition_size = partition_size_for_parquet(fd).as_timedelta()
         partition_col = partition_col_for_parquet(fd)
         return ParquetReader(spark, s3_path, partition_size, partition_col, version)
-    # Remove default after database migration is complete.
-    # raise KeyError(case)
-    partition_size = partition_size_for_parquet(fd).as_timedelta()
-    partition_col = partition_col_for_parquet(fd)
-    return ParquetReader(spark, s3_path, partition_size, partition_col, version)
+    elif case == "iceberg":
+        return IcebergReader(spark, fd.id, time_column=get_time_column_for_offline_reader(fd))
+    else:
+        msg = f"Invalid store type {case} for feature definition {fd.name}."
+        raise ValueError(msg)
 
 
 class OfflineStoreWriter(ABC):
@@ -155,6 +161,10 @@ class OfflineStoreWriter(ABC):
 
         Rows with matching join keys and time column are overwritten. Other rows are inserted.
         """
+        raise NotImplementedError
+
+    def overwrite_dataframe_in_tile(self, data_frame: DataFrame, time_range: pendulum.Period) -> None:
+        """Overwrites the tiles(s) in the time_range."""
         raise NotImplementedError
 
     @abstractmethod
@@ -200,6 +210,9 @@ class ParquetWriter(OfflineStoreWriter):
         )
 
     def upsert_dataframe(self, data_frame: DataFrame) -> None:
+        raise NotImplementedError()
+
+    def overwrite_dataframe_in_tile(self, data_frame: DataFrame, time_range: pendulum.Period) -> None:
         raise NotImplementedError()
 
     def delete_keys(self, data_frame: DataFrame) -> int:
@@ -265,6 +278,7 @@ def _with_delta_retries(f, max_retries=5):
         from delta.exceptions import DeltaConcurrentModificationException
         from delta.exceptions import MetadataChangedException
         from delta.exceptions import ProtocolChangedException
+        from pyspark.sql.utils import AnalysisException
 
         final_exception = None
         for i in range(max_retries):
@@ -284,7 +298,7 @@ def _with_delta_retries(f, max_retries=5):
                     raise e
                 final_exception = e
                 logger.info(
-                    f"Delta transaction failed (attempt {i + 1}/5); retrying",
+                    f"Delta transaction failed (attempt {i + 1}/{max_retries}); retrying",
                     exc_info=True,  # Include information about the exception currently being handled
                 )
             except (
@@ -295,10 +309,15 @@ def _with_delta_retries(f, max_retries=5):
                 DeltaConcurrentModificationException,
                 MetadataChangedException,
                 ProtocolChangedException,
+                AnalysisException,
             ) as e:
+                if isinstance(e, AnalysisException) and "Incompatible format detected" not in str(e):
+                    # If it's NOT "Incompatible format detected", we don't retry and re-raise it
+                    # Retrying "Incompatible format detected" in the case where concurrent commits are writing files before the first delta log.
+                    raise
                 final_exception = e
                 logger.info(
-                    f"Delta transaction failed (attempt {i + 1}/5); retrying",
+                    f"Delta transaction failed (attempt {i + 1}/{max_retries}); retrying",
                     exc_info=True,  # Include information about the exception currently being handled
                 )
             except Exception:
@@ -363,7 +382,7 @@ class DeltaWriter(OfflineStoreWriter):
         params: OfflineStoreWriterParams,
         spark: SparkSession,
         version: int,
-        partition_size: timedelta,
+        partition_size: Optional[timedelta],
         partition_type: PartitionType,
     ) -> None:
         self._params = params
@@ -377,7 +396,8 @@ class DeltaWriter(OfflineStoreWriter):
             raise AssertionError(msg)
 
     def append_dataframe(self, data_frame: DataFrame) -> None:
-        data_frame = self._add_partition(data_frame)
+        if self._partition_type != PartitionType.NONE:
+            data_frame = self._add_partition(data_frame)
         self._ensure_table_exists(self._spark, data_frame.schema)
         self._append_dataframe(data_frame)
 
@@ -473,14 +493,28 @@ class DeltaWriter(OfflineStoreWriter):
                 partition_aligned_start, self._version
             )
             end_partition_epoch = core_time_utils.convert_timestamp_for_version(partition_aligned_end, self._version)
-            partition_predicate = f"{TIME_PARTITION} BETWEEN {start_partition_epoch} AND {end_partition_epoch}"
+            # offline store is partitioned by event_timestamp
+            # event_timestamp <= batch_publish_timestamp
+            # if batch_publish_timestamp BETWEEN start_time and end_time, then event_timestmp <= end_time,
+            # so we can filter by the upper bound of the event_timestamp partition
+            if self._params.upsert_by_batch_publish_timestamp:
+                partition_predicate = f"{TIME_PARTITION} <= {end_partition_epoch}"
+            else:
+                partition_predicate = f"{TIME_PARTITION} BETWEEN {start_partition_epoch} AND {end_partition_epoch}"
         else:
             # TODO (vitaly): test that this works for hour partitions (rare case)
             start_partition_str = datetime_to_partition_str(partition_aligned_start, self._partition_size)
             end_partition_str = datetime_to_partition_str(partition_aligned_end, self._partition_size)
-            partition_predicate = (
-                f"{TIME_PARTITION} BETWEEN timestamp('{start_partition_str}') AND timestamp('{end_partition_str}')"
-            )
+            # offline store is partitioned by event_timestamp
+            # event_timestamp <= batch_publish_timestamp
+            # if batch_publish_timestamp BETWEEN start_time and end_time, then event_timestmp <= end_time,
+            # so we can filter by the upper bound of the event_timestamp partition
+            if self._params.upsert_by_batch_publish_timestamp:
+                partition_predicate = f"{TIME_PARTITION} <= timestamp('{end_partition_str}')"
+            else:
+                partition_predicate = (
+                    f"{TIME_PARTITION} BETWEEN timestamp('{start_partition_str}') AND timestamp('{end_partition_str}')"
+                )
 
         return f"{time_col_predicate} AND {partition_predicate}"
 
@@ -511,7 +545,11 @@ class DeltaWriter(OfflineStoreWriter):
     @_with_delta_retries
     def _append_dataframe(self, df: DataFrame) -> None:
         _assert_safe_delta_write_configuration(self._spark)
-        df_writer = df.write.partitionBy(TIME_PARTITION).format("delta").mode("append")
+        if self._partition_type == PartitionType.NONE:
+            df_writer = df.coalesce(10).write.format("delta").mode("append")
+        else:
+            df_writer = df.write.partitionBy(TIME_PARTITION).format("delta").mode("append")
+
         # For DBR 14+, Deletion Vectors are auto-enabled.
         # Refer to this section on why we must disable deletion vectors:
         # https://www.notion.so/tecton/RFC-Support-DLT-Table-as-Data-Source-7ddf14a8ace04b03ba91b2e3f7db03bf?pvs=4#f520cb9f406d4c6f9fc743dc4f399607
@@ -536,9 +574,10 @@ class DeltaWriter(OfflineStoreWriter):
             raise AssertionError(msg)
 
         if self._partition_type == PartitionType.EPOCH:
-            assert (
-                self._version >= FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_TIME_NANOSECONDS
-            ), f"FeatureStoreFormateVersion {self._version} is not supported. PartitionType.EPOCH on delta must be in nanoseconds."
+            assert self._partition_size is not None, "Partition size must be set for EPOCH partitions"
+            assert self._version >= FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_TIME_NANOSECONDS, (
+                f"FeatureStoreFormateVersion {self._version} is not supported. PartitionType.EPOCH on delta must be in nanoseconds."
+            )
             partition_size_nanoseconds = core_time_utils.convert_timedelta_for_version(
                 self._partition_size, self._version
             )
@@ -651,7 +690,7 @@ class DeltaReader(OfflineStoreReader):
         self,
         spark: SparkSession,
         path: str,
-        partition_size: timedelta,
+        partition_size: Optional[timedelta],
         partition_type: PartitionType,
         feature_store_format_version: int,
     ) -> None:
@@ -698,3 +737,326 @@ class DeltaReader(OfflineStoreReader):
 
 def _align_timestamp(int_timestamp_col, window_size):
     return int_timestamp_col - (int_timestamp_col % window_size)
+
+
+def _with_iceberg_retries(func, max_retries=3):
+    """Retries the wrapped function upon Iceberg conflict errors."""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        final_exception = None
+        for i in range(max_retries):
+            try:
+                return func(*args, **kwargs)
+            except Py4JJavaError as e:
+                msg = str(e)
+                retryable_exceptions = [
+                    # Concurrent modification exceptions
+                    "org.apache.iceberg.exceptions.CommitFailedException",
+                    # Validation exceptions that might be temporary
+                    "org.apache.iceberg.exceptions.ValidationException",
+                    # Lock-related exceptions
+                    "org.apache.iceberg.exceptions.CommitStateUnknownException",
+                    # Catalog-related exceptions that might be temporary
+                    "org.apache.iceberg.exceptions.ServiceFailureException",
+                    # Concurrent operation exceptions
+                    "org.apache.iceberg.exceptions.ConcurrentUpdateException",
+                    # Temporary failures in the underlying storage
+                    "org.apache.iceberg.exceptions.RuntimeIOException",
+                ]
+
+                is_retryable = any(exc in msg for exc in retryable_exceptions)
+                if is_retryable:
+                    logger.info(f"Iceberg transaction failed (attempt {i + 1}/{max_retries}); retrying", exc_info=True)
+                    final_exception = e
+                    if i == max_retries - 1:
+                        break
+                    # Add a random delay with exponential backoff before retrying
+                    exponential_coef = 2**i
+                    retry_delay = exponential_coef * random.uniform(0, 1)
+                    time.sleep(retry_delay)
+                else:
+                    raise
+
+        # This should be outside the loop but inside the wrapper function
+        msg = f"Exceeded maximum Iceberg transaction retries ({max_retries})"
+        raise Exception(msg) from final_exception
+
+    return wrapper
+
+
+class IcebergCatalog:
+    # TODO: this should be configurable by Orchestrator / deployment env vars
+    CATALOG_NAME = "iceberg"
+    GLUE_DB = "default"
+
+
+class IcebergWriter(OfflineStoreWriter):
+    def __init__(
+        self,
+        table_id: str,
+        params: OfflineStoreWriterParams,
+        num_entity_buckets: int,
+        spark: SparkSession,
+    ) -> None:
+        self._params = params
+        self._spark = spark
+        self._num_buckets = num_entity_buckets
+        self._full_table_name = f"{IcebergCatalog.CATALOG_NAME}.{IcebergCatalog.GLUE_DB}.t_{table_id}"
+
+    def append_dataframe(self, data_frame: DataFrame) -> None:
+        df = self._add_partition(data_frame)
+        self._ensure_table_exists(df.schema)
+        self._append_dataframe(df)
+
+    @_with_iceberg_retries
+    def _append_dataframe(self, data_frame: DataFrame) -> None:
+        data_frame.writeTo(self._full_table_name).append()
+
+    @_with_iceberg_retries
+    def upsert_dataframe(self, data_frame: DataFrame) -> None:
+        """Upsert the rows from data_frame to the Store table.
+
+        Rows with matching join keys and time column are overwritten. Other rows are inserted.
+        """
+        df_with_partition = self._add_partition(data_frame)
+        self._ensure_table_exists(df_with_partition.schema)
+
+        temp_upsert_data_view = "t_upsert_data"
+        df_with_partition.createOrReplaceTempView(temp_upsert_data_view)
+
+        all_match_keys = [
+            EntityBucketPartitionParams.partition_by,
+            self._params.time_column,
+            *self._params.join_key_columns,
+        ]
+        join_condition = " AND ".join([f"target.{col} = source.{col}" for col in all_match_keys])
+        merge_sql = f"""
+        MERGE INTO {self._full_table_name} AS target
+        USING {temp_upsert_data_view} AS source
+        ON {join_condition}
+        WHEN MATCHED THEN
+          UPDATE SET *
+        WHEN NOT MATCHED THEN
+          INSERT *
+        """
+
+        @_with_iceberg_retries
+        def _execute(sql: str) -> None:
+            self._spark.sql(sql)
+
+        _execute(merge_sql)
+
+    def overwrite_dataframe_in_tile(self, data_frame: DataFrame, time_range: pendulum.Period) -> None:
+        data_frame = self._add_partition(data_frame)
+        self._ensure_table_exists(data_frame.schema)
+
+        if self._params.time_column == anchor_time():
+            start_time = seconds_to_nanos(time_range.start.timestamp())
+            end_time = seconds_to_nanos(time_range.end.timestamp())
+            delete_condition = f"{self._params.time_column} >= {start_time} AND {self._params.time_column} < {end_time}"
+        else:
+            start_time_str = time_range.start.to_iso8601_string()
+            end_time_str = time_range.end.to_iso8601_string()
+            delete_condition = f"{self._params.time_column} >= TIMESTAMP '{start_time_str}' AND {self._params.time_column} < TIMESTAMP '{end_time_str}'"
+
+        @_with_iceberg_retries
+        def _delete_existing_data():
+            self._spark.sql(f"""
+                DELETE FROM {self._full_table_name}
+                WHERE {delete_condition}
+            """)
+
+        @_with_iceberg_retries
+        def _append_new_data():
+            data_frame.writeTo(self._full_table_name).append()
+
+        # Execute delete and append operations sequentially
+        # note: NOT atomic but Iceberg overwrite cannot support partial file overwrite.
+        # INSERT OVERWRITE overwrites the entire partition.
+        # MERGE INTO cannot handle a partial MATCH and NOT MATCH case.
+        _delete_existing_data()
+        _append_new_data()
+
+    @_with_iceberg_retries
+    def delete_keys(self, data_frame: DataFrame) -> int:
+        """
+        Deletes rows from the Iceberg table that match the keys in the provided DataFrame.
+
+        :param data_frame: A Spark DataFrame containing the keys to delete.
+        :return: The number of deleted rows (not directly supported by Iceberg, so returns 0).
+        """
+
+        # Create a temporary view for the keys to delete DataFrame
+        temp_keys_to_delete_view = "t_keys_to_delete"
+        data_frame.createOrReplaceTempView(temp_keys_to_delete_view)
+
+        delete_condition = " AND ".join([f"t.{col} = k.{col}" for col in data_frame.columns])
+        delete_sql = f"""
+        DELETE FROM {self._full_table_name} t
+        WHERE EXISTS (
+            SELECT 1 FROM {temp_keys_to_delete_view} k
+            WHERE {delete_condition}
+        )
+        """
+
+        self._spark.sql(delete_sql)
+        return 0
+
+    def compact_files(
+        self,
+        small_file_threshold_mb: int = 100,
+        target_file_size_mb: int = 256,
+        dry_run: bool = False,
+        compact_bucket_num: Optional[int] = None,
+    ) -> None:
+        """Compacts small files in the Iceberg table to reduce file count.
+
+        Args:
+            small_file_threshold_mb: Files smaller than this size (in MB) will be considered for compaction
+            target_file_size_mb: Target size for compacted files (in MB)
+            dry_run: whether to actually write compacted files
+            compact_bucket_num: If specified, only compact files in this entity bucket
+        """
+        if not self._check_table_exists():
+            msg = f"Table {self._full_table_name} does not exist, cannot compact any files!"
+            raise ValueError(msg)
+
+        logger.info(
+            f"Starting file compaction (threshold={small_file_threshold_mb}MB, target_size={target_file_size_mb}MB)"
+        )
+
+        target_file_bytes = target_file_size_mb * 1024 * 1024
+        min_file_size_bytes = small_file_threshold_mb * 1024 * 1024
+        rewrite_sql = f"CALL iceberg.system.rewrite_data_files(table => '{self._full_table_name}', options => map('target-file-size-bytes', {target_file_bytes}, 'min-file-size-bytes', {min_file_size_bytes})"
+        if compact_bucket_num is not None:
+            filter_sql = f", where => '{EntityBucketPartitionParams.partition_by} = {compact_bucket_num}'"
+            rewrite_sql += filter_sql
+        rewrite_sql += ")"
+
+        if dry_run:
+            logger.info(f"dry_run=true: Skipping file compaction. Generated SQL: {rewrite_sql}")
+            return
+
+        result_df = self._spark.sql(rewrite_sql)
+        logger.info("Compaction summary:")
+        result_df.show()
+
+    def _check_table_exists(self) -> bool:
+        # TODO: use tableExists() method when we remove support for Spark 3.2 if hasattr(self._spark.catalog, "tableExists"):
+        if hasattr(self._spark.catalog, "tableExists"):
+            return self._spark.catalog.tableExists(self._full_table_name)
+
+        from pyspark.sql.utils import AnalysisException
+
+        try:
+            # Spark < 3.3 does not support tableExists() method
+            self._spark.sql(f"DESCRIBE {self._full_table_name}")
+        except AnalysisException:
+            return False
+        else:
+            return True
+
+    @_with_iceberg_retries
+    def _ensure_table_exists(self, schema: StructType) -> None:
+        table_exists = self._check_table_exists()
+        if table_exists:
+            return
+
+        # We should always be specifying the materialization path location, but for local integration tests we need to use a Hadoop catalog which doesn't support specifying a location
+        skip_location = self._spark.conf.get("spark.tecton.test_only.skip_iceberg_table_location", "false") == "true"
+        location_str = f"LOCATION '{self._params.s3_path}'" if not skip_location else ""
+        empty_df = self._spark.createDataFrame([], schema)
+        schema_ddl = empty_df._jdf.schema().toDDL()
+        create_table_sql = f"""
+        CREATE TABLE IF NOT EXISTS {self._full_table_name} (
+            {schema_ddl}
+        )
+        USING iceberg
+        PARTITIONED BY (entity_bucket)
+        {location_str}
+        """
+        self._spark.sql(create_table_sql)
+
+        sort_order_sql = f"""
+        ALTER TABLE {self._full_table_name}
+        WRITE DISTRIBUTED BY PARTITION LOCALLY ORDERED BY {self._params.time_column}
+        """
+        self._spark.sql(sort_order_sql)
+
+    def _add_partition(self, data_frame: DataFrame) -> DataFrame:
+        assert self._num_buckets > 0, "`num_buckets` must be greater than 0 for entity bucket partitioning."
+        bucket_udf = entity_bucket_transform(self._num_buckets)
+
+        # Add the 'entity_bucket' column
+        return data_frame.withColumn(
+            EntityBucketPartitionParams.partition_by, bucket_udf(functions.col(self._params.join_key_columns[0]))
+        )
+
+
+def entity_bucket_transform(num_buckets):
+    """
+    Creates a UDF that applies a hash bucket transform to entity values.
+    Computes Iceberg-compatible bucket IDs using Murmur3 32-bit hash.
+    Supports only int and str types. Uses little-endian encoding for ints, per Iceberg spec.
+    Args:
+        num_buckets: Number of buckets to use for partitioning
+
+    Returns:
+        A Spark UDF that transforms entity values into bucket numbers
+    """
+    import mmh3
+
+    # TODO: make a java udf that uses murmurhash3 to speed this up.
+    # NOTE: do not use spark.functions.hash(..) because it uses a different seed than Iceberg murmurhash implementation.
+    @functions.udf(IntegerType())
+    def bucket_hash(value):
+        if isinstance(value, int):
+            # Little-endian 8-byte signed integer
+            packed = struct.pack("<q", value)
+            hash_val = mmh3.hash(packed)
+        elif isinstance(value, str):
+            hash_val = mmh3.hash(value)
+        else:
+            msg = f"Unsupported type for bucketing: {type(value)}. Expected int or str."
+            raise TypeError(msg)
+
+        return (hash_val & 0x7FFFFFFF) % num_buckets
+
+    return bucket_hash
+
+
+class IcebergReader(OfflineStoreReader):
+    def __init__(
+        self,
+        spark: SparkSession,
+        table_id: str,
+        time_column: str,
+    ) -> None:
+        self._spark = spark
+        self._time_column = time_column
+        self._full_table_name = f"{IcebergCatalog.CATALOG_NAME}.{IcebergCatalog.GLUE_DB}.t_{table_id}"
+
+    def read(self, partition_time_limits: Optional[pendulum.Period], drop_entity_bucket_col: bool = True) -> DataFrame:
+        """
+        Whenever the partition filtering logic is changed, also make sure the changes are applied to the sql based
+        version in query/nodes.py
+        """
+        spark_df = self._spark.table(self._full_table_name)
+
+        if partition_time_limits:
+            if self._time_column == anchor_time():
+                start_time = seconds_to_nanos(partition_time_limits.start.timestamp())
+                end_time = seconds_to_nanos(partition_time_limits.end.timestamp())
+            else:
+                start_time = partition_time_limits.start
+                end_time = partition_time_limits.end
+
+            condition = (functions.col(self._time_column) >= start_time) & (functions.col(self._time_column) < end_time)
+
+            spark_df = spark_df.where(condition)
+
+        # TODO: add support for entity bucket filtering
+        if drop_entity_bucket_col:
+            spark_df = spark_df.drop(EntityBucketPartitionParams.partition_by)
+        return spark_df

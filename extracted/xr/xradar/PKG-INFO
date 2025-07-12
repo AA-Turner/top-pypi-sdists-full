@@ -1,30 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: xradar
-Version: 0.9.0
+Version: 0.10.0
 Summary: Xradar includes all the tools to get your weather radar into the xarray data model.
 Author-email: Maxwell Grover <mgrover@anl.gov>, Kai Mühlbauer <kai.muehlbauer@uni-bonn.de>, Zachary Sherman <zsherman@anl.gov>
-License: MIT License
-        
-        Copyright (c) 2022-2025, Open Radar Community Developers
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: homepage, https://docs.openradarscience.org/projects/xradar
 Project-URL: documentation, https://docs.openradarscience.org/projects/xradar/
 Project-URL: repository, https://github.com/openradar/xradar
@@ -34,19 +13,18 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: AUTHORS.md
 Requires-Dist: cmweather
 Requires-Dist: dask
 Requires-Dist: h5netcdf>=1.0.0
@@ -59,25 +37,31 @@ Requires-Dist: scipy
 Requires-Dist: xarray>=2024.10.0
 Requires-Dist: xmltodict
 Provides-Extra: dev
+Requires-Dist: cffconvert; extra == "dev"
 Requires-Dist: pip; extra == "dev"
 Requires-Dist: wheel; extra == "dev"
-Requires-Dist: watchdog; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: tox; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
-Requires-Dist: Sphinx; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: fsspec; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: nbconvert; extra == "dev"
+Requires-Dist: notebook; extra == "dev"
+Requires-Dist: open_radar_data; extra == "dev"
+Requires-Dist: boto3; extra == "dev"
+Requires-Dist: cartopy; extra == "dev"
+Requires-Dist: s3fs; extra == "dev"
+Requires-Dist: zarr<3,>=2; extra == "dev"
+Dynamic: license-file
 
 # xradar
 
 [![PyPI Version](https://img.shields.io/pypi/v/xradar.svg)](https://pypi.python.org/pypi/xradar)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/xradar.svg)](https://anaconda.org/conda-forge/xradar)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7767521.svg)](https://doi.org/10.5281/zenodo.7767521)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo7091736.svg)](https://doi.org/10.5281/zenodo.7091736)
 [![CI](https://github.com/openradar/xradar/actions/workflows/ci.yml/badge.svg)](https://github.com/openradar/xradar/actions/workflows/ci.yml)
 [![Build distribution](https://github.com/openradar/xradar/actions/workflows/upload_pypi.yml/badge.svg)](https://github.com/openradar/xradar/actions/workflows/upload_pypi.yml)
 [![RTD Version](https://readthedocs.org/projects/xradar/badge/?version=latest)](https://xradar.readthedocs.io/en/latest/?version=latest)
@@ -86,6 +70,19 @@ Xradar includes all the tools to get your weather radar into the xarray data mod
 
 * Free software: MIT license
 * Documentation: [https://docs.openradarscience.org/projects/xradar](https://xradar.readthedocs.io)
+
+## How to cite Xradar
+
+This project provides a Zenodo badge with a DOI for easy citation — click the badge above to get the official citation and permanent archive.
+
+GitHub also offers a “Cite this repository” button near the top right of [this page](https://github.com/openradar/xradar), where you can quickly copy the citation in various formats like APA and BibTeX.
+
+In the [rendered documentation](https://docs.openradarscience.org/projects/xradar/en/stable/#how-to-cite-xradar), you will find the full citation below.
+
+> [!TIP]
+> **Cite Xradar as:**
+>
+> *{{ apa_citation }}*
 
 ## About
 
@@ -100,6 +97,9 @@ Any software package that uses xarray in any way will then be able to directly u
 ## Status
 
 Xradar is considered stable for the implemented readers and writers which have been ported from wradlib. It will remain in beta status until the standard is finalized and the API as well as data model will move into stable/production status.
+
+> [!IMPORTANT]
+> Currently only polar (radial) and not cartesian or any other gridded radar data can be imported!
 
 ## Features
 
@@ -116,13 +116,15 @@ Xradar is considered stable for the implemented readers and writers which have b
 * MRR
 * NexradLevel2
 * Rainbow
+* UF
 
 ### Data Transformation and Alignment
 * Georeferencing (AEQD projection)
 * Angle Reindexing
 * Format Transformation support to CfRadial1 and CfRadial2
 
-> ***Note**: All formats load into CfRadial2, so converting to CfRadial1 is seamless.*
+> [!NOTE]
+> All formats load into CfRadial2, so converting to CfRadial1 is seamless.
 
 ## Contributors
 
@@ -130,8 +132,21 @@ Thanks to our many contributors!
 
 [![Contributors](https://contrib.rocks/image?repo=openradar/xradar)](https://github.com/openradar/xradar/graphs/contributors)
 
-
 # History
+
+## 0.10.0 (2025-07-11)
+
+* FIX: Use fixture for making temp file to avoid permission issue on Windows
+* ENH: Supporting for streaming NEXRAD Level 2 data via file-like objects and byte streams. ({issue}`265`) ({pull}`280`) by [@aladinor](https://github.com/aladinor)
+* ADD: function to select dataset variables in sweep ({issue}`104`) ({pull}`254`) by [@egouden](https://github.com/egouden)
+* ADD: function to get dataset variables in sweep
+* ADD: function to get metadata variables in sweep
+* FIX: typo in accessors module: Dataarray -> Dataset
+* FIX: Update missing deps for virtualenv environments via "requirements_dev.txt". ({issue}`253`) ({pull}`274`) by [@Steve-Roderick](https://github.com/Steve-Roderick).
+* FIX: Prevent literal timedelta decoding for new xarray versions, fix tests, update pinnings ({pull}`278`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* MNT: Package and Documentation cleanup ({issue}`273`), {pull}`284`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: Support Universal Format (UF) ({issue}`275`) ({pull}`276`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+* ADD: NDPointIndex Notebook example ({pull}`276`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
 
 ## 0.9.0 (2025-02-07)
 
@@ -146,6 +161,7 @@ Thanks to our many contributors!
 * FIX: Test for magic number BZhX1AY&SY (where X is any number between 0..9) when retrieving BZ2 record indices in nexrad level2 reader ({issue}`264`) ({pull}`266`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
 * ENH: Add message type 1 decoding to nexrad level 2 reader ({issue}`256`) ({pull}`267`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
 * ENH: Introduce file locks for nexrad level2 and iris backend ({issue}`207`) ({pull}`268`) by [@kmuehlbauer](https://github.com/kmuehlbauer).
+
 
 ## 0.8.0 (2024-11-04)
 

@@ -1,3 +1,4 @@
+from tecton_proto.workflows import state_machine_workflow__client_pb2 as _state_machine_workflow__client_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from typing import ClassVar as _ClassVar
@@ -9,6 +10,7 @@ COPIER_STATUS_SUCCESS: OnlineStoreCopierTaskState
 COPIER_STATUS_UNSPECIFIED: OnlineStoreCopierTaskState
 DESCRIPTOR: _descriptor.FileDescriptor
 MATERIALIZATION_ATTEMPT_STATUS_CANCELLED: MaterializationTaskAttemptState
+MATERIALIZATION_ATTEMPT_STATUS_CANCELLING: MaterializationTaskAttemptState
 MATERIALIZATION_ATTEMPT_STATUS_ERROR: MaterializationTaskAttemptState
 MATERIALIZATION_ATTEMPT_STATUS_PENDING: MaterializationTaskAttemptState
 MATERIALIZATION_ATTEMPT_STATUS_RUNNING: MaterializationTaskAttemptState

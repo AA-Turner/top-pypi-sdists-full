@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Optional
 from typing import Sequence
 from typing import Tuple
@@ -22,6 +24,7 @@ from tecton_core.embeddings.config import TextEmbeddingModel
 from tecton_core.embeddings.model_artifacts import ModelArtifactProvider
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import PartitionSelector
 from tecton_core.query.nodes import TextEmbeddingInferenceNode
 from tecton_core.query.pandas.node import ArrowExecNode
 from tecton_proto.common.id__client_pb2 import Id
@@ -41,6 +44,10 @@ def _custom_model_path(
     model_file_path: str,
     model_artifact_provider: ModelArtifactProvider,
 ) -> str:
+    overrides = json.loads(os.environ.get("OVERRIDE_CUSTOM_MODEL_PATHS", "{}"))
+    if overrides.get(model_name):
+        return overrides[model_name]
+
     return retrieve_custom_model_artifacts(
         model_name, model_artifact_id, s3_path, model_file_path, model_artifact_provider
     )
@@ -124,7 +131,6 @@ def _get_execution_info(
             from tecton_core.embeddings import python_model
 
             inference_func = python_model.python_model_inference
-            # TODO bseo: support multiple threads / gpus
             inference_func_configs = [
                 python_model.PythonModelInferenceFuncConfig.create(
                     model_dir=_custom_model_path(
@@ -194,8 +200,10 @@ class ArrowExecTextEmbeddingInferenceNode(ArrowExecNode):
     def as_str(self):
         return "ArrowExec node for text embedding"
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
-        input_data = self.input_node.to_arrow_reader(context)
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
+        input_data = self.input_node.to_arrow_reader(context, partition_selector)
 
         for inference_config in self.inference_configs:
             print(f"Running inference for {inference_config}")

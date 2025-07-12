@@ -22,6 +22,7 @@ import datetime
 from numbers import Number
 from mariadb.constants import CURSOR, STATUS, CAPABILITY, INDICATOR
 from typing import Sequence
+import decimal
 
 PARAMSTYLE_QMARK = 1
 PARAMSTYLE_FORMAT = 2
@@ -53,9 +54,11 @@ class Cursor(mariadb._mariadb.cursor):
     """
 
     def check_closed(self):
-        if self.closed:
-            self._connection._check_closed()
-            raise mariadb.ProgrammingError("Cursor is closed")
+        if self._thread_id != self.connection.thread_id:
+            raise mariadb.ProgrammingError(f"Cursor cannot be used anymore (the connection aborted and reconnected).")
+        if self._closed:
+            raise mariadb.ProgrammingError("Cursor cannot be used anymore (it was already closed before).")
+        self._connection._check_closed()
 
     def __init__(self, connection, **kwargs):
         """
@@ -75,6 +78,8 @@ class Cursor(mariadb._mariadb.cursor):
         self.buffered = True
         self._parseinfo = None
         self._data = None
+        self._thread_id = connection.thread_id
+        self._closed= None
 
         if not connection:
             raise mariadb.ProgrammingError("Invalid or no connection provided")
@@ -143,12 +148,34 @@ class Cursor(mariadb._mariadb.cursor):
                 replace_diff += len(replace) - 1 + extra_bytes
         return new_stmt
 
+    def _check_decimal_parameter(self, val):
+        """
+        Internal use only
+
+        Checks for unsupported parameters.
+        The following parameters are not supported by MariaDB/MySQL (but also
+        not part of the SQL Standard)
+
+        - float("nan" | "inf" | "-inf")
+        - Decimal("NaN" | "sNaN" | "Infinity" | "-Infinity")
+        """
+
+        if isinstance(val, float) and repr(val) in ("nan", "inf", "-inf"):
+            raise mariadb.NotSupportedError(f"Float value '{repr(val)}' is not supported.")
+        elif isinstance(val, decimal.Decimal) and val.__str__() in ("NaN", "sNaN", "Infinity", "-Infinity"):
+            raise mariadb.NotSupportedError(f"Decimal value '{val.__str__()}' is not supported.")
+
+        return None
+
+
     def _check_execute_params(self):
         # check data format
+        values = ()
         if self._paramstyle in (PARAMSTYLE_QMARK, PARAMSTYLE_FORMAT):
             if not isinstance(self._data, (tuple, list)):
                 raise mariadb.ProgrammingError("Data argument must be "
                                                "Tuple or List")
+            values = self._data
 
         if self._paramstyle == PARAMSTYLE_PYFORMAT:
             if not isinstance(self._data, dict):
@@ -158,6 +185,7 @@ class Cursor(mariadb._mariadb.cursor):
                 if self._keys[i] not in self._data:
                     raise mariadb.ProgrammingError("Dictionary doesn't contain"
                                                    " key '%s'" % self._keys[i])
+            values = self._data.values()
         else:
             # check if number of place holders matches the number of
             # supplied elements in data tuple
@@ -167,6 +195,12 @@ class Cursor(mariadb._mariadb.cursor):
                 raise mariadb.ProgrammingError(
                     "statement (%s) doesn't match the number of data elements"
                     " (%s)." % (len(self._paramlist), len(self._data)))
+
+        # CONPY-313: Check if parameter types are supported
+        if len(values):
+            for val in values:
+                if isinstance(val, float) or isinstance(val, decimal.Decimal):
+                    self._check_decimal_parameter(val)
 
     def callproc(self, sp: str, data: Sequence = ()):
         """
@@ -183,7 +217,10 @@ class Cursor(mariadb._mariadb.cursor):
                     substitution.
         """
 
+        if self.connection.auto_reconnect:
+            self._thread_id= self.connection.thread_id
         self.check_closed()
+        self._reset()
 
         # create statement
         params = ""
@@ -250,8 +287,12 @@ class Cursor(mariadb._mariadb.cursor):
         optional parameter buffered was set to False or the cursor was
         generated as an unbuffered cursor.
         """
+        if self.connection.auto_reconnect:
+            self._thread_id= self.connection.thread_id
 
         self.check_closed()
+        if not self._prepared:
+            self._reset()
 
         self.connection._last_executed_statement = statement
 
@@ -328,7 +369,12 @@ class Cursor(mariadb._mariadb.cursor):
         returns a result set containing the values for columns listed in the
         RETURNING clause.
         """
+
+        if self.connection.auto_reconnect:
+            self._thread_id= self.connection.thread_id
+
         self.check_closed()
+        self._reset()
 
         if not parameters or not len(parameters):
             raise mariadb.ProgrammingError("No data provided")
@@ -393,6 +439,8 @@ class Cursor(mariadb._mariadb.cursor):
         if not self.connection._closed:
             super().close()
 
+        self._closed= True
+
     def fetchone(self):
         """
         Fetch the next row of a query result set, returning a single sequence,
@@ -401,7 +449,7 @@ class Cursor(mariadb._mariadb.cursor):
         An exception will be raised if the previous call to execute() didn't
         produce a result set or execute() wasn't called before.
         """
-        if not self.buffered:
+        if not (self.buffered and self._text):
             self.check_closed()
 
         row = self._fetch_row()
@@ -423,7 +471,7 @@ class Cursor(mariadb._mariadb.cursor):
         An exception will be raised if the previous call to execute() didn't
         produce a result set or execute() wasn't called before.
         """
-        if not self.buffered:
+        if not (self.buffered and self._text):
             self.check_closed()
 
         if size == 0:
@@ -439,7 +487,8 @@ class Cursor(mariadb._mariadb.cursor):
         An exception will be raised if the previous call to execute() didn't
         produce a result set or execute() wasn't called before.
         """
-        if not self.buffered:
+
+        if not (self.buffered and self._text):
             self.check_closed()
         return super().fetchrows(ROWS_EOF)
 
@@ -455,6 +504,8 @@ class Cursor(mariadb._mariadb.cursor):
         current position in the result set, if set to absolute, value states
         an absolute target position.
         """
+        if not (self.buffered and self._text):
+            self.check_closed()
 
         if self.field_count == 0:
             raise mariadb.ProgrammingError("Cursor doesn't have a result set")

@@ -52,6 +52,8 @@ class FeatureDefinitionAndJoinConfig:
     join_keys: List[Tuple[str, str]]
     namespace: str
     features: List[str]
+    # List of transformation input names that use this feature definition.
+    input_names: List[str] = attrs.field(factory=list)
 
     @classmethod
     def from_feature_definition(cls, feature_definition: FeatureDefinitionWrapper) -> "FeatureDefinitionAndJoinConfig":
@@ -69,23 +71,25 @@ class FeatureDefinitionAndJoinConfig:
         return build_feature_metadata(feature_names=self.features, feature_definition=self.feature_definition)
 
     @classmethod
-    def from_feature_set_item_spec(
-        cls, feature_set_item: specs.FeatureSetItemSpec, fco_container: FcoContainer
+    def from_feature_view_selection_spec(
+        cls, feature_view_selection_spec: specs.FeatureViewSelectionSpec, fco_container: FcoContainer
     ) -> "FeatureDefinitionAndJoinConfig":
         """
-        :param feature_set_item: A FeatureSetItem spec.
+        :param feature_view_selection_spec: A FeatureViewSelectionSpec spec.
         :param fco_container: Contains all FSI dependencies (transitively), e.g., FV, Entities, DS-es, Transformations
         """
 
-        join_keys = [(i.spine_column_name, i.feature_view_column_name) for i in feature_set_item.join_key_mappings]
-        fv_spec = fco_container.get_by_id(feature_set_item.feature_view_id)
+        join_keys = [
+            (i.spine_column_name, i.feature_view_column_name) for i in feature_view_selection_spec.join_key_mappings
+        ]
+        fv_spec = fco_container.get_by_id(feature_view_selection_spec.feature_view_id)
         feature_definition = FeatureDefinitionWrapper(fv_spec, fco_container)
         return cls(
             feature_definition=feature_definition,
             name=feature_definition.name,
             join_keys=join_keys,
-            namespace=feature_set_item.namespace,
-            features=list(feature_set_item.feature_columns),
+            namespace=feature_view_selection_spec.namespace,
+            features=list(feature_view_selection_spec.feature_columns),
         )
 
     def _key(self) -> _Key:
@@ -221,20 +225,20 @@ class FeatureSetConfig:
         """
 
         definitions_and_configs = [
-            FeatureDefinitionAndJoinConfig.from_feature_set_item_spec(feature_set_item, fco_container)
-            for feature_set_item in feature_service_spec.feature_set_items
+            FeatureDefinitionAndJoinConfig.from_feature_view_selection_spec(feature_view_selection_spec, fco_container)
+            for feature_view_selection_spec in feature_service_spec.feature_view_selection_specs
         ]
 
         # Add dependent feature views into the FeatureSetConfig, uniquely per odfv
         # The namespaces of the dependencies have _udf_internal in the name and are filtered out before
         # being returned by TectonContext.execute()
         visited_feature_view_ids = set()
-        for feature_set_item in feature_service_spec.feature_set_items:
-            if feature_set_item.feature_view_id in visited_feature_view_ids:
+        for feature_view_selection_spec in feature_service_spec.feature_view_selection_specs:
+            if feature_view_selection_spec.feature_view_id in visited_feature_view_ids:
                 continue
-            visited_feature_view_ids.add(feature_set_item.feature_view_id)
+            visited_feature_view_ids.add(feature_view_selection_spec.feature_view_id)
 
-            fv_spec = fco_container.get_by_id(feature_set_item.feature_view_id)
+            fv_spec = fco_container.get_by_id(feature_view_selection_spec.feature_view_id)
             if not isinstance(fv_spec, specs.FeatureViewSpec):
                 TypeError(f"Expected a feature view type. {fv_spec}")
 
@@ -270,12 +274,14 @@ def find_dependent_feature_set_items(
             potentially_overriden_key = overrides.get(join_key, join_key)
             join_keys.append((potentially_overriden_key, join_key))
 
+        input_name = node.feature_view_node.input_name or fd.name
         cfg = FeatureDefinitionAndJoinConfig(
             feature_definition=fd,
             name=fd.name,
             join_keys=join_keys,
-            namespace=f"{udf_internal()}_{node.feature_view_node.input_name}_{fv_id}",
+            namespace=f"{udf_internal()}_{input_name}_{fv_id}",
             features=list(node.feature_view_node.feature_reference.features) or fd.features,
+            input_names=[input_name],
         )
 
         return [cfg]

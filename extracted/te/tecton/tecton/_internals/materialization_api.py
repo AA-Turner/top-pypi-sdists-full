@@ -190,6 +190,9 @@ class MaterializationJob(TectonJob):
             job_type=proto.job_type,
         )
 
+    def __repr__(self):
+        return f"MaterializationJob {self.id}"
+
     def get_status_for_display(self) -> Displayable:
         """
         Returns a user-friendly representation of this job's status (with attempts).
@@ -221,6 +224,43 @@ class DatasetJob(TectonJob):
     """
 
     dataset: str
+
+    def __repr__(self):
+        return f"DatasetJob {self.id}"
+
+    def _repr_html_(self):
+        """Controls what is shown in a Jupyter or Databricks Notebook"""
+        if self.feature_view:
+            object_type = "FeatureView"
+            object_name = self.feature_view
+        else:
+            object_type = "FeatureService"
+            object_name = self.feature_service
+        attempts_html = ""
+        for attempt in self.attempts:
+            attempts_html += f'<li><a href="{attempt.run_url}" target="_blank">{attempt.id}</a></li>'
+
+        footer = (
+            '<p style="margin-top:1em;"><em>Call <code>get_dataset()</code> to retrieve dataset.</em></p>'
+            if self.state.upper() == "SUCCESS"
+            else ""
+        )
+
+        html = f"""
+        <div style="font-family: sans-serif; line-height: 1.4;">
+            <strong>DatasetJob</strong> <code>{self.id}</code> </h3>
+            <p>
+            <strong>{object_type}:</strong> <code>{object_name}</code><br>
+            <strong>Dataset:</strong> <code>{self.dataset}</code><br>
+            <strong>State:</strong> {self.state}<br>
+            <p><strong>Attempts:</strong></p>
+            <ul>
+                {attempts_html}
+            </ul>
+            {footer}
+        </div>
+        """
+        return html
 
     @classmethod
     def _from_proto(cls, proto: MaterializationJobProto):
@@ -341,9 +381,9 @@ def list_jobs(
     Retrieves the list of all jobs for the provided feature view or feature service.
     :return: List of `JobData` objects.
     """
-    assert (feature_view is not None) ^ (
-        feature_service is not None
-    ), "Either feature_view or feature_service must be provided. Not both."
+    assert (feature_view is not None) ^ (feature_service is not None), (
+        "Either feature_view or feature_service must be provided. Not both."
+    )
 
     request = ListJobsRequest()
     if feature_view:
@@ -368,9 +408,9 @@ def get_job(
     :param job_id: ID string of the materialization job.
     :return: `JobData` object for the job.
     """
-    assert (feature_view is not None) ^ (
-        feature_service is not None
-    ), "Either feature_view or feature_service must be provided. Not both."
+    assert (feature_view is not None) ^ (feature_service is not None), (
+        "Either feature_view or feature_service must be provided. Not both."
+    )
 
     request = GetJobRequest()
     if feature_view:
@@ -408,9 +448,9 @@ def cancel_job(
     :param job_id: ID string of the materialization job.
     :return: `JobData` object for the cancelled job.
     """
-    assert (feature_view is not None) ^ (
-        feature_service is not None
-    ), "Either feature_view or feature_service must be provided. Not both."
+    assert (feature_view is not None) ^ (feature_service is not None), (
+        "Either feature_view or feature_service must be provided. Not both."
+    )
 
     request = CancelJobRequest()
     if feature_view:
@@ -530,6 +570,7 @@ def _build_start_dataset_job_request(
     tecton_materialization_runtime: Optional[str] = None,
     environment: Optional[str] = None,
     extra_config: Optional[Dict[str, Any]] = None,
+    job_retry_times: Optional[int] = None,
 ) -> StartDatasetJobRequest:
     """This function shared between `start_dataset_job` and local integration tests"""
     request = StartDatasetJobRequest()
@@ -575,6 +616,10 @@ def _build_start_dataset_job_request(
 
     if extra_config:
         request.extra_config.update({k: str(v) for k, v in extra_config.items()})
+
+    if job_retry_times:
+        request.job_retry_times.job_retry_times = job_retry_times
+
     return request
 
 
@@ -589,6 +634,7 @@ def start_dataset_job(
     tecton_materialization_runtime: Optional[str] = None,
     environment: Optional[str] = None,
     extra_config: Optional[Dict[str, Any]] = None,
+    job_retry_times: Optional[int] = None,
 ) -> DatasetJob:
     request = _build_start_dataset_job_request(
         fco,
@@ -601,6 +647,7 @@ def start_dataset_job(
         tecton_materialization_runtime,
         environment,
         extra_config,
+        job_retry_times,
     )
 
     response = metadata_service.instance().StartDatasetJob(request)

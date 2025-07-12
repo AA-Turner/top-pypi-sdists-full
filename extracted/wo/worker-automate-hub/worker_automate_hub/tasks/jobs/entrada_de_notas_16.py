@@ -209,13 +209,27 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 )
                 combo_box_natureza_operacao.click()
                 await worker_sleep(4)
-                tipos_natureza = ["1403 - COMPRA DE MERCADORIAS- 1.403", "1403-COMPRA DE MERCADORIAS- 1.403"]
-                for tipo in tipos_natureza:
-                    try:
-                        combo_box_natureza_operacao.select(tipo)
-                        send_keys('{ENTER}')
-                    except:
-                        pass
+                itens = nota.get("itens", [])
+                somente_isqueiros = all(
+                    "isqueiro" in item["descricaoProduto"].lower() or "acendedor" in item["descricaoProduto"].lower()
+                    for item in itens
+                )    
+                if somente_isqueiros:
+                    tipos_natureza = ["1102-COMPRA DE MERCADORIA ADQ. TERCEIROS - 1.102",  "1102 - COMPRA DE MERCADO ADQ. TERCEIROS - 1.102"]
+                    for tipo in tipos_natureza:
+                        try:
+                            combo_box_natureza_operacao.select(tipo)
+                            send_keys('{ENTER}')
+                        except:
+                            pass
+                else:            
+                    tipos_natureza = ["1403 - COMPRA DE MERCADORIAS- 1.403", "1403-COMPRA DE MERCADORIAS- 1.403"]
+                    for tipo in tipos_natureza:
+                        try:
+                            combo_box_natureza_operacao.select(tipo)
+                            send_keys('{ENTER}')
+                        except:
+                            pass
                  
                 await worker_sleep(3)
             elif nota.get("cfop") == "6910":

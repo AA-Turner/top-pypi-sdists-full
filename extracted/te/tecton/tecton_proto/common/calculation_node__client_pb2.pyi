@@ -34,6 +34,7 @@ OR: OperationType
 QUARTER: DatePart
 SECOND: DatePart
 SUBTRACTION: OperationType
+TRY_STRPTIME: OperationType
 WEEK: DatePart
 YEAR: DatePart
 

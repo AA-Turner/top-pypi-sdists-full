@@ -14,7 +14,7 @@ Copyright (c) 2020-2022 MalwareFrank
 """
 
 __author__ = """MalwareFrank"""
-__version__ = "0.15.1"
+__version__ = "0.16.4"
 
 import copy as _copymod
 import codecs
@@ -230,7 +230,7 @@ class ClrMetaDataStruct(Structure):
     MinorVersion: int
     Reserved: int
     VersionLength: int
-    Version: int
+    Version: bytes
     Flags: int
     NumberOfStreams: int
 

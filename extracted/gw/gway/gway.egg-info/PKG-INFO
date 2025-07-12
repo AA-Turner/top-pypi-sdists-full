@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gway
-Version: 0.4.42
+Version: 0.4.45
 Summary: Software Project Infrastructure by https://www.gelectriic.com
 Author-email: "Rafael J. Guillén-Osorio" <tecnologia@gelectriic.com>
 License-Expression: MIT
@@ -45,6 +45,8 @@ Requires-Dist: markdown
 Requires-Dist: pandas
 Requires-Dist: openpyxl
 Requires-Dist: coverage
+Requires-Dist: argcomplete
+Requires-Dist: PyJWT
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
@@ -91,6 +93,29 @@ framework itself clone the repository and install it in editable mode:
    pip install -r requirements.txt
    pip install -e .
 
+Shell Autocompletion
+--------------------
+
+GWAY uses ``argcomplete`` to offer optional tab completion. Install the
+package and register the completion script for your shell::
+
+   pip install argcomplete
+   register-python-argcomplete gway >> ~/.bashrc
+
+For PowerShell::
+
+   register-python-argcomplete gway -s powershell | Out-String | Invoke-Expression
+
+CLI Helpers
+-----------
+
+An experimental project ``cli`` exposes utilities related to the command
+line interface. The ``cli.completions`` function lists available
+builtin and project commands and can aid in building custom completion
+scripts::
+
+   gway cli completions
+
 Core Concepts
 -------------
 
@@ -129,10 +154,10 @@ Example Recipe
 
 .. code-block:: text
 
-   web app setup --project web.navbar --home style-changer
-   web app setup --project web.site --home reader
+   web app setup web.navbar --home style-changer
+   web app setup web.site --home reader
    web server start-app --host 127.0.0.1 --port 8888
-   until --forever
+   until --done
 
 
 Run ``gway -r recipes/site.gwr`` and visit ``http://127.0.0.1:8888`` to browse
@@ -148,10 +173,10 @@ next non-indented command.
 .. code-block:: text
 
    # Configure multiple projects
-   web app setup-app:
-       --project web.site --home reader
-       --project web.nav --style random
-       --project games.qpig --home qpig-farm
+   web app setup:
+       - web.site --home reader
+       - web.nav --style random
+       - games.qpig --home qpig-farm
 
    # Start the server
    web:
@@ -169,9 +194,9 @@ project with ``gw.web.app.setup`` and then launch the server using
 ``gw.web.server.start_app``. Routes of the form ``/project/view`` map to
 ``view_*`` functions and static files under ``data/static`` are served from
 ``/static``. ``web.site.view_reader`` renders ``.rst`` or ``.md`` files when
-you visit ``/site/reader/PATH``; it first checks the workspace root and
+you visit ``/web/site/reader/PATH``; it first checks the workspace root and
 then ``data/static`` automatically. See the `Web README
-</site/reader?tome=web>`_ for a more complete guide.
+<https://arthexis.com/web/site/reader?tome=web>`_ for a more complete guide.
 
 Folder Structure
 ----------------
@@ -191,7 +216,7 @@ Here's a quick reference of the main directories in a typical GWAY workspace:
 +----------------+--------------------------------------------------------------+
 | gway/          | Source code for core GWAY components.                        |
 +----------------+--------------------------------------------------------------+
-| tests/         | Unit tests for code in gway/ and projects/.                  |
+| tests/         | Hierarchical unit tests (e.g., ``tests/gway``).              |
 +----------------+--------------------------------------------------------------+
 | data/          | Static assets, resources, and other included data files.     |
 +----------------+--------------------------------------------------------------+
@@ -202,6 +227,16 @@ Here's a quick reference of the main directories in a typical GWAY workspace:
 | tools/         | Platform-specific scripts and files.                         |
 +----------------+--------------------------------------------------------------+
 
+
+Test Layout
+-----------
+
+Tests are discovered recursively so directories under ``tests`` may mirror the source tree. A suggested structure is::
+
+    tests/
+        gway/
+        projects/
+
 Project READMEs
 ---------------
 
@@ -209,45 +244,48 @@ The following projects bundle additional documentation.  Each link uses
 ``view_reader`` to render the ``README.rst`` file directly from the
 ``data/static`` folder.
 
+- `awg <https://arthexis.com/web/site/reader?tome=awg>`_
+- `cdv <https://arthexis.com/web/site/reader?tome=cdv>`_
+- `games <https://arthexis.com/web/site/reader?tome=games>`_
+  - `conway <https://arthexis.com/web/site/reader?tome=games/conway>`_
+  - `mtg <https://arthexis.com/web/site/reader?tome=games/mtg>`_
+  - `qpig <https://arthexis.com/web/site/reader?tome=games/qpig>`_
+- `monitor <https://arthexis.com/web/site/reader?tome=monitor>`_
+- `ocpp <https://arthexis.com/web/site/reader?tome=ocpp>`_
+  - `csms <https://arthexis.com/web/site/reader?tome=ocpp/csms>`_
+  - `evcs <https://arthexis.com/web/site/reader?tome=ocpp/evcs>`_
+  - `data <https://arthexis.com/web/site/reader?tome=ocpp/data>`_
+- `release <https://arthexis.com/web/site/reader?tome=release>`_
+- `rpi <https://arthexis.com/web/site/reader?tome=rpi>`_
+- `vbox <https://arthexis.com/web/site/reader?tome=vbox>`_
+- `web <https://arthexis.com/web/site/reader?tome=web>`_
+  - `nav <https://arthexis.com/web/site/reader?tome=web/nav>`_
+  - `cookies <https://arthexis.com/web/site/reader?tome=web/cookies>`_
+  - `auth <https://arthexis.com/web/site/reader?tome=web/auth>`_
+  - `chat <https://arthexis.com/web/site/reader?tome=web/chat>`_
 
-- `awg </site/reader?tome=awg>`_
-- `cdv </site/reader?tome=cdv>`_
-- `games </site/reader?tome=games>`_
-  - `conway </site/reader?tome=games/conway>`_
-  - `mtg </site/reader?tome=games/mtg>`_
-  - `qpig </site/reader?tome=games/qpig>`_
-- `monitor </site/reader?tome=monitor>`_
-- `ocpp </site/reader?tome=ocpp>`_
-  - `csms </site/reader?tome=ocpp/csms>`_
-  - `evcs </site/reader?tome=ocpp/evcs>`_
-  - `data </site/reader?tome=ocpp/data>`_
-- `release </site/reader?tome=release>`_
-- `vbox </site/reader?tome=vbox>`_
-- `web </site/reader?tome=web>`_
-  - `nav </site/reader?tome=web/nav>`_
-  - `cookies </site/reader?tome=web/cookies>`_
-  - `auth </site/reader?tome=web/auth>`_
-
-.. _/site/reader?tome=awg: /site/reader?tome=awg
-.. _/site/reader?tome=cdv: /site/reader?tome=cdv
-.. _/site/reader?tome=games: /site/reader?tome=games
-.. _/site/reader?tome=games/conway: /site/reader?tome=games/conway
-.. _/site/reader?tome=games/mtg: /site/reader?tome=games/mtg
-.. _/site/reader?tome=games/qpig: /site/reader?tome=games/qpig
-.. _/site/reader?tome=monitor: /site/reader?tome=monitor
-.. _/site/reader?tome=ocpp: /site/reader?tome=ocpp
-.. _/site/reader?tome=ocpp/csms: /site/reader?tome=ocpp/csms
-.. _/site/reader?tome=ocpp/evcs: /site/reader?tome=ocpp/evcs
-.. _/site/reader?tome=ocpp/data: /site/reader?tome=ocpp/data
-.. _/site/reader?tome=release: /site/reader?tome=release
-.. _/site/reader?tome=vbox: /site/reader?tome=vbox
-.. _/site/reader?tome=web: /site/reader?tome=web
-.. _/site/reader?tome=web/nav: /site/reader?tome=web/nav
-.. _/site/reader?tome=web/cookies: /site/reader?tome=web/cookies
-.. _/site/reader?tome=web/auth: /site/reader?tome=web/auth
+.. _/web/site/reader?tome=awg: https://arthexis.com/web/site/reader?tome=awg
+.. _/web/site/reader?tome=cdv: https://arthexis.com/web/site/reader?tome=cdv
+.. _/web/site/reader?tome=games: https://arthexis.com/web/site/reader?tome=games
+.. _/web/site/reader?tome=games/conway: https://arthexis.com/web/site/reader?tome=games/conway
+.. _/web/site/reader?tome=games/mtg: https://arthexis.com/web/site/reader?tome=games/mtg
+.. _/web/site/reader?tome=games/qpig: https://arthexis.com/web/site/reader?tome=games/qpig
+.. _/web/site/reader?tome=monitor: https://arthexis.com/web/site/reader?tome=monitor
+.. _/web/site/reader?tome=ocpp: https://arthexis.com/web/site/reader?tome=ocpp
+.. _/web/site/reader?tome=ocpp/csms: https://arthexis.com/web/site/reader?tome=ocpp/csms
+.. _/web/site/reader?tome=ocpp/evcs: https://arthexis.com/web/site/reader?tome=ocpp/evcs
+.. _/web/site/reader?tome=ocpp/data: https://arthexis.com/web/site/reader?tome=ocpp/data
+.. _/web/site/reader?tome=release: https://arthexis.com/web/site/reader?tome=release
+.. _/web/site/reader?tome=rpi: https://arthexis.com/web/site/reader?tome=rpi
+.. _/web/site/reader?tome=vbox: https://arthexis.com/web/site/reader?tome=vbox
+.. _/web/site/reader?tome=web: https://arthexis.com/web/site/reader?tome=web
+.. _/web/site/reader?tome=web/nav: https://arthexis.com/web/site/reader?tome=web/nav
+.. _/web/site/reader?tome=web/cookies: https://arthexis.com/web/site/reader?tome=web/cookies
+.. _/web/site/reader?tome=web/auth: https://arthexis.com/web/site/reader?tome=web/auth
+.. _/web/site/reader?tome=web/chat: https://arthexis.com/web/site/reader?tome=web/chat
 
 You can generate these links yourself with
-``gw.web.build_url('site/reader', tome='proj')``.
+``gw.web.build_url('web/site/reader', tome='proj')``.
 
 License
 -------

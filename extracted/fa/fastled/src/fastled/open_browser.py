@@ -8,6 +8,29 @@ from pathlib import Path
 
 from fastled.server_flask import run_flask_in_thread
 
+try:
+    from fastled.playwright_browser import is_playwright_available, open_with_playwright
+
+    PLAYWRIGHT_AVAILABLE = is_playwright_available()
+except ImportError:
+    PLAYWRIGHT_AVAILABLE = False
+    open_with_playwright = None
+
+# Global reference to keep Playwright browser alive
+_playwright_browser_proxy = None
+
+
+def cleanup_playwright_browser() -> None:
+    """Clean up the Playwright browser on exit."""
+    global _playwright_browser_proxy
+    if _playwright_browser_proxy:
+        _playwright_browser_proxy.close()
+        _playwright_browser_proxy = None
+
+
+# Register cleanup function
+atexit.register(cleanup_playwright_browser)
+
 DEFAULT_PORT = 8089  # different than live version.
 PYTHON_EXE = sys.executable
 
@@ -78,6 +101,7 @@ def spawn_http_server(
     compile_server_port: int,
     port: int | None = None,
     open_browser: bool = True,
+    no_playwright: bool = False,
 ) -> Process:
 
     if port is not None and not is_port_free(port):
@@ -105,14 +129,27 @@ def spawn_http_server(
 
     wait_for_server(port)
     if open_browser:
-        print(f"Opening browser to http://localhost:{port}")
-        import webbrowser
+        url = f"http://localhost:{port}"
+        if (
+            PLAYWRIGHT_AVAILABLE
+            and open_with_playwright is not None
+            and not no_playwright
+        ):
+            print(f"Opening FastLED sketch in Playwright browser: {url}")
+            print(
+                "Auto-resize enabled: Browser window will automatically adjust to content size"
+            )
+            global _playwright_browser_proxy
+            _playwright_browser_proxy = open_with_playwright(url)
+        else:
+            print(f"Opening browser to {url}")
+            import webbrowser
 
-        webbrowser.open(
-            url=f"http://localhost:{port}",
-            new=1,
-            autoraise=True,
-        )
+            webbrowser.open(
+                url=url,
+                new=1,
+                autoraise=True,
+            )
     return proc
 
 

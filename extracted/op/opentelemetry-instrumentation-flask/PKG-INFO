@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-flask
-Version: 0.55b1
+Version: 0.56b0
 Summary: Flask instrumentation for OpenTelemetry
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-flask
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -19,10 +19,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Requires-Dist: opentelemetry-api~=1.12
-Requires-Dist: opentelemetry-instrumentation-wsgi==0.55b1
-Requires-Dist: opentelemetry-instrumentation==0.55b1
-Requires-Dist: opentelemetry-semantic-conventions==0.55b1
-Requires-Dist: opentelemetry-util-http==0.55b1
+Requires-Dist: opentelemetry-instrumentation-wsgi==0.56b0
+Requires-Dist: opentelemetry-instrumentation==0.56b0
+Requires-Dist: opentelemetry-semantic-conventions==0.56b0
+Requires-Dist: opentelemetry-util-http==0.56b0
 Requires-Dist: packaging>=21.0
 Provides-Extra: instruments
 Requires-Dist: flask>=1.0; extra == 'instruments'

@@ -1,12 +1,15 @@
+from collections import defaultdict
 from datetime import datetime
 from datetime import timedelta
 from functools import reduce
 from operator import and_
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Callable
 from typing import ClassVar
 from typing import Dict
 from typing import Iterable
+from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Sequence
@@ -38,6 +41,7 @@ from pypika.analytics import Sum
 from pypika.functions import Cast
 from pypika.functions import Coalesce
 from pypika.functions import Length
+from pypika.functions import Max
 from pypika.terms import BasicCriterion
 from pypika.terms import Criterion
 from pypika.terms import Function
@@ -59,6 +63,8 @@ from tecton_core.data_types import BoolType
 from tecton_core.data_types import Float32Type
 from tecton_core.data_types import Int64Type
 from tecton_core.data_types import StringType
+from tecton_core.data_types import StructField
+from tecton_core.data_types import StructType
 from tecton_core.data_types import TimestampType
 from tecton_core.embeddings.config import BaseInferenceConfig
 from tecton_core.embeddings.config import CustomModelConfig
@@ -82,6 +88,7 @@ from tecton_core.offline_store import timestamp_to_partition_date_str
 from tecton_core.offline_store import timestamp_to_partition_epoch
 from tecton_core.query import compaction_utils
 from tecton_core.query.aggregation_plans import AGGREGATION_PLANS
+from tecton_core.query.aggregation_plans import AggregationPlan
 from tecton_core.query.aggregation_plans import QueryWindowSpec
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.executor_params import ExecutionContext
@@ -89,7 +96,10 @@ from tecton_core.query.executor_params import QueryTreeStep
 from tecton_core.query.feature_extraction_sql_builder import FeatureExtractionSqlBuilder
 from tecton_core.query.node_interface import DataframeWrapper
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import Partitioning
+from tecton_core.query.node_interface import PartitionSelector
 from tecton_core.query.node_interface import QueryNode
+from tecton_core.query.node_interface import SinglePartition
 from tecton_core.query.pipeline_sql_builder import PipelineSqlBuilder
 from tecton_core.query.sql_compat import CustomQuery
 from tecton_core.query.sql_compat import DuckDBComparatorExtension
@@ -101,7 +111,6 @@ from tecton_core.query_consts import TECTON_TEMP_AGGREGATION_SECONDARY_KEY_COL
 from tecton_core.query_consts import aggregation_group_id
 from tecton_core.query_consts import aggregation_tile_id
 from tecton_core.query_consts import anchor_time
-from tecton_core.query_consts import default_case
 from tecton_core.query_consts import tecton_secondary_key_aggregation_indicator_col
 from tecton_core.query_consts import tecton_unique_id_col
 from tecton_core.query_consts import temp_indictor_column_name
@@ -111,6 +120,7 @@ from tecton_core.query_consts import valid_from
 from tecton_core.query_consts import valid_to
 from tecton_core.schema import Schema
 from tecton_core.schema_validation import arrow_schema_to_tecton_schema
+from tecton_core.skew_config import SkewConfig
 from tecton_core.specs import MaterializedFeatureViewType
 from tecton_core.specs import create_time_window_spec_from_data_proto
 from tecton_core.specs.feature_view_spec import MaterializedFeatureViewSpec
@@ -221,8 +231,8 @@ class MultiRtfvFeatureExtractionNode(QueryNode):
         fdw_names = [fdw.name for fdw, _ in self.feature_definition_namespaces]
         return f"Evaluate multiple features in '{fdw_names}'"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         input_cols = [Field(col) for col in self.input_node.columns]
 
@@ -277,7 +287,7 @@ class MultiOdfvPipelineNode(QueryNode):
         fdw_names = [fdw.name for fdw, _ in self.feature_definition_namespaces]
         return f"Evaluate multiple on-demand feature views in pipeline '{fdw_names}'"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -334,7 +344,7 @@ class FeatureViewPipelineNode(QueryNode):
             s += f" with feature time limits [{self.feature_time_limits.start}, {self.feature_time_limits.end})"
         return s
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         # maps input names to unique strings
         unique_inputs_map = {k: f"{k}_{self.node_id.hex[:8]}" for k in self.inputs_map}
         pipeline_builder = PipelineSqlBuilder(
@@ -347,12 +357,19 @@ class FeatureViewPipelineNode(QueryNode):
             renamed_inputs_map=unique_inputs_map,
         )
         return pipeline_builder.get_pipeline_query(
-            dialect=self.dialect, input_name_to_query_map={k: v._to_query() for k, v in self.inputs_map.items()}
+            dialect=self.dialect,
+            input_name_to_query_map={k: v._to_query(partition_selector) for k, v in self.inputs_map.items()},
         )
 
     @property
     def output_schema(self) -> Optional[Schema]:
         return self.feature_definition_wrapper.view_schema
+
+
+@attrs.frozen
+class Repartition:
+    partitioning: Partitioning
+    key: str
 
 
 @attrs.frozen
@@ -362,13 +379,17 @@ class StagingNode(QueryNode):
     input_node: NodeRef
     staging_table_name: str
     checkpoint: bool = False
+    repartition: Optional[Repartition] = None
     query_tree_step: Optional[QueryTreeStep] = None
     # Will be used in the web UI
     stage_description: Optional[str] = None
 
     @property
     def columns(self) -> Sequence[str]:
-        return self.input_node.columns
+        cols = list(self.input_node.columns)
+        if self.repartition:
+            cols.remove(self.repartition.key)
+        return cols
 
     @property
     def inputs(self) -> Sequence[NodeRef]:
@@ -378,18 +399,22 @@ class StagingNode(QueryNode):
         return f"{self.staging_table_name}_{self.node_id.hex[:8]}"
 
     def as_str(self):
-        s = f"Staging data for {self.staging_table_name_unique()}"
+        s = f"Staging data for {self.staging_table_name_unique()} [Dialect: {self.dialect}]"
         if self.checkpoint:
             s += " (checkpointed)"
         return s
 
-    def _to_staging_query_sql(self) -> str:
-        fields = [Field(col) for col in self.columns]
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return self.repartition.partitioning if self.repartition else self.input_node.output_partitioning
+
+    def _to_staging_query_sql(self, partition_selector: Optional[PartitionSelector] = None) -> str:
+        fields = [Field(col) for col in self.input_node.columns]
         if not fields:
             # fields can be empty when previous node is DataSourceScanNode for which we don't have a schema
             fields = ["*"]
 
-        input_query = self.input_node._to_query()
+        input_query = self.input_node._to_query(partition_selector)
         aliased_input = self.input_node.name
         sql = (
             self.func.query()
@@ -402,22 +427,25 @@ class StagingNode(QueryNode):
             sql = sqlparse.format(sql, reindent=True)
         return sql
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         # For non-DuckDB, this is just a passthrough
-        return self.input_node._to_query()
+        return self.input_node._to_query(partition_selector)
 
     @property
     def output_schema(self):
         return self.input_node.output_schema
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
-        return self.input_node.to_arrow_reader(context)
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
+        return self.input_node.to_arrow_reader(context, partition_selector)
 
 
 @attrs.frozen
 class StagedTableScanNode(QueryNode):
     staged_schema: Schema
     staging_table_name: str
+    staged_partitioning: Optional[Partitioning] = attrs.field(factory=SinglePartition)
 
     @classmethod
     def from_staging_node(cls, dialect: Dialect, compute_mode: ComputeMode, query_node: StagingNode) -> QueryNode:
@@ -425,6 +453,7 @@ class StagedTableScanNode(QueryNode):
             dialect=dialect,
             compute_mode=compute_mode,
             staged_schema=query_node.output_schema,
+            staged_partitioning=query_node.output_partitioning,
             staging_table_name=query_node.staging_table_name_unique(),
         )
 
@@ -440,10 +469,14 @@ class StagedTableScanNode(QueryNode):
     def inputs(self) -> Sequence[NodeRef]:
         return ()
 
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return self.staged_partitioning
+
     def as_str(self):
         return f"Scanning staged data from {self.staging_table_name}"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         # Use table instead of database since otherwise pypika can complain about database
         # being unhashable
         from_str = Table(self.staging_table_name)
@@ -467,6 +500,7 @@ class DataSourceScanNode(QueryNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    skew_config: Optional[SkewConfig] = None
 
     @property
     def columns(self) -> Sequence[str]:
@@ -490,6 +524,10 @@ class DataSourceScanNode(QueryNode):
         # DataSource schema will be overwritten by FeatureViewPipeline node
         # so it's safe to keep this empty
         return Schema.from_dict({})
+
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return SinglePartition()
 
     # MyPy has a known issue on validators https://mypy.readthedocs.io/en/stable/additional_features.html#id1
     @is_stream.validator  # type: ignore
@@ -523,7 +561,7 @@ class DataSourceScanNode(QueryNode):
             s += ". WARNING: since start time >= end time, no rows will be returned."
         return s
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if self.is_stream:
             raise NotImplementedError
         source = self.ds.batch_source
@@ -581,7 +619,7 @@ class RawDataSourceScanNode(QueryNode):
     def as_str(self) -> str:
         return f"Scan data source '{self.ds.name}' without applying a post processor"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -596,22 +634,24 @@ class OfflineStoreScanNode(QueryNode):
     partition_time_filter: Optional[pendulum.Period] = None
     # Reference to a spine node. Spine will be evaluated and entities will be pushed down to an offline store scanner
     entity_filter: Optional[NodeRef] = None
+    skew_config: Optional[SkewConfig] = None
 
     @property
     def columns(self) -> Sequence[str]:
         return self.output_schema.column_names()
 
     @property
-    def output_schema(self) -> Optional[Schema]:
-        schema = self.feature_definition_wrapper.materialization_schema.to_dict()
-        store_type = get_offline_store_type(self.feature_definition_wrapper)
+    def output_partitioning(self) -> "Partitioning":
+        return SinglePartition()  # FIXME
 
-        if store_type == OfflineStoreType.SNOWFLAKE:
-            if self.feature_definition_wrapper.is_temporal_aggregate:
-                # Snowflake stores the timestamp_key instead of _anchor_time in offline store, but it's not used in QT for aggregates
-                del schema[default_case(self.feature_definition_wrapper.timestamp_key)]
-            # anchor time is not included in m13n schema for any snowflake fvs
-            schema[anchor_time()] = Int64Type()
+    @property
+    def output_schema(self) -> Optional[Schema]:
+        if self.feature_definition_wrapper.has_untiled_offline_store:
+            schema = self.feature_definition_wrapper.view_schema.to_dict()
+        else:
+            schema = self.feature_definition_wrapper.materialization_schema.to_dict()
+
+        store_type = get_offline_store_type(self.feature_definition_wrapper)
 
         if store_type == OfflineStoreType.PARQUET and self.feature_definition_wrapper.is_temporal:
             # anchor time is not included in m13n schema for bfv/sfv
@@ -636,7 +676,7 @@ class OfflineStoreScanNode(QueryNode):
     def store_type(self) -> str:
         return self.feature_definition_wrapper.offline_store_config.WhichOneof("store_type")
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         where_conds = self._get_partition_filters()
         fields = self._get_select_fields()
         table_name = self._get_offline_table_name()
@@ -711,19 +751,9 @@ class OfflineStoreScanNode(QueryNode):
             if col == TIME_PARTITION:
                 continue
             elif col == anchor_time():
-                if store_type == OfflineStoreType.SNOWFLAKE:
-                    # Convert the timestamp column to unixtime to create the anchor time column
-                    # For temporal fvs on snowflake: the offline table stores the event timestamp in the timestamp key column
-                    # For temporal aggregate fvs on snowflake: the offline table stores the start of the aggregation tile in the timestamp key column
-                    fields.append(
-                        self.func.convert_epoch_seconds_to_feature_store_format_version(
-                            self.func.to_unixtime(Field(self.feature_definition_wrapper.time_key)),
-                            self.feature_definition_wrapper.get_feature_store_format_version,
-                        ).as_(anchor_time())
-                    )
                 # Only parquet store and bwafv delta store have _anchor_time column
                 # we probably dont need to actually keep this column in the general parquet case
-                elif store_type == OfflineStoreType.PARQUET or self.feature_definition_wrapper.is_temporal_aggregate:
+                if store_type == OfflineStoreType.PARQUET or self.feature_definition_wrapper.is_temporal_aggregate:
                     fields.append(Cast(Field(anchor_time()), "bigint").as_(anchor_time()))
             else:
                 fields.append(col)
@@ -738,7 +768,9 @@ class OfflineStoreScanNode(QueryNode):
         else:
             raise NotImplementedError
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
         fdw = self.feature_definition_wrapper
         if fdw.has_delta_offline_store:
             reader_params = OfflineStoreReaderParams.for_feature_definition(
@@ -783,7 +815,19 @@ class OfflineStoreScanNode(QueryNode):
 @attrs.frozen
 class DatasetScanNode(QueryNode):
     dataset: SavedFeatureDataFrame
-    partition_time_filter: Optional[pendulum.Period] = None
+    time_filter: Optional[pendulum.Period] = None
+
+    @property
+    def _timestamp_column_name(self) -> str:
+        if self.dataset.HasField("logged_dataset"):
+            return self.dataset.logged_dataset.timestamp_column_name
+        elif self.dataset.HasField("saved_dataset"):
+            return self.dataset.saved_dataset.timestamp_column_name
+        elif self.dataset.HasField("timestamp_column_name"):  # Legacy fallback
+            return self.dataset.timestamp_column_name
+        else:
+            error_msg = "Dataset must have either logged_dataset or saved_dataset defined."
+            raise ValueError(error_msg)
 
     @property
     def columns(self) -> List[str]:
@@ -794,23 +838,60 @@ class DatasetScanNode(QueryNode):
         return Schema(proto=self.dataset.unified_schema)
 
     @property
+    def output_partitioning(self) -> "Partitioning":
+        return SinglePartition()
+
+    @property
     def inputs(self) -> Sequence[NodeRef]:
         return ()
 
     def as_str(self) -> str:
         s = f"Scan storage for dataset '{self.dataset.info.name}'"
-        if self.partition_time_filter:
-            s += f" with time limits [{self.partition_time_filter.start}, {self.partition_time_filter.end}]"
+        if self.time_filter:
+            s += f" with time limits [{self.time_filter.start}, {self.time_filter.end}]"
         return s
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
         params = OfflineStoreReaderParams.for_dataset(
             self.dataset, self.dataset.dataframe_location, context.offline_store_options_providers
         )
         reader = DeltaReader(params)
-        ds = reader.read(self.partition_time_filter)
-        schema = ds.schema.remove(ds.schema.get_field_index(TIME_PARTITION))
-        return pyarrow.RecordBatchReader.from_batches(schema, ds.to_batches(columns=self.columns))
+        ds = reader.read(partition_time_limits=None)
+
+        if self.time_filter is not None:
+            timestamp_column_name = self._timestamp_column_name
+
+            # if timestamp_column_name is not in the schema, it's a gfir case so use valid_to() instead
+            if timestamp_column_name not in ds.schema.names:
+                assert valid_to() in ds.schema.names, f"Dataset {self.dataset.info.name} has no valid_to column"
+                timestamp_column_name = valid_to()
+
+            timestamp_field = ds.schema.field(timestamp_column_name)
+            timestamp_type = timestamp_field.type
+
+            if pyarrow.types.is_timestamp(timestamp_type):
+                # PyArrow timestamp type - get the unit from the type
+                unit = timestamp_type.unit
+                target_timestamp_type = pyarrow.timestamp(unit)
+            else:
+                msg = f"Timestamp type {timestamp_type} is not supported"
+                raise ValueError(msg)
+
+            start_date = pyarrow.scalar(self.time_filter.start, type=target_timestamp_type)
+            end_date = pyarrow.scalar(self.time_filter.end, type=target_timestamp_type)
+
+            timestamp_col = pyarrow.dataset.field(timestamp_column_name).cast(target_timestamp_type)
+            filter_expr = (timestamp_col >= start_date) & (timestamp_col < end_date)
+        else:
+            filter_expr = None
+
+        # this might be able to use the other format now that i don't need to drop the time partition column
+        reader = ds.scanner(
+            filter=filter_expr,
+        ).to_reader()
+        return reader
 
 
 @attrs.frozen
@@ -855,10 +936,10 @@ class JoinNode(QueryNode):
     def as_str(self) -> str:
         return f"{self.how.capitalize()} join on {self.join_cols}:"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        left_q = self.left.node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        left_q = self.left.node._to_query(partition_selector)
         if not conf.get_bool("QUERYTREE_SHORT_SQL_ENABLED"):
-            right_q = self.right.node._to_query()
+            right_q = self.right.node._to_query(partition_selector)
         else:
             right_q = Table(self._get_view_name())
 
@@ -951,7 +1032,7 @@ class WildcardJoinNode(QueryNode):
     def as_str(self, verbose: bool) -> str:
         return "Outer join (include nulls)" + (f" on {self.join_cols}:" if verbose else ":")
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -984,13 +1065,13 @@ class EntityFilterNode(QueryNode):
     def as_str(self) -> str:
         return f"Filter feature data by entities with respect to {self.entity_cols}:"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if self.dialect == Dialect.DUCKDB:
             # use query optimized for DuckDB
-            return self._to_duckdb_query()
+            return self._to_duckdb_query(partition_selector)
 
-        feature_data = self.feature_data._to_query()
-        entities = self.entities._to_query()
+        feature_data = self.feature_data._to_query(partition_selector)
+        entities = self.entities._to_query(partition_selector)
         if not conf.get_bool("ALLOW_NULL_FEATURES"):
             return Query().from_(feature_data).inner_join(entities).on_field(*self.entity_cols).select(*self.columns)
         # Doing this to allow for nulls in the join columns
@@ -1013,13 +1094,13 @@ class EntityFilterNode(QueryNode):
             .select(*[feature_data.field(col) for col in self.columns])
         )
 
-    def _to_duckdb_query(self):
+    def _to_duckdb_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         """DuckDB switches to NestedLoopJoin when the query contains some extra conditions like `field is null`.
         To work around this we pack all join keys in struct (row in DuckDB terms).
         This will make DuckDB to use hash join and allow null values.
         """
-        feature_data = self.feature_data._to_query()
-        entities = self.entities._to_query()
+        feature_data = self.feature_data._to_query(partition_selector)
+        entities = self.entities._to_query(partition_selector)
         # Doing this to allow for nulls in the join columns
         join_condition = Criterion.all(
             [
@@ -1040,6 +1121,13 @@ class EntityFilterNode(QueryNode):
     @property
     def output_schema(self):
         return self.feature_data.output_schema
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
+        # TODO(BAT-15551): Currently EntityFilterNode is only being used as a pass-through when the dialect is Pyarrow
+        # so it does not actually filter the data by entity. We should implement this in the future using .filter
+        return self.feature_data.to_arrow_reader(context, partition_selector)
 
 
 @attrs.frozen
@@ -1111,12 +1199,12 @@ class AsofJoinNode(QueryNode):
     def as_str(self) -> str:
         return f"Left asof join right, where the join condition is right.{self.right_container.effective_timestamp_field} <= left.{self.left_container.timestamp_field}"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         ASOF_JOIN_TIMESTAMP_COL_1 = "_ASOF_JOIN_TIMESTAMP_1"
         ASOF_JOIN_TIMESTAMP_COL_2 = "_ASOF_JOIN_TIMESTAMP_2"
         IS_LEFT = "IS_LEFT"
-        left_df = self.left_container.node._to_query()
-        right_df = self.right_container.node._to_query()
+        left_df = self.left_container.node._to_query(partition_selector)
+        right_df = self.right_container.node._to_query(partition_selector)
         # The left and right dataframes are unioned together and sorted using 2 columns.
         # The spine will use the spine timestamp and the features will be ordered by their
         # (effective_timestamp, feature_timestamp) because multiple features can have the same effective
@@ -1254,7 +1342,7 @@ class AsofJoinFullAggNode(QueryNode):
         view_schema = self.fdw.view_schema.to_dict()
         for feature in self.fdw.trailing_time_window_aggregation().features:
             schema[feature.output_feature_name] = get_aggregation_function_result_type(
-                feature.function, view_schema[feature.input_feature_name]
+                feature, view_schema[feature.input_feature_name]
             )
         if self.fdw.aggregation_secondary_key:
             for secondary_key_output in self.fdw.materialized_fv_spec.secondary_key_rollup_outputs:
@@ -1430,11 +1518,11 @@ class AsofJoinFullAggNode(QueryNode):
     def right_nonjoin_cols(self):
         return list(set(self.partial_agg_node.node.columns) - set(self.common_cols))
 
-    def _union_query(self) -> pypika.queries.QueryBuilder:
+    def _union_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         # Snowflake has its own implementation of asof join, and this only works for Athena, DuckDB, and Spark
         assert self.dialect in (Dialect.ATHENA, Dialect.DUCKDB, Dialect.SPARK)
-        left_df = self.spine.node._to_query()
-        right_df = self.partial_agg_node.node._to_query()
+        left_df = self.spine.node._to_query(partition_selector)
+        right_df = self.partial_agg_node.node._to_query(partition_selector)
 
         # Since the spine and feature rows are unioned together, the spine rows must be ordered after the feature rows
         # when they have the same ANCHOR_TIME for window aggregation to be correct. Window aggregation does not allow
@@ -1462,8 +1550,8 @@ class AsofJoinFullAggNode(QueryNode):
         right_df = self.func.query().from_(right_df).select(*right_full_cols)
         return left_df.union_all(right_df)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        union = self._union_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        union = self._union_query(partition_selector)
         aggregations, window_specs = self._get_aggregations(self.TECTON_WINDOW_ORDER_COL, self.join_keys)
         output_columns = (
             self.common_cols
@@ -1571,7 +1659,7 @@ class AsofJoinReducePartialAggNode(QueryNode):
 
         return Schema.from_dict(schema)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -1645,7 +1733,7 @@ class AsofSecondaryKeyExplodeNode(QueryNode):
 
         return Schema.from_dict(schema)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if self.dialect != Dialect.DUCKDB:
             raise NotImplementedError
 
@@ -1655,9 +1743,11 @@ class AsofSecondaryKeyExplodeNode(QueryNode):
             else self.fdw.wildcard_join_key
         )
 
-        spine_q = self.left._to_query()
+        spine_q = self.left._to_query(partition_selector)
         projected_features_q = (
-            self.func.query().from_(self.right._to_query()).select(secondary_key, self.right_ts, *self.fdw.join_keys)
+            self.func.query()
+            .from_(self.right._to_query(partition_selector))
+            .select(secondary_key, self.right_ts, *self.fdw.join_keys)
         )
 
         # using structs to handle null values in join keys
@@ -1765,11 +1855,11 @@ class AggregationSecondaryKeyExplodeNode(QueryNode):
     def output_schema(self) -> Optional[Schema]:
         return self.inputs[0].output_schema
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if self.dialect != Dialect.DUCKDB:
             raise NotImplementedError
 
-        input_query = self.input_node._to_query()
+        input_query = self.input_node._to_query(partition_selector)
 
         window_start: WindowFrameAnalyticFunction.Edge = (
             an.Preceding()
@@ -1856,13 +1946,7 @@ class PartialAggNode(QueryNode):
     @property
     def columns(self) -> Sequence[str]:
         cols = list(self.fdw.materialization_schema.column_names())
-        # TODO(danny): Move this logic into just the Snowflake version of this node
-        # Snowflake stores timestamp key in offline store, so it has timestamp key in materialized schema.
-        # But we are returning _ANCHOR_TIME here for partial agg node.
-        if self.dialect == Dialect.SNOWFLAKE:
-            cols = [col for col in cols if col != self.fdw.timestamp_key] + [anchor_time()]
-        # TODO(Felix) this is janky
-        if self.window_end_column_name is not None and not self.fdw.is_continuous:
+        if not self.fdw.is_continuous and self.window_end_column_name is not None:
             cols.append(self.window_end_column_name)
 
         if self.aggregation_tile_interval.total_seconds() == 0:
@@ -1872,11 +1956,6 @@ class PartialAggNode(QueryNode):
     @property
     def output_schema(self) -> Optional[Schema]:
         schema = self.fdw.materialization_schema.to_dict()
-        if self.dialect == Dialect.SNOWFLAKE:
-            # Snowflake stores timestamp key in offline store, so it has timestamp key in materialized schema.
-            # But we are returning _ANCHOR_TIME here for partial agg node.
-            schema.pop(self.fdw.timestamp_key, None)
-            schema[anchor_time()] = Int64Type()
         if self.window_end_column_name is not None and not self.fdw.is_continuous:
             schema[self.window_end_column_name] = TimestampType()
         return Schema.from_dict(schema)
@@ -1903,14 +1982,14 @@ class PartialAggNode(QueryNode):
             )
         return " ".join(actions)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        q = self.func.query().from_(self.input_node._to_query())
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        q = self.func.query().from_(self.input_node._to_query(partition_selector))
         time_aggregation = self.fdw.trailing_time_window_aggregation()
         timestamp_field = Field(time_aggregation.time_key)
 
         raw_agg_cols_and_names = self._get_partial_agg_columns_and_names()
         agg_cols = [agg_col.as_(alias) for agg_col, alias in raw_agg_cols_and_names]
-        partition_cols = [Field(join_key) for join_key in self.fdw.partial_aggregate_group_by_columns]
+        partition_cols = [Field(group_by_column) for group_by_column in self.fdw.partial_aggregate_group_by_columns]
         if not time_aggregation.is_continuous:
             slide_seconds = time_aggregation.aggregation_slide_period.seconds
             anchor_time_offset_seconds = 0
@@ -2063,8 +2142,8 @@ class AddAnchorTimeNode(QueryNode):
             f"{convert_duration_to_seconds(self.batch_schedule, self.feature_store_format_version)} seconds."
         )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         epoch_field = self.func.to_unixtime(Field(self.timestamp_field))
         epoch_field = self.func.convert_epoch_seconds_to_feature_store_format_version(
@@ -2174,9 +2253,9 @@ class AddRetrievalAnchorTimeNode(QueryNode):
                 f"{convert_duration_to_seconds(self.batch_schedule, self.feature_store_format_version)} seconds."
             )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         uid = self.input_node.name
-        input_query = self.input_node._to_query()
+        input_query = self.input_node._to_query(partition_selector)
         data_delay_seconds = self.data_delay_seconds or 0
         anchor_time_field = self.func.convert_epoch_seconds_to_feature_store_format_version(
             self.func.to_unixtime(self.func.date_add("second", -data_delay_seconds, Field(self.timestamp_field))),
@@ -2237,8 +2316,8 @@ class ConvertEpochToTimestampNode(QueryNode):
             f"Convert columns {list(self.feature_store_formats.keys())} from epoch (either seconds or ns) to timestamp."
         )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         fields = []
         for col in self.input_node.columns:
@@ -2295,7 +2374,7 @@ class AddAnchorTimeColumnsForSawtoothIntervalsNode(QueryNode):
         time_units = list(self.anchor_time_column_map.values())
         return f"Add new columns {new_columns} which truncate {self.timestamp_field} column to the start time of most recent time periods: {time_units}."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -2329,7 +2408,7 @@ class AdjustAnchorTimeToWindowEndNode(QueryNode):
     def as_str(self) -> str:
         return f"For each anchor time column ({self.anchor_time_columns}), adjust the anchor time value to represent the end of the window."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -2364,7 +2443,7 @@ class AddBooleanPartitionColumnsNode(QueryNode):
     def as_str(self) -> str:
         return f"Add columns {list(self.column_to_bool_map.keys())} containing the respective values: {list(self.column_to_bool_map.values())}."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -2377,6 +2456,7 @@ class RenameColsNode(QueryNode):
     input_node: NodeRef
     mapping: Optional[Dict[str, Union[str, List[str]]]] = attrs.field(default=None)
     drop: Optional[List[str]] = None
+    keep_original_columns_from_mapping: bool = False
 
     @mapping.validator  # type: ignore
     def check_non_null_keys(self, _, value):
@@ -2397,7 +2477,7 @@ class RenameColsNode(QueryNode):
         assert schema, self.input_node
         new_schema = {}
         for col, data_type in schema.items():
-            if self.drop and col in self.drop:
+            if self.drop and col in self.drop and not (self.mapping and col in self.mapping):
                 continue
             elif self.mapping and col in self.mapping:
                 if isinstance(self.mapping[col], list):
@@ -2405,6 +2485,9 @@ class RenameColsNode(QueryNode):
                         new_schema[new_col] = data_type
                 else:
                     new_schema[self.mapping[col]] = data_type
+
+                if self.keep_original_columns_from_mapping:
+                    new_schema[col] = data_type
             else:
                 new_schema[col] = data_type
         return Schema.from_dict(new_schema)
@@ -2424,12 +2507,12 @@ class RenameColsNode(QueryNode):
             actions.append("No columns are renamed or dropped.")
         return " ".join(actions)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         projections = []
         for col in self.input_node.columns:
-            if self.drop and col in self.drop:
+            if self.drop and col in self.drop and not (self.mapping and col in self.mapping):
                 continue
             elif self.mapping and col in self.mapping:
                 if isinstance(self.mapping[col], list):
@@ -2437,6 +2520,9 @@ class RenameColsNode(QueryNode):
                         projections.append(Field(col).as_(new_col))
                 else:
                     projections.append(Field(col).as_(self.mapping[col]))
+
+                if self.keep_original_columns_from_mapping:
+                    projections.append(Field(col).as_(col))
             else:
                 projections.append(Field(col))
         return self.func.query().with_(input_query, uid).from_(AliasedQuery(uid)).select(*projections)
@@ -2453,6 +2539,7 @@ class ExplodeTimestampByTimeWindowsNode(QueryNode):
     timestamp_field: str
     fdw: FeatureDefinitionWrapper
     time_filter: pendulum.Period
+    include_original_anchor_time: bool
     sawtooth_aggregation_data: Optional[compaction_utils.SawtoothAggregationData] = None
 
     @property
@@ -2476,8 +2563,8 @@ class ExplodeTimestampByTimeWindowsNode(QueryNode):
             for feature in self.fdw.fv_spec.aggregate_features
         ]
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        spine_df = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        spine_df = self.input_node._to_query(partition_selector)
         aliased_input = self.input_node.name
         join_keys = [Field(col) for col in self.input_node.columns if col != anchor_time()]
 
@@ -2489,10 +2576,16 @@ class ExplodeTimestampByTimeWindowsNode(QueryNode):
             if isinstance(time_window, LifetimeWindowSpec):
                 time_deltas.add(datetime.timedelta(0))
             elif isinstance(time_window, RelativeTimeWindowSpec):
-                time_deltas.update((time_window.window_start, time_window.window_end))
+                if self.include_original_anchor_time:
+                    time_deltas.update((time_window.window_start, time_window.window_end))
+                else:
+                    time_deltas.add(time_window.window_start)
             elif isinstance(time_window, TimeWindowSeriesSpec):
                 for time_window in time_window.time_windows:
-                    time_deltas.update((time_window.window_start, time_window.window_end))
+                    if self.include_original_anchor_time:
+                        time_deltas.update((time_window.window_start, time_window.window_end))
+                    else:
+                        time_deltas.add(time_window.window_start)
             else:
                 msg = f"Invalid time_window type: {type(time_window)}"
                 raise ValueError(msg)
@@ -2576,8 +2669,8 @@ class DeriveValidityPeriodNode(QueryNode):
     def as_str(self) -> str:
         return "Derive the 'valid_from' and 'valid_to' columns for each feature value."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         aliased_input = self.input_node.name
         join_keys = self.fdw.join_keys
 
@@ -2798,8 +2891,8 @@ class MergeValidityPeriodsNode(QueryNode):
     def as_str(self) -> str:
         return "Merge adjacent or overlapping periods with the same values, then trim overlapping periods."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         join_keys = self.fdw.join_keys
         features = self.fdw.fv_spec.features
 
@@ -2935,17 +3028,23 @@ class UserSpecifiedDataNode(QueryNode):
         return Schema.from_dict(schema)
 
     @property
+    def output_partitioning(self) -> "Partitioning":
+        return SinglePartition()
+
+    @property
     def inputs(self) -> Sequence[NodeRef]:
         return ()
 
     def as_str(self) -> str:
         return f"User provided data with columns {'|'.join(self.columns)}"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         t = self.data._temp_table_name
         return self.func.query().from_(Table(t)).select(*self.columns)
 
-    def to_arrow_reader(self, context: ExecutionContext) -> "pyarrow.RecordBatchReader":
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
         table = self.data.to_arrow()
         if self.row_id_column:
             table = table.append_column(
@@ -2982,7 +3081,7 @@ class DataNode(QueryNode):
     def as_str(self) -> str:
         return f"Data with columns {'|'.join(self.columns)}"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -3003,6 +3102,7 @@ class MockDataSourceScanNode(QueryNode):
     columns: Tuple[str]
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
+    skew_config: Optional[SkewConfig] = None
 
     @property
     def inputs(self) -> Sequence[NodeRef]:
@@ -3020,9 +3120,9 @@ class MockDataSourceScanNode(QueryNode):
             s += f" and filter by end time {self.end_time}"
         return s
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         uid = self.data.name
-        input_query = self.data._to_query()
+        input_query = self.data._to_query(partition_selector)
         q = self.func.query().with_(input_query, uid).from_(AliasedQuery(uid)).select("*")
         if self.start_time or self.end_time:
             timestamp_field = Field(self.ds.batch_source.timestamp_field)
@@ -3114,8 +3214,8 @@ class RespectFeatureStartTimeNode(QueryNode):
             f"by setting all feature columns for those rows to NULL"
         )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         if isinstance(self.feature_start_time, int):
             # retrieval_time_col is _anchor_time
             feature_start_time_term = self.feature_start_time
@@ -3160,8 +3260,8 @@ class RespectTTLNode(QueryNode):
     def as_str(self) -> str:
         return f"Null out any values where '{self.retrieval_time_col}' > '{self.expiration_time_col}'"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         cond = Field(self.retrieval_time_col) < Field(self.expiration_time_col)
         project_list = []
         for c in self.input_node.columns:
@@ -3194,7 +3294,7 @@ class CustomFilterNode(QueryNode):
     def inputs(self) -> Sequence[NodeRef]:
         return (self.input_node,)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -3239,14 +3339,14 @@ class FeatureTimeFilterNode(QueryNode):
             else:
                 return f"Apply time range filter such that '{self.start_timestamp_field}' < {self.feature_data_time_limits.end} and '{self.end_timestamp_field}' >= {self.feature_data_time_limits.start}"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if (
             self.policy
             == feature_view_pb2.MaterializationTimeRangePolicy.MATERIALIZATION_TIME_RANGE_POLICY_FAIL_IF_OUT_OF_RANGE
         ):
             # snowflake/athena are post-fwv4
             raise NotImplementedError
-        input_query = self.input_node._to_query()
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         time_field = Field(self.start_timestamp_field)
         where_conds = []
@@ -3254,9 +3354,9 @@ class FeatureTimeFilterNode(QueryNode):
             where_conds.append(time_field >= self.func.to_timestamp(self.feature_data_time_limits.start))
             where_conds.append(time_field < self.func.to_timestamp(self.feature_data_time_limits.end))
         else:
-            assert (
-                self.feature_store_format_version is not None
-            ), "feature_store_format_version must have a value if we are using epoch instead of timestamp format"
+            assert self.feature_store_format_version is not None, (
+                "feature_store_format_version must have a value if we are using epoch instead of timestamp format"
+            )
             where_conds.append(
                 time_field
                 >= convert_timestamp_for_version(self.feature_data_time_limits.start, self.feature_store_format_version)
@@ -3308,13 +3408,17 @@ class TrimValidityPeriodNode(QueryNode):
 
         return message
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         aliased_input = self.input_node.name
         fields = [Field(col) for col in self.columns if col not in [valid_to(), valid_from()]]
 
-        valid_to_field = Field(valid_to())
-        valid_from_field = Field(valid_from())
+        # valid_to and valid_from are in nanoseconds
+        # start/end time are TIMESTAMPTZ
+        # duckdb does not support nanoseconds with timezone (https://duckdb.org/docs/stable/sql/data_types/timestamp.html)
+        # so cast valid_to and valid_from to microseconds for the purposes of comparison.
+        valid_to_field = self.func.to_timestamp_microseconds(Field(valid_to()))
+        valid_from_field = self.func.to_timestamp_microseconds(Field(valid_from()))
         start_time = self.func.to_timestamp(self.start)
         end_time = self.func.to_timestamp(self.end)
 
@@ -3372,7 +3476,7 @@ class MetricsCollectorNode(QueryNode):
     def as_str(self) -> str:
         return "Collect metrics on features"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -3394,7 +3498,6 @@ class AddEffectiveTimestampNode(QueryNode):
         is_stream: If True, the feature view has a stream data source.
         batch_schedule_seconds: The batch materialization schedule for the feature view, in seconds.
         data_delay_seconds: The data delay for the feature view, in seconds.
-        is_temporal_aggregate: If True, the feature view is a WAFV.
     """
 
     input_node: NodeRef
@@ -3403,7 +3506,11 @@ class AddEffectiveTimestampNode(QueryNode):
     batch_schedule_seconds: int
     is_stream: bool
     data_delay_seconds: int
-    is_temporal_aggregate: bool
+
+    # TODO(PRODENG-262): Remove use_legacy_temporal_aggregate_behavior flag once ghf is deprecated
+    # use_legacy_temporal_aggregate_behavior is a flag used to preserve the behavior of deprecated function get_historical_features
+    # we have not removed get_historical_features from the SDK in order to prevent upgrade friction
+    use_legacy_temporal_aggregate_behavior: bool = False
 
     @property
     def columns(self) -> Sequence[str]:
@@ -3432,16 +3539,14 @@ class AddEffectiveTimestampNode(QueryNode):
                 result += f" Then add data_delay to the effective timestamp column where data_delay = {self.data_delay_seconds} seconds."
             return result
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         if self.batch_schedule_seconds == 0 or self.is_stream:
             effective_timestamp = Field(self.timestamp_field)
         else:
             timestamp_col = Field(self.timestamp_field)
-            # Timestamp of temporal aggregate is end of the anchor time window. Subtract 1 milli
-            # to get the correct bucket for batch schedule.
-            if self.is_temporal_aggregate:
+            if self.use_legacy_temporal_aggregate_behavior:
                 timestamp_col = self.func.date_add("millisecond", -1, timestamp_col)
             effective_timestamp = self.func.from_unixtime(
                 convert_to_effective_timestamp(
@@ -3483,8 +3588,8 @@ class AddDurationNode(QueryNode):
     def as_str(self) -> str:
         return f"Add {self.duration.in_words()} to '{self.timestamp_field}' as new column '{self.new_column_name}'"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         return (
             self.func.query()
@@ -3520,7 +3625,7 @@ class StreamWatermarkNode(QueryNode):
     def as_str(self) -> str:
         return f"Set Stream Watermark {self.stream_watermark} on the DataFrame"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -3546,8 +3651,8 @@ class SelectDistinctNode(QueryNode):
     def as_str(self) -> str:
         return f"Select distinct with columns {self.columns}."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         uid = self.input_node.name
         fields = [Field(c) for c in self.columns]
         return self.func.query().with_(input_query, uid).from_(AliasedQuery(uid)).select(*fields).distinct()
@@ -3589,7 +3694,7 @@ class ExplodeEventsByTimestampAndSelectDistinctNode(QueryNode):
     explode_columns: List[str]
     explode_columns_to_boolean_columns: Dict[str, str]
     timestamp_column: str
-    columns_to_ignore: List[str] = []
+    columns_to_ignore: Tuple[str] = attrs.field(converter=tuple, factory=tuple)
 
     @property
     def inputs(self) -> Sequence[NodeRef]:
@@ -3614,7 +3719,7 @@ class ExplodeEventsByTimestampAndSelectDistinctNode(QueryNode):
             return f"Select distinct with columns {distinct_columns}. Appending column {self.explode_columns_to_boolean_columns[self.explode_columns[0]]}."
         return f"Explode the events by {self.explode_columns} by doing a select distinct for each column. Union the results together, appending columns {list(self.explode_columns_to_boolean_columns.keys())}."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -3663,7 +3768,7 @@ class AggregationSecondaryKeyRollupNode(QueryNode):
                     continue
 
                 features[feature.output_feature_name] = ArrayType(
-                    get_aggregation_function_result_type(feature.function, view_schema[feature.input_feature_name])
+                    get_aggregation_function_result_type(feature, view_schema[feature.input_feature_name])
                 )
 
         return Schema.from_dict(
@@ -3674,7 +3779,7 @@ class AggregationSecondaryKeyRollupNode(QueryNode):
             }
         )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         """
         Group features by windows and put them into temp struct col for each distinct window. Rollup temp structs into
         a list. Filter out rows where indicator column is null (indicating no value for that time window and secondary
@@ -3707,7 +3812,7 @@ class AggregationSecondaryKeyRollupNode(QueryNode):
         if self.dialect != Dialect.DUCKDB:
             raise NotImplementedError
 
-        input_query = self.full_aggregation_node._to_query()
+        input_query = self.full_aggregation_node._to_query(partition_selector)
 
         # Group columns by windows. Each time window here maps to a list of columns:
         #  time_window -> [secondary_key, secondary_key_indicator, agg_features...]
@@ -3812,11 +3917,11 @@ class AddUniqueIdNode(QueryNode):
         schema[self.column_name] = StringType()
         return Schema.from_dict(schema)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         if self.dialect not in (Dialect.DUCKDB, Dialect.SNOWFLAKE):
             raise NotImplementedError
 
-        input_query = self.input_node._to_query()
+        input_query = self.input_node._to_query(partition_selector)
 
         row_number = RowNumber().over(NULL)
         if self.dialect == Dialect.SNOWFLAKE:
@@ -3855,11 +3960,34 @@ class PythonDataNode(QueryNode):
     def inputs(self) -> Sequence[NodeRef]:
         return ()
 
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return SinglePartition()
+
     def as_str(self):
         return "Create a dataframe/table from the provided data + columns."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        raise NotImplementedError
+    @property
+    def output_schema(self) -> Optional[Schema]:
+        return self.schema
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        # Consider replacing this with a PyArrow-based implementation, e.g., `pa.table(self.data).to_reader()`,
+        # which could simplify the code.
+        # However, this would require downstream components to handle different input dialects,
+        # and the benefits may be negligible given the expected small size of the dataset.
+        def format_val(val: Union[str, int, float, None, datetime]) -> str:
+            if val is None:
+                return None
+            if isinstance(val, datetime):
+                return f"CAST('{val.isoformat()}' AS TIMESTAMPTZ)"
+            return val
+
+        queries = [
+            Query.select(*[LiteralValue(format_val(val)).as_(col) for val, col in zip(row, self.columns)])
+            for row in self.data
+        ]
+        return reduce(lambda q1, q2: q1.union_all(q2), queries)
 
 
 @attrs.frozen
@@ -3899,8 +4027,48 @@ class InnerJoinOnRangeNode(QueryNode):
     def as_str(self) -> str:
         return f"Inner join on ({self.right_inclusive_start_column} IS null OR {self.right_inclusive_start_column} <= {self.left_join_condition_column}) AND ({self.left_join_condition_column} < {self.right_exclusive_end_column})"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        raise NotImplementedError
+    @property
+    def output_schema(self) -> Optional[Schema]:
+        schema = self.left.output_schema.to_dict()
+        right_schema = self.right.output_schema.to_dict()
+        for col, dtype in right_schema.items():
+            if col not in schema:
+                schema[col] = dtype
+        return Schema.from_dict(schema)
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        left_alias = "left_input"
+        right_alias = "right_input"
+
+        left_subquery = self.left._to_query(partition_selector)
+        right_subquery = self.right._to_query(partition_selector)
+
+        left_table = Table(left_alias)
+        right_table = Table(right_alias)
+
+        query = (
+            self.func.query()
+            .with_(left_subquery, left_alias)
+            .with_(right_subquery, right_alias)
+            .from_(left_table)
+            .join(right_table)
+        )
+
+        join_condition = Criterion.all(
+            [
+                Criterion.any(
+                    [
+                        right_table[self.right_inclusive_start_column].isnull(),
+                        left_table[self.left_join_condition_column] >= right_table[self.right_inclusive_start_column],
+                    ]
+                ),
+                left_table[self.left_join_condition_column] < right_table[self.right_exclusive_end_column],
+            ]
+        )
+
+        return query.on(join_condition).select(
+            *(left_table[col] for col in self.left.columns), *(right_table[col] for col in self.right.columns)
+        )
 
 
 @attrs.frozen
@@ -3921,6 +4089,21 @@ class OnlinePartialAggNodeV2(QueryNode):
         )
 
     @property
+    def output_schema(self) -> Optional[Schema]:
+        schema = self.input_node.output_schema.to_dict()
+        new_schema = {}
+        for col, data_type in schema.items():
+            if col in self.fdw.join_keys:
+                new_schema[col] = data_type
+        new_schema[aggregation_group_id()] = Int64Type()
+        new_schema[aggregation_tile_id()] = Int64Type()
+        for group in self.aggregation_groups:
+            col_name = f"{group.window_index}_{group.tile_index}"
+            struct_fields = [StructField(name, dtype) for name, dtype in group.schema.to_dict().items()]
+            new_schema[col_name] = StructType(struct_fields)
+        return Schema.from_dict(new_schema)
+
+    @property
     def inputs(self) -> Sequence[NodeRef]:
         return (self.input_node,)
 
@@ -3931,8 +4114,68 @@ class OnlinePartialAggNodeV2(QueryNode):
     def as_str(self) -> str:
         return "Perform partial aggregations for compacted online store format."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        raise NotImplementedError
+    def _get_feature_partial_aggregations(
+        self, aggregation_plan: AggregationPlan, feature_name: str
+    ) -> Iterator[Tuple[str, Term]]:
+        column_names = set()
+        input_columns = feature_name
+
+        for column_name, aggregated_column in zip(
+            aggregation_plan.materialized_column_names(feature_name),
+            aggregation_plan.partial_aggregation_query_terms(input_columns),
+        ):
+            if column_name in column_names:
+                continue
+            column_names.add(column_name)
+            if aggregated_column is None:
+                msg = f"Got None for aggregated_column: {column_name}"
+                raise ValueError(msg)
+            yield column_name, aggregated_column
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
+        time_key = self.fdw.trailing_time_window_aggregation().time_key
+        aggregations = []
+        for agg_group in self.aggregation_groups:
+            sub_aggs = []
+            sub_outputs = set()
+
+            for feature in agg_group.aggregate_features:
+                aggregation_plan = AGGREGATION_PLANS.get(feature.function)
+                if aggregation_plan is None:
+                    msg = f"Aggregation {get_aggregation_function_name(feature.function)} is not supported"
+                    raise ValueError(msg)
+
+                if callable(aggregation_plan):
+                    aggregation_plan = aggregation_plan(time_key, feature.function_params, self.fdw.is_continuous)
+
+                for name, expr in self._get_feature_partial_aggregations(aggregation_plan, feature.input_feature_name):
+                    if name in sub_outputs:
+                        continue
+                    sub_outputs.add(name)
+                    sub_aggs.append((name, expr))
+
+            condition = (input_query.field(aggregation_group_id()) == agg_group.window_index) & (
+                input_query.field(aggregation_tile_id()) == agg_group.tile_index
+            )
+
+            aggregations.append(
+                Case()
+                .when(condition, self.func.struct_by_name(sub_aggs))
+                .else_(None)
+                .as_(agg_group.window_tile_column_name)
+            )
+
+        group_by_cols = [
+            *self.fdw.base_partial_aggregate_group_by_columns,
+            aggregation_tile_id(),
+            aggregation_group_id(),
+        ]
+        group_by_fields = [Field(col) for col in group_by_cols]
+        final_query = (
+            self.func.query().from_(input_query).select(*group_by_fields, *aggregations).groupby(*group_by_fields)
+        )
+        return final_query
 
 
 @attrs.frozen
@@ -3964,14 +4207,60 @@ class OnlineListAggNode(QueryNode):
     def as_str(self) -> str:
         return "Collect partial aggregations for each aggregation window into a list for compacted online store format."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        raise NotImplementedError
+    @property
+    def output_schema(self) -> Optional[Schema]:
+        schema = self.input_node.output_schema.to_dict()
+        new_schema = {}
+        for col, data_type in schema.items():
+            if col in self.fdw.join_keys:
+                new_schema[col] = data_type
+        new_schema[aggregation_group_id()] = Int64Type()
+        for group in self.aggregation_groups:
+            col_name = str(group.window_index)
+            struct_fields = [StructField(name, dtype) for name, dtype in group.schema.to_dict().items()]
+            new_schema[col_name] = ArrayType(StructType(struct_fields))
+        return Schema.from_dict(new_schema)
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
+
+        group_by_cols = [*self.fdw.base_partial_aggregate_group_by_columns, aggregation_group_id()]
+        group_by_fields = [Field(col) for col in group_by_cols]
+
+        # This dictionary will map each aggregation window index to its list of agg groups.
+        agg_window_indexes_to_agg_groups = defaultdict(list)
+
+        first_agg_columns = []
+        for agg_group in self.aggregation_groups:
+            agg_window_indexes_to_agg_groups[agg_group.window_index].append(agg_group)
+            tile_col_name = agg_group.window_tile_column_name
+            tile_field = input_query.field(tile_col_name)
+            # Every row corresponds to only 1 agg id + tile id combination, and sets nulls for the other tile columns.
+            # Use MAX here so we only select non-null value for that tile.
+            first_expr = Max(tile_field).as_(tile_col_name)
+            first_agg_columns.append(first_expr)
+
+        base_query = self.func.query().from_(input_query)
+        base_query = base_query.select(*group_by_fields, *first_agg_columns).groupby(*group_by_fields)
+
+        # For each aggregation window, collapse the sorted tile columns into an array.
+        # The helper compaction_utils.get_sorted_tile_column_names(window, agg_groups)
+        # returns a list of tile column names (strings) sorted in ascending order.
+        array_agg_columns = []
+
+        for agg_window, agg_groups in agg_window_indexes_to_agg_groups.items():
+            sorted_tile_column_names = compaction_utils.get_sorted_tile_column_names(agg_window, agg_groups)
+            array_expr = self.func.list_value(sorted_tile_column_names).as_(str(agg_window))
+            array_agg_columns.append(array_expr)
+
+        return self.func.query().from_(base_query).select(*group_by_fields, *array_agg_columns)
 
 
 @attrs.frozen
 class ConvertTimestampToUTCNode(QueryNode):
     input_node: NodeRef
     timestamp_key: str
+    batch_publish_timestamp: Optional[str] = None  # optionally set for Materialized Feature Views only
 
     @property
     def columns(self) -> Tuple[str, ...]:
@@ -3982,27 +4271,36 @@ class ConvertTimestampToUTCNode(QueryNode):
         return (self.input_node,)
 
     def as_str(self) -> str:
-        return f"Convert '{self.timestamp_key}' to UTC"
+        columns_to_convert = [self.timestamp_key]
+        if self.batch_publish_timestamp is not None:
+            columns_to_convert.append(self.batch_publish_timestamp)
+        columns_to_convert_str = ", ".join(columns_to_convert)
+        return f"Convert '{columns_to_convert_str}' to UTC"
 
     @property
     def output_schema(self) -> Optional[Schema]:
         return self.input_node.output_schema
 
-    def _to_query(self) -> pypika.Query:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.Query:
         if self.dialect == Dialect.DUCKDB:
             columns = [c for c in self.columns if c != self.timestamp_key]
             fields = [pypika.Field(c) for c in columns]
-            timestamp_utc = self.func.to_utc(pypika.Field(self.timestamp_key)).as_(self.timestamp_key)
+
+            timestamps_utc = [self.func.to_utc(pypika.Field(self.timestamp_key)).as_(self.timestamp_key)]
+            if self.batch_publish_timestamp is not None:
+                timestamps_utc.append(
+                    self.func.to_utc(pypika.Field(self.batch_publish_timestamp)).as_(self.batch_publish_timestamp)
+                )
             return (
                 pypika.Query()
-                .from_(self.input_node._to_query())
+                .from_(self.input_node._to_query(partition_selector))
                 .select(
                     *fields,
-                    timestamp_utc,
+                    *timestamps_utc,
                 )
             )
         else:
-            return self.input_node._to_query()
+            return self.input_node._to_query(partition_selector)
 
     @staticmethod
     def for_feature_definition(
@@ -4013,6 +4311,7 @@ class ConvertTimestampToUTCNode(QueryNode):
             compute_mode=compute_mode,
             input_node=input_node,
             timestamp_key=fd.timestamp_key,
+            batch_publish_timestamp=fd.batch_publish_timestamp,
         ).as_ref()
 
 
@@ -4082,8 +4381,8 @@ class TakeLastRowNode(QueryNode):
             f"Take last row, partition by ({self.partition_by_columns}), order by ({self.order_by_column}) descending"
         )
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        input_query = self.input_node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
         aliased_input = self.input_node.name
         fields = [Field(col) for col in self.columns]
 
@@ -4147,8 +4446,44 @@ class TemporalBatchTableFormatNode(QueryNode):
     def as_str(self) -> str:
         return "Convert row to the temporal batch table format"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        raise NotImplementedError
+    @property
+    def output_schema(self):
+        schema = self.input_node.output_schema.to_dict()
+        new_schema = {}
+        for col, data_type in schema.items():
+            if col in self.fdw.join_keys:
+                new_schema[col] = data_type
+        new_schema[aggregation_group_id()] = Int64Type()
+
+        struct_fields = [
+            StructField(name, dtype)
+            for name, dtype in schema.items()
+            if name not in self.fdw.join_keys and name != self.fdw.timestamp_key
+        ]
+        new_schema[str(self.online_batch_table_part.window_index)] = ArrayType(StructType(struct_fields))
+        return Schema.from_dict(new_schema)
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
+        aliased_input = self.input_node.name
+
+        q = self.func.query().with_(input_query, aliased_input)
+
+        join_key_fields = [Field(col) for col in self.fdw.join_keys]
+
+        window_index = self.online_batch_table_part.window_index
+        window_index_expr = Cast(window_index, "bigint").as_(aggregation_group_id())
+
+        schema_columns = self.online_batch_table_part.schema.column_names()
+        keys = [f"{col}" for col in schema_columns]
+        # array of structs
+        array_expr = self.func.array_value(self.func.struct(keys)).as_(str(window_index))
+
+        return q.from_(AliasedQuery(aliased_input)).select(
+            *join_key_fields,
+            window_index_expr,
+            array_expr,
+        )
 
 
 @attrs.frozen
@@ -4210,7 +4545,7 @@ class AsofJoinSawtoothAggNode(QueryNode):
         view_schema = self.fdw.view_schema.to_dict()
         for feature in self.fdw.trailing_time_window_aggregation().features:
             schema[feature.output_feature_name] = get_aggregation_function_result_type(
-                feature.function, view_schema[feature.input_feature_name]
+                feature, view_schema[feature.input_feature_name]
             )
         if self.fdw.aggregation_secondary_key:
             for secondary_key_output in self.fdw.materialized_fv_spec.secondary_key_rollup_outputs:
@@ -4226,7 +4561,7 @@ class AsofJoinSawtoothAggNode(QueryNode):
         # TODO(samantha): make this more descriptive.
         return "Compute sawtooth aggregations."
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
 
 
@@ -4267,5 +4602,63 @@ class UnionNode(QueryNode):
     def as_str(self) -> str:
         return "Perform a union on the inputs"
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
         raise NotImplementedError
+
+
+@attrs.frozen
+class AddPartitionColumn(QueryNode):
+    input_node: NodeRef
+    partition_output_column: str
+    partition_by_column: str
+    partition_expr: Callable[[pypika.Field], Term]
+
+    @property
+    def output_schema(self) -> Optional[Schema]:
+        # partition_column is intentionally not added to the schema,
+        # since it's a one-off column and it should not be propagated further in the query tree.
+        # This column will be picked up by the repartitioner and then should be discarded.
+        # There's implicit assumption that AddPartitionColumn is always before StagingNode, which triggers repartitioning.
+        schema = self.input_node.output_schema.to_dict()
+        schema[self.partition_output_column] = Int64Type()
+        return Schema.from_dict(schema)
+
+    @property
+    def columns(self):
+        return self.output_schema.column_names()
+
+    @property
+    def inputs(self) -> Sequence[NodeRef]:
+        return (self.input_node,)
+
+    def as_str(self) -> str:
+        return f"Add column {self.partition_output_column} with new partition number"
+
+    def _to_query(self, partition_selector: Optional["PartitionSelector"] = None) -> pypika.queries.QueryBuilder:
+        input_query = self.input_node._to_query(partition_selector)
+        aliased_input = self.input_node.name
+        aliased_query = AliasedQuery(aliased_input)
+
+        return (
+            self.func.query()
+            .with_(input_query, aliased_input)
+            .from_(aliased_query)
+            .select(
+                "*",
+                self.partition_expr(aliased_query.field(self.partition_by_column)).as_(self.partition_output_column),
+            )
+        )
+
+
+@attrs.frozen
+class AsofBitemporalJoinFullAggNode(AsofJoinFullAggNode):
+    """
+    AsofBitemporalJoinFullAggNode is used only to handle late-arriving data (batch_publish_timestamp is not null) where simulate_events_published_on_time=False.
+    """
+
+    def _to_query(self, partition_selector: Optional["PartitionSelector"] = None) -> pypika.queries.QueryBuilder:
+        # TODO(BAT-15409): Implement in order to unlock late arriving data on rift
+        pass
+
+    def as_str(self) -> str:
+        return "Events asof join partial aggregates, where the join condition is partial_aggregates._anchor_time <= events._anchor_time and partial_aggregates._effective_timestamp <= events.timestamp_key. Partial aggregates are rolled up to compute full aggregates"

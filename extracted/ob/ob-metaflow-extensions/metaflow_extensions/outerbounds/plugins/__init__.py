@@ -338,7 +338,7 @@ STEP_DECORATORS_DESC = [
     ("nim", ".nim.nim_decorator.NimDecorator"),
     ("ollama", ".ollama.OllamaDecorator"),
     ("vllm", ".vllm.VLLMDecorator"),
-    ("app_deploy", ".apps.deploy_decorator.WorkstationAppDeployDecorator"),
+    ("app_deploy", ".apps.app_deploy_decorator.AppDeployDecorator"),
 ]
 
 TOGGLE_STEP_DECORATOR = [

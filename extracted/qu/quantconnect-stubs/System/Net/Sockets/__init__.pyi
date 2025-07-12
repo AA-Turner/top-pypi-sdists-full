@@ -122,6 +122,11 @@ class SocketException(System.ComponentModel.Win32Exception):
         ...
 
     @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the System.Net.Sockets.SocketException class with the default error code."""
+        ...
+
+    @overload
     def __init__(self, error_code: int) -> None:
         """Creates a new instance of the System.Net.Sockets.SocketException class with the specified error code."""
         ...
@@ -129,11 +134,6 @@ class SocketException(System.ComponentModel.Win32Exception):
     @overload
     def __init__(self, error_code: int, message: str) -> None:
         """Initializes a new instance of the System.Net.Sockets.SocketException class with the specified error code and optional message."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the System.Net.Sockets.SocketException class with the default error code."""
         ...
 
     @overload

@@ -19,6 +19,7 @@ from tecton_core.query.nodes import AddUniqueIdNode
 from tecton_core.query.nodes import AdjustAnchorTimeToWindowEndNode
 from tecton_core.query.nodes import AggregationSecondaryKeyExplodeNode
 from tecton_core.query.nodes import AggregationSecondaryKeyRollupNode
+from tecton_core.query.nodes import AsofBitemporalJoinFullAggNode
 from tecton_core.query.nodes import AsofJoinFullAggNode
 from tecton_core.query.nodes import AsofJoinInputContainer
 from tecton_core.query.nodes import AsofJoinNode
@@ -212,6 +213,7 @@ def _spark_convert(node_ref: NodeRef) -> SparkExecNode:
         AsofJoinReducePartialAggNode: join.AsofJoinReducePartialAggSparkNode,
         UnionNode: join.UnionSparkNode,
         MultiRtfvFeatureExtractionNode: projection.MultiRtfvFeatureExtractionSparkNode,
+        AsofBitemporalJoinFullAggNode: join.AsofBitemporalJoinFullAggSparkNode,
     }
 
     if logical_tree_node.__class__ in node_mapping:

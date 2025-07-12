@@ -9,33 +9,6 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Forex
 
 
-class ForexExchange(QuantConnect.Securities.SecurityExchange):
-    """Forex exchange class - information and helper tools for forex exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using market hours
-        derived from the market-hours-database for the FXCM Forex market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
 class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """FOREX Security Object Implementation for FOREX Assets"""
 
@@ -121,6 +94,33 @@ class ForexDataFilter(QuantConnect.Securities.SecurityDataFilter):
         
         :param vehicle: Security asset
         :param data: Data object we're scanning to filter
+        """
+        ...
+
+
+class ForexExchange(QuantConnect.Securities.SecurityExchange):
+    """Forex exchange class - information and helper tools for forex exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using market hours
+        derived from the market-hours-database for the FXCM Forex market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mapclassify
-Version: 2.9.0
+Version: 2.10.0
 Summary: Classification Schemes for Choropleth Maps.
 Maintainer-email: Serge Rey <sjsrey@gmail.com>, Wei Kang <weikang9009@gmail.com>
 License: BSD 3-Clause
@@ -53,7 +53,6 @@ Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
 Requires-Dist: pytest-doctestplus; extra == "tests"
-Requires-Dist: pytest-mpl; extra == "tests"
 Provides-Extra: all
 Requires-Dist: mapclassify[dev,docs,notebooks,speedups,tests]; extra == "all"
 Dynamic: license-file

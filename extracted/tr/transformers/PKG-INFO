@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: transformers
-Version: 4.53.1
+Version: 4.53.2
 Summary: State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)

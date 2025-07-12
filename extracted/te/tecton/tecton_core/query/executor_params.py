@@ -4,6 +4,7 @@ from typing import Optional
 
 import attrs
 
+from tecton_core.duckdb_factory import DuckDBConfig
 from tecton_core.embeddings.model_artifacts import ModelArtifactProvider
 from tecton_core.offline_store import OfflineStoreOptionsProvider
 from tecton_core.secret_management import SecretResolver
@@ -28,6 +29,8 @@ class QueryTreeStep(Enum):
     AGGREGATION = 4
     # Runs on-demand transformations.
     ODFV = 5
+    # Scans the offline store node.
+    OFFLINE_STORE = 6
 
 
 @attrs.frozen
@@ -35,3 +38,4 @@ class ExecutionContext:
     offline_store_options_providers: Iterable[OfflineStoreOptionsProvider]
     secret_resolver: Optional[SecretResolver] = None
     model_artifact_provider: Optional[ModelArtifactProvider] = None
+    duckdb_config: Optional[DuckDBConfig] = None

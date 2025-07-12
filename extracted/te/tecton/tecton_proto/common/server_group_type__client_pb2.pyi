@@ -4,6 +4,7 @@ from typing import ClassVar as _ClassVar
 
 DESCRIPTOR: _descriptor.FileDescriptor
 SERVER_GROUP_TYPE_FEATURE_SERVER_GROUP: ServerGroupType
+SERVER_GROUP_TYPE_INGEST_SERVER_GROUP: ServerGroupType
 SERVER_GROUP_TYPE_TRANSFORM_SERVER_GROUP: ServerGroupType
 SERVER_GROUP_TYPE_UNSPECIFIED: ServerGroupType
 

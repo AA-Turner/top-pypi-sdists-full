@@ -17,6 +17,7 @@ MISSING_DATA: Status
 PRESENT: Status
 REDIS_LATENCY_LIMIT_EXCEEDED: SloIneligibilityReason
 REDIS_RESPONSE_SIZE_LIMIT_EXCEEDED: SloIneligibilityReason
+TIME_OUT: Status
 UNKNOWN: SloIneligibilityReason
 UNKNOWN_STATUS: Status
 WILDCARD: FeatureServiceType

@@ -9,6 +9,7 @@ import ray
 from tecton_core import offline_store
 from tecton_core.compute_mode import ComputeMode
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
+from tecton_core.query.builder import build_compaction_query
 from tecton_core.query.builder import build_materialization_querytree
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.node_interface import NodeRef
@@ -18,12 +19,11 @@ from tecton_materialization.common.task_params import feature_definition_from_ta
 from tecton_materialization.common.task_params import job_query_intervals
 from tecton_materialization.ray.bulk_backfill import get_bootstrap_bulk_backfill_qt
 from tecton_materialization.ray.job_status import JobStatusClient
-from tecton_materialization.ray.materialization_utils import get_delta_writer_for_fd
+from tecton_materialization.ray.materialization_utils import get_writer_for_fd
 from tecton_materialization.ray.materialization_utils import update_status_table
 from tecton_materialization.ray.materialization_utils import write_to_online_store
 from tecton_materialization.ray.nodes import AddTimePartitionNode
 from tecton_proto.data.feature_view__client_pb2 import FeatureView
-from tecton_proto.materialization.job_metadata__client_pb2 import TectonManagedStage
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
 from tecton_proto.offlinestore.delta import metadata__client_pb2 as metadata_pb2
 
@@ -63,6 +63,7 @@ def run_batch_materialization(
                     materialization_task_params=materialization_task_params,
                     job_status_client=job_status_client,
                     executor=executor,
+                    show_interval_in_stage=len(intervals) > 1,
                 )
 
     # For Bulk Backfill, we need to export data from offline store to the intermediate store here. And then we have a
@@ -74,13 +75,30 @@ def run_batch_materialization(
     )
     if should_write_to_online_from_offline_store:
         fd = feature_definition_from_task_params(materialization_task_params)
-        qt = get_bootstrap_bulk_backfill_qt(
-            fd, batch_params.feature_start_time.ToDatetime(), batch_params.feature_end_time.ToDatetime()
+        if fd.compaction_enabled:
+            qt_prep_stage_monitor = job_status_client.create_stage_monitor(
+                "Prepare compaction query tree",
+            )
+            with qt_prep_stage_monitor():
+                qt = build_compaction_query(
+                    Dialect.DUCKDB, ComputeMode.RIFT, fd, batch_params.feature_end_time.ToDatetime()
+                )
+        else:
+            qt_prep_stage_monitor = job_status_client.create_stage_monitor(
+                "Prepare bulk backfill query tree",
+            )
+            with qt_prep_stage_monitor():
+                qt = get_bootstrap_bulk_backfill_qt(
+                    fd, batch_params.feature_start_time.ToDatetime(), batch_params.feature_end_time.ToDatetime()
+                )
+
+        qt_monitor = job_status_client.create_stage_monitor(
+            "Execute query tree",
         )
-        bulk_backfill_data = executor.exec_qt(qt).result_table
+        with qt_monitor():
+            bulk_backfill_data = executor.exec_qt(qt).result_table
 
         bulk_backfill_stage_monitor = job_status_client.create_stage_monitor(
-            TectonManagedStage.StageType.BULK_LOAD,
             "Upload Backfill data to the intermediate Bulk Load store",
         )
         with bulk_backfill_stage_monitor():
@@ -90,12 +108,12 @@ def run_batch_materialization(
                 materialization_task_params.feature_view,
             )
 
-        update_status_table(
-            materialization_task_params.online_store_writer_config,
-            materialization_task_params.feature_view,
-            fd,
-            materialization_task_params.batch_task_info.batch_parameters.feature_end_time,
-        )
+            update_status_table(
+                materialization_task_params.online_store_writer_config,
+                materialization_task_params.feature_view,
+                fd,
+                materialization_task_params.batch_task_info.batch_parameters.feature_end_time,
+            )
 
 
 def output_arrow_data_as_json(bulk_backfill_data: pyarrow.RecordBatchReader, output_path: str, fv: FeatureView):
@@ -147,10 +165,13 @@ def _calculate_materialized_data(
 
     # Sorting rows withing batches helps improve writing parquet files: fewer partitions are written in parallel.
     # Also, secondary sorting by join keys can improve reading performance (if filter by join key will be pushed down to arrow reader).
-    return sort_rows_in_batches(
-        materialized_data,
-        by=[(offline_store.TIME_PARTITION, PYARROW_ASC), *[(key, PYARROW_ASC) for key in fd.join_keys]],
-    )
+    if fd.has_delta_offline_store:
+        return sort_rows_in_batches(
+            materialized_data,
+            by=[(offline_store.TIME_PARTITION, PYARROW_ASC), *[(key, PYARROW_ASC) for key in fd.join_keys]],
+        )
+    else:
+        return materialized_data
 
 
 def materialize_interval(
@@ -158,10 +179,13 @@ def materialize_interval(
     materialization_task_params: MaterializationTaskParams,
     job_status_client: JobStatusClient,
     executor: QueryTreeExecutor,
+    show_interval_in_stage: bool = False,
 ):
     fd = feature_definition_from_task_params(materialization_task_params)
     assert fd.writes_to_offline_store, f"Offline materialization is required for FeatureView {fd.id} ({fd.name})"
-    assert fd.has_delta_offline_store, f"Delta is required for FeatureView {fd.id} ({fd.name})"
+    assert fd.has_delta_offline_store or fd.has_iceberg_offline_store, (
+        f"Delta or Iceberg table format config is required for FeatureView {fd.id} ({fd.name})"
+    )
 
     batch_params = materialization_task_params.batch_task_info.batch_parameters
     should_write_to_online_store_from_source = (
@@ -170,41 +194,49 @@ def materialize_interval(
 
     is_overwrite = materialization_task_params.batch_task_info.batch_parameters.is_overwrite
 
-    delta_writer = get_delta_writer_for_fd(materialization_task_params)
+    writer = get_writer_for_fd(materialization_task_params)
     parts = None
+    interval_suffix = f" for interval {interval.start} - {interval.end}" if show_interval_in_stage else ""
 
     transaction_metadata = metadata_pb2.TectonDeltaMetadata()
     transaction_metadata.feature_start_time.FromDatetime(interval.start)
-    transaction_exists = delta_writer.transaction_exists(transaction_metadata)
+    transaction_exists = writer.transaction_exists(transaction_metadata)
     if not is_overwrite and transaction_exists:
         offline_stage_monitor = job_status_client.create_stage_monitor(
-            TectonManagedStage.StageType.OFFLINE_STORE,
             f"Skipping writing to offline store. Found previous commit in range {interval.start} - {interval.end}",
         )
         with offline_stage_monitor():
             logger.info(
-                f"Found previous commit with metadata {transaction_metadata} for data in range {interval.start} - {interval.end}. Skipping writing to delta table."
+                f"Found previous commit with metadata {transaction_metadata} for data in range {interval.start} - {interval.end}. Skipping writing to offline table."
             )
     else:
 
-        @delta_writer.transaction(transaction_metadata)
+        @writer.transaction(transaction_metadata)
         def txn() -> List[str]:
             if is_overwrite:
-                delta_writer.delete_time_range(interval)
-            materialized_data = _calculate_materialized_data(executor, fd, interval)
-            offline_stage_monitor = job_status_client.create_stage_monitor(
-                TectonManagedStage.StageType.OFFLINE_STORE,
-                "Unload features to offline store",
+                overwrite_monitor = job_status_client.create_stage_monitor(
+                    f"Delete previous interval {interval.start} - {interval.end}",
+                )
+                with overwrite_monitor():
+                    writer.delete_time_range(interval)
+
+            qt_monitor = job_status_client.create_stage_monitor(
+                f"Prepare and execute query tree{interval_suffix}",
             )
-            with offline_stage_monitor():
-                return delta_writer.write(materialized_data)
+            with qt_monitor():
+                materialized_data = _calculate_materialized_data(executor, fd, interval)
+
+            upload_monitor = job_status_client.create_stage_monitor(
+                f"Write features to offline store{interval_suffix}",
+            )
+            with upload_monitor():
+                return writer.write(materialized_data)
 
         parts = txn()
 
     if should_write_to_online_store_from_source:
         online_stage_monitor = job_status_client.create_stage_monitor(
-            TectonManagedStage.StageType.ONLINE_STORE,
-            "Unload features to online store",
+            f"Write features to online store{interval_suffix}",
         )
         with online_stage_monitor(), contextlib.ExitStack() as stack:
             if parts is None:
@@ -213,8 +245,8 @@ def materialize_interval(
                 # the files when we're done with them.
                 materialized_data = _calculate_materialized_data(executor, fd, interval)
 
-                parts = delta_writer.write(materialized_data)
-                stack.callback(delta_writer.abort)
+                parts = writer.write(materialized_data)
+                stack.callback(writer.abort)
 
             # TODO(meastham): Probably should send these all at once to the online store copier
             for uri in parts:
@@ -235,7 +267,11 @@ def _get_batch_materialization_plan(fd: FeatureDefinitionWrapper, interval: Time
         for_stream=False,
         feature_data_time_limits=interval.to_pendulum(),
     )
-    return AddTimePartitionNode.for_feature_definition(fd, tree)
+    if fd.has_iceberg_offline_store:
+        # we don't need the time partition in the iceberg offline store setup
+        return tree
+    else:
+        return AddTimePartitionNode.for_feature_definition(fd, tree)
 
 
 def sort_rows_in_batches(reader: pyarrow.RecordBatchReader, by: List[Tuple[str, str]]) -> pyarrow.RecordBatchReader:

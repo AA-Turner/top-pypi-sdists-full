@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-networkx
-Version: 3.5.0.20250709
+Version: 3.5.0.20250712
 Summary: Typing stubs for networkx
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -38,7 +38,7 @@ directory.
 
 This package was tested with
 mypy 1.16.1,
-pyright 1.1.400,
+pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`07a59e924fd19fa6de45636498b8ca90649b996e`](https://github.com/python/typeshed/commit/07a59e924fd19fa6de45636498b8ca90649b996e).
+[`18804902895eac182d3f0c244d274bcaf00fc04f`](https://github.com/python/typeshed/commit/18804902895eac182d3f0c244d274bcaf00fc04f).

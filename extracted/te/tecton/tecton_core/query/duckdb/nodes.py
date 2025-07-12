@@ -1,9 +1,19 @@
+import datetime
+import random
+from functools import reduce
+from operator import and_
 from typing import Dict
+from typing import Iterable
+from typing import Iterator
 from typing import List
+from typing import Optional
+from typing import Sequence
 from typing import Tuple
 from typing import Union
 
 import attrs
+import pyarrow
+import pyarrow.compute as pc
 import pypika
 from pypika import AliasedQuery
 from pypika import JoinType
@@ -19,7 +29,10 @@ from pypika.terms import Function
 from pypika.terms import LiteralValue
 from pypika.terms import Term
 
+from tecton_core import conf
+from tecton_core import tecton_pendulum as pendulum
 from tecton_core.aggregation_utils import QueryWindowSpec
+from tecton_core.aggregation_utils import get_aggregation_function_intermediate_type
 from tecton_core.aggregation_utils import get_aggregation_function_result_type
 from tecton_core.data_types import ArrayType
 from tecton_core.data_types import DataType
@@ -28,10 +41,25 @@ from tecton_core.data_types import Float64Type
 from tecton_core.data_types import Int32Type
 from tecton_core.data_types import Int64Type
 from tecton_core.data_types import StringType
+from tecton_core.offline_store import DeltaReader
+from tecton_core.offline_store import JoinKeyBoundaries
+from tecton_core.offline_store import OfflineStoreOptionsProvider
+from tecton_core.offline_store import OfflineStoreReaderParams
+from tecton_core.offline_store import get_s3_options_for_fd
 from tecton_core.query import nodes
 from tecton_core.query.aggregation_plans import AGGREGATION_PLANS
+from tecton_core.query.aggregation_plans import AggregationPlan
 from tecton_core.query.aggregation_plans import FilterAggregationInput
+from tecton_core.query.executor_params import ExecutionContext
+from tecton_core.query.node_interface import JoinKeyHashPartitioning
+from tecton_core.query.node_interface import JoinKeyRangePartitioning
+from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import Partitioning
+from tecton_core.query.node_interface import PartitionSelector
 from tecton_core.query.node_interface import QueryNode
+from tecton_core.query.node_interface import SinglePartition
+from tecton_core.query.nodes import OfflineStoreScanNode
+from tecton_core.query.sql_compat import CustomQuery
 from tecton_core.query.sql_compat import DuckDBComparatorExtension
 from tecton_core.query.sql_compat import DuckDBTupleTerm
 from tecton_core.query_consts import anchor_time
@@ -94,6 +122,13 @@ class TableFunction(Term):
 
 @attrs.frozen
 class PartialAggDuckDBNode(nodes.PartialAggNode):
+    @property
+    def columns(self) -> Sequence[str]:
+        cols = list(self.fdw.materialization_schema.column_names())
+        if not self.fdw.is_continuous and self.window_end_column_name is not None:
+            cols.append(self.window_end_column_name)
+        return cols
+
     @classmethod
     def from_query_node(cls, query_node: nodes.PartialAggNode) -> QueryNode:
         return cls(
@@ -132,6 +167,38 @@ class PartialAggDuckDBNode(nodes.PartialAggNode):
 
 
 @attrs.frozen
+class OnlinePartialAggNodeV2DuckDBNode(nodes.OnlinePartialAggNodeV2):
+    @classmethod
+    def from_query_node(cls, query_node: nodes.OnlinePartialAggNodeV2) -> QueryNode:
+        return cls(
+            dialect=query_node.dialect,
+            compute_mode=query_node.compute_mode,
+            input_node=query_node.input_node,
+            fdw=query_node.fdw,
+            aggregation_groups=query_node.aggregation_groups,
+        )
+
+    def _get_feature_partial_aggregations(
+        self, aggregation_plan: AggregationPlan, feature_name: str
+    ) -> Iterator[Tuple[str, Term]]:
+        """
+        Primarily overwritten to do additional type casts to make DuckDB's post-aggregation types consistent with Spark
+
+        The two main cases:
+        - Integer SUMs: DuckDB will automatically convert all integer SUMs to cast to DuckDB INT128's, regardless
+        of its original type. Note that when copying this out into parquet, DuckDB will convert these to doubles.
+        - Averages: DuckDB will always widen the precision to doubles
+
+        Spark, in contrast, maintains the same type for both of these cases
+        """
+        schema = self.fdw.materialization_schema.to_dict()
+        for name, column in super()._get_feature_partial_aggregations(aggregation_plan, feature_name):
+            data_type = schema[name]
+            sql_type = _data_type_to_duckdb_type(data_type)
+            yield name, Cast(column, sql_type)
+
+
+@attrs.frozen
 class AsofJoinFullAggNodeDuckDBNode(nodes.AsofJoinFullAggNode):
     @classmethod
     def from_query_node(cls, query_node: nodes.AsofJoinFullAggNode) -> QueryNode:
@@ -166,12 +233,13 @@ class AsofJoinFullAggNodeDuckDBNode(nodes.AsofJoinFullAggNode):
 
         for feature in features:
             input_type = view_schema[feature.input_feature_name]
-            result_type = get_aggregation_function_result_type(feature.function, input_type)
+            result_type = get_aggregation_function_result_type(feature, input_type)
             window_spec = create_time_window_spec_from_data_proto(feature.time_window)
             if isinstance(window_spec, TimeWindowSeriesSpec):
+                intermediate_type = get_aggregation_function_intermediate_type(feature, input_type)
                 for relative_time_window in window_spec.time_windows:
                     output_columns.append(
-                        (feature.output_feature_name + "_" + relative_time_window.to_string(), result_type)
+                        (feature.output_feature_name + "_" + relative_time_window.to_string(), intermediate_type)
                     )
             else:
                 output_columns.append((feature.output_feature_name, result_type))
@@ -179,9 +247,9 @@ class AsofJoinFullAggNodeDuckDBNode(nodes.AsofJoinFullAggNode):
         for column_name in secondary_key_indicators:
             output_columns.append((column_name, Int64Type()))
 
-        assert len(aggregations) == len(
-            output_columns
-        ), "List of aggregations and list of output columns must have the same length"
+        assert len(aggregations) == len(output_columns), (
+            "List of aggregations and list of output columns must have the same length"
+        )
         return [
             Cast(aggregation.as_(None), _data_type_to_duckdb_type(tecton_type)).as_(column_name)
             for aggregation, (column_name, tecton_type) in zip(aggregations, output_columns)
@@ -254,7 +322,7 @@ class AsofJoinFullAggDuckDBNodeV2(nodes.AsofJoinFullAggNode):
 
             aggregations.append(aggregation_plan.full_aggregation_with_filter_query_term(names, filter_))
             input_type = view_schema[feature.input_feature_name]
-            result_type = get_aggregation_function_result_type(feature.function, input_type)
+            result_type = get_aggregation_function_result_type(feature, input_type)
             output_columns.append((feature.output_feature_name, result_type))
 
         if self.fdw.aggregation_secondary_key:
@@ -270,15 +338,15 @@ class AsofJoinFullAggDuckDBNodeV2(nodes.AsofJoinFullAggNode):
                 )
                 output_columns.append((indicator_column, Int64Type()))
 
-        assert len(aggregations) == len(
-            output_columns
-        ), "List of aggregations and list of output columns must have the same length"
+        assert len(aggregations) == len(output_columns), (
+            "List of aggregations and list of output columns must have the same length"
+        )
         return [
             Cast(aggregation, _data_type_to_duckdb_type(tecton_type)).as_(column_name)
             for aggregation, (column_name, tecton_type) in zip(aggregations, output_columns)
         ]
 
-    def _to_query(self) -> QueryBuilder:
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> QueryBuilder:
         """
         DuckDB-optimized query for Full Aggregation calculation.
         It's based on (1) JOINs instead of UNION and (2) FILTERing aggregation input instead of WINDOWing
@@ -302,7 +370,7 @@ class AsofJoinFullAggDuckDBNodeV2(nodes.AsofJoinFullAggNode):
                 AS sum_impression_offset_2d_7d
         """
         join_keys = self.fdw.join_keys
-        feature_sub_query = self.partial_agg_node._to_query()
+        feature_sub_query = self.partial_agg_node._to_query(partition_selector)
 
         if self.fdw.aggregation_secondary_key:
             join_keys += [self.fdw.aggregation_secondary_key]
@@ -331,7 +399,7 @@ class AsofJoinFullAggDuckDBNodeV2(nodes.AsofJoinFullAggNode):
 
         return (
             self.func.query()
-            .with_(self.spine.node._to_query(), spine_alias)
+            .with_(self.spine.node._to_query(partition_selector), spine_alias)
             .with_(feature_sub_query, features_alias)
             .from_(spine_q)
             .left_join(features_q)
@@ -364,9 +432,9 @@ class AsofJoinDuckDBNode(nodes.AsofJoinNode):
         del kwargs["node_id"]
         return cls(**kwargs)
 
-    def _to_query(self) -> pypika.queries.QueryBuilder:
-        left_df = self.left_container.node._to_query()
-        right_df = self.right_container.node._to_query()
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        left_df = self.left_container.node._to_query(partition_selector)
+        right_df = self.right_container.node._to_query(partition_selector)
         right_name = self.right_container.node.name
         left_cols = list(self.left_container.node.columns)
         right_none_join_cols = [col for col in self.right_container.node.columns if col not in self.join_cols]
@@ -399,3 +467,246 @@ class AsofJoinDuckDBNode(nodes.AsofJoinNode):
         )
 
         return res
+
+
+@attrs.frozen
+class IcebergOfflineStoreScanNode(OfflineStoreScanNode):
+    offline_store_options_providers: Optional[Iterable[OfflineStoreOptionsProvider]] = None
+
+    @classmethod
+    def from_query_node(
+        cls,
+        query_node: QueryNode,
+        offline_store_options_providers: Optional[Iterable[OfflineStoreOptionsProvider]] = None,
+    ) -> "IcebergOfflineStoreScanNode":
+        kwargs = attrs.asdict(query_node, recurse=False)
+        kwargs["offline_store_options_providers"] = offline_store_options_providers
+        kwargs["entity_filter"] = None
+        del kwargs["node_id"]
+        return cls(**kwargs)
+
+    @property
+    def output_partitioning(self) -> "Partitioning":
+        return JoinKeyHashPartitioning(
+            join_keys=self.feature_definition_wrapper.join_keys[:1],
+            buckets=self.feature_definition_wrapper.offline_store_config.iceberg.num_entity_buckets,
+        )
+
+    @property
+    def inputs(self) -> Sequence[NodeRef]:
+        return []  # entity filter is not supported
+
+    def _to_query(self, partition_selector: Optional[PartitionSelector] = None) -> pypika.queries.QueryBuilder:
+        from tecton_core.offline_store import IcebergReader
+
+        s3_options = None
+        if (
+            self.feature_definition_wrapper.materialized_data_path.startswith("s3")
+            and self.offline_store_options_providers
+        ):
+            s3_options = get_s3_options_for_fd(self.feature_definition_wrapper, self.offline_store_options_providers)
+
+        reader = IcebergReader(fdw=self.feature_definition_wrapper, s3_options=s3_options)
+        files = reader.get_files_to_read(
+            time_limits=self.partition_time_filter,
+            join_keys_buckets=partition_selector.partition_indexes if partition_selector else None,
+        )
+        if not files:
+            # loose filtering to get at least some files
+            files = reader.get_files_to_read()
+            # read with LIMIT 0 to emulate empty table and provide DuckDB with a correct schema
+            query = f"SELECT * FROM read_parquet('{files[0]}') LIMIT 0"
+            return CustomQuery(query)
+
+        query = f"SELECT * FROM read_parquet({files})"
+        q = CustomQuery(query)
+        return q
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
+        from tecton_core.offline_store import IcebergReader
+
+        s3_options = None
+        if (
+            self.feature_definition_wrapper.materialized_data_path.startswith("s3")
+            and self.offline_store_options_providers
+        ):
+            s3_options = get_s3_options_for_fd(self.feature_definition_wrapper, self.offline_store_options_providers)
+        reader = IcebergReader(fdw=self.feature_definition_wrapper, s3_options=s3_options)
+        dataset = reader.read(
+            time_limits=self.partition_time_filter,
+            join_keys_buckets=partition_selector.partition_indexes if partition_selector else None,
+        )
+        batches = dataset.to_batches()
+        return pyarrow.RecordBatchReader.from_batches(dataset.schema, batches)
+
+
+class NotEnoughData(Exception):
+    pass
+
+
+def _sample_single_partition(
+    reader: DeltaReader, date: datetime.datetime, join_key: str
+) -> List[Tuple[Union[int, str], float]]:
+    """
+    Returns a list of pairs, where first element is a sampled value and second is its weight
+    """
+    time_filter = pendulum.Period(date, date + datetime.timedelta(days=1, seconds=-1))
+    pa_ds = reader.read(time_filter)
+
+    count_rows = pa_ds.count_rows()
+    target_number_of_partitions = int(conf.get_or_raise("DELTA_OFFLINE_STORE_RANGE_PARTITION_NUMBER"))
+    if count_rows < target_number_of_partitions:
+        raise NotEnoughData
+
+    sample_indexes = random.sample(range(count_rows), k=target_number_of_partitions - 1)
+
+    boundaries = pa_ds.take(sample_indexes, columns=[join_key])
+    weight = float(count_rows) / (target_number_of_partitions - 1)
+    return [(v, weight) for v in boundaries.to_pydict()[join_key]]
+
+
+def _determine_boundaries(sample: List[Tuple[Union[int, str], float]]) -> List[Union[int, str]]:
+    """
+    Merges samples from input partitions and calculates boundaries for repartitioning
+
+    This implementation is adopted version of Spark's algorithm for determine boundaries for range partitioning
+    https://github.com/apache/spark/blob/37028fafc4f9fc873195a88f0840ab69edcf9d2b/core/src/main/scala/org/apache/spark/Partitioner.scala#L358
+
+    The overall goal here is to put entities with a large weight (i.e. frequent occurrence in the offline store) in their own partitions and entities with smaller weight (i.e. less frequent occurrence in the offline store) in the same partition.
+    """
+
+    sample = sorted(sample, key=lambda pair: pair[0])
+    target_number_of_partitions = int(conf.get_or_raise("DELTA_OFFLINE_STORE_RANGE_PARTITION_NUMBER"))
+    total_weight = sum(weight for v, weight in sample)
+    step = total_weight / target_number_of_partitions
+
+    cum_weight = 0
+    target = step
+    boundaries = []
+    for value, weight in sample:
+        cum_weight += weight
+        if cum_weight < target:
+            continue
+
+        if len(boundaries) and boundaries[-1] == value:
+            # skip duplicates
+            continue
+
+        boundaries.append(value)
+        target += step
+
+        # Stop when we have enough boundaries for the target number of partitions
+        if len(boundaries) == target_number_of_partitions - 1:
+            break
+
+    return boundaries
+
+
+def _compute_delta_partitioning(self: "DeltaOfflineStoreScanNode") -> Partitioning:
+    """
+    Dynamically re-partition offline store by join keys. (Delta tables are already partitioned by time)
+
+    This code assumes that all Parquet files in Delta table are sorted by join keys
+    and thus we can efficiently split table read into join keys' ranges, ie:
+    * partition 0: user_id [A - C]
+    * partition 1: user_id [C - E]
+    ...
+    * partition 99: user_id [Y - Z]
+
+    To determine those ranges we sample the table and produce ranges' boundaries.
+    """
+    if not conf.get_bool("DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED"):
+        return SinglePartition()
+
+    fdw = self.feature_definition_wrapper
+    assert fdw.has_delta_offline_store
+    reader_params = OfflineStoreReaderParams.for_feature_definition(
+        fd=fdw,
+        delta_table_uri=fdw.materialized_data_path,
+        options_providers=self.offline_store_options_providers,
+    )
+    reader = DeltaReader(params=reader_params)
+    num_samples = int(conf.get_or_raise("DELTA_OFFLINE_STORE_RANGE_SAMPLE_NUMBER"))
+    num_samples = min(num_samples, self.partition_time_filter.days)
+    partitions_indexes = random.sample(range(self.partition_time_filter.days), k=num_samples)
+    sample = []
+    for partition_idx in partitions_indexes:
+        try:
+            sample.extend(
+                _sample_single_partition(
+                    reader,
+                    self.partition_time_filter.start + datetime.timedelta(days=partition_idx),
+                    fdw.join_keys[0],  # only supporting single column join key for now
+                )
+            )
+        except NotEnoughData:
+            continue
+
+    if not sample:
+        return SinglePartition()
+
+    boundaries = _determine_boundaries(sample)
+
+    return JoinKeyRangePartitioning(join_keys=fdw.join_keys[:1], boundaries=boundaries)
+
+
+@attrs.frozen
+class DeltaOfflineStoreScanNode(OfflineStoreScanNode):
+    offline_store_options_providers: Optional[Iterable[OfflineStoreOptionsProvider]] = None
+    output_partitioning: Partitioning = attrs.field(default=attrs.Factory(_compute_delta_partitioning, takes_self=True))
+
+    @classmethod
+    def from_query_node(
+        cls,
+        query_node: QueryNode,
+        offline_store_options_providers: Optional[Iterable[OfflineStoreOptionsProvider]] = None,
+    ) -> "DeltaOfflineStoreScanNode":
+        kwargs = attrs.asdict(query_node, recurse=False)
+        kwargs["offline_store_options_providers"] = offline_store_options_providers
+        kwargs["entity_filter"] = None
+        del kwargs["node_id"]
+        return cls(**kwargs)
+
+    @property
+    def inputs(self) -> Sequence[NodeRef]:
+        return []  # entity filter is not supported
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> "pyarrow.RecordBatchReader":
+        fdw = self.feature_definition_wrapper
+        assert fdw.has_delta_offline_store
+        reader_params = OfflineStoreReaderParams.for_feature_definition(
+            fd=fdw,
+            delta_table_uri=fdw.materialized_data_path,
+            options_providers=context.offline_store_options_providers,
+        )
+        reader = DeltaReader(params=reader_params)
+
+        join_keys_filter = (
+            {
+                fdw.join_keys[0]: JoinKeyBoundaries(
+                    *self.output_partitioning.boundaries_for_partition(partition_selector.partition_indexes[0])
+                )
+            }
+            if isinstance(self.output_partitioning, JoinKeyRangePartitioning)
+            else None
+        )
+
+        dataset = reader.read(self.partition_time_filter, join_keys_filter)
+        if join_keys_filter:
+            conditions = []
+            for col, boundaries in join_keys_filter.items():
+                if boundaries.min is not None:
+                    conditions.append((pc.field(col) >= boundaries.min))
+
+                if boundaries.max is not None:
+                    conditions.append((pc.field(col) < boundaries.max))
+
+            batches = dataset.to_batches(filter=reduce(and_, conditions))
+        else:
+            batches = dataset.to_batches()
+
+        return pyarrow.RecordBatchReader.from_batches(dataset.schema, batches)

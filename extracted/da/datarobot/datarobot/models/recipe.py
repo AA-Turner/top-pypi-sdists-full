@@ -1,5 +1,5 @@
 #
-# Copyright 2023 DataRobot, Inc. and its affiliates.
+# Copyright 2023-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -122,7 +122,10 @@ class RecipeDatasetInput(APIObject):
     ) -> Union[str, Dict[str, Any], List[Dict[str, Any]]]:
         res = cast(Dict[str, Any], to_api(self, keep_attrs=keep_attrs))
         if self.snapshot_policy == DataWranglingSnapshotPolicy.LATEST:
-            res["dataset_version_id"] = None
+            res["datasetVersionId"] = None
+        # make sure we sent string and not enum
+        if not isinstance(res["snapshotPolicy"], str):
+            res["snapshotPolicy"] = str(res["snapshotPolicy"])
         return res
 
 

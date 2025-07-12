@@ -10,12 +10,14 @@ class ColocatedComputeConfig(_message.Message):
     def __init__(self) -> None: ...
 
 class InstanceGroupComputeConfig(_message.Message):
-    __slots__ = ["group_name", "instance_group"]
+    __slots__ = ["group_name", "instance_group", "use_cached_transformations"]
     GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    USE_CACHED_TRANSFORMATIONS_FIELD_NUMBER: _ClassVar[int]
     group_name: str
     instance_group: _instance_group__client_pb2.InstanceGroupHandle
-    def __init__(self, group_name: _Optional[str] = ..., instance_group: _Optional[_Union[_instance_group__client_pb2.InstanceGroupHandle, _Mapping]] = ...) -> None: ...
+    use_cached_transformations: bool
+    def __init__(self, group_name: _Optional[str] = ..., instance_group: _Optional[_Union[_instance_group__client_pb2.InstanceGroupHandle, _Mapping]] = ..., use_cached_transformations: bool = ...) -> None: ...
 
 class OnlineComputeConfig(_message.Message):
     __slots__ = ["colocated_compute", "instance_group_config", "remote_compute"]

@@ -36,6 +36,7 @@ __all__ = [
 __doc__ = __doc__.format("\n   ".join(__all__))
 
 import bz2
+import os
 import struct
 from collections import OrderedDict, defaultdict
 
@@ -146,16 +147,21 @@ class NEXRADFile:
         """initalize the object."""
         self._fp = None
         self._filename = filename
-        # read in the volume header and compression_record
-        if hasattr(filename, "read"):
-            self._fh = filename
-        else:
-            self._fp = open(filename, "rb")
-            self._fh = np.memmap(self._fp, mode=mode)
         self._filepos = 0
         self._rawdata = False
         self._loaddata = loaddata
         self._bz2_indices = None
+
+        if isinstance(filename, (bytes, bytearray)):
+            self._fh = np.frombuffer(filename, dtype=np.uint8)
+        elif hasattr(filename, "read"):  # file-like object
+            file_bytes = filename.read()
+            self._fh = np.frombuffer(file_bytes, dtype=np.uint8)
+        elif isinstance(filename, (str, os.PathLike)):
+            self._fp = open(filename, "rb")
+            self._fh = np.memmap(self._fp.name, mode=mode)
+        else:
+            raise TypeError(f"Unsupported input type: {type(filename)}")
         self.volume_header = self.get_header(VOLUME_HEADER)
         return
 
@@ -302,10 +308,14 @@ class NEXRADRecordFile(NEXRADFile):
                     return False
                 start = self.bz2_record_indices[ldm]
                 size = self._fh[start : start + 4].view(dtype=">u4")[0]
-                self._fp.seek(start + 4)
+                if self._fp is not None:
+                    self._fp.seek(start + 4)
+                    compressed = self._fp.read(size)
+                else:
+                    compressed = self._fh[start + 4 : start + 4 + size].tobytes()
                 dec = bz2.BZ2Decompressor()
                 self._ldm[ldm] = np.frombuffer(
-                    dec.decompress(self._fp.read(size)), dtype=np.uint8
+                    dec.decompress(compressed), dtype=np.uint8
                 )
 
         # rectrieve wanted record and put into self.rh
@@ -1620,7 +1630,7 @@ def open_nexradlevel2_datatree(
     lock=None,
     **kwargs,
 ):
-    """Open a NEXRAD Level2 dataset as an `xarray.DataTree`.
+    """Open a NEXRAD Level2 dataset as :py:class:`xarray.DataTree`.
 
     This function loads NEXRAD Level2 radar data into a DataTree structure, which
     organizes radar sweeps as separate nodes. Provides options for decoding time
@@ -1694,8 +1704,6 @@ def open_nexradlevel2_datatree(
     """
     from xarray.core.treenode import NodePath
 
-    comment = None
-
     if isinstance(sweep, str):
         sweep = NodePath(sweep).name
         sweeps = [sweep]
@@ -1712,18 +1720,19 @@ def open_nexradlevel2_datatree(
             )
     else:
         with NEXRADLevel2File(filename_or_obj, loaddata=False) as nex:
-            nsweeps = nex.msg_5["number_elevation_cuts"]
-            n_sweeps = len(nex.msg_31_data_header)
-            # check for zero (old files)
-            if nsweeps == 0:
-                nsweeps = n_sweeps
-                comment = "No message 5 information available"
-            # Check if duplicated sweeps ("split cut mode")
-            elif nsweeps > n_sweeps:
-                nsweeps = n_sweeps
-                comment = "Split Cut Mode scanning strategy"
+            # Expected number of elevation cuts from the VCP definition
+            exp_sweeps = nex.msg_5["number_elevation_cuts"]
+            # Actual number of sweeps recorded in the file
+            act_sweeps = len(nex.msg_31_data_header)
+            # Check for AVSET mode: If AVSET was active, the actual number of sweeps (act_sweeps)
+            # will be fewer than the expected number (exp_sweeps), as higher elevations were skipped.
+            # More info https://www.test.roc.noaa.gov/radar-techniques/avset.php
+            # https://www.test.roc.noaa.gov/public-documents/engineering-branch/new-technology/misc/avset/AVSET_AMS_RADAR_CONF_Final.pdf
+            if exp_sweeps > act_sweeps:
+                # Adjust nsweeps to the actual number of recorded sweeps
+                exp_sweeps = act_sweeps
 
-        sweeps = [f"sweep_{i}" for i in range(nsweeps)]
+        sweeps = [f"sweep_{i}" for i in range(act_sweeps)]
 
     sweep_dict = open_sweeps_as_dict(
         filename_or_obj=filename_or_obj,
@@ -1745,8 +1754,6 @@ def open_nexradlevel2_datatree(
     )
     ls_ds: list[xr.Dataset] = [sweep_dict[sweep] for sweep in sweep_dict.keys()]
     ls_ds.insert(0, xr.Dataset())
-    if comment is not None:
-        ls_ds[0].attrs["comment"] = comment
     dtree: dict = {
         "/": _assign_root(ls_ds),
         "/radar_parameters": _get_subgroup(ls_ds, radar_parameters_subgroup),

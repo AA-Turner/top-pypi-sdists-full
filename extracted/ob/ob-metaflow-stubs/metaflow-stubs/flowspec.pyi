@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-01T15:21:03.477516                                                            #
+# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-11T23:29:18.510338                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,11 +9,11 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
-    import metaflow.flowspec
-    import typing
     import metaflow.unbounded_foreach
     import metaflow.datastore.inputs
+    import metaflow.exception
+    import typing
+    import metaflow.flowspec
 
 from . import parameters as parameters
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter

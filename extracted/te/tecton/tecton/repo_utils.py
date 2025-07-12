@@ -8,12 +8,14 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-import yaspin.spinners
+from rich.live import Live
+from rich.spinner import Spinner
 
 from tecton.cli import cli_utils
 from tecton.cli import printer
 from tecton.cli import repo_config as cli__repo_config
 from tecton.cli.error_utils import pretty_error
+from tecton.cli.printer import SPINNER_TYPE
 from tecton.framework import base_tecton_object
 from tecton.framework import repo_config as framework__repo_config
 from tecton_core import conf
@@ -37,7 +39,7 @@ def _import_module_with_pretty_errors(
             before_error()
             relpath = file_path.relative_to(repo_root)
             printer.safe_print(
-                f"Python module name {cli_utils.bold(module_path)} ({relpath}) conflicts with module {module_path} from {module.__file__}. Please use a different name.",
+                f"Python module name [bold]{module_path}[/bold] ({relpath}) conflicts with module [bold]{module_path}[/bold] from {module.__file__}. Please use a different name.",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -131,26 +133,32 @@ def collect_top_level_objects(
 ) -> List[base_tecton_object.BaseTectonObject]:
     modules = [cli_utils.py_path_to_module(p, repo_root) for p in py_files]
 
-    with printer.safe_yaspin(yaspin.spinners.Spinners.earth, text="Importing feature repository modules") as sp:
+    spinner = Spinner(SPINNER_TYPE, "Importing feature repository modules")
+    with Live(spinner, console=printer.get_console(), refresh_per_second=100) as live:
         for file_path, module_path in zip(py_files, modules):
-            sp.text = f"Processing feature repository module {module_path}"
-
             if pretty_errors:
                 module = _import_module_with_pretty_errors(
                     file_path=file_path,
                     module_path=module_path,
                     py_files=py_files,
                     repo_root=repo_root,
-                    before_error=lambda: sp.fail(printer.safe_string("⛔")),
+                    before_error=lambda: live.update(
+                        Spinner(
+                            SPINNER_TYPE,
+                            text="⛔ Failed to import feature repository. Please check the error message above for details.",
+                        )
+                    ),
                 )
             else:
                 module = importlib.import_module(module_path)
-
         num_modules = len(modules)
-        sp.text = f"Imported {num_modules} Python {cli_utils.plural(num_modules, 'module', 'modules')} from the feature repository"
-        sp.ok(printer.safe_string("✅"))
-
-        return list(base_tecton_object._LOCAL_TECTON_OBJECTS)
+        live.update(
+            Spinner(
+                SPINNER_TYPE,
+                text=f"✅ Imported {num_modules} Python {cli_utils.plural(num_modules, 'module', 'modules')} from the feature repository",
+            )
+        )
+    return list(base_tecton_object._LOCAL_TECTON_OBJECTS)
 
 
 def get_tecton_objects_skip_validation(

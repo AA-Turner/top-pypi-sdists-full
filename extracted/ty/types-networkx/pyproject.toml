@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-networkx"
-version = "3.5.0.20250709"
+version = "3.5.0.20250712"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for networkx"
@@ -31,10 +31,10 @@ directory.
 
 This package was tested with
 mypy 1.16.1,
-pyright 1.1.400,
+pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`07a59e924fd19fa6de45636498b8ca90649b996e`](https://github.com/python/typeshed/commit/07a59e924fd19fa6de45636498b8ca90649b996e).
+[`18804902895eac182d3f0c244d274bcaf00fc04f`](https://github.com/python/typeshed/commit/18804902895eac182d3f0c244d274bcaf00fc04f).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

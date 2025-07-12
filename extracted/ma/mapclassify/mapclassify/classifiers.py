@@ -428,7 +428,7 @@ def bin1d(x, bins):
     Returns
     -------
 
-    binIds : numpy.array
+    bin_ids : numpy.array
         1-d array of integer bin IDs.
     counts : int
         Number of elements of ``x`` falling in each bin.
@@ -440,8 +440,8 @@ def bin1d(x, bins):
     >>> import mapclassify
     >>> x = numpy.arange(100, dtype = "float")
     >>> bins = [25, 74, 100]
-    >>> binIds, counts = mapclassify.classifiers.bin1d(x, bins)
-    >>> binIds
+    >>> bin_ids, counts = mapclassify.classifiers.bin1d(x, bins)
+    >>> bin_ids
     array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
            0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
            1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -457,13 +457,13 @@ def bin1d(x, bins):
     right = bins
     cuts = list(zip(left, right, strict=False))
     k = len(bins)
-    binIds = np.zeros(x.shape, dtype="int")
+    bin_ids = np.zeros(x.shape, dtype="int")
     while cuts:
         k -= 1
         _l, r = cuts.pop(-1)
-        binIds += (x > _l) * (x <= r) * k
-    counts = np.bincount(binIds, minlength=len(bins))
-    return (binIds, counts)
+        bin_ids += (x > _l) * (x <= r) * k
+    counts = np.bincount(bin_ids, minlength=len(bins))
+    return (bin_ids, counts)
 
 
 def _pretty_number(x, rounded=True):
@@ -632,10 +632,10 @@ def _fisher_jenks_means(values, classes=5):
     kclass = np.zeros(classes + 1, dtype=values.dtype)
     kclass[classes] = values[len(values) - 1]
     kclass[0] = values[0]
-    for countNum in range(classes, 1, -1):
-        pivot = mat1[k, countNum]
+    for count_num in range(classes, 1, -1):
+        pivot = mat1[k, count_num]
         _id = int(pivot - 2)
-        kclass[countNum - 1] = values[_id]
+        kclass[count_num - 1] = values[_id]
         k = int(pivot - 1)
     return np.delete(kclass, 0)
 
@@ -1189,7 +1189,7 @@ class MapClassifier:
         self,
         *,
         ax=None,
-        cmap="viridis",
+        cmap=None,
         bins=50,
         inset=True,
         clip=None,
@@ -1201,6 +1201,7 @@ class MapClassifier:
         frameon=False,
         tick_params=None,
         bbox_to_anchor=None,
+        **kwargs,
     ):
         """Plot a legendgram, which is a histogram with classification breaks.
 
@@ -1211,8 +1212,11 @@ class MapClassifier:
         ----------
         ax : matplotlib.Axes, optional
             Matplotlib axes on which to draw the plot, by default None
-        cmap : str, optional
-            Matplotlib colormap for the histogram, by default "viridis"
+        cmap : str | matplotlib.colors.Colormap, optional
+            Matplotlib colormap for the histogram, by default ``None``.
+            If ``None``, defaults to the most recent colormap associated with
+            the input ``ax``. If there is no colormap associated with ``ax`` then
+            ``'viridis'`` is used.
         bins : int, optional
             Number of bins for histogram, by default 50
         inset : bool, optional
@@ -1246,6 +1250,8 @@ class MapClassifier:
             ``[left, bottom, width, height]``, or ``[left, bottom]``. If the
             ``legend_size`` is in relative units (%), the 2-tuple ``[left, bottom]``
             cannot be used. By default None
+        **kwargs
+            Additional keyword arguments passed to ``Axes.hist``.
 
         Returns
         -------
@@ -1269,8 +1275,8 @@ class MapClassifier:
         >>> lg_ax = classifier.plot_legendgram(
         ...     ax=ax,
         ...     legend_size=("50%", "20%"), # legend size in percentage of the axis
-        ...     loc = 'upper left',  # matplotlib-style legend locations
-        ...     clip = (2, 10),  # clip the displayed range of the histogram
+        ...     loc='upper left',  # matplotlib-style legend locations
+        ...     clip=(2, 10),  # clip the displayed range of the histogram
         ... )
         """
         return _legendgram(
@@ -1288,6 +1294,7 @@ class MapClassifier:
             frameon=frameon,
             tick_params=tick_params,
             bbox_to_anchor=bbox_to_anchor,
+            **kwargs,
         )
 
 

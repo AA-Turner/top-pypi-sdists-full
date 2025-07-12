@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langroid
-Version: 0.58.1
+Version: 0.58.2
 Summary: Harness LLMs with Multi-Agent Programming
 Author-email: Prasad Chalasani <pchalasani@gmail.com>
 License: MIT
@@ -94,8 +94,8 @@ Requires-Dist: chainlit<3.0.0,>=2.0.1; extra == 'chainlit'
 Requires-Dist: python-socketio<6.0.0,>=5.11.0; extra == 'chainlit'
 Provides-Extra: chromadb
 Requires-Dist: chromadb<=0.4.23,>=0.4.21; extra == 'chromadb'
-Provides-Extra: crawl-4-ai
-Requires-Dist: crawl4ai>=0.6.3; extra == 'crawl-4-ai'
+Provides-Extra: crawl4ai
+Requires-Dist: crawl4ai>=0.6.3; extra == 'crawl4ai'
 Provides-Extra: db
 Requires-Dist: psycopg2-binary>=2.9.10; extra == 'db'
 Requires-Dist: psycopg2<3.0.0,>=2.9.7; extra == 'db'

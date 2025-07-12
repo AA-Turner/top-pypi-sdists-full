@@ -1,5 +1,5 @@
 #
-# Copyright 2024 DataRobot, Inc. and its affiliates.
+# Copyright 2024-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -12,9 +12,11 @@
 from typing import Any, cast, Dict, List, Optional, Union
 
 import trafaret as t
+from typing_extensions import Self
 
-from datarobot.enums import ENTITY_TYPES, INSIGHTS_SOURCES
+from datarobot.enums import DEFAULT_MAX_WAIT, ENTITY_TYPES, INSIGHTS_SOURCES
 from datarobot.insights.base import BaseInsight
+from datarobot.models import StatusCheckJob
 from datarobot.utils import deprecation
 
 
@@ -78,6 +80,103 @@ class ShapImpact(BaseInsight):
             payload["rowCount"] = row_count
 
         return payload
+
+    @classmethod
+    def compute(
+        cls,
+        entity_id: str,
+        source: str = INSIGHTS_SOURCES.TRAINING,  # override only to update this default
+        data_slice_id: Optional[str] = None,
+        external_dataset_id: Optional[str] = None,
+        entity_type: Optional[ENTITY_TYPES] = ENTITY_TYPES.DATAROBOT_MODEL,
+        quick_compute: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> StatusCheckJob:
+        """Submit an insight compute request. You can use `create` if you want to
+        wait synchronously for the completion of the job.
+
+        Parameters
+        ----------
+        entity_id: str
+            The ID of the entity to compute the insight.
+        source: str
+            The source type to use when computing the insight.
+        data_slice_id: Optional[str]
+            Data slice ID to use when computing the insight.
+        external_dataset_id: Optional[str]
+            External dataset ID to use when computing the insight.
+        entity_type: Optional[ENTITY_TYPES]
+            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
+            values, or accept the default, "datarobotModel".
+        quick_compute: Optional[bool]
+            Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
+            is computed using a 2500-row data sample. If `False`, the insight is computed using all
+            rows in the chosen source.
+
+        Returns
+        -------
+        StatusCheckJob
+            Status check job entity for the asynchronous insight calculation.
+        """
+        return super().compute(
+            entity_id=entity_id,
+            source=source,
+            data_slice_id=data_slice_id,
+            external_dataset_id=external_dataset_id,
+            entity_type=entity_type,
+            quick_compute=quick_compute,
+            **kwargs,
+        )
+
+    @classmethod
+    def create(
+        cls,
+        entity_id: str,
+        source: str = INSIGHTS_SOURCES.TRAINING,  # override only to update this default
+        data_slice_id: Optional[str] = None,
+        external_dataset_id: Optional[str] = None,
+        entity_type: Optional[ENTITY_TYPES] = ENTITY_TYPES.DATAROBOT_MODEL,
+        quick_compute: Optional[bool] = None,
+        max_wait: Optional[int] = DEFAULT_MAX_WAIT,
+        **kwargs: Any,
+    ) -> Self:
+        """Create an insight and wait for completion.
+
+        Parameters
+        ----------
+        entity_id: str
+            The ID of the entity to compute the insight.
+        source: str
+            The source type to use when computing the insight.
+        data_slice_id: Optional[str]
+            Data slice ID to use when computing the insight.
+        external_dataset_id: Optional[str]
+            External dataset ID to use when computing the insight.
+        entity_type: Optional[ENTITY_TYPES]
+            The type of the entity associated with the insight. Select one of the ENTITY_TYPE enum
+            values, or accept the default, "datarobotModel".
+        quick_compute: Optional[bool]
+            Sets whether to use quick-compute for the insight. If `True` or unspecified, the insight
+            is computed using a 2500-row data sample. If `False`, the insight is computed using all
+            rows in the chosen source.
+        max_wait: int
+            The number of seconds to wait for the result.
+
+        Returns
+        -------
+        Self
+            Entity of the newly or already computed insights.
+        """
+        return super().create(
+            entity_id=entity_id,
+            source=source,
+            data_slice_id=data_slice_id,
+            external_dataset_id=external_dataset_id,
+            entity_type=entity_type,
+            quick_compute=quick_compute,
+            max_wait=max_wait,
+            **kwargs,
+        )
 
     # deal with shap-impact specific data structure to pass impacts list to UI component
     def _get_datarobot_ui_data(self) -> Dict[str, Any]:

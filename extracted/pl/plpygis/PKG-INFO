@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: plpygis
-Version: 0.5.5
+Version: 0.6.0
 Summary: Python tools for PostGIS
 Author-email: Benjamin Trigona-Harany <plpygis@jaxartes.net>
 License: GPL-3.0-only
@@ -10,7 +10,7 @@ Project-URL: Documentation, https://plpygis.readthedocs.io/
 Keywords: gis,geospatial,postgis,postgresql,pl/python
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: test
@@ -19,6 +19,7 @@ Requires-Dist: pyshp; extra == "test"
 Requires-Dist: Shapely>=2.0.4; extra == "test"
 Provides-Extra: shapely-support
 Requires-Dist: Shapely>=2.0.4; extra == "shapely-support"
+Dynamic: license-file
 
 # plpygis
 

@@ -9,7 +9,7 @@ import aspectlib
 import pytest
 
 import hunter
-from hunter.actions import RETURN_VALUE
+from hunter.actions import RETURN_OPCODES
 from hunter.actions import ColorStreamAction
 from hunter.util import safe_repr
 
@@ -117,7 +117,7 @@ class ProfileAction(ColorStreamAction):
                 self.timings[frame_id] = start_time, event.arg
             elif event.kind == 'return':
                 delta = current_time - start_time
-                if event.instruction == RETURN_VALUE:
+                if event.instruction in RETURN_OPCODES:
                     # exception was discarded
                     self.output(
                         '{fore(BLUE)}{} returned: {}. Duration: {:.4f}s{RESET}\n',
@@ -136,7 +136,7 @@ class ProfileAction(ColorStreamAction):
 
 @pytest.mark.xfail(
     sys.version_info.major == 3 and sys.version_info.minor == 12,
-    reason="broken on 3.12, fixme",
+    reason='broken on 3.12, fixme',
 )
 @pytest.mark.parametrize(
     'options',
@@ -170,7 +170,7 @@ def test_profile(LineMatcher, options):
                 'sample8errors.error raised exception: None. Duration: ?.????s',
                 'sample8errors.silenced1 returned: None. Duration: ?.????s',
                 'sample8errors.error raised exception: None. Duration: ?.????s',
-                'sample8errors.silenced3 returned: \'mwhahaha\'. Duration: ?.????s',
+                "sample8errors.silenced3 returned: 'mwhahaha'. Duration: ?.????s",
                 'sample8errors.error raised exception: None. Duration: ?.????s',
                 '<builtin>.repr raised exception: None. Duration: ?.????s',
                 'sample8errors.silenced4 returned: None. Duration: ?.????s',
@@ -184,7 +184,7 @@ def test_profile(LineMatcher, options):
                 'sample8errors.error raised exception: (*RuntimeError*, *). Duration: ?.????s',
                 'sample8errors.silenced1 returned: None. Duration: ?.????s',
                 'sample8errors.error raised exception: (*RuntimeError*, *). Duration: ?.????s',
-                'sample8errors.silenced3 returned: \'mwhahaha\'. Duration: ?.????s',
+                "sample8errors.silenced3 returned: 'mwhahaha'. Duration: ?.????s",
                 'sample8errors.error raised exception: (*RuntimeError*, *). Duration: ?.????s',
                 'sample8errors.silenced4 returned: None. Duration: ?.????s',
                 'sample8errors.error raised exception: (*RuntimeError*, *). Duration: ?.????s',

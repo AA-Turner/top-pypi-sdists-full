@@ -123,6 +123,108 @@ class Base64(System.Object):
         ...
 
 
+class Utf8Formatter(System.Object):
+    """Methods to format common data types as Utf8 strings."""
+
+    @staticmethod
+    @overload
+    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a Double as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: System.DateTimeOffset, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a DateTimeOffset as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: typing.Union[datetime.datetime, datetime.date], destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a DateTime as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: datetime.timedelta, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a TimeSpan as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: int, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a Byte as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a Boolean as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_format(value: System.Guid, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
+        """
+        Formats a Guid as a UTF-8 string.
+        
+        :param value: Value to format
+        :param destination: Buffer to write the UTF-8 formatted value to
+        :param bytes_written: Receives the length of the formatted text in bytes
+        :param format: The standard format to use
+        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
+        """
+        ...
+
+
 class Base64Url(System.Object):
     """This class has no documentation."""
 
@@ -417,108 +519,6 @@ class Base64Url(System.Object):
         ...
 
 
-class Utf8Formatter(System.Object):
-    """Methods to format common data types as Utf8 strings."""
-
-    @staticmethod
-    @overload
-    def try_format(value: System.DateTimeOffset, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a DateTimeOffset as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: typing.Union[datetime.datetime, datetime.date], destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a DateTime as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: float, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a Decimal as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: System.Guid, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a Guid as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: bool, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a Boolean as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: datetime.timedelta, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a TimeSpan as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_format(value: int, destination: System.Span[int], bytes_written: typing.Optional[int], format: System.Buffers.StandardFormat = ...) -> typing.Tuple[bool, int]:
-        """
-        Formats a Byte as a UTF-8 string.
-        
-        :param value: Value to format
-        :param destination: Buffer to write the UTF-8 formatted value to
-        :param bytes_written: Receives the length of the formatted text in bytes
-        :param format: The standard format to use
-        :returns: true for success. "bytes_written" contains the length of the formatted text in bytes. false if buffer was too short. Iteratively increase the size of the buffer and retry until it succeeds.
-        """
-        ...
-
-
 class Utf8Parser(System.Object):
     """Methods to parse common data types to Utf8 strings."""
 
@@ -538,14 +538,28 @@ class Utf8Parser(System.Object):
 
     @staticmethod
     @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[bool], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, bool, int]:
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[int], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, int, int]:
         """
-        Parses a Boolean at the start of a Utf8 string.
+        Parses a SByte at the start of a Utf8 string.
         
         :param source: The Utf8 string to parse
         :param value: Receives the parsed value
-        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed.
-        :param standard_format: Expected format of the Utf8 string. Supported formats are 'G', 'l', and default.
+        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed
+        :param standard_format: Expected format of the Utf8 string
+        :returns: true for success. "bytes_consumed" contains the length in bytes of the substring that was parsed. false if the string was not syntactically valid or an overflow or underflow occurred. "bytes_consumed" is set to 0.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[datetime.timedelta], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, datetime.timedelta, int]:
+        """
+        Parses a TimeSpan at the start of a Utf8 string.
+        
+        :param source: The Utf8 string to parse
+        :param value: Receives the parsed value
+        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed
+        :param standard_format: Expected format of the Utf8 string
         :returns: true for success. "bytes_consumed" contains the length in bytes of the substring that was parsed. false if the string was not syntactically valid or an overflow or underflow occurred. "bytes_consumed" is set to 0.
         """
         ...
@@ -580,14 +594,14 @@ class Utf8Parser(System.Object):
 
     @staticmethod
     @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[int], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, int, int]:
+    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[bool], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, bool, int]:
         """
-        Parses a Byte at the start of a Utf8 string.
+        Parses a Boolean at the start of a Utf8 string.
         
         :param source: The Utf8 string to parse
         :param value: Receives the parsed value
-        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed
-        :param standard_format: Expected format of the Utf8 string
+        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed.
+        :param standard_format: Expected format of the Utf8 string. Supported formats are 'G', 'l', and default.
         :returns: true for success. "bytes_consumed" contains the length in bytes of the substring that was parsed. false if the string was not syntactically valid or an overflow or underflow occurred. "bytes_consumed" is set to 0.
         """
         ...
@@ -597,20 +611,6 @@ class Utf8Parser(System.Object):
     def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[float], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, float, int]:
         """
         Parses a Single at the start of a Utf8 string.
-        
-        :param source: The Utf8 string to parse
-        :param value: Receives the parsed value
-        :param bytes_consumed: On a successful parse, receives the length in bytes of the substring that was parsed
-        :param standard_format: Expected format of the Utf8 string
-        :returns: true for success. "bytes_consumed" contains the length in bytes of the substring that was parsed. false if the string was not syntactically valid or an overflow or underflow occurred. "bytes_consumed" is set to 0.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(source: System.ReadOnlySpan[int], value: typing.Optional[datetime.timedelta], bytes_consumed: typing.Optional[int], standard_format: str = ...) -> typing.Tuple[bool, datetime.timedelta, int]:
-        """
-        Parses a TimeSpan at the start of a Utf8 string.
         
         :param source: The Utf8 string to parse
         :param value: Receives the parsed value

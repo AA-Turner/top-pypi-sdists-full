@@ -2,10 +2,28 @@
 
 import os
 import inspect
+import threading
+import time
+import html
+import re
 from pathlib import Path
+from io import StringIO
+import unittest
+
+try:
+    from coverage import Coverage
+except Exception:
+    Coverage = None
 
 
 from gway import gw
+
+# List of project docs relative to data/static
+PROJECT_READMES = [
+    'awg', 'cdv', 'games', 'games/conway', 'games/mtg', 'games/qpig',
+    'monitor', 'ocpp', 'ocpp/csms', 'ocpp/evcs', 'ocpp/data', 'release',
+    'vbox', 'web', 'web/nav', 'web/cookies', 'web/auth', 'web/chat'
+]
 
 
 def build(
@@ -102,7 +120,7 @@ def build(
     # Write BUILD file with current commit hash
     build_path = Path("BUILD")
     prev_build = build_path.read_text().strip() if build_path.exists() else None
-    build_hash = commit()
+    build_hash = gw.hub.commit()
     build_path.write_text(build_hash + "\n")
     gw.info(f"Wrote BUILD file with commit {build_hash}")
     update_changelog(version, build_hash, prev_build)
@@ -159,6 +177,9 @@ def build(
 
     pyproject_path.write_text(toml.dumps(pyproject_content), encoding="utf-8")
     gw.info(f"Generated {pyproject_path}")
+
+    if projects:
+        update_readme_links()
 
     manifest_path = Path("MANIFEST.in")
     if not manifest_path.exists():
@@ -422,81 +443,18 @@ def create_shortcut(
 
 
 def commit(length: int = 6) -> str:
-    """Return the current git commit hash (optionally truncated)."""
-    import subprocess
-
-    try:
-        full = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
-        ).strip()
-        if length:
-            return full[-length:]
-        return full
-    except Exception:
-        return "unknown"
+    """Return the current git commit hash via :mod:`hub` utilities."""
+    return gw.hub.commit(length)
 
 
 def get_build(length: int = 6) -> str:
-    """Return the build hash stored in the BUILD file."""
-    build_path = Path("BUILD")
-    if build_path.exists():
-        commit_hash = build_path.read_text().strip()
-        return commit_hash[-length:] if length else commit_hash
-    else:
-        gw.warning("BUILD file not found.")
-        return "unknown"
+    """Return the build hash stored in the BUILD file via :mod:`hub`."""
+    return gw.hub.get_build(length)
 
 
 def changes(*, files=None, staged=False, context=3, max_bytes=200_000, clip=False):
-    """
-    Returns a unified diff of all recent textual changes in the git repo.
-
-    - Shows added/removed lines (ignores binary files).
-    - Includes unstaged (working directory) by default. Use staged=True to see only staged.
-    - 'files': Optionally filter by path(s) or file glob(s).
-    - 'context': Number of context lines in the diff (default 3).
-    - 'max_bytes': Truncate diff if too large (default 200,000).
-    """
-    import subprocess
-
-    cmd = ["git", "diff", "--unified=%d" % context]
-    if staged:
-        cmd.insert(2, "--staged")
-    if files:
-        if isinstance(files, str):
-            files = [files]
-        cmd += list(files)
-
-    try:
-        diff = subprocess.check_output(cmd, encoding="utf-8", errors="replace")
-    except subprocess.CalledProcessError as e:
-        return f"[ERROR] Unable to get git diff: {e}"
-    except FileNotFoundError:
-        return "[ERROR] git command not found. Are you in a git repo?"
-
-    # Remove any diff blocks for binary files
-    filtered = []
-    skip = False
-    for line in diff.splitlines(keepends=True):
-        # Exclude blocks marking a binary difference
-        if line.startswith("Binary files "):
-            continue
-        if line.startswith("diff --git"):
-            skip = False  # new file block
-        if "GIT binary patch" in line:
-            skip = True
-        if skip:
-            continue
-        filtered.append(line)
-
-    result = "".join(filtered)
-    if len(result) > max_bytes:
-        return result[:max_bytes] + "\n[...Diff truncated at %d bytes...]" % max_bytes
-    
-    if clip: 
-        gw.clip.copy(result)
-    if not gw.silent:
-        return result or "[No changes detected]"
+    """Return a unified diff using :mod:`hub` utilities."""
+    return gw.hub.changes(files=files, staged=staged, context=context, max_bytes=max_bytes, clip=clip)
 
 
 def _last_changelog_build():
@@ -639,6 +597,23 @@ def update_changelog(version: str, build_hash: str, prev_build: str | None = Non
     Path("CHANGELOG.rst").write_text(new_text, encoding="utf-8")
 
 
+def update_readme_links(readme_path: str | Path = "README.rst") -> None:
+    """Rewrite project README links with the resolved DOMAIN."""
+    domain = gw.resolve("[DOMAIN]", "")
+    if not domain:
+        gw.warning("DOMAIN not configured, skipping README link update.")
+        return
+    base = domain if domain.startswith(("http://", "https://")) else f"https://{domain}"
+    path = Path(readme_path)
+    text = path.read_text(encoding="utf-8")
+    pattern_link = re.compile(r'<(?:https?://[\w.-]+)?(/web/site/reader\?tome=[\w/_-]+)>')
+    text = pattern_link.sub(lambda m: f'<{base}{m.group(1)}>', text)
+    pattern_ref = re.compile(r'(:\s*)(?:https?://[\w.-]+)?(/web/site/reader\?tome=[\w/_-]+)')
+    new_text = pattern_ref.sub(lambda m: m.group(1) + base + m.group(2), text)
+    path.write_text(new_text, encoding="utf-8")
+    gw.info(f"Updated README links using domain {domain}")
+
+
 def view_changelog():
     """Render the changelog, hiding an empty ``Unreleased`` section."""
     from docutils.core import publish_parts
@@ -649,6 +624,190 @@ def view_changelog():
         text = trimmed
 
     return publish_parts(source=text, writer_name="html")["html_body"]
+
+
+# === Background Test Cache ===
+_TEST_CACHE = {
+    "running": False,
+    "progress": 0.0,
+    "total": 0,
+    "tests": [],
+    "coverage": {},
+}
+
+
+def _update_progress(result, total):
+    if total:
+        _TEST_CACHE["progress"] = result / total * 100.0
+
+
+def _run_tests():
+    _TEST_CACHE.update({
+        "running": True,
+        "progress": 0.0,
+        "tests": [],
+        "coverage": {},
+    })
+
+    suite = unittest.defaultTestLoader.discover("tests")
+    total = suite.countTestCases()
+    _TEST_CACHE["total"] = total
+
+    cov = Coverage() if Coverage else None
+    if cov:
+        cov.start()
+
+    class CacheResult(unittest.TextTestResult):
+        def startTest(self, test):
+            super().startTest(test)
+            self._start_time = time.perf_counter()
+            _TEST_CACHE["tests"].append({
+                "name": str(test),
+                "status": "?",
+                "time": 0.0,
+            })
+
+        def addSuccess(self, test):
+            for t in _TEST_CACHE["tests"]:
+                if t["name"] == str(test):
+                    t["status"] = "\u2713"  # check mark
+                    break
+            super().addSuccess(test)
+
+        def addFailure(self, test, err):
+            for t in _TEST_CACHE["tests"]:
+                if t["name"] == str(test):
+                    t["status"] = "\u2717"  # cross mark
+                    break
+            super().addFailure(test, err)
+
+        def addError(self, test, err):
+            for t in _TEST_CACHE["tests"]:
+                if t["name"] == str(test):
+                    t["status"] = "\u2717"
+                    break
+            super().addError(test, err)
+
+        def stopTest(self, test):
+            elapsed = time.perf_counter() - getattr(self, "_start_time", time.perf_counter())
+            for t in _TEST_CACHE["tests"]:
+                if t["name"] == str(test):
+                    t["time"] = elapsed
+                    break
+            _update_progress(self.testsRun, total)
+            super().stopTest(test)
+
+    runner = unittest.TextTestRunner(verbosity=2, resultclass=CacheResult)
+    runner.run(suite)
+
+    if cov:
+        cov.stop()
+        data = cov.get_data()
+        built_run = built_total = 0
+        proj_totals = {}
+        for f in data.measured_files():
+            if not f.endswith(".py"):
+                continue
+            try:
+                filename, stmts, exc, miss, _ = cov.analysis2(f)
+            except Exception:
+                continue
+            total_lines = len(stmts)
+            run_lines = total_lines - len(miss)
+            rel = os.path.relpath(f)
+            if rel.startswith("projects" + os.sep):
+                parts = rel.split(os.sep)
+                key = "/".join(parts[:2]) if len(parts) > 1 else parts[0]
+                run, tot = proj_totals.get(key, (0, 0))
+                proj_totals[key] = (run + run_lines, tot + total_lines)
+            else:
+                built_run += run_lines
+                built_total += total_lines
+
+        proj_cov = {k: (r / t * 100 if t else 100.0) for k, (r, t) in proj_totals.items()}
+        proj_total_run = sum(r for r, _ in proj_totals.values())
+        proj_total_lines = sum(t for _, t in proj_totals.values())
+        _TEST_CACHE["coverage"] = {
+            "builtins_total": built_run / built_total * 100 if built_total else 100.0,
+            "projects": proj_cov,
+            "projects_total": proj_total_run / proj_total_lines * 100 if proj_total_lines else 100.0,
+        }
+
+    _TEST_CACHE["running"] = False
+
+
+def setup_app(*, app=None, **_):
+    gw.update_modes(timed=True)
+    if not _TEST_CACHE.get("running"):
+        thread = threading.Thread(target=_run_tests, daemon=True)
+        thread.start()
+    return app
+
+
+def view_test_cache():
+    html_parts = ["<h1>Test Cache</h1>"]
+    prog = _TEST_CACHE.get("progress", 0.0)
+    html_parts.append(
+        f"<div class='gw-progress'><div class='gw-progress-bar' style='width:{prog:.1f}%'>{prog:.1f}%</div></div>"
+    )
+
+    tests_rows = []
+    for t in _TEST_CACHE.get("tests", []):
+        tests_rows.append(
+            f"<tr><td>{html.escape(t['name'])}</td><td>{t['status']}</td><td>{t['time']:.2f}s</td></tr>"
+        )
+    tests_table = (
+        "<table><tr><th>Test</th><th>Status</th><th>Time</th></tr>" + "".join(tests_rows) + "</table>"
+    )
+
+    cov = _TEST_CACHE.get("coverage", {})
+    cov_rows = []
+    for name, pct in sorted(cov.get("projects", {}).items()):
+        cov_rows.append(f"<tr><td>{html.escape(name)}</td><td>{pct:.1f}%</td></tr>")
+    cov_table = "<table><tr><th>Project</th><th>Coverage</th></tr>" + "".join(cov_rows)
+    if "projects_total" in cov:
+        cov_table += f"<tr><td><b>Projects Total</b></td><td>{cov['projects_total']:.1f}%</td></tr>"
+    if "builtins_total" in cov:
+        cov_table += f"<tr><td><b>Builtins Total</b></td><td>{cov['builtins_total']:.1f}%</td></tr>"
+    cov_table += "</table>"
+
+    log_block = (
+        "<div id='test-log' data-gw-render='test_log' data-gw-refresh='2'>"
+        + render_test_log()
+        + "</div>"
+    )
+
+    html_parts.append(
+        "<div class='gw-tabs'>"
+        "<div class='gw-tabs-bar'>"
+        "<div class='gw-tab'>Tests</div>"
+        "<div class='gw-tab'>Coverage</div>"
+        "<div class='gw-tab'>Log</div>"
+        "</div>"
+        "<div class='gw-tab-block'>" + tests_table + "</div>"
+        "<div class='gw-tab-block'>" + cov_table + "</div>"
+        "<div class='gw-tab-block'>" + log_block + "</div>"
+        "</div>"
+    )
+
+    return gw.web.app.render_template(
+        title="Test Cache",
+        content="".join(html_parts),
+        css_files=["/static/tabs.css"],
+        js_files=["/static/render.js", "/static/tabs.js"],
+    )
+
+
+def render_test_log(lines: int = 50):
+    try:
+        path = gw.resource("logs", "test.log")
+        with open(path, "r", encoding="utf-8") as lf:
+            tail = lf.readlines()[-lines:]
+    except Exception:
+        tail = ["(log unavailable)"]
+    tail.reverse()
+    esc = html.escape
+    return "<pre>" + "".join(esc(t) for t in tail) + "</pre>"
 
 
 if __name__ == "__main__":

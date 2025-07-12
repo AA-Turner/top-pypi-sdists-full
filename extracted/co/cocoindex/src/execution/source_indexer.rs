@@ -1,4 +1,7 @@
-use crate::prelude::*;
+use crate::{
+    prelude::*,
+    service::error::{SharedError, SharedResult, SharedResultExt},
+};
 
 use futures::future::Ready;
 use sqlx::PgPool;
@@ -33,9 +36,12 @@ struct SourceIndexingState {
     rows: HashMap<value::KeyValue, SourceRowIndexingState>,
     scan_generation: usize,
 }
+
 pub struct SourceIndexingContext {
     flow: Arc<builder::AnalyzedFlow>,
     source_idx: usize,
+    pending_update: Mutex<Option<Shared<BoxFuture<'static, SharedResult<()>>>>>,
+    update_sem: Semaphore,
     state: Mutex<SourceIndexingState>,
     setup_execution_ctx: Arc<exec_ctx::FlowSetupExecutionContext>,
 }
@@ -88,6 +94,8 @@ impl SourceIndexingContext {
                 rows,
                 scan_generation,
             }),
+            pending_update: Mutex::new(None),
+            update_sem: Semaphore::new(1),
             setup_execution_ctx,
         })
     }
@@ -100,7 +108,7 @@ impl SourceIndexingContext {
         key: value::KeyValue,
         source_data: Option<interface::SourceData>,
         update_stats: Arc<stats::UpdateStats>,
-        _concur_permit: concur_control::ConcurrencyControllerPermit,
+        _concur_permit: concur_control::CombinedConcurrencyControllerPermit,
         ack_fn: Option<AckFn>,
         pool: PgPool,
     ) {
@@ -239,38 +247,46 @@ impl SourceIndexingContext {
         }
     }
 
-    // Expected to be called during scan, which has no value.
-    fn process_source_key_if_newer(
+    pub async fn update(
         self: &Arc<Self>,
-        key: value::KeyValue,
-        source_version: SourceVersion,
-        update_stats: &Arc<stats::UpdateStats>,
-        concur_permit: concur_control::ConcurrencyControllerPermit,
         pool: &PgPool,
-    ) -> Option<impl Future<Output = ()> + Send + 'static> {
-        {
-            let mut state = self.state.lock().unwrap();
-            let scan_generation = state.scan_generation;
-            let row_state = state.rows.entry(key.clone()).or_default();
-            row_state.touched_generation = scan_generation;
-            if row_state
-                .source_version
-                .should_skip(&source_version, Some(update_stats.as_ref()))
-            {
-                return None;
+        update_stats: &Arc<stats::UpdateStats>,
+    ) -> Result<()> {
+        let pending_update_fut = {
+            let mut pending_update = self.pending_update.lock().unwrap();
+            if let Some(pending_update_fut) = &*pending_update {
+                pending_update_fut.clone()
+            } else {
+                let slf = self.clone();
+                let pool = pool.clone();
+                let update_stats = update_stats.clone();
+                let task = tokio::spawn(async move {
+                    {
+                        let _permit = slf.update_sem.acquire().await?;
+                        {
+                            let mut pending_update = slf.pending_update.lock().unwrap();
+                            *pending_update = None;
+                        }
+                        slf.update_once(&pool, &update_stats).await?;
+                    }
+                    anyhow::Ok(())
+                });
+                let pending_update_fut = async move {
+                    task.await
+                        .map_err(SharedError::from)?
+                        .map_err(SharedError::new)
+                }
+                .boxed()
+                .shared();
+                *pending_update = Some(pending_update_fut.clone());
+                pending_update_fut
             }
-        }
-        Some(self.clone().process_source_key(
-            key,
-            None,
-            update_stats.clone(),
-            concur_permit,
-            NO_ACK,
-            pool.clone(),
-        ))
+        };
+        pending_update_fut.await.std_result()?;
+        Ok(())
     }
 
-    pub async fn update(
+    async fn update_once(
         self: &Arc<Self>,
         pool: &PgPool,
         update_stats: &Arc<stats::UpdateStats>,
@@ -290,21 +306,34 @@ impl SourceIndexingContext {
         };
         while let Some(row) = rows_stream.next().await {
             for row in row? {
+                let source_version = SourceVersion::from_current_with_ordinal(
+                    row.ordinal
+                        .ok_or_else(|| anyhow::anyhow!("ordinal is not available"))?,
+                );
+                {
+                    let mut state = self.state.lock().unwrap();
+                    let scan_generation = state.scan_generation;
+                    let row_state = state.rows.entry(row.key.clone()).or_default();
+                    row_state.touched_generation = scan_generation;
+                    if row_state
+                        .source_version
+                        .should_skip(&source_version, Some(update_stats.as_ref()))
+                    {
+                        continue;
+                    }
+                }
                 let concur_permit = import_op
                     .concurrency_controller
                     .acquire(concur_control::BYTES_UNKNOWN_YET)
                     .await?;
-                self.process_source_key_if_newer(
+                join_set.spawn(self.clone().process_source_key(
                     row.key,
-                    SourceVersion::from_current_with_ordinal(
-                        row.ordinal
-                            .ok_or_else(|| anyhow::anyhow!("ordinal is not available"))?,
-                    ),
-                    update_stats,
+                    None,
+                    update_stats.clone(),
                     concur_permit,
-                    pool,
-                )
-                .map(|fut| join_set.spawn(fut));
+                    NO_ACK,
+                    pool.clone(),
+                ));
             }
         }
         while let Some(result) = join_set.join_next().await {

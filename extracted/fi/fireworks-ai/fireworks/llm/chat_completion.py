@@ -54,6 +54,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> OpenAIChatCompletion:
@@ -82,6 +83,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Generator[ChatCompletionChunk, None, None]:
@@ -110,6 +112,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> dict:
@@ -134,6 +137,7 @@ class ChatCompletion(BaseCompletion):
             response_format=response_format,
             context_length_exceeded_behavior=context_length_exceeded_behavior,
             user=user,
+            perf_metrics_in_response=perf_metrics_in_response,
             extra_headers=extra_headers,
             **kwargs,
         )
@@ -173,6 +177,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIChatCompletion, Generator[ChatCompletionChunk, None, None]]:
@@ -199,6 +204,7 @@ class ChatCompletion(BaseCompletion):
             context_length_exceeded_behavior,
             user,
             tools,
+            perf_metrics_in_response,
             extra_headers,
             **kwargs,
         )
@@ -228,6 +234,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> OpenAIChatCompletion: ...
@@ -255,6 +262,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
@@ -282,6 +290,7 @@ class ChatCompletion(BaseCompletion):
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
         tools: Union[List[ChatCompletionToolParam], NotGiven] = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIChatCompletion, AsyncGenerator[ChatCompletionChunk, None]]:
@@ -310,6 +319,7 @@ class ChatCompletion(BaseCompletion):
             context_length_exceeded_behavior,
             user,
             tools,
+            perf_metrics_in_response,
             extra_headers,
             **kwargs,
         )

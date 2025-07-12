@@ -9,8 +9,10 @@ from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 BATCH_MATERIALIZATION: JobType
+BATCH_PLAN_INTEGRATION_TEST: JobType
 BILLABLE_USAGE_OPTIONS_FIELD_NUMBER: _ClassVar[int]
 COMPUTE_TYPE_UNSPECIFIED: ComputeType
+CONSUMPTION_SERVER_GROUP_TYPE_UNSPECIFIED: ConsumptionServerGroupType
 CONSUMPTION_TYPE_UNSPECIFIED: ConsumptionType
 CONSUMPTION_UNITS_UNSPECIFIED: ConsumptionUnit
 DATABRICKS: ComputeType
@@ -19,6 +21,7 @@ DESCRIPTOR: _descriptor.FileDescriptor
 EMR: ComputeType
 ENTITY_DELETION: JobType
 FEATURE_PUBLISH: JobType
+FEATURE_SERVER_GROUP: ConsumptionServerGroupType
 FEATURE_SERVER_NODE_DURATION: ConsumptionType
 FEATURE_SERVER_NODE_HOURS: ConsumptionUnit
 FEATURE_SERVER_READS: ConsumptionType
@@ -28,8 +31,10 @@ FEATURE_SERVICE_VECTORS_SERVED: ConsumptionUnit
 FEATURE_TABLE_INGEST: JobType
 FEATURE_VIEW_ONLINE_READS: ConsumptionUnit
 INGEST_API_COMPUTE: ConsumptionType
+INGEST_SERVER_GROUP: ConsumptionServerGroupType
 JOB_TYPE_UNSPECIFIED: JobType
 MATERIALIZATION_JOB_WRITES: ConsumptionType
+OFFLINE_STORE_MAINTENANCE: JobType
 OFFLINE_WRITE_ROWS: ConsumptionUnit
 OFFLINE_WRITE_VALUES: ConsumptionUnit
 ONLINE_WRITE_ROWS: ConsumptionUnit
@@ -44,7 +49,9 @@ SERVER_GROUP_NODE_DURATION: ConsumptionType
 SERVER_GROUP_NODE_HOURS: ConsumptionUnit
 SPARK_MATERIALIZATION_JOB_COMPUTE: ConsumptionType
 STREAM_MATERIALIZATION: JobType
+STREAM_PLAN_INTEGRATION_TEST: JobType
 TECTON_JOB_COMPUTE_HOURS: ConsumptionUnit
+TRANSFORM_SERVER_GROUP: ConsumptionServerGroupType
 VISIBILITY_UNSPECIFIED: Visibility
 VISIBILITY_VISIBLE: Visibility
 billable_usage_options: _descriptor.FieldDescriptor
@@ -87,17 +94,17 @@ class ConsumptionInfo(_message.Message):
     def __init__(self, time_bucket_start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., units_consumed: _Optional[int] = ..., metric: _Optional[str] = ..., details: _Optional[_Mapping[str, str]] = ..., source_id: _Optional[str] = ..., feature_view_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_view_name: _Optional[str] = ..., workspace: _Optional[str] = ..., online_read_aws_region: _Optional[str] = ...) -> None: ...
 
 class ConsumptionRecord(_message.Message):
-    __slots__ = ["account_name", "collection_timestamp", "duration", "feature_server_node_hours_metadata", "feature_server_reads_metadata", "ingest_api_compute_hours_metadata", "materialization_job_offline_writes_metadata", "materialization_job_online_writes_metadata", "quantity", "real_time_compute_metadata", "server_group_node_hours_metadata", "tecton_job_compute_hours_metadata", "timestamp", "unit"]
+    __slots__ = ["account_name", "collection_timestamp", "duration", "feature_server_node_hours_metadata", "feature_server_reads_metadata", "ingest_api_compute_hours_metadata", "is_canary", "materialization_job_offline_writes_metadata", "materialization_job_online_writes_metadata", "quantity", "server_group_node_hours_metadata", "tecton_job_compute_hours_metadata", "timestamp", "unit"]
     ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
     COLLECTION_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     DURATION_FIELD_NUMBER: _ClassVar[int]
     FEATURE_SERVER_NODE_HOURS_METADATA_FIELD_NUMBER: _ClassVar[int]
     FEATURE_SERVER_READS_METADATA_FIELD_NUMBER: _ClassVar[int]
     INGEST_API_COMPUTE_HOURS_METADATA_FIELD_NUMBER: _ClassVar[int]
+    IS_CANARY_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZATION_JOB_OFFLINE_WRITES_METADATA_FIELD_NUMBER: _ClassVar[int]
     MATERIALIZATION_JOB_ONLINE_WRITES_METADATA_FIELD_NUMBER: _ClassVar[int]
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
-    REAL_TIME_COMPUTE_METADATA_FIELD_NUMBER: _ClassVar[int]
     SERVER_GROUP_NODE_HOURS_METADATA_FIELD_NUMBER: _ClassVar[int]
     TECTON_JOB_COMPUTE_HOURS_METADATA_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
@@ -108,15 +115,15 @@ class ConsumptionRecord(_message.Message):
     feature_server_node_hours_metadata: FeatureServerNodeHoursMetadata
     feature_server_reads_metadata: FeatureServerReadsMetadata
     ingest_api_compute_hours_metadata: IngestApiComputeHoursMetadata
+    is_canary: bool
     materialization_job_offline_writes_metadata: MaterializationJobOfflineWritesMetadata
     materialization_job_online_writes_metadata: MaterializationJobOnlineWritesMetadata
     quantity: float
-    real_time_compute_metadata: RealTimeComputeMetadata
     server_group_node_hours_metadata: ServerGroupNodeHoursMetadata
     tecton_job_compute_hours_metadata: TectonJobComputeHoursMetadata
     timestamp: _timestamp_pb2.Timestamp
     unit: ConsumptionUnit
-    def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., collection_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., account_name: _Optional[str] = ..., materialization_job_online_writes_metadata: _Optional[_Union[MaterializationJobOnlineWritesMetadata, _Mapping]] = ..., materialization_job_offline_writes_metadata: _Optional[_Union[MaterializationJobOfflineWritesMetadata, _Mapping]] = ..., feature_server_node_hours_metadata: _Optional[_Union[FeatureServerNodeHoursMetadata, _Mapping]] = ..., feature_server_reads_metadata: _Optional[_Union[FeatureServerReadsMetadata, _Mapping]] = ..., real_time_compute_metadata: _Optional[_Union[RealTimeComputeMetadata, _Mapping]] = ..., tecton_job_compute_hours_metadata: _Optional[_Union[TectonJobComputeHoursMetadata, _Mapping]] = ..., ingest_api_compute_hours_metadata: _Optional[_Union[IngestApiComputeHoursMetadata, _Mapping]] = ..., server_group_node_hours_metadata: _Optional[_Union[ServerGroupNodeHoursMetadata, _Mapping]] = ..., quantity: _Optional[float] = ..., unit: _Optional[_Union[ConsumptionUnit, str]] = ...) -> None: ...
+    def __init__(self, timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., collection_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., account_name: _Optional[str] = ..., materialization_job_online_writes_metadata: _Optional[_Union[MaterializationJobOnlineWritesMetadata, _Mapping]] = ..., materialization_job_offline_writes_metadata: _Optional[_Union[MaterializationJobOfflineWritesMetadata, _Mapping]] = ..., feature_server_node_hours_metadata: _Optional[_Union[FeatureServerNodeHoursMetadata, _Mapping]] = ..., feature_server_reads_metadata: _Optional[_Union[FeatureServerReadsMetadata, _Mapping]] = ..., tecton_job_compute_hours_metadata: _Optional[_Union[TectonJobComputeHoursMetadata, _Mapping]] = ..., ingest_api_compute_hours_metadata: _Optional[_Union[IngestApiComputeHoursMetadata, _Mapping]] = ..., server_group_node_hours_metadata: _Optional[_Union[ServerGroupNodeHoursMetadata, _Mapping]] = ..., quantity: _Optional[float] = ..., unit: _Optional[_Union[ConsumptionUnit, str]] = ..., is_canary: bool = ...) -> None: ...
 
 class EnrichedConsumptionInfo(_message.Message):
     __slots__ = ["consumption_info", "feature_view_id", "feature_view_name", "feature_view_workspace"]
@@ -229,40 +236,19 @@ class MaterializationJobOnlineWritesMetadata(_message.Message):
     workspace_state_id: str
     def __init__(self, online_store_type: _Optional[str] = ..., tecton_job_id: _Optional[str] = ..., workspace: _Optional[str] = ..., workspace_state_id: _Optional[str] = ..., tecton_object_name: _Optional[str] = ..., tecton_object_id: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
-class RealTimeComputeMetadata(_message.Message):
-    __slots__ = ["memory_allocated_mib", "tags", "tecton_object_id", "tecton_object_name", "workspace", "workspace_state_id"]
-    class TagsEntry(_message.Message):
-        __slots__ = ["key", "value"]
-        KEY_FIELD_NUMBER: _ClassVar[int]
-        VALUE_FIELD_NUMBER: _ClassVar[int]
-        key: str
-        value: str
-        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-    MEMORY_ALLOCATED_MIB_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    TECTON_OBJECT_ID_FIELD_NUMBER: _ClassVar[int]
-    TECTON_OBJECT_NAME_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    WORKSPACE_STATE_ID_FIELD_NUMBER: _ClassVar[int]
-    memory_allocated_mib: int
-    tags: _containers.ScalarMap[str, str]
-    tecton_object_id: str
-    tecton_object_name: str
-    workspace: str
-    workspace_state_id: str
-    def __init__(self, memory_allocated_mib: _Optional[int] = ..., workspace: _Optional[str] = ..., workspace_state_id: _Optional[str] = ..., tecton_object_name: _Optional[str] = ..., tecton_object_id: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
-
 class ServerGroupNodeHoursMetadata(_message.Message):
-    __slots__ = ["cloud_provider", "node_type", "region", "server_group_name"]
+    __slots__ = ["cloud_provider", "instance_type", "region", "server_group_name", "server_group_type"]
     CLOUD_PROVIDER_FIELD_NUMBER: _ClassVar[int]
-    NODE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
     SERVER_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    SERVER_GROUP_TYPE_FIELD_NUMBER: _ClassVar[int]
     cloud_provider: str
-    node_type: str
+    instance_type: str
     region: str
     server_group_name: str
-    def __init__(self, region: _Optional[str] = ..., node_type: _Optional[str] = ..., server_group_name: _Optional[str] = ..., cloud_provider: _Optional[str] = ...) -> None: ...
+    server_group_type: ConsumptionServerGroupType
+    def __init__(self, region: _Optional[str] = ..., instance_type: _Optional[str] = ..., server_group_name: _Optional[str] = ..., cloud_provider: _Optional[str] = ..., server_group_type: _Optional[_Union[ConsumptionServerGroupType, str]] = ...) -> None: ...
 
 class TectonJobComputeHoursMetadata(_message.Message):
     __slots__ = ["compute_type", "instance_type", "job_type", "num_workers", "region", "tags", "tecton_job_id", "tecton_object_id", "tecton_object_name", "workspace", "workspace_state_id"]
@@ -313,4 +299,7 @@ class Visibility(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []
 
 class Requirement(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []
+
+class ConsumptionServerGroupType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []

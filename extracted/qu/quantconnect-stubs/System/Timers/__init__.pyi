@@ -11,23 +11,6 @@ System_Timers__EventContainer_Callable = typing.TypeVar("System_Timers__EventCon
 System_Timers__EventContainer_ReturnType = typing.TypeVar("System_Timers__EventContainer_ReturnType")
 
 
-class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
-    """
-    DescriptionAttribute marks a property, event, or extender with a
-    description. Visual designers can display this description when referencing
-    the member.
-    """
-
-    @property
-    def description(self) -> str:
-        """Retrieves the description text."""
-        ...
-
-    def __init__(self, description: str) -> None:
-        """Constructs a new sys description."""
-        ...
-
-
 class ElapsedEventArgs(System.EventArgs):
     """Provides data for the System.Timers.Timer.Elapsed event."""
 
@@ -42,6 +25,23 @@ class ElapsedEventArgs(System.EventArgs):
         
         :param signal_time: Time when the timer elapsed
         """
+        ...
+
+
+class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
+    """
+    DescriptionAttribute marks a property, event, or extender with a
+    description. Visual designers can display this description when referencing
+    the member.
+    """
+
+    @property
+    def description(self) -> str:
+        """Retrieves the description text."""
+        ...
+
+    def __init__(self, description: str) -> None:
+        """Constructs a new sys description."""
         ...
 
 

@@ -171,13 +171,13 @@ def get_data_time_limits_for_compaction(
 
 def get_sorted_tile_column_names(agg_window_index: int, agg_groups: List[AggregationGroup]) -> List[str]:
     """Calculate the list of window_tile_column_names in ascending order for a given aggregation window index."""
-    assert all(
-        agg_window_index == agg_group.window_index for agg_group in agg_groups
-    ), "All aggregation groups must have the same window index."
+    assert all(agg_window_index == agg_group.window_index for agg_group in agg_groups), (
+        "All aggregation groups must have the same window index."
+    )
     expected_tile_indexes = set(range(len(agg_groups)))
-    assert {
-        agg_group.tile_index for agg_group in agg_groups
-    } == expected_tile_indexes, "All aggregation groups must have unique tile indexes."
+    assert {agg_group.tile_index for agg_group in agg_groups} == expected_tile_indexes, (
+        "All aggregation groups must have unique tile indexes."
+    )
 
     sorted_tiles = sorted(
         agg_groups,

@@ -455,8 +455,8 @@ class Consumer:
     def reset_stream_offset(self):
         if not self.rabbit_stream_fanout:
             return
-        LOG.warn("Reset consumer for queue %s next offset was at %s.",
-                 self.queue_name, self.next_stream_offset)
+        LOG.warning("Reset consumer for queue %s next offset was at %s.",
+                    self.queue_name, self.next_stream_offset)
         self.next_stream_offset = "last"
 
     def declare(self, conn):
@@ -1112,9 +1112,9 @@ class Connection:
                 # happen, for example, when we delete the stream queue.
                 # We need to start consuming from "last" because the stream
                 # offset maybe reset.
-                LOG.warn('[%s] Basic.cancel received. '
-                         'Resetting consumers offsets to last.',
-                         self.connection_id)
+                LOG.warning('[%s] Basic.cancel received. '
+                            'Resetting consumers offsets to last.',
+                            self.connection_id)
                 for consumer in self._consumers:
                     consumer.reset_stream_offset()
 
@@ -1794,12 +1794,25 @@ class RabbitDriver(amqpdriver.AMQPDriverBase):
             conf, max_size, min_size, ttl,
             url, Connection)
 
+        if conf.oslo_messaging_rabbit.use_queue_manager:
+            self._q_manager = amqpdriver.QManager(
+                hostname=conf.oslo_messaging_rabbit.hostname,
+                processname=conf.oslo_messaging_rabbit.processname)
+        else:
+            self._q_manager = None
+
         super().__init__(
             conf, url,
             connection_pool,
             default_exchange,
             allowed_remote_exmods
         )
+
+    def _get_reply_queue_name(self):
+        if self._q_manager:
+            return 'reply_' + self._q_manager.get()
+        else:
+            return super()._get_reply_queue_name()
 
     def require_features(self, requeue=True):
         pass

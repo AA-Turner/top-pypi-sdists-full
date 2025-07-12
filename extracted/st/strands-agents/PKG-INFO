@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 0.2.1
+Version: 0.3.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -26,16 +26,43 @@ Requires-Dist: botocore<2.0.0,>=1.29.0
 Requires-Dist: docstring-parser<1.0,>=0.15
 Requires-Dist: mcp<2.0.0,>=1.8.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.30.0
+Requires-Dist: opentelemetry-instrumentation-threading<1.00b0,>=0.51b0
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk>=0.2.6; extra == 'a2a'
+Requires-Dist: a2a-sdk[sql]>=0.2.11; extra == 'a2a'
 Requires-Dist: fastapi>=0.115.12; extra == 'a2a'
 Requires-Dist: httpx>=0.28.1; extra == 'a2a'
 Requires-Dist: starlette>=0.46.2; extra == 'a2a'
 Requires-Dist: uvicorn>=0.34.2; extra == 'a2a'
+Provides-Extra: all
+Requires-Dist: a2a-sdk[sql]>=0.2.11; extra == 'all'
+Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
+Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
+Requires-Dist: fastapi>=0.115.12; extra == 'all'
+Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'all'
+Requires-Dist: httpx>=0.28.1; extra == 'all'
+Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'all'
+Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
+Requires-Dist: mistralai>=1.8.2; extra == 'all'
+Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'all'
+Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'all'
+Requires-Dist: ollama<1.0.0,>=0.4.8; extra == 'all'
+Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'all'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'all'
+Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'all'
+Requires-Dist: pytest-asyncio<0.27.0,>=0.26.0; extra == 'all'
+Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == 'all'
+Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'all'
+Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'all'
+Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'all'
+Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'all'
+Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'all'
+Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'all'
+Requires-Dist: starlette>=0.46.2; extra == 'all'
+Requires-Dist: uvicorn>=0.34.2; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: dev
@@ -45,6 +72,8 @@ Requires-Dist: moto<6.0.0,>=5.1.0; extra == 'dev'
 Requires-Dist: mypy<2.0.0,>=1.15.0; extra == 'dev'
 Requires-Dist: pre-commit<4.2.0,>=3.2.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<0.27.0,>=0.26.0; extra == 'dev'
+Requires-Dist: pytest-cov<5.0.0,>=4.1.0; extra == 'dev'
+Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.0.0; extra == 'dev'
 Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'dev'
 Provides-Extra: docs
@@ -63,6 +92,8 @@ Provides-Extra: openai
 Requires-Dist: openai<2.0.0,>=1.68.0; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.30.0; extra == 'otel'
+Provides-Extra: writer
+Requires-Dist: writer-sdk<3.0.0,>=2.2.0; extra == 'writer'
 Description-Content-Type: text/markdown
 
 <div align="center">

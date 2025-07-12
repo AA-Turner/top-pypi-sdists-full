@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: snakemake-interface-report-plugins
-Version: 1.1.0
+Version: 1.1.1
 Summary: The interface for Snakemake report plugins.
 Author: Johannes Koester
 Author-email: johannes.koester@uni-due.de
@@ -8,6 +8,7 @@ Requires-Python: >=3.11,<4.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: snakemake-interface-common (>=1.16.0,<2.0.0)
 Description-Content-Type: text/markdown
 

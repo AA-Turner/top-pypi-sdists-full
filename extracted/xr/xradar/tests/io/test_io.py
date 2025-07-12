@@ -5,7 +5,6 @@
 """Tests for `io` module."""
 
 import io
-import tempfile
 
 import fsspec
 import h5py
@@ -23,6 +22,7 @@ from xradar.io import (
     open_nexradlevel2_datatree,
     open_odim_datatree,
     open_rainbow_datatree,
+    open_uf_datatree,
 )
 from xradar.model import (
     non_standard_sweep_dataset_vars,
@@ -739,81 +739,79 @@ def test_open_iris1_dataset(iris1_file):
 @pytest.mark.parametrize(
     "compression, compression_opts", [("gzip", 0), ("gzip", 6), ("gzip", 9)]
 )
-def test_odim_roundtrip(odim_file2, compression, compression_opts):
+def test_odim_roundtrip(odim_file2, temp_file, compression, compression_opts):
     dtree = open_odim_datatree(odim_file2)
-    with tempfile.NamedTemporaryFile(mode="w+b") as outfile:
-        xradar.io.to_odim(
-            dtree,
-            outfile.name,
-            source="WMO:01104,NOD:norst",
-            compression=compression,
-            compression_opts=compression_opts,
-        )
-        dtree2 = open_odim_datatree(outfile.name, reindex_angle=False)
-        for d0, d1 in zip(dtree.groups, dtree2.groups):
-            xr.testing.assert_equal(dtree[d0].ds, dtree2[d1].ds)
+    xradar.io.to_odim(
+        dtree,
+        temp_file,
+        source="WMO:01104,NOD:norst",
+        compression=compression,
+        compression_opts=compression_opts,
+    )
+    dtree2 = open_odim_datatree(temp_file, reindex_angle=False)
+    for d0, d1 in zip(dtree.groups, dtree2.groups):
+        xr.testing.assert_equal(dtree[d0].ds, dtree2[d1].ds)
 
 
-def test_odim_optional_how(odim_file2):
+def test_odim_optional_how(odim_file2, make_temp_file):
+    temp_file = make_temp_file()
     dtree = open_odim_datatree(odim_file2)
-    with tempfile.NamedTemporaryFile(mode="w+b") as outfile:
-        xradar.io.to_odim(
-            dtree,
-            outfile.name,
-            source="WMO:01104,NOD:norst",
-            optional_how=True,
-        )
-        ds = h5py.File(outfile.name)
+    xradar.io.to_odim(
+        dtree,
+        temp_file,
+        source="WMO:01104,NOD:norst",
+        optional_how=True,
+    )
+    ds = h5py.File(temp_file)
 
-        for i in range(1, 6):
-            ds_how = ds[f"dataset{i}"]["how"].attrs
-            assert "scan_index" in ds_how
-            assert "scan_count" in ds_how
-            assert "startazA" in ds_how
-            assert "stopazA" in ds_how
-            assert "startazT" in ds_how
-            assert "startazT" in ds_how
-            assert "startelA" in ds_how
-            assert "stopelA" in ds_how
+    for i in range(1, 6):
+        ds_how = ds[f"dataset{i}"]["how"].attrs
+        assert "scan_index" in ds_how
+        assert "scan_count" in ds_how
+        assert "startazA" in ds_how
+        assert "stopazA" in ds_how
+        assert "startazT" in ds_how
+        assert "startazT" in ds_how
+        assert "startelA" in ds_how
+        assert "stopelA" in ds_how
 
-    with tempfile.NamedTemporaryFile(mode="w+b") as outfile:
-        xradar.io.to_odim(
-            dtree,
-            outfile.name,
-            source="WMO:01104,NOD:norst",
-            optional_how=False,
-        )
-        ds = h5py.File(outfile.name)
+    temp_file = make_temp_file()
+    xradar.io.to_odim(
+        dtree,
+        temp_file,
+        source="WMO:01104,NOD:norst",
+        optional_how=False,
+    )
+    ds = h5py.File(temp_file)
 
-        for i in range(1, 6):
-            ds_how = ds[f"dataset{i}"]["how"].attrs
-            assert "scan_index" not in ds_how
-            assert "scan_count" not in ds_how
-            assert "startazA" not in ds_how
-            assert "stopazA" not in ds_how
-            assert "startazT" not in ds_how
-            assert "startazT" not in ds_how
-            assert "startelA" not in ds_how
-            assert "stopelA" not in ds_how
+    for i in range(1, 6):
+        ds_how = ds[f"dataset{i}"]["how"].attrs
+        assert "scan_index" not in ds_how
+        assert "scan_count" not in ds_how
+        assert "startazA" not in ds_how
+        assert "stopazA" not in ds_how
+        assert "startazT" not in ds_how
+        assert "startazT" not in ds_how
+        assert "startelA" not in ds_how
+        assert "stopelA" not in ds_how
 
 
-def test_write_odim_source(rainbow_file2):
+def test_write_odim_source(rainbow_file2, temp_file):
     dtree = open_rainbow_datatree(rainbow_file2)
-    with tempfile.NamedTemporaryFile(mode="w+b") as outfile:
-        with pytest.raises(ValueError):
-            xradar.io.to_odim(
-                dtree,
-                outfile.name,
-                source="PLC:Wideumont",
-            )
-
+    with pytest.raises(ValueError):
         xradar.io.to_odim(
             dtree,
-            outfile.name,
-            source="NOD:bewid,WMO:06477",
+            temp_file,
+            source="PLC:Wideumont",
         )
-        ds = h5py.File(outfile.name)
-        assert ds["what"].attrs["source"].decode("utf-8") == "NOD:bewid,WMO:06477"
+
+    xradar.io.to_odim(
+        dtree,
+        temp_file,
+        source="NOD:bewid,WMO:06477",
+    )
+    ds = h5py.File(temp_file)
+    assert ds["what"].attrs["source"].decode("utf-8") == "NOD:bewid,WMO:06477"
 
 
 def test_open_datamet_dataset(datamet_file):
@@ -875,7 +873,7 @@ def test_open_datamet_datatree(datamet_file):
 
     # iterate over subgroups and check some values
     moments = ["DBTH", "DBZH", "KDP", "PHIDP", "RHOHV", "VRADH", "WRADH", "ZDR"]
-    elevations = [16.1, 13.9, 11.0, 9.0, 7.0, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5]
+    elevations = [16.0, 13.9, 11.0, 9.0, 7.0, 5.5, 4.5, 3.5, 2.5, 1.5, 0.5]
     azimuths = [360] * 11
     ranges = [493, 493, 493, 664, 832, 832, 1000, 1000, 1332, 1332, 1332]
     i = 0
@@ -897,7 +895,7 @@ def test_open_datamet_datatree(datamet_file):
             "altitude",
             "range",
         }
-        assert np.round(ds.elevation.mean().values.item(), 1) == elevations[i]
+        assert np.isclose(ds.elevation.mean().values.item(), elevations[i], atol=0.05)
         assert ds.sweep_number == i
         i += 1
 
@@ -911,18 +909,18 @@ def test_open_datamet_datatree(datamet_file):
 
 
 @pytest.mark.parametrize("first_dim", ["time", "auto"])
-def test_cfradfial2_roundtrip(cfradial1_file, first_dim):
+def test_cfradfial2_roundtrip(cfradial1_file, make_temp_file, first_dim):
     dtree0 = open_cfradial1_datatree(cfradial1_file, first_dim=first_dim)
     # first write to cfradial2
-    with tempfile.NamedTemporaryFile(mode="w+b") as outfile:
-        xradar.io.to_cfradial2(dtree0.copy(), outfile.name)
-        # then open cfradial2 file
-        dtree1 = xr.open_datatree(outfile.name)
+    outfile = make_temp_file()
+    xradar.io.to_cfradial2(dtree0.copy(), outfile)
+    # then open cfradial2 file
+    with xr.open_datatree(outfile) as dtree1:
         # and write again
-        with tempfile.NamedTemporaryFile(mode="w+b") as outfile1:
-            xradar.io.to_cfradial2(dtree1.copy(), outfile1.name)
-            # and open second cfradial2
-            dtree2 = xr.open_datatree(outfile1.name)
+        outfile1 = make_temp_file()
+        xradar.io.to_cfradial2(dtree1.copy(), outfile1)
+        # and open second cfradial2
+        with xr.open_datatree(outfile1) as dtree2:
             # check equality
             for d0, d1, d2 in zip(dtree0.groups, dtree1.groups, dtree2.groups):
                 if "sweep" in d0:
@@ -1119,3 +1117,133 @@ def test_iris_dask_load(iris0_file):
     ds = xr.open_dataset(iris0_file, group="sweep_0", engine="iris")
     dsc = ds.chunk()
     dsc.load()
+
+
+@pytest.mark.run(order=1)
+@pytest.mark.parametrize("sweep", ["sweep_0", 0, [0, 1], ["sweep_0", "sweep_1"]])
+@pytest.mark.parametrize(
+    "uf_files", ["uf_file_1", "uf_file_2", "uf_file_3"], indirect=True
+)
+def test_open_uf_datatree_sweep(uf_files, sweep):
+    dtree = open_uf_datatree(uf_files, sweep=sweep)
+    if isinstance(sweep, (str, int)):
+        lswp = len([sweep])
+    else:
+        lswp = len(sweep)
+    assert len(dtree.match("sweep*")) == lswp
+
+
+def test_open_uf_datatree(uf_file_1):
+    dtree = open_uf_datatree(uf_file_1)
+    # root_attrs
+    attrs = dtree.attrs
+    assert attrs["Conventions"] == "None"
+    assert attrs["instrument_name"] == "rvp8-rel"
+
+    # root vars
+    rvars = dtree.data_vars
+    assert rvars["volume_number"] == 0
+    assert rvars["platform_type"] == "fixed"
+    assert rvars["instrument_type"] == "radar"
+    assert rvars["time_coverage_start"] == "2011-04-27T16:42:32Z"
+    assert rvars["time_coverage_end"] == "2011-04-27T16:46:50Z"
+    np.testing.assert_almost_equal(rvars["latitude"].values, np.array(34.9318099))
+    np.testing.assert_almost_equal(rvars["longitude"].values, np.array(-86.4658203))
+    np.testing.assert_almost_equal(rvars["altitude"].values, np.array(226))
+
+    # iterate over subgroups and check some values
+    moments = [
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+        ["DBZH", "DBTH", "VRADH", "RHOHV", "ZDR", "KDP", "WRADH"],
+    ]
+    elevations = [
+        0.5,
+        1.1,
+        1.8,
+        2.6,
+        3.6,
+        4.9,
+        6.3,
+        7.8,
+        9.8,
+        11.8,
+        13.8,
+        15.8,
+        19.5,
+        21.9,
+    ]
+    azimuths = [
+        318,
+        319,
+        319,
+        318,
+        318,
+        318,
+        318,
+        318,
+        329,
+        351,
+        360,
+        360,
+        360,
+        360,
+    ]
+    ranges = [
+        997,
+        997,
+        997,
+        997,
+        997,
+        997,
+        997,
+        997,
+        919,
+        766,
+        658,
+        577,
+        476,
+        422,
+    ]
+    assert len(dtree.groups[1:]) == 17
+    for i, grp in enumerate(dtree.match("sweep_*")):
+        print(i)
+        ds = dtree[grp].ds
+        assert dict(ds.sizes) == {"azimuth": azimuths[i], "range": ranges[i]}
+        assert set(ds.data_vars) & (
+            sweep_dataset_vars | non_standard_sweep_dataset_vars
+        ) == set(moments[i])
+        assert set(ds.data_vars) & (required_sweep_metadata_vars) == set(
+            required_sweep_metadata_vars ^ {"azimuth", "elevation"}
+        )
+        assert set(ds.coords) == {
+            "azimuth",
+            "elevation",
+            "time",
+            "latitude",
+            "longitude",
+            "altitude",
+            "range",
+        }
+        assert np.round(ds.elevation.mean().values.item(), 1) == elevations[i]
+        assert ds.sweep_number.values == int(grp[6:])
+
+
+@skip_import("dask")
+@pytest.mark.parametrize(
+    "uf_files", ["uf_file_1", "uf_file_2", "uf_file_3"], indirect=True
+)
+def test_uf_dask_load(uf_files):
+    ds = xr.open_dataset(uf_files, group="sweep_0", engine="uf", chunks={})
+    ds.load()

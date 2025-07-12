@@ -1,6 +1,7 @@
 from tecton_proto.args import data_source_config__client_pb2 as _data_source_config__client_pb2
 from tecton_proto.args import transformation__client_pb2 as _transformation__client_pb2
 from tecton_proto.args import user_defined_function__client_pb2 as _user_defined_function__client_pb2
+from tecton_proto.common import id__client_pb2 as _id__client_pb2
 from tecton_proto.common import schema__client_pb2 as _schema__client_pb2
 from tecton_proto.common import spark_schema__client_pb2 as _spark_schema__client_pb2
 from google.protobuf.internal import containers as _containers
@@ -37,16 +38,18 @@ class KinesisDSConfig(_message.Message):
     def __init__(self, stream_name: _Optional[str] = ..., region: _Optional[str] = ...) -> None: ...
 
 class PushDataSourceConfig(_message.Message):
-    __slots__ = ["input_schema", "log_offline", "post_processor", "post_processor_mode"]
+    __slots__ = ["ingest_server_group_id", "input_schema", "log_offline", "post_processor", "post_processor_mode"]
+    INGEST_SERVER_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     INPUT_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     LOG_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     POST_PROCESSOR_FIELD_NUMBER: _ClassVar[int]
     POST_PROCESSOR_MODE_FIELD_NUMBER: _ClassVar[int]
+    ingest_server_group_id: _id__client_pb2.Id
     input_schema: _schema__client_pb2.Schema
     log_offline: bool
     post_processor: _user_defined_function__client_pb2.UserDefinedFunction
     post_processor_mode: _transformation__client_pb2.TransformationMode
-    def __init__(self, log_offline: bool = ..., post_processor: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., input_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., post_processor_mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ...) -> None: ...
+    def __init__(self, log_offline: bool = ..., post_processor: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., input_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., post_processor_mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ..., ingest_server_group_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ...) -> None: ...
 
 class SparkStreamDataSourceFunction(_message.Message):
     __slots__ = ["function"]

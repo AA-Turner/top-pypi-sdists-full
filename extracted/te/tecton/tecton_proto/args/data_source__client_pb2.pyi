@@ -156,18 +156,22 @@ class PandasBatchConfigArgs(_message.Message):
     def __init__(self, data_source_function: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., data_delay: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., supports_time_filtering: bool = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ...) -> None: ...
 
 class PushSourceArgs(_message.Message):
-    __slots__ = ["input_schema", "log_offline", "post_processor", "post_processor_mode", "timestamp_field"]
+    __slots__ = ["ingest_server_group", "input_schema", "log_offline", "post_processor", "post_processor_mode", "timestamp_field", "transform_server_group"]
+    INGEST_SERVER_GROUP_FIELD_NUMBER: _ClassVar[int]
     INPUT_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     LOG_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     POST_PROCESSOR_FIELD_NUMBER: _ClassVar[int]
     POST_PROCESSOR_MODE_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_FIELD_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORM_SERVER_GROUP_FIELD_NUMBER: _ClassVar[int]
+    ingest_server_group: str
     input_schema: _schema__client_pb2.Schema
     log_offline: bool
     post_processor: _user_defined_function__client_pb2.UserDefinedFunction
     post_processor_mode: _transformation__client_pb2.TransformationMode
     timestamp_field: str
-    def __init__(self, log_offline: bool = ..., post_processor: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., input_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., post_processor_mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ..., timestamp_field: _Optional[str] = ...) -> None: ...
+    transform_server_group: str
+    def __init__(self, log_offline: bool = ..., post_processor: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., input_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., post_processor_mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ..., timestamp_field: _Optional[str] = ..., ingest_server_group: _Optional[str] = ..., transform_server_group: _Optional[str] = ...) -> None: ...
 
 class PyArrowBatchConfigArgs(_message.Message):
     __slots__ = ["data_delay", "data_source_function", "secrets", "supports_time_filtering"]
@@ -201,10 +205,12 @@ class RedshiftDataSourceArgs(_message.Message):
     def __init__(self, endpoint: _Optional[str] = ..., table: _Optional[str] = ..., query: _Optional[str] = ..., common_args: _Optional[_Union[BatchDataSourceCommonArgs, _Mapping]] = ...) -> None: ...
 
 class SnowflakeDataSourceArgs(_message.Message):
-    __slots__ = ["common_args", "database", "password", "query", "role", "schema", "table", "url", "user", "warehouse"]
+    __slots__ = ["common_args", "database", "password", "private_key", "private_key_passphrase", "query", "role", "schema", "table", "url", "user", "warehouse"]
     COMMON_ARGS_FIELD_NUMBER: _ClassVar[int]
     DATABASE_FIELD_NUMBER: _ClassVar[int]
     PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    PRIVATE_KEY_FIELD_NUMBER: _ClassVar[int]
+    PRIVATE_KEY_PASSPHRASE_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_FIELD_NUMBER: _ClassVar[int]
@@ -215,6 +221,8 @@ class SnowflakeDataSourceArgs(_message.Message):
     common_args: BatchDataSourceCommonArgs
     database: str
     password: _secret__client_pb2.SecretReference
+    private_key: _secret__client_pb2.SecretReference
+    private_key_passphrase: _secret__client_pb2.SecretReference
     query: str
     role: str
     schema: str
@@ -222,7 +230,7 @@ class SnowflakeDataSourceArgs(_message.Message):
     url: str
     user: _secret__client_pb2.SecretReference
     warehouse: str
-    def __init__(self, url: _Optional[str] = ..., role: _Optional[str] = ..., database: _Optional[str] = ..., schema: _Optional[str] = ..., warehouse: _Optional[str] = ..., table: _Optional[str] = ..., query: _Optional[str] = ..., common_args: _Optional[_Union[BatchDataSourceCommonArgs, _Mapping]] = ..., user: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ..., password: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ...) -> None: ...
+    def __init__(self, url: _Optional[str] = ..., role: _Optional[str] = ..., database: _Optional[str] = ..., schema: _Optional[str] = ..., warehouse: _Optional[str] = ..., table: _Optional[str] = ..., query: _Optional[str] = ..., common_args: _Optional[_Union[BatchDataSourceCommonArgs, _Mapping]] = ..., user: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ..., password: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ..., private_key: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ..., private_key_passphrase: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ...) -> None: ...
 
 class SparkBatchConfigArgs(_message.Message):
     __slots__ = ["data_delay", "data_source_function", "supports_time_filtering"]

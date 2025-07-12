@@ -14,9 +14,11 @@ from tecton._internals import metadata_service
 from tecton.cli import printer
 from tecton.cli.cli_utils import display_table
 from tecton.cli.cli_utils import timestamp_to_string
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton_proto.common.server_group_status__client_pb2 import ServerGroupStatus
 from tecton_proto.common.server_group_type__client_pb2 import ServerGroupType
+from tecton_proto.servergroupservice.server_group_service__client_pb2 import GetRealtimeLogsResponse
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import GetServerGroupRequest
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import ListServerGroupsRequest
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import ServerGroupInfo
@@ -59,7 +61,7 @@ class ServerGroupIdentifier:
         return False
 
 
-@click.command("server-group", cls=TectonGroup)
+@click.command("server-group", cls=TectonGroup, command_category=TectonCommandCategory.INFRA, hidden=True)
 def server_group():
     """Manage Server Groups for Online Serving and Realtime Execution."""
 
@@ -67,6 +69,10 @@ def server_group():
 @server_group.command("list")
 def list():
     """List all available Server Groups in workspace"""
+    printer.safe_print(
+        "⚠️  WARNING: The 'tecton server-group' commands are deprecated and will be removed in upcoming SDK releases. Please use 'tecton transform-server-group' and 'tecton ingest-server-group' commands instead.",
+        file=sys.stderr,
+    )
     workspace = tecton_context.get_current_workspace()
     server_groups = _list_server_groups(workspace)
     _display_server_groups(server_groups)
@@ -83,6 +89,10 @@ def list():
 )
 def describe(name: str, output_file: Optional[str] = None):
     """Describe a Server Group"""
+    printer.safe_print(
+        "⚠️  WARNING: The 'tecton server-group' commands are deprecated and will be removed in upcoming SDK releases. Please use 'tecton transform-server-group' and 'tecton ingest-server-group' commands instead.",
+        file=sys.stderr,
+    )
     workspace = tecton_context.get_current_workspace()
     group = _get_server_group(workspace, name)
     if output_file:
@@ -90,6 +100,17 @@ def describe(name: str, output_file: Optional[str] = None):
         _write_to_json(group, output_path)
     else:
         _display_server_group_info(group)
+
+
+def _display_realtime_logs(response: GetRealtimeLogsResponse):
+    display_table(
+        headings=["Timestamp", "Node", "Message"],
+        display_rows=[(log.timestamp.ToJsonString(), log.node, log.message) for log in response.logs],
+        center_align=False,
+    )
+
+    if response.warnings:
+        printer.safe_print(f"{INFO_SIGN} WARNING: {response.warnings}", file=sys.stdout)
 
 
 def _list_server_groups(workspace: str, type: ServerGroupType = None):

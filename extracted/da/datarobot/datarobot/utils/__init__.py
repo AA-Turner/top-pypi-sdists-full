@@ -174,9 +174,11 @@ def datetime_to_string(
     if not isinstance(datetime_obj, datetime):
         msg = f"expected to be passed a datetime.datetime, was passed {type(datetime_obj)}"
         raise ValueError(msg)
+
     if ensure_rfc_3339 and not datetime_obj.tzinfo:
         datetime_obj = datetime_obj.replace(tzinfo=pytz.utc)
-    return datetime_obj.isoformat()
+
+    return cast(datetime, datetime_obj).isoformat()
 
 
 def _is_api_object(obj: Any) -> bool:

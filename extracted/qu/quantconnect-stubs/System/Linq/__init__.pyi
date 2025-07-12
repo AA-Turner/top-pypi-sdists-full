@@ -7,13 +7,13 @@ import System
 import System.Collections.Generic
 import System.Linq
 
-System_Linq_Lookup_TKey = typing.TypeVar("System_Linq_Lookup_TKey")
-System_Linq_Lookup_TElement = typing.TypeVar("System_Linq_Lookup_TElement")
-System_Linq_ILookup_TKey = typing.TypeVar("System_Linq_ILookup_TKey")
-System_Linq_ILookup_TElement = typing.TypeVar("System_Linq_ILookup_TElement")
+System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
 System_Linq_IGrouping_TKey = typing.TypeVar("System_Linq_IGrouping_TKey")
 System_Linq_IGrouping_TElement = typing.TypeVar("System_Linq_IGrouping_TElement")
-System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
+System_Linq_ILookup_TKey = typing.TypeVar("System_Linq_ILookup_TKey")
+System_Linq_ILookup_TElement = typing.TypeVar("System_Linq_ILookup_TElement")
+System_Linq_Lookup_TKey = typing.TypeVar("System_Linq_Lookup_TKey")
+System_Linq_Lookup_TElement = typing.TypeVar("System_Linq_Lookup_TElement")
 
 
 class ImmutableArrayExtensions(System.Object):
@@ -108,23 +108,16 @@ class Enumerable(System.Object):
         ...
 
 
-class Lookup(typing.Generic[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement], System.Object, System.Linq.ILookup[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement], typing.Iterable[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]):
+class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping_TElement], System.Collections.Generic.IEnumerable[System_Linq_IGrouping_TElement], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     @property
-    def count(self) -> int:
-        ...
-
-    def __getitem__(self, key: System_Linq_Lookup_TKey) -> System.Collections.Generic.IEnumerable[System_Linq_Lookup_TElement]:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
-        ...
-
-    def contains(self, key: System_Linq_Lookup_TKey) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
+    @abc.abstractmethod
+    def key(self) -> System_Linq_IGrouping_TKey:
         ...
 
 
@@ -143,16 +136,23 @@ class ILookup(typing.Generic[System_Linq_ILookup_TKey, System_Linq_ILookup_TElem
         ...
 
 
-class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping_TElement], System.Collections.Generic.IEnumerable[System_Linq_IGrouping_TElement], metaclass=abc.ABCMeta):
+class Lookup(typing.Generic[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement], System.Object, System.Linq.ILookup[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement], typing.Iterable[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]):
     """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def key(self) -> System_Linq_IGrouping_TKey:
+    def count(self) -> int:
         ...
 
+    def __getitem__(self, key: System_Linq_Lookup_TKey) -> System.Collections.Generic.IEnumerable[System_Linq_Lookup_TElement]:
+        ...
 
-class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+    def __iter__(self) -> typing.Iterator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
+        ...
+
+    def contains(self, key: System_Linq_Lookup_TKey) -> bool:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
+        ...
 
 

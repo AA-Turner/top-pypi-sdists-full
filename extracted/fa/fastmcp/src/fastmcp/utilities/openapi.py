@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar, cast
 
 from openapi_pydantic import (
     OpenAPI,
@@ -93,6 +93,40 @@ def format_array_parameter(
             return str_value
 
 
+def format_deep_object_parameter(
+    param_value: dict, parameter_name: str
+) -> dict[str, str]:
+    """
+    Format a dictionary parameter for deepObject style serialization.
+
+    According to OpenAPI 3.0 spec, deepObject style with explode=true serializes
+    object properties as separate query parameters with bracket notation.
+
+    For example: {"id": "123", "type": "user"} becomes:
+    param[id]=123&param[type]=user
+
+    Args:
+        param_value: Dictionary value to format
+        parameter_name: Name of the parameter
+
+    Returns:
+        Dictionary with bracketed parameter names as keys
+    """
+    if not isinstance(param_value, dict):
+        logger.warning(
+            f"deepObject style parameter '{parameter_name}' expected dict, got {type(param_value)}"
+        )
+        return {}
+
+    result = {}
+    for key, value in param_value.items():
+        # Format as param[key]=value
+        bracketed_key = f"{parameter_name}[{key}]"
+        result[bracketed_key] = str(value)
+
+    return result
+
+
 class ParameterInfo(FastMCPBaseModel):
     """Represents a single parameter for an HTTP operation in our IR."""
 
@@ -102,6 +136,7 @@ class ParameterInfo(FastMCPBaseModel):
     schema_: JsonSchema = Field(..., alias="schema")  # Target name in IR
     description: str | None = None
     explode: bool | None = None  # OpenAPI explode property for array parameters
+    style: str | None = None  # OpenAPI style property for parameter serialization
 
 
 class RequestBodyInfo(FastMCPBaseModel):
@@ -153,6 +188,7 @@ __all__ = [
     "JsonSchema",
     "parse_openapi_to_http_routes",
     "extract_output_schema_from_responses",
+    "format_deep_object_parameter",
 ]
 
 # Type variables for generic parser
@@ -415,8 +451,9 @@ class OpenAPIParser(
                         ):
                             param_schema_dict["default"] = resolved_media_schema.default
 
-                # Extract explode property if present
+                # Extract explode and style properties if present
                 explode = getattr(parameter, "explode", None)
+                style = getattr(parameter, "style", None)
 
                 # Create parameter info object
                 param_info = ParameterInfo(
@@ -426,6 +463,7 @@ class OpenAPIParser(
                     schema=param_schema_dict,
                     description=parameter.description,
                     explode=explode,
+                    style=style,
                 )
                 extracted_params.append(param_info)
             except Exception as e:
@@ -1060,6 +1098,7 @@ def _replace_ref_with_defs(
 def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
     """
     Combines parameter and request body schemas into a single schema.
+    Handles parameter name collisions by adding location suffixes.
 
     Args:
         route: HTTPRoute object
@@ -1070,17 +1109,19 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
     properties = {}
     required = []
 
-    # Add path parameters
-    for param in route.parameters:
-        if param.required:
-            required.append(param.name)
-        properties[param.name] = _replace_ref_with_defs(
-            param.schema_.copy(), param.description
-        )
+    # First pass: collect parameter names by location and body properties
+    param_names_by_location = {
+        "path": set(),
+        "query": set(),
+        "header": set(),
+        "cookie": set(),
+    }
+    body_props = {}
 
-    # Add request body if it exists
+    for param in route.parameters:
+        param_names_by_location[param.location].add(param.name)
+
     if route.request_body and route.request_body.content_schema:
-        # For now, just use the first content type's schema
         content_type = next(iter(route.request_body.content_schema))
         body_schema = _replace_ref_with_defs(
             route.request_body.content_schema[content_type].copy(),
@@ -1088,7 +1129,44 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
         )
         body_props = body_schema.get("properties", {})
 
-        # Add request body properties
+    # Detect collisions: parameters that exist in both body and path/query/header
+    all_non_body_params = set()
+    for location_params in param_names_by_location.values():
+        all_non_body_params.update(location_params)
+
+    body_param_names = set(body_props.keys())
+    colliding_params = all_non_body_params & body_param_names
+
+    # Add parameters with suffixes for collisions
+    for param in route.parameters:
+        if param.name in colliding_params:
+            # Add suffix for non-body parameters when collision detected
+            suffixed_name = f"{param.name}__{param.location}"
+            if param.required:
+                required.append(suffixed_name)
+
+            # Add location info to description
+            param_schema = _replace_ref_with_defs(
+                param.schema_.copy(), param.description
+            )
+            original_desc = param_schema.get("description", "")
+            location_desc = f"({param.location.capitalize()} parameter)"
+            if original_desc:
+                param_schema["description"] = f"{original_desc} {location_desc}"
+            else:
+                param_schema["description"] = location_desc
+
+            properties[suffixed_name] = param_schema
+        else:
+            # No collision, use original name
+            if param.required:
+                required.append(param.name)
+            properties[param.name] = _replace_ref_with_defs(
+                param.schema_.copy(), param.description
+            )
+
+    # Add request body properties (no suffixes for body parameters)
+    if route.request_body and route.request_body.content_schema:
         for prop_name, prop_schema in body_props.items():
             properties[prop_name] = prop_schema
 
@@ -1108,6 +1186,20 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
     result = compress_schema(result)
 
     return result
+
+
+def _adjust_union_types(
+    schema: dict[str, Any] | list[Any],
+) -> dict[str, Any] | list[Any]:
+    """Recursively replace 'oneOf' with 'anyOf' in schema to handle overlapping unions."""
+    if isinstance(schema, dict):
+        if "oneOf" in schema:
+            schema["anyOf"] = schema.pop("oneOf")
+        for k, v in schema.items():
+            schema[k] = _adjust_union_types(v)
+    elif isinstance(schema, list):
+        return [_adjust_union_types(item) for item in schema]
+    return schema
 
 
 def extract_output_schema_from_responses(
@@ -1197,5 +1289,8 @@ def extract_output_schema_from_responses(
 
     # Use compress_schema to remove unused definitions
     output_schema = compress_schema(output_schema)
+
+    # Adjust union types to handle overlapping unions
+    output_schema = cast(dict[str, Any], _adjust_union_types(output_schema))
 
     return output_schema

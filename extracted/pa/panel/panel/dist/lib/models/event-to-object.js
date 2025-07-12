@@ -246,7 +246,8 @@ const eventTransforms = {};
 const eventTransformCategories = new EventTransformCategories();
 Object.keys(eventTypeCategories).forEach((category) => {
     eventTypeCategories[category].forEach((type) => {
-        eventTransforms[type] = eventTransformCategories[category];
+        // Bind the method to the eventTransformCategories instance to ensure correct 'this'
+        eventTransforms[type] = eventTransformCategories[category].bind(eventTransformCategories);
     });
 });
 //# sourceMappingURL=event-to-object.js.map

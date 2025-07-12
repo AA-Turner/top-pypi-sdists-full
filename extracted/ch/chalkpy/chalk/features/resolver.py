@@ -44,7 +44,6 @@ from typing import (
     Protocol,
     Sequence,
     Set,
-    Tuple,
     Type,
     TypeVar,
     Union,
@@ -304,7 +303,7 @@ class FunctionCapturedGlobalCallableProtobufDeserializerInstance(FunctionCapture
     module: str | None
     instance_type: str  # e.g., "ProtobufDeserializer"
     call_signature: str  # Function signature identifier for lookup
-    descriptor: Descriptor | None
+    descriptor: Descriptor
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1621,6 +1620,27 @@ def capture_global(
     global_value: Any,
     gas: GasLimit,
 ) -> FunctionCapturedGlobal | None:
+    try:
+        return _capture_global(
+            module_name=module_name,
+            global_var=global_var,
+            global_value=global_value,
+            gas=gas,
+        )
+    except Exception as e:
+        _logger.error(
+            f"Error while attempting to capture global '{global_var}' in module '{module_name}' for Python resolver acceleration: {e}"
+        )
+        return None
+
+
+def _capture_global(
+    *,
+    module_name: str | None,
+    global_var: str,
+    global_value: Any,
+    gas: GasLimit,
+) -> FunctionCapturedGlobal | None:
     # Check to see if `global_value` is a feature class.
     # Note that we CANNOT trust that the class's namespace matches the `global_var` name.
     if inspect.isclass(global_value):
@@ -1694,12 +1714,15 @@ def capture_global(
 
     # If global_value is a global value in its module, capture it as a global.
     if hasattr(global_value, "__name__") and hasattr(global_value, "__module__"):
-        mod = importlib.import_module(global_value.__module__)
-        if hasattr(mod, global_value.__name__) and getattr(mod, global_value.__name__) is global_value:
-            return FunctionCapturedGlobalModuleMember(
-                module_name=global_value.__module__,
-                qualname=global_value.__name__,
-            )
+        global_name = global_value.__name__
+        global_module_name = global_value.__module__
+        if type(global_name) is str and type(global_module_name) is str:
+            mod = importlib.import_module(global_value.__module__)
+            if hasattr(mod, global_name) and getattr(mod, global_name) is global_value:
+                return FunctionCapturedGlobalModuleMember(
+                    module_name=global_module_name,
+                    qualname=global_name,
+                )
 
     if isinstance(global_value, KafkaSource):
         return FunctionCapturedGlobalVariable(name=global_var, module=module_name)
@@ -1839,13 +1862,6 @@ def parse_extract_function_object_captured_globals(
     fn_closure_vars = get_closure_vars_including_comprehensions(fn)
     function_module = inspect.getmodule(fn)
 
-    # Look for any protobuf modules in the entire global namespace
-    function_globals = getattr(fn, "__globals__", {})
-    global_pb2_modules: List[Tuple[str, Any]] = []
-    for name, value in function_globals.items():
-        if isinstance(value, ModuleType) and name.endswith("_pb2"):
-            global_pb2_modules.append((name, value))
-
     module_name = function_module.__name__ if function_module is not None else None
     for builtin_var in fn_closure_vars.builtins:
         function_captured_globals[builtin_var] = FunctionCapturedGlobalBuiltin(builtin_name=builtin_var)
@@ -1868,17 +1884,6 @@ def parse_extract_function_object_captured_globals(
             )
             if captured is not None:
                 function_captured_globals[global_var] = captured
-
-    # Process any protobuf modules found in function's global namespace that weren't in closure vars
-    if global_pb2_modules:
-        for module_name, module_obj in global_pb2_modules:
-            if module_name not in function_captured_globals:
-                # First, capture the base module itself
-                function_captured_globals[module_name] = FunctionCapturedGlobalModule(name=module_name)
-
-                # Then, extract and capture enum globals
-                enum_globals = _extract_protobuf_enums_directly(module_obj, module_name)
-                function_captured_globals.update(enum_globals)
 
     if not function_captured_globals:
         function_captured_globals = None

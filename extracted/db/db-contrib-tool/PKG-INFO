@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: db-contrib-tool
-Version: 1.1.4
+Version: 1.1.5
 Summary: The `db-contrib-tool` - MongoDB's tool for contributors.
 Home-page: https://github.com/10gen/db-contrib-tool
 Author: DAG team
@@ -20,6 +20,9 @@ Requires-Dist: distro (>=1.6.0,<2.0.0)
 Requires-Dist: evergreen-py (>=3.11.2,<4.0.0)
 Requires-Dist: gitpython (>=3.1.44,<4.0.0)
 Requires-Dist: oauthlib (>=3.1.1,<4.0.0)
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc ; platform_machine != "s390x" and platform_machine != "ppc64le"
+Requires-Dist: opentelemetry-sdk
 Requires-Dist: packaging (>=24.0,<25.0)
 Requires-Dist: pkce (>=1.0.3,<2.0.0)
 Requires-Dist: pydantic (==1.8.2)

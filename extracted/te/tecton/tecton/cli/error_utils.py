@@ -8,13 +8,11 @@ from typing import Optional
 from typing import Sequence
 from typing import Tuple
 
-from colorama import Fore
-from pygments import highlight
-from pygments.formatters import TerminalFormatter
-from pygments.lexers import PythonLexer
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.text import Text
 
 from tecton.cli import printer
-from tecton.cli.cli_utils import bold
 from tecton.framework import base_tecton_object
 from tecton_core.id_helper import IdHelper
 from tecton_proto.data.state_update__client_pb2 import ValidationMessage
@@ -151,36 +149,48 @@ def pretty_error(
         filename = pretty_frames[-1].file_path
         lineno = pretty_frames[-1].lineno
         printer.safe_print(
-            Fore.RED
-            + f"Error while processing {bold(relp(filename))}, at line {bold(str(lineno))}: {error_message}"
-            + Fore.RESET
+            f"[red]Error while processing [bold]{relp(filename)}[/bold], at line [bold]{str(lineno)}[/bold]: {error_message}[/red]"
         )
     else:
         filename = file_path
-        printer.safe_print(Fore.RED + f"Error while processing {bold(relp(filename))}: {error_message}" + Fore.RESET)
+        printer.safe_print(f"[red]Error while processing [bold]{relp(filename)}[/bold]: {error_message}[/red]")
 
     for i, pretty_frame in enumerate(reversed(pretty_frames)):
+        syntax = Syntax(
+            pretty_frame.code_block,
+            "python",
+            line_numbers=True,
+            start_line=pretty_frame.code_block_start_line,
+            theme="monokai",
+        )
+
         if i == 0:
-            printer.safe_print(
-                f"=================== Around this code block in {bold(relp(pretty_frame.file_path))} ==================="
+            printer.rich_print(
+                Panel(
+                    syntax,
+                    title=Text(f"Around this code block in {relp(pretty_frame.file_path)}", style="bold"),
+                    border_style="bright_red",
+                )
             )
         else:
-            printer.safe_print(
-                f"=================== Called from here in {bold(relp(pretty_frame.file_path))} ==================="
+            printer.rich_print(
+                Panel(
+                    syntax,
+                    title=Text(f"Called from here in {relp(pretty_frame.file_path)}", style="bold"),
+                    border_style="bright_red",
+                )
             )
-        tf = TerminalFormatter(bg="dark", linenos=True)
-        tf._lineno = pretty_frame.code_block_start_line
-        printer.safe_print(highlight(pretty_frame.code_block, PythonLexer(), tf))
 
     if error_details:
-        printer.safe_print("=================== Error: ===============================")
-        printer.safe_print(error_details)
+        printer.rich_print(
+            Panel(error_details, title=Text("Error Details", style="bold red"), border_style="bright_red")
+        )
 
 
 def format_validation_location_lite(obj: base_tecton_object.BaseTectonObject, repo_root: str) -> None:
     printer.safe_print(
         " " * 4,
-        f"in {obj.__class__.__name__} {obj.name} declared in {bold(obj._source_info.source_filename + ':' + str(obj._source_info.source_lineno))}\n",
+        f"in {obj.__class__.__name__} {obj.name} declared in [bold]{obj._source_info.source_filename}:{str(obj._source_info.source_lineno)}[/bold]\n",
     )
 
 
@@ -190,12 +200,14 @@ def format_validation_location_fancy(obj: base_tecton_object.BaseTectonObject, r
     lineno = int(obj._source_info.source_lineno)
 
     code, start_line = extract_code_block(file_path, lineno)
-    tf = TerminalFormatter(bg="dark", linenos=True)
-    tf._lineno = start_line
-    printer.safe_print(
-        f"=================== {obj.__class__.__name__} {obj.name} declared in {bold(filename)} ==================="
+    syntax = Syntax(code, "python", line_numbers=True, start_line=start_line, theme="monokai")
+    printer.rich_print(
+        Panel(
+            syntax,
+            title=Text(f"{obj.__class__.__name__} {obj.name} declared in {filename}", style="bold"),
+            border_style="bright_red",
+        )
     )
-    printer.safe_print(highlight(code, PythonLexer(), tf))
 
 
 def format_server_errors(
@@ -206,7 +218,7 @@ def format_server_errors(
         obj_by_id[fco_obj.id] = fco_obj
 
     for i, m in enumerate(messages):
-        printer.safe_print(Fore.RED + m.message + Fore.RESET)
+        printer.safe_print(f"[red]{m.message}[/red]")
         for fco_ref in m.fco_refs:
             obj_id = IdHelper.to_string(fco_ref.fco_id)
             obj = obj_by_id[obj_id]

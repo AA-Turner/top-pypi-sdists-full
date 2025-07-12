@@ -1,47 +1,72 @@
-import contextlib
 import logging
+import os
+import time
 from dataclasses import dataclass
-from datetime import datetime
+from typing import Any
 from typing import Dict
 from typing import Iterable
-from typing import Iterator
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 import attrs
 import pandas
 import pyarrow
 import pyarrow.dataset
 
+
+os.environ["RAY_DEDUP_LOGS"] = "0"
+import ray
+from ray import runtime_context
+
 from tecton_core import conf
+from tecton_core import duckdb_factory
+from tecton_core import query_consts
 from tecton_core import specs
 from tecton_core.compute_mode import ComputeMode
 from tecton_core.duckdb_factory import DuckDBConfig
 from tecton_core.embeddings.model_artifacts import DEFAULT_MODEL_PROVIDER
 from tecton_core.embeddings.model_artifacts import ModelArtifactProvider
+from tecton_core.errors import TectonInternalError
 from tecton_core.offline_store import DEFAULT_OPTIONS_PROVIDERS
 from tecton_core.offline_store import OfflineStoreOptionsProvider
+from tecton_core.offline_store import get_s3_options_for_fd
 from tecton_core.query.data_sources import FileDataSourceScanNode
 from tecton_core.query.data_sources import PushTableSourceScanNode
 from tecton_core.query.data_sources import RedshiftDataSourceScanNode
 from tecton_core.query.dialect import Dialect
+from tecton_core.query.duckdb.compute import DuckDBCompute
+from tecton_core.query.duckdb.nodes import DeltaOfflineStoreScanNode
+from tecton_core.query.duckdb.nodes import IcebergOfflineStoreScanNode
 from tecton_core.query.duckdb.rewrite import DuckDBTreeRewriter
 from tecton_core.query.errors import UserDefinedTransformationError
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.executor_params import QueryTreeStep
 from tecton_core.query.executor_utils import DebugOutput
 from tecton_core.query.executor_utils import QueryTreeMonitor
-from tecton_core.query.executor_utils import get_stage_type_for_dialect
+from tecton_core.query.node_interface import JoinKeyHashPartitioning
+from tecton_core.query.node_interface import JoinKeyRangePartitioning
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import Partitioning
+from tecton_core.query.node_interface import PartitionSelector
+from tecton_core.query.node_interface import SinglePartition
 from tecton_core.query.node_utils import get_first_input_node_of_class
 from tecton_core.query.node_utils import get_pipeline_dialect
 from tecton_core.query.node_utils import get_staging_nodes
+from tecton_core.query.node_utils import tree_contains
+from tecton_core.query.nodes import AddPartitionColumn
+from tecton_core.query.nodes import AsofJoinFullAggNode
+from tecton_core.query.nodes import AsofJoinNode
+from tecton_core.query.nodes import AsofSecondaryKeyExplodeNode
 from tecton_core.query.nodes import DataSourceScanNode
+from tecton_core.query.nodes import EntityFilterNode
 from tecton_core.query.nodes import FeatureViewPipelineNode
 from tecton_core.query.nodes import JoinNode
 from tecton_core.query.nodes import MultiOdfvPipelineNode
+from tecton_core.query.nodes import OfflineStoreScanNode
 from tecton_core.query.nodes import RenameColsNode
+from tecton_core.query.nodes import Repartition
 from tecton_core.query.nodes import StagedTableScanNode
 from tecton_core.query.nodes import StagingNode
 from tecton_core.query.nodes import TextEmbeddingInferenceNode
@@ -54,10 +79,13 @@ from tecton_core.query.pandas.nodes import PandasMultiOdfvPipelineNode
 from tecton_core.query.pandas.nodes import PandasRenameColsNode
 from tecton_core.query.pandas.nodes import PyArrowDataSourceScanNode
 from tecton_core.query.query_tree_compute import ArrowCompute
-from tecton_core.query.query_tree_compute import ComputeMonitor
 from tecton_core.query.query_tree_compute import QueryTreeCompute
 from tecton_core.query.query_tree_compute import SQLCompute
+from tecton_core.query.tecton_ray.dataset import RayDataset
+from tecton_core.query.tecton_ray.dataset import TaskResources
+from tecton_core.schema_validation import tecton_schema_to_arrow_schema
 from tecton_core.secret_management import SecretResolver
+from tecton_core.snowflake_context import SnowflakeContext
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +103,7 @@ def _pyarrow_type_contains_map_type(pyarrow_type: pyarrow.DataType) -> bool:
 
 @dataclass
 class QueryTreeOutput:
-    output: Optional[pyarrow.RecordBatchReader] = None
+    output: pyarrow.RecordBatchReader
 
     @property
     def result_df(self) -> pandas.DataFrame:
@@ -152,14 +180,74 @@ def rewrite_data_sources(plan: NodeRef) -> None:
             staging_node.node = attrs.evolve(staging_node.node, dialect=dialect)
 
 
+def rewrite_offline_scan_node(
+    plan: NodeRef, offline_store_options_providers: Iterable[OfflineStoreOptionsProvider]
+) -> None:
+    staging_nodes = get_staging_nodes(plan, QueryTreeStep.OFFLINE_STORE, as_ref=True)
+    if not staging_nodes:
+        return
+
+    for _, staging_node in staging_nodes.items():
+        offline_scan_node = get_first_input_node_of_class(staging_node, OfflineStoreScanNode)
+        if not offline_scan_node:
+            continue
+
+        if offline_scan_node.feature_definition_wrapper.has_iceberg_offline_store:
+            physical_node = IcebergOfflineStoreScanNode.from_query_node(
+                query_node=offline_scan_node,
+                offline_store_options_providers=offline_store_options_providers,
+            )
+            staging_node.node = attrs.evolve(
+                staging_node.node,
+                input_node=physical_node.as_ref(),
+                dialect=Dialect.DUCKDB if conf.get_bool("DUCKDB_OFFLINE_STORE_READ") else Dialect.ARROW,
+            )
+        elif offline_scan_node.feature_definition_wrapper.has_delta_offline_store and conf.get_bool(
+            "DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED"
+        ):
+            physical_node = DeltaOfflineStoreScanNode.from_query_node(
+                query_node=offline_scan_node,
+                offline_store_options_providers=offline_store_options_providers,
+            )
+
+            # if entity_filter is set, means a spine has been provided
+            # this is a roundabout optimization for gffe using the Delta offline store.
+            # TLDR: Delta offline store uses Pyarrow reader because the DuckDB/Parquet reader is non-performant for many files.
+            # As a result of the additional Pyarrow compute, the offline store reader is unaware of the spine.
+            # In small spine cases, we end up repartitioning the Delta offline store even for partitions where the spine is empty.
+            # By adding an entity filter node, we add an additional pyarrow compute layer that allows us to provide context of the
+            # spine to the offline store and only repartition the Delta offline store for the partitions that are not empty.
+            # This leads to a significant performance improvement for small spines.
+            # Additional details can be found here: https://www.notion.so/tecton/RFC-Performance-in-Rift-how-we-made-DuckDB-even-faster-1ee76e9ad04080d78e1fccfa8ad29c2b?pvs=4#1fc76e9ad04080db8c93d5f4daef9261
+            # "Small Spine Optimizations for NDD"
+            if offline_scan_node.entity_filter is not None:
+                entity_filter = EntityFilterNode(
+                    dialect=offline_scan_node.dialect,
+                    compute_mode=offline_scan_node.compute_mode,
+                    feature_data=physical_node.as_ref(),
+                    entities=offline_scan_node.entity_filter,
+                    entity_cols=offline_scan_node.feature_definition_wrapper.join_keys,
+                )
+
+                staging_node.node = attrs.evolve(
+                    staging_node.node,
+                    input_node=entity_filter.as_ref(),
+                )
+            else:
+                staging_node.node = attrs.evolve(
+                    staging_node.node,
+                    input_node=physical_node.as_ref(),
+                )
+
+
 def _rewrite_pandas_pipeline(plan: NodeRef) -> None:
     def traverse(tree: NodeRef) -> None:
         if isinstance(tree.node, FeatureViewPipelineNode):
             pipeline_node = tree.node
             # We don't need to rewrite inputs, because we assume that all inputs are StagingNodes
-            assert all(
-                isinstance(input_ref.node, StagingNode) for input_ref in pipeline_node.inputs_map.values()
-            ), "All inputs to FeatureViewPipelineNode are expected to be StagingNode"
+            assert all(isinstance(input_ref.node, StagingNode) for input_ref in pipeline_node.inputs_map.values()), (
+                "All inputs to FeatureViewPipelineNode are expected to be StagingNode"
+            )
 
             physical_node = PandasFeatureViewPipelineNode.from_node_inputs(
                 query_node=pipeline_node,
@@ -284,58 +372,110 @@ def rewrite_embedding_nodes(plan: NodeRef) -> None:
     traverse(plan)
 
 
-def rewrite_cross_feature_views_joins(plan: NodeRef) -> None:
-    """
-    Inserts StagingNode with checkpoint=True:
-    1) after each feature view's aggregations are calculated and before join with other feature views
-    2) in between every N join
-        eg, when N is 3 and number of batch feature views is 12, there will be 3 additional checkpoints
-        (there should be no checkpoints at the top of the QT)
-    """
-    if not conf.DUCKDB_ENABLE_CHECKPOINTING.enabled():
-        return
+def check_partitioning_compatibility(plan: NodeRef) -> None:
+    def get_all_join_nodes(node_ref: NodeRef) -> Iterable[NodeRef]:
+        for child in node_ref.inputs:
+            yield from get_all_join_nodes(child)
 
-    checkpoint_every_n_joins = int(conf.get_or_raise("DUCKDB_CHECKPOINT_EVERY_N_JOIN"))
+        if isinstance(
+            node_ref.node, (JoinNode, AsofJoinNode, AsofJoinFullAggNode, EntityFilterNode, AsofSecondaryKeyExplodeNode)
+        ):
+            yield node_ref
 
-    def traverse(node_ref: NodeRef, depth: int = 1) -> None:
-        if not isinstance(node_ref.node, JoinNode):
-            for i in node_ref.inputs:
-                traverse(i, depth)
-            return
+    def determine_side_to_repartition(
+        left: NodeRef, right: NodeRef
+    ) -> Tuple[Optional[NodeRef], Optional[Partitioning]]:
+        left_partitioning = left.output_partitioning
+        right_partitioning = right.output_partitioning
 
-        join_node = node_ref.node
-        assert isinstance(join_node, JoinNode)
+        if (
+            left_partitioning
+            and right_partitioning
+            and (
+                left_partitioning.is_equivalent(right_partitioning)
+                or (
+                    left_partitioning.number_of_partitions == right_partitioning.number_of_partitions
+                    and left_partitioning.number_of_partitions == 1
+                )
+            )
+        ):
+            return None, None
 
-        # right side of join is next feature view retrieval
-        right_branch = join_node.right
-        # always staging results of right side
-        right_branch = StagingNode(
-            right_branch.node.dialect,
-            right_branch.node.compute_mode,
-            right_branch,
-            staging_table_name=f"checkpoint_feature_view_{depth}",
-            checkpoint=True,
-        ).as_ref()
+        left_not_partitioned = left_partitioning is None or isinstance(left_partitioning, SinglePartition)
+        right_not_partitioned = right_partitioning is None or isinstance(right_partitioning, SinglePartition)
 
-        # left side of join is the result of previous joins
-        left_branch = join_node.left
-        if isinstance(left_branch.node, JoinNode) and depth and depth % checkpoint_every_n_joins == 0:
-            left_branch = StagingNode(
-                left_branch.node.dialect,
-                left_branch.node.compute_mode,
-                left_branch,
-                staging_table_name=f"checkpoint_join_output_{depth}",
-                checkpoint=True,
-            ).as_ref()
+        # if both side are partitioned
+        if not left_not_partitioned and not right_not_partitioned:
+            # select the side with fewer partitions to repartition
+            # (assuming fewer partitions means less data)
+            if left_partitioning.number_of_partitions > right_partitioning.number_of_partitions:
+                return right, left_partitioning
+            else:
+                return left, right_partitioning
 
-        node_ref.node = attrs.evolve(node_ref.node, right=right_branch, left=left_branch)
+        if left_not_partitioned:
+            return left, right_partitioning
 
-        traverse(left_branch, depth=depth + 1)
+        return right, left_partitioning
 
-    traverse(plan)
+    for join_node in get_all_join_nodes(plan):
+        left_input, right_input = join_node.inputs
+
+        repartition_side, partitioning = determine_side_to_repartition(left_input, right_input)
+        if not repartition_side:
+            continue
+
+        repartition_side.node = RenameColsNode(
+            dialect=repartition_side.node.dialect,
+            compute_mode=repartition_side.node.compute_mode,
+            drop=[query_consts.partition_key()],
+            input_node=repartition_side.node.as_ref(),
+        )
+
+        repartition_side_input_node = repartition_side.node.input_node
+        repartition_attr = Repartition(partitioning=partitioning, key=query_consts.partition_key())
+
+        if (
+            isinstance(repartition_side_input_node.node, StagingNode)
+            and repartition_side_input_node.node.dialect == Dialect.DUCKDB
+        ):
+            repartition_side_input_node.node = attrs.evolve(
+                repartition_side_input_node.node,
+                repartition=repartition_attr,
+            )
+        else:
+            repartition_side_input_node.node = StagingNode(
+                dialect=Dialect.DUCKDB,
+                compute_mode=ComputeMode.RIFT,
+                input_node=repartition_side_input_node.node.as_ref(),
+                repartition=repartition_attr,
+                staging_table_name="repartition",
+            )
+
+        if isinstance(join_node.node, JoinNode):
+            partition_by_column = join_node.node.join_cols[0]
+        elif isinstance(partitioning, (JoinKeyRangePartitioning, JoinKeyHashPartitioning)):
+            partition_by_column = partitioning._join_keys[0]
+        else:
+            msg = f"Couldn't determine column for partitioning {partitioning}"
+            raise RuntimeError(msg)
+
+        staging_input = repartition_side_input_node.node.input_node
+        staging_input.node = AddPartitionColumn(
+            dialect=staging_input.node.dialect,
+            compute_mode=staging_input.node.compute_mode,
+            input_node=staging_input.node.as_ref(),
+            partition_output_column=query_consts.partition_key(),
+            partition_by_column=partition_by_column,
+            partition_expr=partitioning.partition_expression,
+        )
 
 
-def logical_plan_to_physical_plan(logical_plan: NodeRef, use_optimized_full_agg: bool = False) -> NodeRef:
+def logical_plan_to_physical_plan(
+    logical_plan: NodeRef,
+    use_optimized_full_agg: bool = False,
+    offline_store_options_providers: Optional[Iterable[OfflineStoreOptionsProvider]] = None,
+) -> NodeRef:
     physical_plan = logical_plan.deepcopy()
 
     # replace some generic nodes with Rift specific
@@ -345,52 +485,195 @@ def logical_plan_to_physical_plan(logical_plan: NodeRef, use_optimized_full_agg:
     rewriter.rewrite(physical_plan, use_optimized_full_agg)
 
     rewrite_data_sources(physical_plan)
+    rewrite_offline_scan_node(physical_plan, offline_store_options_providers)
     rewrite_pipeline_nodes(physical_plan)
     rewrite_rtfvs(physical_plan)
     rewrite_user_input(physical_plan)
     rewrite_embedding_nodes(physical_plan)
-    rewrite_cross_feature_views_joins(physical_plan)
+    check_partitioning_compatibility(physical_plan)
 
     return physical_plan
 
 
+def _execute_stage(
+    context: ExecutionContext,
+    output_node_ref: NodeRef,
+    input_nodes_refs: List[NodeRef],
+    inputs: List[Union[pyarrow.Table, pyarrow.RecordBatchReader]],
+    partition_selector: Optional[PartitionSelector] = None,
+    duckdb_home_dir: Optional[str] = None,
+    snowflake_connection_params: Optional[Dict[str, Any]] = None,
+    return_as_reader: bool = False,  # If True, returns a pyarrow.RecordBatchReader instead of a pyarrow.Table
+) -> Union[pyarrow.Table, pyarrow.RecordBatchReader]:
+    conf.set("TECTON_OFFLINE_RETRIEVAL_COMPUTE_MODE", "rift")
+    conf.set("DUCKDB_ALLOW_CACHE_EXTENSION", "true")
+
+    if duckdb_home_dir:
+        duckdb_factory.set_home_dir_override(duckdb_home_dir)
+
+    if snowflake_connection_params:
+        SnowflakeContext.set_connection_params(snowflake_connection_params)
+
+    if context.duckdb_config:
+        logger.warning(f"Setting task resources {context.duckdb_config}")
+    compute = _get_or_create_compute_by_dialect(output_node_ref.node.dialect, context, output_node_ref)
+
+    if isinstance(compute, ArrowCompute):
+        if context.duckdb_config:
+            pyarrow.set_cpu_count(context.duckdb_config.num_threads)
+
+        reader = compute.run(
+            output_node_ref, input_nodes_refs, input_data=inputs, context=context, partition_selector=partition_selector
+        )
+    elif isinstance(compute, SQLCompute):
+        with compute:
+            for input_node_ref, input_table in zip(input_nodes_refs, inputs):
+                assert isinstance(input_node_ref.node, StagedTableScanNode)
+
+                table_name = input_node_ref.node.staging_table_name
+                compute.register_temp_table(table_name, input_table)
+
+            node = output_node_ref.node
+            sql_string = node.with_dialect(compute.get_dialect())._to_staging_query_sql(partition_selector)
+            expected_output_schema = node.output_schema if node.output_schema and len(node.output_schema) else None
+
+            if isinstance(compute, DuckDBCompute):
+                offline_store_scan_node = get_first_input_node_of_class(output_node_ref, OfflineStoreScanNode)
+                s3_options = (
+                    get_s3_options_for_fd(
+                        offline_store_scan_node.feature_definition_wrapper, context.offline_store_options_providers
+                    )
+                    if offline_store_scan_node
+                    and offline_store_scan_node.feature_definition_wrapper.materialized_data_path.startswith("s3")
+                    else None
+                )
+
+                reader = compute.run_sql(
+                    sql_string,
+                    return_dataframe=True,
+                    expected_output_schema=expected_output_schema,
+                    monitor=None,
+                    checkpoint_as=None,
+                    s3_options=s3_options,
+                )
+            else:
+                reader = compute.run_sql(
+                    sql_string,
+                    return_dataframe=True,
+                    expected_output_schema=expected_output_schema,
+                    monitor=None,
+                    checkpoint_as=None,
+                )
+    else:
+        msg = f"Unrecognized type of compute: {type(compute)}"
+        raise TectonInternalError(msg)
+
+    if return_as_reader:
+        return reader
+    return reader.read_all()
+
+
+def _emit_stage_runtime_log(
+    func_name: str,
+    node_ref_string: NodeRef,
+    start_time: time.time,
+    end_time: time.time,
+    partition_selector: Optional[PartitionSelector] = None,
+    dag_depth: Optional[int] = None,
+) -> None:
+    prefix = partition_selector.as_str() if partition_selector is not None else ""
+    if dag_depth is not None:
+        prefix += f" (depth: {dag_depth}) - "
+
+    logger.warning(f"{prefix}{func_name}: [{node_ref_string}]  took {end_time - start_time:.2f} secs.")
+
+
+def find_inputs(input_: NodeRef, output: StagingNode) -> Iterable[NodeRef]:
+    if (
+        isinstance(input_.node, StagingNode)
+        and input_.node != output
+        and (input_.node.dialect != output.dialect or input_.node.checkpoint or input_.node.repartition)
+    ):
+        # Only staging nodes of different dialect count as input to the current stage
+        # or we encountered a staging node with "checkpoint" enabled
+        yield input_
+        return
+
+    for input_ in input_.inputs:
+        yield from find_inputs(input_, output)
+
+
+#### QT LOCAL (aka not ray) MODE
 @attrs.define
 class Stage:
     """
-    Stage is subtree of a physical plan, where all nodes have the same dialect and thus can be executed in one go
+    Stage is subtree of a physical plan, where all nodes can be executed in one go in the same dialect.
+    The dialect is set by the dialect of the StagingNode at the root of the stage.
     """
 
     dialect: Dialect
-    output: NodeRef
-    inputs: List[NodeRef]
-    description: Optional[str] = None
+    output_node_ref: NodeRef
+    input_nodes_refs: List[NodeRef]
 
 
-def split_plan_into_stages(plan: NodeRef) -> List[List[Stage]]:
+def _execute_staging_nodes(
+    stages: List[Stage],
+    inputs: Dict[str, pyarrow.RecordBatchReader],
+    context: ExecutionContext,
+) -> Dict[str, pyarrow.RecordBatchReader]:
+    """
+    Execute a list of stages for a given level, where each stage is a subtree of the query tree.
+
+    Each input node ref is a StagedTableScanNode, and the output node ref of each stage is a StagingNode.
+    The output of each stage is a pyarrow.RecordBatchReader which is stored in dict where the key is the staging table name.
+    This dict becomes the input for the next level.
+    """
+    staging_table_name_to_reader = {}
+    for idx, stage in enumerate(stages):
+        assert isinstance(stage.output_node_ref.node, StagingNode)
+        if conf.get_bool("DUCKDB_DEBUG"):
+            logger.warning(
+                f"---------------------------------- Executing stage {idx + 1} ----------------------------------"
+            )
+            logger.warning(f"QT: \n{stage.output_node_ref.pretty_str()}")
+        stage_inputs = [inputs[node_ref.node.staging_table_name] for node_ref in stage.input_nodes_refs]
+        start = time.time()
+        result_reader = _execute_stage(
+            context=context,
+            output_node_ref=stage.output_node_ref,
+            input_nodes_refs=stage.input_nodes_refs,
+            inputs=stage_inputs,
+            partition_selector=None,
+            return_as_reader=True,
+        )
+
+        if conf.get_bool("DUCKDB_DEBUG"):
+            _emit_stage_runtime_log(
+                func_name=f"execute_non_dag_stage_{idx + 1}",
+                node_ref_string=stage.output_node_ref.as_str(),
+                start_time=start,
+                end_time=time.time(),
+            )
+        staging_table_name_to_reader[stage.output_node_ref.node.staging_table_name_unique()] = result_reader
+    return staging_table_name_to_reader
+
+
+def _split_plan_into_levels_for_local_execution(plan: NodeRef) -> List[List[Stage]]:
     """
     Split the plan into stages using StagingNodes as splitting points.
-    Inputs in each stage, which are StagingNodes in the original plan, are replaced with StagedTableScanNode.
 
-    Run breadth-first traverse over the plan to also split stages into levels. Such that a stage on certain level
-    cannot be executed until all stages on the lower level are completed, since they can be inputs to the current stage.
+    The query tree is split into stages, where each subtree always has one output node, and this node is always a StagingNode.
+    A stage can have from 0 to N inputs, where all input nodes are replaced with a StagedTableScanNode.
+    StagedTableScanNode instructs a compute to feed data into a query tree, and StagingNode to offload data from a tree.
+    StagingNode's dialect defines what compute (DuckDB/Arrow/Snowflake/etc) will be used to execute a particular stage.
+
+    In addition to splitting the QT into stages, run breadth-first traverse over the plan to also split stages into levels.
+    A stage on given level cannot be executed until all stages on the lower level are completed, since they can be inputs to the given stage.
     Stages on the same level, however, can be executed in parallel.
 
     :return: stages grouped by levels
     """
-
-    def find_inputs(tree: NodeRef, output: StagingNode) -> Iterable[NodeRef]:
-        if (
-            isinstance(tree.node, StagingNode)
-            and tree.node != output
-            and (tree.node.dialect != output.dialect or tree.node.checkpoint)
-        ):
-            # Only staging nodes of different dialect count as input to the current stage
-            # or we encountered a staging node with "checkpoint" enabled
-            yield tree
-            return
-
-        for input_ in tree.inputs:
-            yield from find_inputs(input_, output)
+    assert isinstance(plan.node, StagingNode), "Plan must always start with StagingNode"
 
     def traverse():
         while True:
@@ -398,16 +681,17 @@ def split_plan_into_stages(plan: NodeRef) -> List[List[Stage]]:
             next_level = []
 
             for stage in current_level:
-                for input_ in stage.inputs:
+                for input_ in stage.input_nodes_refs:
                     next_stage_output = input_.node
                     assert isinstance(next_stage_output, StagingNode)
                     assert next_stage_output.dialect, f"Dialect must be set on StagingNode: {next_stage_output}"
+
+                    input_node_refs = list(find_inputs(next_stage_output.as_ref(), next_stage_output))
                     next_level.append(
                         Stage(
                             dialect=next_stage_output.dialect,
-                            output=next_stage_output.as_ref(),
-                            inputs=list(find_inputs(next_stage_output.as_ref(), next_stage_output)),
-                            description=next_stage_output.stage_description,
+                            output_node_ref=next_stage_output.as_ref(),
+                            input_nodes_refs=input_node_refs,
                         )
                     )
 
@@ -422,22 +706,12 @@ def split_plan_into_stages(plan: NodeRef) -> List[List[Stage]]:
 
             levels.append(next_level)
 
-    if not isinstance(plan.node, StagingNode):
-        # for simplicity plan should always have StagingNode at the root
-        plan = StagingNode(
-            dialect=Dialect.DUCKDB,
-            compute_mode=ComputeMode.RIFT,
-            input_node=plan,
-            staging_table_name="",
-        ).as_ref()
-
     levels = [
         [
             Stage(
                 dialect=plan.node.dialect,
-                output=plan,
-                inputs=list(find_inputs(plan, plan.node)),
-                description=plan.node.stage_description,
+                output_node_ref=plan,
+                input_nodes_refs=list(find_inputs(plan, plan.node)),
             )
         ]
     ]
@@ -445,159 +719,303 @@ def split_plan_into_stages(plan: NodeRef) -> List[List[Stage]]:
     return levels
 
 
+def execute_plan_for_local_execution(
+    plan: NodeRef,
+    context: ExecutionContext,
+    duckdb_home_dir: Optional[str] = None,
+    snowflake_connection_params: Optional[Dict[str, Any]] = None,
+) -> List[pyarrow.RecordBatchReader]:
+    """
+    Execute the QT by splitting the plan up into stages and executing each stage sequentially.
+    """
+    if duckdb_home_dir:
+        duckdb_factory.set_home_dir_override(duckdb_home_dir)
+
+    if snowflake_connection_params:
+        SnowflakeContext.set_connection_params(snowflake_connection_params)
+
+    stage_levels = _split_plan_into_levels_for_local_execution(plan)
+    inputs = {}
+
+    # Processing levels from bottom to top
+    for idx, stages in enumerate(reversed(stage_levels)):
+        start_time = time.time()
+        if conf.get_bool("DUCKDB_DEBUG"):
+            logger.warning(
+                f"---------------------------------- Executing stage level {idx + 1} (reverse order) -----------------------------"
+            )
+
+        inputs = _execute_staging_nodes(stages, inputs, context)
+        if conf.get_bool("DUCKDB_DEBUG"):
+            _emit_stage_runtime_log(
+                func_name=f"execute_plan_for_local_execution_{idx + 1}",
+                node_ref_string=f"stage_level_{idx + 1}",
+                start_time=start_time,
+                end_time=time.time(),
+            )
+
+    return [reader for _, reader in inputs.items()]
+
+
+#### QT PARALLELIZATION MODE
+def convert_plan_to_ray_dag(
+    node_ref: NodeRef, context: ExecutionContext, dag_depth: Optional[int], **kwargs: Any
+) -> RayDataset:
+    """
+    Split the plan into a RayDataset using StagingNodes as splitting points.
+
+    Inputs in each stage, which are StagingNodes in the original plan, are replaced with StagedTableScanNode.
+    Output is a RayDataset where each stage is executed as a Ray task.
+    :return: RayDataset
+    """
+    assert isinstance(node_ref.node, StagingNode), "node_ref must always be a StagingNode"
+    inputs = list(find_inputs(node_ref, node_ref.node))
+
+    # if dag_depth is not set, it is the root of the plan
+    if dag_depth is None:
+        dag_depth = 1
+    else:
+        dag_depth += 1
+
+    child_ray_datasets = [
+        convert_plan_to_ray_dag(
+            input_node.node.as_ref(),  # create a copy
+            context,
+            dag_depth,
+            **kwargs,
+        )
+        for input_node in inputs
+    ]
+
+    for input_node_ref in inputs:
+        input_node_ref.node = StagedTableScanNode.from_staging_node(
+            dialect=input_node_ref.node.dialect, compute_mode=ComputeMode.RIFT, query_node=input_node_ref.node
+        )
+
+    # Checking if we're already inside Ray task
+    current_task_id = runtime_context.get_runtime_context().get_task_id()
+    inside_ray_task = current_task_id is not None
+
+    if (
+        not isinstance(node_ref.output_partitioning, SinglePartition)
+        or any(not isinstance(child.partitioning, SinglePartition) for child in child_ray_datasets)
+        or inside_ray_task
+    ):
+        # IF at least one of the inputs or current stage is partitioned
+        # OR this code is already executed in Ray task (and we just need to propagate resources request)
+        # THEN we can run sub-tasks in parallel, and we should allocate resources (possibly configured by user)
+        task_resources = (
+            TaskResources(
+                num_cpus=context.duckdb_config.num_threads, memory_bytes=context.duckdb_config.memory_limit_in_bytes
+            )
+            if context.duckdb_config
+            else TaskResources()
+        )
+    else:
+        # OTHERWISE give the sub-task all available resources
+        task_resources = TaskResources.all_available()
+        context = attrs.evolve(context, duckdb_config=task_resources.to_duckdb_config())
+
+    node_ref_string = node_ref.as_str()
+
+    if not child_ray_datasets:
+        # QT node may have reference to a large spine dataframe
+        node_ref_ray_obj = ray.put(node_ref)
+
+        def _partition_generator(partition_selector: PartitionSelector) -> pyarrow.Table:
+            start = time.time()
+            out = _execute_stage(
+                context,
+                ray.get(node_ref_ray_obj),
+                inputs,
+                partition_selector=partition_selector,
+                inputs=[],
+                **kwargs,
+            )
+            if conf.get_bool("DUCKDB_DEBUG"):
+                _emit_stage_runtime_log(
+                    func_name="_partition_generator",
+                    dag_depth=dag_depth,
+                    node_ref_string=node_ref_string,
+                    start_time=start,
+                    end_time=time.time(),
+                    partition_selector=partition_selector,
+                )
+            return out
+
+        # This still needs a partition selection
+        dataset = RayDataset.from_partition_generator(
+            _partition_generator, node_ref.output_partitioning, task_resources
+        )
+
+    elif len(child_ray_datasets) == 1:
+        input_ray_dataset = child_ray_datasets.pop()
+
+        def _map_fn(partition_selector: PartitionSelector, input_table: pyarrow.Table) -> pyarrow.Table:
+            start = time.time()
+            if input_table.num_rows == 0:
+                if conf.get_bool("DUCKDB_DEBUG"):
+                    _emit_stage_runtime_log(
+                        func_name="_map_fn",
+                        dag_depth=dag_depth,
+                        node_ref_string=node_ref_string,
+                        start_time=start,
+                        end_time=time.time(),
+                        partition_selector=partition_selector,
+                    )
+                output_schema = tecton_schema_to_arrow_schema(node_ref.output_schema)
+                return output_schema.empty_table()
+
+            out = _execute_stage(
+                context, node_ref, inputs, inputs=[input_table], partition_selector=partition_selector, **kwargs
+            )
+            if conf.get_bool("DUCKDB_DEBUG"):
+                _emit_stage_runtime_log(
+                    func_name="_map_fn",
+                    dag_depth=dag_depth,
+                    node_ref_string=node_ref_string,
+                    start_time=start,
+                    end_time=time.time(),
+                    partition_selector=partition_selector,
+                )
+            return out
+
+        dataset = input_ray_dataset.map(_map_fn, task_resources)
+    else:
+
+        def _co_group_fn(partition_selector: PartitionSelector, *input_tables: Tuple[pyarrow.Table]) -> pyarrow.Table:
+            assert len(inputs) == len(input_tables), (
+                f"Number of actual inputs doesn't match expected {len(inputs)} != {len(input_tables)}"
+            )
+
+            start = time.time()
+            out = _execute_stage(
+                context, node_ref, inputs, inputs=list(input_tables), partition_selector=partition_selector, **kwargs
+            )
+            if conf.get_bool("DUCKDB_DEBUG"):
+                _emit_stage_runtime_log(
+                    func_name="_co_group_fn",
+                    dag_depth=dag_depth,
+                    node_ref_string=node_ref_string,
+                    start_time=start,
+                    end_time=time.time(),
+                    partition_selector=partition_selector,
+                )
+            return out
+
+        left = child_ray_datasets[0]
+        others = child_ray_datasets[1:]
+
+        dataset = left.co_group(others, _co_group_fn, task_resources)
+
+    repartition = node_ref.node.repartition
+    if repartition:
+        dataset = dataset.repartition_by(repartition.partitioning, repartition.key)
+
+    return dataset
+
+
+def _should_use_partitioned_execution(physical_plan: NodeRef) -> bool:
+    """
+    Determines whether to use partitioned execution (Ray Dag) for the given physical plan.
+    """
+    return conf.QUERYTREE_ENABLE_PARTITIONED_EXECUTION.enabled() or tree_contains(
+        physical_plan, IcebergOfflineStoreScanNode
+    )
+
+
 @attrs.define
 class QueryTreeExecutor:
     offline_store_options_providers: Iterable[OfflineStoreOptionsProvider] = DEFAULT_OPTIONS_PROVIDERS
     secret_resolver: Optional[SecretResolver] = None
     model_artifact_provider: Optional[ModelArtifactProvider] = DEFAULT_MODEL_PROVIDER
-    monitor: QueryTreeMonitor = DebugOutput()
+    monitor: QueryTreeMonitor = attrs.field(factory=DebugOutput)
     is_debug: bool = attrs.field(init=False)
     # TODO: Put duckdb_config in a map when we have more configs for different dialects.
     duckdb_config: Optional[DuckDBConfig] = None
-    _dialect_to_compute_map: Dict[Dialect, QueryTreeCompute] = {}
-    # Used to track temp tables per dialect so we can clean them up appropriately & avoid re-registering duplicates
-    _dialect_to_temp_table_name: Optional[Dict[Dialect, set]] = attrs.field(init=False)
 
     def __attrs_post_init__(self):
-        # TODO(danny): Expose as configs
         self.is_debug = conf.get_bool("DUCKDB_DEBUG")
-        self._dialect_to_temp_table_name = None
-
-    @contextlib.contextmanager
-    def _monitor_stage(
-        self,
-        step: str,
-        type_: Optional[int] = None,
-        dialect: Optional[Dialect] = None,
-    ) -> Iterator[ComputeMonitor]:
-        assert type_ or dialect, "Either type or dialect must be provided"
-        if not type_:
-            type_ = get_stage_type_for_dialect(dialect)
-
-        monitor_stage_id = self.monitor.create_stage(type_, step)
-
-        try:
-            self.monitor.update_progress(monitor_stage_id, 0)
-            yield ComputeMonitor(
-                log_progress=lambda p: self.monitor.update_progress(monitor_stage_id, p),
-                set_query=lambda q: self.monitor.set_query(monitor_stage_id, q),
-            )
-        except UserErrors:
-            self.monitor.set_failed(monitor_stage_id, user_error=True)
-            raise
-        except Exception:
-            self.monitor.set_failed(monitor_stage_id, user_error=False)
-            raise
-        else:
-            self.monitor.update_progress(monitor_stage_id, 1)
-            self.monitor.set_completed(monitor_stage_id)
 
     def exec_qt(self, logical_plan: NodeRef) -> QueryTreeOutput:
-        # Make copy so the execution doesn't mutate the original QT visible to users
+        logging_level = "INFO" if self.is_debug else "ERROR"
 
+        # ensure Ray is running
+        ray.init(ignore_reinit_error=True, logging_level=logging_level)
+
+        # init connection to download & install extension
+        duckdb_factory.create_connection(self.duckdb_config)
+
+        # Make copy so the execution doesn't mutate the original QT visible to users
         physical_plan = logical_plan_to_physical_plan(
             logical_plan,
             use_optimized_full_agg=should_use_optimized_full_aggregate_node(logical_plan),
+            offline_store_options_providers=self.offline_store_options_providers,
         )
+
+        if not isinstance(physical_plan.node, StagingNode):
+            # for simplicity plan should always have StagingNode at the root
+            physical_plan = StagingNode(
+                dialect=Dialect.DUCKDB,
+                compute_mode=ComputeMode.RIFT,
+                input_node=physical_plan,
+                staging_table_name="",
+            ).as_ref()
+
         if self.is_debug:
             logger.warning("---------------------------------- Executing overall QT ----------------------------------")
             logger.warning(f"QT: \n{logical_plan.pretty_str()}")
             logger.warning("---------------------------------- Physical plan -----------------------------------------")
             logger.warning(f"QT: \n{physical_plan.pretty_str()}")
 
-        stage_levels = split_plan_into_stages(physical_plan)
-        inputs = {}
-
-        # Processing levels from bottom to top
-        for stages in reversed(stage_levels):
-            inputs = self._process_staging_nodes(stages, inputs)
-
-        return QueryTreeOutput(output=next(iter(inputs.values())))
-
-    def _process_staging_nodes(
-        self,
-        stages: List[Stage],
-        inputs: Dict[str, pyarrow.RecordBatchReader],
-    ) -> Dict[str, pyarrow.RecordBatchReader]:
-        readers = {}
-        for stage in stages:
-            assert isinstance(stage.output.node, StagingNode)
-            compute = self._get_or_create_compute_by_dialect(stage.dialect, stage.output)
-
-            if self.is_debug:
-                logger.warning("---------------------------------- Executing stage ----------------------------------")
-                logger.warning(f"QT: \n{stage.output.pretty_str()}")
-
-            input_names = {node_ref.node.staging_table_name for node_ref in stage.inputs}
-            stage_inputs = {table: reader for table, reader in inputs.items() if table in input_names}
-
-            with compute:
-                name, reader = self._process_staging_node(
-                    stage.output.node,
-                    inputs=stage_inputs,
-                    compute=compute,
-                    monitor=None,
-                )
-            readers[name] = reader
-        return readers
-
-    def _process_staging_node(
-        self,
-        staging_node: StagingNode,
-        inputs: Dict[str, pyarrow.RecordBatchReader],
-        compute: QueryTreeCompute,
-        monitor: ComputeMonitor,
-    ) -> Tuple[str, pyarrow.RecordBatchReader]:
-        start_time = datetime.now()
-        staging_table_name = staging_node.staging_table_name_unique()
-
-        if isinstance(compute, ArrowCompute):
-            context = ExecutionContext(
-                offline_store_options_providers=self.offline_store_options_providers,
-                secret_resolver=self.secret_resolver,
-                model_artifact_provider=self.model_artifact_provider,
-            )
-            reader = compute.run(staging_node.as_ref(), inputs, context, monitor=monitor)
-            return staging_table_name, reader
-
-        assert isinstance(compute, SQLCompute)
-        for table_name, pa_reader in inputs.items():
-            if pa_reader:
-                compute.register_temp_table(table_name, pa_reader)
-
-        sql_string = staging_node.with_dialect(compute.get_dialect())._to_staging_query_sql()
-        expected_output_schema = staging_node.output_schema if len(staging_node.output_schema) else None
-        checkpoint_as = staging_node.staging_table_name_unique() if staging_node.checkpoint else None
-        return_dataframe = True if not checkpoint_as else False
-
-        reader = compute.run_sql(
-            sql_string,
-            return_dataframe=return_dataframe,
-            expected_output_schema=expected_output_schema,
-            monitor=monitor,
-            checkpoint_as=checkpoint_as,
+        context = ExecutionContext(
+            offline_store_options_providers=self.offline_store_options_providers,
+            secret_resolver=self.secret_resolver,
+            model_artifact_provider=self.model_artifact_provider,
+            duckdb_config=self.duckdb_config,
         )
 
-        # Cleaning up checkpointed tables
-        checkpointed_inputs = [table for table, reader in inputs.items() if not reader]
-        for table_name in checkpointed_inputs:
-            compute.unregister_temp_table(table_name)
+        if _should_use_partitioned_execution(physical_plan):
+            if self.is_debug:
+                logger.info("Executing QT using Ray + partitioned execution")
 
-        staging_done_time = datetime.now()
-        if self.is_debug:
-            elapsed_staging_time = (staging_done_time - start_time).total_seconds()
-            logger.warning(f"STAGE_{staging_table_name}_TIME_SEC: {elapsed_staging_time}")
+            ray_dataset = convert_plan_to_ray_dag(
+                physical_plan,
+                context,
+                duckdb_home_dir=os.environ.get("TEST_TMPDIR"),
+                snowflake_connection_params=SnowflakeContext.get_instance().get_connection_params()
+                if SnowflakeContext.is_initialized()
+                else None,
+                dag_depth=None,
+            )
+            outputs = ray_dataset.execute()
+        else:
+            if self.is_debug:
+                logger.info("Executing QT locally (aka without ray)")
+            output_list = execute_plan_for_local_execution(
+                physical_plan,
+                context,
+                duckdb_home_dir=os.environ.get("TEST_TMPDIR"),
+                snowflake_connection_params=SnowflakeContext.get_instance().get_connection_params()
+                if SnowflakeContext.is_initialized()
+                else None,
+            )
+            outputs = next(iter(output_list))
 
-        return staging_table_name, reader
+        return QueryTreeOutput(output=outputs)
 
-    def _get_or_create_compute_by_dialect(
-        self,
-        dialect: Dialect,
-        qt_root: Optional[NodeRef] = None,
-    ) -> QueryTreeCompute:
-        if dialect in self._dialect_to_compute_map:
-            return self._dialect_to_compute_map[dialect]
 
-        compute = QueryTreeCompute.for_dialect(dialect, self, qt_root)
-        self._dialect_to_compute_map[dialect] = compute
-        return compute
+_dialect_to_compute_map = {}
+
+
+def _get_or_create_compute_by_dialect(
+    dialect: Dialect,
+    context: ExecutionContext,
+    qt_root: Optional[NodeRef] = None,
+) -> QueryTreeCompute:
+    if dialect in _dialect_to_compute_map:
+        return _dialect_to_compute_map[dialect]
+
+    compute = QueryTreeCompute.for_dialect(dialect, context, qt_root)
+    _dialect_to_compute_map[dialect] = compute
+    return compute

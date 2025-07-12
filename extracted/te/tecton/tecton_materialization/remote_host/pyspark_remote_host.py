@@ -165,9 +165,9 @@ class PysparkRemoteHost(object):
         assert request.HasField("endpoint") and request.endpoint, "endpoint cannot be None"
         assert request.HasField("temp_s3_dir") and request.temp_s3_dir, "temp_s3_dir cannot be None"
 
-        assert (request.HasField("table") and request.table) or (
-            request.HasField("query") and request.query
-        ), "Both table and query cannot be None"
+        assert (request.HasField("table") and request.table) or (request.HasField("query") and request.query), (
+            "Both table and query cannot be None"
+        )
         if request.HasField("rawBatchTranslator"):
             post_processor = function_deserialization.from_proto(
                 request.rawBatchTranslator, include_main_variable_in_scope=True

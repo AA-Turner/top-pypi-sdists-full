@@ -1,3 +1,4 @@
+import itertools
 from datetime import timedelta
 from functools import reduce
 from typing import Dict
@@ -117,6 +118,7 @@ class RenameColsSparkNode(SparkExecNode):
     input_node: SparkExecNode
     mapping: Optional[Dict[str, Union[str, List[str]]]]
     drop: Optional[List[str]]
+    keep_original_columns_from_mapping: bool = False
 
     def _to_dataframe(self, spark: pyspark.sql.SparkSession) -> pyspark.sql.DataFrame:
         input_df = self.input_node.to_dataframe(spark)
@@ -131,6 +133,8 @@ class RenameColsSparkNode(SparkExecNode):
                 else:
                     rename_cols.append(F.col(old_name).alias(new_name))
 
+                if self.keep_original_columns_from_mapping:
+                    rename_cols.append(F.col(old_name))
             existing_cols = [col for col in input_df.columns if col not in self.mapping.keys()]
             input_df = input_df.select(*existing_cols, *rename_cols)
 
@@ -159,8 +163,10 @@ class ConvertEpochToTimestampSparkNode(SparkExecNode):
 class ConvertTimestampToUTCSparkNode(SparkExecNode):
     input_node: SparkExecNode
     timestamp_key: str
+    batch_publish_timestamp: Optional[str] = None  # optionally set for Materialized Feature Views only
 
     def _to_dataframe(self, spark: pyspark.sql.SparkSession) -> pyspark.sql.DataFrame:
+        # Spark timestamps are always in UTC, hence no conversion is done
         return self.input_node.to_dataframe(spark)
 
 
@@ -226,7 +232,11 @@ class AddEffectiveTimestampSparkNode(SparkExecNode):
     batch_schedule_seconds: int
     is_stream: bool
     data_delay_seconds: int
-    is_temporal_aggregate: bool
+
+    # TODO(PRODENG-262): Remove use_legacy_temporal_aggregate_behavior flag once ghf is deprecated
+    # use_legacy_temporal_aggregate_behavior is a flag used to preserve the behavior of deprecated function get_historical_features
+    # we have not removed get_historical_features from the SDK in order to prevent upgrade friction
+    use_legacy_temporal_aggregate_behavior: bool = False
 
     def _to_dataframe(self, spark: pyspark.sql.SparkSession) -> pyspark.sql.DataFrame:
         input_df = self.input_node.to_dataframe(spark)
@@ -237,9 +247,7 @@ class AddEffectiveTimestampSparkNode(SparkExecNode):
         else:
             slide_str = f"{self.batch_schedule_seconds} seconds"
             timestamp_col = F.col(self.timestamp_field)
-            # Timestamp of temporal aggregate is end of the anchor time window. Subtract 1 micro
-            # to get the correct bucket for batch schedule.
-            if self.is_temporal_aggregate:
+            if self.use_legacy_temporal_aggregate_behavior:
                 timestamp_col -= expr("interval 1 microseconds")
             window_spec = F.window(timestamp_col, slide_str, slide_str)
             effective_timestamp = window_spec.end + expr(f"interval {self.data_delay_seconds} seconds")
@@ -311,7 +319,10 @@ class ExplodeEventsByTimestampAndSelectDistinctSparkNode(SparkExecNode):
         self, input_df: pyspark.sql.DataFrame, explode_column: str
     ) -> pyspark.sql.DataFrame:
         new_df = self._add_identifier_columns(input_df, explode_column)
-        other_columns = self.columns_to_ignore + [col for col in self.explode_columns if col != explode_column]
+        other_columns = itertools.chain(
+            self.columns_to_ignore,
+            (col for col in self.explode_columns if col != explode_column),
+        )
         for column in other_columns:
             new_df = new_df.withColumn(column, F.lit(None))
         return new_df.select(*self.columns).distinct()

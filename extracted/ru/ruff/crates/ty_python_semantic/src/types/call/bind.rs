@@ -668,7 +668,7 @@ impl<'db> Bindings<'db> {
                                     ide_support::all_members(db, *ty)
                                         .into_iter()
                                         .sorted()
-                                        .map(|member| Type::string_literal(db, &member)),
+                                        .map(|member| Type::string_literal(db, &member.name)),
                                 ));
                             }
                         }
@@ -727,38 +727,6 @@ impl<'db> Bindings<'db> {
                                             .to_specialized_instance(db, [specialization]),
                                     );
                                 }
-                            }
-                        }
-
-                        Some(KnownFunction::Overload) => {
-                            // TODO: This can be removed once we understand legacy generics because the
-                            // typeshed definition for `typing.overload` is an identity function.
-                            if let [Some(ty)] = overload.parameter_types() {
-                                overload.set_return_type(*ty);
-                            }
-                        }
-
-                        Some(KnownFunction::Override) => {
-                            // TODO: This can be removed once we understand legacy generics because the
-                            // typeshed definition for `typing.override` is an identity function.
-                            if let [Some(ty)] = overload.parameter_types() {
-                                overload.set_return_type(*ty);
-                            }
-                        }
-
-                        Some(KnownFunction::AbstractMethod) => {
-                            // TODO: This can be removed once we understand legacy generics because the
-                            // typeshed definition for `abc.abstractmethod` is an identity function.
-                            if let [Some(ty)] = overload.parameter_types() {
-                                overload.set_return_type(*ty);
-                            }
-                        }
-
-                        Some(KnownFunction::Final) => {
-                            // TODO: This can be removed once we understand legacy generics because the
-                            // typeshed definition for `typing.final` is an identity function.
-                            if let [Some(ty)] = overload.parameter_types() {
-                                overload.set_return_type(*ty);
                             }
                         }
 
@@ -2141,7 +2109,7 @@ impl<'db> Binding<'db> {
         }
     }
 
-    fn match_parameters(
+    pub(crate) fn match_parameters(
         &mut self,
         arguments: &CallArguments<'_>,
         argument_forms: &mut [Option<ParameterForm>],
@@ -2298,6 +2266,12 @@ impl<'db> Binding<'db> {
         self.argument_parameters = argument_parameters;
         self.parameter_tys = parameter_tys;
         self.errors = errors;
+    }
+
+    /// Returns a vector where each index corresponds to an argument position,
+    /// and the value is the parameter index that argument maps to (if any).
+    pub(crate) fn argument_to_parameter_mapping(&self) -> &[Option<usize>] {
+        &self.argument_parameters
     }
 }
 

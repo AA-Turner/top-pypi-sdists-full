@@ -67,9 +67,9 @@ def current_endpoint():
     """
     return gw.context.get('current_endpoint')
 
-def setup_app(*,
+def setup_app(project,
+    *,
     app=None,
-    project="web.site",
     path=None,
     home: str = None,
     links=None,
@@ -86,7 +86,9 @@ def setup_app(*,
 ):
     """
     Setup Bottle web application with symmetrical static/shared public folders.
-    Only one project can be setup per call. CSS/JS params are used as the only static includes.
+    ``project`` may be a single name or sequence of fallback names. The first
+    project found is loaded and used. CSS/JS params are used as the only static
+    includes.
     """
     global _ver, _homes, _enabled
 
@@ -100,23 +102,43 @@ def setup_app(*,
     _ver = _ver or gw.version()
     bottle.BaseRequest.MEMFILE_MAX = UPLOAD_MB * 1024 * 1024
 
-    if not isinstance(project, str) or not project:
-        gw.abort("Project must be a non-empty string.")
+    project_names = gw.cast.to_list(project)
+    if not project_names:
+        gw.abort("Project must be a non-empty string or list of names.")
+
+    source = gw.find_project(*project_names)
+    if not source:
+        gw.abort(
+            "Project {} not found in Gateway during app setup.".format(
+                ", ".join(project_names)
+            )
+        )
+
+    # Normalize project name to the one actually loaded
+    project = getattr(source, "_name", project_names[0])
 
     # Track project for later global static collection
     _enabled.add(project)
 
-    # Always use the given project, never a list
-    try:
-        source = gw[project]
-    except Exception:
-        gw.abort(f"Project {project} not found in Gateway during app setup.")
+    if home is None:
+        setup_home_func = getattr(source, "setup_home", None)
+        if callable(setup_home_func):
+            try:
+                home = setup_home_func()
+            except Exception as exc:
+                gw.warn(f"{project}.setup_home failed: {exc}")
 
-    # Default path is the dotted project name, minus any leading web/
+    if links is None:
+        setup_links_func = getattr(source, "setup_links", None)
+        if callable(setup_links_func):
+            try:
+                links = setup_links_func()
+            except Exception as exc:
+                gw.warn(f"{project}.setup_links failed: {exc}")
+
+    # Default path is the dotted project name
     if path is None:
         path = project.replace('.', '/')
-        if path.startswith('web/'):
-            path = path.removeprefix('web/')
             
     oapp = app
     match app:
@@ -197,14 +219,26 @@ def setup_app(*,
         return None
 
     if views:
+        def _looks_like_document(text: str) -> bool:
+            if not isinstance(text, str):
+                return False
+            check = text.lstrip().lower()
+            return check.startswith("<!doctype") or check.startswith("<html")
+
         def view_dispatch(view):
             nonlocal home, views
-            if (unauth := _maybe_auth("Unauthorized: You are not permitted to view this page.")):
+            if (
+                unauth := _maybe_auth(
+                    "Unauthorized: You are not permitted to view this page."
+                )
+            ):
                 return unauth
             # Set current endpoint in GWAY context (for helpers/build_url etc)
-            gw.context['current_endpoint'] = path
+            gw.context["current_endpoint"] = path
+
             segments = [s for s in view.strip("/").split("/") if s]
-            view_name = segments[0].replace("-", "_") if segments else home
+            raw_names = segments[0] if segments else home
+            view_names = [n.replace("-", "_") for n in raw_names.replace("+", " ").split()]
             args = segments[1:] if segments else []
             kwargs = dict(request.query)
             if request.method == "POST":
@@ -212,38 +246,56 @@ def setup_app(*,
                     kwargs.update(request.json or dict(request.forms))
                 except Exception as e:
                     return gw.web.error.redirect("Error loading JSON payload", err=e)
+
             method = request.method.lower()  # 'get' or 'post'
-            method_func_name = f"{views}_{method}_{view_name}"
-            generic_func_name = f"{views}_{view_name}"
+            contents = []
+            titles = []
 
-            # Prefer view_get_x/view_post_x before view_x
-            view_func = getattr(source, method_func_name, None)
-            if not callable(view_func):
-                view_func = getattr(source, generic_func_name, None)
-            if not callable(view_func):
-                return gw.web.error.redirect(f"View not found: {method_func_name} or {generic_func_name} in {project}")
+            for view_name in view_names:
+                method_func_name = f"{views}_{method}_{view_name}"
+                generic_func_name = f"{views}_{view_name}"
 
-            try:
-                content = view_func(*args, **kwargs)
-                if isinstance(content, HTTPResponse):
+                # Prefer view_get_x/view_post_x before view_x
+                view_func = getattr(source, method_func_name, None)
+                if not callable(view_func):
+                    view_func = getattr(source, generic_func_name, None)
+                if not callable(view_func):
+                    return gw.web.error.redirect(
+                        f"View not found: {method_func_name} or {generic_func_name} in {project}"
+                    )
+
+                try:
+                    content = view_func(*args, **kwargs)
+                    if isinstance(content, HTTPResponse):
+                        return content
+                    elif isinstance(content, bytes):
+                        response.content_type = "application/octet-stream"
+                        response.body = content
+                        return response
+                    elif content is None:
+                        content = ""
+                    elif not isinstance(content, str):
+                        content = gw.cast.to_html(content)
+                except HTTPResponse as res:
+                    return res
+                except Exception as e:
+                    return gw.web.error.redirect("Broken view", err=e)
+
+                if _looks_like_document(content):
+                    if contents:
+                        gw.warning(
+                            f"Mashup aborted: {view_name} returned full document, previous output discarded"
+                        )
                     return content
-                elif isinstance(content, bytes):
-                    response.content_type = "application/octet-stream"
-                    response.body = content
-                    return response
-                elif content is None:
-                    return ""
-                elif not isinstance(content, str):
-                    content = gw.to_html(content)
-            except HTTPResponse as res:
-                return res
-            except Exception as e:
-                return gw.web.error.redirect("Broken view", err=e)
 
+                contents.append(content)
+                titles.append(view_func.__name__.replace("_", " ").title())
+
+            final_content = "".join(contents)
             media_origin = "/shared" if shared else ("static" if static else "")
             return render_template(
-                title="GWAY - " + view_func.__name__.replace("_", " ").title(),
-                content=content,
+                title="GWAY - " + " + ".join(titles),
+                content=final_content,
                 css_files=(f"{media_origin}/{css}.css",),
                 js_files=(f"{media_origin}/{js}.js",),
             )
@@ -336,7 +388,7 @@ def setup_app(*,
                     return json.dumps(result)
                 # List: treat as a list of HTML fragments (return as JSON)
                 if isinstance(result, list):
-                    html_list = [x if isinstance(x, str) else gw.to_html(x) for x in result]
+                    html_list = [x if isinstance(x, str) else gw.cast.to_html(x) for x in result]
                     response.content_type = "application/json"
                     return json.dumps(html_list)
                 # String/bytes: send as plain text (fragment)
@@ -390,7 +442,7 @@ def setup_app(*,
                     elif content is None:
                         return ""
                     elif not isinstance(content, str):
-                        content = gw.to_html(content)
+                        content = gw.cast.to_html(content)
                     response.content_type = "text/html"
                     return content
                 except HTTPResponse as res:
@@ -451,7 +503,7 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
     build = ""
     if getattr(gw, "debug_enabled", False):
         try:
-            build = f" Build: {gw.release.commit()}"
+            build = f" Build: {gw.hub.commit()}"
         except Exception:
             build = ""
 
@@ -500,7 +552,7 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None):
                 var close=document.getElementById('gw-debug-close');
                 function show(){
                     overlay.style.display='block';
-                    fetch('/render/site/debug_info').then(r=>r.text()).then(t=>{document.getElementById('gw-debug-content').innerHTML=t;});
+                    fetch('/render/web/site/debug_info').then(r=>r.text()).then(t=>{document.getElementById('gw-debug-content').innerHTML=t;});
                 }
                 btn.addEventListener('click',function(e){e.preventDefault();show();});
                 close.addEventListener('click',function(e){e.preventDefault();overlay.style.display='none';});
@@ -542,7 +594,7 @@ def default_home():
     for _, route in _homes:
         if route:
             return "/" + route.lstrip("/")
-    return "/site/reader"
+    return "/web/site/reader"
 
 def debug_routes(app):
     for route in app.routes:

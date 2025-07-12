@@ -3,16 +3,24 @@ import sys
 
 import click
 from colorama import Fore
+from rich.columns import Columns
+from rich.panel import Panel
+from rich.prompt import Confirm
+from rich.text import Text
 
 from tecton import tecton_context
 from tecton.cli import printer
 from tecton.cli import repo
 from tecton.cli import workspace_utils
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.cli.engine import update_tecton_state
+from tecton.cli.infra_commands import interactive_create_ingest_server_group
+from tecton.cli.infra_commands import interactive_create_transform_server_group
+from tecton.cli.interactive_menu import create_workspace_menu
 from tecton.cli.workspace_utils import WorkspaceType
 from tecton.cli.workspace_utils import switch_to_workspace
-from tecton_proto.data import workspace__client_pb2 as workspace_pb2
+from tecton_proto.common import compute_identity__client_pb2 as compute_identity_pb2
 
 
 logger = logging.getLogger(__name__)
@@ -20,17 +28,36 @@ logger = logging.getLogger(__name__)
 PROD_WORKSPACE_NAME = "prod"
 
 
-@click.group("workspace", cls=TectonGroup, is_main_command=True)
+def _interactive_workspace_selection():
+    """Common interactive workspace selection logic."""
+    current_workspace = tecton_context.get_current_workspace()
+    workspaces = workspace_utils.list_workspaces()
+
+    if not workspaces:
+        printer.safe_print("No workspaces available.")
+        return
+
+    menu = create_workspace_menu(workspaces, current_workspace)
+    selected_workspace = menu.show()
+
+    if selected_workspace is not None:
+        switch_to_workspace(selected_workspace.name)
+
+
+@click.group("workspace", cls=TectonGroup, command_category=TectonCommandCategory.WORKSPACE)
 def workspace():
     """Manage Tecton Workspaces."""
 
 
 @workspace.command()
-@click.argument("workspace", type=WorkspaceType())
+@click.argument("workspace", type=WorkspaceType(), required=False)
 def select(workspace):
-    """Select Tecton Workspace."""
-    workspace_utils.check_workspace_exists(workspace)
-    switch_to_workspace(workspace)
+    """Select Tecton Workspace. If no workspace is specified, shows an interactive menu."""
+    if workspace is not None:
+        workspace_utils.check_workspace_exists(workspace)
+        switch_to_workspace(workspace)
+    else:
+        _interactive_workspace_selection()
 
 
 @workspace.command()
@@ -41,21 +68,46 @@ def list():
     materializable = [w.name for w in workspaces if w.capabilities.materializable]
     nonmaterializable = [w.name for w in workspaces if not w.capabilities.materializable]
 
-    if materializable:
-        printer.safe_print("Live Workspaces:")
-        for name in materializable:
-            marker = "*" if name == current_workspace else " "
-            printer.safe_print(f"{marker} {name}")
+    panels = []
 
-    # Print whitespace between the two sections if needed.
-    if materializable and nonmaterializable:
-        printer.safe_print()
+    if materializable:
+        live_content = Text()
+        for i, name in enumerate(materializable):
+            marker = "● " if name == current_workspace else "○ "
+            style = "bold green" if name == current_workspace else "white"
+            if i > 0:
+                live_content.append("\n")
+            live_content.append(f"{marker}{name}", style=style)
+
+        live_panel = Panel(
+            live_content, title="[bold blue]Live Workspaces[/bold blue]", border_style="blue", padding=(1, 2)
+        )
+        panels.append(live_panel)
 
     if nonmaterializable:
-        printer.safe_print("Development Workspaces:")
-        for name in nonmaterializable:
-            marker = "*" if name == current_workspace else " "
-            printer.safe_print(f"{marker} {name}")
+        dev_content = Text()
+        for i, name in enumerate(nonmaterializable):
+            marker = "● " if name == current_workspace else "○ "
+            style = "bold green" if name == current_workspace else "white"
+            if i > 0:
+                dev_content.append("\n")
+            dev_content.append(f"{marker}{name}", style=style)
+
+        dev_panel = Panel(
+            dev_content,
+            title="[bold orange3]Development Workspaces[/bold orange3]",
+            border_style="orange3",
+            padding=(1, 2),
+        )
+        panels.append(dev_panel)
+
+    if panels:
+        if len(panels) == 2:
+            printer.rich_print(Columns(panels, equal=True, expand=True))
+        else:
+            printer.rich_print(panels[0])
+    else:
+        printer.safe_print("No workspaces available.")
 
 
 @workspace.command()
@@ -85,7 +137,13 @@ def show():
     default=False,
     help="Create a live Workspace, which enables materialization and online serving.",
 )
-def create(workspace, live):
+@click.option(
+    "--skip-server-groups",
+    is_flag=True,
+    default=False,
+    help="Skip server group creation when creating a live workspace.",
+)
+def create(workspace, live, skip_server_groups):
     """Create a new Tecton Workspace."""
     # There is a check for this on the server side too, but we optimistically validate
     # here as well to show a pretty error message.
@@ -94,14 +152,49 @@ def create(workspace, live):
         printer.safe_print(f"Workspace {workspace} already exists", file=sys.stderr)
         sys.exit(1)
 
-    # create
     workspace_utils.create_workspace(workspace, live)
 
-    # switch to new workspace
     switch_to_workspace(workspace)
+
+    if live and not skip_server_groups:
+        printer.rich_print(
+            Panel(
+                Text.assemble(
+                    ("Transform Server Groups: ", "bold blue"),
+                    (
+                        "Used to execute user defined transformations for streaming and realtime feature computations.\n",
+                        "",
+                    ),
+                    ("Ingest Server Groups: ", "bold green"),
+                    ("Used to ingest streaming data for Tecton's Stream Ingest API.\n\n", ""),
+                    (
+                        "These server groups provide the compute infrastructure needed for realtime and streaming features.",
+                        "dim",
+                    ),
+                ),
+                title="Create Server Groups",
+                border_style="cyan",
+                padding=(1, 2),
+            )
+        )
+
+        create_tsg = Confirm.ask("Would you like to create a Transform Server Group?", default=False)
+        if create_tsg:
+            tsg = interactive_create_transform_server_group(
+                workspace, show_description=False, provide_name_defaults=True
+            )
+            if tsg:
+                printer.safe_print()
+
+        create_isg = Confirm.ask("Would you like to create an Ingest Server Group?", default=False)
+        if create_isg:
+            isg = interactive_create_ingest_server_group(workspace, show_description=False, provide_name_defaults=True)
+            if isg:
+                printer.safe_print()
+
     printer.safe_print(
         """
-You have created a new, empty workspace. Workspaces let
+You have created a new workspace. Workspaces let
 you create and manage an isolated feature repository.
 Running "tecton plan" will compare your local repository
 against the remote repository, which is initially empty.
@@ -133,9 +226,8 @@ def add_databricks_service_principal(workspace, id, set_default):
         )
         sys.exit(0)
 
-    # update
-    new_db_principal = workspace_pb2.ComputeIdentity(
-        databricks_service_principal=workspace_pb2.DatabricksServicePrincipal(application_id=id)
+    new_db_principal = compute_identity_pb2.ComputeIdentity(
+        databricks_service_principal=compute_identity_pb2.DatabricksServicePrincipal(application_id=id)
     )
     if set_default:
         compute_identities.insert(0, new_db_principal)
@@ -164,10 +256,9 @@ def remove_databricks_service_principal(workspace, id):
         )
         sys.exit(0)
 
-    # update
     compute_identities.remove(
-        workspace_pb2.ComputeIdentity(
-            databricks_service_principal=workspace_pb2.DatabricksServicePrincipal(application_id=id)
+        compute_identity_pb2.ComputeIdentity(
+            databricks_service_principal=compute_identity_pb2.DatabricksServicePrincipal(application_id=id)
         )
     )
     workspace_utils.update_workspace(workspace, ws.capabilities, compute_identities)
@@ -186,18 +277,18 @@ def set_default_databricks_service_principal(workspace, id):
     workspace_utils.check_workspace_exists(workspace)
     ws = workspace_utils.get_workspace(workspace)
     compute_identities = ws.compute_identities
-    # update
+
     if id in [db_principal.databricks_service_principal.application_id for db_principal in compute_identities]:
         compute_identities.remove(
-            workspace_pb2.ComputeIdentity(
-                databricks_service_principal=workspace_pb2.DatabricksServicePrincipal(application_id=id)
+            compute_identity_pb2.ComputeIdentity(
+                databricks_service_principal=compute_identity_pb2.DatabricksServicePrincipal(application_id=id)
             )
         )
 
     compute_identities.insert(
         0,
-        workspace_pb2.ComputeIdentity(
-            databricks_service_principal=workspace_pb2.DatabricksServicePrincipal(application_id=id)
+        compute_identity_pb2.ComputeIdentity(
+            databricks_service_principal=compute_identity_pb2.DatabricksServicePrincipal(application_id=id)
         ),
     )
     workspace_utils.update_workspace(workspace, ws.capabilities, compute_identities)
@@ -212,14 +303,12 @@ def set_default_databricks_service_principal(workspace, id):
 @click.option("--yes", "-y", is_flag=True)
 def delete(workspace, yes):
     """Delete a Tecton Workspace."""
-    # validate
     if workspace == PROD_WORKSPACE_NAME:
         printer.safe_print(f"Deleting Workspace '{PROD_WORKSPACE_NAME}' not allowed.")
         sys.exit(1)
 
     is_live = workspace_utils.is_live_workspace(workspace)
 
-    # confirm deletion
     confirmation = "y" if yes else None
     while confirmation not in ("y", "n", ""):
         confirmation_text = f'Are you sure you want to delete the workspace "{workspace}"? (y/N)'
@@ -245,10 +334,8 @@ def delete(workspace, yes):
         workspace_name=workspace,
     )
 
-    # delete
     workspace_utils.delete_workspace(workspace)
 
-    # switch to prod if deleted current
     if workspace == tecton_context.get_current_workspace():
         switch_to_workspace(PROD_WORKSPACE_NAME)
 

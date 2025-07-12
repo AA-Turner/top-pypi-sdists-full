@@ -16,12 +16,44 @@ import System
 import System.Collections.Generic
 import System.IO
 
-QuantConnect_Data_Market_BaseChain_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TContractsCollection")
-QuantConnect_Data_Market_BaseChain_T = typing.TypeVar("QuantConnect_Data_Market_BaseChain_T")
-QuantConnect_Data_Market_DataDictionary_T = typing.TypeVar("QuantConnect_Data_Market_DataDictionary_T")
 QuantConnect_Data_Market_BaseChains_T = typing.TypeVar("QuantConnect_Data_Market_BaseChains_T")
 QuantConnect_Data_Market_BaseChains_TContract = typing.TypeVar("QuantConnect_Data_Market_BaseChains_TContract")
 QuantConnect_Data_Market_BaseChains_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChains_TContractsCollection")
+QuantConnect_Data_Market_BaseChain_TContractsCollection = typing.TypeVar("QuantConnect_Data_Market_BaseChain_TContractsCollection")
+QuantConnect_Data_Market_BaseChain_T = typing.TypeVar("QuantConnect_Data_Market_BaseChain_T")
+QuantConnect_Data_Market_DataDictionary_T = typing.TypeVar("QuantConnect_Data_Market_DataDictionary_T")
+
+
+class IBar(metaclass=abc.ABCMeta):
+    """Generic bar interface with Open, High, Low and Close."""
+
+    @property
+    @abc.abstractmethod
+    def open(self) -> float:
+        """Opening price of the bar: Defined as the price at the start of the time period."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def high(self) -> float:
+        """High price of the bar during the time period."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def low(self) -> float:
+        """Low price of the bar during the time period."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def close(self) -> float:
+        """Closing price of the bar. Defined as the price at Start Time + TimeSpan."""
+        ...
+
+
+class IBaseDataBar(QuantConnect.Data.IBaseData, QuantConnect.Data.Market.IBar, metaclass=abc.ABCMeta):
+    """Represents a type that is both a bar and base data"""
 
 
 class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
@@ -138,6 +170,328 @@ class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=a
         Returns a string that represents the current object.
         
         :returns: A string that represents the current object.
+        """
+        ...
+
+
+class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar):
+    """
+    TradeBar class for second and minute resolution data:
+    An OHLC implementation of the QuantConnect BaseData class with parameters for candles.
+    """
+
+    @property
+    def volume(self) -> float:
+        """Volume:"""
+        ...
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        ...
+
+    @property
+    def open(self) -> float:
+        """Opening price of the bar: Defined as the price at the start of the time period."""
+        ...
+
+    @open.setter
+    def open(self, value: float) -> None:
+        ...
+
+    @property
+    def high(self) -> float:
+        """High price of the TradeBar during the time period."""
+        ...
+
+    @high.setter
+    def high(self, value: float) -> None:
+        ...
+
+    @property
+    def low(self) -> float:
+        """Low price of the TradeBar during the time period."""
+        ...
+
+    @low.setter
+    def low(self, value: float) -> None:
+        ...
+
+    @property
+    def close(self) -> float:
+        """Closing price of the TradeBar. Defined as the price at Start Time + TimeSpan."""
+        ...
+
+    @close.setter
+    def close(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The closing time of this bar, computed via the Time and Period"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """The period of this trade bar, (second, minute, daily, ect...)"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default initializer to setup an empty tradebar."""
+        ...
+
+    @overload
+    def __init__(self, original: QuantConnect.Data.Market.TradeBar) -> None:
+        """
+        Cloner constructor for implementing fill forward.
+        Return a new instance with the same values as this original.
+        
+        :param original: Original tradebar object we seek to clone
+        """
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open: float, high: float, low: float, close: float, volume: float, period: typing.Optional[datetime.timedelta] = None) -> None:
+        """
+        Initialize Trade Bar with OHLC Values:
+        
+        :param time: DateTime Timestamp of the bar
+        :param symbol: Market MarketType Symbol
+        :param open: Decimal Opening Price
+        :param high: Decimal High Price of this bar
+        :param low: Decimal Low Price of this bar
+        :param close: Decimal Close price of this bar
+        :param volume: Volume sum over day
+        :param period: The period of this bar, specify null for default of 1 minute
+        """
+        ...
+
+    @overload
+    def clone(self, fill_forward: bool) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :param fill_forward: True if this is a fill forward clone
+        :returns: A clone of the current object.
+        """
+        ...
+
+    @overload
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Return a new instance clone of this object"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Get Source for Custom Data File
+        >> What source file location would you prefer for each type of usage:
+        
+        :param config: Configuration object
+        :param date: Date of this source request if source spread across multiple files
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String source location of the file.
+        """
+        ...
+
+    @staticmethod
+    def parse(config: QuantConnect.Data.SubscriptionDataConfig, line: str, base_date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """Parses the trade bar data line assuming QC data formats"""
+        ...
+
+    @staticmethod
+    @overload
+    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: Date of this reader request
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: Date of this reader request
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """Parse an index bar from the LEAN disk format"""
+        ...
+
+    @staticmethod
+    @overload
+    def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """Parse an index bar from the LEAN disk format"""
+        ...
+
+    @staticmethod
+    @overload
+    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
+        """
+        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
+        
+        :param config: Symbols, Resolution, DataType,
+        :param stream_reader: The data stream of the requested file
+        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        TradeBar Reader: Fetch the data from the QC storage and feed it line by line into the engine.
+        
+        :param config: Symbols, Resolution, DataType,
+        :param line: Line from the data file requested
+        :param date: Date of this reader request
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Enumerable iterator for returning each line of the required data.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with the symbol and value.
+        
+        :returns: string - a string formatted as SPY: 167.753.
+        """
+        ...
+
+    def update(self, last_trade: float, bid_price: float, ask_price: float, volume: float, bid_size: float, ask_size: float) -> None:
+        """
+        Update the tradebar - build the bar from this pricing information:
+        
+        :param last_trade: This trade price
+        :param bid_price: Current bid price (not used)
+        :param ask_price: Current asking price (not used)
+        :param volume: Volume of this trade
+        :param bid_size: The size of the current bid, if available
+        :param ask_size: The size of the current ask, if available
         """
         ...
 
@@ -481,393 +835,74 @@ class Tick(QuantConnect.Data.BaseData):
         ...
 
 
-class Ticks(QuantConnect.Data.Market.DataDictionary[typing.List[QuantConnect.Data.Market.Tick]]):
-    """Ticks collection which implements an IDictionary-string-list of ticks. This way users can iterate over the string indexed ticks of the requested symbol."""
+class FuturesContract(QuantConnect.Data.Market.BaseContract):
+    """Defines a single futures contract at a specific expiration"""
+
+    @property
+    def open_interest(self) -> float:
+        """Gets the open interest"""
+        ...
+
+    @property
+    def last_price(self) -> float:
+        """Gets the last price this contract traded at"""
+        ...
+
+    @property
+    def volume(self) -> int:
+        """Gets the last volume this contract traded at"""
+        ...
+
+    @property
+    def bid_price(self) -> float:
+        """Get the current bid price"""
+        ...
+
+    @property
+    def bid_size(self) -> int:
+        """Get the current bid size"""
+        ...
+
+    @property
+    def ask_price(self) -> float:
+        """Gets the current ask price"""
+        ...
+
+    @property
+    def ask_size(self) -> int:
+        """Get the current ask size"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """
+        Initializes a new instance of the FuturesContract class
+        
+        :param symbol: The futures contract symbol
+        """
+        ...
+
+    @overload
+    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
+        """
+        Initializes a new instance of the FuturesContract class
+        
+        :param contract_data: The contract universe data
+        """
+        ...
+
+
+class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.FuturesContract]):
+    """Collection of FuturesContract keyed by futures symbol"""
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Ticks dictionary"""
+        """Creates a new instance of the FuturesContracts dictionary"""
         ...
 
     @overload
-    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the Ticks dictionary
-        
-        :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-
-class IBar(metaclass=abc.ABCMeta):
-    """Generic bar interface with Open, High, Low and Close."""
-
-    @property
-    @abc.abstractmethod
-    def open(self) -> float:
-        """Opening price of the bar: Defined as the price at the start of the time period."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def high(self) -> float:
-        """High price of the bar during the time period."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def low(self) -> float:
-        """Low price of the bar during the time period."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def close(self) -> float:
-        """Closing price of the bar. Defined as the price at Start Time + TimeSpan."""
-        ...
-
-
-class IBaseDataBar(QuantConnect.Data.IBaseData, QuantConnect.Data.Market.IBar, metaclass=abc.ABCMeta):
-    """Represents a type that is both a bar and base data"""
-
-
-class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar):
-    """
-    TradeBar class for second and minute resolution data:
-    An OHLC implementation of the QuantConnect BaseData class with parameters for candles.
-    """
-
-    @property
-    def volume(self) -> float:
-        """Volume:"""
-        ...
-
-    @volume.setter
-    def volume(self, value: float) -> None:
-        ...
-
-    @property
-    def open(self) -> float:
-        """Opening price of the bar: Defined as the price at the start of the time period."""
-        ...
-
-    @open.setter
-    def open(self, value: float) -> None:
-        ...
-
-    @property
-    def high(self) -> float:
-        """High price of the TradeBar during the time period."""
-        ...
-
-    @high.setter
-    def high(self, value: float) -> None:
-        ...
-
-    @property
-    def low(self) -> float:
-        """Low price of the TradeBar during the time period."""
-        ...
-
-    @low.setter
-    def low(self, value: float) -> None:
-        ...
-
-    @property
-    def close(self) -> float:
-        """Closing price of the TradeBar. Defined as the price at Start Time + TimeSpan."""
-        ...
-
-    @close.setter
-    def close(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The closing time of this bar, computed via the Time and Period"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """The period of this trade bar, (second, minute, daily, ect...)"""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default initializer to setup an empty tradebar."""
-        ...
-
-    @overload
-    def __init__(self, original: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Cloner constructor for implementing fill forward.
-        Return a new instance with the same values as this original.
-        
-        :param original: Original tradebar object we seek to clone
-        """
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open: float, high: float, low: float, close: float, volume: float, period: typing.Optional[datetime.timedelta] = None) -> None:
-        """
-        Initialize Trade Bar with OHLC Values:
-        
-        :param time: DateTime Timestamp of the bar
-        :param symbol: Market MarketType Symbol
-        :param open: Decimal Opening Price
-        :param high: Decimal High Price of this bar
-        :param low: Decimal Low Price of this bar
-        :param close: Decimal Close price of this bar
-        :param volume: Volume sum over day
-        :param period: The period of this bar, specify null for default of 1 minute
-        """
-        ...
-
-    @overload
-    def clone(self, fill_forward: bool) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :param fill_forward: True if this is a fill forward clone
-        :returns: A clone of the current object.
-        """
-        ...
-
-    @overload
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Return a new instance clone of this object"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Get Source for Custom Data File
-        >> What source file location would you prefer for each type of usage:
-        
-        :param config: Configuration object
-        :param date: Date of this source request if source spread across multiple files
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String source location of the file.
-        """
-        ...
-
-    @staticmethod
-    def parse(config: QuantConnect.Data.SubscriptionDataConfig, line: str, base_date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """Parses the trade bar data line assuming QC data formats"""
-        ...
-
-    @staticmethod
-    @overload
-    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_cfd(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses CFD trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_crypto(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses crypto trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: Date of this reader request
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_equity(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses equity trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: Date of this reader request
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_forex(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses forex trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_future(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Future trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """Parse an index bar from the LEAN disk format"""
-        ...
-
-    @staticmethod
-    @overload
-    def parse_index(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """Parse an index bar from the LEAN disk format"""
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse_option(config: QuantConnect.Data.SubscriptionDataConfig, stream_reader: System.IO.StreamReader, date: datetime.datetime) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Parses Option trade bar data into the specified tradebar type, useful for custom types with OHLCV data deriving from TradeBar
-        
-        :param config: Symbols, Resolution, DataType,
-        :param stream_reader: The data stream of the requested file
-        :param date: The base data used to compute the time of the bar since the line specifies a milliseconds since midnight
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        TradeBar Reader: Fetch the data from the QC storage and feed it line by line into the engine.
-        
-        :param config: Symbols, Resolution, DataType,
-        :param line: Line from the data file requested
-        :param date: Date of this reader request
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Enumerable iterator for returning each line of the required data.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with the symbol and value.
-        
-        :returns: string - a string formatted as SPY: 167.753.
-        """
-        ...
-
-    def update(self, last_trade: float, bid_price: float, ask_price: float, volume: float, bid_size: float, ask_size: float) -> None:
-        """
-        Update the tradebar - build the bar from this pricing information:
-        
-        :param last_trade: This trade price
-        :param bid_price: Current bid price (not used)
-        :param ask_price: Current asking price (not used)
-        :param volume: Volume of this trade
-        :param bid_size: The size of the current bid, if available
-        :param ask_size: The size of the current ask, if available
-        """
-        ...
-
-
-class TradeBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.TradeBar]):
-    """Collection of TradeBars to create a data type for generic data handler:"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the TradeBars dictionary"""
-        ...
-
-    @overload
-    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance of the TradeBars dictionary
-        
-        :param frontier: The time associated with the data in this dictionary
-        """
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Creates a new instance of the FuturesContracts dictionary"""
         ...
 
 
@@ -944,6 +979,286 @@ class Bar(System.Object, QuantConnect.Data.Market.IBar):
         Updates the bar with a new value. This will aggregate the OHLC bar
         
         :param value: The new value
+        """
+        ...
+
+
+class Split(QuantConnect.Data.BaseData):
+    """Split event from a security"""
+
+    @property
+    def type(self) -> QuantConnect.SplitType:
+        """Gets the type of split event, warning or split."""
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Gets the split factor"""
+        ...
+
+    @split_factor.setter
+    def split_factor(self, value: float) -> None:
+        ...
+
+    @property
+    def reference_price(self) -> float:
+        """
+        Gets the price at which the split occurred
+        This is typically the previous day's closing price
+        """
+        ...
+
+    @reference_price.setter
+    def reference_price(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Split class"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], price: float, split_factor: float, type: QuantConnect.SplitType) -> None:
+        """
+        Initializes a new instance of the Split class
+        
+        :param symbol: The symbol
+        :param date: The date
+        :param price: The price at the time of the split
+        :param split_factor: The split factor to be applied to current holdings
+        :param type: The type of split event, warning or split occurred
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with the symbol and value.
+        
+        :returns: string - a string formatted as SPY: 167.753.
+        """
+        ...
+
+
+class Splits(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Split]):
+    """Collection of splits keyed by Symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Splits dictionary"""
+        ...
+
+    @overload
+    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the Splits dictionary
+        
+        :param frontier: The time associated with the data in this dictionary
+        """
+        ...
+
+
+class BarDirection(Enum):
+    """Enum for Bar Direction"""
+
+    RISING = 0
+    """Rising bar (0)"""
+
+    NO_DELTA = 1
+    """No change (1)"""
+
+    FALLING = 2
+    """Falling bar (2)"""
+
+
+class Dividend(QuantConnect.Data.BaseData):
+    """Dividend event from a security"""
+
+    @property
+    def distribution(self) -> float:
+        """Gets the dividend payment"""
+        ...
+
+    @distribution.setter
+    def distribution(self, value: float) -> None:
+        ...
+
+    @property
+    def reference_price(self) -> float:
+        """
+        Gets the price at which the dividend occurred.
+        This is typically the previous day's closing price
+        """
+        ...
+
+    @reference_price.setter
+    def reference_price(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Dividend class"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], distribution: float, reference_price: float) -> None:
+        """
+        Initializes a new instance of the Dividend class
+        
+        :param symbol: The symbol
+        :param date: The date
+        :param distribution: The dividend amount
+        :param reference_price: The previous day's closing price
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    @staticmethod
+    def compute_distribution(close: float, price_factor_ratio: float, decimal_places: int) -> float:
+        """
+        Computes the price factor ratio given the previous day's closing price and the p
+        
+        :param close: Previous day's closing price
+        :param price_factor_ratio: Price factor ratio pf_i/pf_i+1
+        :param decimal_places: The number of decimal places to round the result to, defaulting to 2
+        :returns: The distribution rounded to the specified number of decimal places, defaulting to 2.
+        """
+        ...
+
+    @staticmethod
+    def create(symbol: QuantConnect.Symbol, date: datetime.datetime, reference_price: float, price_factor_ratio: float, decimal_places: int = 2) -> QuantConnect.Data.Market.Dividend:
+        """
+        Initializes a new instance of the Dividend class
+        
+        :param symbol: The symbol
+        :param date: The date
+        :param reference_price: The previous day's closing price
+        :param price_factor_ratio: The ratio of the price factors, pf_i/pf_i+1
+        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with the symbol and value.
+        
+        :returns: string - a string formatted as SPY: 167.753.
+        """
+        ...
+
+
+class MarginInterestRate(QuantConnect.Data.BaseData):
+    """Margin interest rate data source"""
+
+    @property
+    def interest_rate(self) -> float:
+        """The interest rate value"""
+        ...
+
+    @interest_rate.setter
+    def interest_rate(self, value: float) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Specifies the data time zone for this data type. This is useful for custom data types"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the symbol and value."""
+        ...
+
+
+class MarginInterestRates(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.MarginInterestRate]):
+    """Collection of dividends keyed by Symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the MarginInterestRate dictionary"""
+        ...
+
+    @overload
+    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the MarginInterestRate dictionary
+        
+        :param frontier: The time associated with the data in this dictionary
         """
         ...
 
@@ -1246,148 +1561,6 @@ class QuoteBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
         ...
 
 
-class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], QuantConnect.Data.BaseData, typing.Iterable[QuantConnect_Data_Market_BaseChain_T]):
-    """
-    Base representation of an entire chain of contracts for a single underlying security.
-    This type is IEnumerable{T} where T is OptionContract, FuturesContract, etc.
-    """
-
-    @property
-    def underlying(self) -> QuantConnect.Data.BaseData:
-        """
-        Gets the most recent trade information for the underlying. This may
-        be a Tick or a TradeBar
-        """
-        ...
-
-    @property
-    def ticks(self) -> QuantConnect.Data.Market.Ticks:
-        """Gets all ticks for every option contract in this chain, keyed by option symbol"""
-        ...
-
-    @ticks.setter
-    def ticks(self, value: QuantConnect.Data.Market.Ticks) -> None:
-        ...
-
-    @property
-    def trade_bars(self) -> QuantConnect.Data.Market.TradeBars:
-        """Gets all trade bars for every option contract in this chain, keyed by option symbol"""
-        ...
-
-    @trade_bars.setter
-    def trade_bars(self, value: QuantConnect.Data.Market.TradeBars) -> None:
-        ...
-
-    @property
-    def quote_bars(self) -> QuantConnect.Data.Market.QuoteBars:
-        """Gets all quote bars for every option contract in this chain, keyed by option symbol"""
-        ...
-
-    @quote_bars.setter
-    def quote_bars(self, value: QuantConnect.Data.Market.QuoteBars) -> None:
-        ...
-
-    @property
-    def contracts(self) -> QuantConnect_Data_Market_BaseChain_TContractsCollection:
-        """Gets all contracts in the chain, keyed by option symbol"""
-        ...
-
-    @property
-    def filtered_contracts(self) -> System.Collections.Generic.HashSet[QuantConnect.Symbol]:
-        """Gets the set of symbols that passed the Option.ContractFilter"""
-        ...
-
-    @filtered_contracts.setter
-    def filtered_contracts(self, value: System.Collections.Generic.HashSet[QuantConnect.Symbol]) -> None:
-        ...
-
-    @property
-    def data_frame(self) -> typing.Any:
-        """The data frame representation of the option chain"""
-        ...
-
-    @property
-    def count(self) -> int:
-        """The number of contracts in this chain"""
-        ...
-
-    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Checks if the chain contains a contract with the specified symbol
-        
-        :param key: The symbol of the contract to check for
-        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
-        """
-        ...
-
-    @overload
-    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
-        """
-        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], data_type: QuantConnect.MarketDataType, flatten: bool = True) -> None:
-        """
-        Initializes a new instance of the BaseChain{T, TContractsCollection} class
-        
-        This method is protected.
-        
-        :param canonical_option_symbol: The symbol for this chain.
-        :param time: The time of this chain
-        :param flatten: Whether to flatten the data frame
-        """
-        ...
-
-    @overload
-    def __init__(self, other: QuantConnect.Data.Market.BaseChain[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection]) -> None:
-        """
-        Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
-        
-        This method is protected.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect_Data_Market_BaseChain_T]:
-        ...
-
-    def __len__(self) -> int:
-        ...
-
-    def contains_key(self, key: QuantConnect.Symbol) -> bool:
-        """
-        Checks if the chain contains a contract with the specified symbol
-        
-        :param key: The symbol of the contract to check for
-        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_Market_BaseChain_T]:
-        """
-        Returns an enumerator that iterates through the collection.
-        
-        :returns: An enumerator that can be used to iterate through the collection.
-        """
-        ...
-
-
-class BarDirection(Enum):
-    """Enum for Bar Direction"""
-
-    RISING = 0
-    """Rising bar (0)"""
-
-    NO_DELTA = 1
-    """No change (1)"""
-
-    FALLING = 2
-    """Falling bar (2)"""
-
-
 class Greeks(System.Object, metaclass=abc.ABCMeta):
     """Defines the greeks"""
 
@@ -1629,33 +1802,36 @@ class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.
         ...
 
 
-class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts]):
+class SymbolChangedEvent(QuantConnect.Data.BaseData):
     """
-    Represents an entire chain of option contracts for a single underlying security.
-    This type is IEnumerable{OptionContract}
+    Symbol changed event of a security. This is generated when a symbol is remapped for a given
+    security, for example, at EOD 2014.04.02 GOOG turned into GOOGL, but are the same
     """
 
-    @overload
-    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
-        """
-        Initializes a new instance of the OptionChain class
-        
-        :param canonical_option_symbol: The symbol for this chain.
-        :param time: The time of this chain
-        :param flatten: Whether to flatten the data frame
-        """
+    @property
+    def old_symbol(self) -> str:
+        """Gets the symbol before the change"""
+        ...
+
+    @property
+    def new_symbol(self) -> str:
+        """Gets the symbol after the change"""
         ...
 
     @overload
-    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], symbol_properties: QuantConnect.Securities.SymbolProperties, flatten: bool = True) -> None:
+    def __init__(self) -> None:
+        """Initializes a new default instance of the SymbolChangedEvent class"""
+        ...
+
+    @overload
+    def __init__(self, requested_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], old_symbol: str, new_symbol: str) -> None:
         """
-        Initializes a new option chain for a list of contracts as OptionUniverse instances
+        Initializes a new instance of the SymbolChangedEvent
         
-        :param canonical_option_symbol: The canonical option symbol
-        :param time: The time of this chain
-        :param contracts: The list of contracts data
-        :param symbol_properties: The option symbol properties
-        :param flatten: Whether to flatten the data frame
+        :param requested_symbol: The symbol that was originally requested
+        :param date: The date/time this symbol remapping took place
+        :param old_symbol: The old symbol mapping
+        :param new_symbol: The new symbol mapping
         """
         ...
 
@@ -1665,6 +1841,21 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         
         :returns: A clone of the current object.
         """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Friendly string representation of this symbol changed event"""
         ...
 
 
@@ -1776,6 +1967,82 @@ class BaseRenkoBar(QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.I
         ...
 
 
+class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts]):
+    """
+    Represents an entire chain of option contracts for a single underlying security.
+    This type is IEnumerable{OptionContract}
+    """
+
+    @overload
+    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the OptionChain class
+        
+        :param canonical_option_symbol: The symbol for this chain.
+        :param time: The time of this chain
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    @overload
+    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.OptionUniverse], symbol_properties: QuantConnect.Securities.SymbolProperties, flatten: bool = True) -> None:
+        """
+        Initializes a new option chain for a list of contracts as OptionUniverse instances
+        
+        :param canonical_option_symbol: The canonical option symbol
+        :param time: The time of this chain
+        :param contracts: The list of contracts data
+        :param symbol_properties: The option symbol properties
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+
+class OptionChains(QuantConnect.Data.Market.BaseChains[QuantConnect.Data.Market.OptionChain, QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts]):
+    """Collection of OptionChain keyed by canonical option symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the OptionChains dictionary"""
+        ...
+
+    @overload
+    def __init__(self, flatten: bool) -> None:
+        """Creates a new instance of the OptionChains dictionary"""
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
+        """Creates a new instance of the OptionChains dictionary"""
+        ...
+
+
+class Ticks(QuantConnect.Data.Market.DataDictionary[typing.List[QuantConnect.Data.Market.Tick]]):
+    """Ticks collection which implements an IDictionary-string-list of ticks. This way users can iterate over the string indexed ticks of the requested symbol."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Ticks dictionary"""
+        ...
+
+    @overload
+    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the Ticks dictionary
+        
+        :param frontier: The time associated with the data in this dictionary
+        """
+        ...
+
+
 class VolumeRenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
     """Represents a bar sectioned not by time, but by some amount of movement in volume"""
 
@@ -1824,153 +2091,38 @@ class VolumeRenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
         ...
 
 
-class FuturesContract(QuantConnect.Data.Market.BaseContract):
-    """Defines a single futures contract at a specific expiration"""
+class BaseChains(typing.Generic[QuantConnect_Data_Market_BaseChains_T, QuantConnect_Data_Market_BaseChains_TContract, QuantConnect_Data_Market_BaseChains_TContractsCollection], QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_Market_BaseChains_T]):
+    """Collection of BaseChain{T, TContractsCollection} keyed by canonical option symbol"""
 
     @property
-    def open_interest(self) -> float:
-        """Gets the open interest"""
-        ...
-
-    @property
-    def last_price(self) -> float:
-        """Gets the last price this contract traded at"""
-        ...
-
-    @property
-    def volume(self) -> int:
-        """Gets the last volume this contract traded at"""
-        ...
-
-    @property
-    def bid_price(self) -> float:
-        """Get the current bid price"""
-        ...
-
-    @property
-    def bid_size(self) -> int:
-        """Get the current bid size"""
-        ...
-
-    @property
-    def ask_price(self) -> float:
-        """Gets the current ask price"""
-        ...
-
-    @property
-    def ask_size(self) -> int:
-        """Get the current ask size"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-        """
-        Initializes a new instance of the FuturesContract class
-        
-        :param symbol: The futures contract symbol
-        """
-        ...
-
-    @overload
-    def __init__(self, contract_data: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
-        """
-        Initializes a new instance of the FuturesContract class
-        
-        :param contract_data: The contract universe data
-        """
-        ...
-
-
-class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.FuturesContract]):
-    """Collection of FuturesContract keyed by futures symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the FuturesContracts dictionary"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Creates a new instance of the FuturesContracts dictionary"""
-        ...
-
-
-class RenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
-    """Represents a bar sectioned not by time, but by some amount of movement in a value (for example, Closing price moving in $10 bar sizes)"""
-
-    @property
-    def end(self) -> datetime.datetime:
-        """
-        Gets the end time of this renko bar or the most recent update time if it BaseRenkoBar.IsClosed
-        
-        RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.
-        """
-        warnings.warn("RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.", DeprecationWarning)
-
-    @end.setter
-    def end(self, value: datetime.datetime) -> None:
-        warnings.warn("RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.", DeprecationWarning)
-
-    @property
-    def direction(self) -> QuantConnect.Data.Market.BarDirection:
-        """The trend of the bar (i.e. Rising, Falling or NoDelta)"""
-        ...
-
-    @property
-    def spread(self) -> float:
-        """The "spread" of the bar"""
+    def data_frame(self) -> typing.Any:
+        """The data frame representation of the option chains"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new default instance of the RenkoBar class."""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, volume: float) -> None:
         """
-        Initializes a new instance of the RenkoBar class with the specified values
+        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
-        :param symbol: The symbol of this data
-        :param time: The start time of the bar
-        :param brick_size: The size of each renko brick
-        :param open: The opening price for the new bar
-        :param volume: Any initial volume associated with the data
+        This method is protected.
         """
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, high: float, low: float, close: float) -> None:
+    def __init__(self, flatten: bool) -> None:
         """
-        Initializes a new instance of the RenkoBar class with the specified values
+        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
-        :param symbol: The symbol of this data
-        :param start: The start time of the bar
-        :param end_time: The end time of the bar
-        :param brick_size: The size of each wicko brick
-        :param open: The opening price for the new bar
-        :param high: The high price for the new bar
-        :param low: The low price for the new bar
-        :param close: The closing price for the new bar
+        This method is protected.
         """
         ...
 
-    def clone(self) -> QuantConnect.Data.BaseData:
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], flatten: bool) -> None:
         """
-        Return a new instance clone of this object, used in fill forward
+        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
         
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def update(self, time: datetime.datetime, current_value: float, volume_since_last_update: float) -> bool:
-        """
-        Updates this RenkoBar with the specified values and returns whether or not this bar is closed
-        
-        :param time: The current time
-        :param current_value: The current value
-        :param volume_since_last_update: The volume since the last update called on this instance
-        :returns: True if this bar BaseRenkoBar.IsClosed.
+        This method is protected.
         """
         ...
 
@@ -2075,73 +2227,74 @@ class Delistings(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Marke
         ...
 
 
-class OptionChains(QuantConnect.Data.Market.BaseChains[QuantConnect.Data.Market.OptionChain, QuantConnect.Data.Market.OptionContract, QuantConnect.Data.Market.OptionContracts]):
-    """Collection of OptionChain keyed by canonical option symbol"""
+class TradeBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.TradeBar]):
+    """Collection of TradeBars to create a data type for generic data handler:"""
 
     @overload
     def __init__(self) -> None:
-        """Creates a new instance of the OptionChains dictionary"""
-        ...
-
-    @overload
-    def __init__(self, flatten: bool) -> None:
-        """Creates a new instance of the OptionChains dictionary"""
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
-        """Creates a new instance of the OptionChains dictionary"""
-        ...
-
-
-class MarginInterestRate(QuantConnect.Data.BaseData):
-    """Margin interest rate data source"""
-
-    @property
-    def interest_rate(self) -> float:
-        """The interest rate value"""
-        ...
-
-    @interest_rate.setter
-    def interest_rate(self, value: float) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Creates a new instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """Specifies the data time zone for this data type. This is useful for custom data types"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the symbol and value."""
-        ...
-
-
-class MarginInterestRates(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.MarginInterestRate]):
-    """Collection of dividends keyed by Symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the MarginInterestRate dictionary"""
+        """Creates a new instance of the TradeBars dictionary"""
         ...
 
     @overload
     def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Initializes a new instance of the MarginInterestRate dictionary
+        Creates a new instance of the TradeBars dictionary
+        
+        :param frontier: The time associated with the data in this dictionary
+        """
+        ...
+
+
+class FuturesChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.FuturesContract, QuantConnect.Data.Market.FuturesContracts]):
+    """
+    Represents an entire chain of futures contracts for a single underlying
+    This type is IEnumerable{FuturesContract}
+    """
+
+    @overload
+    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the FuturesChain class
+        
+        :param canonical_future_symbol: The symbol for this chain.
+        :param time: The time of this chain
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    @overload
+    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.FutureUniverse], flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the FuturesChain class
+        
+        :param canonical_future_symbol: The symbol for this chain.
+        :param time: The time of this chain
+        :param contracts: The list of contracts that form this chain
+        :param flatten: Whether to flatten the data frame
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+
+class SymbolChangedEvents(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.SymbolChangedEvent]):
+    """Collection of SymbolChangedEvent keyed by the original, requested symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the SymbolChangedEvent dictionary"""
+        ...
+
+    @overload
+    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the SymbolChangedEvent dictionary
         
         :param frontier: The time associated with the data in this dictionary
         """
@@ -2201,50 +2354,63 @@ class RangeBar(QuantConnect.Data.Market.TradeBar):
         ...
 
 
-class Split(QuantConnect.Data.BaseData):
-    """Split event from a security"""
+class RenkoBar(QuantConnect.Data.Market.BaseRenkoBar):
+    """Represents a bar sectioned not by time, but by some amount of movement in a value (for example, Closing price moving in $10 bar sizes)"""
 
     @property
-    def type(self) -> QuantConnect.SplitType:
-        """Gets the type of split event, warning or split."""
-        ...
-
-    @property
-    def split_factor(self) -> float:
-        """Gets the split factor"""
-        ...
-
-    @split_factor.setter
-    def split_factor(self, value: float) -> None:
-        ...
-
-    @property
-    def reference_price(self) -> float:
+    def end(self) -> datetime.datetime:
         """
-        Gets the price at which the split occurred
-        This is typically the previous day's closing price
+        Gets the end time of this renko bar or the most recent update time if it BaseRenkoBar.IsClosed
+        
+        RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.
         """
+        warnings.warn("RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.", DeprecationWarning)
+
+    @end.setter
+    def end(self, value: datetime.datetime) -> None:
+        warnings.warn("RenkoBar.End is obsolete. Please use RenkoBar.EndTime property instead.", DeprecationWarning)
+
+    @property
+    def direction(self) -> QuantConnect.Data.Market.BarDirection:
+        """The trend of the bar (i.e. Rising, Falling or NoDelta)"""
         ...
 
-    @reference_price.setter
-    def reference_price(self, value: float) -> None:
+    @property
+    def spread(self) -> float:
+        """The "spread" of the bar"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Split class"""
+        """Initializes a new default instance of the RenkoBar class."""
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], price: float, split_factor: float, type: QuantConnect.SplitType) -> None:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, volume: float) -> None:
         """
-        Initializes a new instance of the Split class
+        Initializes a new instance of the RenkoBar class with the specified values
         
-        :param symbol: The symbol
-        :param date: The date
-        :param price: The price at the time of the split
-        :param split_factor: The split factor to be applied to current holdings
-        :param type: The type of split event, warning or split occurred
+        :param symbol: The symbol of this data
+        :param time: The start time of the bar
+        :param brick_size: The size of each renko brick
+        :param open: The opening price for the new bar
+        :param volume: Any initial volume associated with the data
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], start: typing.Union[datetime.datetime, datetime.date], end_time: typing.Union[datetime.datetime, datetime.date], brick_size: float, open: float, high: float, low: float, close: float) -> None:
+        """
+        Initializes a new instance of the RenkoBar class with the specified values
+        
+        :param symbol: The symbol of this data
+        :param start: The start time of the bar
+        :param end_time: The end time of the bar
+        :param brick_size: The size of each wicko brick
+        :param open: The opening price for the new bar
+        :param high: The high price for the new bar
+        :param low: The low price for the new bar
+        :param close: The closing price for the new bar
         """
         ...
 
@@ -2256,73 +2422,143 @@ class Split(QuantConnect.Data.BaseData):
         """
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+    def update(self, time: datetime.datetime, current_value: float, volume_since_last_update: float) -> bool:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        Updates this RenkoBar with the specified values and returns whether or not this bar is closed
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with the symbol and value.
-        
-        :returns: string - a string formatted as SPY: 167.753.
+        :param time: The current time
+        :param current_value: The current value
+        :param volume_since_last_update: The volume since the last update called on this instance
+        :returns: True if this bar BaseRenkoBar.IsClosed.
         """
         ...
 
 
-class FuturesChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.FuturesContract, QuantConnect.Data.Market.FuturesContracts]):
+class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection], QuantConnect.Data.BaseData, typing.Iterable[QuantConnect_Data_Market_BaseChain_T]):
     """
-    Represents an entire chain of futures contracts for a single underlying
-    This type is IEnumerable{FuturesContract}
+    Base representation of an entire chain of contracts for a single underlying security.
+    This type is IEnumerable{T} where T is OptionContract, FuturesContract, etc.
     """
+
+    @property
+    def underlying(self) -> QuantConnect.Data.BaseData:
+        """
+        Gets the most recent trade information for the underlying. This may
+        be a Tick or a TradeBar
+        """
+        ...
+
+    @property
+    def ticks(self) -> QuantConnect.Data.Market.Ticks:
+        """Gets all ticks for every option contract in this chain, keyed by option symbol"""
+        ...
+
+    @ticks.setter
+    def ticks(self, value: QuantConnect.Data.Market.Ticks) -> None:
+        ...
+
+    @property
+    def trade_bars(self) -> QuantConnect.Data.Market.TradeBars:
+        """Gets all trade bars for every option contract in this chain, keyed by option symbol"""
+        ...
+
+    @trade_bars.setter
+    def trade_bars(self, value: QuantConnect.Data.Market.TradeBars) -> None:
+        ...
+
+    @property
+    def quote_bars(self) -> QuantConnect.Data.Market.QuoteBars:
+        """Gets all quote bars for every option contract in this chain, keyed by option symbol"""
+        ...
+
+    @quote_bars.setter
+    def quote_bars(self, value: QuantConnect.Data.Market.QuoteBars) -> None:
+        ...
+
+    @property
+    def contracts(self) -> QuantConnect_Data_Market_BaseChain_TContractsCollection:
+        """Gets all contracts in the chain, keyed by option symbol"""
+        ...
+
+    @property
+    def filtered_contracts(self) -> System.Collections.Generic.HashSet[QuantConnect.Symbol]:
+        """Gets the set of symbols that passed the Option.ContractFilter"""
+        ...
+
+    @filtered_contracts.setter
+    def filtered_contracts(self, value: System.Collections.Generic.HashSet[QuantConnect.Symbol]) -> None:
+        ...
+
+    @property
+    def data_frame(self) -> typing.Any:
+        """The data frame representation of the option chain"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """The number of contracts in this chain"""
+        ...
+
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Checks if the chain contains a contract with the specified symbol
+        
+        :param key: The symbol of the contract to check for
+        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
+        """
+        ...
 
     @overload
-    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
+    def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
         """
-        Initializes a new instance of the FuturesChain class
+        Initializes a new default instance of the BaseChain{T, TContractsCollection} class
         
-        :param canonical_future_symbol: The symbol for this chain.
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, canonical_option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], data_type: QuantConnect.MarketDataType, flatten: bool = True) -> None:
+        """
+        Initializes a new instance of the BaseChain{T, TContractsCollection} class
+        
+        This method is protected.
+        
+        :param canonical_option_symbol: The symbol for this chain.
         :param time: The time of this chain
         :param flatten: Whether to flatten the data frame
         """
         ...
 
     @overload
-    def __init__(self, canonical_future_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], time: typing.Union[datetime.datetime, datetime.date], contracts: typing.List[QuantConnect.Data.UniverseSelection.FutureUniverse], flatten: bool = True) -> None:
+    def __init__(self, other: QuantConnect.Data.Market.BaseChain[QuantConnect_Data_Market_BaseChain_T, QuantConnect_Data_Market_BaseChain_TContractsCollection]) -> None:
         """
-        Initializes a new instance of the FuturesChain class
+        Initializes a new instance of the BaseChain{T, TContractsCollection} class as a copy of the specified chain
         
-        :param canonical_future_symbol: The symbol for this chain.
-        :param time: The time of this chain
-        :param contracts: The list of contracts that form this chain
-        :param flatten: Whether to flatten the data frame
+        This method is protected.
         """
         ...
 
-    def clone(self) -> QuantConnect.Data.BaseData:
+    def __iter__(self) -> typing.Iterator[QuantConnect_Data_Market_BaseChain_T]:
+        ...
+
+    def __len__(self) -> int:
+        ...
+
+    def contains_key(self, key: QuantConnect.Symbol) -> bool:
         """
-        Return a new instance clone of this object, used in fill forward
+        Checks if the chain contains a contract with the specified symbol
         
-        :returns: A clone of the current object.
+        :param key: The symbol of the contract to check for
+        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_Market_BaseChain_T]:
+        """
+        Returns an enumerator that iterates through the collection.
+        
+        :returns: An enumerator that can be used to iterate through the collection.
         """
         ...
 
@@ -2343,6 +2579,107 @@ class FuturesChains(QuantConnect.Data.Market.BaseChains[QuantConnect.Data.Market
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date], flatten: bool = True) -> None:
         """Creates a new instance of the FuturesChains dictionary"""
+        ...
+
+
+class Dividends(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Dividend]):
+    """Collection of dividends keyed by Symbol"""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Dividends dictionary"""
+        ...
+
+    @overload
+    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the Dividends dictionary
+        
+        :param frontier: The time associated with the data in this dictionary
+        """
+        ...
+
+
+class OpenInterest(QuantConnect.Data.Market.Tick):
+    """Defines a data type that represents open interest for given security"""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the OpenInterest class"""
+        ...
+
+    @overload
+    def __init__(self, original: QuantConnect.Data.Market.OpenInterest) -> None:
+        """
+        Cloner constructor for fill forward engine implementation. Clone the original OI into this new one:
+        
+        :param original: Original OI we're cloning
+        """
+        ...
+
+    @overload
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open_interest: float) -> None:
+        """
+        Initializes a new instance of the OpenInterest class with data
+        
+        :param time: Full date and time
+        :param symbol: Underlying equity security symbol
+        :param open_interest: Open Interest value
+        """
+        ...
+
+    @overload
+    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], line: str, base_date: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Constructor for QuantConnect open interest data
+        
+        :param config: Subscription configuration
+        :param symbol: Symbol for underlying asset
+        :param line: CSV line of data from QC OI csv
+        :param base_date: The base date of the OI
+        """
+        ...
+
+    @overload
+    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Parse an open interest data line from quantconnect zip source files.
+        
+        :param config: Subscription configuration object
+        :param line: CSV source line of the compressed source
+        :param date: Base date for the open interest (date is stored as int milliseconds since midnight)
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clone implementation for open interest class:
+        
+        :returns: New tick object clone of the current class values.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Get source for OI data feed - not used with QuantConnect data sources implementation.
+        
+        :param config: Configuration object
+        :param date: Date of this source request if source spread across multiple files
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String source location of the file to be opened with a stream.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Tick implementation of reader method: read a line of data from the source and convert it to an open interest object.
+        
+        :param config: Subscription configuration object for algorithm
+        :param line: Line from the datafeed source
+        :param date: Date of this reader request
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: New initialized open interest object.
+        """
         ...
 
 
@@ -2637,342 +2974,5 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
 
 class DataDictionaryExtensions(System.Object):
     """Provides extension methods for the DataDictionary class"""
-
-
-class Dividend(QuantConnect.Data.BaseData):
-    """Dividend event from a security"""
-
-    @property
-    def distribution(self) -> float:
-        """Gets the dividend payment"""
-        ...
-
-    @distribution.setter
-    def distribution(self, value: float) -> None:
-        ...
-
-    @property
-    def reference_price(self) -> float:
-        """
-        Gets the price at which the dividend occurred.
-        This is typically the previous day's closing price
-        """
-        ...
-
-    @reference_price.setter
-    def reference_price(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Dividend class"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], distribution: float, reference_price: float) -> None:
-        """
-        Initializes a new instance of the Dividend class
-        
-        :param symbol: The symbol
-        :param date: The date
-        :param distribution: The dividend amount
-        :param reference_price: The previous day's closing price
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    @staticmethod
-    def compute_distribution(close: float, price_factor_ratio: float, decimal_places: int) -> float:
-        """
-        Computes the price factor ratio given the previous day's closing price and the p
-        
-        :param close: Previous day's closing price
-        :param price_factor_ratio: Price factor ratio pf_i/pf_i+1
-        :param decimal_places: The number of decimal places to round the result to, defaulting to 2
-        :returns: The distribution rounded to the specified number of decimal places, defaulting to 2.
-        """
-        ...
-
-    @staticmethod
-    def create(symbol: QuantConnect.Symbol, date: datetime.datetime, reference_price: float, price_factor_ratio: float, decimal_places: int = 2) -> QuantConnect.Data.Market.Dividend:
-        """
-        Initializes a new instance of the Dividend class
-        
-        :param symbol: The symbol
-        :param date: The date
-        :param reference_price: The previous day's closing price
-        :param price_factor_ratio: The ratio of the price factors, pf_i/pf_i+1
-        :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with the symbol and value.
-        
-        :returns: string - a string formatted as SPY: 167.753.
-        """
-        ...
-
-
-class Dividends(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Dividend]):
-    """Collection of dividends keyed by Symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Dividends dictionary"""
-        ...
-
-    @overload
-    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the Dividends dictionary
-        
-        :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-
-class Splits(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Split]):
-    """Collection of splits keyed by Symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Splits dictionary"""
-        ...
-
-    @overload
-    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the Splits dictionary
-        
-        :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-
-class SymbolChangedEvent(QuantConnect.Data.BaseData):
-    """
-    Symbol changed event of a security. This is generated when a symbol is remapped for a given
-    security, for example, at EOD 2014.04.02 GOOG turned into GOOGL, but are the same
-    """
-
-    @property
-    def old_symbol(self) -> str:
-        """Gets the symbol before the change"""
-        ...
-
-    @property
-    def new_symbol(self) -> str:
-        """Gets the symbol after the change"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new default instance of the SymbolChangedEvent class"""
-        ...
-
-    @overload
-    def __init__(self, requested_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date], old_symbol: str, new_symbol: str) -> None:
-        """
-        Initializes a new instance of the SymbolChangedEvent
-        
-        :param requested_symbol: The symbol that was originally requested
-        :param date: The date/time this symbol remapping took place
-        :param old_symbol: The old symbol mapping
-        :param new_symbol: The new symbol mapping
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Friendly string representation of this symbol changed event"""
-        ...
-
-
-class BaseChains(typing.Generic[QuantConnect_Data_Market_BaseChains_T, QuantConnect_Data_Market_BaseChains_TContract, QuantConnect_Data_Market_BaseChains_TContractsCollection], QuantConnect.Data.Market.DataDictionary[QuantConnect_Data_Market_BaseChains_T]):
-    """Collection of BaseChain{T, TContractsCollection} keyed by canonical option symbol"""
-
-    @property
-    def data_frame(self) -> typing.Any:
-        """The data frame representation of the option chains"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, flatten: bool) -> None:
-        """
-        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], flatten: bool) -> None:
-        """
-        Creates a new instance of the BaseChains{T, TContract, TContractsCollection} dictionary
-        
-        This method is protected.
-        """
-        ...
-
-
-class OpenInterest(QuantConnect.Data.Market.Tick):
-    """Defines a data type that represents open interest for given security"""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the OpenInterest class"""
-        ...
-
-    @overload
-    def __init__(self, original: QuantConnect.Data.Market.OpenInterest) -> None:
-        """
-        Cloner constructor for fill forward engine implementation. Clone the original OI into this new one:
-        
-        :param original: Original OI we're cloning
-        """
-        ...
-
-    @overload
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], open_interest: float) -> None:
-        """
-        Initializes a new instance of the OpenInterest class with data
-        
-        :param time: Full date and time
-        :param symbol: Underlying equity security symbol
-        :param open_interest: Open Interest value
-        """
-        ...
-
-    @overload
-    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], line: str, base_date: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Constructor for QuantConnect open interest data
-        
-        :param config: Subscription configuration
-        :param symbol: Symbol for underlying asset
-        :param line: CSV line of data from QC OI csv
-        :param base_date: The base date of the OI
-        """
-        ...
-
-    @overload
-    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Parse an open interest data line from quantconnect zip source files.
-        
-        :param config: Subscription configuration object
-        :param line: CSV source line of the compressed source
-        :param date: Base date for the open interest (date is stored as int milliseconds since midnight)
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clone implementation for open interest class:
-        
-        :returns: New tick object clone of the current class values.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Get source for OI data feed - not used with QuantConnect data sources implementation.
-        
-        :param config: Configuration object
-        :param date: Date of this source request if source spread across multiple files
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String source location of the file to be opened with a stream.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Tick implementation of reader method: read a line of data from the source and convert it to an open interest object.
-        
-        :param config: Subscription configuration object for algorithm
-        :param line: Line from the datafeed source
-        :param date: Date of this reader request
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: New initialized open interest object.
-        """
-        ...
-
-
-class SymbolChangedEvents(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.SymbolChangedEvent]):
-    """Collection of SymbolChangedEvent keyed by the original, requested symbol"""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the SymbolChangedEvent dictionary"""
-        ...
-
-    @overload
-    def __init__(self, frontier: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the SymbolChangedEvent dictionary
-        
-        :param frontier: The time associated with the data in this dictionary
-        """
-        ...
 
 

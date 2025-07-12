@@ -15,6 +15,25 @@ QuantConnect_Scheduling__EventContainer_Callable = typing.TypeVar("QuantConnect_
 QuantConnect_Scheduling__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Scheduling__EventContainer_ReturnType")
 
 
+class ScheduledEventException(System.Exception):
+    """Throw this if there is an exception in the callback function of the scheduled event"""
+
+    @property
+    def scheduled_event_name(self) -> str:
+        """Gets the name of the scheduled event"""
+        ...
+
+    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
+        """
+        ScheduledEventException constructor
+        
+        :param name: The name of the scheduled event
+        :param message: The exception as a string
+        :param inner_exception: The exception that is the cause of the current exception
+        """
+        ...
+
+
 class ScheduledEvent(System.Object, System.IDisposable):
     """Real time self scheduling event"""
 
@@ -137,62 +156,46 @@ class IEventSchedule(metaclass=abc.ABCMeta):
         ...
 
 
-class IDateRule(metaclass=abc.ABCMeta):
-    """Specifies dates that events should be fired, used in conjunction with the ITimeRule"""
+class TimeConsumer(System.Object):
+    """Represents a timer consumer instance"""
 
     @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """Gets a name for this rule"""
+    def finished(self) -> bool:
+        """True if the consumer already finished it's work and no longer consumes time"""
         ...
 
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
+    @finished.setter
+    def finished(self, value: bool) -> None:
         ...
-
-
-class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
-    """Uses a function to define an enumerable of dates over a requested start/end period"""
 
     @property
-    def name(self) -> str:
-        """Gets a name for this rule"""
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """The time provider associated with this consumer"""
         ...
 
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
+    @time_provider.setter
+    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
+        ...
+
+    @property
+    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
+        """The isolator limit provider to be used with this consumer"""
+        ...
+
+    @isolator_limit_provider.setter
+    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
+        ...
+
+    @property
+    def next_time_request(self) -> typing.Optional[datetime.datetime]:
         """
-        Initializes a new instance of the FuncDateRule class using a Python function
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function in Python
+        The next time, base on the TimeProvider, that time should be requested
+        to be IsolatorLimitProvider
         """
         ...
 
-    @overload
-    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
-        """
-        Initializes a new instance of the FuncDateRule class
-        
-        :param name: The name of this rule
-        :param get_dates_function: The time applicator function
-        """
-        ...
-
-    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
-        """
-        Gets the dates produced by this date rule between the specified times
-        
-        :param start: The start of the interval to produce dates for
-        :param end: The end of the interval to produce dates for
-        :returns: All dates in the interval matching this date rule.
-        """
+    @next_time_request.setter
+    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
 
@@ -253,46 +256,58 @@ class FuncTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         ...
 
 
-class TimeConsumer(System.Object):
-    """Represents a timer consumer instance"""
+class TimeMonitor(System.Object, System.IDisposable):
+    """
+    Helper class that will monitor timer consumers and request more time if required.
+    Used by IsolatorLimitResultProvider
+    """
 
     @property
-    def finished(self) -> bool:
-        """True if the consumer already finished it's work and no longer consumes time"""
-        ...
-
-    @finished.setter
-    def finished(self, value: bool) -> None:
-        ...
-
-    @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """The time provider associated with this consumer"""
-        ...
-
-    @time_provider.setter
-    def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
-        ...
-
-    @property
-    def isolator_limit_provider(self) -> QuantConnect.IIsolatorLimitResultProvider:
-        """The isolator limit provider to be used with this consumer"""
-        ...
-
-    @isolator_limit_provider.setter
-    def isolator_limit_provider(self, value: QuantConnect.IIsolatorLimitResultProvider) -> None:
-        ...
-
-    @property
-    def next_time_request(self) -> typing.Optional[datetime.datetime]:
+    def time_consumers(self) -> typing.List[QuantConnect.Scheduling.TimeConsumer]:
         """
-        The next time, base on the TimeProvider, that time should be requested
-        to be IsolatorLimitProvider
+        List to store the coming TimeConsumer objects
+        
+        This property is protected.
         """
         ...
 
-    @next_time_request.setter
-    def next_time_request(self, value: typing.Optional[datetime.datetime]) -> None:
+    @property
+    def count(self) -> int:
+        """Returns the number of time consumers currently being monitored"""
+        ...
+
+    def __init__(self, monitor_interval_ms: int = 100) -> None:
+        """Creates a new instance"""
+        ...
+
+    def add(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
+        """
+        Adds a new time consumer element to be monitored
+        
+        :param consumer: Time consumer instance
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the inner timer"""
+        ...
+
+    def process_consumer(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
+        """
+        Process the TimeConsumer object in TimeConsumers list
+        
+        This method is protected.
+        
+        :param consumer: The TimeConsumer object to be processed
+        """
+        ...
+
+    def remove_all(self) -> None:
+        """
+        Remove all TimeConsumer objects where the `Finished` field is marked as true
+        
+        This method is protected.
+        """
         ...
 
 
@@ -333,25 +348,6 @@ class CompositeTimeRule(System.Object, QuantConnect.Scheduling.ITimeRule):
         
         :param dates: The dates to apply times to
         :returns: An enumerable of date times that is the result of applying this rule to the specified dates.
-        """
-        ...
-
-
-class ScheduledEventException(System.Exception):
-    """Throw this if there is an exception in the callback function of the scheduled event"""
-
-    @property
-    def scheduled_event_name(self) -> str:
-        """Gets the name of the scheduled event"""
-        ...
-
-    def __init__(self, name: str, message: str, inner_exception: System.Exception) -> None:
-        """
-        ScheduledEventException constructor
-        
-        :param name: The name of the scheduled event
-        :param message: The exception as a string
-        :param inner_exception: The exception that is the cause of the current exception
         """
         ...
 
@@ -413,6 +409,26 @@ class BaseScheduleRules(System.Object):
         Helper method to fetch the security exchange hours
         
         This method is protected.
+        """
+        ...
+
+
+class IDateRule(metaclass=abc.ABCMeta):
+    """Specifies dates that events should be fired, used in conjunction with the ITimeRule"""
+
+    @property
+    @abc.abstractmethod
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
         """
         ...
 
@@ -797,61 +813,6 @@ class TimeRules(QuantConnect.Scheduling.BaseScheduleRules):
         ...
 
 
-class TimeMonitor(System.Object, System.IDisposable):
-    """
-    Helper class that will monitor timer consumers and request more time if required.
-    Used by IsolatorLimitResultProvider
-    """
-
-    @property
-    def time_consumers(self) -> typing.List[QuantConnect.Scheduling.TimeConsumer]:
-        """
-        List to store the coming TimeConsumer objects
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """Returns the number of time consumers currently being monitored"""
-        ...
-
-    def __init__(self, monitor_interval_ms: int = 100) -> None:
-        """Creates a new instance"""
-        ...
-
-    def add(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
-        """
-        Adds a new time consumer element to be monitored
-        
-        :param consumer: Time consumer instance
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Disposes of the inner timer"""
-        ...
-
-    def process_consumer(self, consumer: QuantConnect.Scheduling.TimeConsumer) -> None:
-        """
-        Process the TimeConsumer object in TimeConsumers list
-        
-        This method is protected.
-        
-        :param consumer: The TimeConsumer object to be processed
-        """
-        ...
-
-    def remove_all(self) -> None:
-        """
-        Remove all TimeConsumer objects where the `Finished` field is marked as true
-        
-        This method is protected.
-        """
-        ...
-
-
 class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpecifier, metaclass=abc.ABCMeta):
     """Specifies the callback component of a scheduled event, as well as final filters"""
 
@@ -1134,6 +1095,45 @@ class FluentScheduledEventBuilder(System.Object, QuantConnect.Scheduling.IFluent
         :param schedule: The schedule to send created events to
         :param securities: The algorithm's security manager
         :param name: A specific name for this event
+        """
+        ...
+
+
+class FuncDateRule(System.Object, QuantConnect.Scheduling.IDateRule):
+    """Uses a function to define an enumerable of dates over a requested start/end period"""
+
+    @property
+    def name(self) -> str:
+        """Gets a name for this rule"""
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class using a Python function
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function in Python
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, get_dates_function: typing.Callable[[datetime.datetime, datetime.datetime], typing.List[datetime.datetime]]) -> None:
+        """
+        Initializes a new instance of the FuncDateRule class
+        
+        :param name: The name of this rule
+        :param get_dates_function: The time applicator function
+        """
+        ...
+
+    def get_dates(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[datetime.datetime]:
+        """
+        Gets the dates produced by this date rule between the specified times
+        
+        :param start: The start of the interval to produce dates for
+        :param end: The end of the interval to produce dates for
+        :returns: All dates in the interval matching this date rule.
         """
         ...
 

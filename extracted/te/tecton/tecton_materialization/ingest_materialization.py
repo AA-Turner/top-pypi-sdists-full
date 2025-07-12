@@ -99,6 +99,7 @@ def ingest_pushed_df(spark: SparkSession, raw_df: DataFrame, materialization_tas
             time_column=timestamp_key,
             join_key_columns=fd.join_keys,
             is_continuous=False,
+            upsert_by_batch_publish_timestamp=False,
         )
         offline_store_config = fd.offline_store_config
         assert offline_store_config.HasField("delta"), "FeatureTables do not support Parquet-based Offline storage"

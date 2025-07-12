@@ -37,6 +37,8 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import Protocol
 
+import logging
+
 from tecton import types
 from tecton._internals import type_utils
 from tecton._internals.repo import function_serialization
@@ -65,6 +67,9 @@ from tecton_spark import data_source_helper
 from tecton_spark import spark_schema_wrapper
 
 
+logger = logging.getLogger(__name__)
+
+
 AVAILABILITY_SPOT = "spot"
 AVAILABILITY_ON_DEMAND = "on_demand"
 AVAILABILITY_SPOT_FALLBACK = "spot_with_fallback"
@@ -83,25 +88,34 @@ class SparkVersions(str, Enum):
     Dbr13_3 = "13.3.x-scala2.12"
     Dbr14_3 = "14.3.x-scala2.12"
     Dbr15_4 = "15.4.x-scala2.12"
+    Dbr16_4 = "16.4.x-scala2.12"
 
 
+class PythonVersionEMR(Enum):
+    """Defines the Python version to use for EMR clusters."""
+
+    CLUSTER_DEFAULT = python_version_pb2.PythonVersion.CLUSTER_DEFAULT
+    PYTHON_3_9_13 = python_version_pb2.PythonVersion.PYTHON_3_9_13
+
+
+# keep databricks_spark_version in sync with integration_tests/pool_warmup/api_helper.py spark_version in create_cluster func
 DEFAULT_SPARK_VERSIONS = {
-    "databricks_spark_version": SparkVersions.Dbr11_3,
-    "emr_spark_version": SparkVersions.Emr6_9_1,
+    "databricks_spark_version": SparkVersions.Dbr13_3,
+    "emr_spark_version": SparkVersions.Emr6_12,
+    "emr_python_version": PythonVersionEMR.PYTHON_3_9_13.value,
 }
 EMR_SUPPORTED_SPARK = {
-    SparkVersions.Emr6_9,
     SparkVersions.Emr6_9_1,
     SparkVersions.Emr6_12,
     SparkVersions.Emr7_0,
 }
 DATABRICKS_SUPPORTED_SPARK = {
-    SparkVersions.Dbr10_4,
     SparkVersions.Dbr11_3,
     SparkVersions.Dbr12_2,
     SparkVersions.Dbr13_3,
     SparkVersions.Dbr14_3,
     SparkVersions.Dbr15_4,
+    SparkVersions.Dbr16_4,
 }
 
 TECTON_COMPUTE_DEFAULTS = {"tecton_compute_instance_type": "m6a.2xlarge"}
@@ -112,13 +126,6 @@ class UnityCatalogAccessMode(Enum):
     SINGLE_USER = data_source_pb2.UnityCatalogAccessMode.UNITY_CATALOG_ACCESS_MODE_SINGLE_USER
     SINGLE_USER_WITH_FGAC = data_source_pb2.UnityCatalogAccessMode.UNITY_CATALOG_ACCESS_MODE_SINGLE_USER_WITH_FGAC
     SHARED = data_source_pb2.UnityCatalogAccessMode.UNITY_CATALOG_ACCESS_MODE_SHARED
-
-
-class PythonVersionEMR(Enum):
-    """Defines the Python version to use for EMR clusters."""
-
-    CLUSTER_DEFAULT = python_version_pb2.PythonVersion.CLUSTER_DEFAULT
-    PYTHON_3_9_13 = python_version_pb2.PythonVersion.PYTHON_3_9_13
 
 
 RECOMMENDED_PYTHON_VERSION_EMR = "python_3_9_13"
@@ -294,7 +301,7 @@ class EMRClusterConfig(StrictModel):
     :param spark_config: Map of Spark configuration options and their respective values that will be passed to the
         FeatureView materialization Spark cluster.
     :param emr_version: EMR version of the cluster. Supported EMR versions can be found on [this page](https://docs.tecton.ai/docs/materializing-features/configure-spark-materialization/using-pinned-emr-and-databricks-runtime-releases#overview).
-    :param python_version: Python version for cluster to use. Options are "default" and "python_3_9_13" (python 3.9.13). "default" uses the default Python version on the EMR cluster. Defaults to "default".
+    :param python_version: Python version for cluster to use. Options are "default" and "python_3_9_13" (python 3.9.13). "default" uses the default Python version on the EMR cluster. Defaults to `python_3_9_13` for emr-6.X and `default` for emr-7.X.
     """
 
     kind: Literal["EMRClusterConfig"] = "EMRClusterConfig"  # Used for YAML parsing as a Pydantic discriminator.
@@ -306,10 +313,21 @@ class EMRClusterConfig(StrictModel):
     extra_pip_dependencies: Optional[List[str]] = None
     spark_config: Optional[Dict[str, str]] = None
     emr_version: str = DEFAULT_SPARK_VERSIONS["emr_spark_version"]
-    python_version: str = "default"
+    python_version: Optional[str] = None
+
+    def _get_python_version(self) -> str:
+        if self.python_version is not None:
+            return self.python_version
+
+        if self.emr_version.startswith("emr-6."):
+            return "python_3_9_13"
+        else:
+            return "default"
 
     def _to_proto(self) -> feature_view_pb2.NewClusterConfig:
         proto = feature_view_pb2.NewClusterConfig()
+        python_version = self._get_python_version()
+
         if self.instance_type:
             proto.instance_type = self.instance_type
         if self.instance_availability:
@@ -318,10 +336,12 @@ class EMRClusterConfig(StrictModel):
                 raise ValueError(msg)
             proto.instance_availability = self.instance_availability
         if self.emr_version not in EMR_SUPPORTED_SPARK:
-            msg = f"EMR version {self.emr_version} is not supported. Supported versions: {EMR_SUPPORTED_SPARK}"
+            msg = f"EMR version {self.emr_version} is not supported. Supported versions: {_build_pretty_string_from_supported_versions(EMR_SUPPORTED_SPARK)}"
             raise ValueError(msg)
-        if self.python_version not in PYTHON_VERSION_EMR:
-            msg = f"Python version {self.python_version} is not supported. Supported versions: {[*PYTHON_VERSION_EMR.keys()]}"
+        if python_version not in PYTHON_VERSION_EMR:
+            msg = (
+                f"Python version {python_version} is not supported. Supported versions: {[*PYTHON_VERSION_EMR.keys()]}"
+            )
             raise ValueError(msg)
         if self.number_of_workers:
             proto.number_of_workers = self.number_of_workers
@@ -335,7 +355,7 @@ class EMRClusterConfig(StrictModel):
             spark_config = SparkConfigWrapper(spark_config_map=self.spark_config)._to_proto()
             proto.spark_config.CopyFrom(spark_config)
         proto.pinned_spark_version = self.emr_version
-        proto.python_version = PYTHON_VERSION_EMR[self.python_version].value
+        proto.python_version = PYTHON_VERSION_EMR[python_version].value
         return proto
 
     def _to_cluster_proto(self) -> feature_view_pb2.ClusterConfig:
@@ -364,33 +384,6 @@ class EMRJsonClusterConfig(StrictModel):
 
     def _to_cluster_proto(self) -> feature_view_pb2.ClusterConfig:
         return feature_view_pb2.ClusterConfig(json_emr=_to_json_cluster_proto(self.json))
-
-    @property
-    def json(self) -> Dict[str, Any]:
-        return self.json_
-
-
-class DataprocJsonClusterConfig(StrictModel):
-    """Configuration used to specify materialization clusters using json on Dataproc.
-
-    This class describes the attributes of the new clusters which are created in Dataproc during
-    materialization jobs. This feature is only available for private preview.
-
-    :param json: A JSON string used to directly configure the cluster used in materialization.
-    """
-
-    # Used for YAML parsing as a Pydantic discriminator.
-    kind: Literal["DataprocJsonClusterConfig"] = "DataprocJsonClusterConfig"
-
-    # Use json_ with an alias to avoid conflicting with a Pydantic BaseModel method json(). Shadow that method with
-    # a json property so that callers can access the field intuitively.
-    json_: Dict[str, Any] = pydantic_v1.Field(alias="json")
-
-    # A Pydantic pre-validator to convert json strings to a native python object.
-    _json_str_to_dict = pydantic_v1.validator("json_", allow_reuse=True, pre=True)(_str_to_json_struct)
-
-    def _to_cluster_proto(self) -> feature_view_pb2.ClusterConfig:
-        return feature_view_pb2.ClusterConfig(json_dataproc=_to_json_cluster_proto(self.json))
 
     @property
     def json(self) -> Dict[str, Any]:
@@ -509,7 +502,7 @@ class DatabricksClusterConfig(StrictModel):
                 raise ValueError(msg)
             proto.instance_availability = self.instance_availability
         if self.dbr_version not in DATABRICKS_SUPPORTED_SPARK:
-            msg = f"Databricks version {self.dbr_version} is not supported. Supported versions: {DATABRICKS_SUPPORTED_SPARK}"
+            msg = f"Databricks version {self.dbr_version} is not supported. Supported versions: {_build_pretty_string_from_supported_versions(DATABRICKS_SUPPORTED_SPARK)}"
             raise ValueError(msg)
 
         if self.number_of_workers is not None:
@@ -541,16 +534,21 @@ class RiftBatchConfig(StrictModel):
 
     :param instance_type: Instance type for the materialization job. Must be a valid EC2 instance type as listed in
         https://aws.amazon.com/ec2/instance-types/. If not specified, a value determined by the Tecton backend is used.
+    :param root_volume_size_in_gb: Size of the root volume in GB per instance for the materialization job.
+        If not specified, a value determined by the Tecton backend is used. Defaults to "150".
     """
 
     # Used for YAML parsing as a Pydantic discriminator.
     kind: Literal["RiftBatchConfig"] = "RiftBatchConfig"
     instance_type: Optional[str] = None
+    root_volume_size_in_gb: int = 500
 
     def _to_proto(self) -> feature_view_pb2.RiftClusterConfig:
         proto = feature_view_pb2.RiftClusterConfig()
         if self.instance_type:
             proto.instance_type = self.instance_type
+
+        proto.root_volume_size_in_gb = self.root_volume_size_in_gb
 
         return proto
 
@@ -645,8 +643,11 @@ class OfflineStoreConfig(StrictModel):
         Tecton will default to the Feature View's feature_start_time.
     """
 
+    # Import IcebergConfig locally to avoid circular dependency
+    from tecton.vnext import IcebergConfig
+
     kind: Literal["OfflineStoreConfig"] = "OfflineStoreConfig"  # Used for YAML parsing as a Pydantic discriminator.
-    staging_table_format: Union[DeltaConfig, ParquetConfig] = pydantic_v1.Field(
+    staging_table_format: Union[DeltaConfig, ParquetConfig, IcebergConfig] = pydantic_v1.Field(
         default_factory=DeltaConfig, discriminator="kind"
     )
     publish_full_features: bool = False
@@ -1400,6 +1401,8 @@ class PushConfig(BaseStreamConfig):
         post_processor_mode: Optional[str] = None,
         input_schema: Optional[List[types.Field]] = None,
         timestamp_field: Optional[str] = None,
+        ingest_server_group: Optional[str] = None,
+        transform_server_group: Optional[str] = None,
     ):
         """
         Instantiates a new PushConfig.
@@ -1409,9 +1412,17 @@ class PushConfig(BaseStreamConfig):
         :param post_processor_mode: Execution mode for the `post_processor`, must be one of `python` or `pandas`
         :param input_schema: Input schema for the `post_processor`
         :param timestamp_field: Name of the timestamp column which Tecton uses for watermarking.
+        :param ingest_server_group: The Ingest Server Group responsible for handling requests for this Push Stream Source. Note: This feature is currently in Preview.
+        :param transform_server_group: The Transform Server Group to use for running stream feature view transformations. This will be used as the default transform_server_group for any stream feature views that use this stream source and don't specify their own transform_server_group.
 
         :return: A PushConfig class instance.
         """
+        # TODO: Remove offline logging in 1.2
+        if log_offline:
+            logger.warning(
+                "Deprecation Warning: Tecton-managed offline logging (i.e. stream_config=PushConfig(log_offline=True)) in a StreamSource is deprecated and will be removed in Tecton 1.3. This change affects all existing Tecton-managed offline logging configurations, which will need to be migrated to a self-managed offline event log by specifying a batch_config on a StreamSource for training data generation: https://docs.tecton.ai/docs/beta/defining-features/data-sources/creating-a-data-source/creating-and-testing-a-push-source#example-of-a-stream-source-with-a-self-managed-offline-event-log"
+            )
+
         _mode = (
             get_transformation_mode_enum(mode=post_processor_mode, name="PushConfig") if post_processor_mode else None
         )
@@ -1428,6 +1439,8 @@ class PushConfig(BaseStreamConfig):
             post_processor_mode=_mode,
             input_schema=tecton_schema,
             timestamp_field=timestamp_field,
+            ingest_server_group=ingest_server_group,
+            transform_server_group=transform_server_group,
         )
 
     def _merge_stream_args(self, data_source_args: virtual_data_source_pb2.VirtualDataSourceArgs):
@@ -1639,6 +1652,8 @@ class SnowflakeConfig(BaseBatchConfig):
         data_delay: datetime.timedelta = datetime.timedelta(seconds=0),
         user: Union[str, Secret, None] = None,
         password: Union[str, Secret, None] = None,
+        private_key: Union[str, Secret, None] = None,
+        private_key_passphrase: Union[str, Secret, None] = None,
     ):
         """
         Instantiates a new SnowflakeConfig. One of table and query should be specified when creating this file.
@@ -1687,6 +1702,13 @@ class SnowflakeConfig(BaseBatchConfig):
                      This can be a string or a `Secret`. If unset SNOWFLAKE_USER from the environment is used.
         :param password: (Only supported in Rift) The password used to connect to Snowflake.
                          This can be a string or a `Secret`. If unset SNOWFLAKE_PASSWORD from the environment is used.
+                         Deprecated: Use private_key authentication instead.
+        :param private_key: (Only supported in Rift) The private key used to connect to Snowflake for key-pair authentication.
+                           This can be a string or a `Secret`. If unset SNOWFLAKE_PRIVATE_KEY from the environment is used.
+                           Recommended over password authentication.
+        :param private_key_passphrase: (Only supported in Rift) The passphrase for the private key used to connect to Snowflake.
+                                      This can be a string or a `Secret`. If unset SNOWFLAKE_PRIVATE_KEY_PASSPHRASE from the environment is used.
+                                      Optional, only needed if the private key is encrypted.
 
         :return: A SnowflakeConfig class instance.
         """
@@ -1714,6 +1736,10 @@ class SnowflakeConfig(BaseBatchConfig):
             query=query,
             user=convert_secret_to_sanitized_reference(user) if user else None,
             password=convert_secret_to_sanitized_reference(password) if password else None,
+            private_key=convert_secret_to_sanitized_reference(private_key) if private_key else None,
+            private_key_passphrase=convert_secret_to_sanitized_reference(private_key_passphrase)
+            if private_key_passphrase
+            else None,
         )
 
         if post_processor is not None and function_serialization.should_serialize_function(post_processor):
@@ -2690,7 +2716,6 @@ ComputeConfigTypes = Union[
     DatabricksClusterConfig,
     EMRClusterConfig,
     DatabricksJsonClusterConfig,
-    DataprocJsonClusterConfig,
     EMRJsonClusterConfig,
     RiftBatchConfig,
 ]
@@ -2789,3 +2814,7 @@ def build_aggregation_default_name(
     column_name = column_name.replace(" ", "")
 
     return column_name
+
+
+def _build_pretty_string_from_supported_versions(supported_versions) -> str:
+    return ", ".join(version.value for version in supported_versions)

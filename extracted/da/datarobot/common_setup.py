@@ -60,6 +60,23 @@ Alternatively environment variables can be used.
 
 See `documentation`_ for example usage after configuring.
 
+Extra
+=========================
+
+{pip_package_name} has the following optional groups:
+
+- `auth` (requires Python 3.9+): Provides an abstraction to handle OAuth2 authentication with DataRobot API (11.1+).
+    This can be used in DataRobot Custom Applications and on its own.
+- `auth-authlib` (requires Python 3.9+): OAuth2 authentication handling via Authlib.
+    This can be used in DataRobot Custom Applications and on its own.
+
+You can install these optional groups by specifying them in the pip command, for example:
+
+::
+
+    $ pip install {pip_package_name}[auth]
+
+
 Helpful links
 =========================
 - `API quickstart guide <https://docs.datarobot.com/en/docs/api/api-quickstart/index.html>`_
@@ -80,7 +97,6 @@ DEFAULT_CLASSIFIERS = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: Other/Proprietary License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -104,7 +120,7 @@ if not version:
     raise RuntimeError("Cannot find version information")
 
 _mypy_require = [
-    "mypy==1.0.0",
+    "mypy==1.16.0",
     "types-PyYAML==6.0.12",
     "types-python-dateutil==2.8.19",
     "types-pytz==2022.2.1.0",
@@ -122,6 +138,16 @@ databricks_require = ["databricks-connect>=13.0"]
 if sys.version_info < (3, 8, 0):
     databricks_require.append("databricks-sdk==0.44.1")
 
+auth_require = [
+    "pydantic>=2.11.3",
+    "httpx>=0.28.1",
+    "eval-type-backport; python_version < '3.10'",  # For compatibility with Python 3.10+ typing
+]
+
+authlib_require = ["authlib>=1.6.0"] + auth_require
+auth_lint_require = authlib_require + ["respx"]
+auth_test_require = auth_lint_require
+
 lint_require = (
     [
         "black==24.4.2",
@@ -133,12 +159,13 @@ lint_require = (
     + _mypy_require
     + images_require
     + databricks_require
+    + auth_lint_require
 )
 
 tests_require = (
     [
         "pytest>=7.3.0,<8.0.0 ; python_version < '3.8'",
-        "pytest>=8.3.0 ; python_version >= '3.8'",
+        "pytest>=8.3.0,<8.4.0 ; python_version >= '3.8'",
         "pytest-cov",
         "responses==0.21",
         "pytest-asyncio==0.21.1",
@@ -146,6 +173,7 @@ tests_require = (
     ]
     + images_require
     + databricks_require
+    + auth_test_require
 )
 
 docs_require = [
@@ -176,6 +204,7 @@ example_require = [
 
 release_require = ["zest.releaser[recommended]==6.22.0"]
 
+
 # The None-valued kwargs should be updated by the caller
 common_setup_kwargs = dict(
     name=None,
@@ -187,8 +216,8 @@ common_setup_kwargs = dict(
     maintainer_email="api-maintainer@datarobot.com",
     url="https://datarobot.com",
     project_urls={
-        "Documentation": "https://datarobot-public-api-client.readthedocs-hosted.com/",
-        "Changelog": "https://datarobot-public-api-client.readthedocs-hosted.com/page/CHANGES.html",
+        "Documentation": "https://docs.datarobot.com/en/docs/api/reference/sdk/",
+        "Changelog": "https://docs.datarobot.com/en/docs/api/reference/changelogs/py-changelog/index.html",
     },
     license="DataRobot Tool and Utility Agreement",
     packages=None,
@@ -217,5 +246,7 @@ common_setup_kwargs = dict(
         "images": images_require,
         "test": tests_require,
         "databricks": databricks_require,
+        "auth": auth_require,
+        "auth-authlib": authlib_require,
     },
 )

@@ -71,6 +71,12 @@ def MISSING_REQUEST_DATA_IN_SPINE(key, existing_cols):
     )
 
 
+def UNRECOGNIZED_EVENTS_DATAFRAME_TYPE(t):
+    return TectonValidationError(
+        f"Unrecognized type for Events Dataframe. Expected Pandas or Pyspark Dataframe, found {t}"
+    )
+
+
 def NONEXISTENT_WORKSPACE(name, workspaces):
     return TectonValidationError(f'Workspace "{name}" not found. Available workspaces: {workspaces}')
 
@@ -187,22 +193,15 @@ def FD_GET_MATERIALIZED_FEATURES_FROM_DEVELOPMENT_WORKSPACE_GFD(fv_name, workspa
     )
 
 
-def FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES_FROM_DEVELOPMENT_WORKSPACE(fv_name, workspace):
-    return TectonValidationError(
-        f"Feature view {fv_name} uses incremental backfills and is in workspace {workspace}, which is a development workspace (does not have materialization enabled). "
-        + "Computing features from source is not supported for Batch Feature Views with incremental_backfills set to True. "
-        + f"Enable offline materialization for this feature view in a live workspace to use {_OFFLINE_QUERY_METHODS_STRING}. "
-        + "Or use `run()` to test this feature view without materializing data."
-    )
-
-
-def FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES_IN_LOCAL_MODE(fv_name):
-    return TectonValidationError(
-        f"Feature view {fv_name} uses incremental backfills and is locally defined which means materialization is not enabled."
-        + "Computing features from source is not supported for Batch Feature Views with incremental_backfills set to True. "
-        + f"Apply and enable offline materialization for this feature view in a live workspace to use {_OFFLINE_QUERY_METHODS_STRING}. "
-        + "Or use `run()` to test this feature view locally in a notebook."
-    )
+def FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES(
+    fv_name: str, workspace_name: Optional[str]
+) -> TectonValidationError:
+    if workspace_name:
+        error_msg = f"Feature view {fv_name} uses incremental backfills and is in workspace {workspace_name}, which is a development workspace (does not have materialization enabled). "
+    else:
+        error_msg = f"Feature view {fv_name} uses incremental backfills and is locally defined which means materialization is not enabled."
+    error_msg += f"Computing features from source is not supported for Batch Feature Views with incremental_backfills set to True. Enable offline materialization for this feature view in a live workspace to use {_OFFLINE_QUERY_METHODS_STRING}. Or use `run_transformation(...)` to test the Feature View transformation function."
+    return TectonValidationError(error_msg)
 
 
 def FD_GET_FEATURES_MATERIALIZATION_DISABLED(fd_name):
@@ -474,7 +473,7 @@ def INVALID_USAGE_FOR_LOCAL_FEATURE_TABLE_OBJECT(function_name: str):
 
 def CANNOT_USE_LOCAL_RUN_ON_REMOTE_OBJECT(function_name: str):
     return TectonValidationError(
-        f"`{function_name}` can only be called on locally defined Tecton objects. This object was retrieved from a Tecton workpace. Please use `run()` instead."
+        f"`{function_name}` can only be called on locally defined Tecton objects. This object was retrieved from a Tecton workpace. Please use `run_transformation(...)` instead."
     )
 
 
@@ -522,6 +521,12 @@ def INVALID_INPUTS_RESOURCE_PROVIDER(resource_provider_name: str):
     )
 
 
+def INVALID_SINK_CONFIG_SIGNATURE(sink_config_name: str):
+    return TectonValidationError(
+        f"Sink config: {sink_config_name} function must have input parameter: `df` and may optionally include parameter: `context` which provides feature view metadata to the sink function."
+    )
+
+
 TRANSFORMATION_CONTEXT_NOT_SUPPORTED = TectonValidationError(
     "Transformation Contexts are only supported on Batch, Stream and Realtime Feature Views."
 )
@@ -551,28 +556,42 @@ class ExpressionParsingError(TectonValidationError):
     Exception that indicates a problem parsing the Calculation Expression defined in a Calculation Feature.
     """
 
-    def __init__(self, message, calculation_name, can_drop_traceback=False):
+    def __init__(self, message, calculation_name, expr, line=None, column=None):
         """Initialize an instance of the exception.
-
-        The traceback for this exception may be dropped by SDK decorators if the
-        `can_drop_traceback` flag is set.
 
         Args:
             message (str): A description of the error.
             calculation_name (str): The name of the calculation associated with the error.
-            can_drop_traceback (bool, optional): Indicates whether the traceback can be dropped.
-                Defaults to False.
+            expr (str): the Calculation expression that caused the error.
+            line (int, optional): The line number in the expression where the error occurred.
+            column (int, optional): The column number in the expression where the error occurred.
         """
-        msg = f"In Calculation {calculation_name}: {message}"
-        super().__init__(msg, can_drop_traceback)
-        self.can_drop_traceback = can_drop_traceback
+        # Always allow the traceback to be dropped by sdk decorators
+        super().__init__(message, True)
+        self.message = message
+        self.calculation_name = calculation_name
+        self.expr = expr
+        self.line = line
+        self.column = column
+
+    def __str__(self):
+        msg = f"in Calculation '{self.calculation_name}', {self.message}"
+        if self.line and self.column:
+            msg += f" at line {self.line}, column {self.column}."
+        if self.expr:
+            msg += self._format_expr()
+        return msg
+
+    def _format_expr(self):
+        """Format the expression for display."""
+        return f'\nCalculation Expression:\n> "{self.expr}"'
 
 
 def CONTEXT_PARAMETER_NAME_UNSUPPORTED_FOR_NO_TRANSFORMATION_MODE(context_parameter_name):
     return TectonValidationError(
         f'Overriding `context_parameter_name` to "{context_parameter_name}" is not supported for Realtime Feature Views without '
         'a transformation. Please access RealtimeContext using "context". For example, '
-        '`Attribute("context__request_timestamp", Timestamp)`'
+        '`Calculation(name="request_timestamp", expr="context.request_timestamp")`'
     )
 
 
@@ -636,22 +655,6 @@ BUILD_ARGS_INTERNAL_ERROR = TectonInternalError(
 UNSUPPORTED_FRAMEWORK_VERSION = RuntimeError(
     "The existing feature definitions have been applied with an older SDK. Please downgrade the Tecton SDK or upgrade the feature definitions."
 )
-
-ON_DEMAND_ENVIRONMENT_RENAMED = "'on_demand_environment' has been renamed to 'realtime_environment' and will be removed in a future version. Please use 'realtime_environment'"
-
-
-def ON_DEMAND_ENVIRONMENT_DEPRECATED():
-    return TectonValidationError(
-        "Cannot specify both 'realtime_environment' and 'on_demand_environment' for a Feature Service. "
-        + ON_DEMAND_ENVIRONMENT_RENAMED
-    )
-
-
-def ON_DEMAND_ENVIRONMENT_DEPRECATED_REPO():
-    return TectonValidationError(
-        "Found default values for both 'realtime_environment' and 'on_demand_environment' in repo.yaml. "
-        + ON_DEMAND_ENVIRONMENT_RENAMED
-    )
 
 
 def FV_FEATURES_PARAM_HAS_DUPLICATE_NAMES(fv_name: str, duplicate_names: List[str]):

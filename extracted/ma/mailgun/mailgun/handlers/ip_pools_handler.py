@@ -14,7 +14,7 @@ def handle_ippools(
     _domain: str | None,
     _method: str | None,
     **kwargs: Any,
-) -> str:
+) -> str | Any:
     """Handle IP pools URL construction.
 
     :param url: Incoming URL dictionary

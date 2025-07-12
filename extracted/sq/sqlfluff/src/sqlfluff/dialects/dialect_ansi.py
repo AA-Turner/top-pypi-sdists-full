@@ -179,6 +179,7 @@ ansi_dialect.set_lexer_matchers(
             r"////\s*(CHANGE|BODY|METADATA)[^\n]*",
             CommentSegment,
         ),
+        StringLexer("glob_operator", r"~~~", ComparisonOperatorSegment),
         RegexLexer("like_operator", r"!?~~?\*?", ComparisonOperatorSegment),
         RegexLexer("newline", r"\r\n|\n", NewlineSegment),
         StringLexer("casting_operator", "::", CodeSegment),
@@ -302,6 +303,9 @@ ansi_dialect.add(
     AmpersandSegment=StringParser("&", SymbolSegment, type="ampersand"),
     PipeSegment=StringParser("|", SymbolSegment, type="pipe"),
     BitwiseXorSegment=StringParser("^", SymbolSegment, type="binary_operator"),
+    GlobOperatorSegment=TypedParser(
+        "glob_operator", ComparisonOperatorSegment, type="glob_operator"
+    ),
     LikeOperatorSegment=TypedParser(
         "like_operator", ComparisonOperatorSegment, type="like_operator"
     ),
@@ -473,6 +477,18 @@ ansi_dialect.add(
     IfExistsGrammar=Sequence("IF", "EXISTS"),
     IfNotExistsGrammar=Sequence("IF", "NOT", "EXISTS"),
     LikeGrammar=OneOf("LIKE", "RLIKE", "ILIKE"),
+    LikeExpressionGrammar=Sequence(
+        Sequence(
+            Ref.keyword("NOT", optional=True),
+            Ref("LikeGrammar"),
+        ),
+        Ref("Expression_A_Grammar"),
+        Sequence(
+            "ESCAPE",
+            Ref("Tail_Recurse_Expression_A_Grammar"),
+            optional=True,
+        ),
+    ),
     PatternMatchingGrammar=Nothing(),
     UnionGrammar=Sequence("UNION", OneOf("DISTINCT", "ALL", optional=True)),
     IsClauseGrammar=OneOf(
@@ -1273,7 +1289,7 @@ class AliasExpressionSegment(BaseSegment):
     type = "alias_expression"
     match_grammar: Matchable = Sequence(
         Indent,
-        Ref.keyword("AS", optional=True),
+        Ref("AsAliasOperatorSegment", optional=True),
         OneOf(
             Sequence(
                 Ref("SingleIdentifierGrammar"),
@@ -1284,6 +1300,13 @@ class AliasExpressionSegment(BaseSegment):
         ),
         Dedent,
     )
+
+
+class AsAliasOperatorSegment(BaseSegment):
+    """The as alias expression operator."""
+
+    type = "alias_operator"
+    match_grammar: Matchable = Sequence("AS")
 
 
 class ShorthandCastSegment(BaseSegment):
@@ -1627,7 +1650,7 @@ class FromExpressionElementSegment(BaseSegment):
         ),
     )
 
-    def get_eventual_alias(self) -> AliasInfo:
+    def get_eventual_alias(self) -> Generator[AliasInfo, None, None]:
         """Return the eventual table name referred to by this table expression.
 
         Returns:
@@ -1656,17 +1679,20 @@ class FromExpressionElementSegment(BaseSegment):
                 ref = cast(ObjectReferenceSegment, _ref)
 
         # Handle any aliases
-        alias_expression = self.get_child("alias_expression")
-        if not alias_expression:  # pragma: no cover
-            _bracketed = self.get_child("bracketed")
-            if _bracketed:
-                alias_expression = _bracketed.get_child("alias_expression")
-        if alias_expression:
+        has_alias = False
+        alias_expressions = self.get_children("alias_expression", "bracketed")
+        for alias_expression in alias_expressions:
+            if alias_expression.is_type("bracketed"):  # pragma: no cover
+                _alias_expression = alias_expression.get_child("alias_expression")
+                if _alias_expression is None:
+                    continue
+                alias_expression = _alias_expression
             # If it has an alias, return that
+            has_alias = True
             segment = alias_expression.get_child("identifier")
             if segment:
                 segment = cast(IdentifierSegment, segment)
-                return AliasInfo(
+                yield AliasInfo(
                     segment.raw_normalized(casefold=False),
                     segment,
                     True,
@@ -1674,6 +1700,8 @@ class FromExpressionElementSegment(BaseSegment):
                     alias_expression,
                     ref,
                 )
+        if has_alias:
+            return
 
         # If not return the object name (or None if there isn't one)
         if ref:
@@ -1683,7 +1711,7 @@ class FromExpressionElementSegment(BaseSegment):
                 penultimate_ref: ObjectReferenceSegment.ObjectReferencePart = (
                     references[-1]
                 )
-                return AliasInfo(
+                yield AliasInfo(
                     penultimate_ref.part,
                     penultimate_ref.segments[0],
                     False,
@@ -1691,8 +1719,9 @@ class FromExpressionElementSegment(BaseSegment):
                     None,
                     ref,
                 )
+                return
         # No references or alias
-        return AliasInfo(
+        yield AliasInfo(
             "",
             None,
             False,
@@ -1955,12 +1984,12 @@ class JoinClauseSegment(BaseSegment):
         from_expression = self.get_child("from_expression_element")
         # As per grammar above, there will always be a FromExpressionElementSegment
         assert from_expression
-        alias: AliasInfo = cast(
+        from_aliases = cast(
             FromExpressionElementSegment, from_expression
         ).get_eventual_alias()
         # Only append if non-null. A None reference, may
         # indicate a generator expression or similar.
-        if alias:
+        for alias in from_aliases:
             buff.append((from_expression, alias))
 
         # In some dialects, like TSQL, join clauses can have nested join clauses
@@ -2039,7 +2068,7 @@ class FromClauseSegment(BaseSegment):
 
         # Iterate through the potential sources of aliases
         for clause in direct_table_children:
-            alias: AliasInfo = cast(
+            direct_table_aliases = cast(
                 FromExpressionElementSegment, clause
             ).get_eventual_alias()
             # Only append if non-null. A None reference, may
@@ -2049,7 +2078,7 @@ class FromClauseSegment(BaseSegment):
                 if clause in direct_table_children
                 else clause.get_child("from_expression_element")
             )
-            if alias:
+            for alias in direct_table_aliases:
                 assert table_expr
                 buff.append((table_expr, alias))
         for clause in join_clauses:
@@ -2192,18 +2221,7 @@ ansi_dialect.add(
                 # Expression_A_Grammar normally.
                 #
                 # We need to add a lot more here...
-                Sequence(
-                    Sequence(
-                        Ref.keyword("NOT", optional=True),
-                        Ref("LikeGrammar"),
-                    ),
-                    Ref("Expression_A_Grammar"),
-                    Sequence(
-                        Ref.keyword("ESCAPE"),
-                        Ref("Tail_Recurse_Expression_A_Grammar"),
-                        optional=True,
-                    ),
-                ),
+                Ref("LikeExpressionGrammar"),
                 Sequence(
                     Ref("BinaryOperatorGrammar"),
                     Ref("Tail_Recurse_Expression_A_Grammar"),
@@ -2857,6 +2875,7 @@ ansi_dialect.add(
         Ref("UpdateStatementSegment"),
         Ref("InsertStatementSegment"),
         Ref("DeleteStatementSegment"),
+        Ref("MergeStatementSegment"),
     ),
     # Things that behave like select statements, which can form part of set expressions.
     NonSetSelectableGrammar=OneOf(
@@ -2939,7 +2958,7 @@ class WithCompoundStatementSegment(BaseSegment):
 
 
 class WithCompoundNonSelectStatementSegment(BaseSegment):
-    """A `UPDATE/INSERT/DELETE` statement preceded by a selection of `WITH` clauses.
+    """A `UPDATE/INSERT/DELETE/MERGE` statement preceded by `WITH` clauses.
 
     `WITH tab (col1,col2) AS (SELECT a,b FROM x)`
     """

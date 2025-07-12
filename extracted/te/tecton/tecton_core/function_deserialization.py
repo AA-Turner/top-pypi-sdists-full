@@ -26,9 +26,9 @@ def _from_proto(
     if globals_ is None:
         globals_ = {}
 
-    assert serialized_transform.HasField("body") and serialized_transform.HasField(
-        "name"
-    ), "Invalid UserDefinedFunction."
+    assert serialized_transform.HasField("body") and serialized_transform.HasField("name"), (
+        "Invalid UserDefinedFunction."
+    )
 
     try:
         exec(serialized_transform.body, globals_, locals_)

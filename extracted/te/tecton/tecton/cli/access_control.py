@@ -9,10 +9,12 @@ from typing import Set
 from typing import Tuple
 
 import click
+from rich.text import Text
 
 from tecton._internals import metadata_service
-from tecton._internals.display import Displayable
 from tecton.cli import printer
+from tecton.cli.cli_utils import display_table
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton_core.errors import TectonAPIValidationError
 from tecton_proto.auth.authorization_service__client_pb2 import Assignment
@@ -41,7 +43,7 @@ def _get_role_definitions():
     return response.roles
 
 
-@click.command("access-control", cls=TectonGroup)
+@click.command("access-control", cls=TectonGroup, command_category=TectonCommandCategory.IDENTITY)
 def access_control():
     """Manage Access Controls."""
 
@@ -217,9 +219,9 @@ def _update_role(
             request = AssignRolesRequest()
             request.assignments.append(assignment)
             metadata_service.instance().AssignRoles(request)
-        printer.safe_print(f"Successfully updated role for [{human_readable_principal_name}]")
+        printer.rich_print(Text(f"Successfully updated role for [{human_readable_principal_name}]"))
     except Exception as e:
-        printer.safe_print(f"Failed to update role for [{human_readable_principal_name}]: {e}", file=sys.stderr)
+        printer.rich_print(Text(f"Failed to update role for [{human_readable_principal_name}]: {e}"), file=sys.stderr)
         sys.exit(1)
 
 
@@ -251,13 +253,6 @@ def get_roles(principal_type, principal_id, resource_type):
     request.resource_type = resource_type
     response = metadata_service.instance().ListAssignedRoles(request)
     return response
-
-
-def display_table(headings, roles):
-    table = Displayable.from_table(headings=headings, rows=roles, max_width=0)
-    # Align columns in the middle horizontally
-    table._text_table.set_cols_align(["c" for _ in range(len(headings))])
-    printer.safe_print(table)
 
 
 @dataclass
@@ -375,7 +370,7 @@ def get_assigned_roles(user, service_account, principal_group, workspace, resour
             org_roles=org_roles,
             scope_roles=scope_roles,
         )
-        printer.safe_print(json.dumps(json_output, indent=4))
+        printer.safe_print(json.dumps(json_output, indent=4), plain=True)
     else:
         _pretty_print_get_roles_output(
             ws_roles=ws_roles,
@@ -517,14 +512,20 @@ def _pretty_print_assigned_roles_generic_resource(
                 resource_role_row += (group_names,)
 
             display_rows.append(resource_role_row)
-    display_table(headings, display_rows)
+
+    if resource_type_for_display == "Secret Scope":
+        title = f"{resource_type_for_display} Roles"
+    else:
+        title = f"{resource_type_for_display}-Level Roles"
+
+    display_table(headings, display_rows, title=title)
 
 
 def _pretty_print_assigned_roles_org_resource(
     org_roles: ResourceWithRoleAssignments,
 ):
     """For the singleton organization resource"""
-    headings = ["Organization Roles", "Assigned Directly", "Assigned via Groups"]
+    headings = ["Instance-Level Role", "Assigned Directly", "Assigned via Groups"]
     display_rows = []
     for role in org_roles.roles_sorted:
         assigned_directly = "direct" if role in org_roles.directly_assigned_roles else ""
@@ -532,7 +533,7 @@ def _pretty_print_assigned_roles_org_resource(
         role_row = (role, assigned_directly, group_names)
 
         display_rows.append(role_row)
-    display_table(headings, display_rows)
+    display_table(headings, display_rows, title="Instance-Level Roles")
 
 
 def _pretty_print_get_roles_output(
@@ -564,7 +565,7 @@ def get_user_id(email):
         response = metadata_service.instance().GetUser(request)
         return response.user.okta_id
     except Exception as e:
-        printer.safe_print(f"Failed to Get Roles for email [{email}]: {e}", file=sys.stderr)
+        printer.rich_print(Text(f"Failed to Get Roles for email [{email}]: {e}"), file=sys.stderr)
         sys.exit(1)
 
 

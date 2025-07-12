@@ -124,6 +124,38 @@ class StartPackagesUploadResponse(_message.Message):
     upload_info: _remote_compute_environment__client_pb2.RemoteEnvironmentUploadInfo
     def __init__(self, upload_info: _Optional[_Union[_remote_compute_environment__client_pb2.RemoteEnvironmentUploadInfo, _Mapping]] = ...) -> None: ...
 
+class TestOnlyCreateRemoteComputeEnvironmentRequest(_message.Message):
+    __slots__ = ["description", "image_info", "name", "provisioned_image_info", "rift_materialization_runtime_version", "transform_runtime_version"]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_INFO_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    PROVISIONED_IMAGE_INFO_FIELD_NUMBER: _ClassVar[int]
+    RIFT_MATERIALIZATION_RUNTIME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORM_RUNTIME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    description: str
+    image_info: _container_image__client_pb2.ContainerImage
+    name: str
+    provisioned_image_info: _container_image__client_pb2.ContainerImage
+    rift_materialization_runtime_version: str
+    transform_runtime_version: str
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., image_info: _Optional[_Union[_container_image__client_pb2.ContainerImage, _Mapping]] = ..., provisioned_image_info: _Optional[_Union[_container_image__client_pb2.ContainerImage, _Mapping]] = ..., transform_runtime_version: _Optional[str] = ..., rift_materialization_runtime_version: _Optional[str] = ...) -> None: ...
+
+class TestOnlyCreateRemoteComputeEnvironmentResponse(_message.Message):
+    __slots__ = ["remote_environment"]
+    REMOTE_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    remote_environment: _remote_compute_environment__client_pb2.RemoteComputeEnvironment
+    def __init__(self, remote_environment: _Optional[_Union[_remote_compute_environment__client_pb2.RemoteComputeEnvironment, _Mapping]] = ...) -> None: ...
+
+class TestOnlyUpdateEnvironmentRequest(_message.Message):
+    __slots__ = ["environment"]
+    ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    environment: str
+    def __init__(self, environment: _Optional[str] = ...) -> None: ...
+
+class TestOnlyUpdateEnvironmentResponse(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
 class UpdateRemoteEnvironmentRequest(_message.Message):
     __slots__ = ["id", "remote_function_version", "status"]
     ID_FIELD_NUMBER: _ClassVar[int]

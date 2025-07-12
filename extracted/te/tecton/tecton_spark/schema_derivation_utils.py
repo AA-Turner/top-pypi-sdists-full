@@ -138,9 +138,9 @@ def get_batch_data_source_function_schema(
             f"Invalid handling of filter_context and time filtering. Data Source Function {data_source_function.__name__} "
             f"needs to return a Spark DataFrame with the same schema for all values of filter_context"
         )
-        assert all(
-            df.schema == schema for df in [df_fc_none_start_none_end, df_fc_none_end, df_fc_none_start]
-        ), filter_context_error_message
+        assert all(df.schema == schema for df in [df_fc_none_start_none_end, df_fc_none_end, df_fc_none_start]), (
+            filter_context_error_message
+        )
 
         df = df_fc_none
     else:
@@ -461,9 +461,9 @@ def _populate_empty_passed_in_inputs_helper(
     if node.HasField("data_source_node"):
         ds_id = IdHelper.to_string(node.data_source_node.virtual_data_source_id)
         ds_spec = ds_map[ds_id]
-        assert (
-            ds_spec.type != DataSourceType.PUSH_NO_BATCH
-        ), "This utility does not support FeatureView with PushSources that do not have a batch_config"
+        assert ds_spec.type != DataSourceType.PUSH_NO_BATCH, (
+            "This utility does not support FeatureView with PushSources that do not have a batch_config"
+        )
         ds_schema = ds_spec.batch_source.spark_schema
         empty_passed_in_inputs[node.data_source_node.input_name] = spark.createDataFrame(
             [], SparkSchemaWrapper.from_proto(ds_schema).unwrap()

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dnfile
-Version: 0.15.1
+Version: 0.16.4
 Summary: Parse .NET executable files.
 Author: MalwareFrank
 License: MIT License
@@ -17,6 +17,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pefile>=2019.4.18
+Dynamic: license-file
 
 ======
 dnfile
@@ -131,6 +132,12 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 =======
 History
 =======
+
+0.16.0 (2025)
+-------------
+
+* BREAKING CHANGE: resource type DateTime is parsed into an object that exposes Kind value
+* FEATURE: access GUIDS stream like a 0-based sequence. GuidHeap subclasses abc.Sequence
 
 0.15.1 (2024)
 -------------

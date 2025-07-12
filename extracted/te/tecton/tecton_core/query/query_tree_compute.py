@@ -2,9 +2,9 @@ import contextlib
 import logging
 from abc import ABC
 from abc import abstractmethod
-from typing import TYPE_CHECKING
 from typing import Callable
-from typing import Dict
+from typing import Iterable
+from typing import List
 from typing import Optional
 from typing import Union
 
@@ -14,13 +14,9 @@ import pyarrow
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.node_interface import NodeRef
-from tecton_core.query.nodes import StagedTableScanNode
+from tecton_core.query.node_interface import PartitionSelector
 from tecton_core.query.pandas.nodes import ArrowDataNode
 from tecton_core.schema import Schema
-
-
-if TYPE_CHECKING:
-    from tecton_core.query.query_tree_executor import QueryTreeExecutor
 
 
 logger = logging.getLogger(__name__)
@@ -36,7 +32,7 @@ class QueryTreeCompute(ABC):
     @staticmethod
     def for_dialect(
         dialect: Dialect,
-        executor: "QueryTreeExecutor",
+        context: ExecutionContext,
         qt_root: Optional[NodeRef] = None,
     ) -> "QueryTreeCompute":
         # Conditional imports are used so that optional dependencies such as the Snowflake connector are only imported
@@ -47,13 +43,11 @@ class QueryTreeCompute(ABC):
 
             if SnowflakeCompute.is_context_initialized():
                 return SnowflakeCompute.from_context()
-            return SnowflakeCompute.for_connection(create_snowflake_connection(qt_root, executor.secret_resolver))
+            return SnowflakeCompute.for_connection(create_snowflake_connection(qt_root, context.secret_resolver))
         if dialect == Dialect.DUCKDB:
             from tecton_core.query.duckdb.compute import DuckDBCompute
 
-            return DuckDBCompute.from_context(
-                offline_store_options=executor.offline_store_options_providers, duckdb_config=executor.duckdb_config
-            )
+            return DuckDBCompute.from_context(duckdb_config=context.duckdb_config)
 
         if dialect == Dialect.BIGQUERY:
             from tecton_core.query.bigquery.compute import BigqueryCompute
@@ -69,8 +63,20 @@ class QueryTreeCompute(ABC):
 
 @attrs.define
 class ComputeMonitor:
-    log_progress: Callable[[float], None] = lambda _: _
+    set_completed: Callable[[], None] = lambda _: _
     set_query: Callable[[str], None] = lambda _: _
+
+    def monitored_arrow_reader(self, reader: pyarrow.RecordBatchReader) -> pyarrow.RecordBatchReader:
+        def monitor_reader(_reader: pyarrow.RecordBatchReader) -> Iterable[pyarrow.RecordBatch]:
+            while True:
+                try:
+                    yield next(_reader)
+                except StopIteration:
+                    break
+
+            self.set_completed()
+
+        return pyarrow.RecordBatchReader.from_batches(reader.schema, monitor_reader(reader))
 
 
 @attrs.define
@@ -115,33 +121,25 @@ class SQLCompute(QueryTreeCompute, contextlib.AbstractContextManager):
 class ArrowCompute(QueryTreeCompute, contextlib.AbstractContextManager):
     def run(
         self,
-        qt_node: NodeRef,
-        input_data: Dict[str, pyarrow.RecordBatchReader],
+        output_node_ref: NodeRef,
+        input_node_refs: List[NodeRef],
+        input_data: List[Union[pyarrow.Table, pyarrow.RecordBatchReader]],
         context: ExecutionContext,
+        partition_selector: Optional[PartitionSelector] = None,
         monitor: Optional[ComputeMonitor] = None,
-    ) -> "pyarrow.RecordBatchReader":
-        def replace_staging_scan_nodes(tree: NodeRef) -> None:
-            if isinstance(tree.node, StagedTableScanNode):
-                staged_table_name = tree.node.staging_table_name
-                if staged_table_name not in input_data:
-                    msg = f"Missing input {staged_table_name}"
-                    raise ValueError(msg)
+    ) -> "pyarrow.Table":
+        for input_node, data in zip(input_node_refs, input_data):
+            input_node.node = ArrowDataNode(
+                input_reader=data.to_reader() if isinstance(data, pyarrow.Table) else data,
+                input_node=None,
+                columns=input_node.node.columns,
+                column_name_updater=lambda x: x,
+                output_schema=input_node.node.output_schema,
+            )
 
-                tree.node = ArrowDataNode(
-                    input_reader=input_data[staged_table_name],
-                    input_node=None,
-                    columns=tree.node.columns,
-                    column_name_updater=lambda x: x,
-                    output_schema=tree.node.output_schema,
-                )
-                return
+        reader = output_node_ref.to_arrow_reader(context, partition_selector)
 
-            for i in tree.inputs:
-                replace_staging_scan_nodes(i)
-
-        replace_staging_scan_nodes(qt_node)
-
-        return qt_node.to_arrow_reader(context)
+        return monitor.monitored_arrow_reader(reader) if monitor else reader
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass

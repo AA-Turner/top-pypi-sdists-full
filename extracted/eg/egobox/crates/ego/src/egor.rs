@@ -407,13 +407,14 @@ mod tests {
     #[serial]
     fn test_gp_config() {
         let initial_doe = array![[0.], [7.], [25.]];
+        const LOWER_BOUND: f64 = 1.5;
         let egor = EgorBuilder::optimize(xsinx)
             .configure(|cfg| {
                 cfg.infill_strategy(InfillStrategy::EI)
                     .configure_gp(|gp| {
                         gp.theta_tuning(egobox_gp::ThetaTuning::Full {
                             init: array![2.0],
-                            bounds: array![(1.0, 20.)],
+                            bounds: array![(LOWER_BOUND, 20.)],
                         })
                         .recombination(egobox_moe::Recombination::Hard)
                         .n_start(7)
@@ -426,11 +427,11 @@ mod tests {
         let res = egor.run().expect("Egor should minimize xsinx");
         // Inspect internal state: theta init should be equal to
         // lower bound of theta interval as with a smaller bound
-        // it would be around 0.8 after first iteration
+        // it would be around 1.28 after first iteration
         dbg!(res.state.clone());
         assert_eq!(
             res.state.theta_inits.unwrap()[0].as_ref().unwrap(),
-            array![[1.0]]
+            array![[LOWER_BOUND]]
         );
         assert_eq!(
             res.state.clusterings.unwrap()[0]
@@ -443,33 +444,29 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_xsinx_gbnm_optimizer_egor_builder() {
-        let outdir = "target/test_egor_builder_01";
-        let outfile = format!("{outdir}/{DOE_INITIAL_FILE}");
-        let _ = std::fs::remove_file(&outfile);
+    fn test_xsinx_logei_egor_builder() {
         let initial_doe = array![[0.], [7.], [25.]];
         let res = EgorBuilder::optimize(xsinx)
             .configure(|cfg| {
                 cfg.infill_strategy(InfillStrategy::LogEI)
-                    .infill_optimizer(InfillOptimizer::Gbnm)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
                     .max_iters(30)
                     .doe(&initial_doe)
-                    .target(-15.1)
-                    .outdir(outdir)
                     .seed(42)
             })
             .min_within(&array![[0.0, 25.0]])
             .run()
             .expect("Egor should minimize xsinx");
-        let expected = array![-15.1];
-        assert_abs_diff_eq!(expected, res.y_opt, epsilon = 0.5);
-        let saved_doe: Array2<f64> = read_npy(&outfile).unwrap();
-        assert_abs_diff_eq!(initial_doe, saved_doe.slice(s![..3, ..1]), epsilon = 1e-6);
+        let expected = array![-15.125];
+        assert_abs_diff_eq!(expected, res.y_opt, epsilon = 2e-3);
     }
 
     #[test]
     #[serial]
     fn test_xsinx_with_domain_constraint() {
+        let outdir = "target/test_egor_builder_01";
+        let outfile = format!("{outdir}/{DOE_INITIAL_FILE}");
+        let _ = std::fs::remove_file(&outfile);
         let initial_doe = array![[0.], [7.], [10.]];
         let res = EgorBuilder::optimize(xsinx)
             .subject_to(vec![|x: &[f64], g: Option<&mut [f64]>, _u| {
@@ -481,6 +478,7 @@ mod tests {
             .configure(|cfg| {
                 cfg.infill_strategy(InfillStrategy::EI)
                     .infill_optimizer(InfillOptimizer::Cobyla)
+                    .outdir(outdir)
                     .max_iters(100)
                     .doe(&initial_doe)
             })
@@ -489,6 +487,12 @@ mod tests {
             .expect("Egor should minimize xsinx");
         let expected = array![17.0];
         assert_abs_diff_eq!(expected, res.x_opt, epsilon = 1e-1);
+        let saved_doe: Array2<f64> = read_npy(&outfile).unwrap();
+        assert_abs_diff_eq!(
+            initial_doe,
+            saved_doe.slice(s![..initial_doe.nrows(), ..initial_doe.ncols()]),
+            epsilon = 1e-6
+        );
     }
 
     #[test]
@@ -712,7 +716,7 @@ mod tests {
         let init_doe = Lhs::new(&xlimits)
             .with_rng(Xoshiro256Plus::seed_from_u64(0))
             .sample(dim + 1);
-        let max_iters = 60;
+        let max_iters = 70;
         let res = EgorBuilder::optimize(sphere)
             .configure(|config| {
                 config
@@ -811,6 +815,32 @@ mod tests {
             .run()
             .expect("Minimize failure");
         println!("G24 optim result = {res:?}");
+        let expected = array![2.3295, 3.1785];
+        assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
+    }
+
+    #[test]
+    #[serial]
+    fn test_egor_g24_basic_egor_builder_logei() {
+        let xlimits = array![[0., 3.], [0., 4.]];
+        let doe = Lhs::new(&xlimits)
+            .with_rng(Xoshiro256Plus::seed_from_u64(0))
+            .sample(3);
+        let res = EgorBuilder::optimize(f_g24)
+            .configure(|config| {
+                config
+                    .n_cstr(2)
+                    .doe(&doe)
+                    .max_iters(20)
+                    .infill_strategy(InfillStrategy::LogEI)
+                    .infill_optimizer(InfillOptimizer::Slsqp)
+                    //.cstr_infill(true)
+                    .cstr_tol(array![2e-3, 1e-3])
+                    .seed(42)
+            })
+            .min_within(&xlimits)
+            .run()
+            .expect("Minimize failure");
         let expected = array![2.3295, 3.1785];
         assert_abs_diff_eq!(expected, res.x_opt, epsilon = 3e-2);
     }

@@ -4999,8 +4999,8 @@ class Mergify(
     ) -> None:
         '''
         :param github: -
-        :param queues: 
-        :param rules: 
+        :param queues: (experimental) The available merge queues.
+        :param rules: (experimental) Pull request automation rules.
 
         :stability: experimental
         '''
@@ -5016,25 +5016,31 @@ class Mergify(
         self,
         *,
         commit_message_template: builtins.str,
-        conditions: typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]],
         name: builtins.str,
+        conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
+        queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         update_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
-        :param conditions: (experimental) A list of Conditions string that must match against the pull request for the pull request to be added to the queue.
         :param name: (experimental) The name of the queue.
+        :param conditions: (deprecated) The list of conditions that needs to match to queue the pull request.
+        :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
+        :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
         :param update_method: (experimental) Method to use to update the pull request with its base branch when the speculative check is done in-place. Possible values: - ``merge`` to merge the base branch into the pull request. - ``rebase`` to rebase the pull request against its base branch. Note that the ``rebase`` method has some drawbacks, see Mergify docs for details. Default: - ``merge`` for all merge methods except ``fast-forward`` where ``rebase`` is used
 
         :stability: experimental
         '''
         queue = MergifyQueue(
             commit_message_template=commit_message_template,
-            conditions=conditions,
             name=name,
+            conditions=conditions,
+            merge_conditions=merge_conditions,
             merge_method=merge_method,
+            queue_conditions=queue_conditions,
             update_method=update_method,
         )
 
@@ -5136,10 +5142,14 @@ class MergifyOptions:
         queues: typing.Optional[typing.Sequence[typing.Union["MergifyQueue", typing.Dict[builtins.str, typing.Any]]]] = None,
         rules: typing.Optional[typing.Sequence[typing.Union["MergifyRule", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
-        :param queues: 
-        :param rules: 
+        '''(experimental) Configure Mergify.
 
+        This currently only offers a subset of options available.
+
+        :param queues: (experimental) The available merge queues.
+        :param rules: (experimental) Pull request automation rules.
+
+        :see: https://docs.mergify.com/configuration/file-format/
         :stability: experimental
         '''
         if __debug__:
@@ -5154,7 +5164,8 @@ class MergifyOptions:
 
     @builtins.property
     def queues(self) -> typing.Optional[typing.List["MergifyQueue"]]:
-        '''
+        '''(experimental) The available merge queues.
+
         :stability: experimental
         '''
         result = self._values.get("queues")
@@ -5162,7 +5173,8 @@ class MergifyOptions:
 
     @builtins.property
     def rules(self) -> typing.Optional[typing.List["MergifyRule"]]:
-        '''
+        '''(experimental) Pull request automation rules.
+
         :stability: experimental
         '''
         result = self._values.get("rules")
@@ -5185,9 +5197,11 @@ class MergifyOptions:
     jsii_struct_bases=[],
     name_mapping={
         "commit_message_template": "commitMessageTemplate",
-        "conditions": "conditions",
         "name": "name",
+        "conditions": "conditions",
+        "merge_conditions": "mergeConditions",
         "merge_method": "mergeMethod",
+        "queue_conditions": "queueConditions",
         "update_method": "updateMethod",
     },
 )
@@ -5196,16 +5210,20 @@ class MergifyQueue:
         self,
         *,
         commit_message_template: builtins.str,
-        conditions: typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]],
         name: builtins.str,
+        conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
+        merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
+        queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
         update_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
-        :param conditions: (experimental) A list of Conditions string that must match against the pull request for the pull request to be added to the queue.
         :param name: (experimental) The name of the queue.
+        :param conditions: (deprecated) The list of conditions that needs to match to queue the pull request.
+        :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
+        :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
         :param update_method: (experimental) Method to use to update the pull request with its base branch when the speculative check is done in-place. Possible values: - ``merge`` to merge the base branch into the pull request. - ``rebase`` to rebase the pull request against its base branch. Note that the ``rebase`` method has some drawbacks, see Mergify docs for details. Default: - ``merge`` for all merge methods except ``fast-forward`` where ``rebase`` is used
 
         :stability: experimental
@@ -5213,17 +5231,24 @@ class MergifyQueue:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173907f467)
             check_type(argname="argument commit_message_template", value=commit_message_template, expected_type=type_hints["commit_message_template"])
-            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+            check_type(argname="argument merge_conditions", value=merge_conditions, expected_type=type_hints["merge_conditions"])
             check_type(argname="argument merge_method", value=merge_method, expected_type=type_hints["merge_method"])
+            check_type(argname="argument queue_conditions", value=queue_conditions, expected_type=type_hints["queue_conditions"])
             check_type(argname="argument update_method", value=update_method, expected_type=type_hints["update_method"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "commit_message_template": commit_message_template,
-            "conditions": conditions,
             "name": name,
         }
+        if conditions is not None:
+            self._values["conditions"] = conditions
+        if merge_conditions is not None:
+            self._values["merge_conditions"] = merge_conditions
         if merge_method is not None:
             self._values["merge_method"] = merge_method
+        if queue_conditions is not None:
+            self._values["queue_conditions"] = queue_conditions
         if update_method is not None:
             self._values["update_method"] = update_method
 
@@ -5238,19 +5263,6 @@ class MergifyQueue:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def conditions(
-        self,
-    ) -> typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]:
-        '''(experimental) A list of Conditions string that must match against the pull request for the pull request to be added to the queue.
-
-        :see: https://docs.mergify.com/conditions/#conditions
-        :stability: experimental
-        '''
-        result = self._values.get("conditions")
-        assert result is not None, "Required property 'conditions' is missing"
-        return typing.cast(typing.List[typing.Union[builtins.str, MergifyConditionalOperator]], result)
-
-    @builtins.property
     def name(self) -> builtins.str:
         '''(experimental) The name of the queue.
 
@@ -5259,6 +5271,35 @@ class MergifyQueue:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def conditions(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]]:
+        '''(deprecated) The list of conditions that needs to match to queue the pull request.
+
+        :deprecated: use ``queueConditions`` instead
+
+        :see: https://docs.mergify.com/configuration/file-format/#queue-rules
+        :stability: deprecated
+        '''
+        result = self._values.get("conditions")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]], result)
+
+    @builtins.property
+    def merge_conditions(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]]:
+        '''(experimental) The list of conditions to match to get the queued pull request merged.
+
+        This automatically includes the queueConditions.
+        In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
+
+        :see: https://docs.mergify.com/conditions/#conditions
+        :stability: experimental
+        '''
+        result = self._values.get("merge_conditions")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]], result)
 
     @builtins.property
     def merge_method(self) -> typing.Optional[builtins.str]:
@@ -5273,6 +5314,18 @@ class MergifyQueue:
         '''
         result = self._values.get("merge_method")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def queue_conditions(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]]:
+        '''(experimental) The list of conditions that needs to match to queue the pull request.
+
+        :see: https://docs.mergify.com/conditions/#conditions
+        :stability: experimental
+        '''
+        result = self._values.get("queue_conditions")
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, MergifyConditionalOperator]]], result)
 
     @builtins.property
     def update_method(self) -> typing.Optional[builtins.str]:
@@ -9577,9 +9630,11 @@ def _typecheckingstub__527734fcd5357c536553ff5f47fe5062b93958305a451f587c870879e
 def _typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173907f467(
     *,
     commit_message_template: builtins.str,
-    conditions: typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]],
     name: builtins.str,
+    conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     merge_method: typing.Optional[builtins.str] = None,
+    queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     update_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

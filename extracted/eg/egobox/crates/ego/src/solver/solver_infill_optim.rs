@@ -1,7 +1,6 @@
 use crate::optimizers::*;
 use crate::types::*;
 
-use crate::utils::pofs;
 use crate::EgorSolver;
 
 #[cfg(not(feature = "nlopt"))]
@@ -80,12 +79,7 @@ where
                 }
 
                 if let Some(grad) = gradient {
-                    // Use finite differences
-                    // let f = |x: &Vec<f64>| -> f64 {
-                    //     self.eval_infill_obj(x, obj_model, fmin, *scale_infill_obj, *scale_wb2)
-                    // };
-                    // grad[..].copy_from_slice(&x.to_vec().central_diff(&f));
-
+                    // TODO: manage logarithm of other criterion generically like for constrained criterion
                     let g_infill_obj = if self.config.cstr_infill {
                         self.eval_grad_infill_obj_with_cstrs(
                             &xcoop,
@@ -114,8 +108,15 @@ where
                     grad[..].copy_from_slice(&g_infill_obj);
                 }
                 if self.config.cstr_infill {
-                    self.eval_infill_obj(&xcoop, obj_model, *fmin, *scale_infill_obj, *scale_wb2)
-                        * pofs(&xcoop, cstr_models, &cstr_tols.to_vec())
+                    self.eval_infill_obj_with_cstrs(
+                        &xcoop,
+                        obj_model,
+                        cstr_models,
+                        cstr_tols,
+                        *fmin,
+                        *scale_infill_obj,
+                        *scale_wb2,
+                    )
                 } else {
                     self.eval_infill_obj(&xcoop, obj_model, *fmin, *scale_infill_obj, *scale_wb2)
                 }

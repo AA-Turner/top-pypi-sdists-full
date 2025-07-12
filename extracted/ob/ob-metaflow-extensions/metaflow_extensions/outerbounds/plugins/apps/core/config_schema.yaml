@@ -1,0 +1,275 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: CoreConfig
+description: |
+  Schema for defining Outerbounds Apps configuration. This schema is what we will end up using on the CLI/programmatic interface.
+  How to read this schema:
+  1. If the a property has `mutation_behavior` set to `union` then it will allow overrides of values at runtime from the CLI.
+  2. If the property has `mutation_behavior`set to `not_allowed` then either the CLI or the config file value will be used (which ever is not None). If the user supplies something in both then an error will be raised.
+  3. If a property has `experimental` set to true then a lot its validations may-be skipped and parsing handled somewhere else.
+type: object
+required:
+- name
+- port
+- commands
+properties:
+  name:
+    description: The name of the app to deploy. (validation applied)
+    type: string
+    example: myapp
+    mutation_behavior: union
+  port:
+    description: |-
+      Port where the app is hosted. When deployed this will be port on which we will deploy the app. (validation applied)
+    type: integer
+    example: 8000
+    mutation_behavior: union
+  description:
+    description: The description of the app to deploy.
+    type: string
+    example: This is a description of my app.
+    mutation_behavior: union
+  app_type:
+    description: The User defined type of app to deploy. Its only used for bookkeeping purposes.
+    type: string
+    example: MyCustomAgent
+    mutation_behavior: union
+  image:
+    description: The Docker image to deploy with the App.
+    type: string
+    example: python:3.10-slim
+    mutation_behavior: union
+  tags:
+    description: The tags of the app to deploy. (validation applied)
+    type: array
+    items:
+      type: string
+    example:
+    - foo: bar
+    - x: y
+    mutation_behavior: union
+  secrets:
+    description: |-
+      Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code. (validation applied)
+    type: array
+    items:
+      type: string
+    example:
+    - hf-token
+    mutation_behavior: union
+  compute_pools:
+    description: A list of compute pools to deploy the app to.
+    type: array
+    items:
+      type: string
+    example:
+    - default
+    - large
+    mutation_behavior: union
+  environment:
+    description: Environment variables to deploy with the App.
+    type: object
+    additionalProperties: true
+    example:
+      DEBUG: true
+      DATABASE_CONFIG:
+        host: localhost
+        port: 5432
+      ALLOWED_ORIGINS:
+      - http://localhost:3000
+      - https://myapp.com
+    mutation_behavior: union
+  commands:
+    description: A list of commands to run the app with.
+    type: array
+    items:
+      type: string
+    example:
+    - python app.py
+    - python app.py --foo bar
+    mutation_behavior: not_allowed
+  resources:
+    title: ResourceConfig
+    description: Resource configuration for the app.
+    type: object
+    required: []
+    properties:
+      cpu:
+        description: CPU resource request and limit. (validation applied)
+        type: string
+        default: '1'
+        example: 500m
+        mutation_behavior: union
+      memory:
+        description: Memory resource request and limit. (validation applied)
+        type: string
+        default: 4Gi
+        example: 512Mi
+        mutation_behavior: union
+      gpu:
+        description: GPU resource request and limit. (validation applied)
+        type: string
+        example: '1'
+        mutation_behavior: union
+      disk:
+        description: Storage resource request and limit. (validation applied)
+        type: string
+        default: 20Gi
+        example: 1Gi
+        mutation_behavior: union
+    mutation_behavior: union
+  auth:
+    title: AuthConfig
+    description: Authentication configuration.
+    type: object
+    required: []
+    properties:
+      type:
+        description: The type of authentication to use for the app.
+        type: string
+        default: Browser
+        enum:
+        - Browser
+        - API
+        example: Browser
+        mutation_behavior: union
+      public:
+        description: Whether the app is public or not.
+        type: boolean
+        default: true
+        example: true
+        mutation_behavior: union
+    mutation_behavior: union
+  replicas:
+    title: ReplicaConfig
+    description: Replica configuration.
+    type: object
+    required: []
+    properties:
+      fixed:
+        description: |-
+          The fixed number of replicas to deploy the app with. If min and max are set, this will raise an error.
+        type: integer
+        example: 1
+        mutation_behavior: union
+      min:
+        description: The minimum number of replicas to deploy the app with.
+        type: integer
+        example: 1
+        mutation_behavior: union
+      max:
+        description: The maximum number of replicas to deploy the app with.
+        type: integer
+        example: 10
+        mutation_behavior: union
+    mutation_behavior: union
+  dependencies:
+    title: DependencyConfig
+    description: Dependency configuration.
+    type: object
+    required: []
+    properties:
+      from_requirements_file:
+        description: The path to the requirements.txt file to attach to the app.
+        type: string
+        example: requirements.txt
+        mutation_behavior: not_allowed
+      from_pyproject_toml:
+        description: The path to the pyproject.toml file to attach to the app.
+        type: string
+        example: pyproject.toml
+        mutation_behavior: not_allowed
+      python:
+        description: The Python version to use for the app.
+        type: string
+        example: '3.10'
+        mutation_behavior: not_allowed
+      pypi:
+        description: |-
+          A dictionary of pypi dependencies to attach to the app. The key is the package name and the value is the version.
+        type: object
+        additionalProperties: true
+        example:
+          numpy: 1.23.0
+          pandas: ''
+        mutation_behavior: not_allowed
+      conda:
+        description: |-
+          A dictionary of conda dependencies to attach to the app. The key is the package name and the value is the version.
+        type: object
+        additionalProperties: true
+        example:
+          numpy: 1.23.0
+          pandas: ''
+        mutation_behavior: not_allowed
+    mutation_behavior: union
+  package:
+    title: PackageConfig
+    description: Package configuration.
+    type: object
+    required: []
+    properties:
+      src_path:
+        description: The path to the source code to deploy with the App.
+        type: string
+        example: ./
+        mutation_behavior: union
+      suffixes:
+        description: A list of suffixes to add to the source code to deploy with the App.
+        type: array
+        items:
+          type: string
+        example:
+        - .py
+        - .ipynb
+        mutation_behavior: union
+    mutation_behavior: union
+  no_deps:
+    description: Do not bake any dependencies. Directly used the image provided
+    type: boolean
+    default: false
+    mutation_behavior: union
+  force_upgrade:
+    description: Force upgrade the app even if it is currently being upgraded.
+    type: boolean
+    default: false
+    mutation_behavior: union
+  persistence:
+    description: The persistence mode to deploy the app with. (validation applied)
+    type: string
+    default: none
+    enum:
+    - none
+    - postgres
+    example: postgres
+    experimental: true
+    mutation_behavior: union
+  project:
+    description: The project name to deploy the app to.
+    type: string
+    example: my-project
+    experimental: true
+    mutation_behavior: union
+  branch:
+    description: The branch name to deploy the app to.
+    type: string
+    example: main
+    experimental: true
+    mutation_behavior: union
+  models:
+    type: array
+    items:
+      type: string
+    example:
+    - asset_id: model-123
+      asset_instance_id: instance-456
+    experimental: true
+    mutation_behavior: union
+  data:
+    type: array
+    items:
+      type: string
+    example:
+    - asset_id: data-789
+      asset_instance_id: instance-101
+    experimental: true
+    mutation_behavior: union

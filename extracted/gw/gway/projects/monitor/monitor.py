@@ -67,12 +67,12 @@ def start_watch(
     project_name = str(project)
     log_prefix = f"[monitor:{project_name}] "
 
-    gproj = gw.get(f"monitor.{project_name}")
+    gproj = gw.find_project(f"monitor.{project_name}")
     if not gproj:
         raise ValueError(f"{log_prefix}Project not found in GWAY: 'monitor.{project_name}'")
 
     # Select monitors (function names)
-    monitors = gw.to_list(monitor) if monitor else [project_name]
+    monitors = gw.cast.to_list(monitor) if monitor else [project_name]
     monitor_funcs = []
     for mname in monitors:
         funcname = f"monitor_{mname}"
@@ -83,7 +83,7 @@ def start_watch(
 
     # Set up renders for this project (for dashboard view)
     if render is not None:
-        renders = gw.to_list(render)
+        renders = gw.cast.to_list(render)
         MONITOR_RENDER[project_name] = renders
     elif project_name not in MONITOR_RENDER:
         MONITOR_RENDER[project_name] = [project_name]
@@ -182,7 +182,7 @@ def view_monitor_panel(**_):
     for project in NETWORK_STATE:
         state = get_state(project)
         html.append(f'<div class="monitor-block">')
-        gproj = gw.get(f"monitor.{project}")
+        gproj = gw.find_project(f"monitor.{project}")
         renders = MONITOR_RENDER.get(project) or [project]
         rendered = False
         for rname in renders:

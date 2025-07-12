@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(tecton_proto/auth/resource__client.proto\x12\x11tecton_proto.auth*\xf7\x04\n\x0cResourceType\x12\x1d\n\x19RESOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12RESOURCE_TYPE_USER\x10\x01\x12\x1e\n\x1aRESOURCE_TYPE_ORGANIZATION\x10\x02\x12\x1b\n\x17RESOURCE_TYPE_WORKSPACE\x10\x03\x12!\n\x1dRESOURCE_TYPE_SERVICE_ACCOUNT\x10\x04\x12!\n\x1dRESOURCE_TYPE_PRINCIPAL_GROUP\x10\x05\x12\x18\n\x14RESOURCE_TYPE_SECRET\x10\x06\x12\x18\n\x14RESOURCE_TYPE_ACCESS\x10\x07\x12%\n!RESOURCE_TYPE_DEPLOYMENT_SETTINGS\x10\x08\x12\x19\n\x15RESOURCE_TYPE_DATASET\x10\t\x12\x1a\n\x16RESOURCE_TYPE_FEATURES\x10\n\x12\x18\n\x14RESOURCE_TYPE_CONFIG\x10\x0b\x12\x18\n\x14RESOURCE_TYPE_METRIC\x10\x0c\x12\x16\n\x12RESOURCE_TYPE_DATA\x10\r\x12\'\n#RESOURCE_TYPE_MATERIALIZATION_STATE\x10\x0e\x12\x19\n\x15RESOURCE_TYPE_MEMBERS\x10\x0f\x12.\n*RESOURCE_TYPE_PRINCIPAL_GROUPS_MEMBERSHIPS\x10\x10\x12\x1a\n\x16RESOURCE_TYPE_PLATFORM\x10\x11\x12\x1e\n\x1aRESOURCE_TYPE_SECRET_SCOPE\x10\x12\x12\x1f\n\x1bRESOURCE_TYPE_CLIENT_SECRET\x10\x13\x42J\n\x0f\x63om.tecton.authP\x01Z5github.com/tecton-ai/tecton_proto/auth/resource_roles')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n(tecton_proto/auth/resource__client.proto\x12\x11tecton_proto.auth*\xc8\x05\n\x0cResourceType\x12\x1d\n\x19RESOURCE_TYPE_UNSPECIFIED\x10\x00\x12\x16\n\x12RESOURCE_TYPE_USER\x10\x01\x12\x1e\n\x1aRESOURCE_TYPE_ORGANIZATION\x10\x02\x12\x1b\n\x17RESOURCE_TYPE_WORKSPACE\x10\x03\x12!\n\x1dRESOURCE_TYPE_SERVICE_ACCOUNT\x10\x04\x12!\n\x1dRESOURCE_TYPE_PRINCIPAL_GROUP\x10\x05\x12\x18\n\x14RESOURCE_TYPE_SECRET\x10\x06\x12\x18\n\x14RESOURCE_TYPE_ACCESS\x10\x07\x12%\n!RESOURCE_TYPE_DEPLOYMENT_SETTINGS\x10\x08\x12\x19\n\x15RESOURCE_TYPE_DATASET\x10\t\x12\x1a\n\x16RESOURCE_TYPE_FEATURES\x10\n\x12\x18\n\x14RESOURCE_TYPE_CONFIG\x10\x0b\x12\x18\n\x14RESOURCE_TYPE_METRIC\x10\x0c\x12\x16\n\x12RESOURCE_TYPE_DATA\x10\r\x12\'\n#RESOURCE_TYPE_MATERIALIZATION_STATE\x10\x0e\x12\x19\n\x15RESOURCE_TYPE_MEMBERS\x10\x0f\x12.\n*RESOURCE_TYPE_PRINCIPAL_GROUPS_MEMBERSHIPS\x10\x10\x12\x1a\n\x16RESOURCE_TYPE_PLATFORM\x10\x11\x12\x1e\n\x1aRESOURCE_TYPE_SECRET_SCOPE\x10\x12\x12\x1f\n\x1bRESOURCE_TYPE_CLIENT_SECRET\x10\x13\x12%\n!RESOURCE_TYPE_INGEST_SERVER_GROUP\x10\x14\x12(\n$RESOURCE_TYPE_TRANSFORM_SERVER_GROUP\x10\x15\x42J\n\x0f\x63om.tecton.authP\x01Z5github.com/tecton-ai/tecton_proto/auth/resource_roles')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.auth.resource__client_pb2', globals())
@@ -22,5 +22,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\017com.tecton.authP\001Z5github.com/tecton-ai/tecton_proto/auth/resource_roles'
   _RESOURCETYPE._serialized_start=64
-  _RESOURCETYPE._serialized_end=695
+  _RESOURCETYPE._serialized_end=776
 # @@protoc_insertion_point(module_scope)

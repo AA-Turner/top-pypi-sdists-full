@@ -46,6 +46,17 @@ controlPlane:
   replicas: {{ 1 if sno or sno_vm else ctlplanes }}
 {% if techpreview %}
 featureSet: TechPreviewNoUpgrade
+{% elif ctlplanes == 2 %}
+  fencing:
+    credentials:
+{% for num in range(0, 2) %}
+    - hostname: {{ cluster }}-ctlplane-{{ num }}.{{ domain }}
+      address: http://{{ ksushy_ip|default('192.168.122.1') }}:9000/redfish/v1/Systems/{{ config_client }}/{{ cluster }}-ctlplane-{{ num }}
+      username: {{ bmc_user|default('dummy') }}
+      password: {{ bmc_password|default('dummy') }}
+      certificateVerification: Disabled
+{% endfor %}
+featureSet: DevPreviewNoUpgrade
 {% endif %}
 metadata:
   name: {{ cluster }}

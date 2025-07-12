@@ -2,7 +2,6 @@ import dataclasses
 import logging
 import re
 import typing
-from typing import Iterable
 from typing import Optional
 from typing import Union
 
@@ -27,13 +26,15 @@ from duckdb import DuckDBPyConnection
 from tecton_core import conf
 from tecton_core import duckdb_factory
 from tecton_core.errors import TectonValidationError
-from tecton_core.offline_store import OfflineStoreOptionsProvider
+from tecton_core.offline_store import S3Options
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.errors import SQLCompilationError
 from tecton_core.query.query_tree_compute import ComputeMonitor
 from tecton_core.query.query_tree_compute import SQLCompute
 from tecton_core.schema import Schema
 from tecton_core.schema_validation import CastError
+from tecton_core.schema_validation import cast_batch
+from tecton_core.schema_validation import tecton_schema_to_arrow_schema
 
 
 @dataclasses.dataclass
@@ -61,19 +62,20 @@ def extract_input_error_cause(e: duckdb.InvalidInputException) -> Optional[_Caus
 class DuckDBCompute(SQLCompute):
     session: "DuckDBPyConnection"
     is_debug: bool = attrs.field(init=False)
+    is_verbose_logs: bool = attrs.field(init=False)
     created_views: typing.List[str] = attrs.field(init=False)
-    offline_store_options: Iterable[OfflineStoreOptionsProvider] = ()
 
     @staticmethod
     def from_context(
-        offline_store_options: Iterable[OfflineStoreOptionsProvider] = (), duckdb_config: Optional[DuckDBConfig] = None
+        duckdb_config: Optional[DuckDBConfig] = None,
     ) -> "DuckDBCompute":
         return DuckDBCompute(
-            session=duckdb_factory.create_connection(duckdb_config), offline_store_options=offline_store_options
+            session=duckdb_factory.create_connection(duckdb_config),
         )
 
     def __attrs_post_init__(self):
         self.is_debug = conf.get_bool("DUCKDB_DEBUG")
+        self.is_verbose_logs = conf.QUERYTREE_VERBOSE.enabled()
         self.created_views = []
 
     def run_sql(
@@ -83,6 +85,7 @@ class DuckDBCompute(SQLCompute):
         expected_output_schema: Optional[Schema] = None,
         monitor: Optional[ComputeMonitor] = None,
         checkpoint_as: Optional[str] = None,
+        s3_options: Optional[S3Options] = None,
     ) -> Optional[pyarrow.RecordBatchReader]:
         # Notes on case sensitivity:
         # 1. DuckDB is case insensitive when referring to column names, though preserves the
@@ -95,7 +98,8 @@ class DuckDBCompute(SQLCompute):
         #    explicit schema specified. Thus ODFV definitions should reference the casing specified in the dependent
         #    FV's m13n schema.
         sql_string = sqlparse.format(sql_string, reindent=True)
-        if self.is_debug:
+
+        if self.is_verbose_logs:
             logging.warning(f"DUCKDB: run SQL {sql_string}")
 
         if monitor:
@@ -105,6 +109,18 @@ class DuckDBCompute(SQLCompute):
         # to be thread-safe. It avoids a mysterious "unsuccessful or closed pending query result" error too.
         try:
             cursor = self.session.cursor()
+            if s3_options:
+                assert s3_options.region, "AWS Region must be specified. Consider setting CLUSTER_REGION in tecton.conf"
+                cursor.execute(
+                    f"""CREATE OR REPLACE secret aws_secret (
+                     type s3,
+                     key_id '{s3_options.access_key_id}',
+                     secret '{s3_options.secret_access_key}',
+                     session_token '{s3_options.session_token}',
+                     endpoint 's3.{s3_options.region}.amazonaws.com',
+                     region '{s3_options.region}')"""
+                )
+
             # Although we set timezone globally, DuckDB still needs this cursor-level config to produce
             # correct arrow result. Otherwise, timestamps in arrow table will have a local timezone.
             cursor.sql("SET TimeZone='UTC'")
@@ -114,14 +130,28 @@ class DuckDBCompute(SQLCompute):
                 duckdb_relation = self.session.table(checkpoint_as)
 
             if return_dataframe:
-                res = duckdb_relation.fetch_arrow_reader(batch_size=int(conf.get_or_raise("DUCKDB_BATCH_SIZE")))
+                duckdb_reader = duckdb_relation.fetch_arrow_reader(
+                    batch_size=int(conf.get_or_raise("DUCKDB_BATCH_SIZE"))
+                )
+
+                if expected_output_schema:
+                    output_schema = tecton_schema_to_arrow_schema(expected_output_schema)
+                else:
+                    # Default to schema from reader (if needed)
+                    output_schema = duckdb_reader.schema
+
+                def batch_iterator():
+                    for batch in duckdb_reader:
+                        yield cast_batch(batch, output_schema)
+
+                res = pyarrow.RecordBatchReader.from_batches(output_schema, batch_iterator())
             else:
                 res = None
 
-            if self.is_debug:
+            if self.is_verbose_logs:
                 logging.warning(self.session.sql("FROM duckdb_memory()"))
 
-            return res
+            return monitor.monitored_arrow_reader(res) if monitor and res else res
         except duckdb.InvalidInputException as e:
             # This means that the iterator we passed into DuckDB failed. If it failed due a TectonValidationError
             # we want to unwrap that to get rid of the noisy DuckDB context which is generally irrelevant to the

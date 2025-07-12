@@ -137,7 +137,7 @@ class ObjectStoreLocation(_message.Message):
     def __init__(self, s3_location: _Optional[_Union[S3Location, _Mapping]] = ..., dbfs_location: _Optional[_Union[DBFSLocation, _Mapping]] = ..., gcs_location: _Optional[_Union[GCSLocation, _Mapping]] = ..., workspace_location: _Optional[_Union[DatabricksWorkspaceFileLocation, _Mapping]] = ...) -> None: ...
 
 class ObjectStoreLocations(_message.Message):
-    __slots__ = ["custom_environment_dependencies", "data_validation", "databricks_scripts", "emr_scripts", "feature_export", "feature_repo", "feature_server_configuration", "feature_server_logging", "intermediate_data", "job_metadata_table", "kafka_credentials_base", "materialization", "materialization_params", "model_artifacts", "observability_service_configuration", "push_api_configuration", "rift_logs", "self_serve_consumption", "streaming_checkpoint", "system_audit_logging", "transform_server_group_configuration", "transformation_config"]
+    __slots__ = ["custom_environment_dependencies", "data_validation", "databricks_scripts", "emr_scripts", "feature_export", "feature_repo", "feature_server_configuration", "feature_server_logging", "ingest_server_group_configuration", "intermediate_data", "job_metadata_table", "kafka_credentials_base", "materialization", "materialization_params", "model_artifacts", "observability_service_configuration", "push_api_configuration", "realtime_logs", "rift_bootstrap_scripts", "rift_logs", "self_serve_consumption", "streaming_checkpoint", "system_audit_logging", "transform_server_group_configuration", "transformation_config"]
     CUSTOM_ENVIRONMENT_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
     DATABRICKS_SCRIPTS_FIELD_NUMBER: _ClassVar[int]
     DATA_VALIDATION_FIELD_NUMBER: _ClassVar[int]
@@ -146,6 +146,7 @@ class ObjectStoreLocations(_message.Message):
     FEATURE_REPO_FIELD_NUMBER: _ClassVar[int]
     FEATURE_SERVER_CONFIGURATION_FIELD_NUMBER: _ClassVar[int]
     FEATURE_SERVER_LOGGING_FIELD_NUMBER: _ClassVar[int]
+    INGEST_SERVER_GROUP_CONFIGURATION_FIELD_NUMBER: _ClassVar[int]
     INTERMEDIATE_DATA_FIELD_NUMBER: _ClassVar[int]
     JOB_METADATA_TABLE_FIELD_NUMBER: _ClassVar[int]
     KAFKA_CREDENTIALS_BASE_FIELD_NUMBER: _ClassVar[int]
@@ -154,6 +155,8 @@ class ObjectStoreLocations(_message.Message):
     MODEL_ARTIFACTS_FIELD_NUMBER: _ClassVar[int]
     OBSERVABILITY_SERVICE_CONFIGURATION_FIELD_NUMBER: _ClassVar[int]
     PUSH_API_CONFIGURATION_FIELD_NUMBER: _ClassVar[int]
+    REALTIME_LOGS_FIELD_NUMBER: _ClassVar[int]
+    RIFT_BOOTSTRAP_SCRIPTS_FIELD_NUMBER: _ClassVar[int]
     RIFT_LOGS_FIELD_NUMBER: _ClassVar[int]
     SELF_SERVE_CONSUMPTION_FIELD_NUMBER: _ClassVar[int]
     STREAMING_CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -168,6 +171,7 @@ class ObjectStoreLocations(_message.Message):
     feature_repo: ObjectStoreLocation
     feature_server_configuration: ObjectStoreLocation
     feature_server_logging: ObjectStoreLocation
+    ingest_server_group_configuration: ObjectStoreLocation
     intermediate_data: ObjectStoreLocation
     job_metadata_table: ObjectStoreLocation
     kafka_credentials_base: ObjectStoreLocation
@@ -176,13 +180,15 @@ class ObjectStoreLocations(_message.Message):
     model_artifacts: ObjectStoreLocation
     observability_service_configuration: ObjectStoreLocation
     push_api_configuration: ObjectStoreLocation
+    realtime_logs: ObjectStoreLocation
+    rift_bootstrap_scripts: ObjectStoreLocation
     rift_logs: ObjectStoreLocation
     self_serve_consumption: ObjectStoreLocation
     streaming_checkpoint: ObjectStoreLocation
     system_audit_logging: ObjectStoreLocation
     transform_server_group_configuration: ObjectStoreLocation
     transformation_config: ObjectStoreLocation
-    def __init__(self, materialization: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., streaming_checkpoint: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_server_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_repo: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., emr_scripts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., materialization_params: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., intermediate_data: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_server_logging: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., kafka_credentials_base: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., job_metadata_table: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., push_api_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., data_validation: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., observability_service_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., system_audit_logging: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., databricks_scripts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., self_serve_consumption: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., custom_environment_dependencies: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_export: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., transformation_config: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., model_artifacts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., rift_logs: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., transform_server_group_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ...) -> None: ...
+    def __init__(self, materialization: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., streaming_checkpoint: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_server_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_repo: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., emr_scripts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., materialization_params: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., intermediate_data: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_server_logging: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., kafka_credentials_base: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., job_metadata_table: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., push_api_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., data_validation: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., observability_service_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., system_audit_logging: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., databricks_scripts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., self_serve_consumption: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., custom_environment_dependencies: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., feature_export: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., transformation_config: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., model_artifacts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., rift_logs: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., transform_server_group_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., realtime_logs: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., rift_bootstrap_scripts: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ..., ingest_server_group_configuration: _Optional[_Union[ObjectStoreLocation, _Mapping]] = ...) -> None: ...
 
 class S3Location(_message.Message):
     __slots__ = ["path", "role"]

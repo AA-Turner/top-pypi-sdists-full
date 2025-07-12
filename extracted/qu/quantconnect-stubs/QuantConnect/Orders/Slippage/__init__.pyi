@@ -17,18 +17,6 @@ class ISlippageModel(metaclass=abc.ABCMeta):
         ...
 
 
-class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Represents a slippage model that uses a constant percentage of slip"""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the AlphaStreamsSlippageModel class"""
-        ...
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Return a decimal cash slippage approximation on the order."""
-        ...
-
-
 class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """Represents a slippage model that uses a constant percentage of slip"""
 
@@ -45,14 +33,15 @@ class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippag
         ...
 
 
-class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Null slippage model, which provider no slippage"""
+class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Represents a slippage model that uses a constant percentage of slip"""
 
-    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
-    """The null slippage model instance"""
+    def __init__(self) -> None:
+        """Initializes a new instance of the AlphaStreamsSlippageModel class"""
+        ...
 
     def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Will return no slippage"""
+        """Return a decimal cash slippage approximation on the order."""
         ...
 
 
@@ -100,6 +89,17 @@ class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlip
 
     def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
         """Slippage Model. Return a decimal cash slippage approximation on the order."""
+        ...
+
+
+class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Null slippage model, which provider no slippage"""
+
+    INSTANCE: QuantConnect.Orders.Slippage.NullSlippageModel
+    """The null slippage model instance"""
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Will return no slippage"""
         ...
 
 

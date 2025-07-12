@@ -39,14 +39,14 @@ class SiteHelpAutoTests(unittest.TestCase):
         start = time.time()
         while time.time() - start < timeout:
             try:
-                with socket.create_connection(("localhost", port), timeout=1):
+                with socket.create_connection(("127.0.0.1", port), timeout=1):
                     return
             except OSError:
                 time.sleep(0.2)
         raise TimeoutError(f"Port {port} not responding after {timeout} seconds")
 
     def test_help_search_finds_builtin(self):
-        url = self.base_url + "/site/help"
+        url = self.base_url + "/web/site/help"
         try:
             with gw.web.auto.browse(url=url) as drv:
                 textarea = drv.find_element(By.ID, "help-search")
@@ -63,7 +63,7 @@ class SiteHelpAutoTests(unittest.TestCase):
 
     def test_search_box_autoexpands(self):
         """Search box should grow taller when text wraps to new lines."""
-        url = self.base_url + "/site/help"
+        url = self.base_url + "/web/site/help"
         long_text = "word " * 50
         try:
             with gw.web.auto.browse(url=url) as drv:

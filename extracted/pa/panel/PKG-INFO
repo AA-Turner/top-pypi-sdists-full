@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: panel
-Version: 1.7.3
+Version: 1.7.4
 Summary: The powerful data exploration & web app framework for Python.
 Project-URL: Homepage, https://panel.holoviz.org
 Project-URL: Source, https://github.com/holoviz/panel
@@ -48,7 +48,7 @@ Requires-Dist: typing-extensions
 Provides-Extra: dev
 Requires-Dist: watchfiles; extra == 'dev'
 Provides-Extra: fastapi
-Requires-Dist: bokeh-fastapi>=0.1.1; extra == 'fastapi'
+Requires-Dist: bokeh-fastapi<0.2.0,>=0.1.2; extra == 'fastapi'
 Requires-Dist: fastapi[standard]; extra == 'fastapi'
 Provides-Extra: mypy
 Requires-Dist: mypy; extra == 'mypy'

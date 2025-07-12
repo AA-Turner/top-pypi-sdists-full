@@ -12,7 +12,7 @@ use sqruff_lib_core::parser::grammar::sequence::{Bracketed, Sequence};
 use sqruff_lib_core::parser::lexer::Matcher;
 use sqruff_lib_core::parser::matchable::MatchableTrait;
 use sqruff_lib_core::parser::node_matcher::NodeMatcher;
-use sqruff_lib_core::parser::parsers::TypedParser;
+use sqruff_lib_core::parser::parsers::{StringParser, TypedParser};
 use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::ParseMode;
 use sqruff_lib_core::vec_of_erased;
@@ -102,6 +102,34 @@ pub fn dialect() -> Dialect {
         .to_matchable(),
     );
 
+    clickhouse_dialect.replace_grammar(
+        "OrderByClauseSegment",
+        Sequence::new(vec_of_erased![
+            Ref::keyword("ORDER"),
+            Ref::keyword("BY"),
+            MetaSegment::indent(),
+            Delimited::new(vec_of_erased![Sequence::new(vec_of_erased![
+                one_of(vec_of_erased![
+                    Ref::new("ColumnReferenceSegment"),
+                    Ref::new("NumericLiteralSegment"),
+                    Ref::new("ExpressionSegment"),
+                ]),
+                one_of(vec_of_erased![Ref::keyword("ASC"), Ref::keyword("DESC"),])
+                    .config(|this| this.optional()),
+                Sequence::new(vec_of_erased![
+                    Ref::keyword("NULLS"),
+                    one_of(vec_of_erased![Ref::keyword("FIRST"), Ref::keyword("LAST"),]),
+                ])
+                .config(|this| this.optional()),
+                Ref::new("WithFillSegment").optional(),
+            ])])
+            .config(|this| this.terminators =
+                vec_of_erased![Ref::keyword("LIMIT"), Ref::new("FrameClauseUnitGrammar")]),
+            MetaSegment::dedent(),
+        ])
+        .to_matchable(),
+    );
+
     clickhouse_dialect.add([
         (
             "BackQuotedIdentifierSegment".into(),
@@ -139,84 +167,91 @@ pub fn dialect() -> Dialect {
     clickhouse_dialect.add(vec![
         (
             "JoinTypeKeywords".into(),
-            one_of(vec_of_erased![
-                // This case INNER [ANY,ALL] JOIN
-                Sequence::new(vec_of_erased![
-                    Ref::keyword("INNER"),
-                    one_of(vec_of_erased![Ref::keyword("ALL"), Ref::keyword("ANY")])
-                        .config(|this| this.optional()),
-                ]),
-                // This case [ANY,ALL] INNER JOIN
-                Sequence::new(vec_of_erased![
-                    one_of(vec_of_erased![Ref::keyword("ALL"), Ref::keyword("ANY")])
-                        .config(|this| this.optional()),
-                    Ref::keyword("INNER"),
-                ]),
-                // This case FULL ALL OUTER JOIN
-                Sequence::new(vec_of_erased![
-                    Ref::keyword("FULL"),
-                    Ref::keyword("ALL").optional(),
-                    Ref::keyword("OUTER").optional(),
-                ]),
-                // This case ALL FULL OUTER JOIN
-                Sequence::new(vec_of_erased![
-                    Ref::keyword("ALL").optional(),
-                    Ref::keyword("FULL"),
-                    Ref::keyword("OUTER").optional(),
-                ]),
-                // This case LEFT [OUTER,ANTI,SEMI,ANY,ASOF] JOIN
-                Sequence::new(vec_of_erased![
-                    Ref::keyword("LEFT"),
-                    one_of(vec_of_erased![
-                        Ref::keyword("ANTI"),
-                        Ref::keyword("SEMI"),
-                        one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
-                            .config(|this| this.optional()),
-                        Ref::keyword("ASOF"),
-                    ])
-                    .config(|this| this.optional()),
-                    Ref::keyword("OUTER").optional(),
-                ]),
-                // This case [ANTI,SEMI,ANY,ASOF] LEFT JOIN
-                Sequence::new(vec_of_erased![
-                    one_of(vec_of_erased![
-                        Ref::keyword("ANTI"),
-                        Ref::keyword("SEMI"),
-                        one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
-                            .config(|this| this.optional()),
-                        Ref::keyword("ASOF"),
-                    ]),
-                    Ref::keyword("LEFT"),
-                ]),
-                // This case RIGHT [OUTER,ANTI,SEMI,ANY,ASOF] JOIN
-                Sequence::new(vec_of_erased![
-                    Ref::keyword("RIGHT"),
-                    one_of(vec_of_erased![
-                        Ref::keyword("OUTER"),
-                        Ref::keyword("ANTI"),
-                        Ref::keyword("SEMI"),
-                        one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
-                            .config(|this| this.optional()),
-                    ])
-                    .config(|this| this.optional()),
-                    Ref::keyword("OUTER").optional(),
-                ]),
-                // This case [OUTER,ANTI,SEMI,ANY] RIGHT JOIN
-                Sequence::new(vec_of_erased![
-                    one_of(vec_of_erased![
-                        Ref::keyword("ANTI"),
-                        Ref::keyword("SEMI"),
-                        one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
+            Sequence::new(vec_of_erased![
+                Ref::keyword("GLOBAL").optional(),
+                one_of(vec_of_erased![
+                    // This case INNER [ANY,ALL] JOIN
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("INNER"),
+                        one_of(vec_of_erased![Ref::keyword("ALL"), Ref::keyword("ANY")])
                             .config(|this| this.optional()),
                     ]),
-                    Ref::keyword("RIGHT"),
-                ]),
-                // This case CROSS JOIN
-                Ref::keyword("CROSS"),
-                // This case ANY JOIN
-                Ref::keyword("ANY"),
-                // This case ALL JOIN
-                Ref::keyword("ALL"),
+                    // This case [ANY,ALL] INNER JOIN
+                    Sequence::new(vec_of_erased![
+                        one_of(vec_of_erased![Ref::keyword("ALL"), Ref::keyword("ANY")])
+                            .config(|this| this.optional()),
+                        Ref::keyword("INNER"),
+                    ]),
+                    // This case FULL ALL OUTER JOIN
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("FULL"),
+                        Ref::keyword("ALL").optional(),
+                        Ref::keyword("OUTER").optional(),
+                    ]),
+                    // This case ALL FULL OUTER JOIN
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("ALL").optional(),
+                        Ref::keyword("FULL"),
+                        Ref::keyword("OUTER").optional(),
+                    ]),
+                    // This case LEFT [OUTER,ANTI,SEMI,ANY,ASOF] JOIN
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("LEFT"),
+                        one_of(vec_of_erased![
+                            Ref::keyword("ANTI"),
+                            Ref::keyword("SEMI"),
+                            one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
+                                .config(|this| this.optional()),
+                            Ref::keyword("ASOF"),
+                        ])
+                        .config(|this| this.optional()),
+                        Ref::keyword("OUTER").optional(),
+                    ]),
+                    // This case [ANTI,SEMI,ANY,ASOF] LEFT JOIN
+                    Sequence::new(vec_of_erased![
+                        one_of(vec_of_erased![
+                            Ref::keyword("ANTI"),
+                            Ref::keyword("SEMI"),
+                            one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
+                                .config(|this| this.optional()),
+                            Ref::keyword("ASOF"),
+                        ]),
+                        Ref::keyword("LEFT"),
+                    ]),
+                    // This case RIGHT [OUTER,ANTI,SEMI,ANY,ASOF] JOIN
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("RIGHT"),
+                        one_of(vec_of_erased![
+                            Ref::keyword("OUTER"),
+                            Ref::keyword("ANTI"),
+                            Ref::keyword("SEMI"),
+                            one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
+                                .config(|this| this.optional()),
+                        ])
+                        .config(|this| this.optional()),
+                        Ref::keyword("OUTER").optional(),
+                    ]),
+                    // This case [OUTER,ANTI,SEMI,ANY] RIGHT JOIN
+                    Sequence::new(vec_of_erased![
+                        one_of(vec_of_erased![
+                            Ref::keyword("ANTI"),
+                            Ref::keyword("SEMI"),
+                            one_of(vec_of_erased![Ref::keyword("ANY"), Ref::keyword("ALL")])
+                                .config(|this| this.optional()),
+                        ]),
+                        Ref::keyword("RIGHT"),
+                    ]),
+                    // This case CROSS JOIN
+                    Ref::keyword("CROSS"),
+                    // This case PASTE JOIN
+                    Ref::keyword("PASTE"),
+                    // This case ASOF JOIN
+                    Ref::keyword("ASOF"),
+                    // This case ANY JOIN
+                    Ref::keyword("ANY"),
+                    // This case ALL JOIN
+                    Ref::keyword("ALL"),
+                ])
             ])
             .to_matchable()
             .into(),
@@ -243,13 +278,111 @@ pub fn dialect() -> Dialect {
         .into(),
     )]);
 
+    clickhouse_dialect.add([
+        (
+            "JoinLikeClauseGrammar".into(),
+            Sequence::new(vec_of_erased![
+                AnyNumberOf::new(vec_of_erased![Ref::new("ArrayJoinClauseSegment")])
+                    .config(|this| this.min_times(1)),
+                Ref::new("AliasExpressionSegment").optional(),
+            ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "InOperatorGrammar".into(),
+            Sequence::new(vec_of_erased![
+                Ref::keyword("GLOBAL").optional(),
+                Ref::keyword("NOT").optional(),
+                Ref::keyword("IN"),
+                one_of(vec_of_erased![
+                    Bracketed::new(vec_of_erased![one_of(vec_of_erased![
+                        Delimited::new(vec_of_erased![Ref::new("Expression_A_Grammar"),]),
+                        Ref::new("SelectableGrammar"),
+                    ])])
+                    .config(|this| this.parse_mode(ParseMode::Greedy)),
+                    Ref::new("FunctionSegment"), // E.g. UNNEST() or tuple()
+                ])
+            ])
+            .to_matchable()
+            .into(),
+        ),
+    ]);
+
     clickhouse_dialect.add([(
-        "JoinLikeClauseGrammar".into(),
+        "WithFillSegment".into(),
         Sequence::new(vec_of_erased![
-            AnyNumberOf::new(vec_of_erased![Ref::new("ArrayJoinClauseSegment")])
-                .config(|this| this.min_times(1)),
-            Ref::new("AliasExpressionSegment").optional(),
+            Ref::keyword("WITH"),
+            Ref::keyword("FILL"),
+            Sequence::new(vec_of_erased![
+                Ref::keyword("FROM"),
+                Ref::new("ExpressionSegment"),
+            ])
+            .config(|this| this.optional()),
+            Sequence::new(vec_of_erased![
+                Ref::keyword("TO"),
+                Ref::new("ExpressionSegment"),
+            ])
+            .config(|this| this.optional()),
+            Sequence::new(vec_of_erased![
+                Ref::keyword("STEP"),
+                one_of(vec_of_erased![
+                    Ref::new("NumericLiteralSegment"),
+                    Ref::new("IntervalExpressionSegment"),
+                ])
+            ])
+            .config(|this| this.optional()),
         ])
+        .to_matchable()
+        .into(),
+    )]);
+
+    clickhouse_dialect.replace_grammar(
+        "DatatypeSegment",
+        one_of(vec_of_erased![
+            Sequence::new(vec_of_erased![
+                StringParser::new("NULLABLE", SyntaxKind::DataTypeIdentifier),
+                Bracketed::new(vec_of_erased![Ref::new("DatatypeSegment")]),
+            ]),
+            Ref::new("TupleTypeSegment"),
+            Ref::new("DatatypeIdentifierSegment"),
+            Ref::new("NumericLiteralSegment"),
+            Sequence::new(vec_of_erased![
+                StringParser::new("DATETIME64", SyntaxKind::DataTypeIdentifier),
+                Bracketed::new(vec_of_erased![
+                    Delimited::new(vec_of_erased![
+                        Ref::new("NumericLiteralSegment"),           // precision
+                        Ref::new("QuotedLiteralSegment").optional(), // timezone
+                    ])
+                    // The brackets might be empty as well
+                    .config(|this| {
+                        this.optional();
+                    }),
+                ])
+                .config(|this| this.optional()),
+            ]),
+        ])
+        .to_matchable(),
+    );
+
+    clickhouse_dialect.add([(
+        "TupleTypeSegment".into(),
+        Sequence::new(vec_of_erased![
+            Ref::keyword("TUPLE"),
+            Ref::new("TupleTypeSchemaSegment"), // Tuple() can't be empty
+        ])
+        .to_matchable()
+        .into(),
+    )]);
+
+    clickhouse_dialect.add([(
+        "TupleTypeSchemaSegment".into(),
+        Bracketed::new(vec_of_erased![Delimited::new(vec_of_erased![
+            Sequence::new(vec_of_erased![
+                Ref::new("SingleIdentifierGrammar"),
+                Ref::new("DatatypeSegment"),
+            ])
+        ])])
         .to_matchable()
         .into(),
     )]);
@@ -708,6 +841,25 @@ pub fn dialect() -> Dialect {
         .to_matchable(),
     );
 
+    clickhouse_dialect.replace_grammar(
+        "CreateViewStatementSegment",
+        NodeMatcher::new(SyntaxKind::CreateViewStatement, |_| {
+            Sequence::new(vec_of_erased![
+                Ref::keyword("CREATE"),
+                Ref::new("OrReplaceGrammar").optional(),
+                Ref::keyword("VIEW"),
+                Ref::new("IfNotExistsGrammar").optional(),
+                Ref::new("TableReferenceSegment"),
+                Ref::new("OnClusterClauseSegment").optional(),
+                Ref::keyword("AS"),
+                Ref::new("SelectableGrammar"),
+                Ref::new("TableEndClauseSegment").optional()
+            ])
+            .to_matchable()
+        })
+        .to_matchable(),
+    );
+
     clickhouse_dialect.add([(
         "CreateMaterializedViewStatementSegment".into(),
         NodeMatcher::new(SyntaxKind::CreateMaterializedViewStatement, |_| {
@@ -1134,6 +1286,51 @@ pub fn dialect() -> Dialect {
             Vec::new(),
             false,
         ),
+    );
+
+    clickhouse_dialect.add([(
+        "LimitClauseComponentSegment".into(),
+        optionally_bracketed(vec_of_erased![one_of(vec_of_erased![
+            Ref::new("NumericLiteralSegment"),
+            Ref::new("ExpressionSegment"),
+        ])])
+        .to_matchable()
+        .into(),
+    )]);
+
+    clickhouse_dialect.replace_grammar(
+        "LimitClauseSegment",
+        Sequence::new(vec_of_erased![
+            Ref::keyword("LIMIT"),
+            MetaSegment::indent(),
+            Sequence::new(vec_of_erased![
+                Ref::new("LimitClauseComponentSegment"),
+                one_of(vec_of_erased![
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("OFFSET"),
+                        Ref::new("LimitClauseComponentSegment"),
+                    ]),
+                    Sequence::new(vec_of_erased![
+                        // LIMIT 1,2 only accepts constants
+                        // and can't be bracketed like that LIMIT (1, 2)
+                        // but can be bracketed like that LIMIT (1), (2)
+                        Ref::new("CommaSegment"),
+                        Ref::new("LimitClauseComponentSegment"),
+                    ]),
+                ])
+                .config(|this| this.optional()),
+                Sequence::new(vec_of_erased![
+                    Ref::keyword("BY"),
+                    one_of(vec_of_erased![
+                        Ref::new("BracketedColumnReferenceListGrammar"),
+                        Ref::new("ColumnReferenceSegment"),
+                    ]),
+                ])
+                .config(|this| this.optional()),
+            ]),
+            MetaSegment::dedent(),
+        ])
+        .to_matchable(),
     );
 
     clickhouse_dialect.expand();

@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -695,6 +695,7 @@ class Dataset(APIObject, BrowserMixin):
         persist_data_after_ingestion: Optional[bool] = None,
         categories: Optional[List[str]] = None,
         credential: Optional[Credential] = None,
+        credential_id: Optional[str] = None,
         use_kerberos: Optional[bool] = None,
         materialization_destination: Optional[MaterializationDestination] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
@@ -722,6 +723,8 @@ class Dataset(APIObject, BrowserMixin):
         data = _remove_empty_params(base_data)
         if credential is not None:
             data["credential_id"] = credential.credential_id
+        elif credential_id is not None:
+            data["credential_id"] = credential_id
 
         upload_url = f"{cls._path}fromRecipe/"
         response = cls._client.post(upload_url, data=data)
@@ -1558,6 +1561,65 @@ class Dataset(APIObject, BrowserMixin):
             data["credential_data"] = CredentialDataSchema(data["credential_data"])
 
         upload_url = f"{cls._path}{dataset_id}/versions/fromDataSource/"
+        response = cls._client.post(upload_url, data=data)
+
+        new_dataset_location = wait_for_async_resolution(
+            cls._client, response.headers["Location"], max_wait
+        )
+        return cls.from_location(new_dataset_location)
+
+    @classmethod
+    def create_version_from_recipe(
+        cls: Type[TDataset],
+        dataset_id: str,
+        recipe: Recipe,
+        credential: Optional[Credential] = None,
+        credential_id: Optional[str] = None,
+        use_kerberos: Optional[bool] = None,
+        max_wait: int = DEFAULT_MAX_WAIT,
+    ) -> TDataset:
+        """
+        A blocking call that creates a new Dataset version from Recipe.
+        Returns when the dataset has been successfully uploaded and processed.
+
+        .. versionadded:: v3.8
+
+        Parameters
+        ----------
+        dataset_id: string
+            The ID of the dataset for which a new version will be created.
+        recipe: Recipe
+            The Recipe to use to create a new dataset version.
+        credential: Credential, optional
+            The credentials to authenticate with the database.
+        credential_id: string, optional
+            The ID of the set of credentials to use instead of Credential object.
+        use_kerberos: Optional[bool]
+            If unset, uses the server default: False.
+            If true, use kerberos authentication for database authentication.
+        max_wait: Optional[int]
+            Time in seconds after which project creation is considered unsuccessful.
+
+        Returns
+        -------
+        response: Dataset
+            The Dataset version created from the uploaded data
+        """
+        base_data = {
+            "recipe_id": recipe.id,
+            "use_kerberos": use_kerberos,
+        }
+        data = _remove_empty_params(
+            params_dict=base_data,
+            required_params={"recipe_id"},
+        )
+
+        if credential is not None:
+            data["credential_id"] = credential.credential_id
+        elif credential_id is not None:
+            data["credential_id"] = credential_id
+
+        upload_url = f"{cls._path}{dataset_id}/versions/fromRecipe/"
         response = cls._client.post(upload_url, data=data)
 
         new_dataset_location = wait_for_async_resolution(

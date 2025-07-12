@@ -1,35 +1,27 @@
 Metadata-Version: 2.4
 Name: openlineage-dbt
-Version: 1.34.0
+Version: 1.35.0
 Summary: OpenLineage integration with dbt
 Author: OpenLineage
 Keywords: openlineage
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: tqdm>=4.62.0
-Requires-Dist: openlineage-integration-common[dbt]==1.34.0
+Requires-Dist: openlineage-integration-common==1.35.0
+Requires-Dist: dbt-core>=1.0.0
 Provides-Extra: tests
-Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest>=7.0.0; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-xdist>=2.5.0; extra == "tests"
 Requires-Dist: mock; extra == "tests"
 Requires-Dist: ruff; extra == "tests"
 Requires-Dist: mypy>=0.9.6; extra == "tests"
 Requires-Dist: python-dateutil; extra == "tests"
+Requires-Dist: requests>=2.25.0; extra == "tests"
+Requires-Dist: docker>=6.0.0; extra == "tests"
 Provides-Extra: dev
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: python-dateutil; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: mypy>=0.9.6; extra == "dev"
-Requires-Dist: mock; extra == "dev"
-Dynamic: author
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: keywords
-Dynamic: provides-extra
-Dynamic: requires-dist
+Requires-Dist: openlineage-dbt[tests]; extra == "dev"
 Dynamic: requires-python
-Dynamic: summary
 
 # OpenLineage dbt integration
 

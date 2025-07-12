@@ -23,8 +23,6 @@ from tecton_proto.modelartifactservice import model_artifact_data__client_pb2 as
 
 
 def _get_timestamp_field(feature_view_args: feature_view_pb2.FeatureViewArgs, view_schema: schema_pb2.Schema) -> str:
-    timestamp_key = ""
-
     if feature_view_args.materialized_feature_view_args.HasField("timestamp_field"):
         timestamp_key = feature_view_args.materialized_feature_view_args.timestamp_field
     else:
@@ -104,7 +102,7 @@ def compute_features_schema_from_feature_definition(
     for aggregation in fd.fv_spec.aggregate_features:
         input_column = view_schema_column_map[aggregation.input_feature_name]
         input_type = tecton_types.data_type_from_proto(input_column.offline_data_type)
-        tecton_type = get_aggregation_function_result_type(aggregation.function, input_type)
+        tecton_type = get_aggregation_function_result_type(aggregation, input_type)
 
         column_proto = schema_pb2.Column()
         column_proto.CopyFrom(core_schema.column_from_tecton_data_type(tecton_type))
@@ -197,12 +195,17 @@ def compute_aggregate_materialization_schema_from_view_schema(
     return schema_pb2.Schema(columns=materialization_schema_columns)
 
 
-def compute_batch_table_format(
+def compute_batch_table_format_for_compaction(
     feature_view_args: feature_view_pb2.FeatureViewArgs,
     view_schema: schema_pb2.Schema,
 ) -> schema_pb2.OnlineBatchTableFormat:
     aggregations = feature_view_args.materialized_feature_view_args.aggregations
     if aggregations:
+        has_time_window_series = any(aggregation.HasField("time_window_series") for aggregation in aggregations)
+        if has_time_window_series:
+            msg = "Time Window Series aggregations are not supported when compaction is enabled."
+            raise errors.TectonValidationError(msg)
+
         is_continuous = (
             feature_view_args.materialized_feature_view_args.stream_processing_mode
             == feature_view_pb2.StreamProcessingMode.STREAM_PROCESSING_MODE_CONTINUOUS
@@ -211,7 +214,7 @@ def compute_batch_table_format(
 
     join_keys = specs.get_join_keys_from_feature_view_args(feature_view_args)
     ttl = utils.get_duration_field_or_none(feature_view_args.materialized_feature_view_args, "serving_ttl")
-    timestamp_field = specs.resolve_timestamp_field(feature_view_args, view_schema)
+    timestamp_field = specs.resolve_timestamp_field_for_materialized_feature_view(feature_view_args, view_schema)
     return _compute_batch_table_schema_for_temporal_feature_view(view_schema, join_keys, timestamp_field, ttl)
 
 

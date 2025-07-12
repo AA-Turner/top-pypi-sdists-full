@@ -2,6 +2,7 @@ from google.protobuf import descriptor_pb2 as _descriptor_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tecton_proto.args import feature_view__client_pb2 as _feature_view__client_pb2
 from tecton_proto.auth import service__client_pb2 as _service__client_pb2
+from tecton_proto.common import compute_identity__client_pb2 as _compute_identity__client_pb2
 from tecton_proto.common import compute_mode__client_pb2 as _compute_mode__client_pb2
 from tecton_proto.common import id__client_pb2 as _id__client_pb2
 from tecton_proto.common import schema__client_pb2 as _schema__client_pb2
@@ -15,6 +16,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 TEST_ONLY_MATERIALIZATION_JOB_TYPE_BATCH: TestOnlyMaterializationJobType
 TEST_ONLY_MATERIALIZATION_JOB_TYPE_DATASET_GENERATION: TestOnlyMaterializationJobType
+TEST_ONLY_MATERIALIZATION_JOB_TYPE_ICEBERG_MAINTENANCE: TestOnlyMaterializationJobType
 TEST_ONLY_MATERIALIZATION_JOB_TYPE_INGEST: TestOnlyMaterializationJobType
 TEST_ONLY_MATERIALIZATION_JOB_TYPE_MAINTENANCE: TestOnlyMaterializationJobType
 TEST_ONLY_MATERIALIZATION_JOB_TYPE_STREAM: TestOnlyMaterializationJobType
@@ -190,18 +192,20 @@ class IngestDataframeFromS3Response(_message.Message):
     def __init__(self, job: _Optional[_Union[MaterializationJob, _Mapping]] = ...) -> None: ...
 
 class JobAttempt(_message.Message):
-    __slots__ = ["created_at", "id", "run_url", "state", "updated_at"]
+    __slots__ = ["compute_identity", "created_at", "id", "run_url", "state", "updated_at"]
+    COMPUTE_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
     RUN_URL_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    compute_identity: _compute_identity__client_pb2.ComputeIdentity
     created_at: _timestamp_pb2.Timestamp
     id: str
     run_url: str
     state: str
     updated_at: _timestamp_pb2.Timestamp
-    def __init__(self, id: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[str] = ..., run_url: _Optional[str] = ...) -> None: ...
+    def __init__(self, id: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[str] = ..., run_url: _Optional[str] = ..., compute_identity: _Optional[_Union[_compute_identity__client_pb2.ComputeIdentity, _Mapping]] = ...) -> None: ...
 
 class ListJobsRequest(_message.Message):
     __slots__ = ["feature_service", "feature_view", "workspace"]
@@ -282,7 +286,7 @@ class MaterializationJobResponse(_message.Message):
     def __init__(self, job: _Optional[_Union[MaterializationJob, _Mapping]] = ...) -> None: ...
 
 class StartDatasetJobRequest(_message.Message):
-    __slots__ = ["cluster_config", "compute_mode", "dataset_name", "datetime_range", "environment", "expected_schema", "extra_config", "feature_service_id", "feature_view_id", "from_source", "spine", "tecton_runtime", "workspace"]
+    __slots__ = ["cluster_config", "compute_mode", "dataset_name", "datetime_range", "environment", "expected_schema", "extra_config", "feature_service_id", "feature_view_id", "from_source", "job_retry_times", "spine", "tecton_runtime", "workspace"]
     class DateTimeRangeInput(_message.Message):
         __slots__ = ["end", "entities_path", "max_lookback", "start"]
         END_FIELD_NUMBER: _ClassVar[int]
@@ -320,6 +324,7 @@ class StartDatasetJobRequest(_message.Message):
     FEATURE_SERVICE_ID_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEW_ID_FIELD_NUMBER: _ClassVar[int]
     FROM_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    JOB_RETRY_TIMES_FIELD_NUMBER: _ClassVar[int]
     SPINE_FIELD_NUMBER: _ClassVar[int]
     TECTON_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
@@ -333,10 +338,11 @@ class StartDatasetJobRequest(_message.Message):
     feature_service_id: _id__client_pb2.Id
     feature_view_id: _id__client_pb2.Id
     from_source: bool
+    job_retry_times: int
     spine: StartDatasetJobRequest.SpineInput
     tecton_runtime: str
     workspace: str
-    def __init__(self, compute_mode: _Optional[_Union[_compute_mode__client_pb2.BatchComputeMode, str]] = ..., from_source: bool = ..., workspace: _Optional[str] = ..., feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_view_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., spine: _Optional[_Union[StartDatasetJobRequest.SpineInput, _Mapping]] = ..., datetime_range: _Optional[_Union[StartDatasetJobRequest.DateTimeRangeInput, _Mapping]] = ..., dataset_name: _Optional[str] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., tecton_runtime: _Optional[str] = ..., environment: _Optional[str] = ..., extra_config: _Optional[_Mapping[str, str]] = ..., expected_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ...) -> None: ...
+    def __init__(self, compute_mode: _Optional[_Union[_compute_mode__client_pb2.BatchComputeMode, str]] = ..., from_source: bool = ..., workspace: _Optional[str] = ..., feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_view_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., spine: _Optional[_Union[StartDatasetJobRequest.SpineInput, _Mapping]] = ..., datetime_range: _Optional[_Union[StartDatasetJobRequest.DateTimeRangeInput, _Mapping]] = ..., dataset_name: _Optional[str] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., tecton_runtime: _Optional[str] = ..., environment: _Optional[str] = ..., extra_config: _Optional[_Mapping[str, str]] = ..., expected_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., job_retry_times: _Optional[int] = ...) -> None: ...
 
 class StartDatasetJobResponse(_message.Message):
     __slots__ = ["job"]
@@ -407,10 +413,14 @@ class TestOnlyOnlineTableNameResponse(_message.Message):
     def __init__(self, table_name: _Optional[str] = ...) -> None: ...
 
 class TestOnlyWriteFeatureServerConfigRequest(_message.Message):
-    __slots__ = ["absolute_filepath"]
+    __slots__ = ["absolute_filepath", "transform_server_filepath", "workspace"]
     ABSOLUTE_FILEPATH_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORM_SERVER_FILEPATH_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     absolute_filepath: str
-    def __init__(self, absolute_filepath: _Optional[str] = ...) -> None: ...
+    transform_server_filepath: str
+    workspace: str
+    def __init__(self, absolute_filepath: _Optional[str] = ..., transform_server_filepath: _Optional[str] = ..., workspace: _Optional[str] = ...) -> None: ...
 
 class TestOnlyWriteFeatureServerConfigResponse(_message.Message):
     __slots__ = []

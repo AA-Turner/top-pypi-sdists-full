@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: snakemake-interface-executor-plugins
-Version: 9.3.7
+Version: 9.3.8
 Summary: This package provides a stable interface for interactions between Snakemake and its executor plugins.
 License: MIT
 Author: Johannes Köster

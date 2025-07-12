@@ -1,5 +1,5 @@
 #
-# Copyright 2023 DataRobot, Inc. and its affiliates.
+# Copyright 2023-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -73,6 +73,7 @@ metric_metadata_trafaret = t.Dict(
         t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
         t.Key("cost_configuration_id", optional=True): t.Or(t.String, t.Null),
         t.Key("llm_is_deprecated", optional=True): t.Or(t.Bool, t.Null),
+        t.Key("custom_model_guard_id", optional=True): t.Or(t.String, t.Null),
     }
 ).ignore_extra("*")
 
@@ -157,6 +158,7 @@ class MetricMetadataDict(TypedDict):
     evaluation_dataset_configuration_id: Optional[str]
     cost_configuration_id: Optional[str]
     llm_is_deprecated: Optional[bool]
+    custom_model_guard_id: Optional[str]
 
 
 class ResultMetadata(APIObject):
@@ -325,7 +327,8 @@ class MetricMetadata(APIObject):
         The ID of the cost configuration associated with the metric, if any.
     llm_is_deprecated : Optional[bool], optional
         Whether the LLM is deprecated and will be removed in a future release.
-
+    custom_model_guard_id : Optional[str], optional
+        The ID of the custom model's guard associated with the metric, if applicable.
     """
 
     _converter = metric_metadata_trafaret
@@ -340,6 +343,7 @@ class MetricMetadata(APIObject):
         evaluation_dataset_configuration_id: Optional[str] = None,
         cost_configuration_id: Optional[str] = None,
         llm_is_deprecated: Optional[bool] = None,
+        custom_model_guard_id: Optional[str] = None,
     ):
         self.name = name
         self.value = value
@@ -349,6 +353,7 @@ class MetricMetadata(APIObject):
         self.evaluation_dataset_configuration_id = evaluation_dataset_configuration_id
         self.cost_configuration_id = cost_configuration_id
         self.llm_is_deprecated = llm_is_deprecated
+        self.custom_model_guard_id = custom_model_guard_id
 
     def __repr__(self) -> str:
         return (
@@ -367,6 +372,7 @@ class MetricMetadata(APIObject):
             "evaluation_dataset_configuration_id": self.evaluation_dataset_configuration_id,
             "cost_configuration_id": self.cost_configuration_id,
             "llm_is_deprecated": self.llm_is_deprecated,
+            "custom_model_guard_id": self.custom_model_guard_id,
         }
 
 

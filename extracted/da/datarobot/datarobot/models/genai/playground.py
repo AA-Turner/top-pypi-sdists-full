@@ -1,5 +1,5 @@
 #
-# Copyright 2023 DataRobot, Inc. and its affiliates.
+# Copyright 2023-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -15,6 +15,7 @@ from typing import Any, List, Optional, Union
 
 import trafaret as t
 
+from datarobot.enums import enum_to_list, PlaygroundType
 from datarobot.models.api_object import APIObject
 from datarobot.models.use_cases.use_case import UseCase
 from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
@@ -33,6 +34,7 @@ playground_trafaret = t.Dict(
         t.Key("saved_llm_blueprints_count"): t.Int,
         t.Key("llm_blueprints_count"): t.Int,
         t.Key("user_name"): t.String(allow_blank=True),
+        t.Key("playground_type"): t.Enum(*enum_to_list(PlaygroundType)),
     }
 ).ignore_extra("*")
 
@@ -98,6 +100,7 @@ class Playground(APIObject):
         Number of LLM blueprints in the playground.
     user_name : str
         The name of the user who created the playground.
+    playground_type : Optional[PlaygroundType]
     """
 
     _path = "api/v2/genai/playgrounds"
@@ -117,6 +120,7 @@ class Playground(APIObject):
         saved_llm_blueprints_count: int,
         llm_blueprints_count: int,
         user_name: str,
+        playground_type: Optional[PlaygroundType] = PlaygroundType.RAG,
     ):
         self.id = id
         self.name = name
@@ -129,6 +133,7 @@ class Playground(APIObject):
         self.saved_llm_blueprints_count = saved_llm_blueprints_count
         self.llm_blueprints_count = llm_blueprints_count
         self.user_name = user_name
+        self.playground_type = playground_type
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(id={self.id}, name={self.name})"
@@ -140,6 +145,7 @@ class Playground(APIObject):
         description: str = "",
         use_case: Optional[Union[UseCase, str]] = None,
         copy_insights: Optional[CopyInsightsRequest] = None,
+        playground_type: Optional[PlaygroundType] = PlaygroundType.RAG,
     ) -> Playground:
         """
         Create a new playground.
@@ -165,6 +171,7 @@ class Playground(APIObject):
             "description": description,
             "use_case_id": get_use_case_id(use_case, is_required=True),
             "copy_insights": copy_insights.to_dict() if copy_insights is not None else None,
+            "playground_type": playground_type,
         }
         url = f"{cls._client.domain}/{cls._path}/"
         r_data = cls._client.post(url, data=payload)

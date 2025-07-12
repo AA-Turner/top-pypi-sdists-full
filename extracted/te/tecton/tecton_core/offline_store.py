@@ -14,6 +14,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import Union
+from urllib.parse import urlparse
 
 import attrs
 import pyarrow
@@ -26,7 +27,6 @@ from tecton_core import conf
 from tecton_core import id_helper
 from tecton_core import time_utils
 from tecton_core.aws_credentials import assume_role_fetcher
-from tecton_core.compute_mode import BatchComputeMode
 from tecton_core.errors import TectonInternalError
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
 from tecton_core.query_consts import anchor_time
@@ -34,6 +34,7 @@ from tecton_core.specs import FeatureTableSpec
 from tecton_core.specs import MaterializedFeatureViewSpec
 from tecton_proto.common.aws_credentials__client_pb2 import AwsIamRole
 from tecton_proto.common.id__client_pb2 import Id
+from tecton_proto.data.feature_store__client_pb2 import FeatureStoreFormatVersion
 from tecton_proto.data.feature_view__client_pb2 import DeltaOfflineStoreVersion
 from tecton_proto.data.feature_view__client_pb2 import OfflineStoreParams
 from tecton_proto.data.feature_view__client_pb2 import ParquetOfflineStoreVersion
@@ -47,16 +48,19 @@ DATASET_PARTITION_SIZE = timedelta(days=1)
 
 
 class PartitionType(str, enum.Enum):
+    NONE = "None"  # no partitioning, use for datasets
     DATE_STR = "DateString"
     EPOCH = "Epoch"
     # RAW_TIMESTAMP is only used for Snowflake
     RAW_TIMESTAMP = "RawTimestamp"
+    ENTITY_BUCKET = "EntityBucket"
 
 
 class OfflineStoreType(str, enum.Enum):
     PARQUET = "parquet"
     DELTA = "delta"
     SNOWFLAKE = "snowflake"
+    ICEBERG = "iceberg"
 
 
 @attrs.frozen
@@ -153,20 +157,45 @@ def _check_supported_offline_store_version(fd: FeatureDefinitionWrapper) -> None
 def get_offline_store_type(fd: FeatureDefinitionWrapper) -> OfflineStoreType:
     # TODO(TEC-15800): Update Snowflake FV protos to have snowflake as their store type
     assert isinstance(fd.fv_spec, (MaterializedFeatureViewSpec, FeatureTableSpec))
-    if (
-        isinstance(fd.fv_spec, MaterializedFeatureViewSpec)
-        and fd.fv_spec.batch_compute_mode == BatchComputeMode.SNOWFLAKE
-    ):
-        return OfflineStoreType.SNOWFLAKE
 
     store_type = fd.offline_store_config.WhichOneof("store_type")
     if store_type == OfflineStoreType.PARQUET:
         return OfflineStoreType.PARQUET
     elif store_type == OfflineStoreType.DELTA:
         return OfflineStoreType.DELTA
+    elif store_type == OfflineStoreType.ICEBERG:
+        return OfflineStoreType.ICEBERG
     else:
         msg = f"Unknown offline store type {store_type}"
         raise TectonInternalError(msg)
+
+
+def get_time_column_for_offline_reader(fd: FeatureDefinitionWrapper) -> str:
+    if (
+        get_offline_store_type(fd) == OfflineStoreType.DELTA
+        and fd.offline_store_params is not None
+        and fd.offline_store_params.delta.version == DeltaOfflineStoreVersion.DELTA_OFFLINE_STORE_VERSION_2
+    ):
+        return fd.time_key
+
+    if fd.is_temporal_aggregate:
+        return anchor_time()
+
+    return fd.time_key
+
+
+def get_time_column_for_offline_writer(fd: FeatureDefinitionWrapper) -> str:
+    if (
+        get_offline_store_type(fd) == OfflineStoreType.DELTA
+        and fd.offline_store_params is not None
+        and fd.offline_store_params.delta.version == DeltaOfflineStoreVersion.DELTA_OFFLINE_STORE_VERSION_2
+    ):
+        return fd.materialization_job_partition_timestamp
+
+    if fd.is_temporal_aggregate:
+        return anchor_time()
+
+    return fd.materialization_job_partition_timestamp
 
 
 def get_offline_store_partition_params(feature_definition: FeatureDefinitionWrapper) -> OfflineStorePartitionParams:
@@ -208,11 +237,7 @@ def get_offline_store_partition_params(feature_definition: FeatureDefinitionWrap
     _check_supported_offline_store_version(feature_definition)
     store_type = get_offline_store_type(feature_definition)
 
-    if store_type == OfflineStoreType.SNOWFLAKE:
-        partition_by = feature_definition.time_key
-        partition_type = PartitionType.RAW_TIMESTAMP
-        partition_interval = pendulum.Duration(seconds=0)
-    elif store_type == OfflineStoreType.DELTA:
+    if store_type == OfflineStoreType.DELTA:
         partition_by = TIME_PARTITION
         partition_type = partition_type_for_delta(feature_definition.offline_store_params)
         partition_interval = partition_size_for_delta(feature_definition)
@@ -220,9 +245,13 @@ def get_offline_store_partition_params(feature_definition: FeatureDefinitionWrap
         partition_by = partition_col_for_parquet(feature_definition)
         partition_type = PartitionType.EPOCH
         partition_interval = partition_size_for_parquet(feature_definition)
+    elif store_type == OfflineStoreType.ICEBERG:
+        partition_by = EntityBucketPartitionParams.partition_by
+        partition_type = PartitionType.ENTITY_BUCKET
+        partition_interval = pendulum.Duration(seconds=CONTINUOUS_PARTITION_SIZE_SECONDS)
     else:
-        msg = "Unexpected offline store config"
-        raise Exception(msg)
+        msg = f"Unexpected offline store config {store_type}"
+        raise ValueError(msg)
     return OfflineStorePartitionParams(partition_by, partition_type, partition_interval)
 
 
@@ -271,6 +300,8 @@ class OfflineStoreReaderParams:
     delta_table_uri: str
     partition_size: timedelta
     storage_options: Callable[[], Optional["S3Options"]]
+    partition_type: Optional[PartitionType] = None
+    feature_store_format_version: int = FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_DEFAULT
 
     @classmethod
     def for_feature_definition(
@@ -289,6 +320,8 @@ class OfflineStoreReaderParams:
             delta_table_uri=delta_table_uri,
             partition_size=partition_size_for_delta(fd).as_timedelta(),
             storage_options=storage_options,
+            partition_type=partition_type_for_delta(fd.offline_store_params),
+            feature_store_format_version=fd.get_feature_store_format_version,
         )
 
     @classmethod
@@ -384,7 +417,7 @@ class BotoOfflineStoreOptionsProvider(OfflineStoreOptionsProvider):
             if credentials is not None:
                 break
             if conf.get_bool("TECTON_DEBUG"):
-                print("Credentials is None, retrying...")
+                print("Failed to fetch offline store credentials. Retrying...")
             # Short sleep because for some notebook cases, the credentials are supposed to be None.
             time.sleep(0.1)
         if credentials is None:
@@ -513,11 +546,18 @@ class DeltaReader(OfflineStoreReader):
 
         filters = []
         aligned_start_time = time_utils.align_time_downwards(partition_time_limits.start, partition_size)
-        start_partition = datetime_to_partition_str(aligned_start_time, partition_size)
-        filters.append((TIME_PARTITION, ">=", start_partition))
-
         aligned_end_time = time_utils.align_time_downwards(partition_time_limits.end, partition_size)
-        end_partition = datetime_to_partition_str(aligned_end_time, partition_size)
+        if self._params.partition_type == PartitionType.EPOCH:
+            start_partition = str(
+                time_utils.convert_timestamp_for_version(aligned_start_time, self._params.feature_store_format_version)
+            )
+            end_partition = str(
+                time_utils.convert_timestamp_for_version(aligned_end_time, self._params.feature_store_format_version)
+            )
+        else:
+            start_partition = datetime_to_partition_str(aligned_start_time, partition_size)
+            end_partition = datetime_to_partition_str(aligned_end_time, partition_size)
+        filters.append((TIME_PARTITION, ">=", start_partition))
         filters.append((TIME_PARTITION, "<=", end_partition))
         return filters
 
@@ -529,10 +569,11 @@ class DeltaReader(OfflineStoreReader):
 
         conditions = []
         for join_key, boundaries in join_keys_limits.items():
-            conditions.append(
-                (pyarrow.compute.field(join_key) >= boundaries.min)
-                & (pyarrow.compute.field(join_key) <= boundaries.max)
-            )
+            if boundaries.min is not None:
+                conditions.append(pyarrow.compute.field(join_key) >= boundaries.min)
+
+            if boundaries.max is not None:
+                conditions.append(pyarrow.compute.field(join_key) <= boundaries.max)
 
         return reduce(and_, conditions)
 
@@ -637,3 +678,111 @@ class ParquetReader(OfflineStoreReader):
         schema = factory.finish().schema
         # now actually create dataset with patched schema
         return factory.finish(schema=patch_timestamps_in_arrow_schema(schema))
+
+
+class EntityBucketPartitionParams(OfflineStorePartitionParams):
+    partition_by: str = "entity_bucket"
+    partition_type: PartitionType = PartitionType.ENTITY_BUCKET
+    partition_interval: pendulum.duration = None  # not relevant for entity bucket partitioning
+
+
+class IcebergReader(OfflineStoreReader):
+    def __init__(
+        self,
+        fdw: FeatureDefinitionWrapper,
+        s3_options: Optional[S3Options] = None,
+    ) -> None:
+        # TODO: move these out to file scope once pyiceberg is a `tecton` dependency
+        from pyiceberg.io import S3_ACCESS_KEY_ID
+        from pyiceberg.io import S3_REGION
+        from pyiceberg.io import S3_SECRET_ACCESS_KEY
+        from pyiceberg.io import S3_SESSION_TOKEN
+
+        from tecton_core.iceberg_catalog import MetadataCatalog
+
+        assert fdw.has_iceberg_offline_store, (
+            f"Feature view `{fdw.name}` must be configured to use Iceberg offline store."
+        )
+        self._fdw = fdw
+        self._s3_options = s3_options
+        catalog_properties = {}
+        if s3_options:
+            catalog_properties = {
+                S3_ACCESS_KEY_ID: s3_options.access_key_id,
+                S3_SECRET_ACCESS_KEY: s3_options.secret_access_key,
+                S3_SESSION_TOKEN: s3_options.session_token,
+                S3_REGION: s3_options.region,
+            }
+
+        self._catalog = MetadataCatalog(name="object_store_catalog", properties=catalog_properties)
+
+    def read(
+        self,
+        time_limits: Optional[pendulum.Period] = None,
+        join_keys_buckets: Optional[List[int]] = None,
+    ) -> "pyarrow.dataset.Dataset":
+        fs, _ = pyarrow.fs.FileSystem.from_uri(self._fdw.materialized_data_path)
+
+        if isinstance(fs, pyarrow.fs.S3FileSystem) and self._s3_options:
+            fs = pyarrow.fs.S3FileSystem(
+                access_key=self._s3_options.access_key_id,
+                secret_key=self._s3_options.secret_access_key,
+                session_token=self._s3_options.session_token,
+            )
+
+        files_to_read = [path_from_uri(uri) for uri in self.get_files_to_read(time_limits, join_keys_buckets)]
+        tbl = self._catalog.load_table(self._fdw.materialized_data_path)
+        schema = tbl.schema().as_arrow()
+        file_format = pyarrow.dataset.ParquetFileFormat()
+        factory = pyarrow.dataset.FileSystemDatasetFactory(fs, files_to_read, file_format)
+
+        return factory.finish(schema)
+
+    def get_files_to_read(
+        self,
+        time_limits: Optional[pendulum.Period] = None,
+        join_keys_buckets: Optional[List[int]] = None,
+    ) -> List[str]:
+        from pyiceberg.expressions import And
+        from pyiceberg.expressions import GreaterThanOrEqual
+        from pyiceberg.expressions import In
+        from pyiceberg.expressions import LessThan
+        from pyiceberg.expressions.literals import TimestampLiteral
+        from pyiceberg.table import ALWAYS_TRUE
+        from pyiceberg.utils.datetime import timestamptz_to_micros
+
+        tbl = self._catalog.load_table(self._fdw.materialized_data_path)
+
+        predicate = ALWAYS_TRUE
+        if time_limits:
+            if self._fdw.is_temporal_aggregate:
+                start_time = time_utils.convert_timestamp_for_version(
+                    time_limits.start, self._fdw.get_batch_schedule_for_version
+                )
+                end_time = time_utils.convert_timestamp_for_version(
+                    time_limits.end, self._fdw.get_batch_schedule_for_version
+                )
+                predicate = And(GreaterThanOrEqual(anchor_time(), start_time), LessThan(anchor_time(), end_time))
+            else:
+                start_time_str = time_limits.start.isoformat()
+                end_time_str = time_limits.end.isoformat()
+                start_time_lit = TimestampLiteral(timestamptz_to_micros(start_time_str))
+                end_time_lit = TimestampLiteral(timestamptz_to_micros(end_time_str))
+                predicate = And(
+                    GreaterThanOrEqual(self._fdw.timestamp_key, start_time_lit),
+                    LessThan(self._fdw.timestamp_key, end_time_lit),
+                )
+
+        if join_keys_buckets:
+            predicate = And(predicate, In(EntityBucketPartitionParams.partition_by, join_keys_buckets))
+
+        plan_files = tbl.scan(
+            row_filter=predicate,
+        ).plan_files()
+        paths = [file_scan.file.file_path for file_scan in plan_files]
+        return paths
+
+
+def path_from_uri(uri):
+    parts = urlparse(uri)
+    return parts.netloc + parts.path

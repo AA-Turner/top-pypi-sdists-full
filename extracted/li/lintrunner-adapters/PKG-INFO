@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: lintrunner-adapters
-Version: 0.12.4
+Version: 0.12.5
 Summary: Adapters and tools for lintrunner
-Home-page: https://github.com/justinchuby/lintrunner-adapters
 License: MIT
 Keywords: lintrunner,lint,cli,sarif,linting,ci,linter,flake8,clippy,ruff,rustfmt,github-code-scanning
 Author: Justin Chu
@@ -16,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Requires-Dist: click (>=8.1.3,<9.0.0)

@@ -1,4 +1,5 @@
 import secrets
+import uuid
 
 from tecton_proto.common.id__client_pb2 import Id
 
@@ -17,9 +18,17 @@ class IdHelper:
         return IdHelper.from_string(IdHelper.generate_string_id())
 
     @staticmethod
+    def generate_fixed_id() -> Id:
+        return IdHelper.from_string("00000000000000000000000000000000")
+
+    @staticmethod
     def from_string(s: str) -> Id:
         res = Id()
 
         res.most_significant_bits = int(s[:16], 16)
         res.least_significant_bits = int(s[16:], 16)
         return res
+
+    @staticmethod
+    def from_uuid(u: uuid.UUID) -> Id:
+        return IdHelper.from_string(u.hex)

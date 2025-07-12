@@ -13,9 +13,11 @@ from typing import Tuple
 
 import click
 import requests
-from colorama import Fore
 from google.protobuf import json_format
-from yaspin.spinners import Spinners
+from rich.live import Live
+from rich.panel import Panel
+from rich.spinner import Spinner
+from rich.text import Text
 
 import tecton
 from tecton import repo_utils
@@ -27,14 +29,17 @@ from tecton._internals.utils import plural
 from tecton.cli import cli_utils
 from tecton.cli import printer
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.engine_renderer import PlanRenderingClient
 from tecton.cli.error_utils import format_server_errors
 from tecton.cli.plan import IntegrationTestSummaries
+from tecton.cli.printer import SPINNER_TYPE
 from tecton.cli.repo_config import DEFAULT_REPO_CONFIG_NAME
 from tecton.cli.test import run_tests
 from tecton.cli.workspace_utils import WorkspaceType
 from tecton.framework import base_tecton_object
 from tecton_core import http
+from tecton_core.errors import FailedPreconditionError
 from tecton_core.errors import TectonAPIValidationError
 from tecton_core.errors import TectonInternalError
 from tecton_core.errors import TectonNotFoundError
@@ -241,11 +246,11 @@ def update_tecton_state(
             cli_utils.confirm_or_exit(
                 f'Integration Tests for workspace {workspace_name} are in status: {integration_test_status_summary}. Are you sure you want to proceed"?'
             )
-
     else:
-        with printer.safe_yaspin(Spinners.earth, text="Collecting local feature declarations") as sp:
+        spinner = Spinner(SPINNER_TYPE, "Collecting local feature declarations")
+        with Live(spinner, console=printer.get_console(), refresh_per_second=10) as live:
             fco_args, repo_source_info = _get_declared_fco_args(objects)
-            sp.ok(printer.safe_string("✅"))
+            live.update(Spinner(SPINNER_TYPE, text="✅ Successfully collected local feature declarations."))
 
         plan_integration_config = None
         if integration_test_select:
@@ -254,13 +259,13 @@ def update_tecton_state(
                 plan_integration_type = state_update_pb2.PlanIntegrationTestSelectType.AUTO
                 if len(feature_view_list) > 1:
                     message = "Auto feature selection cannot be used with other feature views!"
-                    printer.safe_print("⛔ " + Fore.RED + message + Fore.RESET)
+                    printer.safe_print(f"⛔ [red]{message}[/red]")
                     return StateUpdateResult.from_error_message(message, suppress_recreates)
             elif feature_view_list[0] == ":none:":
                 plan_integration_type = state_update_pb2.PlanIntegrationTestSelectType.NONE
                 if len(feature_view_list) > 1:
                     message = "None feature selection cannot be used with other feature views!"
-                    printer.safe_print("⛔ " + Fore.RED + message + Fore.RESET)
+                    printer.safe_print(f"⛔ [red]{message}[/red]")
                     return StateUpdateResult.from_error_message(message, suppress_recreates)
             else:
                 plan_integration_type = state_update_pb2.PlanIntegrationTestSelectType.SELECTED_FEATURE_VIEWS
@@ -290,7 +295,8 @@ def update_tecton_state(
         )
 
         server_side_msg_prefix = "Performing server-side feature validation"
-        with printer.safe_yaspin(Spinners.earth, text=f"{server_side_msg_prefix}: Initializing.") as sp:
+        spinner = Spinner(SPINNER_TYPE, f"{server_side_msg_prefix}: Initializing.")
+        with Live(spinner, console=printer.get_console(), refresh_per_second=10) as live:
             try:
                 new_state_update_response = metadata_service.instance().NewStateUpdateV2(new_state_update_request)
 
@@ -309,34 +315,39 @@ def update_tecton_state(
                         json_output=json_out,
                         suppress_warnings=suppress_warnings,
                     )
+                    last_status = None
                     while True:
                         query_state_update_response = metadata_service.instance().QueryStateUpdateV2(
                             query_state_update_request
                         )
                         if query_state_update_response.latest_status_message:
-                            sp.text = f"{server_side_msg_prefix}: {query_state_update_response.latest_status_message}"
+                            current_status = (
+                                f"{server_side_msg_prefix}: {query_state_update_response.latest_status_message}"
+                            )
+                            if current_status != last_status:
+                                live.update(Spinner(SPINNER_TYPE, text=current_status))
+                                last_status = current_status
                         if query_state_update_response.ready:
                             break
                         seconds_to_sleep = 5
                         time.sleep(seconds_to_sleep)
                         seconds_slept += seconds_to_sleep
                         if seconds_slept > timeout_seconds:
-                            sp.fail(printer.safe_string("⛔"))
-                            printer.safe_print("Validation timed out.")
+                            live.update(Spinner(SPINNER_TYPE, text="⛔ Validation timed out."))
                             return StateUpdateResult.from_error_message("Validation timed out.", suppress_recreates)
 
                 if query_state_update_response.error:
-                    sp.fail(printer.safe_string("⛔"))
+                    live.update(Spinner(SPINNER_TYPE, text=f"⛔ {server_side_msg_prefix}: Failed."))
                     printer.safe_print(query_state_update_response.error)
                     return StateUpdateResult.from_error_message(query_state_update_response.error, suppress_recreates)
                 validation_errors = query_state_update_response.validation_errors.errors
                 if len(validation_errors) > 0:
-                    sp.fail(printer.safe_string("⛔"))
+                    live.update(Spinner(SPINNER_TYPE, text=f"⛔ {server_side_msg_prefix}: Failed."))
                     format_server_errors(validation_errors, objects, repo_root)
                     return StateUpdateResult.from_error_message(str(validation_errors), suppress_recreates)
-                sp.ok(printer.safe_string("✅"))
+                live.update(Spinner(SPINNER_TYPE, text="✅ Successfully validated local feature declarations."))
             except (TectonInternalError, TectonAPIValidationError, TectonNotFoundError) as e:
-                sp.fail(printer.safe_string("⛔"))
+                live.update(Spinner(SPINNER_TYPE, text="⛔ Failed to validate local feature declarations."))
                 printer.safe_print(e)
                 return StateUpdateResult.from_error_message(str(e), suppress_recreates)
 
@@ -347,7 +358,9 @@ def update_tecton_state(
     if not plan_rendering_client.has_diffs() and not integration_test_select:
         plan_rendering_client.print_empty_plan()
     else:
-        plan_rendering_client.print_plan()
+        rendered_plan = plan_rendering_client.render_plan_to_string()
+        rendered_plan = Text.from_ansi(rendered_plan)
+        printer.rich_print(Panel(rendered_plan, title="Plan", padding=2, expand=False, border_style="green"))
 
         if apply:
             plan_rendering_client.print_apply_warnings()
@@ -434,9 +447,12 @@ def run_engine(args: EngineArgs, apply: bool = False, destroy=False, upgrade_all
         repo_files: List[Path] = []
         repo_config = None
     else:
-        top_level_objects, repo_root, repo_files, repo_config = repo_utils.get_tecton_objects_skip_validation(
-            args.repo_config_path
-        )
+        try:
+            top_level_objects, repo_root, repo_files, repo_config = repo_utils.get_tecton_objects_skip_validation(
+                args.repo_config_path
+            )
+        except FailedPreconditionError as e:
+            raise click.ClickException(str(e))
 
         if args.skip_tests == False:
             run_tests(args.repo_config_path)
@@ -519,14 +535,15 @@ apply = EngineCommand(
     allows_suppress_recreates=True,
     has_plan_id=True,
     has_integration_test=True,
-    is_main_command=True,
-    help="Compare local feature definitions with remote state and *apply* local changes remotely.",
+    command_category=TectonCommandCategory.WORKSPACE,
+    help="Compare local feature definitions with remote state and persist local changes remotely.",
 )
 
 destroy = EngineCommand(
     name="destroy",
     destroy=True,
     apply=True,
+    command_category=TectonCommandCategory.WORKSPACE,
     help="Destroy all registered objects in this workspace.",
 )
 
@@ -534,7 +551,7 @@ plan = EngineCommand(
     name="plan",
     apply=False,
     allows_suppress_recreates=True,
-    is_main_command=True,
-    help="Compare your local feature definitions with remote state and *show* the plan to bring them in sync.",
+    command_category=TectonCommandCategory.WORKSPACE,
+    help="Compare local and remote workspace state and preview the execution plan.",
     has_integration_test=True,
 )

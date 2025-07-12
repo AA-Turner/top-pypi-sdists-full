@@ -1,4 +1,5 @@
 from tecton_proto.auth import authorization_service__client_pb2 as authorization_service_pb2
+from tecton_proto.data import service_account__client_pb2 as service_account_pb2
 from tecton_proto.materializationjobservice import (
     materialization_job_service__client_pb2 as materialization_job_service_pb2,
 )
@@ -24,5 +25,6 @@ GRPC_SERVICE_MODULES = [
     server_group_service_pb2,
     model_artifact_service_pb2,
     principal_service_pb2,
+    service_account_pb2,
     service_accounts_service_pb2,
 ]

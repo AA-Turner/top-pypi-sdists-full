@@ -62,7 +62,7 @@ class ConfSource(Enum):
     REPO_CONFIG = 5
     # This key can read from the MDS get-configs endpoint. Note that this will not return anything until after the
     # first MDS RPC is made, which is racy because e.g. @sdk_public_method makes asynchronous MDS calls.
-    #
+
     # BLOCKING_REMOTE_MDS_CONFIG is not racy, but can't be used everywhere without causing MDS requests to happen during
     # initialization. We can clean up this whole mess when confs from secret managers are explicit and AWS_REGION is no
     # longer required.
@@ -239,8 +239,14 @@ def _get(key: str) -> Optional[str]:
     return None
 
 
-def _get_runtime_only(key: str) -> Optional[str]:
-    """An alternate _get() that will look up only from runtime sources. Used to avoid infinite loops or network calls"""
+def _get_runtime_only(key: str, use_defaults: bool = True) -> Optional[str]:
+    """An alternate _get() that will look up only from runtime sources. Used to avoid infinite loops or network calls
+
+    Args:
+        key: The configuration key to look up
+        use_defaults: If True, returns default values when no user setting exists.
+                     If False, returns None when no user setting exists.
+    """
     if key not in _VALID_KEYS_TO_ALLOWED_SOURCES:
         msg = f"_get_runtime_only should only used with valid keys. {key}"
         raise errors.TectonInternalError(msg)
@@ -255,11 +261,33 @@ def _get_runtime_only(key: str) -> Optional[str]:
     if val is not None:  # NOTE: check explicitly against None so we can set a value to False or ""
         return val
 
-    if key in _DEFAULTS:
+    if use_defaults and key in _DEFAULTS:
         value = _DEFAULTS[key]()
         return value
 
     return None
+
+
+def is_runtime_set(key: str) -> bool:
+    """Check if a config was set during runtime (through conf.set or envvar).
+
+    Args:
+        key: The configuration key to check
+
+    Returns:
+        True if the config was manually set by user, False otherwise.
+    """
+    if key not in _VALID_KEYS_TO_ALLOWED_SOURCES:
+        msg = f"_is_runtime_set should only used with valid keys. {key}"
+        raise errors.TectonInternalError(msg)
+
+    if _CONFIG_OVERRIDES.get(key) is not None:
+        return True
+
+    if os.environ.get(key) is not None:
+        return True
+
+    return False
 
 
 def get_or_none(key: str) -> Optional[str]:
@@ -281,15 +309,30 @@ def get_bool(key: str) -> bool:
     # bit of a hack for if people set a boolean value in a local override
     if isinstance(val, bool):
         return val
+    if isinstance(val, int):
+        if val in {0, 1}:
+            return bool(val)
+        else:
+            msg = f"{key} should be 0 or 1, not {val}"
+            raise ValueError(msg)
     if not isinstance(val, str):
         msg = f"{key} should be an instance of str, not {type(val)}"
         raise ValueError(msg)
-    if val.lower() in {"yes", "true"}:
+    if val.lower() in {"yes", "true", "1"}:
         return True
-    if val.lower() in {"no", "false"}:
+    if val.lower() in {"no", "false", "0"}:
         return False
-    msg = f"{key} should be 'true' or 'false', not {val}"
+    msg = f"{key} should be 'true', 'false', '1', or '0', not {val}"
     raise ValueError(msg)
+
+
+def get_float_or_none(key: str) -> Optional[float]:
+    """Return value and ensure float type. Returns None if None."""
+    val = _get(key)
+    if val is None:
+        return None
+    else:
+        return float(val)
 
 
 def _model_cache_directory() -> str:
@@ -387,16 +430,12 @@ _VALID_KEYS_TO_ALLOWED_SOURCES = {
     "SKIP_FEATURE_TIMESTAMP_VALIDATION": DEFAULT_ALLOWED_SOURCES,
     "SNOWFLAKE_ACCOUNT_IDENTIFIER": DEFAULT_ALLOWED_SOURCES,
     "SNOWFLAKE_DEBUG": DEFAULT_ALLOWED_SOURCES,
-    "SNOWFLAKE_SHORT_SQL_ENABLED": DEFAULT_ALLOWED_SOURCES,
-    # Whether to break up long SQL statements into temporary views for Snowflake
-    "SNOWFLAKE_TEMP_TABLE_ENABLED": DEFAULT_ALLOWED_SOURCES,
-    # Whether to break up long SQL statements with temporary tables for Snowflake, takes precedence over SNOWFLAKE_SHORT_SQL_ENABLED
     "SNOWFLAKE_USER": DEFAULT_ALLOWED_SOURCES,
     "SNOWFLAKE_PASSWORD": DEFAULT_ALLOWED_SOURCES,
+    "SNOWFLAKE_PRIVATE_KEY": DEFAULT_ALLOWED_SOURCES,
+    "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": DEFAULT_ALLOWED_SOURCES,
     "SNOWFLAKE_WAREHOUSE": DEFAULT_ALLOWED_SOURCES,
     "SNOWFLAKE_DATABASE": DEFAULT_ALLOWED_SOURCES,
-    "SNOWFLAKE_PANDAS_ODFV_ENABLED": RUNTIME_ALLOWED_SOURCES,
-    "USE_DEPRECATED_SNOWFLAKE_RETRIEVAL": RUNTIME_ALLOWED_SOURCES,
     "USE_DEPRECATED_ATHENA_RETRIEVAL": RUNTIME_ALLOWED_SOURCES,
     # Instead of the querytree code path, use the old snowflake ghf implementation
     "REDIS_AUTH_TOKEN": DEFAULT_ALLOWED_SOURCES,
@@ -414,15 +453,20 @@ _VALID_KEYS_TO_ALLOWED_SOURCES = {
     "DUCKDB_RANGE_SPLIT_COUNT": DEFAULT_ALLOWED_SOURCES,
     "DUCKDB_HTTP_RETRIES": DEFAULT_ALLOWED_SOURCES,
     "DUCKDB_USE_PYARROW_FILESYSTEM": DEFAULT_ALLOWED_SOURCES,
-    # Write intermediate results to disk every this number of join operations
-    # if flag `DUCKDB_ENABLE_CHECKPOINTING` is enabled
-    "DUCKDB_CHECKPOINT_EVERY_N_JOIN": DEFAULT_ALLOWED_SOURCES,
     # Parameter passed to DuckDB.fetch_arrow_reader. It controls the size of pyarrow.RecordBatches produced by DuckDB
     "DUCKDB_BATCH_SIZE": DEFAULT_ALLOWED_SOURCES,
     "PARQUET_MAX_ROWS_PER_FILE": DEFAULT_ALLOWED_SOURCES,
     "PARQUET_MAX_ROWS_PER_GROUP": DEFAULT_ALLOWED_SOURCES,
+    # Whether to read the offline store directly into duckdb, otherwise uses Arrow reader
+    "DUCKDB_OFFLINE_STORE_READ": RUNTIME_ALLOWED_SOURCES,
     "DUCKDB_FILE_DATA_SOURCE_READ_PARALLEL_FRAGMENTS": RUNTIME_ALLOWED_SOURCES,
     "USE_ARROW_TYPES_IN_PANDAS_TRANSFORMATION": RUNTIME_ALLOWED_SOURCES,
+    "DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED": RUNTIME_ALLOWED_SOURCES,
+    "DELTA_OFFLINE_STORE_RANGE_PARTITION_NUMBER": RUNTIME_ALLOWED_SOURCES,
+    # How many samples will be taken to generate partition boundaries
+    "DELTA_OFFLINE_STORE_RANGE_SAMPLE_NUMBER": RUNTIME_ALLOWED_SOURCES,
+    # Whether to suppress warnings during `tecton test`
+    "TECTON_SUPPRESS_TEST_WARNINGS": RUNTIME_ALLOWED_SOURCES,
 }
 
 _VALID_KEY_PREFIXES = ["SECRET_"]
@@ -437,7 +481,6 @@ _DEFAULTS = {
     "DUCKDB_EXTENSION_REPO": (
         lambda: "http://s3.us-west-2.amazonaws.com/tecton.ai.public/duckdb/tecton-extension/{version}"
     ),
-    "USE_DEPRECATED_SNOWFLAKE_RETRIEVAL": (lambda: "false"),
     "TECTON_PYTHON_ODFV_OUTPUT_SCHEMA_CHECK_ENABLED": (lambda: "true"),
     "DUCKDB_DISK_SPILLING_ENABLED": (lambda: "true"),
     "MODEL_CACHE_DIRECTORY": (lambda: _model_cache_directory()),
@@ -450,12 +493,15 @@ _DEFAULTS = {
     "DUCKDB_HTTP_RETRIES": (lambda: "10"),
     "DUCKDB_USE_PYARROW_FILESYSTEM": (lambda: "true"),
     "USE_BQ_STORAGE_API": (lambda: "true"),
-    "DUCKDB_CHECKPOINT_EVERY_N_JOIN": (lambda: "5"),
     "DUCKDB_BATCH_SIZE": (lambda: "10000000"),
     "PARQUET_MAX_ROWS_PER_FILE": (lambda: "8000000"),
     "PARQUET_MAX_ROWS_PER_GROUP": (lambda: "1000000"),
+    "DUCKDB_OFFLINE_STORE_READ": (lambda: "true"),
     "DUCKDB_FILE_DATA_SOURCE_READ_PARALLEL_FRAGMENTS": (lambda: "256"),
     "USE_ARROW_TYPES_IN_PANDAS_TRANSFORMATION": (lambda: "false"),
+    "DELTA_OFFLINE_STORE_RANGE_PARTITION_ENABLED": (lambda: "false"),
+    "DELTA_OFFLINE_STORE_RANGE_PARTITION_NUMBER": (lambda: "100"),
+    "DELTA_OFFLINE_STORE_RANGE_SAMPLE_NUMBER": (lambda: "10"),
 }
 
 _mds_config_lock = threading.Lock()
@@ -708,7 +754,7 @@ def _init_metadata_server_config(mds_response):
         _remote_mds_configs = dict(mds_response.key_values)
 
 
-def _force_initialize_mds_config():
+def _force_initialize_mds_config() -> None:
     runtime_mode = get_or_none("TECTON_RUNTIME_MODE")
     if runtime_mode in ("MATERIALIZATION", "EVALUATION"):
         return
@@ -725,7 +771,11 @@ def _clear_metadata_server_config():
 
 class FeatureFlag:
     def __init__(self, key: str, owner: str, default_enabled: bool) -> None:
-        _VALID_KEYS_TO_ALLOWED_SOURCES[key] = (ConfSource.SESSION_OVERRIDE, ConfSource.OS_ENV, ConfSource.REPO_CONFIG)
+        _VALID_KEYS_TO_ALLOWED_SOURCES[key] = (
+            ConfSource.SESSION_OVERRIDE,
+            ConfSource.OS_ENV,
+            ConfSource.REPO_CONFIG,
+        )
         _DEFAULTS[key] = lambda: default_enabled
         self.key = key
         self.owner = owner
@@ -745,15 +795,22 @@ TECTON_STRIP_TIMEZONE_FROM_FEATURE_VALUES_FF = FeatureFlag(
     key="TECTON_STRIP_TIMEZONE_FROM_FEATURE_VALUES", owner="Feature Eng", default_enabled=False
 )
 
+
 DUCKDB_ENABLE_SPINE_SPLIT_FF = FeatureFlag(
     key="DUCKDB_ENABLE_SPINE_SPLIT", owner="Batch Compute", default_enabled=False
 )
 
-# Enables splitting DuckDB query and offloading the result of a sub-query to disk before proceeding with the rest of the query
-# For now splitting happens before tables JOIN, since this is the most expensive (memory-wise) operation.
-DUCKDB_ENABLE_CHECKPOINTING = FeatureFlag(
-    key="DUCKDB_ENABLE_CHECKPOINTING", owner="Batch Compute", default_enabled=True
+
+ENABLE_CALCULATION_DEVELOPMENT_FEATURES_FF = FeatureFlag(
+    key="ENABLE_CALCULATION_DEVELOPMENT_FEATURES", owner="Devex", default_enabled=False
 )
+
+
+QUERYTREE_ENABLE_PARTITIONED_EXECUTION = FeatureFlag(
+    key="QUERYTREE_ENABLE_PARTITIONED_EXECUTION", owner="Batch Compute", default_enabled=False
+)
+
+QUERYTREE_VERBOSE = FeatureFlag(key="QUERYTREE_VERBOSE", owner="Batch Data", default_enabled=False)
 
 
 _init_configs()

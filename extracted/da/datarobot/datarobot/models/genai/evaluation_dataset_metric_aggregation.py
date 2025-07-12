@@ -1,5 +1,5 @@
 #
-# Copyright 2024 DataRobot, Inc. and its affiliates.
+# Copyright 2024-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -43,6 +43,7 @@ evaluation_dataset_metric_aggregation_trafaret = t.Dict(
         t.Key("creation_date"): t.String,
         t.Key("creation_user_id"): t.String,
         t.Key("tenant_id"): t.String,
+        t.Key("custom_model_guard_id"): t.String,
     }
 ).ignore_extra("*")
 
@@ -58,7 +59,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
     evaluation_dataset_configuration_id : str
         The evaluation dataset configuration ID.
     ootb_dataset_name : str | None
-        The name of the Datarobot-provided dataset that does not require additional configuration..
+        The name of the Datarobot-provided dataset that does not require additional configuration.
     metric_name : str
         The name of the metric.
     deployment_id : str | None
@@ -81,6 +82,8 @@ class EvaluationDatasetMetricAggregation(APIObject):
         The ID of the user who created the evaluation job.
     tenant_id : str
         The ID of the tenant that owns the evaluation job.
+    custom_model_guard_id : str | None
+        The ID of the custom model's guard associated with the metric aggregation, if applicable.
     """
 
     _path = "api/v2/genai/evaluationDatasetMetricAggregations"
@@ -102,6 +105,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
         creation_date: str,
         creation_user_id: str,
         tenant_id: str,
+        custom_model_guard_id: Optional[str] = None,
     ) -> None:
         self.llm_blueprint_id = llm_blueprint_id
         self.evaluation_dataset_configuration_id = evaluation_dataset_configuration_id
@@ -117,6 +121,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
         self.creation_date = creation_date
         self.creation_user_id = creation_user_id
         self.tenant_id = tenant_id
+        self.custom_model_guard_id = custom_model_guard_id
 
     @classmethod
     def create(

@@ -3,7 +3,6 @@ import datetime
 import json
 import os
 import time
-from typing import Any
 from typing import Callable
 from typing import Optional
 from typing import Tuple
@@ -28,18 +27,22 @@ JOB_EXEC_VERSION_ATTRIBUTE = "version"
 
 
 class DynamoMetadataClient(JobMetadataClient):
-    def __init__(self, table: str, attempt_id: Id, dynamodb_client: Any):
+    def __init__(self, table: str, attempt_id: Id, params: MaterializationTaskParams):
         self._table = table
         self._attempt_id = attempt_id
-        self._dynamodb_client = dynamodb_client
+        self._params = params
+        self._dynamodb_client = _dynamodb_client(params)
 
     @staticmethod
     def for_params(materialization_task_params: MaterializationTaskParams) -> JobMetadataClient:
         return DynamoMetadataClient(
             table=materialization_task_params.job_metadata_table,
             attempt_id=materialization_task_params.attempt_id,
-            dynamodb_client=_dynamodb_client(materialization_task_params),
+            params=materialization_task_params,
         )
+
+    def __reduce__(self):
+        return DynamoMetadataClient, (self._table, self._attempt_id, self._params)
 
     @property
     def _key(self):

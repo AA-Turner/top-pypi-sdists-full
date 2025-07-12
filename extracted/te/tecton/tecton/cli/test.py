@@ -1,6 +1,7 @@
 import glob
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -11,6 +12,7 @@ import pytest
 
 from tecton.cli import printer
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton.repo_utils import get_tecton_objects_skip_validation
 from tecton_core import conf
 from tecton_core import repo_file_handler
@@ -35,12 +37,23 @@ def get_test_paths(repo_root) -> List[str]:
 
     VIRTUAL_ENV = os.getenv("VIRTUAL_ENV")
     if VIRTUAL_ENV:
-        return list(filter(lambda f: not f.startswith(VIRTUAL_ENV), candidate_test_files))
+        candidate_test_files = filter(lambda f: not f.startswith(VIRTUAL_ENV), candidate_test_files)
 
-    return list(candidate_test_files)
+    # Filter out test files that match patterns in .tectonignore
+    from pathlib import Path
+
+    repo_root_path = Path(repo_root)
+    ignored_files = repo_file_handler._get_ignored_files(repo_root_path)
+    ignored_files_str = {str(f) for f in ignored_files}
+
+    filtered_test_files = [f for f in candidate_test_files if f not in ignored_files_str]
+
+    return filtered_test_files
 
 
-def run_tests(repo_config_path: Optional[Path], pytest_extra_args: Tuple[str, ...] = ()):
+def run_tests(
+    repo_config_path: Optional[Path], pytest_extra_args: Tuple[str, ...] = (), suppress_warnings: bool = False
+):
     repo_root = repo_file_handler._maybe_get_repo_root()
     if repo_root is None:
         printer.safe_print("Tecton tests must be run from a feature repo initialized using 'tecton init'!")
@@ -54,7 +67,12 @@ def run_tests(repo_config_path: Optional[Path], pytest_extra_args: Tuple[str, ..
         return
 
     os.chdir(repo_root)
-    args = ["--disable-pytest-warnings", "-s", *tests]
+    args = ["-s", *tests]
+
+    # Suppress Python warnings globally during test execution and add pytest warning suppression args
+    if suppress_warnings:
+        warnings.filterwarnings("ignore")
+        args.extend(["--disable-pytest-warnings", "-W", "ignore"])
 
     if pytest_extra_args:
         args.extend(pytest_extra_args)
@@ -73,7 +91,9 @@ def run_tests(repo_config_path: Optional[Path], pytest_extra_args: Tuple[str, ..
         printer.safe_print("✅ Running Tests: Tests passed!")
 
 
-@click.command(uses_workspace=True, requires_auth=False, cls=TectonCommand, is_main_command=True)
+@click.command(
+    uses_workspace=True, requires_auth=False, cls=TectonCommand, command_category=TectonCommandCategory.WORKSPACE
+)
 @click.option(
     "--enable-python-serialization/--disable-python-serialization",
     show_default=True,
@@ -98,14 +118,22 @@ def run_tests(repo_config_path: Optional[Path], pytest_extra_args: Tuple[str, ..
     default="spark",
     type=click.Choice(choices=ALLOWED_COMPUTE_MODES, case_sensitive=False),
 )
+@click.option(
+    "--suppress-warnings",
+    is_flag=True,
+    default=False,
+    help="Suppress Python and pytest warnings during test execution. Can also be controlled with TECTON_SUPPRESS_TEST_WARNINGS=1 environment variable.",
+)
 @click.argument("pytest_extra_args", nargs=-1)
 def test(
     enable_python_serialization,
     config: Optional[Path],
     default_compute_mode: str,
+    suppress_warnings: bool,
     pytest_extra_args: Tuple[str, ...],
 ):
-    """Run Tecton tests.
+    """Run unit tests.
+
     USAGE:
     `tecton test`: run all tests (using PyTest) in a file that matches glob("TECTON_REPO_ROOT/**/tests/**/*.py")
     `tecton test -- -k "test_name"`: same as above, but passes the `-k "test_name"` args to the PyTest command.
@@ -119,19 +147,32 @@ def test(
     else:
         conf.set("TECTON_FORCE_FUNCTION_SERIALIZATION", "false")
 
+    env_suppress_warnings = conf.get_bool("TECTON_SUPPRESS_TEST_WARNINGS")
+    should_suppress_warnings = suppress_warnings or env_suppress_warnings
+
     default_compute_mode = default_compute_mode.lower()
     offline_retrieval_compute_mode = (
         conf._get_runtime_only("TECTON_OFFLINE_RETRIEVAL_COMPUTE_MODE") or default_compute_mode
     )
     batch_compute_mode = conf._get_runtime_only("TECTON_BATCH_COMPUTE_MODE") or default_compute_mode
+
+    # Set TECTON_SKIP_OBJECT_VALIDATION to True by default for tests, but respect user's manual setting
+    if conf.is_runtime_set("TECTON_SKIP_OBJECT_VALIDATION"):
+        skip_validation = conf._get_runtime_only("TECTON_SKIP_OBJECT_VALIDATION")
+    else:
+        skip_validation = "True"
+
     # These values are set explicitly in unit tests in order to avoid needing to be logged into a cluster
     # to run unit tests. Without this, the compute_mode is derived from the user's cluster, which requires log-in.
     with conf._temporary_set(
         "TECTON_OFFLINE_RETRIEVAL_COMPUTE_MODE", offline_retrieval_compute_mode
-    ) as a, conf._temporary_set("TECTON_BATCH_COMPUTE_MODE", batch_compute_mode) as b:
+    ) as a, conf._temporary_set("TECTON_BATCH_COMPUTE_MODE", batch_compute_mode) as b, conf._temporary_set(
+        "TECTON_SKIP_OBJECT_VALIDATION", skip_validation
+    ) as c:
         # NOTE: if a user wanted to do the equivalent of a `pytest -k "test_name"`
         # they could do `tecton test -- -k "test_name"`.
         run_tests(
             repo_config_path=config,
             pytest_extra_args=pytest_extra_args,
+            suppress_warnings=should_suppress_warnings,
         )

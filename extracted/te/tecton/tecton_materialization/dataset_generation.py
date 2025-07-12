@@ -15,6 +15,12 @@ from tecton_spark.query.translate import SparkDataFrame
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of output partitions to control the number of output files. This limits Spark partitions to control
+# total file count to improve read performance.
+# The context is: For each Spark partition, one file will be written per time partition. E.g. with 100 Spark partitions
+# and 100 time partitions, up to 10_000 files could be written.
+DEFAULT_MAX_PARTITIONS = 10
+
 
 def dataset_generation_from_params(spark, materialization_task_params):
     dataset_generation_params = materialization_task_params.dataset_generation_task_info.dataset_generation_parameters
@@ -40,15 +46,26 @@ def dataset_generation_from_params(spark, materialization_task_params):
     logger.info(f"QT: \n{qt.pretty_str(columns=True)}")
 
     spark_df = translate.spark_convert(qt, spark).to_dataframe(spark)
+
+    spark_df = _reduce_spark_partitions(spark_df)
+
     writer_params = OfflineStoreWriterParams(
         s3_path=dataset_generation_params.result_path,
         always_store_anchor_column=False,
         time_column=time_column,
         join_key_columns=params.join_keys,
         is_continuous=False,
+        upsert_by_batch_publish_timestamp=False,
     )
 
     logger.info("Writing results to %s", dataset_generation_params.result_path)
 
     delta_writer = get_dataset_generation_writer(writer_params, spark)
     delta_writer.append_dataframe(spark_df)
+
+
+def _reduce_spark_partitions(spark_df):
+    current_partitions = spark_df.rdd.getNumPartitions()
+    reduced_partitions = min(DEFAULT_MAX_PARTITIONS, current_partitions)
+    logger.info(f"Reducing partitions from {current_partitions} to {reduced_partitions}")
+    return spark_df.coalesce(reduced_partitions)

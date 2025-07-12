@@ -9,30 +9,34 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetFeaturesBatchParameters(_message.Message):
-    __slots__ = ["feature_service_id", "feature_service_name", "metadata_options", "request_data", "workspace_name"]
+    __slots__ = ["feature_service_id", "feature_service_name", "metadata_options", "request_data", "request_options", "workspace_name"]
     FEATURE_SERVICE_ID_FIELD_NUMBER: _ClassVar[int]
     FEATURE_SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
     METADATA_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     REQUEST_DATA_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     feature_service_id: str
     feature_service_name: str
     metadata_options: MetadataOptions
     request_data: _containers.RepeatedCompositeFieldContainer[GetFeaturesBatchRequestData]
+    request_options: RequestOptions
     workspace_name: str
-    def __init__(self, feature_service_id: _Optional[str] = ..., feature_service_name: _Optional[str] = ..., workspace_name: _Optional[str] = ..., request_data: _Optional[_Iterable[_Union[GetFeaturesBatchRequestData, _Mapping]]] = ..., metadata_options: _Optional[_Union[MetadataOptions, _Mapping]] = ...) -> None: ...
+    def __init__(self, feature_service_id: _Optional[str] = ..., feature_service_name: _Optional[str] = ..., workspace_name: _Optional[str] = ..., request_data: _Optional[_Iterable[_Union[GetFeaturesBatchRequestData, _Mapping]]] = ..., metadata_options: _Optional[_Union[MetadataOptions, _Mapping]] = ..., request_options: _Optional[_Union[RequestOptions, _Mapping]] = ...) -> None: ...
 
 class GetFeaturesBatchParametersV2(_message.Message):
-    __slots__ = ["feature_service_name", "metadata_options", "request_data", "workspace_name"]
+    __slots__ = ["feature_service_name", "metadata_options", "request_data", "request_options", "workspace_name"]
     FEATURE_SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
     METADATA_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     REQUEST_DATA_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     WORKSPACE_NAME_FIELD_NUMBER: _ClassVar[int]
     feature_service_name: str
     metadata_options: MetadataOptions
     request_data: _containers.RepeatedCompositeFieldContainer[GetFeaturesBatchRequestData]
+    request_options: RequestOptions
     workspace_name: str
-    def __init__(self, feature_service_name: _Optional[str] = ..., workspace_name: _Optional[str] = ..., request_data: _Optional[_Iterable[_Union[GetFeaturesBatchRequestData, _Mapping]]] = ..., metadata_options: _Optional[_Union[MetadataOptions, _Mapping]] = ...) -> None: ...
+    def __init__(self, feature_service_name: _Optional[str] = ..., workspace_name: _Optional[str] = ..., request_data: _Optional[_Iterable[_Union[GetFeaturesBatchRequestData, _Mapping]]] = ..., metadata_options: _Optional[_Union[MetadataOptions, _Mapping]] = ..., request_options: _Optional[_Union[RequestOptions, _Mapping]] = ...) -> None: ...
 
 class GetFeaturesBatchRequest(_message.Message):
     __slots__ = ["params"]
@@ -179,15 +183,17 @@ class MetadataOptions(_message.Message):
     def __init__(self, include_names: bool = ..., include_effective_times: bool = ..., include_types: bool = ..., include_data_types: bool = ..., include_slo_info: bool = ..., include_serving_status: bool = ..., include_feature_descriptions: bool = ..., include_feature_tags: bool = ...) -> None: ...
 
 class RequestOptions(_message.Message):
-    __slots__ = ["aggregation_leading_edge", "high_watermark_override", "ignore_extra_request_context_fields", "read_from_cache", "write_to_cache"]
+    __slots__ = ["aggregation_leading_edge", "high_watermark_override", "ignore_extra_request_context_fields", "latency_budget_ms", "read_from_cache", "write_to_cache"]
     AGGREGATION_LEADING_EDGE_FIELD_NUMBER: _ClassVar[int]
     HIGH_WATERMARK_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     IGNORE_EXTRA_REQUEST_CONTEXT_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    LATENCY_BUDGET_MS_FIELD_NUMBER: _ClassVar[int]
     READ_FROM_CACHE_FIELD_NUMBER: _ClassVar[int]
     WRITE_TO_CACHE_FIELD_NUMBER: _ClassVar[int]
     aggregation_leading_edge: _feature_view__client_pb2.AggregationLeadingEdge
     high_watermark_override: _timestamp_pb2.Timestamp
     ignore_extra_request_context_fields: bool
+    latency_budget_ms: int
     read_from_cache: bool
     write_to_cache: bool
-    def __init__(self, read_from_cache: bool = ..., write_to_cache: bool = ..., ignore_extra_request_context_fields: bool = ..., aggregation_leading_edge: _Optional[_Union[_feature_view__client_pb2.AggregationLeadingEdge, str]] = ..., high_watermark_override: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, read_from_cache: bool = ..., write_to_cache: bool = ..., ignore_extra_request_context_fields: bool = ..., latency_budget_ms: _Optional[int] = ..., aggregation_leading_edge: _Optional[_Union[_feature_view__client_pb2.AggregationLeadingEdge, str]] = ..., high_watermark_override: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...

@@ -6,6 +6,13 @@ import System
 import System.Runtime.ExceptionServices
 
 
+class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
+    """Obsoletions.CorruptedStateRecoveryMessage"""
+
+    def __init__(self) -> None:
+        ...
+
+
 class ExceptionDispatchInfo(System.Object):
     """This class has no documentation."""
 
@@ -74,13 +81,6 @@ class ExceptionHandling(System.Object):
     @staticmethod
     def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
         """Sets a handler for unhandled exceptions."""
-        ...
-
-
-class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
-    """Obsoletions.CorruptedStateRecoveryMessage"""
-
-    def __init__(self) -> None:
         ...
 
 

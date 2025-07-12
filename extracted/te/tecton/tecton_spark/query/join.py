@@ -21,6 +21,7 @@ from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
 from tecton_core.query import compaction_utils
 from tecton_core.query_consts import aggregation_group_id
 from tecton_core.query_consts import anchor_time
+from tecton_core.query_consts import effective_timestamp
 from tecton_core.query_consts import tecton_secondary_key_aggregation_indicator_col
 from tecton_core.query_consts import temp_indictor_column_name
 from tecton_core.query_consts import temp_intermediate_partial_aggregate_column_name
@@ -215,7 +216,6 @@ class _AsofJoinerAndWindowAggregator:
 
     def join_and_aggregate(self, aggregations: List[pyspark.sql.Column]) -> pyspark.sql.DataFrame:
         union = self._union()
-
         # We use the right side of asof join to calculate the aggregate values to augment to the rows from the left side.
         # Then, we drop the right side's rows.
         output_columns = (
@@ -237,9 +237,9 @@ class _AsofJoinerAndWindowAggregator:
         assert len(extra_partition_cols) == 0 or all(
             col in self._extra_partition_cols for col in extra_partition_cols
         ), f"Expected extra_partition_cols {extra_partition_cols} in {self._extra_partition_cols}."
-        assert (
-            timestamp_col is None or timestamp_col in self._left_ts_cols
-        ), f"Expected timestamp_col {timestamp_col} in {self._left_ts_cols}."
+        assert timestamp_col is None or timestamp_col in self._left_ts_cols, (
+            f"Expected timestamp_col {timestamp_col} in {self._left_ts_cols}."
+        )
 
         if range_between_start == spark_window.Window.unboundedPreceding:
             if timestamp_col:
@@ -254,7 +254,6 @@ class _AsofJoinerAndWindowAggregator:
                 order_column_index = 0
             order_by_col = self._tecton_window_range_between_order_columns[order_column_index]
             order_by_cols = [order_by_col]
-
         window_spec = (
             spark_window.Window.partitionBy(list(self.common_partition_cols) + extra_partition_cols)
             .orderBy([F.col(c).asc() for c in order_by_cols])
@@ -458,6 +457,122 @@ class AsofJoinFullAggSparkNode(SparkExecNode):
             left_ts_cols=timestamp_cols,
             right_ts_cols=timestamp_cols,
             partition_cols=partition_columns,
+            use_window_range_between_value=True,
+        )
+        aggregations = self._get_aggregations(join_spec)
+        return join_spec.join_and_aggregate(aggregations)
+
+
+@attrs.frozen
+class AsofBitemporalJoinFullAggSparkNode(AsofJoinFullAggSparkNode):
+    """
+    AsofBitemporalJoinFullAggSparkNode is used only to handle late-arriving data (batch_publish_timestamp is not null) where simulate_events_published_on_time=False.
+    """
+
+    _SPINE_DF_ALIAS = "spine_df"
+    _PARTIAL_AGG_DF_ALIAS = "partial_agg_df"
+
+    def _generate_aggregation_window_spec(
+        self,
+        time_window: TimeWindowSpec,
+        join_spec: _AsofJoinerAndWindowAggregator,
+    ) -> spark_window.WindowSpec:
+        # This is nearly identical to _generate_aggregation_window_spec for AsofJoinFullAggSparkNode, except:
+        # 1. get_range_between_window_spec has extra_partition_cols set (very important)
+        # 2. TimeWindowSeriesSpec is not supported - TimeWindowSeriesSpec is also not supported for compaction which is a prerequisite for late-arriving data.
+        if isinstance(time_window, RelativeTimeWindowSpec):
+            start, end = self.fdw.time_range_for_relative_time_window(time_window)
+            return join_spec.get_range_between_window_spec(
+                start * 2 - 1, end * 2 - 1, extra_partition_cols=[self.fdw.timestamp_key]
+            )
+        elif isinstance(time_window, LifetimeWindowSpec):
+            return join_spec.get_range_between_window_spec(
+                spark_window.Window.unboundedPreceding,
+                spark_window.Window.currentRow,
+                extra_partition_cols=[self.fdw.timestamp_key],
+            )
+        elif isinstance(time_window, TimeWindowSeriesSpec):
+            msg = "TimeWindowSeriesSpec is not supported for joins with late-arriving data."
+            raise ValueError(msg)
+        else:
+            msg = f"Invalid time_window type: {type(time_window)}"
+            raise TypeError(msg)
+
+    def _to_dataframe(self, spark: pyspark.sql.SparkSession) -> pyspark.sql.DataFrame:
+        """
+        The query plan is:
+        1. Join the spine and partial aggregation dataframes on the join keys AND spine.anchor_time >= partial_agg.anchor_time AND spine.timestamp_key >= partial_agg.effective_timestamp
+        The spine.timestamp_key >= partial_agg.effective_timestamp condition ensures only events that were "effective" at the spine timestamp are captured (this is the bitemporal join part). The step will produce a dataframe with duplicate rows for each spine event that matches multiple partial aggregation events.
+
+        2. Union the output of (1) with the spine and partition by join_keys AND spine_df.timestamp
+
+        Aliases (spine_df and partial_agg_df) are used to avoid ambiguous self-join errors when using a pyspark dataframe.
+        """
+
+        # Alias with the same names as variables
+        spine_df = self.spine.to_dataframe(spark).alias(self._SPINE_DF_ALIAS)
+        partial_agg_df = self.partial_agg_node.to_dataframe(spark).alias(self._PARTIAL_AGG_DF_ALIAS)
+
+        # Join key conditions with qualified names
+        join_key_conditions = [
+            F.col(f"{self._SPINE_DF_ALIAS}.{key}") == F.col(f"{self._PARTIAL_AGG_DF_ALIAS}.{key}")
+            for key in self.fdw.join_keys
+        ]
+
+        # Bitemporal join conditions
+        bitemporal_join_conditions = [
+            F.col(f"{self._SPINE_DF_ALIAS}.{self.fdw.timestamp_key}")
+            >= F.col(f"{self._PARTIAL_AGG_DF_ALIAS}.{effective_timestamp()}"),
+            F.col(f"{self._SPINE_DF_ALIAS}.{anchor_time()}") >= F.col(f"{self._PARTIAL_AGG_DF_ALIAS}.{anchor_time()}"),
+        ]
+        if not self.fdw.has_lifetime_aggregate:
+            max_aggregation_window = -convert_timedelta_for_version(
+                self.fdw.earliest_window_start, self.fdw.get_feature_store_format_version
+            )
+            bitemporal_join_conditions.append(
+                F.col(f"{self._SPINE_DF_ALIAS}.{anchor_time()}") - max_aggregation_window
+                <= F.col(f"{self._PARTIAL_AGG_DF_ALIAS}.{anchor_time()}")
+            )
+
+        # Columns to keep from partial_agg_df
+        partial_agg_column_names_to_keep = (
+            set(partial_agg_df.columns) - set(self.fdw.join_keys) - {effective_timestamp()}
+        )
+        partial_agg_columns_to_keep = [
+            F.col(f"{self._PARTIAL_AGG_DF_ALIAS}.{col}") for col in partial_agg_column_names_to_keep
+        ]
+
+        # Columns to keep from spine_df
+        join_key_columns = [F.col(f"{self._SPINE_DF_ALIAS}.{key}") for key in self.fdw.join_keys]
+        cols_to_keep = [
+            *join_key_columns,
+            F.col(f"{self._SPINE_DF_ALIAS}.{self.fdw.timestamp_key}"),
+            *partial_agg_columns_to_keep,
+        ]
+
+        # Perform the join and select
+        joined_df = partial_agg_df.join(
+            spine_df, on=join_key_conditions + bitemporal_join_conditions, how="inner"
+        ).select(*cols_to_keep)
+
+        partition_columns = self.fdw.join_keys
+        if self.fdw.aggregation_secondary_key:
+            partition_columns.append(self.fdw.aggregation_secondary_key)
+
+            # If the aggregation secondary key appears, we add an indicator column to the partial aggregation result to
+            # help identify all secondary keys that are present in each distinct time window.
+            joined_df = joined_df.withColumn(tecton_secondary_key_aggregation_indicator_col(), F.lit(1))
+
+        join_spec = _AsofJoinerAndWindowAggregator.create(
+            left_df=spine_df,
+            right_df=joined_df,
+            left_ts_cols=[anchor_time()],
+            right_ts_cols=[anchor_time()],
+            partition_cols=self.fdw.join_keys,
+            # different from AsofJoinFullAggSparkNode
+            # TODO(BAT-15413): This may break for cases where the spine has duplicate timestamps
+            # investigate behavior for cases where spine has duplicate timestamps
+            extra_partition_cols=[self.fdw.timestamp_key],
             use_window_range_between_value=True,
         )
         aggregations = self._get_aggregations(join_spec)
@@ -768,6 +883,7 @@ class ExplodeTimestampByTimeWindowsSparkNode(SparkExecNode):
     fdw: FeatureDefinitionWrapper
     time_filter: pendulum.Period
     sawtooth_aggregation_data: Optional[compaction_utils.SawtoothAggregationData]
+    include_original_anchor_time: bool
 
     def _get_time_deltas_for_sawtooth_anchor_time_cols(self) -> Dict[str, Set[int]]:
         """Calculate the aggregation tine windows to add to the anchor_time_for_X_sawtooth columns by.
@@ -816,14 +932,20 @@ class ExplodeTimestampByTimeWindowsSparkNode(SparkExecNode):
 
             elif isinstance(time_window, TimeWindowSeriesSpec):
                 for time_window in time_window.time_windows:
-                    time_deltas.update((time_window.window_start, time_window.window_end))
+                    if self.include_original_anchor_time:
+                        time_deltas.update((time_window.window_start, time_window.window_end))
+                    else:
+                        time_deltas.add(time_window.window_start)
 
             elif isinstance(time_window, RelativeTimeWindowSpec):
                 if self.sawtooth_aggregation_data:
                     # For sawtooth features, the window start is added to sawtooth time columns in _get_time_deltas_for_sawtooth_anchor_time_cols.
                     time_deltas.add(time_window.window_end)
                 else:
-                    time_deltas.update((time_window.window_start, time_window.window_end))
+                    if self.include_original_anchor_time:
+                        time_deltas.update((time_window.window_start, time_window.window_end))
+                    else:
+                        time_deltas.add(time_window.window_start)
 
             else:
                 msg = f"Invalid time_window type: {type(time_window)}"

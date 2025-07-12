@@ -6,8 +6,21 @@ import System
 import System.ComponentModel.DataAnnotations.Schema
 
 
-class NotMappedAttribute(System.Attribute):
-    """Denotes that a property or class should be excluded from database mapping."""
+class InversePropertyAttribute(System.Attribute):
+    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
+
+    @property
+    def property(self) -> str:
+        """The navigation property representing the other end of the same relationship."""
+        ...
+
+    def __init__(self, property: str) -> None:
+        """
+        Initializes a new instance of the InversePropertyAttribute class.
+        
+        :param property: The navigation property representing the other end of the same relationship.
+        """
+        ...
 
 
 class DatabaseGeneratedOption(Enum):
@@ -49,45 +62,34 @@ class ComplexTypeAttribute(System.Attribute):
     """
 
 
-class ForeignKeyAttribute(System.Attribute):
-    """
-    Denotes a property used as a foreign key in a relationship.
-        The annotation may be placed on the foreign key property and specify the associated navigation property name,
-        or placed on a navigation property and specify the associated foreign key name.
-    """
+class TableAttribute(System.Attribute):
+    """Specifies the database table that a class is mapped to."""
 
     @property
     def name(self) -> str:
-        """
-        If placed on a foreign key property, the name of the associated navigation property.
-            If placed on a navigation property, the name of the associated foreign key(s).
-        """
+        """The name of the table the class is mapped to."""
+        ...
+
+    @property
+    def schema(self) -> str:
+        """The schema of the table the class is mapped to."""
+        ...
+
+    @schema.setter
+    def schema(self, value: str) -> None:
         ...
 
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the ForeignKeyAttribute class.
+        Initializes a new instance of the TableAttribute class.
         
-        :param name: If placed on a foreign key property, the name of the associated navigation property.     If placed on a navigation property, the name of the associated foreign key(s).     If a navigation property has multiple foreign keys, a comma separated list should be supplied.
+        :param name: The name of the table the class is mapped to.
         """
         ...
 
 
-class InversePropertyAttribute(System.Attribute):
-    """Specifies the inverse of a navigation property that represents the other end of the same relationship."""
-
-    @property
-    def property(self) -> str:
-        """The navigation property representing the other end of the same relationship."""
-        ...
-
-    def __init__(self, property: str) -> None:
-        """
-        Initializes a new instance of the InversePropertyAttribute class.
-        
-        :param property: The navigation property representing the other end of the same relationship.
-        """
-        ...
+class NotMappedAttribute(System.Attribute):
+    """Denotes that a property or class should be excluded from database mapping."""
 
 
 class ColumnAttribute(System.Attribute):
@@ -131,28 +133,26 @@ class ColumnAttribute(System.Attribute):
         ...
 
 
-class TableAttribute(System.Attribute):
-    """Specifies the database table that a class is mapped to."""
+class ForeignKeyAttribute(System.Attribute):
+    """
+    Denotes a property used as a foreign key in a relationship.
+        The annotation may be placed on the foreign key property and specify the associated navigation property name,
+        or placed on a navigation property and specify the associated foreign key name.
+    """
 
     @property
     def name(self) -> str:
-        """The name of the table the class is mapped to."""
-        ...
-
-    @property
-    def schema(self) -> str:
-        """The schema of the table the class is mapped to."""
-        ...
-
-    @schema.setter
-    def schema(self, value: str) -> None:
+        """
+        If placed on a foreign key property, the name of the associated navigation property.
+            If placed on a navigation property, the name of the associated foreign key(s).
+        """
         ...
 
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the TableAttribute class.
+        Initializes a new instance of the ForeignKeyAttribute class.
         
-        :param name: The name of the table the class is mapped to.
+        :param name: If placed on a foreign key property, the name of the associated navigation property.     If placed on a navigation property, the name of the associated foreign key(s).     If a navigation property has multiple foreign keys, a comma separated list should be supplied.
         """
         ...
 

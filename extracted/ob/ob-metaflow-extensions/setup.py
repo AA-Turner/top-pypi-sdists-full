@@ -2,11 +2,12 @@ from setuptools import setup, find_namespace_packages
 from pathlib import Path
 
 
-version = "1.1.174"
+version = "1.2.0"
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setup(
+    include_package_data=True,  # allow Extracting the JSON/YAML files specified in the manifest.in File.
     name="ob_metaflow_extensions",
     version=version,
     description="Outerbounds Platform Extensions for Metaflow",
@@ -18,6 +19,6 @@ setup(
     install_requires=[
         "boto3",
         "kubernetes",
-        "ob-metaflow == 2.15.18.1",
+        "ob-metaflow == 2.15.21.1",
     ],
 )

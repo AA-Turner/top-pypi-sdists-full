@@ -74,6 +74,12 @@ class DbfsStorageInfo(_message.Message):
     destination: str
     def __init__(self, destination: _Optional[str] = ...) -> None: ...
 
+class DockerImage(_message.Message):
+    __slots__ = ["url"]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    url: str
+    def __init__(self, url: _Optional[str] = ...) -> None: ...
+
 class ExistingCluster(_message.Message):
     __slots__ = ["cluster_id"]
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -101,7 +107,7 @@ class LocalStorageInfo(_message.Message):
     def __init__(self, path: _Optional[str] = ...) -> None: ...
 
 class NewCluster(_message.Message):
-    __slots__ = ["apply_policy_default_values", "autoscale", "aws_attributes", "cluster_log_conf", "cluster_name", "custom_tags", "data_security_mode", "driver_node_type_id", "enable_elastic_disk", "gcp_attributes", "init_scripts", "instance_pool_id", "json_cluster_config", "node_type_id", "num_workers", "policy_id", "python_version", "root_volume_size_in_gb", "single_user_name", "spark_conf", "spark_env_vars", "spark_version", "terminateOnComplete"]
+    __slots__ = ["apply_policy_default_values", "autoscale", "aws_attributes", "cluster_log_conf", "cluster_name", "custom_tags", "data_security_mode", "docker_image", "driver_node_type_id", "enable_elastic_disk", "enable_iceberg", "gcp_attributes", "init_scripts", "instance_pool_id", "json_cluster_config", "node_type_id", "num_workers", "policy_id", "python_version", "root_volume_size_in_gb", "single_user_name", "spark_conf", "spark_env_vars", "spark_version", "terminateOnComplete"]
     class SparkConfEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -123,8 +129,10 @@ class NewCluster(_message.Message):
     CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
     CUSTOM_TAGS_FIELD_NUMBER: _ClassVar[int]
     DATA_SECURITY_MODE_FIELD_NUMBER: _ClassVar[int]
+    DOCKER_IMAGE_FIELD_NUMBER: _ClassVar[int]
     DRIVER_NODE_TYPE_ID_FIELD_NUMBER: _ClassVar[int]
     ENABLE_ELASTIC_DISK_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_ICEBERG_FIELD_NUMBER: _ClassVar[int]
     GCP_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     INIT_SCRIPTS_FIELD_NUMBER: _ClassVar[int]
     INSTANCE_POOL_ID_FIELD_NUMBER: _ClassVar[int]
@@ -146,8 +154,10 @@ class NewCluster(_message.Message):
     cluster_name: str
     custom_tags: _containers.RepeatedCompositeFieldContainer[ClusterTag]
     data_security_mode: str
+    docker_image: DockerImage
     driver_node_type_id: str
     enable_elastic_disk: bool
+    enable_iceberg: bool
     gcp_attributes: GCPAttributes
     init_scripts: _containers.RepeatedCompositeFieldContainer[ResourceLocation]
     instance_pool_id: str
@@ -162,7 +172,7 @@ class NewCluster(_message.Message):
     spark_env_vars: _containers.ScalarMap[str, str]
     spark_version: str
     terminateOnComplete: bool
-    def __init__(self, num_workers: _Optional[int] = ..., autoscale: _Optional[_Union[AutoScale, _Mapping]] = ..., cluster_name: _Optional[str] = ..., spark_version: _Optional[str] = ..., spark_conf: _Optional[_Mapping[str, str]] = ..., aws_attributes: _Optional[_Union[AwsAttributes, _Mapping]] = ..., node_type_id: _Optional[str] = ..., enable_elastic_disk: bool = ..., init_scripts: _Optional[_Iterable[_Union[ResourceLocation, _Mapping]]] = ..., cluster_log_conf: _Optional[_Union[ResourceLocation, _Mapping]] = ..., custom_tags: _Optional[_Iterable[_Union[ClusterTag, _Mapping]]] = ..., terminateOnComplete: bool = ..., spark_env_vars: _Optional[_Mapping[str, str]] = ..., gcp_attributes: _Optional[_Union[GCPAttributes, _Mapping]] = ..., json_cluster_config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., policy_id: _Optional[str] = ..., apply_policy_default_values: bool = ..., driver_node_type_id: _Optional[str] = ..., root_volume_size_in_gb: _Optional[int] = ..., python_version: _Optional[_Union[_python_version__client_pb2.PythonVersion, str]] = ..., data_security_mode: _Optional[str] = ..., single_user_name: _Optional[str] = ..., instance_pool_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, num_workers: _Optional[int] = ..., autoscale: _Optional[_Union[AutoScale, _Mapping]] = ..., cluster_name: _Optional[str] = ..., spark_version: _Optional[str] = ..., spark_conf: _Optional[_Mapping[str, str]] = ..., aws_attributes: _Optional[_Union[AwsAttributes, _Mapping]] = ..., node_type_id: _Optional[str] = ..., enable_elastic_disk: bool = ..., init_scripts: _Optional[_Iterable[_Union[ResourceLocation, _Mapping]]] = ..., cluster_log_conf: _Optional[_Union[ResourceLocation, _Mapping]] = ..., custom_tags: _Optional[_Iterable[_Union[ClusterTag, _Mapping]]] = ..., terminateOnComplete: bool = ..., spark_env_vars: _Optional[_Mapping[str, str]] = ..., gcp_attributes: _Optional[_Union[GCPAttributes, _Mapping]] = ..., json_cluster_config: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., policy_id: _Optional[str] = ..., apply_policy_default_values: bool = ..., driver_node_type_id: _Optional[str] = ..., root_volume_size_in_gb: _Optional[int] = ..., python_version: _Optional[_Union[_python_version__client_pb2.PythonVersion, str]] = ..., data_security_mode: _Optional[str] = ..., single_user_name: _Optional[str] = ..., instance_pool_id: _Optional[str] = ..., docker_image: _Optional[_Union[DockerImage, _Mapping]] = ..., enable_iceberg: bool = ...) -> None: ...
 
 class ResourceLocation(_message.Message):
     __slots__ = ["dbfs", "local", "s3", "workspace"]

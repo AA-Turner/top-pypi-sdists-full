@@ -27,27 +27,26 @@ import System.Text
 import System.Threading
 import System.Threading.Tasks
 
-System_Version = typing.Any
-System_TimeZoneInfo = typing.Any
-System_TimeZoneInfo_AdjustmentRule = typing.Any
-System_TimeZoneInfo_TransitionTime = typing.Any
-System_Guid = typing.Any
-System_Half = typing.Any
-System_DateTimeOffset = typing.Any
-System_ValueTuple = typing.Any
 System_IntPtr = typing.Any
-System_Lazy = typing.Any
-System_Memory = typing.Any
+System_TimeZoneInfo = typing.Any
+System_TimeZoneInfo_TransitionTime = typing.Any
+System_TimeZoneInfo_AdjustmentRule = typing.Any
 System_DateOnly = typing.Any
-System_TimeOnly = typing.Any
-System_Int128 = typing.Any
-System_UIntPtr = typing.Any
+System_DateTimeOffset = typing.Any
+System_Guid = typing.Any
 System_UInt128 = typing.Any
+System_Version = typing.Any
+System_Lazy = typing.Any
+System_ValueTuple = typing.Any
+System_Int128 = typing.Any
+System_Half = typing.Any
 System_ReadOnlyMemory = typing.Any
+System_UIntPtr = typing.Any
+System_Memory = typing.Any
+System_TimeOnly = typing.Any
 System_ConsoleKeyInfo = typing.Any
 
-System_IObservable_T = typing.TypeVar("System_IObservable_T")
-System_Nullable_T = typing.TypeVar("System_Nullable_T")
+System_MemoryExtensions_SpanSplitEnumerator_T = typing.TypeVar("System_MemoryExtensions_SpanSplitEnumerator_T")
 System_Tuple_T1 = typing.TypeVar("System_Tuple_T1")
 System_Tuple_T2 = typing.TypeVar("System_Tuple_T2")
 System_Tuple_T3 = typing.TypeVar("System_Tuple_T3")
@@ -56,6 +55,14 @@ System_Tuple_T5 = typing.TypeVar("System_Tuple_T5")
 System_Tuple_T6 = typing.TypeVar("System_Tuple_T6")
 System_Tuple_T7 = typing.TypeVar("System_Tuple_T7")
 System_Tuple_TRest = typing.TypeVar("System_Tuple_TRest")
+System_WeakReference_T = typing.TypeVar("System_WeakReference_T")
+System_IUtf8SpanParsable_TSelf = typing.TypeVar("System_IUtf8SpanParsable_TSelf")
+System_IEquatable_T = typing.TypeVar("System_IEquatable_T")
+System_IObservable_T = typing.TypeVar("System_IObservable_T")
+System_Lazy_T = typing.TypeVar("System_Lazy_T")
+System_Lazy_TMetadata = typing.TypeVar("System_Lazy_TMetadata")
+System_IProgress_T = typing.TypeVar("System_IProgress_T")
+System_ISpanParsable_TSelf = typing.TypeVar("System_ISpanParsable_TSelf")
 System_ValueTuple_T1 = typing.TypeVar("System_ValueTuple_T1")
 System_ValueTuple_T2 = typing.TypeVar("System_ValueTuple_T2")
 System_ValueTuple_T3 = typing.TypeVar("System_ValueTuple_T3")
@@ -64,24 +71,17 @@ System_ValueTuple_T5 = typing.TypeVar("System_ValueTuple_T5")
 System_ValueTuple_T6 = typing.TypeVar("System_ValueTuple_T6")
 System_ValueTuple_T7 = typing.TypeVar("System_ValueTuple_T7")
 System_ValueTuple_TRest = typing.TypeVar("System_ValueTuple_TRest")
-System_MemoryExtensions_SpanSplitEnumerator_T = typing.TypeVar("System_MemoryExtensions_SpanSplitEnumerator_T")
-System_Delegate_InvocationListEnumerator_TDelegate = typing.TypeVar("System_Delegate_InvocationListEnumerator_TDelegate")
-System_Lazy_T = typing.TypeVar("System_Lazy_T")
-System_Lazy_TMetadata = typing.TypeVar("System_Lazy_TMetadata")
-System_IParsable_TSelf = typing.TypeVar("System_IParsable_TSelf")
-System_ArraySegment_T = typing.TypeVar("System_ArraySegment_T")
-System_Memory_T = typing.TypeVar("System_Memory_T")
 System_IComparable_T = typing.TypeVar("System_IComparable_T")
-System_Progress_T = typing.TypeVar("System_Progress_T")
-System_IProgress_T = typing.TypeVar("System_IProgress_T")
-System_WeakReference_T = typing.TypeVar("System_WeakReference_T")
-System_Span_T = typing.TypeVar("System_Span_T")
-System_IUtf8SpanParsable_TSelf = typing.TypeVar("System_IUtf8SpanParsable_TSelf")
-System_IEquatable_T = typing.TypeVar("System_IEquatable_T")
-System_ReadOnlyMemory_T = typing.TypeVar("System_ReadOnlyMemory_T")
+System_IParsable_TSelf = typing.TypeVar("System_IParsable_TSelf")
 System_IObserver_T = typing.TypeVar("System_IObserver_T")
-System_ISpanParsable_TSelf = typing.TypeVar("System_ISpanParsable_TSelf")
+System_Span_T = typing.TypeVar("System_Span_T")
+System_ArraySegment_T = typing.TypeVar("System_ArraySegment_T")
+System_ReadOnlyMemory_T = typing.TypeVar("System_ReadOnlyMemory_T")
+System_Memory_T = typing.TypeVar("System_Memory_T")
+System_Nullable_T = typing.TypeVar("System_Nullable_T")
 System_ReadOnlySpan_T = typing.TypeVar("System_ReadOnlySpan_T")
+System_Delegate_InvocationListEnumerator_TDelegate = typing.TypeVar("System_Delegate_InvocationListEnumerator_TDelegate")
+System_Progress_T = typing.TypeVar("System_Progress_T")
 System__EventContainer_Callable = typing.TypeVar("System__EventContainer_Callable")
 System__EventContainer_ReturnType = typing.TypeVar("System__EventContainer_ReturnType")
 
@@ -135,6 +135,188 @@ class Object:
         ...
 
 
+class Exception(System.Object, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def data(self) -> System.Collections.IDictionary:
+        ...
+
+    @property
+    def inner_exception(self) -> System.Exception:
+        ...
+
+    @property
+    def help_link(self) -> str:
+        ...
+
+    @help_link.setter
+    def help_link(self, value: str) -> None:
+        ...
+
+    @property
+    def source(self) -> str:
+        ...
+
+    @source.setter
+    def source(self, value: str) -> None:
+        ...
+
+    @property
+    def serialize_object_state(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]:
+        """
+        This property is protected.
+        
+        Obsoletions.BinaryFormatterMessage
+        """
+        warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
+
+    @serialize_object_state.setter
+    def serialize_object_state(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]) -> None:
+        warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
+
+    @property
+    def h_result(self) -> int:
+        ...
+
+    @h_result.setter
+    def h_result(self, value: int) -> None:
+        ...
+
+    @property
+    def stack_trace(self) -> str:
+        ...
+
+    @property
+    def target_site(self) -> System.Reflection.MethodBase:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_base_exception(self) -> System.Exception:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def get_type(self) -> typing.Type:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class SystemException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class TypeLoadException(System.SystemException):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class DllNotFoundException(System.TypeLoadException):
+    """The exception that is thrown when a DLL specified in a DLL import cannot be found."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
 class ICloneable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -170,336 +352,6 @@ class ISpanFormattable(System.IFormattable, metaclass=abc.ABCMeta):
         :returns: true if the formatting was successful; otherwise, false.
         """
         ...
-
-
-class IUtf8SpanFormattable(metaclass=abc.ABCMeta):
-    """Provides functionality to format the string representation of an object into a span as UTF-8."""
-
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        """
-        Tries to format the value of the current instance as UTF-8 into the provided span of bytes.
-        
-        :param utf_8_destination: When this method returns, this instance's value formatted as a span of bytes.
-        :param bytes_written: When this method returns, the number of bytes that were written in .
-        :param format: A span containing the characters that represent a standard or custom format string that defines the acceptable format for .
-        :param provider: An optional object that supplies culture-specific formatting information for .
-        :returns: true if the formatting was successful; otherwise, false.
-        """
-        ...
-
-
-class Version(System.Object, System.ICloneable, System.IComparable[System_Version], System.IEquatable[System_Version], System.ISpanFormattable, System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Version]):
-    """This class has no documentation."""
-
-    @property
-    def major(self) -> int:
-        ...
-
-    @property
-    def minor(self) -> int:
-        ...
-
-    @property
-    def build(self) -> int:
-        ...
-
-    @property
-    def revision(self) -> int:
-        ...
-
-    @property
-    def major_revision(self) -> int:
-        ...
-
-    @property
-    def minor_revision(self) -> int:
-        ...
-
-    def __eq__(self, v_2: System.Version) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: System.Version) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, v_2: System.Version) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: System.Version) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, v_2: System.Version) -> bool:
-        ...
-
-    @overload
-    def __init__(self, major: int, minor: int, build: int, revision: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, major: int, minor: int, build: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, major: int, minor: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, version: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: System.Version) -> bool:
-        ...
-
-    @overload
-    def __le__(self, v_2: System.Version) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: System.Version) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, v_2: System.Version) -> bool:
-        ...
-
-    def __ne__(self, v_2: System.Version) -> bool:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    @overload
-    def compare_to(self, version: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: System.Version) -> int:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: System.Version) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(input: str) -> System.Version:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(input: System.ReadOnlySpan[str]) -> System.Version:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Version:
-        """
-        Converts the specified read-only span of UTF-8 characters that represents a version number to an equivalent Version object.
-        
-        :param utf_8_text: A read-only span of UTF-8 characters that contains a version number to convert.
-        :returns: An object that is equivalent to the version number specified in the  parameter.
-        """
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, field_count: int) -> str:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], field_count: int, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to format this version instance into a span of bytes.
-        
-        :param utf_8_destination: The span in which to write this instance's value formatted as a span of UTF-8 bytes.
-        :param bytes_written: When this method returns, contains the number of bytes that were written in .
-        :returns: true if the formatting was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], field_count: int, bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to format this version instance into a span of bytes.
-        
-        :param utf_8_destination: The span in which to write this instance's value formatted as a span of UTF-8 bytes.
-        :param field_count: The number of components to return. This value ranges from 0 to 4.
-        :param bytes_written: When this method returns, contains the number of bytes that were written in .
-        :returns: true if the formatting was successful; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: System.ReadOnlySpan[str], result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
-        """
-        Tries to convert the UTF-8 representation of a version number to an equivalent Version object, and returns a value that indicates whether the conversion succeeded.
-        
-        :param utf_8_text: The span of UTF-8 characters to parse.
-        :param result: When this method returns, contains the Version equivalent of the number that is contained in , if the conversion succeeded.     If  is empty, or if the conversion fails, result is null when the method returns.
-        :returns: true if the  parameter was converted successfully; otherwise, false.
-        """
-        ...
-
-
-class FormattableString(System.Object, System.IFormattable, metaclass=abc.ABCMeta):
-    """Represents a composite format string, along with the arguments to be formatted."""
-
-    @property
-    @abc.abstractmethod
-    def format(self) -> str:
-        """The composite format string."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def argument_count(self) -> int:
-        """The number of arguments to be formatted."""
-        ...
-
-    @staticmethod
-    def current_culture(formattable: System.FormattableString) -> str:
-        """
-        Format the given object in the current culture. This static method may be
-        imported in C# by
-        
-        using static System.FormattableString;
-        .
-        Within the scope
-        of that import directive an interpolated string may be formatted in the
-        current culture by writing, for example,
-        
-        CurrentCulture($"{{ lat = {latitude}; lon = {longitude} }}")
-        """
-        ...
-
-    def get_argument(self, index: int) -> System.Object:
-        """Returns one argument to be formatted from argument position ."""
-        ...
-
-    def get_arguments(self) -> typing.List[System.Object]:
-        """
-        Returns an object array that contains zero or more objects to format. Clients should not
-        mutate the contents of the array.
-        """
-        ...
-
-    @staticmethod
-    def invariant(formattable: System.FormattableString) -> str:
-        """
-        Format the given object in the invariant culture. This static method may be
-        imported in C# by
-        
-        using static System.FormattableString;
-        .
-        Within the scope
-        of that import directive an interpolated string may be formatted in the
-        invariant culture by writing, for example,
-        
-        Invariant($"{{ lat = {latitude}; lon = {longitude} }}")
-        """
-        ...
-
-    @overload
-    def to_string(self, format_provider: System.IFormatProvider) -> str:
-        """Format to a string using the given culture."""
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-
-class TypeCode(Enum):
-    """This class has no documentation."""
-
-    EMPTY = 0
-
-    OBJECT = 1
-
-    DB_NULL = 2
-
-    BOOLEAN = 3
-
-    CHAR = 4
-
-    S_BYTE = 5
-
-    BYTE = 6
-
-    INT_16 = 7
-
-    U_INT_16 = 8
-
-    INT_32 = 9
-
-    U_INT_32 = 10
-
-    INT_64 = 11
-
-    U_INT_64 = 12
-
-    SINGLE = 13
-
-    DOUBLE = 14
-
-    DECIMAL = 15
-
-    DATE_TIME = 16
-
-    STRING = 18
 
 
 class IConvertible(metaclass=abc.ABCMeta):
@@ -1097,6 +949,4517 @@ class Enum(System.Object, System.IComparable, System.ISpanFormattable, System.IC
         :param ignore_case: true to read  in case insensitive mode; false to read  in case sensitive mode.
         :param result: When this method returns true, an object containing an enumeration constant representing the parsed value.
         :returns: true if the conversion succeeded; false otherwise.
+        """
+        ...
+
+
+class PlatformID(Enum):
+    """This class has no documentation."""
+
+    WIN_32S = 0
+
+    WIN_32_WINDOWS = 1
+
+    WIN_32_NT = 2
+
+    WIN_CE = 3
+
+    UNIX = 4
+
+    XBOX = 5
+
+    MAC_OSX = 6
+
+    OTHER = 7
+
+
+class IUtf8SpanFormattable(metaclass=abc.ABCMeta):
+    """Provides functionality to format the string representation of an object into a span as UTF-8."""
+
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
+        """
+        Tries to format the value of the current instance as UTF-8 into the provided span of bytes.
+        
+        :param utf_8_destination: When this method returns, this instance's value formatted as a span of bytes.
+        :param bytes_written: When this method returns, the number of bytes that were written in .
+        :param format: A span containing the characters that represent a standard or custom format string that defines the acceptable format for .
+        :param provider: An optional object that supplies culture-specific formatting information for .
+        :returns: true if the formatting was successful; otherwise, false.
+        """
+        ...
+
+
+class Version(System.Object, System.ICloneable, System.IComparable[System_Version], System.IEquatable[System_Version], System.ISpanFormattable, System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Version]):
+    """This class has no documentation."""
+
+    @property
+    def major(self) -> int:
+        ...
+
+    @property
+    def minor(self) -> int:
+        ...
+
+    @property
+    def build(self) -> int:
+        ...
+
+    @property
+    def revision(self) -> int:
+        ...
+
+    @property
+    def major_revision(self) -> int:
+        ...
+
+    @property
+    def minor_revision(self) -> int:
+        ...
+
+    def __eq__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __init__(self, major: int, minor: int, build: int, revision: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, major: int, minor: int, build: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, major: int, minor: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, version: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __le__(self, v_2: System.Version) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Version) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, v_2: System.Version) -> bool:
+        ...
+
+    def __ne__(self, v_2: System.Version) -> bool:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    @overload
+    def compare_to(self, version: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: System.Version) -> int:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: System.Version) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(input: str) -> System.Version:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(input: System.ReadOnlySpan[str]) -> System.Version:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Version:
+        """
+        Converts the specified read-only span of UTF-8 characters that represents a version number to an equivalent Version object.
+        
+        :param utf_8_text: A read-only span of UTF-8 characters that contains a version number to convert.
+        :returns: An object that is equivalent to the version number specified in the  parameter.
+        """
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, field_count: int) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], field_count: int, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to format this version instance into a span of bytes.
+        
+        :param utf_8_destination: The span in which to write this instance's value formatted as a span of UTF-8 bytes.
+        :param bytes_written: When this method returns, contains the number of bytes that were written in .
+        :returns: true if the formatting was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], field_count: int, bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to format this version instance into a span of bytes.
+        
+        :param utf_8_destination: The span in which to write this instance's value formatted as a span of UTF-8 bytes.
+        :param field_count: The number of components to return. This value ranges from 0 to 4.
+        :param bytes_written: When this method returns, contains the number of bytes that were written in .
+        :returns: true if the formatting was successful; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: System.ReadOnlySpan[str], result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Version]) -> typing.Tuple[bool, System.Version]:
+        """
+        Tries to convert the UTF-8 representation of a version number to an equivalent Version object, and returns a value that indicates whether the conversion succeeded.
+        
+        :param utf_8_text: The span of UTF-8 characters to parse.
+        :param result: When this method returns, contains the Version equivalent of the number that is contained in , if the conversion succeeded.     If  is empty, or if the conversion fails, result is null when the method returns.
+        :returns: true if the  parameter was converted successfully; otherwise, false.
+        """
+        ...
+
+
+class OperatingSystem(System.Object, System.Runtime.Serialization.ISerializable, System.ICloneable):
+    """This class has no documentation."""
+
+    @property
+    def platform(self) -> System.PlatformID:
+        ...
+
+    @property
+    def service_pack(self) -> str:
+        ...
+
+    @property
+    def version(self) -> System.Version:
+        ...
+
+    @property
+    def version_string(self) -> str:
+        ...
+
+    def __init__(self, platform: System.PlatformID, version: System.Version) -> None:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    @staticmethod
+    def is_android() -> bool:
+        """Indicates whether the current application is running on Android."""
+        ...
+
+    @staticmethod
+    def is_android_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
+        """Check for the Android API level (returned by 'ro.build.version.sdk') with a >= version comparison. Used to guard APIs that were added in the given Android release."""
+        ...
+
+    @staticmethod
+    def is_browser() -> bool:
+        """Indicates whether the current application is running as WASM in a Browser."""
+        ...
+
+    @staticmethod
+    def is_free_bsd() -> bool:
+        """Indicates whether the current application is running on FreeBSD."""
+        ...
+
+    @staticmethod
+    def is_free_bsd_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
+        """Check for the FreeBSD version (returned by 'uname') with a >= version comparison. Used to guard APIs that were added in the given FreeBSD release."""
+        ...
+
+    @staticmethod
+    def is_ios() -> bool:
+        """Indicates whether the current application is running on iOS or MacCatalyst."""
+        ...
+
+    @staticmethod
+    def is_ios_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
+        """Check for the iOS/MacCatalyst version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given iOS release."""
+        ...
+
+    @staticmethod
+    def is_linux() -> bool:
+        """Indicates whether the current application is running on Linux."""
+        ...
+
+    @staticmethod
+    def is_mac_catalyst() -> bool:
+        """Indicates whether the current application is running on Mac Catalyst."""
+        ...
+
+    @staticmethod
+    def is_mac_catalyst_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
+        """Check for the Mac Catalyst version (iOS version as presented in Apple documentation) with a >= version comparison. Used to guard APIs that were added in the given Mac Catalyst release."""
+        ...
+
+    @staticmethod
+    def is_mac_os() -> bool:
+        """Indicates whether the current application is running on macOS."""
+        ...
+
+    @staticmethod
+    def is_mac_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
+        """Check for the macOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given macOS release."""
+        ...
+
+    @staticmethod
+    def is_os_platform(platform: str) -> bool:
+        """
+        Indicates whether the current application is running on the specified platform.
+        
+        :param platform: Case-insensitive platform name. Examples: Browser, Linux, FreeBSD, Android, iOS, macOS, tvOS, watchOS, Windows.
+        """
+        ...
+
+    @staticmethod
+    def is_os_platform_version_at_least(platform: str, major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
+        """
+        Check for the OS with a >= version comparison. Used to guard APIs that were added in the given OS release.
+        
+        :param platform: Case-insensitive platform name. Examples: Browser, Linux, FreeBSD, Android, iOS, macOS, tvOS, watchOS, Windows.
+        :param major: Major OS version number.
+        :param minor: Minor OS version number (optional).
+        :param build: Build OS version number (optional).
+        :param revision: Revision OS version number (optional).
+        """
+        ...
+
+    @staticmethod
+    def is_tv_os() -> bool:
+        """Indicates whether the current application is running on tvOS."""
+        ...
+
+    @staticmethod
+    def is_tv_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
+        """Check for the tvOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given tvOS release."""
+        ...
+
+    @staticmethod
+    def is_wasi() -> bool:
+        """Indicates whether the current application is running as WASI."""
+        ...
+
+    @staticmethod
+    def is_watch_os() -> bool:
+        """Indicates whether the current application is running on watchOS."""
+        ...
+
+    @staticmethod
+    def is_watch_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
+        """Check for the watchOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given watchOS release."""
+        ...
+
+    @staticmethod
+    def is_windows() -> bool:
+        """Indicates whether the current application is running on Windows."""
+        ...
+
+    @staticmethod
+    def is_windows_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
+        """Check for the Windows version (returned by 'RtlGetVersion') with a >= version comparison. Used to guard APIs that were added in the given Windows release."""
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class EnvironmentVariableTarget(Enum):
+    """This class has no documentation."""
+
+    PROCESS = 0
+
+    USER = 1
+
+    MACHINE = 2
+
+
+class Environment(System.Object):
+    """This class has no documentation."""
+
+    class ProcessCpuUsage:
+        """Represents the CPU usage statistics of a process."""
+
+        @property
+        def user_time(self) -> datetime.timedelta:
+            """Gets the amount of time the associated process has spent running code inside the application portion of the process (not the operating system code)."""
+            ...
+
+        @property
+        def privileged_time(self) -> datetime.timedelta:
+            """Gets the amount of time the process has spent running code inside the operating system code."""
+            ...
+
+        @property
+        def total_time(self) -> datetime.timedelta:
+            """Gets the amount of time the process has spent utilizing the CPU including the process time spent in the application code and the process time spent in the operating system code."""
+            ...
+
+    class SpecialFolderOption(Enum):
+        """This class has no documentation."""
+
+        NONE = 0
+
+        CREATE = ...
+
+        DO_NOT_VERIFY = ...
+
+    class SpecialFolder(Enum):
+        """This class has no documentation."""
+
+        APPLICATION_DATA = ...
+
+        COMMON_APPLICATION_DATA = ...
+
+        LOCAL_APPLICATION_DATA = ...
+
+        COOKIES = ...
+
+        DESKTOP = ...
+
+        FAVORITES = ...
+
+        HISTORY = ...
+
+        INTERNET_CACHE = ...
+
+        PROGRAMS = ...
+
+        MY_COMPUTER = ...
+
+        MY_MUSIC = ...
+
+        MY_PICTURES = ...
+
+        MY_VIDEOS = ...
+
+        RECENT = ...
+
+        SEND_TO = ...
+
+        START_MENU = ...
+
+        STARTUP = ...
+
+        SYSTEM = ...
+
+        TEMPLATES = ...
+
+        DESKTOP_DIRECTORY = ...
+
+        PERSONAL = ...
+
+        MY_DOCUMENTS = ...
+
+        PROGRAM_FILES = ...
+
+        COMMON_PROGRAM_FILES = ...
+
+        ADMIN_TOOLS = ...
+
+        CD_BURNING = ...
+
+        COMMON_ADMIN_TOOLS = ...
+
+        COMMON_DOCUMENTS = ...
+
+        COMMON_MUSIC = ...
+
+        COMMON_OEM_LINKS = ...
+
+        COMMON_PICTURES = ...
+
+        COMMON_START_MENU = ...
+
+        COMMON_PROGRAMS = ...
+
+        COMMON_STARTUP = ...
+
+        COMMON_DESKTOP_DIRECTORY = ...
+
+        COMMON_TEMPLATES = ...
+
+        COMMON_VIDEOS = ...
+
+        FONTS = ...
+
+        NETWORK_SHORTCUTS = ...
+
+        PRINTER_SHORTCUTS = ...
+
+        USER_PROFILE = ...
+
+        COMMON_PROGRAM_FILES_X_86 = ...
+
+        PROGRAM_FILES_X_86 = ...
+
+        RESOURCES = ...
+
+        LOCALIZED_RESOURCES = ...
+
+        SYSTEM_X_86 = ...
+
+        WINDOWS = ...
+
+    USER_NAME: str
+
+    USER_DOMAIN_NAME: str
+
+    MACHINE_NAME: str
+
+    USER_INTERACTIVE: bool
+
+    SYSTEM_DIRECTORY: str
+
+    CPU_USAGE: System.Environment.ProcessCpuUsage
+    """
+    Get the CPU usage, including the process time spent running the application code, the process time spent running the operating system code,
+    and the total time spent running both the application and operating system code.
+    """
+
+    TICK_COUNT_64: int
+    """Gets the number of milliseconds elapsed since the system started."""
+
+    WORKING_SET: int
+
+    PROCESSOR_COUNT: int
+
+    IS_PRIVILEGED_PROCESS: bool
+    """Gets whether the current process is authorized to perform security-relevant functions."""
+
+    HAS_SHUTDOWN_STARTED: bool
+
+    COMMAND_LINE: str
+
+    current_directory: str
+
+    PROCESS_ID: int
+    """Gets the unique identifier for the current process."""
+
+    PROCESS_PATH: str
+    """Returns the path of the executable that started the currently executing process. Returns null when the path is not available."""
+
+    IS_64_BIT_PROCESS: bool
+
+    IS_64_BIT_OPERATING_SYSTEM: bool
+
+    NEW_LINE: str
+
+    OS_VERSION: System.OperatingSystem
+
+    STACK_TRACE: str
+
+    SYSTEM_PAGE_SIZE: int
+
+    TICK_COUNT: int
+    """Gets the number of milliseconds elapsed since the system started."""
+
+    CURRENT_MANAGED_THREAD_ID: int
+
+    exit_code: int
+
+    @staticmethod
+    def exit(exit_code: int) -> None:
+        ...
+
+    @staticmethod
+    def expand_environment_variables(name: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def fail_fast(message: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def fail_fast(message: str, exception: System.Exception) -> None:
+        ...
+
+    @staticmethod
+    def get_command_line_args() -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_environment_variable(variable: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_environment_variable(variable: str, target: System.EnvironmentVariableTarget) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_environment_variables() -> System.Collections.IDictionary:
+        ...
+
+    @staticmethod
+    @overload
+    def get_environment_variables(target: System.EnvironmentVariableTarget) -> System.Collections.IDictionary:
+        ...
+
+    @staticmethod
+    @overload
+    def get_folder_path(folder: System.Environment.SpecialFolder) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def get_folder_path(folder: System.Environment.SpecialFolder, option: System.Environment.SpecialFolderOption) -> str:
+        ...
+
+    @staticmethod
+    def get_logical_drives() -> typing.List[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def set_environment_variable(variable: str, value: str) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def set_environment_variable(variable: str, value: str, target: System.EnvironmentVariableTarget) -> None:
+        ...
+
+
+class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_IntPtr], System.Numerics.IMinMaxValue[System_IntPtr], System.Numerics.ISignedNumber[System_IntPtr], System.IUtf8SpanFormattable):
+    """This class has no documentation."""
+
+    ZERO: System.IntPtr
+
+    SIZE: int
+
+    MAX_VALUE: System.IntPtr
+
+    MIN_VALUE: System.IntPtr
+
+    def __add__(self, offset: int) -> System.IntPtr:
+        ...
+
+    def __eq__(self, value_2: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.IntPtr) -> bool:
+        ...
+
+    def __iadd__(self, offset: int) -> System.IntPtr:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    def __isub__(self, offset: int) -> System.IntPtr:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.IntPtr) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.IntPtr) -> bool:
+        ...
+
+    def __ne__(self, value_2: System.IntPtr) -> bool:
+        ...
+
+    def __sub__(self, offset: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def abs(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def add(pointer: System.IntPtr, offset: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def clamp(value: System.IntPtr, min: System.IntPtr, max: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.IntPtr, sign: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def div_rem(left: System.IntPtr, right: System.IntPtr) -> System.ValueTuple[System.IntPtr, System.IntPtr]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.IntPtr) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def log_2(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def max(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def min(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def pop_count(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def rotate_left(value: System.IntPtr, rotate_amount: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def rotate_right(value: System.IntPtr, rotate_amount: int) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def sign(value: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    def subtract(pointer: System.IntPtr, offset: int) -> System.IntPtr:
+        ...
+
+    def to_int_32(self) -> int:
+        ...
+
+    def to_int_64(self) -> int:
+        ...
+
+    def to_pointer(self) -> typing.Any:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its signed integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        """
+        Tries to parse a string into a value.
+        
+        :param s: A read-only span of characters containing a number to convert.
+        :param provider: An object that provides culture-specific formatting information about .
+        :param result: When this method returns, contains the result of successfully parsing  or an undefined value on failure.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
+        ...
+
+
+class Random(System.Object):
+    """
+    Represents a pseudo-random number generator, which is an algorithm that produces a sequence of numbers
+    that meet certain statistical requirements for randomness.
+    """
+
+    SHARED: System.Random
+    """Provides a thread-safe Random instance that may be used concurrently from any thread."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Random class using a default seed value."""
+        ...
+
+    @overload
+    def __init__(self, seed: int) -> None:
+        """
+        Initializes a new instance of the Random class, using the specified seed value.
+        
+        :param seed: A number used to calculate a starting value for the pseudo-random number sequence. If a negative number is specified, the absolute value of the number is used.
+        """
+        ...
+
+    @overload
+    def get_hex_string(self, string_length: int, lowercase: bool = False) -> str:
+        """
+        Creates a string filled with random hexadecimal characters.
+        
+        :param string_length: The length of string to create.
+        :param lowercase: true if the hexadecimal characters should be lowercase; false if they should be uppercase. The default is false.
+        :returns: A string populated with random hexadecimal characters.
+        """
+        ...
+
+    @overload
+    def get_hex_string(self, destination: System.Span[str], lowercase: bool = False) -> None:
+        """
+        Fills a buffer with random hexadecimal characters.
+        
+        :param destination: The buffer to receive the characters.
+        :param lowercase: true if the hexadecimal characters should be lowercase; false if they should be uppercase. The default is false.
+        """
+        ...
+
+    def get_string(self, choices: System.ReadOnlySpan[str], length: int) -> str:
+        """
+        Creates a string populated with characters chosen at random from .
+        
+        :param choices: The characters to use to populate the string.
+        :param length: The length of string to return.
+        :returns: A string populated with items selected at random from .
+        """
+        ...
+
+    @overload
+    def next(self) -> int:
+        """
+        Returns a non-negative random integer.
+        
+        :returns: A 32-bit signed integer that is greater than or equal to 0 and less than int.MaxValue.
+        """
+        ...
+
+    @overload
+    def next(self, max_value: int) -> int:
+        """
+        Returns a non-negative random integer that is less than the specified maximum.
+        
+        :param max_value: The exclusive upper bound of the random number to be generated.  must be greater than or equal to 0.
+        :returns: A 32-bit signed integer that is greater than or equal to 0, and less than ; that is, the range of return values ordinarily includes 0 but not . However, if  equals 0,  is returned.
+        """
+        ...
+
+    @overload
+    def next(self, min_value: int, max_value: int) -> int:
+        """
+        Returns a random integer that is within a specified range.
+        
+        :param min_value: The inclusive lower bound of the random number returned.
+        :param max_value: The exclusive upper bound of the random number returned.  must be greater than or equal to .
+        :returns: A 32-bit signed integer greater than or equal to  and less than ; that is, the range of return values includes  but not . If min_value equals ,  is returned.
+        """
+        ...
+
+    @overload
+    def next_bytes(self, buffer: typing.List[int]) -> None:
+        """
+        Fills the elements of a specified array of bytes with random numbers.
+        
+        :param buffer: The array to be filled with random numbers.
+        """
+        ...
+
+    @overload
+    def next_bytes(self, buffer: System.Span[int]) -> None:
+        """
+        Fills the elements of a specified span of bytes with random numbers.
+        
+        :param buffer: The array to be filled with random numbers.
+        """
+        ...
+
+    def next_double(self) -> float:
+        """
+        Returns a random floating-point number that is greater than or equal to 0.0, and less than 1.0.
+        
+        :returns: A double-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
+        """
+        ...
+
+    @overload
+    def next_int_64(self) -> int:
+        """
+        Returns a non-negative random integer.
+        
+        :returns: A 64-bit signed integer that is greater than or equal to 0 and less than long.MaxValue.
+        """
+        ...
+
+    @overload
+    def next_int_64(self, max_value: int) -> int:
+        """
+        Returns a non-negative random integer that is less than the specified maximum.
+        
+        :param max_value: The exclusive upper bound of the random number to be generated.  must be greater than or equal to 0.
+        :returns: A 64-bit signed integer that is greater than or equal to 0, and less than ; that is, the range of return values ordinarily includes 0 but not . However, if  equals 0,  is returned.
+        """
+        ...
+
+    @overload
+    def next_int_64(self, min_value: int, max_value: int) -> int:
+        """
+        Returns a random integer that is within a specified range.
+        
+        :param min_value: The inclusive lower bound of the random number returned.
+        :param max_value: The exclusive upper bound of the random number returned.  must be greater than or equal to .
+        :returns: A 64-bit signed integer greater than or equal to  and less than ; that is, the range of return values includes  but not . If min_value equals ,  is returned.
+        """
+        ...
+
+    def next_single(self) -> float:
+        """
+        Returns a random floating-point number that is greater than or equal to 0.0, and less than 1.0.
+        
+        :returns: A single-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
+        """
+        ...
+
+    def sample(self) -> float:
+        """
+        Returns a random floating-point number between 0.0 and 1.0.
+        
+        This method is protected.
+        
+        :returns: A double-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
+        """
+        ...
+
+
+class NotSupportedException(System.SystemException):
+    """
+    The exception that is thrown when an invoked method is not supported,
+    typically because it should have been implemented on a subclass.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class PlatformNotSupportedException(System.NotSupportedException):
+    """The exception that is thrown when a feature is not supported on the current platform."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class StringSplitOptions(Enum):
+    """Specifies how the results should be transformed when splitting a string into substrings."""
+
+    NONE = 0
+    """Do not transform the results. This is the default behavior."""
+
+    REMOVE_EMPTY_ENTRIES = 1
+    """Remove empty (zero-length) substrings from the result."""
+
+    TRIM_ENTRIES = 2
+    """Trim whitespace from each substring in the result."""
+
+
+class StringComparison(Enum):
+    """This class has no documentation."""
+
+    CURRENT_CULTURE = 0
+
+    CURRENT_CULTURE_IGNORE_CASE = 1
+
+    INVARIANT_CULTURE = 2
+
+    INVARIANT_CULTURE_IGNORE_CASE = 3
+
+    ORDINAL = 4
+
+    ORDINAL_IGNORE_CASE = 5
+
+
+class MemoryExtensions(System.Object):
+    """Extension methods for Span{T}, Memory{T}, and friends."""
+
+    class SpanSplitEnumerator(typing.Generic[System_MemoryExtensions_SpanSplitEnumerator_T], System.Collections.Generic.IEnumerator[System.Range], typing.Iterable[System_MemoryExtensions_SpanSplitEnumerator_T]):
+        """Enables enumerating each split within a ReadOnlySpan{T} that has been divided using one or more separators."""
+
+        @property
+        def source(self) -> System.ReadOnlySpan[System_MemoryExtensions_SpanSplitEnumerator_T]:
+            """Gets the source span being enumerated."""
+            ...
+
+        @property
+        def current(self) -> System.Range:
+            """Gets the current element of the enumeration."""
+            ...
+
+        def __iter__(self) -> typing.Iterator[System_MemoryExtensions_SpanSplitEnumerator_T]:
+            ...
+
+        def get_enumerator(self) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_SpanSplitEnumerator_T]:
+            """
+            Gets an enumerator that allows for iteration over the split span.
+            
+            :returns: Returns a SpanSplitEnumerator{T} that can be used to iterate over the split span.
+            """
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Advances the enumerator to the next element of the enumeration.
+            
+            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the enumeration.
+            """
+            ...
+
+    class TryWriteInterpolatedStringHandler:
+        """Provides a handler used by the language compiler to format interpolated strings into character spans."""
+
+        @overload
+        def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+            """
+            Creates a handler used to write an interpolated string into a Span{Char}.
+            
+            :param literal_length: The number of constant characters outside of interpolation expressions in the interpolated string.
+            :param formatted_count: The number of interpolation expressions in the interpolated string.
+            :param destination: The destination buffer.
+            :param should_append: Upon return, true if the destination may be long enough to support the formatting, or false if it won't be.
+            """
+            ...
+
+        @overload
+        def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], provider: System.IFormatProvider, should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
+            """
+            Creates a handler used to write an interpolated string into a Span{Char}.
+            
+            :param literal_length: The number of constant characters outside of interpolation expressions in the interpolated string.
+            :param formatted_count: The number of interpolation expressions in the interpolated string.
+            :param destination: The destination buffer.
+            :param provider: An object that supplies culture-specific formatting information.
+            :param should_append: Upon return, true if the destination may be long enough to support the formatting, or false if it won't be.
+            """
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
+            ...
+
+        @overload
+        def append_formatted(self, value: System.ReadOnlySpan[str]) -> bool:
+            ...
+
+        @overload
+        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> bool:
+            """
+            Writes the specified string of chars to the handler.
+            
+            :param value: The span to write.
+            :param alignment: Minimum number of characters that should be written for this value.  If the value is negative, it indicates left-aligned and the required minimum is the absolute value.
+            :param format: The format string.
+            """
+            ...
+
+        @overload
+        def append_formatted(self, value: str) -> bool:
+            ...
+
+        @overload
+        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> bool:
+            """
+            Writes the specified value to the handler.
+            
+            :param value: The value to write.
+            :param alignment: Minimum number of characters that should be written for this value.  If the value is negative, it indicates left-aligned and the required minimum is the absolute value.
+            :param format: The format string.
+            """
+            ...
+
+        def append_literal(self, value: str) -> bool:
+            """
+            Writes the specified string to the handler.
+            
+            :param value: The string to write.
+            :returns: true if the value could be formatted to the span; otherwise, false.
+            """
+            ...
+
+    @staticmethod
+    @overload
+    def as_memory(text: str) -> System.ReadOnlyMemory[str]:
+        """
+        Creates a new ReadOnlyMemory{T} over the portion of the target string.
+        
+        :param text: The target string.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_memory(text: str, start: int) -> System.ReadOnlyMemory[str]:
+        """
+        Creates a new ReadOnlyMemory{T} over the portion of the target string.
+        
+        :param text: The target string.
+        :param start: The index at which to begin this slice.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_memory(text: str, start_index: System.Index) -> System.ReadOnlyMemory[str]:
+        """
+        Creates a new ReadOnlyMemory{T} over the portion of the target string.
+        
+        :param text: The target string.
+        :param start_index: The index at which to begin this slice.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_memory(text: str, start: int, length: int) -> System.ReadOnlyMemory[str]:
+        """
+        Creates a new ReadOnlyMemory{T} over the portion of the target string.
+        
+        :param text: The target string.
+        :param start: The index at which to begin this slice.
+        :param length: The desired length for the slice (exclusive).
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_memory(text: str, range: System.Range) -> System.ReadOnlyMemory[str]:
+        """
+        Creates a new ReadOnlyMemory{T} over the portion of the target string.
+        
+        :param text: The target string.
+        :param range: The range used to indicate the start and length of the sliced string.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_span(text: str) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new readonly span over the portion of the target string.
+        
+        :param text: The target string.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_span(text: str, start: int) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new readonly span over the portion of the target string.
+        
+        :param text: The target string.
+        :param start: The index at which to begin this slice.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_span(text: str, start_index: System.Index) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new ReadOnlySpan{Char} over a portion of the target string from a specified position to the end of the string.
+        
+        :param text: The target string.
+        :param start_index: The index at which to begin this slice.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_span(text: str, range: System.Range) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new ReadOnlySpan{Char} over a portion of a target string using the range start and end indexes.
+        
+        :param text: The target string.
+        :param range: The range which has start and end indexes to use for slicing the string.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def as_span(text: str, start: int, length: int) -> System.ReadOnlySpan[str]:
+        """
+        Creates a new readonly span over the portion of the target string.
+        
+        :param text: The target string.
+        :param start: The index at which to begin this slice.
+        :param length: The desired length for the slice (exclusive).
+        """
+        ...
+
+    @staticmethod
+    def compare_to(span: System.ReadOnlySpan[str], other: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        """
+        Compares the specified  and  using the specified ,
+        and returns an integer that indicates their relative position in the sort order.
+        
+        :param span: The source span.
+        :param other: The value to compare with the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    def contains(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        """
+        Returns a value indicating whether the specified  occurs within the .
+        
+        :param span: The source span.
+        :param value: The value to seek within the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def contains_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def contains_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> bool:
+        """
+        Searches for any occurrence of any of the specified substring  and returns true if found. If not found, returns false.
+        
+        :param span: The span to search.
+        :param values: The set of values to search for.
+        """
+        ...
+
+    @staticmethod
+    def ends_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        """
+        Determines whether the end of the  matches the specified  when compared using the specified  option.
+        
+        :param span: The source span.
+        :param value: The sequence to compare to the end of the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_lines(span: System.ReadOnlySpan[str]) -> System.Text.SpanLineEnumerator:
+        """Returns an enumeration of lines over the provided span."""
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_lines(span: System.Span[str]) -> System.Text.SpanLineEnumerator:
+        """Returns an enumeration of lines over the provided span."""
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_runes(span: System.ReadOnlySpan[str]) -> System.Text.SpanRuneEnumerator:
+        """Returns an enumeration of Rune from the provided span."""
+        ...
+
+    @staticmethod
+    @overload
+    def enumerate_runes(span: System.Span[str]) -> System.Text.SpanRuneEnumerator:
+        """Returns an enumeration of Rune from the provided span."""
+        ...
+
+    @staticmethod
+    def equals(span: System.ReadOnlySpan[str], other: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        """
+        Determines whether this  and the specified  span have the same characters
+        when compared using the specified  option.
+        
+        :param span: The source span.
+        :param other: The value to compare with the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    def index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        """
+        Reports the zero-based index of the first occurrence of the specified  in the current .
+        
+        :param span: The source span.
+        :param value: The value to seek within the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def index_of_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> int:
+        """
+        Searches for the first index of any of the specified substring values.
+        
+        :param span: The span to search.
+        :param values: The set of values to search for.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def index_of_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> int:
+        """
+        Searches for the first index of any of the specified substring values.
+        
+        :param span: The span to search.
+        :param values: The set of values to search for.
+        :returns: The first index of any of the specified values, or -1 if none are found.
+        """
+        ...
+
+    @staticmethod
+    def is_white_space(span: System.ReadOnlySpan[str]) -> bool:
+        """Indicates whether the specified span contains only white-space characters."""
+        ...
+
+    @staticmethod
+    def last_index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        """
+        Reports the zero-based index of the last occurrence of the specified  in the current .
+        
+        :param span: The source span.
+        :param value: The value to seek within the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: str, options: System.StringSplitOptions = ...) -> int:
+        """
+        Parses the source ReadOnlySpan{Char} for the specified , populating the  span
+        with Range instances representing the regions between the separators.
+        
+        :param source: The source span to parse.
+        :param destination: The destination span into which the resulting ranges are written.
+        :param separator: A character that delimits the regions in this instance.
+        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
+        :returns: The number of ranges written into .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
+        """
+        Parses the source ReadOnlySpan{Char} for the specified , populating the  span
+        with Range instances representing the regions between the separators.
+        
+        :param source: The source span to parse.
+        :param destination: The destination span into which the resulting ranges are written.
+        :param separator: A character that delimits the regions in this instance.
+        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
+        :returns: The number of ranges written into .
+        """
+        ...
+
+    @staticmethod
+    def split_any(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separators: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
+        """
+        Parses the source ReadOnlySpan{Char} for one of the specified , populating the  span
+        with Range instances representing the regions between the separators.
+        
+        :param source: The source span to parse.
+        :param destination: The destination span into which the resulting ranges are written.
+        :param separators: Any number of characters that may delimit the regions in this instance. If empty, all Unicode whitespace characters are used as the separators.
+        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
+        :returns: The number of ranges written into .
+        """
+        ...
+
+    @staticmethod
+    def starts_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
+        """
+        Determines whether the beginning of the  matches the specified  when compared using the specified  option.
+        
+        :param span: The source span.
+        :param value: The sequence to compare to the beginning of the source span.
+        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
+        """
+        ...
+
+    @staticmethod
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], culture: System.Globalization.CultureInfo) -> int:
+        """
+        Copies the characters from the source span into the destination, converting each character to lowercase,
+        using the casing rules of the specified culture.
+        
+        :param source: The source span.
+        :param destination: The destination span which contains the transformed characters.
+        :param culture: An object that supplies culture-specific casing rules.
+        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
+        """
+        ...
+
+    @staticmethod
+    def to_lower_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
+        """
+        Copies the characters from the source span into the destination, converting each character to lowercase,
+        using the casing rules of the invariant culture.
+        
+        :param source: The source span.
+        :param destination: The destination span which contains the transformed characters.
+        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
+        """
+        ...
+
+    @staticmethod
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], culture: System.Globalization.CultureInfo) -> int:
+        """
+        Copies the characters from the source span into the destination, converting each character to uppercase,
+        using the casing rules of the specified culture.
+        
+        :param source: The source span.
+        :param destination: The destination span which contains the transformed characters.
+        :param culture: An object that supplies culture-specific casing rules.
+        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
+        """
+        ...
+
+    @staticmethod
+    def to_upper_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
+        """
+        Copies the characters from the source span into the destination, converting each character to uppercase
+        using the casing rules of the invariant culture.
+        
+        :param source: The source span.
+        :param destination: The destination span which contains the transformed characters.
+        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(memory: System.Memory[str]) -> System.Memory[str]:
+        """
+        Removes all leading and trailing white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        """
+        Removes all leading and trailing white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading and trailing white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading and trailing occurrences of a specified character from the span.
+        
+        :param span: The source span from which the character is removed.
+        :param trim_char: The specified character to look for and remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading and trailing occurrences of a set of characters specified
+        in a readonly span from the span.
+        
+        :param span: The source span from which the characters are removed.
+        :param trim_chars: The span which contains the set of characters to remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim(span: System.Span[str]) -> System.Span[str]:
+        """
+        Removes all leading and trailing white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(memory: System.Memory[str]) -> System.Memory[str]:
+        """
+        Removes all trailing white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        """
+        Removes all trailing white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all trailing white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        """
+        Removes all trailing occurrences of a specified character from the span.
+        
+        :param span: The source span from which the character is removed.
+        :param trim_char: The specified character to look for and remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all trailing occurrences of a set of characters specified
+        in a readonly span from the span.
+        
+        :param span: The source span from which the characters are removed.
+        :param trim_chars: The span which contains the set of characters to remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(span: System.Span[str]) -> System.Span[str]:
+        """
+        Removes all trailing white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(memory: System.Memory[str]) -> System.Memory[str]:
+        """
+        Removes all leading white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
+        """
+        Removes all leading white-space characters from the memory.
+        
+        :param memory: The source memory from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading occurrences of a specified character from the span.
+        
+        :param span: The source span from which the character is removed.
+        :param trim_char: The specified character to look for and remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
+        """
+        Removes all leading occurrences of a set of characters specified
+        in a readonly span from the span.
+        
+        :param span: The source span from which the characters are removed.
+        :param trim_chars: The span which contains the set of characters to remove.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(span: System.Span[str]) -> System.Span[str]:
+        """
+        Removes all leading white-space characters from the span.
+        
+        :param span: The source span from which the characters are removed.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write(destination: System.Span[str], handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Writes the specified interpolated string to the character span.
+        
+        :param destination: The span to which the interpolated string should be formatted.
+        :param handler: The interpolated string.
+        :param chars_written: The number of characters written to the span.
+        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write(destination: System.Span[str], provider: System.IFormatProvider, handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Writes the specified interpolated string to the character span.
+        
+        :param destination: The span to which the interpolated string should be formatted.
+        :param provider: An object that supplies culture-specific formatting information.
+        :param handler: The interpolated string.
+        :param chars_written: The number of characters written to the span.
+        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write(destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[bool, int]:
+        """
+        Writes the CompositeFormat string to the character span, substituting the format item or items
+        with the string representation of the corresponding arguments.
+        
+        :param destination: The span to which the string should be formatted.
+        :param provider: An object that supplies culture-specific formatting information.
+        :param format: A CompositeFormat.
+        :param chars_written: The number of characters written to the span.
+        :param args: An array of objects to format.
+        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
+        """
+        ...
+
+
+class AppDomainUnloadedException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class MidpointRounding(Enum):
+    """This class has no documentation."""
+
+    TO_EVEN = 0
+
+    AWAY_FROM_ZERO = 1
+
+    TO_ZERO = 2
+
+    TO_NEGATIVE_INFINITY = 3
+
+    TO_POSITIVE_INFINITY = 4
+
+
+class MathF(System.Object):
+    """Provides constants and static methods for trigonometric, logarithmic, and other common mathematical functions."""
+
+    E: float = ...
+
+    PI: float = ...
+
+    TAU: float = ...
+
+    @staticmethod
+    def abs(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_2(y: float, x: float) -> float:
+        ...
+
+    @staticmethod
+    def atanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_increment(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cbrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def ceiling(x: float) -> float:
+        ...
+
+    @staticmethod
+    def copy_sign(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def cos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp(x: float) -> float:
+        ...
+
+    @staticmethod
+    def floor(x: float) -> float:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(x: float, y: float, z: float) -> float:
+        ...
+
+    @staticmethod
+    def ieee_remainder(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def i_log_b(x: float) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_10(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_2(x: float) -> float:
+        ...
+
+    @staticmethod
+    def max(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def pow(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def reciprocal_estimate(x: float) -> float:
+        """
+        Returns an estimate of the reciprocal of a specified number.
+        
+        :param x: The number whose reciprocal is to be estimated.
+        :returns: An estimate of the reciprocal of .
+        """
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: float) -> float:
+        """
+        Returns an estimate of the reciprocal square root of a specified number.
+        
+        :param x: The number whose reciprocal square root is to be estimated.
+        :returns: An estimate of the reciprocal square root .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    def scale_b(x: float, n: int) -> float:
+        ...
+
+    @staticmethod
+    def sign(x: float) -> int:
+        ...
+
+    @staticmethod
+    def sin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sin_cos(x: float) -> System.ValueTuple[float, float]:
+        ...
+
+    @staticmethod
+    def sinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sqrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def truncate(x: float) -> float:
+        ...
+
+
+class TypeCode(Enum):
+    """This class has no documentation."""
+
+    EMPTY = 0
+
+    OBJECT = 1
+
+    DB_NULL = 2
+
+    BOOLEAN = 3
+
+    CHAR = 4
+
+    S_BYTE = 5
+
+    BYTE = 6
+
+    INT_16 = 7
+
+    U_INT_16 = 8
+
+    INT_32 = 9
+
+    U_INT_32 = 10
+
+    INT_64 = 11
+
+    U_INT_64 = 12
+
+    SINGLE = 13
+
+    DOUBLE = 14
+
+    DECIMAL = 15
+
+    DATE_TIME = 16
+
+    STRING = 18
+
+
+class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+    """This class has no documentation."""
+
+    MAX_VALUE: int = ...
+
+    MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
+    @staticmethod
+    def big_mul(left: int, right: int) -> int:
+        """
+        Produces the full product of two unsigned 32-bit numbers.
+        
+        :param left: The first number to multiply.
+        :param right: The second number to multiply.
+        :returns: The number containing the product of the specified numbers.
+        """
+        ...
+
+    @staticmethod
+    def clamp(value: int, min: int, max: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: int) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: int) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    def max(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_left(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_right(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def sign(value: int) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 32-bit unsigned integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 32-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class CharEnumerator(System.Object, System.Collections.Generic.IEnumerator[str], System.ICloneable):
+    """Supports iterating over a string object and reading its individual characters."""
+
+    @property
+    def current(self) -> str:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class String(System.Object, System.IComparable[str], System.IConvertible, System.Collections.Generic.IEnumerable[str], System.IEquatable[str], System.ICloneable, System.ISpanParsable[str], typing.Iterable[str]):
+    """This class has no documentation."""
+
+    EMPTY: str
+
+    @property
+    def length(self) -> int:
+        ...
+
+    def __eq__(self, b: str) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: str) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> str:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, start_index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, start_index: int, length: int, enc: System.Text.Encoding) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.List[str]) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.List[str], start_index: int, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, c: str, count: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System.ReadOnlySpan[str]) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[str]:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: str) -> bool:
+        ...
+
+    def __ne__(self, b: str) -> bool:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, str_b: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, str_b: str, ignore_case: bool) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, str_b: str, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, str_b: str, culture: System.Globalization.CultureInfo, options: System.Globalization.CompareOptions) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, str_b: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, ignore_case: bool) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, ignore_case: bool, culture: System.Globalization.CultureInfo) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, culture: System.Globalization.CultureInfo, options: System.Globalization.CompareOptions) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare_ordinal(str_a: str, str_b: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def compare_ordinal(str_a: str, index_a: int, str_b: str, index_b: int, length: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, str_b: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(arg_0: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(*args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(values: System.Collections.Generic.IEnumerable[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: str, str_1: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: str, str_1: str, str_2: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: str, str_1: str, str_2: str, str_3: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str], str_3: System.ReadOnlySpan[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def concat(*values: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @overload
+    def contains(self, value: str) -> bool:
+        ...
+
+    @overload
+    def contains(self, value: str, comparison_type: System.StringComparison) -> bool:
+        ...
+
+    @staticmethod
+    def copy(str: str) -> str:
+        """This API should not be used to create mutable strings. See https://go.microsoft.com/fwlink/?linkid=2084035 for alternatives."""
+        warnings.warn("This API should not be used to create mutable strings. See https://go.microsoft.com/fwlink/?linkid=2084035 for alternatives.", DeprecationWarning)
+
+    @overload
+    def copy_to(self, source_index: int, destination: typing.List[str], destination_index: int, count: int) -> None:
+        ...
+
+    @overload
+    def copy_to(self, destination: System.Span[str]) -> None:
+        """
+        Copies the contents of this string into the destination span.
+        
+        :param destination: The span into which to copy this string's contents.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(provider: System.IFormatProvider, handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
+        """
+        Creates a new string by using the specified provider to control the formatting of the specified interpolated string.
+        
+        :param provider: An object that supplies culture-specific formatting information.
+        :param handler: The interpolated string.
+        :returns: The string that results for formatting the interpolated string using the specified format provider.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(provider: System.IFormatProvider, initial_buffer: System.Span[str], handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
+        """
+        Creates a new string by using the specified provider to control the formatting of the specified interpolated string.
+        
+        :param provider: An object that supplies culture-specific formatting information.
+        :param initial_buffer: The initial buffer that may be used as temporary space as part of the formatting operation. The contents of this buffer may be overwritten.
+        :param handler: The interpolated string.
+        :returns: The string that results for formatting the interpolated string using the specified format provider.
+        """
+        ...
+
+    @overload
+    def ends_with(self, value: str) -> bool:
+        ...
+
+    @overload
+    def ends_with(self, value: str, comparison_type: System.StringComparison) -> bool:
+        ...
+
+    @overload
+    def ends_with(self, value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> bool:
+        ...
+
+    def enumerate_runes(self) -> System.Text.StringRuneEnumerator:
+        """Returns an enumeration of Rune from this string."""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, value: str) -> bool:
+        ...
+
+    @overload
+    def equals(self, value: str, comparison_type: System.StringComparison) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(a: str, b: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(a: str, b: str, comparison_type: System.StringComparison) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def format(format: str, arg_0: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def format(provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        """
+        Replaces the format item or items in a CompositeFormat with the string representation of the corresponding objects.
+        A parameter supplies culture-specific formatting information.
+        
+        :param provider: An object that supplies culture-specific formatting information.
+        :param format: A CompositeFormat.
+        :param args: An array of objects to format.
+        :returns: The formatted string.
+        """
+        ...
+
+    def get_enumerator(self) -> System.CharEnumerator:
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def get_hash_code(self, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_hash_code(value: System.ReadOnlySpan[str]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_hash_code(value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
+        ...
+
+    def get_pinnable_reference(self) -> typing.Any:
+        """Returns a reference to the first element of the String. If the string is null, an access will throw a NullReferenceException."""
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @overload
+    def index_of(self, value: str) -> int:
+        ...
+
+    @overload
+    def index_of(self, value: str, start_index: int) -> int:
+        ...
+
+    @overload
+    def index_of(self, value: str, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def index_of(self, value: str, start_index: int, count: int) -> int:
+        ...
+
+    @overload
+    def index_of(self, value: str, start_index: int, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def index_of(self, value: str, start_index: int, count: int, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def index_of_any(self, any_of: typing.List[str]) -> int:
+        ...
+
+    @overload
+    def index_of_any(self, any_of: typing.List[str], start_index: int) -> int:
+        ...
+
+    @overload
+    def index_of_any(self, any_of: typing.List[str], start_index: int, count: int) -> int:
+        ...
+
+    def insert(self, start_index: int, value: str) -> str:
+        ...
+
+    @staticmethod
+    def intern(str: str) -> str:
+        ...
+
+    @staticmethod
+    def is_interned(str: str) -> str:
+        ...
+
+    @overload
+    def is_normalized(self) -> bool:
+        ...
+
+    @overload
+    def is_normalized(self, normalization_form: System.Text.NormalizationForm) -> bool:
+        ...
+
+    @staticmethod
+    def is_null_or_empty(value: str) -> bool:
+        ...
+
+    @staticmethod
+    def is_null_or_white_space(value: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def join(separator: str, *value: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(separator: str, value: typing.List[str], start_index: int, count: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(separator: str, values: System.Collections.Generic.IEnumerable[str]) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def join(separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
+        ...
+
+    @overload
+    def last_index_of(self, value: str) -> int:
+        ...
+
+    @overload
+    def last_index_of(self, value: str, start_index: int) -> int:
+        ...
+
+    @overload
+    def last_index_of(self, value: str, start_index: int, count: int) -> int:
+        ...
+
+    @overload
+    def last_index_of(self, value: str, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def last_index_of(self, value: str, start_index: int, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def last_index_of(self, value: str, start_index: int, count: int, comparison_type: System.StringComparison) -> int:
+        ...
+
+    @overload
+    def last_index_of_any(self, any_of: typing.List[str]) -> int:
+        ...
+
+    @overload
+    def last_index_of_any(self, any_of: typing.List[str], start_index: int) -> int:
+        ...
+
+    @overload
+    def last_index_of_any(self, any_of: typing.List[str], start_index: int, count: int) -> int:
+        ...
+
+    @overload
+    def normalize(self) -> str:
+        ...
+
+    @overload
+    def normalize(self, normalization_form: System.Text.NormalizationForm) -> str:
+        ...
+
+    @overload
+    def pad_left(self, total_width: int) -> str:
+        ...
+
+    @overload
+    def pad_left(self, total_width: int, padding_char: str) -> str:
+        ...
+
+    @overload
+    def pad_right(self, total_width: int) -> str:
+        ...
+
+    @overload
+    def pad_right(self, total_width: int, padding_char: str) -> str:
+        ...
+
+    @overload
+    def remove(self, start_index: int, count: int) -> str:
+        ...
+
+    @overload
+    def remove(self, start_index: int) -> str:
+        ...
+
+    @overload
+    def replace(self, old_value: str, new_value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> str:
+        ...
+
+    @overload
+    def replace(self, old_value: str, new_value: str, comparison_type: System.StringComparison) -> str:
+        ...
+
+    @overload
+    def replace(self, old_char: str, new_char: str) -> str:
+        ...
+
+    @overload
+    def replace(self, old_value: str, new_value: str) -> str:
+        ...
+
+    @overload
+    def replace_line_endings(self) -> str:
+        """
+        Replaces all newline sequences in the current string with Environment.NewLine.
+        
+        :returns: A string whose contents match the current string, but with all newline sequences replaced with Environment.NewLine.
+        """
+        ...
+
+    @overload
+    def replace_line_endings(self, replacement_text: str) -> str:
+        """
+        Replaces all newline sequences in the current string with .
+        
+        :returns: A string whose contents match the current string, but with all newline sequences replaced with .
+        """
+        ...
+
+    @overload
+    def split(self, separator: str, options: System.StringSplitOptions = ...) -> typing.List[str]:
+        ...
+
+    @overload
+    def split(self, separator: str, count: int, options: System.StringSplitOptions = ...) -> typing.List[str]:
+        ...
+
+    @overload
+    def split(self, *separator: typing.Union[str, typing.Iterable[str]]) -> typing.List[str]:
+        ...
+
+    @overload
+    def split(self, separator: typing.List[str], count: int) -> typing.List[str]:
+        ...
+
+    @overload
+    def split(self, separator: typing.List[str], options: System.StringSplitOptions) -> typing.List[str]:
+        ...
+
+    @overload
+    def split(self, separator: typing.List[str], count: int, options: System.StringSplitOptions) -> typing.List[str]:
+        ...
+
+    @overload
+    def starts_with(self, value: str) -> bool:
+        ...
+
+    @overload
+    def starts_with(self, value: str, comparison_type: System.StringComparison) -> bool:
+        ...
+
+    @overload
+    def starts_with(self, value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> bool:
+        ...
+
+    @overload
+    def substring(self, start_index: int) -> str:
+        ...
+
+    @overload
+    def substring(self, start_index: int, length: int) -> str:
+        ...
+
+    @overload
+    def to_char_array(self) -> typing.List[str]:
+        ...
+
+    @overload
+    def to_char_array(self, start_index: int, length: int) -> typing.List[str]:
+        ...
+
+    @overload
+    def to_lower(self) -> str:
+        ...
+
+    @overload
+    def to_lower(self, culture: System.Globalization.CultureInfo) -> str:
+        ...
+
+    def to_lower_invariant(self) -> str:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_upper(self) -> str:
+        ...
+
+    @overload
+    def to_upper(self, culture: System.Globalization.CultureInfo) -> str:
+        ...
+
+    def to_upper_invariant(self) -> str:
+        ...
+
+    @overload
+    def trim(self) -> str:
+        ...
+
+    @overload
+    def trim(self, trim_char: str) -> str:
+        ...
+
+    @overload
+    def trim(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @overload
+    def trim_end(self) -> str:
+        ...
+
+    @overload
+    def trim_end(self, trim_char: str) -> str:
+        ...
+
+    @overload
+    def trim_end(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    @overload
+    def trim_start(self) -> str:
+        ...
+
+    @overload
+    def trim_start(self, trim_char: str) -> str:
+        ...
+
+    @overload
+    def trim_start(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
+        ...
+
+    def try_copy_to(self, destination: System.Span[str]) -> bool:
+        """
+        Copies the contents of this string into the destination span.
+        
+        :param destination: The span into which to copy this string's contents.
+        :returns: true if the data was copied; false if the destination was too short to fit the contents of the string.
+        """
+        ...
+
+
+class Double(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
+    """Represents a double-precision floating-point number."""
+
+    MIN_VALUE: float = ...
+
+    MAX_VALUE: float = ...
+
+    EPSILON: float = ...
+
+    NEGATIVE_INFINITY: float = ...
+
+    POSITIVE_INFINITY: float = ...
+
+    NA_N: float = ...
+
+    NEGATIVE_ZERO: float = -0.0
+    """Represents the number negative zero (-0)."""
+
+    E: float = ...
+    """Represents the natural logarithmic base, specified by the constant, e."""
+
+    PI: float = ...
+    """Represents the ratio of the circumference of a circle to its diameter, specified by the constant, PI."""
+
+    TAU: float = ...
+    """Represents the number of radians in one turn, specified by the constant, Tau."""
+
+    def __eq__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        ...
+
+    def __ne__(self, right: float) -> bool:
+        ...
+
+    @staticmethod
+    def abs(value: float) -> float:
+        ...
+
+    @staticmethod
+    def acos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acos_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asin_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_2(y: float, x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: float, x: float) -> float:
+        ...
+
+    @staticmethod
+    def atanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_increment(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cbrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def ceiling(x: float) -> float:
+        ...
+
+    @staticmethod
+    def clamp(value: float, min: float, max: float) -> float:
+        ...
+
+    @staticmethod
+    def clamp_native(value: float, min: float, max: float) -> float:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: float) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: float, sign: float) -> float:
+        ...
+
+    @staticmethod
+    def cos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cos_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: float) -> float:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: float) -> bool:
+        ...
+
+    @staticmethod
+    def exp(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_10(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_2(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def floor(x: float) -> float:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: float, right: float, addend: float) -> float:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def hypot(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: float, right: float) -> float:
+        ...
+
+    @staticmethod
+    def i_log_b(x: float) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(d: float) -> bool:
+        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
+        ...
+
+    @staticmethod
+    def is_infinity(d: float) -> bool:
+        """Determines whether the specified value is infinite."""
+        ...
+
+    @staticmethod
+    def is_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(d: float) -> bool:
+        """Determines whether the specified value is NaN."""
+        ...
+
+    @staticmethod
+    def is_negative(d: float) -> bool:
+        """Determines whether the specified value is negative."""
+        ...
+
+    @staticmethod
+    def is_negative_infinity(d: float) -> bool:
+        """Determines whether the specified value is negative infinity."""
+        ...
+
+    @staticmethod
+    def is_normal(d: float) -> bool:
+        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(d: float) -> bool:
+        """Determines whether the specified value is positive infinity."""
+        ...
+
+    @staticmethod
+    def is_pow_2(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(d: float) -> bool:
+        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
+        ...
+
+    @staticmethod
+    def lerp(value_1: float, value_2: float, amount: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float, new_base: float) -> float:
+        ...
+
+    @staticmethod
+    def log_10(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_2(value: float) -> float:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def max(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_native(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_native(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: float, right: float, addend: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    def pow(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: float) -> float:
+        ...
+
+    @staticmethod
+    def reciprocal_estimate(x: float) -> float:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: float) -> float:
+        ...
+
+    @staticmethod
+    def root_n(x: float, n: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    def scale_b(x: float, n: int) -> float:
+        ...
+
+    @staticmethod
+    def sign(value: float) -> int:
+        ...
+
+    @staticmethod
+    def sin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sin_cos(x: float) -> System.ValueTuple[float, float]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: float) -> System.ValueTuple[float, float]:
+        ...
+
+    @staticmethod
+    def sinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sin_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sqrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tan_pi(x: float) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def truncate(x: float) -> float:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its double-precision floating-point number equivalent.
+        
+        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
+        :param result: When this method returns, contains a double-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+
+class IDisposable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def dispose(self) -> None:
+        ...
+
+
+class ArithmeticException(System.SystemException):
+    """The exception that is thrown for errors in an arithmetic, casting, or conversion operation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class NotFiniteNumberException(System.ArithmeticException):
+    """This class has no documentation."""
+
+    @property
+    def offending_number(self) -> float:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, offending_number: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, offending_number: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, offending_number: float, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class InvalidCastException(System.SystemException):
+    """The exception that is thrown for invalid casting or explicit conversion."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, error_code: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class TypeAccessException(System.TypeLoadException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class EventArgs(System.Object):
+    """This class has no documentation."""
+
+    EMPTY: System.EventArgs = ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class ResolveEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def requesting_assembly(self) -> System.Reflection.Assembly:
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, requesting_assembly: System.Reflection.Assembly) -> None:
+        ...
+
+
+class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_UInt128]):
+    """Represents a 128-bit unsigned integer."""
+
+    MIN_VALUE: System.UInt128
+
+    MAX_VALUE: System.UInt128
+
+    ONE: System.UInt128
+
+    ZERO: System.UInt128
+
+    @overload
+    def __add__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __add__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __add__(self) -> System.UInt128:
+        ...
+
+    def __and__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __eq__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __ge__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __gt__(self, right: System.UInt128) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.UInt128:
+        ...
+
+    def __iand__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    def __imod__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __init__(self, upper: int, lower: int) -> None:
+        """
+        Initializes a new instance of the UInt128 struct.
+        
+        :param upper: The upper 64-bits of the 128-bit value.
+        :param lower: The lower 64-bits of the 128-bit value.
+        """
+        ...
+
+    def __invert__(self) -> System.UInt128:
+        ...
+
+    def __ior__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ixor__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __le__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    def __lt__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __mod__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __ne__(self, right: System.UInt128) -> bool:
+        ...
+
+    def __or__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.UInt128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    def __xor__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def clamp(value: System.UInt128, min: System.UInt128, max: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: System.UInt128) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: System.UInt128, right: System.UInt128) -> System.ValueTuple[System.UInt128, System.UInt128]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.UInt128) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.UInt128) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.UInt128) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: System.UInt128) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def log_2(value: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def max(x: System.UInt128, y: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def min(x: System.UInt128, y: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.UInt128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def pop_count(value: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def rotate_left(value: System.UInt128, rotate_amount: int) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def rotate_right(value: System.UInt128, rotate_amount: int) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def sign(value: System.UInt128) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: System.UInt128) -> System.UInt128:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 128-bit unsigned integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 128-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
+        ...
+
+
+class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+    """This class has no documentation."""
+
+    MAX_VALUE: int = ...
+
+    MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
+    @staticmethod
+    def big_mul(left: int, right: int) -> System.UInt128:
+        """
+        Produces the full product of two unsigned 64-bit numbers.
+        
+        :param left: The first number to multiply.
+        :param right: The second number to multiply.
+        :returns: The number containing the product of the specified numbers.
+        """
+        ...
+
+    @staticmethod
+    def clamp(value: int, min: int, max: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: int) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: int) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    def max(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_left(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_right(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def sign(value: int) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 64-bit unsigned integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 64-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class EntryPointNotFoundException(System.TypeLoadException):
+    """The exception that is thrown when an attempt to load a class fails due to the absence of an entry method."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
         """
         ...
 
@@ -2627,8 +6990,6 @@ class DateOnly(System.IComparable[System_DateOnly], System.IEquatable[System_Dat
 class DateTimeOffset(System.IComparable[System_DateTimeOffset], System.ISpanFormattable, System.IEquatable[System_DateTimeOffset], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.ISpanParsable[System_DateTimeOffset], System.IUtf8SpanFormattable):
     """This class has no documentation."""
 
-    NOW: System.DateTimeOffset
-
     MIN_VALUE: System.DateTimeOffset
 
     MAX_VALUE: System.DateTimeOffset = ...
@@ -2719,6 +7080,8 @@ class DateTimeOffset(System.IComparable[System_DateTimeOffset], System.ISpanForm
     @property
     def year(self) -> int:
         ...
+
+    NOW: System.DateTimeOffset
 
     def __add__(self, time_span: datetime.timedelta) -> System.DateTimeOffset:
         ...
@@ -3092,6 +7455,58 @@ class DateTimeOffset(System.IComparable[System_DateTimeOffset], System.ISpanForm
 class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
     """This class has no documentation."""
 
+    class TransitionTime(System.IEquatable[System_TimeZoneInfo_TransitionTime], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
+        """This class has no documentation."""
+
+        @property
+        def time_of_day(self) -> datetime.datetime:
+            ...
+
+        @property
+        def month(self) -> int:
+            ...
+
+        @property
+        def week(self) -> int:
+            ...
+
+        @property
+        def day(self) -> int:
+            ...
+
+        @property
+        def day_of_week(self) -> System.DayOfWeek:
+            ...
+
+        @property
+        def is_fixed_date_rule(self) -> bool:
+            ...
+
+        def __eq__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
+            ...
+
+        def __ne__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
+            ...
+
+        @staticmethod
+        def create_fixed_date_rule(time_of_day: typing.Union[datetime.datetime, datetime.date], month: int, day: int) -> System.TimeZoneInfo.TransitionTime:
+            ...
+
+        @staticmethod
+        def create_floating_date_rule(time_of_day: typing.Union[datetime.datetime, datetime.date], month: int, week: int, day_of_week: System.DayOfWeek) -> System.TimeZoneInfo.TransitionTime:
+            ...
+
+        @overload
+        def equals(self, obj: typing.Any) -> bool:
+            ...
+
+        @overload
+        def equals(self, other: System.TimeZoneInfo.TransitionTime) -> bool:
+            ...
+
+        def get_hash_code(self) -> int:
+            ...
+
     class AdjustmentRule(System.Object, System.IEquatable[System_TimeZoneInfo_AdjustmentRule], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
         """This class has no documentation."""
 
@@ -3153,58 +7568,6 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
 
         @overload
         def equals(self, other: System.TimeZoneInfo.AdjustmentRule) -> bool:
-            ...
-
-        def get_hash_code(self) -> int:
-            ...
-
-    class TransitionTime(System.IEquatable[System_TimeZoneInfo_TransitionTime], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback):
-        """This class has no documentation."""
-
-        @property
-        def time_of_day(self) -> datetime.datetime:
-            ...
-
-        @property
-        def month(self) -> int:
-            ...
-
-        @property
-        def week(self) -> int:
-            ...
-
-        @property
-        def day(self) -> int:
-            ...
-
-        @property
-        def day_of_week(self) -> System.DayOfWeek:
-            ...
-
-        @property
-        def is_fixed_date_rule(self) -> bool:
-            ...
-
-        def __eq__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
-            ...
-
-        def __ne__(self, t_2: System.TimeZoneInfo.TransitionTime) -> bool:
-            ...
-
-        @staticmethod
-        def create_fixed_date_rule(time_of_day: typing.Union[datetime.datetime, datetime.date], month: int, day: int) -> System.TimeZoneInfo.TransitionTime:
-            ...
-
-        @staticmethod
-        def create_floating_date_rule(time_of_day: typing.Union[datetime.datetime, datetime.date], month: int, week: int, day_of_week: System.DayOfWeek) -> System.TimeZoneInfo.TransitionTime:
-            ...
-
-        @overload
-        def equals(self, obj: typing.Any) -> bool:
-            ...
-
-        @overload
-        def equals(self, other: System.TimeZoneInfo.TransitionTime) -> bool:
             ...
 
         def get_hash_code(self) -> int:
@@ -3506,64 +7869,200 @@ class TimeZoneInfo(System.Object, System.IEquatable[System_TimeZoneInfo], System
         ...
 
 
-class Exception(System.Object, System.Runtime.Serialization.ISerializable):
+class AttributeTargets(Enum):
     """This class has no documentation."""
+
+    ASSEMBLY = ...
+
+    MODULE = ...
+
+    CLASS = ...
+
+    STRUCT = ...
+
+    ENUM = ...
+
+    CONSTRUCTOR = ...
+
+    METHOD = ...
+
+    PROPERTY = ...
+
+    FIELD = ...
+
+    EVENT = ...
+
+    INTERFACE = ...
+
+    PARAMETER = ...
+
+    DELEGATE = ...
+
+    RETURN_VALUE = ...
+
+    GENERIC_PARAMETER = ...
+
+    ALL = ...
+
+
+class GCGenerationInfo:
+    """This class has no documentation."""
+
+    @property
+    def size_before_bytes(self) -> int:
+        """Size in bytes on entry to the reported collection."""
+        ...
+
+    @property
+    def fragmentation_before_bytes(self) -> int:
+        """Fragmentation in bytes on entry to the reported collection."""
+        ...
+
+    @property
+    def size_after_bytes(self) -> int:
+        """Size in bytes on exit from the reported collection."""
+        ...
+
+    @property
+    def fragmentation_after_bytes(self) -> int:
+        """Fragmentation in bytes on exit from the reported collection."""
+        ...
+
+
+class GCKind(Enum):
+    """This class has no documentation."""
+
+    ANY = 0
+    """Any kind of collection."""
+
+    EPHEMERAL = 1
+    """A gen0 or gen1 collection."""
+
+    FULL_BLOCKING = 2
+    """A blocking gen2 collection."""
+
+    BACKGROUND = 3
+    """A background collection."""
+
+
+class GCMemoryInfo:
+    """Provides a set of APIs that can be used to retrieve garbage collection information."""
+
+    @property
+    def high_memory_load_threshold_bytes(self) -> int:
+        """High memory load threshold when this GC occurred"""
+        ...
+
+    @property
+    def memory_load_bytes(self) -> int:
+        """Memory load when this GC occurred"""
+        ...
+
+    @property
+    def total_available_memory_bytes(self) -> int:
+        """
+        Total available memory for the GC to use when this GC occurred.
+        
+        If the environment variable DOTNET_GCHeapHardLimit is set,
+        or "Server.GC.HeapHardLimit" is in runtimeconfig.json, this will come from that.
+        If the program is run in a container, this will be an implementation-defined fraction of the container's size.
+        Else, this is the physical memory on the machine that was available for the GC to use when this GC occurred.
+        """
+        ...
+
+    @property
+    def heap_size_bytes(self) -> int:
+        """The total heap size when this GC occurred"""
+        ...
+
+    @property
+    def fragmented_bytes(self) -> int:
+        """
+        The total fragmentation when this GC occurred
+        
+        Let's take the example below:
+         | OBJ_A |     OBJ_B     | OBJ_C |   OBJ_D   | OBJ_E |
+        
+        Let's say OBJ_B, OBJ_C and and OBJ_E are garbage and get collected, but the heap does not get compacted, the resulting heap will look like the following:
+         | OBJ_A |           F           |   OBJ_D   |
+        
+        The memory between OBJ_A and OBJ_D marked `F` is considered part of the FragmentedBytes, and will be used to allocate new objects. The memory after OBJ_D will not be
+        considered part of the FragmentedBytes, and will also be used to allocate new objects
+        """
+        ...
+
+    @property
+    def index(self) -> int:
+        """
+        The index of this GC. GC indices start with 1 and get increased at the beginning of a GC.
+        Since the info is updated at the end of a GC, this means you can get the info for a BGC
+        with a smaller index than a foreground GC finished earlier.
+        """
+        ...
+
+    @property
+    def generation(self) -> int:
+        """
+        The generation this GC collected. Collecting a generation means all its younger generation(s)
+        are also collected.
+        """
+        ...
+
+    @property
+    def compacted(self) -> bool:
+        """Is this a compacting GC or not."""
+        ...
+
+    @property
+    def concurrent(self) -> bool:
+        """Is this a concurrent GC (BGC) or not."""
+        ...
+
+    @property
+    def total_committed_bytes(self) -> int:
+        """Total committed bytes of the managed heap."""
+        ...
+
+    @property
+    def promoted_bytes(self) -> int:
+        """Promoted bytes for this GC."""
+        ...
+
+    @property
+    def pinned_objects_count(self) -> int:
+        """Number of pinned objects this GC observed."""
+        ...
+
+    @property
+    def finalization_pending_count(self) -> int:
+        """Number of objects ready for finalization this GC observed."""
+        ...
+
+    @property
+    def pause_durations(self) -> System.ReadOnlySpan[datetime.timedelta]:
+        """Pause durations. For blocking GCs there's only 1 pause; for BGC there are 2."""
+        ...
+
+    @property
+    def pause_time_percentage(self) -> float:
+        """This is the % pause time in GC so far. If it's 1.2%, this number is 1.2."""
+        ...
+
+    @property
+    def generation_info(self) -> System.ReadOnlySpan[System.GCGenerationInfo]:
+        """Generation info for all generations."""
+        ...
+
+
+class ArgumentException(System.SystemException):
+    """The exception that is thrown when one of the arguments provided to a method is not valid."""
 
     @property
     def message(self) -> str:
         ...
 
     @property
-    def data(self) -> System.Collections.IDictionary:
-        ...
-
-    @property
-    def inner_exception(self) -> System.Exception:
-        ...
-
-    @property
-    def help_link(self) -> str:
-        ...
-
-    @help_link.setter
-    def help_link(self, value: str) -> None:
-        ...
-
-    @property
-    def source(self) -> str:
-        ...
-
-    @source.setter
-    def source(self, value: str) -> None:
-        ...
-
-    @property
-    def serialize_object_state(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]:
-        """
-        This property is protected.
-        
-        Obsoletions.BinaryFormatterMessage
-        """
-        warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
-
-    @serialize_object_state.setter
-    def serialize_object_state(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]) -> None:
-        warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
-
-    @property
-    def h_result(self) -> int:
-        ...
-
-    @h_result.setter
-    def h_result(self, value: int) -> None:
-        ...
-
-    @property
-    def stack_trace(self) -> str:
-        ...
-
-    @property
-    def target_site(self) -> System.Reflection.MethodBase:
+    def param_name(self) -> str:
         ...
 
     @overload
@@ -3579,6 +8078,14 @@ class Exception(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @overload
+    def __init__(self, message: str, param_name: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, param_name: str) -> None:
+        ...
+
+    @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """
         This method is protected.
@@ -3587,21 +8094,2319 @@ class Exception(System.Object, System.Runtime.Serialization.ISerializable):
         """
         ...
 
-    def get_base_exception(self) -> System.Exception:
-        ...
-
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """Obsoletions.LegacyFormatterImplMessage"""
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
-    def get_type(self) -> typing.Type:
+    @staticmethod
+    def throw_if_null_or_empty(argument: str, param_name: str = None) -> None:
+        """
+        Throws an exception if  is null or empty.
+        
+        :param argument: The string argument to validate as non-null and non-empty.
+        :param param_name: The name of the parameter with which  corresponds.
+        """
         ...
 
+    @staticmethod
+    def throw_if_null_or_white_space(argument: str, param_name: str = None) -> None:
+        """
+        Throws an exception if  is null, empty, or consists only of white-space characters.
+        
+        :param argument: The string argument to validate.
+        :param param_name: The name of the parameter with which  corresponds.
+        """
+        ...
+
+
+class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible, System.ISpanFormattable, System.Numerics.IUnsignedNumber[str], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[str], System.IUtfChar[str], System.IBinaryIntegerParseAndFormatInfo[str]):
+    """Represents a character as a UTF-16 code unit."""
+
+    MAX_VALUE: str = ...
+
+    MIN_VALUE: str = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: str) -> bool:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: str) -> int:
+        ...
+
+    @staticmethod
+    def convert_from_utf_32(utf_32: int) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_utf_32(high_surrogate: str, low_surrogate: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def convert_to_utf_32(s: str, index: int) -> int:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: str) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_numeric_value(c: str) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_numeric_value(s: str, index: int) -> float:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    @overload
+    def get_unicode_category(c: str) -> System.Globalization.UnicodeCategory:
+        ...
+
+    @staticmethod
+    @overload
+    def get_unicode_category(s: str, index: int) -> System.Globalization.UnicodeCategory:
+        ...
+
+    @staticmethod
+    def is_ascii(c: str) -> bool:
+        """
+        Returns true if  is an ASCII
+        character ([ U+0000..U+007F ]).
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_digit(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII digit.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is an ASCII digit; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_hex_digit(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII hexadecimal digit.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is a hexadecimal digit; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_hex_digit_lower(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII lower-case hexadecimal digit.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is a lower-case hexadecimal digit; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_hex_digit_upper(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII upper-case hexadecimal digit.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is a hexadecimal digit; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_letter(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII letter.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is an ASCII letter; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_letter_lower(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as a lowercase ASCII letter.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is a lowercase ASCII letter; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_letter_or_digit(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an ASCII letter or digit.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is an ASCII letter or digit; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_ascii_letter_upper(c: str) -> bool:
+        """
+        Indicates whether a character is categorized as an uppercase ASCII letter.
+        
+        :param c: The character to evaluate.
+        :returns: true if  is an uppercase ASCII letter; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def is_between(c: str, min_inclusive: str, max_inclusive: str) -> bool:
+        """
+        Indicates whether a character is within the specified inclusive range.
+        
+        :param c: The character to evaluate.
+        :param min_inclusive: The lower bound, inclusive.
+        :param max_inclusive: The upper bound, inclusive.
+        :returns: true if  is within the specified range; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def is_control(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_control(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_digit(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_digit(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_high_surrogate(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_high_surrogate(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_letter(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_letter(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_letter_or_digit(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_letter_or_digit(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_lower(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_lower(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_low_surrogate(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_low_surrogate(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_number(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_number(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_punctuation(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_punctuation(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_separator(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_separator(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_surrogate(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_surrogate(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_surrogate_pair(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_surrogate_pair(high_surrogate: str, low_surrogate: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_symbol(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_symbol(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_upper(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_upper(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_white_space(c: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_white_space(s: str, index: int) -> bool:
+        ...
+
+    @staticmethod
+    def parse(s: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(c: str, culture: System.Globalization.CultureInfo) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(c: str) -> str:
+        ...
+
+    @staticmethod
+    def to_lower_invariant(c: str) -> str:
+        ...
+
+    @overload
     def to_string(self) -> str:
         ...
 
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
 
-class SystemException(System.Exception):
+    @staticmethod
+    @overload
+    def to_string(c: str) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(c: str, culture: System.Globalization.CultureInfo) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(c: str) -> str:
+        ...
+
+    @staticmethod
+    def to_upper_invariant(c: str) -> str:
+        ...
+
+    @staticmethod
+    def try_parse(s: str, result: typing.Optional[str]) -> typing.Tuple[bool, str]:
+        ...
+
+
+class DateTime(System.IComparable[datetime.datetime], System.ISpanFormattable, System.IConvertible, System.IEquatable[datetime.datetime], System.Runtime.Serialization.ISerializable, System.ISpanParsable[datetime.datetime], System.IUtf8SpanFormattable):
+    """This class has no documentation."""
+
+    MIN_VALUE: datetime.datetime
+
+    MAX_VALUE: datetime.datetime = ...
+
+    UNIX_EPOCH: datetime.datetime = ...
+
+    @property
+    def date(self) -> datetime.datetime:
+        ...
+
+    @property
+    def day(self) -> int:
+        ...
+
+    @property
+    def day_of_week(self) -> System.DayOfWeek:
+        ...
+
+    @property
+    def day_of_year(self) -> int:
+        ...
+
+    @property
+    def hour(self) -> int:
+        ...
+
+    @property
+    def kind(self) -> System.DateTimeKind:
+        ...
+
+    @property
+    def millisecond(self) -> int:
+        ...
+
+    @property
+    def microsecond(self) -> int:
+        """The microseconds component, expressed as a value between 0 and 999."""
+        ...
+
+    @property
+    def nanosecond(self) -> int:
+        """The nanoseconds component, expressed as a value between 0 and 900 (in increments of 100 nanoseconds)."""
+        ...
+
+    @property
+    def minute(self) -> int:
+        ...
+
+    @property
+    def month(self) -> int:
+        ...
+
+    NOW: datetime.datetime
+
+    @property
+    def second(self) -> int:
+        ...
+
+    @property
+    def ticks(self) -> int:
+        ...
+
+    @property
+    def time_of_day(self) -> datetime.timedelta:
+        ...
+
+    TODAY: datetime.datetime
+
+    @property
+    def year(self) -> int:
+        ...
+
+    UTC_NOW: datetime.datetime
+
+    def __add__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    def __eq__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    def __iadd__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    @overload
+    def __init__(self, ticks: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, ticks: int, kind: System.DateTimeKind) -> None:
+        ...
+
+    @overload
+    def __init__(self, date: System.DateOnly, time: System.TimeOnly) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified DateOnly and TimeOnly.
+        The new instance will have the DateTimeKind.Unspecified kind.
+        
+        :param date: The date part.
+        :param time: The time part.
+        """
+        ...
+
+    @overload
+    def __init__(self, date: System.DateOnly, time: System.TimeOnly, kind: System.DateTimeKind) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified DateOnly and TimeOnly respecting a DateTimeKind.
+        
+        :param date: The date part.
+        :param time: The time part.
+        :param kind: One of the enumeration values that indicates whether  and  specify a local time, Coordinated Universal Time (UTC), or neither.
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, calendar: System.Globalization.Calendar) -> None:
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, calendar: System.Globalization.Calendar, kind: System.DateTimeKind) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through the number of years in ).
+        :param month: The month (1 through the number of months in ).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param calendar: The calendar that is used to interpret , , and .
+        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, kind: System.DateTimeKind) -> None:
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, calendar: System.Globalization.Calendar) -> None:
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through 9999).
+        :param month: The month (1 through 12).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, kind: System.DateTimeKind) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through 9999).
+        :param month: The month (1 through 12).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, calendar: System.Globalization.Calendar) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through the number of years in ).
+        :param month: The month (1 through the number of months in ).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param calendar: The calendar that is used to interpret , , and .
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through 9999).
+        :param month: The month (1 through 12).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param microsecond: The microseconds (0 through 999).
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, kind: System.DateTimeKind) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through 9999).
+        :param month: The month (1 through 12).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param microsecond: The microseconds (0 through 999).
+        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, calendar: System.Globalization.Calendar) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through the number of years in ).
+        :param month: The month (1 through the number of months in ).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param microsecond: The microseconds (0 through 999).
+        :param calendar: The calendar that is used to interpret , , and .
+        """
+        ...
+
+    @overload
+    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, calendar: System.Globalization.Calendar, kind: System.DateTimeKind) -> None:
+        """
+        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
+        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
+        
+        :param year: The year (1 through the number of years in ).
+        :param month: The month (1 through the number of months in ).
+        :param day: The day (1 through the number of days in ).
+        :param hour: The hours (0 through 23).
+        :param minute: The minutes (0 through 59).
+        :param second: The seconds (0 through 59).
+        :param millisecond: The milliseconds (0 through 999).
+        :param microsecond: The microseconds (0 through 999).
+        :param calendar: The calendar that is used to interpret , , and .
+        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
+        """
+        ...
+
+    @overload
+    def __isub__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    @overload
+    def __isub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __le__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    def __ne__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, t: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    @overload
+    def __sub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
+    def add(self, value: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    def add_days(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of days to the value of this instance.
+        
+        :param value: A number of whole and fractional days. The value parameter can be negative or positive.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of days represented by value.
+        """
+        ...
+
+    def add_hours(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of hours to the value of this instance.
+        
+        :param value: A number of whole and fractional hours. The value parameter can be negative or positive.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of hours represented by value.
+        """
+        ...
+
+    def add_microseconds(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of microseconds to the value of this instance.
+        
+        :param value: A number of whole and fractional microseconds. The  parameter can be negative or positive. Note that this value is rounded to the nearest integer.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of microseconds represented by .
+        """
+        ...
+
+    def add_milliseconds(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of milliseconds to the value of this instance.
+        
+        :param value: A number of whole and fractional milliseconds. The value parameter can be negative or positive.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of milliseconds represented by value.
+        """
+        ...
+
+    def add_minutes(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of minutes to the value of this instance.
+        
+        :param value: A number of whole and fractional minutes. The value parameter can be negative or positive.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of minutes represented by value.
+        """
+        ...
+
+    def add_months(self, months: int) -> datetime.datetime:
+        ...
+
+    def add_seconds(self, value: float) -> datetime.datetime:
+        """
+        Returns a new DateTime that adds the specified number of seconds to the value of this instance.
+        
+        :param value: A number of whole and fractional seconds. The value parameter can be negative or positive.
+        :returns: An object whose value is the sum of the date and time represented by this instance and the number of seconds represented by value.
+        """
+        ...
+
+    def add_ticks(self, value: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, value: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def compare(t_1: typing.Union[datetime.datetime, datetime.date], t_2: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    @staticmethod
+    def days_in_month(year: int, month: int) -> int:
+        ...
+
+    @overload
+    def deconstruct(self, date: typing.Optional[System.DateOnly], time: typing.Optional[System.TimeOnly]) -> typing.Tuple[None, System.DateOnly, System.TimeOnly]:
+        """
+        Deconstructs DateTime into DateOnly and TimeOnly.
+        
+        :param date: Deconstructed DateOnly.
+        :param time: Deconstructed TimeOnly.
+        """
+        ...
+
+    @overload
+    def deconstruct(self, year: typing.Optional[int], month: typing.Optional[int], day: typing.Optional[int]) -> typing.Tuple[None, int, int, int]:
+        """
+        Deconstructs DateOnly by Year, Month and Day.
+        
+        :param year: Deconstructed parameter for Year.
+        :param month: Deconstructed parameter for Month.
+        :param day: Deconstructed parameter for Day.
+        """
+        ...
+
+    @overload
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, value: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(t_1: typing.Union[datetime.datetime, datetime.date], t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @staticmethod
+    def from_binary(date_data: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def from_file_time(file_time: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def from_file_time_utc(file_time: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def from_oa_date(d: float) -> datetime.datetime:
+        ...
+
+    @overload
+    def get_date_time_formats(self) -> typing.List[str]:
+        ...
+
+    @overload
+    def get_date_time_formats(self, provider: System.IFormatProvider) -> typing.List[str]:
+        ...
+
+    @overload
+    def get_date_time_formats(self, format: str) -> typing.List[str]:
+        ...
+
+    @overload
+    def get_date_time_formats(self, format: str, provider: System.IFormatProvider) -> typing.List[str]:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    def is_daylight_saving_time(self) -> bool:
+        ...
+
+    @staticmethod
+    def is_leap_year(year: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider = None, styles: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(s: str, format: str, provider: System.IFormatProvider) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(s: str, format: str, provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(s: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(s: str, formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(s: System.ReadOnlySpan[str], formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def specify_kind(value: typing.Union[datetime.datetime, datetime.date], kind: System.DateTimeKind) -> datetime.datetime:
+        ...
+
+    @overload
+    def subtract(self, value: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
+    @overload
+    def subtract(self, value: datetime.timedelta) -> datetime.datetime:
+        ...
+
+    def to_binary(self) -> int:
+        ...
+
+    def to_file_time(self) -> int:
+        ...
+
+    def to_file_time_utc(self) -> int:
+        ...
+
+    def to_local_time(self) -> datetime.datetime:
+        ...
+
+    def to_long_date_string(self) -> str:
+        ...
+
+    def to_long_time_string(self) -> str:
+        ...
+
+    def to_oa_date(self) -> float:
+        ...
+
+    def to_short_date_string(self) -> str:
+        ...
+
+    def to_short_time_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    def to_universal_time(self) -> datetime.datetime:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(s: str, format: str, provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(s: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(s: str, formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(s: System.ReadOnlySpan[str], formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
+        ...
+
+
+class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_Int128]):
+    """Represents a 128-bit signed integer."""
+
+    MIN_VALUE: System.Int128
+
+    MAX_VALUE: System.Int128
+
+    ONE: System.Int128
+
+    ZERO: System.Int128
+
+    NEGATIVE_ONE: System.Int128
+
+    @overload
+    def __add__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __add__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __add__(self) -> System.Int128:
+        ...
+
+    def __and__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __eq__(self, right: System.Int128) -> bool:
+        ...
+
+    def __ge__(self, right: System.Int128) -> bool:
+        ...
+
+    def __gt__(self, right: System.Int128) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Int128:
+        ...
+
+    def __iand__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ilshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    def __imod__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __imul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __init__(self, upper: int, lower: int) -> None:
+        """
+        Initializes a new instance of the Int128 struct.
+        
+        :param upper: The upper 64-bits of the 128-bit value.
+        :param lower: The lower 64-bits of the 128-bit value.
+        """
+        ...
+
+    def __invert__(self) -> System.Int128:
+        ...
+
+    def __ior__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __irshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __itruediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ixor__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __le__(self, right: System.Int128) -> bool:
+        ...
+
+    def __lshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    def __lt__(self, right: System.Int128) -> bool:
+        ...
+
+    def __mod__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __mul__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __ne__(self, right: System.Int128) -> bool:
+        ...
+
+    def __or__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __rshift__(self, shift_amount: int) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Int128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def __truediv__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    def __xor__(self, right: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def abs(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def clamp(value: System.Int128, min: System.Int128, max: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: System.Int128) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Int128, sign: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def div_rem(left: System.Int128, right: System.Int128) -> System.ValueTuple[System.Int128, System.Int128]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Int128) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.Int128) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: System.Int128) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.Int128) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.Int128) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: System.Int128) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def log_2(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def max(x: System.Int128, y: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.Int128, y: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def min(x: System.Int128, y: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.Int128, y: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Int128:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Int128:
+        ...
+
+    @staticmethod
+    def pop_count(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def rotate_left(value: System.Int128, rotate_amount: int) -> System.Int128:
+        ...
+
+    @staticmethod
+    def rotate_right(value: System.Int128, rotate_amount: int) -> System.Int128:
+        ...
+
+    @staticmethod
+    def sign(value: System.Int128) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: System.Int128) -> System.Int128:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 128-bit signed integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 128-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+
+class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+    """This class has no documentation."""
+
+    MAX_VALUE: int = ...
+
+    MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
+    @staticmethod
+    def abs(value: int) -> int:
+        ...
+
+    @staticmethod
+    def big_mul(left: int, right: int) -> System.Int128:
+        """
+        Produces the full product of two 64-bit numbers.
+        
+        :param left: The first number to multiply.
+        :param right: The second number to multiply.
+        :returns: The number containing the product of the specified numbers.
+        """
+        ...
+
+    @staticmethod
+    def clamp(value: int, min: int, max: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: int) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: int, sign: int) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: int) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    def max(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_left(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_right(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def sign(value: int) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 64-bit signed integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 64-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class InvalidOperationException(System.SystemException):
+    """The exception that is thrown when a method call is invalid for the object's current state."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class ObjectDisposedException(System.InvalidOperationException):
+    """The exception that is thrown when accessing an object that was disposed."""
+
+    @property
+    def message(self) -> str:
+        """Gets the text for the message for this exception."""
+        ...
+
+    @property
+    def object_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, object_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, object_name: str, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    @staticmethod
+    @overload
+    def throw_if(condition: bool, instance: typing.Any) -> None:
+        """
+        Throws an ObjectDisposedException if the specified  is true.
+        
+        :param condition: The condition to evaluate.
+        :param instance: The object whose type's full name should be included in any resulting ObjectDisposedException.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def throw_if(condition: bool, type: typing.Type) -> None:
+        """
+        Throws an ObjectDisposedException if the specified  is true.
+        
+        :param condition: The condition to evaluate.
+        :param type: The type whose full name should be included in any resulting ObjectDisposedException.
+        """
+        ...
+
+
+class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConvertible, System.IEquatable[float], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.Numerics.IFloatingPoint[float], System.Numerics.IMinMaxValue[float], System.IUtf8SpanFormattable):
+    """This class has no documentation."""
+
+    ZERO: float = 0
+
+    ONE: float = 1
+
+    MINUS_ONE: float = -1
+
+    MAX_VALUE: float = 79228162514264337593543950335
+
+    MIN_VALUE: float = -79228162514264337593543950335
+
+    @property
+    def scale(self) -> int:
+        """Gets the scaling factor of the decimal, which is a number from 0 to 28 that represents the number of decimal digits."""
+        ...
+
+    @overload
+    def __add__(self) -> float:
+        ...
+
+    @overload
+    def __add__(self, d_2: float) -> float:
+        ...
+
+    def __eq__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self) -> float:
+        ...
+
+    @overload
+    def __iadd__(self, d_2: float) -> float:
+        ...
+
+    def __imod__(self, d_2: float) -> float:
+        ...
+
+    def __imul__(self, d_2: float) -> float:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, bits: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, bits: System.ReadOnlySpan[int]) -> None:
+        """
+        Initializes a new instance of decimal to a decimal value represented in binary and contained in the specified span.
+        
+        :param bits: A span of four ints containing a binary representation of a decimal value.
+        """
+        ...
+
+    @overload
+    def __init__(self, lo: int, mid: int, hi: int, is_negative: bool, scale: int) -> None:
+        ...
+
+    @overload
+    def __isub__(self) -> float:
+        ...
+
+    @overload
+    def __isub__(self, d_2: float) -> float:
+        ...
+
+    def __itruediv__(self, d_2: float) -> float:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, d_2: float) -> bool:
+        ...
+
+    def __mod__(self, d_2: float) -> float:
+        ...
+
+    def __mul__(self, d_2: float) -> float:
+        ...
+
+    def __ne__(self, d_2: float) -> bool:
+        ...
+
+    @overload
+    def __sub__(self) -> float:
+        ...
+
+    @overload
+    def __sub__(self, d_2: float) -> float:
+        ...
+
+    def __truediv__(self, d_2: float) -> float:
+        ...
+
+    @staticmethod
+    def abs(value: float) -> float:
+        ...
+
+    @staticmethod
+    def add(d_1: float, d_2: float) -> float:
+        ...
+
+    @staticmethod
+    def ceiling(d: float) -> float:
+        ...
+
+    @staticmethod
+    def clamp(value: float, min: float, max: float) -> float:
+        ...
+
+    @staticmethod
+    def compare(d_1: float, d_2: float) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: float) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: float, sign: float) -> float:
+        ...
+
+    @staticmethod
+    def divide(d_1: float, d_2: float) -> float:
+        ...
+
+    @overload
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, value: float) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(d_1: float, d_2: float) -> bool:
+        ...
+
+    @staticmethod
+    def floor(d: float) -> float:
+        ...
+
+    @staticmethod
+    def from_oa_currency(cy: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_bits(d: float) -> typing.List[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_bits(d: float, destination: System.Span[int]) -> int:
+        """
+        Converts the value of a specified instance of decimal to its equivalent binary representation.
+        
+        :param d: The value to convert.
+        :param destination: The span into which to store the four-integer binary representation.
+        :returns: Four, the number of integers in the binary representation.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_canonical(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def max(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def multiply(d_1: float, d_2: float) -> float:
+        ...
+
+    @staticmethod
+    def negate(d: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    def remainder(d_1: float, d_2: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(d: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(d: float, decimals: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(d: float, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(d: float, decimals: int, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    def sign(d: float) -> int:
+        ...
+
+    @staticmethod
+    def subtract(d_1: float, d_2: float) -> float:
+        ...
+
+    @staticmethod
+    def to_byte(value: float) -> int:
+        ...
+
+    @staticmethod
+    def to_double(d: float) -> float:
+        ...
+
+    @staticmethod
+    def to_int_16(value: float) -> int:
+        ...
+
+    @staticmethod
+    def to_int_32(d: float) -> int:
+        ...
+
+    @staticmethod
+    def to_int_64(d: float) -> int:
+        ...
+
+    @staticmethod
+    def to_oa_currency(value: float) -> int:
+        ...
+
+    @staticmethod
+    def to_s_byte(value: float) -> int:
+        ...
+
+    @staticmethod
+    def to_single(d: float) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def to_u_int_16(value: float) -> int:
+        ...
+
+    @staticmethod
+    def to_u_int_32(d: float) -> int:
+        ...
+
+    @staticmethod
+    def to_u_int_64(d: float) -> int:
+        ...
+
+    @staticmethod
+    def truncate(d: float) -> float:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    def try_get_bits(d: float, destination: System.Span[int], values_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert the value of a specified instance of decimal to its equivalent binary representation.
+        
+        :param d: The value to convert.
+        :param destination: The span into which to store the binary representation.
+        :param values_written: The number of integers written to the destination.
+        :returns: true if the decimal's binary representation was written to the destination; false if the destination wasn't long enough.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its signed decimal equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the signed decimal value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+
+class TypeUnloadedException(System.SystemException):
     """This class has no documentation."""
 
     @overload
@@ -3626,187 +10431,71 @@ class SystemException(System.Exception):
         ...
 
 
-class ArithmeticException(System.SystemException):
-    """The exception that is thrown for errors in an arithmetic, casting, or conversion operation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class OverflowException(System.ArithmeticException):
-    """The exception that is thrown when an arithmetic, casting, or conversion operation in a checked context results in an overflow."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
+class Tuple(typing.Generic[System_Tuple_T1, System_Tuple_T2, System_Tuple_T3, System_Tuple_T4, System_Tuple_T5, System_Tuple_T6, System_Tuple_T7, System_Tuple_TRest], System.Object, System.Collections.IStructuralEquatable, System.Collections.IStructuralComparable, System.IComparable, System.ITupleInternal):
     """This class has no documentation."""
 
-    class InvocationListEnumerator(typing.Generic[System_Delegate_InvocationListEnumerator_TDelegate], typing.Iterable[System_Delegate_InvocationListEnumerator_TDelegate]):
-        """Provides an enumerator for the invocation list of a delegate."""
-
-        @property
-        def current(self) -> System_Delegate_InvocationListEnumerator_TDelegate:
-            """Implements the IEnumerator pattern."""
-            ...
-
-        def __iter__(self) -> typing.Iterator[System_Delegate_InvocationListEnumerator_TDelegate]:
-            ...
-
-        def get_enumerator(self) -> System.Delegate.InvocationListEnumerator[System_Delegate_InvocationListEnumerator_TDelegate]:
-            """
-            Implement IEnumerable.GetEnumerator() to return 'this' as the IEnumerator.
-            
-            :returns: An IEnumerator instance that can be used to iterate through the invocation targets of the delegate.
-            """
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Implements the IEnumerator pattern.
-            
-            :returns: true if the enumerator was successfully advanced to the next element; otherwise, false if the enumerator has passed the end of the collection.
-            """
-            ...
-
     @property
-    def has_single_target(self) -> bool:
-        """Gets a value that indicates whether the Delegate has a single invocation target."""
+    def item_1(self) -> System_Tuple_T1:
         ...
 
     @property
-    def method(self) -> System.Reflection.MethodInfo:
+    def item_2(self) -> System_Tuple_T2:
         ...
 
     @property
-    def target(self) -> System.Object:
+    def item_3(self) -> System_Tuple_T3:
         ...
 
-    def __eq__(self, d_2: System.Delegate) -> bool:
+    @property
+    def item_4(self) -> System_Tuple_T4:
+        ...
+
+    @property
+    def item_5(self) -> System_Tuple_T5:
+        ...
+
+    @property
+    def item_6(self) -> System_Tuple_T6:
+        ...
+
+    @property
+    def item_7(self) -> System_Tuple_T7:
+        ...
+
+    @property
+    def rest(self) -> System_Tuple_TRest:
         ...
 
     @overload
-    def __init__(self, target: typing.Any, method: str) -> None:
-        """This method is protected."""
+    def __init__(self, item_1: System_Tuple_T1) -> None:
         ...
 
     @overload
-    def __init__(self, target: typing.Type, method: str) -> None:
-        """This method is protected."""
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2) -> None:
         ...
 
-    def __ne__(self, d_2: System.Delegate) -> bool:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    @staticmethod
     @overload
-    def combine(a: System.Delegate, b: System.Delegate) -> System.Delegate:
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3) -> None:
         ...
 
-    @staticmethod
     @overload
-    def combine(*delegates: typing.Union[System.Delegate, typing.Iterable[System.Delegate]]) -> System.Delegate:
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4) -> None:
         ...
 
-    def combine_impl(self, d: System.Delegate) -> System.Delegate:
-        """This method is protected."""
-        ...
-
-    @staticmethod
     @overload
-    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo) -> System.Delegate:
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5) -> None:
         ...
 
-    @staticmethod
     @overload
-    def create_delegate(type: typing.Type, target: typing.Any, method: str) -> System.Delegate:
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6) -> None:
         ...
 
-    @staticmethod
     @overload
-    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool) -> System.Delegate:
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6, item_7: System_Tuple_T7) -> None:
         ...
 
-    @staticmethod
     @overload
-    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, target: typing.Type, method: str) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, target: typing.Type, method: str, ignore_case: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    @staticmethod
-    @overload
-    def create_delegate(type: typing.Type, target: typing.Type, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
-        ...
-
-    def dynamic_invoke(self, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
-        ...
-
-    def dynamic_invoke_impl(self, args: typing.List[System.Object]) -> System.Object:
-        """This method is protected."""
+    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6, item_7: System_Tuple_T7, rest: System_Tuple_TRest) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -3815,142 +10504,7 @@ class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.IS
     def get_hash_code(self) -> int:
         ...
 
-    def get_invocation_list(self) -> typing.List[System.Delegate]:
-        ...
-
-    def get_method_impl(self) -> System.Reflection.MethodInfo:
-        """This method is protected."""
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    @staticmethod
-    def remove(source: System.Delegate, value: System.Delegate) -> System.Delegate:
-        ...
-
-    @staticmethod
-    def remove_all(source: System.Delegate, value: System.Delegate) -> System.Delegate:
-        ...
-
-    def remove_impl(self, d: System.Delegate) -> System.Delegate:
-        """This method is protected."""
-        ...
-
-
-class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __eq__(self, d_2: System.MulticastDelegate) -> bool:
-        ...
-
-    @overload
-    def __init__(self, target: typing.Any, method: str) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def __init__(self, target: typing.Type, method: str) -> None:
-        """This method is protected."""
-        ...
-
-    def __ne__(self, d_2: System.MulticastDelegate) -> bool:
-        ...
-
-    def combine_impl(self, follow: System.Delegate) -> System.Delegate:
-        """This method is protected."""
-        ...
-
-    def dynamic_invoke_impl(self, args: typing.List[System.Object]) -> System.Object:
-        """This method is protected."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_invocation_list(self) -> typing.List[System.Delegate]:
-        ...
-
-    def get_method_impl(self) -> System.Reflection.MethodInfo:
-        """This method is protected."""
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def remove_impl(self, value: System.Delegate) -> System.Delegate:
-        """This method is protected."""
-        ...
-
-
-class OperationCanceledException(System.SystemException):
-    """The exception that is thrown in a thread upon cancellation of an operation that the thread was executing."""
-
-    @property
-    def cancellation_token(self) -> System.Threading.CancellationToken:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, token: System.Threading.CancellationToken) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, token: System.Threading.CancellationToken) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class DivideByZeroException(System.ArithmeticException):
-    """The exception that is thrown when there is an attempt to divide an integral or decimal value by zero."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
+    def to_string(self) -> str:
         ...
 
 
@@ -3979,39 +10533,8 @@ class MemberAccessException(System.SystemException):
         ...
 
 
-class MissingMemberException(System.MemberAccessException):
-    """This class has no documentation."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def class_name(self) -> str:
-        """This field is protected."""
-        ...
-
-    @class_name.setter
-    def class_name(self, value: str) -> None:
-        ...
-
-    @property
-    def member_name(self) -> str:
-        """This field is protected."""
-        ...
-
-    @member_name.setter
-    def member_name(self, value: str) -> None:
-        ...
-
-    @property
-    def signature(self) -> typing.List[int]:
-        """This field is protected."""
-        ...
-
-    @signature.setter
-    def signature(self, value: typing.List[int]) -> None:
-        ...
+class FieldAccessException(System.MemberAccessException):
+    """The exception that is thrown when there is an invalid attempt to access a private or protected field inside a class."""
 
     @overload
     def __init__(self) -> None:
@@ -4026,7 +10549,64 @@ class MissingMemberException(System.MemberAccessException):
         ...
 
     @overload
-    def __init__(self, class_name: str, member_name: str) -> None:
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class StackOverflowException(System.SystemException):
+    """Exception thrown on a stack overflow."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class WeakReference(typing.Generic[System_WeakReference_T], System.Object, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def track_resurrection(self) -> bool:
+        ...
+
+    @property
+    def is_alive(self) -> bool:
+        ...
+
+    @property
+    def target(self) -> System.Object:
+        ...
+
+    @target.setter
+    def target(self, value: System.Object) -> None:
+        ...
+
+    @overload
+    def __init__(self, target: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, target: typing.Any, track_resurrection: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, target: System_WeakReference_T) -> None:
+        ...
+
+    @overload
+    def __init__(self, target: System_WeakReference_T, track_resurrection: bool) -> None:
         ...
 
     @overload
@@ -4041,6 +10621,2074 @@ class MissingMemberException(System.MemberAccessException):
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """Obsoletions.LegacyFormatterImplMessage"""
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def set_target(self, target: System_WeakReference_T) -> None:
+        ...
+
+    def try_get_target(self, target: typing.Optional[System_WeakReference_T]) -> typing.Tuple[bool, System_WeakReference_T]:
+        ...
+
+
+class IUtf8SpanParsable(typing.Generic[System_IUtf8SpanParsable_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for parsing a span of UTF-8 characters to a value."""
+
+
+class Attribute(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def type_id(self) -> System.Object:
+        ...
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.MemberInfo) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.MemberInfo, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.ParameterInfo) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.ParameterInfo, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> typing.List[System.Attribute]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.Module, attribute_type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    def match(self, obj: typing.Any) -> bool:
+        ...
+
+
+class LoaderOptimization(Enum):
+    """This class has no documentation."""
+
+    DISALLOW_BINDINGS = 4
+    """LoaderOptimization.DisallowBindings has been deprecated and is not supported."""
+
+    DOMAIN_MASK = 3
+    """LoaderOptimization.DomainMask has been deprecated and is not supported."""
+
+    MULTI_DOMAIN = 2
+
+    MULTI_DOMAIN_HOST = 3
+
+    NOT_SPECIFIED = 0
+
+    SINGLE_DOMAIN = 1
+
+
+class LoaderOptimizationAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> System.LoaderOptimization:
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System.LoaderOptimization) -> None:
+        ...
+
+
+class Boolean(System.IComparable[bool], System.IConvertible, System.IEquatable[bool], System.ISpanParsable[bool]):
+    """Represents a boolean (true or false) value."""
+
+    TRUE_STRING: str = ...
+
+    FALSE_STRING: str = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: bool) -> bool:
+        ...
+
+    @overload
+    def compare_to(self, obj: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: bool) -> int:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: bool) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(value: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(value: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(value: str, result: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(value: System.ReadOnlySpan[str], result: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
+        ...
+
+
+class OverflowException(System.ArithmeticException):
+    """The exception that is thrown when an arithmetic, casting, or conversion operation in a checked context results in an overflow."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class OutOfMemoryException(System.SystemException):
+    """The exception class for OOM."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class InsufficientMemoryException(System.OutOfMemoryException):
+    """
+    Purpose: The exception class for running out of memory
+    but most likely in a non-fatal way that shouldn't
+    be affected by escalation policy.  Use this for cases
+    like MemoryFailPoint or a TryAllocate method, where you
+    expect OOM's with no shared state corruption and you
+    want to recover from these errors.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class AggregateException(System.Exception):
+    """Represents one or more errors that occur during application execution."""
+
+    @property
+    def inner_exceptions(self) -> System.Collections.ObjectModel.ReadOnlyCollection[System.Exception]:
+        """
+        Gets a read-only collection of the Exception instances that caused the
+        current exception.
+        """
+        ...
+
+    @property
+    def message(self) -> str:
+        """Gets a message that describes the exception."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the AggregateException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the AggregateException class with
+        a specified error message.
+        
+        :param message: The error message that explains the reason for the exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the AggregateException class with a specified error
+        message and a reference to the inner exception that is the cause of this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, inner_exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
+        """
+        Initializes a new instance of the AggregateException class with
+        references to the inner exceptions that are the cause of this exception.
+        
+        :param inner_exceptions: The exceptions that are the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, *inner_exceptions: typing.Union[System.Exception, typing.Iterable[System.Exception]]) -> None:
+        """
+        Initializes a new instance of the AggregateException class with
+        references to the inner exceptions that are the cause of this exception.
+        
+        :param inner_exceptions: The exceptions that are the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
+        """
+        Initializes a new instance of the AggregateException class with a specified error
+        message and references to the inner exceptions that are the cause of this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exceptions: The exceptions that are the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, *inner_exceptions: typing.Union[System.Exception, typing.Iterable[System.Exception]]) -> None:
+        """
+        Initializes a new instance of the AggregateException class with a specified error
+        message and references to the inner exceptions that are the cause of this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exceptions: The exceptions that are the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the AggregateException class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        
+        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
+        :param context: The StreamingContext that contains contextual information about the source or destination.
+        """
+        ...
+
+    def flatten(self) -> System.AggregateException:
+        """
+        Flattens the inner instances of AggregateException by expanding its contained Exception instances
+        into a new AggregateException
+        
+        :returns: A new, flattened AggregateException.
+        """
+        ...
+
+    def get_base_exception(self) -> System.Exception:
+        """Returns the Exception that is the root cause of this exception."""
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Sets the SerializationInfo with information about
+        the exception.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        
+        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
+        :param context: The StreamingContext that contains contextual information about the source or destination.
+        """
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def handle(self, predicate: typing.Callable[[System.Exception], bool]) -> None:
+        """
+        Invokes a handler on each Exception contained by this AggregateException.
+        
+        :param predicate: The predicate to execute for each exception. The predicate accepts as an argument the Exception to be processed and returns a Boolean to indicate whether the exception was handled.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Creates and returns a string representation of the current AggregateException.
+        
+        :returns: A string representation of the current exception.
+        """
+        ...
+
+
+class TupleExtensions(System.Object):
+    """Provides extension methods for Tuple instances to interop with C# tuples features (deconstruction syntax, converting from and to ValueTuple)."""
+
+
+class NullReferenceException(System.SystemException):
+    """The exception that is thrown when there is an attempt to dereference a null object reference."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class NonSerializedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class FormattableString(System.Object, System.IFormattable, metaclass=abc.ABCMeta):
+    """Represents a composite format string, along with the arguments to be formatted."""
+
+    @property
+    @abc.abstractmethod
+    def format(self) -> str:
+        """The composite format string."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def argument_count(self) -> int:
+        """The number of arguments to be formatted."""
+        ...
+
+    @staticmethod
+    def current_culture(formattable: System.FormattableString) -> str:
+        """
+        Format the given object in the current culture. This static method may be
+        imported in C# by
+        
+        using static System.FormattableString;
+        .
+        Within the scope
+        of that import directive an interpolated string may be formatted in the
+        current culture by writing, for example,
+        
+        CurrentCulture($"{{ lat = {latitude}; lon = {longitude} }}")
+        """
+        ...
+
+    def get_argument(self, index: int) -> System.Object:
+        """Returns one argument to be formatted from argument position ."""
+        ...
+
+    def get_arguments(self) -> typing.List[System.Object]:
+        """
+        Returns an object array that contains zero or more objects to format. Clients should not
+        mutate the contents of the array.
+        """
+        ...
+
+    @staticmethod
+    def invariant(formattable: System.FormattableString) -> str:
+        """
+        Format the given object in the invariant culture. This static method may be
+        imported in C# by
+        
+        using static System.FormattableString;
+        .
+        Within the scope
+        of that import directive an interpolated string may be formatted in the
+        invariant culture by writing, for example,
+        
+        Invariant($"{{ lat = {latitude}; lon = {longitude} }}")
+        """
+        ...
+
+    @overload
+    def to_string(self, format_provider: System.IFormatProvider) -> str:
+        """Format to a string using the given culture."""
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+
+class ThreadStaticAttribute(System.Attribute):
+    """Indicates that the value of a static field is unique for each thread."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEquatable[System_Half], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[System_Half]):
+    """Represents a half-precision floating-point number."""
+
+    EPSILON: System.Half
+
+    POSITIVE_INFINITY: System.Half
+
+    NEGATIVE_INFINITY: System.Half
+
+    NA_N: System.Half
+
+    MIN_VALUE: System.Half
+
+    MAX_VALUE: System.Half
+
+    E: System.Half
+
+    PI: System.Half
+
+    TAU: System.Half
+
+    NEGATIVE_ZERO: System.Half
+
+    MULTIPLICATIVE_IDENTITY: System.Half
+
+    ONE: System.Half
+
+    ZERO: System.Half
+
+    NEGATIVE_ONE: System.Half
+
+    @overload
+    def __add__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __add__(self) -> System.Half:
+        ...
+
+    def __eq__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __iadd__(self) -> System.Half:
+        ...
+
+    def __imod__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __imul__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __isub__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __isub__(self) -> System.Half:
+        ...
+
+    def __itruediv__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: System.Half) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: System.Half) -> bool:
+        ...
+
+    def __mod__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __mul__(self, right: System.Half) -> System.Half:
+        ...
+
+    def __ne__(self, right: System.Half) -> bool:
+        ...
+
+    @overload
+    def __sub__(self, right: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def __sub__(self) -> System.Half:
+        ...
+
+    def __truediv__(self, right: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def abs(value: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def acos(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def acosh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def acos_pi(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def asin(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def asinh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def asin_pi(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def atan(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def atan_2(y: System.Half, x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: System.Half, x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def atanh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def atan_pi(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def bit_increment(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def cbrt(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def ceiling(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def clamp(value: System.Half, min: System.Half, max: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def clamp_native(value: System.Half, min: System.Half, max: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def compare_to(self, obj: typing.Any) -> int:
+        """
+        Compares this object to another object, returning an integer that indicates the relationship.
+        
+        :returns: A value less than zero if this is less than , zero if this is equal to , or a value greater than zero if this is greater than .
+        """
+        ...
+
+    @overload
+    def compare_to(self, other: System.Half) -> int:
+        """
+        Compares this object to another object, returning an integer that indicates the relationship.
+        
+        :returns: A value less than zero if this is less than , zero if this is equal to , or a value greater than zero if this is greater than .
+        """
+        ...
+
+    @staticmethod
+    def copy_sign(value: System.Half, sign: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def cos(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def cosh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def cos_pi(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """Returns a value that indicates whether this instance is equal to a specified ."""
+        ...
+
+    @overload
+    def equals(self, other: System.Half) -> bool:
+        """Returns a value that indicates whether this instance is equal to a specified  value."""
+        ...
+
+    @staticmethod
+    def exp(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def exp_10(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def exp_2(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def floor(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: System.Half, right: System.Half, addend: System.Half) -> System.Half:
+        ...
+
+    def get_hash_code(self) -> int:
+        """Serves as the default hash function."""
+        ...
+
+    @staticmethod
+    def hypot(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: System.Half, right: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def i_log_b(x: System.Half) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(value: System.Half) -> bool:
+        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
+        ...
+
+    @staticmethod
+    def is_infinity(value: System.Half) -> bool:
+        """Determines whether the specified value is infinite."""
+        ...
+
+    @staticmethod
+    def is_integer(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(value: System.Half) -> bool:
+        """Determines whether the specified value is NaN."""
+        ...
+
+    @staticmethod
+    def is_negative(value: System.Half) -> bool:
+        """Determines whether the specified value is negative."""
+        ...
+
+    @staticmethod
+    def is_negative_infinity(value: System.Half) -> bool:
+        """Determines whether the specified value is negative infinity."""
+        ...
+
+    @staticmethod
+    def is_normal(value: System.Half) -> bool:
+        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(value: System.Half) -> bool:
+        """Determines whether the specified value is positive infinity."""
+        ...
+
+    @staticmethod
+    def is_pow_2(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: System.Half) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(value: System.Half) -> bool:
+        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
+        ...
+
+    @staticmethod
+    def lerp(value_1: System.Half, value_2: System.Half, amount: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: System.Half, new_base: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def log_10(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def log_2(value: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def log_p_1(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def max(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def max_native(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def max_number(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def min(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def min_native(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def min_number(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: System.Half, right: System.Half, addend: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Half:
+        """
+        Parses a Half from a string in the default parse style.
+        
+        :param s: The input to be parsed.
+        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Half:
+        """
+        Parses a Half from a string in the given NumberStyles.
+        
+        :param s: The input to be parsed.
+        :param style: The NumberStyles used to parse the input.
+        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> System.Half:
+        """
+        Parses a Half from a string and IFormatProvider.
+        
+        :param s: The input to be parsed.
+        :param provider: A format provider.
+        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
+        """
+        Parses a Half from a string with the given NumberStyles and IFormatProvider.
+        
+        :param s: The input to be parsed.
+        :param style: The NumberStyles used to parse the input.
+        :param provider: A format provider.
+        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
+        """
+        Parses a Half from a ReadOnlySpan{Char} and IFormatProvider.
+        
+        :param s: The input to be parsed.
+        :param style: The NumberStyles used to parse the input.
+        :param provider: A format provider.
+        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Half:
+        ...
+
+    @staticmethod
+    def pow(x: System.Half, y: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def reciprocal_estimate(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def root_n(x: System.Half, n: int) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Half, digits: int) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Half, mode: System.MidpointRounding) -> System.Half:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: System.Half, digits: int, mode: System.MidpointRounding) -> System.Half:
+        ...
+
+    @staticmethod
+    def scale_b(x: System.Half, n: int) -> System.Half:
+        ...
+
+    @staticmethod
+    def sign(value: System.Half) -> int:
+        ...
+
+    @staticmethod
+    def sin(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def sin_cos(x: System.Half) -> System.ValueTuple[System.Half, System.Half]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: System.Half) -> System.ValueTuple[System.Half, System.Half]:
+        ...
+
+    @staticmethod
+    def sinh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def sin_pi(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def sqrt(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def tan(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def tanh(x: System.Half) -> System.Half:
+        ...
+
+    @staticmethod
+    def tan_pi(x: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        """Returns a string representation of the current value."""
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        """Returns a string representation of the current value using the specified ."""
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        """Returns a string representation of the current value with the specified ."""
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        """Returns a string representation of the current value using the specified  and ."""
+        ...
+
+    @staticmethod
+    def truncate(x: System.Half) -> System.Half:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        """
+        Tries to format the value of the current Half instance into the provided span of characters.
+        
+        :param destination: When this method returns, this instance's value formatted as a span of characters.
+        :param chars_written: When this method returns, the number of characters that were written in .
+        :param format: A span containing the characters that represent a standard or custom format string that defines the acceptable format for .
+        :param provider: An optional object that supplies culture-specific formatting information for .
+        """
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        """
+        Tries to parse a Half from a string in the default parse style.
+        
+        :param s: The input to be parsed.
+        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
+        :returns: true if the parse was successful, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        """
+        Tries to parse a Half from a ReadOnlySpan{Char} in the default parse style.
+        
+        :param s: The input to be parsed.
+        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
+        :returns: true if the parse was successful, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its half-precision floating-point number equivalent.
+        
+        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
+        :param result: When this method returns, contains a half-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        """
+        Tries to parse a Half from a string with the given NumberStyles and IFormatProvider.
+        
+        :param s: The input to be parsed.
+        :param style: The NumberStyles used to parse the input.
+        :param provider: A format provider.
+        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
+        :returns: true if the parse was successful, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        """
+        Tries to parse a Half from a ReadOnlySpan{Char} with the given NumberStyles and IFormatProvider.
+        
+        :param s: The input to be parsed.
+        :param style: The NumberStyles used to parse the input.
+        :param provider: A format provider.
+        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
+        :returns: true if the parse was successful, false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        ...
+
+
+class BitConverter(System.Object):
+    """Converts base data types to an array of bytes, and an array of bytes to base data types."""
+
+    IS_LITTLE_ENDIAN: bool = True
+
+    @staticmethod
+    def double_to_int_64_bits(value: float) -> int:
+        """
+        Converts the specified double-precision floating point number to a 64-bit signed integer.
+        
+        :param value: The number to convert.
+        :returns: A 64-bit signed integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def double_to_u_int_64_bits(value: float) -> int:
+        """
+        Converts the specified double-precision floating point number to a 64-bit unsigned integer.
+        
+        :param value: The number to convert.
+        :returns: A 64-bit unsigned integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: bool) -> typing.List[int]:
+        """
+        Returns the specified Boolean value as a byte array.
+        
+        :param value: A Boolean value.
+        :returns: A byte array with length 1.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: str) -> typing.List[int]:
+        """
+        Returns the specified Unicode character value as a byte array.
+        
+        :param value: A Char value.
+        :returns: An array of bytes with length 2.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: int) -> typing.List[int]:
+        """
+        Returns the specified 16-bit signed integer value as an array of bytes.
+        
+        :param value: The number to convert.
+        :returns: An array of bytes with length 2.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: System.Int128) -> typing.List[int]:
+        """
+        Returns the specified 128-bit signed integer value as an array of bytes.
+        
+        :param value: The number to convert.
+        :returns: An array of bytes with length 16.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: System.UInt128) -> typing.List[int]:
+        """
+        Returns the specified 128-bit unsigned integer value as an array of bytes.
+        
+        :param value: The number to convert.
+        :returns: An array of bytes with length 16.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: System.Half) -> typing.List[int]:
+        """
+        Returns the specified half-precision floating point value as an array of bytes.
+        
+        :param value: The number to convert.
+        :returns: An array of bytes with length 2.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def get_bytes(value: float) -> typing.List[int]:
+        """
+        Returns the specified single-precision floating point value as an array of bytes.
+        
+        :param value: The number to convert.
+        :returns: An array of bytes with length 4.
+        """
+        ...
+
+    @staticmethod
+    def half_to_int_16_bits(value: System.Half) -> int:
+        """
+        Converts the specified half-precision floating point number to a 16-bit signed integer.
+        
+        :param value: The number to convert.
+        :returns: A 16-bit signed integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def half_to_u_int_16_bits(value: System.Half) -> int:
+        """
+        Converts the specified half-precision floating point number to a 16-bit unsigned integer.
+        
+        :param value: The number to convert.
+        :returns: A 16-bit unsigned integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def int_16_bits_to_half(value: int) -> System.Half:
+        """
+        Converts the specified 16-bit signed integer to a half-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A half-precision floating point number whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def int_32_bits_to_single(value: int) -> float:
+        """
+        Converts the specified 32-bit signed integer to a single-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A single-precision floating point number whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def int_64_bits_to_double(value: int) -> float:
+        """
+        Converts the specified 64-bit signed integer to a double-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A double-precision floating point number whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def single_to_int_32_bits(value: float) -> int:
+        """
+        Converts the specified single-precision floating point number to a 32-bit signed integer.
+        
+        :param value: The number to convert.
+        :returns: A 32-bit signed integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def single_to_u_int_32_bits(value: float) -> int:
+        """
+        Converts the specified single-precision floating point number to a 32-bit unsigned integer.
+        
+        :param value: The number to convert.
+        :returns: A 32-bit unsigned integer whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_boolean(value: typing.List[int], start_index: int) -> bool:
+        """
+        Returns a Boolean value converted from two bytes at a specified position in a byte array.
+        
+        :param value: A byte array.
+        :param start_index: The index of the byte within .
+        :returns: true if the byte at  is nonzero; otherwise false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_boolean(value: System.ReadOnlySpan[int]) -> bool:
+        """
+        Converts a read-only byte span into a Boolean value.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A Boolean representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_char(value: typing.List[int], start_index: int) -> str:
+        """
+        Returns a Unicode character converted from two bytes at a specified position in a byte array.
+        
+        :param value: An array.
+        :param start_index: The starting position within .
+        :returns: A character formed by two bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_char(value: System.ReadOnlySpan[int]) -> str:
+        """
+        Converts a read-only byte span into a character.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A character representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_double(value: typing.List[int], start_index: int) -> float:
+        """
+        Returns a double-precision floating point number converted from eight bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A double-precision floating point number formed by eight bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_double(value: System.ReadOnlySpan[int]) -> float:
+        """
+        Converts a read-only byte span into a double-precision floating-point value.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A double-precision floating-point value representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_half(value: typing.List[int], start_index: int) -> System.Half:
+        """
+        Returns a half-precision floating point number converted from two bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A half-precision floating point number signed integer formed by two bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_half(value: System.ReadOnlySpan[int]) -> System.Half:
+        """
+        Converts a read-only byte span into a half-precision floating-point value.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A half-precision floating-point value representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_128(value: typing.List[int], start_index: int) -> System.Int128:
+        """
+        Returns a 128-bit signed integer converted from sixteen bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 128-bit signed integer formed by sixteen bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_128(value: System.ReadOnlySpan[int]) -> System.Int128:
+        """
+        Converts a read-only byte span into a 128-bit signed integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 128-bit signed integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_16(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 16-bit signed integer converted from two bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 16-bit signed integer formed by two bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_16(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 16-bit signed integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 16-bit signed integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_32(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 32-bit signed integer converted from four bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 32-bit signed integer formed by four bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_32(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 32-bit signed integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 32-bit signed integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_64(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 64-bit signed integer converted from eight bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 64-bit signed integer formed by eight bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_int_64(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 64-bit signed integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 64-bit signed integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_single(value: typing.List[int], start_index: int) -> float:
+        """
+        Returns a single-precision floating point number converted from four bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A single-precision floating point number formed by four bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_single(value: System.ReadOnlySpan[int]) -> float:
+        """
+        Converts a read-only byte span into a single-precision floating-point value.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A single-precision floating-point value representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_string(value: typing.List[int], start_index: int, length: int) -> str:
+        """
+        Converts the numeric value of each element of a specified array of bytes
+        to its equivalent hexadecimal string representation.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :param length: The number of array elements in  to convert.
+        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in a subarray of ; for example, "7F-2C-4A-00".
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_string(value: typing.List[int]) -> str:
+        """
+        Converts the numeric value of each element of a specified array of bytes
+        to its equivalent hexadecimal string representation.
+        
+        :param value: An array of bytes.
+        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in ; for example, "7F-2C-4A-00".
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_string(value: typing.List[int], start_index: int) -> str:
+        """
+        Converts the numeric value of each element of a specified array of bytes
+        to its equivalent hexadecimal string representation.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in a subarray of ; for example, "7F-2C-4A-00".
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_128(value: typing.List[int], start_index: int) -> System.UInt128:
+        """
+        Returns a 128-bit unsigned integer converted from sixteen bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 128-bit unsigned integer formed by sixteen bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_128(value: System.ReadOnlySpan[int]) -> System.UInt128:
+        """
+        Converts a read-only byte span into a 128-bit unsigned integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 128-bit unsigned integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_16(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 16-bit unsigned integer converted from two bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 16-bit unsigned integer formed by two bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_16(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 16-bit unsigned integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 16-bit unsigned integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_32(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 32-bit unsigned integer converted from four bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 32-bit unsigned integer formed by four bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_32(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 32-bit unsigned integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 32-bit unsigned integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_64(value: typing.List[int], start_index: int) -> int:
+        """
+        Returns a 64-bit unsigned integer converted from eight bytes at a specified position in a byte array.
+        
+        :param value: An array of bytes.
+        :param start_index: The starting position within .
+        :returns: A 64-bit unsigned integer formed by eight bytes beginning at .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def to_u_int_64(value: System.ReadOnlySpan[int]) -> int:
+        """
+        Converts a read-only byte span into a 64-bit unsigned integer.
+        
+        :param value: A read-only span containing the bytes to convert.
+        :returns: A 64-bit unsigned integer representing the converted bytes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: bool) -> bool:
+        """
+        Converts a Boolean into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted Boolean.
+        :param value: The Boolean to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: str) -> bool:
+        """
+        Converts a character into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted character.
+        :param value: The character to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: int) -> bool:
+        """
+        Converts a 16-bit signed integer into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted 16-bit signed integer.
+        :param value: The 16-bit signed integer to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: System.Int128) -> bool:
+        """
+        Converts a 128-bit signed integer into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted 128-bit signed integer.
+        :param value: The 128-bit signed integer to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: System.UInt128) -> bool:
+        """
+        Converts a 128-bit unsigned integer into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted 128-bit unsigned integer.
+        :param value: The 128-bit unsigned integer to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: System.Half) -> bool:
+        """
+        Converts a half-precision floating-point value into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted half-precision floating-point value.
+        :param value: The half-precision floating-point value to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_write_bytes(destination: System.Span[int], value: float) -> bool:
+        """
+        Converts a single-precision floating-point value into a span of bytes.
+        
+        :param destination: When this method returns, the bytes representing the converted single-precision floating-point value.
+        :param value: The single-precision floating-point value to convert.
+        :returns: true if the conversion was successful; false otherwise.
+        """
+        ...
+
+    @staticmethod
+    def u_int_16_bits_to_half(value: int) -> System.Half:
+        """
+        Converts the specified 16-bit unsigned integer to a half-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A half-precision floating point number whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def u_int_32_bits_to_single(value: int) -> float:
+        """
+        Converts the specified 32-bit unsigned integer to a single-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A single-precision floating point number whose bits are identical to .
+        """
+        ...
+
+    @staticmethod
+    def u_int_64_bits_to_double(value: int) -> float:
+        """
+        Converts the specified 64-bit unsigned integer to a double-precision floating point number.
+        
+        :param value: The number to convert.
+        :returns: A double-precision floating point number whose bits are identical to .
+        """
+        ...
+
+
+class ParamArrayAttribute(System.Attribute):
+    """Indicates that a method will allow a variable number of arguments in its invocation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class MulticastNotSupportedException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class TimeZone(System.Object, metaclass=abc.ABCMeta):
+    """
+    Represents a time zone.
+    
+    System.TimeZone has been deprecated. Investigate the use of System.TimeZoneInfo instead.
+    """
+
+    CURRENT_TIME_ZONE: System.TimeZone
+
+    @property
+    @abc.abstractmethod
+    def standard_name(self) -> str:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def daylight_name(self) -> str:
+        ...
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def get_daylight_changes(self, year: int) -> System.Globalization.DaylightTime:
+        ...
+
+    def get_utc_offset(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
+        ...
+
+    @overload
+    def is_daylight_saving_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_daylight_saving_time(time: typing.Union[datetime.datetime, datetime.date], daylight_times: System.Globalization.DaylightTime) -> bool:
+        ...
+
+    def to_local_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        ...
+
+    def to_universal_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
+        ...
 
 
 class Guid(System.ISpanFormattable, System.IComparable[System_Guid], System.IEquatable[System_Guid], System.ISpanParsable[System_Guid], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Guid]):
@@ -4297,53 +12945,6 @@ class Guid(System.ISpanFormattable, System.IComparable[System_Guid], System.IEqu
 
     @overload
     def try_write_bytes(self, destination: System.Span[int], big_endian: bool, bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class LocalDataStoreSlot(System.Object):
-    """This class has no documentation."""
-
-
-class AppContext(System.Object):
-    """This class has no documentation."""
-
-    BASE_DIRECTORY: str
-
-    TARGET_FRAMEWORK_NAME: str
-
-    @staticmethod
-    def get_data(name: str) -> System.Object:
-        ...
-
-    @staticmethod
-    def set_data(name: str, data: typing.Any) -> None:
-        """
-        Sets the value of the named data element assigned to the current application domain.
-        
-        :param name: The name of the data element
-        :param data: The value of
-        """
-        ...
-
-    @staticmethod
-    def set_switch(switch_name: str, is_enabled: bool) -> None:
-        """
-        Assign a switch a value
-        
-        :param switch_name: The name of the switch
-        :param is_enabled: The value to assign
-        """
-        ...
-
-    @staticmethod
-    def try_get_switch(switch_name: str, is_enabled: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
-        """
-        Try to get the value of the switch.
-        
-        :param switch_name: The name of the switch
-        :param is_enabled: A variable where to place the value of the switch
-        :returns: A return value of true represents that the switch was set and  contains the value of the switch.
-        """
         ...
 
 
@@ -5176,1077 +13777,8 @@ class Type(System.Reflection.MemberInfo, System.Reflection.IReflect, metaclass=a
         ...
 
 
-class IDisposable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def dispose(self) -> None:
-        ...
-
-
-class IObservable(typing.Generic[System_IObservable_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def subscribe(self, observer: System.IObserver[System_IObservable_T]) -> System.IDisposable:
-        ...
-
-
-class Attribute(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def type_id(self) -> System.Object:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attribute(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> System.Attribute:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> typing.List[System.Attribute]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Attribute]:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Assembly, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.MemberInfo, attribute_type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.MemberInfo, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Module, attribute_type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.Module, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_defined(element: System.Reflection.ParameterInfo, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    def match(self, obj: typing.Any) -> bool:
-        ...
-
-
-class ParamArrayAttribute(System.Attribute):
-    """Indicates that a method will allow a variable number of arguments in its invocation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class MidpointRounding(Enum):
-    """This class has no documentation."""
-
-    TO_EVEN = 0
-
-    AWAY_FROM_ZERO = 1
-
-    TO_ZERO = 2
-
-    TO_NEGATIVE_INFINITY = 3
-
-    TO_POSITIVE_INFINITY = 4
-
-
-class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEquatable[System_Half], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[System_Half]):
-    """Represents a half-precision floating-point number."""
-
-    EPSILON: System.Half
-
-    POSITIVE_INFINITY: System.Half
-
-    NEGATIVE_INFINITY: System.Half
-
-    NA_N: System.Half
-
-    MIN_VALUE: System.Half
-
-    MAX_VALUE: System.Half
-
-    E: System.Half
-
-    PI: System.Half
-
-    TAU: System.Half
-
-    NEGATIVE_ZERO: System.Half
-
-    MULTIPLICATIVE_IDENTITY: System.Half
-
-    ONE: System.Half
-
-    ZERO: System.Half
-
-    NEGATIVE_ONE: System.Half
-
-    @overload
-    def __add__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __add__(self) -> System.Half:
-        ...
-
-    def __eq__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: System.Half) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: System.Half) -> bool:
-        ...
-
-    @overload
-    def __iadd__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __iadd__(self) -> System.Half:
-        ...
-
-    def __imod__(self, right: System.Half) -> System.Half:
-        ...
-
-    def __imul__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __isub__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __isub__(self) -> System.Half:
-        ...
-
-    def __itruediv__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: System.Half) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: System.Half) -> bool:
-        ...
-
-    def __mod__(self, right: System.Half) -> System.Half:
-        ...
-
-    def __mul__(self, right: System.Half) -> System.Half:
-        ...
-
-    def __ne__(self, right: System.Half) -> bool:
-        ...
-
-    @overload
-    def __sub__(self, right: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def __sub__(self) -> System.Half:
-        ...
-
-    def __truediv__(self, right: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def abs(value: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def acos(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def acosh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def acos_pi(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def asin(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def asinh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def asin_pi(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def atan(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def atan_2(y: System.Half, x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def atan_2_pi(y: System.Half, x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def atanh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def atan_pi(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def bit_decrement(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def bit_increment(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def cbrt(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def ceiling(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def clamp(value: System.Half, min: System.Half, max: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def clamp_native(value: System.Half, min: System.Half, max: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares this object to another object, returning an integer that indicates the relationship.
-        
-        :returns: A value less than zero if this is less than , zero if this is equal to , or a value greater than zero if this is greater than .
-        """
-        ...
-
-    @overload
-    def compare_to(self, other: System.Half) -> int:
-        """
-        Compares this object to another object, returning an integer that indicates the relationship.
-        
-        :returns: A value less than zero if this is less than , zero if this is equal to , or a value greater than zero if this is greater than .
-        """
-        ...
-
-    @staticmethod
-    def copy_sign(value: System.Half, sign: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def cos(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def cosh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def cos_pi(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """Returns a value that indicates whether this instance is equal to a specified ."""
-        ...
-
-    @overload
-    def equals(self, other: System.Half) -> bool:
-        """Returns a value that indicates whether this instance is equal to a specified  value."""
-        ...
-
-    @staticmethod
-    def exp(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def exp_10(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def exp_10_m_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def exp_2(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def exp_2_m_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def exp_m_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def floor(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: System.Half, right: System.Half, addend: System.Half) -> System.Half:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Serves as the default hash function."""
-        ...
-
-    @staticmethod
-    def hypot(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def ieee_754_remainder(left: System.Half, right: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def i_log_b(x: System.Half) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_finite(value: System.Half) -> bool:
-        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
-        ...
-
-    @staticmethod
-    def is_infinity(value: System.Half) -> bool:
-        """Determines whether the specified value is infinite."""
-        ...
-
-    @staticmethod
-    def is_integer(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_na_n(value: System.Half) -> bool:
-        """Determines whether the specified value is NaN."""
-        ...
-
-    @staticmethod
-    def is_negative(value: System.Half) -> bool:
-        """Determines whether the specified value is negative."""
-        ...
-
-    @staticmethod
-    def is_negative_infinity(value: System.Half) -> bool:
-        """Determines whether the specified value is negative infinity."""
-        ...
-
-    @staticmethod
-    def is_normal(value: System.Half) -> bool:
-        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive_infinity(value: System.Half) -> bool:
-        """Determines whether the specified value is positive infinity."""
-        ...
-
-    @staticmethod
-    def is_pow_2(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_real_number(value: System.Half) -> bool:
-        ...
-
-    @staticmethod
-    def is_subnormal(value: System.Half) -> bool:
-        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
-        ...
-
-    @staticmethod
-    def lerp(value_1: System.Half, value_2: System.Half, amount: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: System.Half, new_base: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def log_10(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def log_10_p_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def log_2(value: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def log_2_p_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def log_p_1(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def max(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def max_native(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def max_number(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def min(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def min_native(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def min_number(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: System.Half, right: System.Half, addend: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.Half:
-        """
-        Parses a Half from a string in the default parse style.
-        
-        :param s: The input to be parsed.
-        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Half:
-        """
-        Parses a Half from a string in the given NumberStyles.
-        
-        :param s: The input to be parsed.
-        :param style: The NumberStyles used to parse the input.
-        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> System.Half:
-        """
-        Parses a Half from a string and IFormatProvider.
-        
-        :param s: The input to be parsed.
-        :param provider: A format provider.
-        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
-        """
-        Parses a Half from a string with the given NumberStyles and IFormatProvider.
-        
-        :param s: The input to be parsed.
-        :param style: The NumberStyles used to parse the input.
-        :param provider: A format provider.
-        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
-        """
-        Parses a Half from a ReadOnlySpan{Char} and IFormatProvider.
-        
-        :param s: The input to be parsed.
-        :param style: The NumberStyles used to parse the input.
-        :param provider: A format provider.
-        :returns: The equivalent Half value representing the input string. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Half:
-        ...
-
-    @staticmethod
-    def pow(x: System.Half, y: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def reciprocal_estimate(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def reciprocal_sqrt_estimate(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def root_n(x: System.Half, n: int) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: System.Half, digits: int) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: System.Half, mode: System.MidpointRounding) -> System.Half:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: System.Half, digits: int, mode: System.MidpointRounding) -> System.Half:
-        ...
-
-    @staticmethod
-    def scale_b(x: System.Half, n: int) -> System.Half:
-        ...
-
-    @staticmethod
-    def sign(value: System.Half) -> int:
-        ...
-
-    @staticmethod
-    def sin(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def sin_cos(x: System.Half) -> System.ValueTuple[System.Half, System.Half]:
-        ...
-
-    @staticmethod
-    def sin_cos_pi(x: System.Half) -> System.ValueTuple[System.Half, System.Half]:
-        ...
-
-    @staticmethod
-    def sinh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def sin_pi(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def sqrt(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def tan(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def tanh(x: System.Half) -> System.Half:
-        ...
-
-    @staticmethod
-    def tan_pi(x: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        """Returns a string representation of the current value."""
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        """Returns a string representation of the current value using the specified ."""
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        """Returns a string representation of the current value with the specified ."""
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        """Returns a string representation of the current value using the specified  and ."""
-        ...
-
-    @staticmethod
-    def truncate(x: System.Half) -> System.Half:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        """
-        Tries to format the value of the current Half instance into the provided span of characters.
-        
-        :param destination: When this method returns, this instance's value formatted as a span of characters.
-        :param chars_written: When this method returns, the number of characters that were written in .
-        :param format: A span containing the characters that represent a standard or custom format string that defines the acceptable format for .
-        :param provider: An optional object that supplies culture-specific formatting information for .
-        """
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        """
-        Tries to parse a Half from a string in the default parse style.
-        
-        :param s: The input to be parsed.
-        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
-        :returns: true if the parse was successful, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        """
-        Tries to parse a Half from a ReadOnlySpan{Char} in the default parse style.
-        
-        :param s: The input to be parsed.
-        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
-        :returns: true if the parse was successful, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its half-precision floating-point number equivalent.
-        
-        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
-        :param result: When this method returns, contains a half-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        """
-        Tries to parse a Half from a string with the given NumberStyles and IFormatProvider.
-        
-        :param s: The input to be parsed.
-        :param style: The NumberStyles used to parse the input.
-        :param provider: A format provider.
-        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
-        :returns: true if the parse was successful, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        """
-        Tries to parse a Half from a ReadOnlySpan{Char} with the given NumberStyles and IFormatProvider.
-        
-        :param s: The input to be parsed.
-        :param style: The NumberStyles used to parse the input.
-        :param provider: A format provider.
-        :param result: The equivalent Half value representing the input string if the parse was successful. If the input exceeds Half's range, a PositiveInfinity or NegativeInfinity is returned. If the parse was unsuccessful, a default Half value is returned.
-        :returns: true if the parse was successful, false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
-        ...
-
-
-class Nullable(typing.Generic[System_Nullable_T]):
-    """This class has no documentation."""
-
-    @property
-    def has_value(self) -> bool:
-        ...
-
-    @property
-    def value(self) -> System_Nullable_T:
-        ...
-
-    def __init__(self, value: System_Nullable_T) -> None:
-        ...
-
-    def equals(self, other: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def get_underlying_type(nullable_type: typing.Type) -> typing.Type:
-        ...
-
-    @overload
-    def get_value_or_default(self) -> System_Nullable_T:
-        ...
-
-    @overload
-    def get_value_or_default(self, default_value: System_Nullable_T) -> System_Nullable_T:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class Tuple(typing.Generic[System_Tuple_T1, System_Tuple_T2, System_Tuple_T3, System_Tuple_T4, System_Tuple_T5, System_Tuple_T6, System_Tuple_T7, System_Tuple_TRest], System.Object, System.Collections.IStructuralEquatable, System.Collections.IStructuralComparable, System.IComparable, System.ITupleInternal):
-    """This class has no documentation."""
-
-    @property
-    def item_1(self) -> System_Tuple_T1:
-        ...
-
-    @property
-    def item_2(self) -> System_Tuple_T2:
-        ...
-
-    @property
-    def item_3(self) -> System_Tuple_T3:
-        ...
-
-    @property
-    def item_4(self) -> System_Tuple_T4:
-        ...
-
-    @property
-    def item_5(self) -> System_Tuple_T5:
-        ...
-
-    @property
-    def item_6(self) -> System_Tuple_T6:
-        ...
-
-    @property
-    def item_7(self) -> System_Tuple_T7:
-        ...
-
-    @property
-    def rest(self) -> System_Tuple_TRest:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6, item_7: System_Tuple_T7) -> None:
-        ...
-
-    @overload
-    def __init__(self, item_1: System_Tuple_T1, item_2: System_Tuple_T2, item_3: System_Tuple_T3, item_4: System_Tuple_T4, item_5: System_Tuple_T5, item_6: System_Tuple_T6, item_7: System_Tuple_T7, rest: System_Tuple_TRest) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class SerializableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DataMisalignedException(System.SystemException):
-    """The exception that is thrown when a unit of data is read from or written to an address that is not a multiple of the data size."""
+class FormatException(System.SystemException):
+    """The exception that is thrown when the format of an argument is invalid, or when a composite format string is not well formed."""
 
     @overload
     def __init__(self) -> None:
@@ -6260,32 +13792,51 @@ class DataMisalignedException(System.SystemException):
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
 
-class PlatformID(Enum):
+
+class MarshalByRefObject(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    WIN_32S = 0
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
 
-    WIN_32_WINDOWS = 1
+    def get_lifetime_service(self) -> System.Object:
+        """Obsoletions.RemotingApisMessage"""
+        warnings.warn("Obsoletions.RemotingApisMessage", DeprecationWarning)
 
-    WIN_32_NT = 2
+    def initialize_lifetime_service(self) -> System.Object:
+        """Obsoletions.RemotingApisMessage"""
+        warnings.warn("Obsoletions.RemotingApisMessage", DeprecationWarning)
 
-    WIN_CE = 3
-
-    UNIX = 4
-
-    XBOX = 5
-
-    MAC_OSX = 6
-
-    OTHER = 7
+    def memberwise_clone(self, clone_identity: bool) -> System.MarshalByRefObject:
+        """This method is protected."""
+        ...
 
 
-class InvalidProgramException(System.SystemException):
-    """
-    The exception that is thrown when a program contains invalid IL or metadata.
-    This exception is also thrown when internal runtime implementation limits have been exceeded by the program.
-    """
+class IEquatable(typing.Generic[System_IEquatable_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, other: System_IEquatable_T) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param other: An object to compare with this object.
+        :returns: true if the current object is equal to the  parameter; otherwise, false.
+        """
+        ...
+
+
+class UnauthorizedAccessException(System.SystemException):
+    """The exception that is thrown when the operating system denies access because of an I/O error or a specific type of security error."""
 
     @overload
     def __init__(self) -> None:
@@ -6299,21 +13850,666 @@ class InvalidProgramException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
 
-class StringComparison(Enum):
-    """This class has no documentation."""
 
-    CURRENT_CULTURE = 0
+class TimeoutException(System.SystemException):
+    """The exception that is thrown when the time allotted for a process or operation has expired."""
 
-    CURRENT_CULTURE_IGNORE_CASE = 1
+    @overload
+    def __init__(self) -> None:
+        ...
 
-    INVARIANT_CULTURE = 2
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
 
-    INVARIANT_CULTURE_IGNORE_CASE = 3
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
 
-    ORDINAL = 4
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
 
-    ORDINAL_IGNORE_CASE = 5
+
+class NotImplementedException(System.SystemException):
+    """The exception that is thrown when a requested method or operation is not implemented."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class Single(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
+    """Represents a single-precision floating-point number."""
+
+    MIN_VALUE: float = ...
+
+    MAX_VALUE: float = ...
+
+    EPSILON: float = ...
+
+    NEGATIVE_INFINITY: float = ...
+
+    POSITIVE_INFINITY: float = ...
+
+    NA_N: float = ...
+
+    NEGATIVE_ZERO: float = ...
+    """Represents the number negative zero (-0)."""
+
+    E: float = ...
+    """Represents the natural logarithmic base, specified by the constant, e."""
+
+    PI: float = ...
+    """Represents the ratio of the circumference of a circle to its diameter, specified by the constant, PI."""
+
+    TAU: float = ...
+    """Represents the number of radians in one turn, specified by the constant, Tau."""
+
+    def __eq__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __le__(self, right: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: float) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, right: float) -> bool:
+        ...
+
+    def __ne__(self, right: float) -> bool:
+        ...
+
+    @staticmethod
+    def abs(value: float) -> float:
+        ...
+
+    @staticmethod
+    def acos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def acos_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def asin_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_2(y: float, x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_2_pi(y: float, x: float) -> float:
+        ...
+
+    @staticmethod
+    def atanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def atan_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_decrement(x: float) -> float:
+        ...
+
+    @staticmethod
+    def bit_increment(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cbrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def ceiling(x: float) -> float:
+        ...
+
+    @staticmethod
+    def clamp(value: float, min: float, max: float) -> float:
+        ...
+
+    @staticmethod
+    def clamp_native(value: float, min: float, max: float) -> float:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: float) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: float, sign: float) -> float:
+        ...
+
+    @staticmethod
+    def cos(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cosh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def cos_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def degrees_to_radians(degrees: float) -> float:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: float) -> bool:
+        ...
+
+    @staticmethod
+    def exp(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_10(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_10_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_2(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_2_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def exp_m_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def floor(x: float) -> float:
+        ...
+
+    @staticmethod
+    def fused_multiply_add(left: float, right: float, addend: float) -> float:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def hypot(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def ieee_754_remainder(left: float, right: float) -> float:
+        ...
+
+    @staticmethod
+    def i_log_b(x: float) -> int:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_finite(f: float) -> bool:
+        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
+        ...
+
+    @staticmethod
+    def is_infinity(f: float) -> bool:
+        """Determines whether the specified value is infinite."""
+        ...
+
+    @staticmethod
+    def is_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_na_n(f: float) -> bool:
+        """Determines whether the specified value is NaN."""
+        ...
+
+    @staticmethod
+    def is_negative(f: float) -> bool:
+        """Determines whether the specified value is negative."""
+        ...
+
+    @staticmethod
+    def is_negative_infinity(f: float) -> bool:
+        """Determines whether the specified value is negative infinity."""
+        ...
+
+    @staticmethod
+    def is_normal(f: float) -> bool:
+        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive_infinity(f: float) -> bool:
+        """Determines whether the specified value is positive infinity."""
+        ...
+
+    @staticmethod
+    def is_pow_2(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_real_number(value: float) -> bool:
+        ...
+
+    @staticmethod
+    def is_subnormal(f: float) -> bool:
+        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
+        ...
+
+    @staticmethod
+    def lerp(value_1: float, value_2: float, amount: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def log(x: float, new_base: float) -> float:
+        ...
+
+    @staticmethod
+    def log_10(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_10_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_2(value: float) -> float:
+        ...
+
+    @staticmethod
+    def log_2_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def log_p_1(x: float) -> float:
+        ...
+
+    @staticmethod
+    def max(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_magnitude_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_native(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def max_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_magnitude_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_native(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def min_number(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def multiply_add_estimate(left: float, right: float, addend: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
+        ...
+
+    @staticmethod
+    def pow(x: float, y: float) -> float:
+        ...
+
+    @staticmethod
+    def radians_to_degrees(radians: float) -> float:
+        ...
+
+    @staticmethod
+    def reciprocal_estimate(x: float) -> float:
+        ...
+
+    @staticmethod
+    def reciprocal_sqrt_estimate(x: float) -> float:
+        ...
+
+    @staticmethod
+    def root_n(x: float, n: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
+        ...
+
+    @staticmethod
+    def scale_b(x: float, n: int) -> float:
+        ...
+
+    @staticmethod
+    def sign(value: float) -> int:
+        ...
+
+    @staticmethod
+    def sin(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sin_cos(x: float) -> System.ValueTuple[float, float]:
+        ...
+
+    @staticmethod
+    def sin_cos_pi(x: float) -> System.ValueTuple[float, float]:
+        ...
+
+    @staticmethod
+    def sinh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sin_pi(x: float) -> float:
+        ...
+
+    @staticmethod
+    def sqrt(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tan(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tanh(x: float) -> float:
+        ...
+
+    @staticmethod
+    def tan_pi(x: float) -> float:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def truncate(x: float) -> float:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its single-precision floating-point number equivalent.
+        
+        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
+        :param result: When this method returns, contains a single-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+
+class IndexOutOfRangeException(System.SystemException):
+    """The exception that is thrown when an attempt is made to access an element of an array or collection with an index that is outside its bounds."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
 
 
 class StringComparer(System.Object, System.Collections.IComparer, System.Collections.IEqualityComparer, System.Collections.Generic.IComparer[str], System.Collections.Generic.IEqualityComparer[str], metaclass=abc.ABCMeta):
@@ -6442,455 +14638,551 @@ class OrdinalComparer(System.StringComparer, System.Collections.Generic.IAlterna
         ...
 
 
-class OperatingSystem(System.Object, System.Runtime.Serialization.ISerializable, System.ICloneable):
+class IObservable(typing.Generic[System_IObservable_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def subscribe(self, observer: System.IObserver[System_IObservable_T]) -> System.IDisposable:
+        ...
+
+
+class FlagsAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class Lazy(typing.Generic[System_Lazy_T, System_Lazy_TMetadata], System_Lazy):
     """This class has no documentation."""
 
     @property
-    def platform(self) -> System.PlatformID:
+    def is_value_created(self) -> bool:
+        """Gets a value indicating whether the Lazy{T} has been initialized."""
         ...
 
     @property
-    def service_pack(self) -> str:
+    def value(self) -> System_Lazy_T:
+        """Gets the lazily initialized value of the current Lazy{T}."""
         ...
 
     @property
-    def version(self) -> System.Version:
+    def metadata(self) -> System_Lazy_TMetadata:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the Lazy{T} class that
+        uses T's default constructor for lazy initialization.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: System_Lazy_T) -> None:
+        """
+        Initializes a new instance of the Lazy{T} class that
+        uses a pre-initialized specified value.
+        """
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T]) -> None:
+        """
+        Initializes a new instance of the Lazy{T} class that uses a
+        specified initialization function.
+        
+        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
+        """
+        ...
+
+    @overload
+    def __init__(self, is_thread_safe: bool) -> None:
+        """
+        Initializes a new instance of the Lazy{T}
+        class that uses T's default constructor and a specified thread-safety mode.
+        
+        :param is_thread_safe: true if this instance should be usable by multiple threads concurrently; false if the instance will only be used by one thread at a time.
+        """
+        ...
+
+    @overload
+    def __init__(self, mode: System.Threading.LazyThreadSafetyMode) -> None:
+        """
+        Initializes a new instance of the Lazy{T}
+        class that uses T's default constructor and a specified thread-safety mode.
+        
+        :param mode: The lazy thread-safety mode
+        """
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], is_thread_safe: bool) -> None:
+        """
+        Initializes a new instance of the Lazy{T} class
+        that uses a specified initialization function and a specified thread-safety mode.
+        
+        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
+        :param is_thread_safe: true if this instance should be usable by multiple threads concurrently; false if the instance will only be used by one thread at a time.
+        """
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], mode: System.Threading.LazyThreadSafetyMode) -> None:
+        """
+        Initializes a new instance of the Lazy{T} class
+        that uses a specified initialization function and a specified thread-safety mode.
+        
+        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
+        :param mode: The lazy thread-safety mode.
+        """
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata) -> None:
+        ...
+
+    @overload
+    def __init__(self, metadata: System_Lazy_TMetadata) -> None:
+        ...
+
+    @overload
+    def __init__(self, metadata: System_Lazy_TMetadata, is_thread_safe: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata, is_thread_safe: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, metadata: System_Lazy_TMetadata, mode: System.Threading.LazyThreadSafetyMode) -> None:
+        ...
+
+    @overload
+    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata, mode: System.Threading.LazyThreadSafetyMode) -> None:
+        ...
+
+    def to_string(self) -> str:
+        """
+        Creates and returns a string representation of this instance.
+        
+        :returns: The result of calling object.ToString on the Value.
+        """
+        ...
+
+
+class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+    """This class has no documentation."""
+
+    MAX_VALUE: int = ...
+
+    MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
+    @staticmethod
+    def abs(value: int) -> int:
+        ...
+
+    @staticmethod
+    def big_mul(left: int, right: int) -> int:
+        """
+        Produces the full product of two 32-bit numbers.
+        
+        :param left: The first number to multiply.
+        :param right: The second number to multiply.
+        :returns: The number containing the product of the specified numbers.
+        """
+        ...
+
+    @staticmethod
+    def clamp(value: int, min: int, max: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: int) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: int, sign: int) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: int) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    def max(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_left(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_right(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def sign(value: int) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 32-bit signed integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 32-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class Delegate(System.Object, System.ICloneable, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    class InvocationListEnumerator(typing.Generic[System_Delegate_InvocationListEnumerator_TDelegate], typing.Iterable[System_Delegate_InvocationListEnumerator_TDelegate]):
+        """Provides an enumerator for the invocation list of a delegate."""
+
+        @property
+        def current(self) -> System_Delegate_InvocationListEnumerator_TDelegate:
+            """Implements the IEnumerator pattern."""
+            ...
+
+        def __iter__(self) -> typing.Iterator[System_Delegate_InvocationListEnumerator_TDelegate]:
+            ...
+
+        def get_enumerator(self) -> System.Delegate.InvocationListEnumerator[System_Delegate_InvocationListEnumerator_TDelegate]:
+            """
+            Implement IEnumerable.GetEnumerator() to return 'this' as the IEnumerator.
+            
+            :returns: An IEnumerator instance that can be used to iterate through the invocation targets of the delegate.
+            """
+            ...
+
+        def move_next(self) -> bool:
+            """
+            Implements the IEnumerator pattern.
+            
+            :returns: true if the enumerator was successfully advanced to the next element; otherwise, false if the enumerator has passed the end of the collection.
+            """
+            ...
+
+    @property
+    def has_single_target(self) -> bool:
+        """Gets a value that indicates whether the Delegate has a single invocation target."""
         ...
 
     @property
-    def version_string(self) -> str:
+    def method(self) -> System.Reflection.MethodInfo:
         ...
 
-    def __init__(self, platform: System.PlatformID, version: System.Version) -> None:
+    @property
+    def target(self) -> System.Object:
+        ...
+
+    def __eq__(self, d_2: System.Delegate) -> bool:
+        ...
+
+    @overload
+    def __init__(self, target: typing.Any, method: str) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def __init__(self, target: typing.Type, method: str) -> None:
+        """This method is protected."""
+        ...
+
+    def __ne__(self, d_2: System.Delegate) -> bool:
         ...
 
     def clone(self) -> System.Object:
         ...
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
     @staticmethod
-    def is_android() -> bool:
-        """Indicates whether the current application is running on Android."""
-        ...
-
-    @staticmethod
-    def is_android_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
-        """Check for the Android API level (returned by 'ro.build.version.sdk') with a >= version comparison. Used to guard APIs that were added in the given Android release."""
-        ...
-
-    @staticmethod
-    def is_browser() -> bool:
-        """Indicates whether the current application is running as WASM in a Browser."""
-        ...
-
-    @staticmethod
-    def is_free_bsd() -> bool:
-        """Indicates whether the current application is running on FreeBSD."""
-        ...
-
-    @staticmethod
-    def is_free_bsd_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
-        """Check for the FreeBSD version (returned by 'uname') with a >= version comparison. Used to guard APIs that were added in the given FreeBSD release."""
-        ...
-
-    @staticmethod
-    def is_ios() -> bool:
-        """Indicates whether the current application is running on iOS or MacCatalyst."""
-        ...
-
-    @staticmethod
-    def is_ios_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
-        """Check for the iOS/MacCatalyst version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given iOS release."""
-        ...
-
-    @staticmethod
-    def is_linux() -> bool:
-        """Indicates whether the current application is running on Linux."""
-        ...
-
-    @staticmethod
-    def is_mac_catalyst() -> bool:
-        """Indicates whether the current application is running on Mac Catalyst."""
-        ...
-
-    @staticmethod
-    def is_mac_catalyst_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
-        """Check for the Mac Catalyst version (iOS version as presented in Apple documentation) with a >= version comparison. Used to guard APIs that were added in the given Mac Catalyst release."""
-        ...
-
-    @staticmethod
-    def is_mac_os() -> bool:
-        """Indicates whether the current application is running on macOS."""
-        ...
-
-    @staticmethod
-    def is_mac_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
-        """Check for the macOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given macOS release."""
-        ...
-
-    @staticmethod
-    def is_os_platform(platform: str) -> bool:
-        """
-        Indicates whether the current application is running on the specified platform.
-        
-        :param platform: Case-insensitive platform name. Examples: Browser, Linux, FreeBSD, Android, iOS, macOS, tvOS, watchOS, Windows.
-        """
-        ...
-
-    @staticmethod
-    def is_os_platform_version_at_least(platform: str, major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
-        """
-        Check for the OS with a >= version comparison. Used to guard APIs that were added in the given OS release.
-        
-        :param platform: Case-insensitive platform name. Examples: Browser, Linux, FreeBSD, Android, iOS, macOS, tvOS, watchOS, Windows.
-        :param major: Major OS version number.
-        :param minor: Minor OS version number (optional).
-        :param build: Build OS version number (optional).
-        :param revision: Revision OS version number (optional).
-        """
-        ...
-
-    @staticmethod
-    def is_tv_os() -> bool:
-        """Indicates whether the current application is running on tvOS."""
-        ...
-
-    @staticmethod
-    def is_tv_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
-        """Check for the tvOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given tvOS release."""
-        ...
-
-    @staticmethod
-    def is_wasi() -> bool:
-        """Indicates whether the current application is running as WASI."""
-        ...
-
-    @staticmethod
-    def is_watch_os() -> bool:
-        """Indicates whether the current application is running on watchOS."""
-        ...
-
-    @staticmethod
-    def is_watch_os_version_at_least(major: int, minor: int = 0, build: int = 0) -> bool:
-        """Check for the watchOS version (returned by 'libobjc.get_operatingSystemVersion') with a >= version comparison. Used to guard APIs that were added in the given watchOS release."""
-        ...
-
-    @staticmethod
-    def is_windows() -> bool:
-        """Indicates whether the current application is running on Windows."""
-        ...
-
-    @staticmethod
-    def is_windows_version_at_least(major: int, minor: int = 0, build: int = 0, revision: int = 0) -> bool:
-        """Check for the Windows version (returned by 'RtlGetVersion') with a >= version comparison. Used to guard APIs that were added in the given Windows release."""
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class EnvironmentVariableTarget(Enum):
-    """This class has no documentation."""
-
-    PROCESS = 0
-
-    USER = 1
-
-    MACHINE = 2
-
-
-class Environment(System.Object):
-    """This class has no documentation."""
-
-    class SpecialFolderOption(Enum):
-        """This class has no documentation."""
-
-        NONE = 0
-
-        CREATE = ...
-
-        DO_NOT_VERIFY = ...
-
-    class SpecialFolder(Enum):
-        """This class has no documentation."""
-
-        APPLICATION_DATA = ...
-
-        COMMON_APPLICATION_DATA = ...
-
-        LOCAL_APPLICATION_DATA = ...
-
-        COOKIES = ...
-
-        DESKTOP = ...
-
-        FAVORITES = ...
-
-        HISTORY = ...
-
-        INTERNET_CACHE = ...
-
-        PROGRAMS = ...
-
-        MY_COMPUTER = ...
-
-        MY_MUSIC = ...
-
-        MY_PICTURES = ...
-
-        MY_VIDEOS = ...
-
-        RECENT = ...
-
-        SEND_TO = ...
-
-        START_MENU = ...
-
-        STARTUP = ...
-
-        SYSTEM = ...
-
-        TEMPLATES = ...
-
-        DESKTOP_DIRECTORY = ...
-
-        PERSONAL = ...
-
-        MY_DOCUMENTS = ...
-
-        PROGRAM_FILES = ...
-
-        COMMON_PROGRAM_FILES = ...
-
-        ADMIN_TOOLS = ...
-
-        CD_BURNING = ...
-
-        COMMON_ADMIN_TOOLS = ...
-
-        COMMON_DOCUMENTS = ...
-
-        COMMON_MUSIC = ...
-
-        COMMON_OEM_LINKS = ...
-
-        COMMON_PICTURES = ...
-
-        COMMON_START_MENU = ...
-
-        COMMON_PROGRAMS = ...
-
-        COMMON_STARTUP = ...
-
-        COMMON_DESKTOP_DIRECTORY = ...
-
-        COMMON_TEMPLATES = ...
-
-        COMMON_VIDEOS = ...
-
-        FONTS = ...
-
-        NETWORK_SHORTCUTS = ...
-
-        PRINTER_SHORTCUTS = ...
-
-        USER_PROFILE = ...
-
-        COMMON_PROGRAM_FILES_X_86 = ...
-
-        PROGRAM_FILES_X_86 = ...
-
-        RESOURCES = ...
-
-        LOCALIZED_RESOURCES = ...
-
-        SYSTEM_X_86 = ...
-
-        WINDOWS = ...
-
-    class ProcessCpuUsage:
-        """Represents the CPU usage statistics of a process."""
-
-        @property
-        def user_time(self) -> datetime.timedelta:
-            """Gets the amount of time the associated process has spent running code inside the application portion of the process (not the operating system code)."""
-            ...
-
-        @property
-        def privileged_time(self) -> datetime.timedelta:
-            """Gets the amount of time the process has spent running code inside the operating system code."""
-            ...
-
-        @property
-        def total_time(self) -> datetime.timedelta:
-            """Gets the amount of time the process has spent utilizing the CPU including the process time spent in the application code and the process time spent in the operating system code."""
-            ...
-
-    WORKING_SET: int
-
-    MACHINE_NAME: str
-
-    USER_NAME: str
-
-    USER_INTERACTIVE: bool
-
-    SYSTEM_DIRECTORY: str
-
-    USER_DOMAIN_NAME: str
-
-    CPU_USAGE: System.Environment.ProcessCpuUsage
-    """
-    Get the CPU usage, including the process time spent running the application code, the process time spent running the operating system code,
-    and the total time spent running both the application and operating system code.
-    """
-
-    TICK_COUNT_64: int
-    """Gets the number of milliseconds elapsed since the system started."""
-
-    PROCESSOR_COUNT: int
-
-    IS_PRIVILEGED_PROCESS: bool
-    """Gets whether the current process is authorized to perform security-relevant functions."""
-
-    HAS_SHUTDOWN_STARTED: bool
-
-    COMMAND_LINE: str
-
-    current_directory: str
-
-    PROCESS_ID: int
-    """Gets the unique identifier for the current process."""
-
-    PROCESS_PATH: str
-    """Returns the path of the executable that started the currently executing process. Returns null when the path is not available."""
-
-    IS_64_BIT_PROCESS: bool
-
-    IS_64_BIT_OPERATING_SYSTEM: bool
-
-    NEW_LINE: str
-
-    OS_VERSION: System.OperatingSystem
-
-    STACK_TRACE: str
-
-    SYSTEM_PAGE_SIZE: int
-
-    TICK_COUNT: int
-    """Gets the number of milliseconds elapsed since the system started."""
-
-    CURRENT_MANAGED_THREAD_ID: int
-
-    exit_code: int
-
-    @staticmethod
-    def exit(exit_code: int) -> None:
-        ...
-
-    @staticmethod
-    def expand_environment_variables(name: str) -> str:
+    @overload
+    def combine(a: System.Delegate, b: System.Delegate) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def fail_fast(message: str) -> None:
+    def combine(*delegates: typing.Union[System.Delegate, typing.Iterable[System.Delegate]]) -> System.Delegate:
+        ...
+
+    def combine_impl(self, d: System.Delegate) -> System.Delegate:
+        """This method is protected."""
         ...
 
     @staticmethod
     @overload
-    def fail_fast(message: str, exception: System.Exception) -> None:
-        ...
-
-    @staticmethod
-    def get_command_line_args() -> typing.List[str]:
+    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_environment_variable(variable: str) -> str:
+    def create_delegate(type: typing.Type, target: typing.Any, method: str) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_environment_variable(variable: str, target: System.EnvironmentVariableTarget) -> str:
+    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_environment_variables() -> System.Collections.IDictionary:
+    def create_delegate(type: typing.Type, first_argument: typing.Any, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_environment_variables(target: System.EnvironmentVariableTarget) -> System.Collections.IDictionary:
+    def create_delegate(type: typing.Type, target: typing.Any, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_folder_path(folder: System.Environment.SpecialFolder) -> str:
+    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def get_folder_path(folder: System.Environment.SpecialFolder, option: System.Environment.SpecialFolderOption) -> str:
-        ...
-
-    @staticmethod
-    def get_logical_drives() -> typing.List[str]:
+    def create_delegate(type: typing.Type, target: typing.Type, method: str) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def set_environment_variable(variable: str, value: str) -> None:
+    def create_delegate(type: typing.Type, target: typing.Type, method: str, ignore_case: bool) -> System.Delegate:
         ...
 
     @staticmethod
     @overload
-    def set_environment_variable(variable: str, value: str, target: System.EnvironmentVariableTarget) -> None:
+    def create_delegate(type: typing.Type, method: System.Reflection.MethodInfo, throw_on_bind_failure: bool) -> System.Delegate:
         ...
 
-
-class ArgumentException(System.SystemException):
-    """The exception that is thrown when one of the arguments provided to a method is not valid."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def param_name(self) -> str:
-        ...
-
+    @staticmethod
     @overload
-    def __init__(self) -> None:
+    def create_delegate(type: typing.Type, target: typing.Type, method: str, ignore_case: bool, throw_on_bind_failure: bool) -> System.Delegate:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
+    def dynamic_invoke(self, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
         ...
 
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    def dynamic_invoke_impl(self, args: typing.List[System.Object]) -> System.Object:
+        """This method is protected."""
         ...
 
-    @overload
-    def __init__(self, message: str, param_name: str, inner_exception: System.Exception) -> None:
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
-    @overload
-    def __init__(self, message: str, param_name: str) -> None:
+    def get_hash_code(self) -> int:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
+    def get_invocation_list(self) -> typing.List[System.Delegate]:
+        ...
+
+    def get_method_impl(self) -> System.Reflection.MethodInfo:
+        """This method is protected."""
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
@@ -6898,1490 +15190,64 @@ class ArgumentException(System.SystemException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
     @staticmethod
-    def throw_if_null_or_empty(argument: str, param_name: str = None) -> None:
-        """
-        Throws an exception if  is null or empty.
-        
-        :param argument: The string argument to validate as non-null and non-empty.
-        :param param_name: The name of the parameter with which  corresponds.
-        """
+    def remove(source: System.Delegate, value: System.Delegate) -> System.Delegate:
         ...
 
     @staticmethod
-    def throw_if_null_or_white_space(argument: str, param_name: str = None) -> None:
-        """
-        Throws an exception if  is null, empty, or consists only of white-space characters.
-        
-        :param argument: The string argument to validate.
-        :param param_name: The name of the parameter with which  corresponds.
-        """
+    def remove_all(source: System.Delegate, value: System.Delegate) -> System.Delegate:
+        ...
+
+    def remove_impl(self, d: System.Delegate) -> System.Delegate:
+        """This method is protected."""
         ...
 
 
-class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_Int128]):
-    """Represents a 128-bit signed integer."""
+class MulticastDelegate(System.Delegate, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
-    MIN_VALUE: System.Int128
-
-    MAX_VALUE: System.Int128
-
-    ONE: System.Int128
-
-    ZERO: System.Int128
-
-    NEGATIVE_ONE: System.Int128
-
-    @overload
-    def __add__(self, right: System.Int128) -> System.Int128:
+    def __eq__(self, d_2: System.MulticastDelegate) -> bool:
         ...
 
     @overload
-    def __add__(self, right: System.Int128) -> System.Int128:
+    def __init__(self, target: typing.Any, method: str) -> None:
+        """This method is protected."""
         ...
 
     @overload
-    def __add__(self) -> System.Int128:
+    def __init__(self, target: typing.Type, method: str) -> None:
+        """This method is protected."""
         ...
 
-    def __and__(self, right: System.Int128) -> System.Int128:
+    def __ne__(self, d_2: System.MulticastDelegate) -> bool:
         ...
 
-    def __eq__(self, right: System.Int128) -> bool:
+    def combine_impl(self, follow: System.Delegate) -> System.Delegate:
+        """This method is protected."""
         ...
 
-    def __ge__(self, right: System.Int128) -> bool:
+    def dynamic_invoke_impl(self, args: typing.List[System.Object]) -> System.Object:
+        """This method is protected."""
         ...
 
-    def __gt__(self, right: System.Int128) -> bool:
-        ...
-
-    @overload
-    def __iadd__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __iadd__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __iadd__(self) -> System.Int128:
-        ...
-
-    def __iand__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __ilshift__(self, shift_amount: int) -> System.Int128:
-        ...
-
-    def __imod__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __imul__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __init__(self, upper: int, lower: int) -> None:
-        """
-        Initializes a new instance of the Int128 struct.
-        
-        :param upper: The upper 64-bits of the 128-bit value.
-        :param lower: The lower 64-bits of the 128-bit value.
-        """
-        ...
-
-    def __invert__(self) -> System.Int128:
-        ...
-
-    def __ior__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __irshift__(self, shift_amount: int) -> System.Int128:
-        ...
-
-    @overload
-    def __isub__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __isub__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __isub__(self) -> System.Int128:
-        ...
-
-    @overload
-    def __isub__(self) -> System.Int128:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __ixor__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __le__(self, right: System.Int128) -> bool:
-        ...
-
-    def __lshift__(self, shift_amount: int) -> System.Int128:
-        ...
-
-    def __lt__(self, right: System.Int128) -> bool:
-        ...
-
-    def __mod__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __mul__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __ne__(self, right: System.Int128) -> bool:
-        ...
-
-    def __or__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __rshift__(self, shift_amount: int) -> System.Int128:
-        ...
-
-    @overload
-    def __sub__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __sub__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __sub__(self) -> System.Int128:
-        ...
-
-    @overload
-    def __sub__(self) -> System.Int128:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    def __xor__(self, right: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def abs(value: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def clamp(value: System.Int128, min: System.Int128, max: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: System.Int128) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: System.Int128, sign: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def div_rem(left: System.Int128, right: System.Int128) -> System.ValueTuple[System.Int128, System.Int128]:
-        ...
-
-    @overload
     def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Int128) -> bool:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
-    @staticmethod
-    def is_even_integer(value: System.Int128) -> bool:
+    def get_invocation_list(self) -> typing.List[System.Delegate]:
         ...
 
-    @staticmethod
-    def is_negative(value: System.Int128) -> bool:
+    def get_method_impl(self) -> System.Reflection.MethodInfo:
+        """This method is protected."""
         ...
 
-    @staticmethod
-    def is_odd_integer(value: System.Int128) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: System.Int128) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: System.Int128) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def log_2(value: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def max(x: System.Int128, y: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: System.Int128, y: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def min(x: System.Int128, y: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: System.Int128, y: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.Int128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.Int128:
-        ...
-
-    @staticmethod
-    def pop_count(value: System.Int128) -> System.Int128:
-        ...
-
-    @staticmethod
-    def rotate_left(value: System.Int128, rotate_amount: int) -> System.Int128:
-        ...
-
-    @staticmethod
-    def rotate_right(value: System.Int128, rotate_amount: int) -> System.Int128:
-        ...
-
-    @staticmethod
-    def sign(value: System.Int128) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: System.Int128) -> System.Int128:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 128-bit signed integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 128-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
-        ...
-
-
-class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[System_UInt128]):
-    """Represents a 128-bit unsigned integer."""
-
-    MIN_VALUE: System.UInt128
-
-    MAX_VALUE: System.UInt128
-
-    ONE: System.UInt128
-
-    ZERO: System.UInt128
-
-    @overload
-    def __add__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __add__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __add__(self) -> System.UInt128:
-        ...
-
-    def __and__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __eq__(self, right: System.UInt128) -> bool:
-        ...
-
-    def __ge__(self, right: System.UInt128) -> bool:
-        ...
-
-    def __gt__(self, right: System.UInt128) -> bool:
-        ...
-
-    @overload
-    def __iadd__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __iadd__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __iadd__(self) -> System.UInt128:
-        ...
-
-    def __iand__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __ilshift__(self, shift_amount: int) -> System.UInt128:
-        ...
-
-    def __imod__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __imul__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __imul__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __init__(self, upper: int, lower: int) -> None:
-        """
-        Initializes a new instance of the UInt128 struct.
-        
-        :param upper: The upper 64-bits of the 128-bit value.
-        :param lower: The lower 64-bits of the 128-bit value.
-        """
-        ...
-
-    def __invert__(self) -> System.UInt128:
-        ...
-
-    def __ior__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __irshift__(self, shift_amount: int) -> System.UInt128:
-        ...
-
-    @overload
-    def __isub__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __isub__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __isub__(self) -> System.UInt128:
-        ...
-
-    @overload
-    def __isub__(self) -> System.UInt128:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __itruediv__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __ixor__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __le__(self, right: System.UInt128) -> bool:
-        ...
-
-    def __lshift__(self, shift_amount: int) -> System.UInt128:
-        ...
-
-    def __lt__(self, right: System.UInt128) -> bool:
-        ...
-
-    def __mod__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __mul__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __mul__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __ne__(self, right: System.UInt128) -> bool:
-        ...
-
-    def __or__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __rshift__(self, shift_amount: int) -> System.UInt128:
-        ...
-
-    @overload
-    def __sub__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __sub__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __sub__(self) -> System.UInt128:
-        ...
-
-    @overload
-    def __sub__(self) -> System.UInt128:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def __truediv__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    def __xor__(self, right: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def clamp(value: System.UInt128, min: System.UInt128, max: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: System.UInt128) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: System.UInt128, right: System.UInt128) -> System.ValueTuple[System.UInt128, System.UInt128]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.UInt128) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: System.UInt128) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: System.UInt128) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: System.UInt128) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def log_2(value: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def max(x: System.UInt128, y: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def min(x: System.UInt128, y: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.UInt128:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def pop_count(value: System.UInt128) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def rotate_left(value: System.UInt128, rotate_amount: int) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def rotate_right(value: System.UInt128, rotate_amount: int) -> System.UInt128:
-        ...
-
-    @staticmethod
-    def sign(value: System.UInt128) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: System.UInt128) -> System.UInt128:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 128-bit unsigned integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 128-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
-        ...
-
-
-class BitConverter(System.Object):
-    """Converts base data types to an array of bytes, and an array of bytes to base data types."""
-
-    IS_LITTLE_ENDIAN: bool = True
-
-    @staticmethod
-    def double_to_int_64_bits(value: float) -> int:
-        """
-        Converts the specified double-precision floating point number to a 64-bit signed integer.
-        
-        :param value: The number to convert.
-        :returns: A 64-bit signed integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def double_to_u_int_64_bits(value: float) -> int:
-        """
-        Converts the specified double-precision floating point number to a 64-bit unsigned integer.
-        
-        :param value: The number to convert.
-        :returns: A 64-bit unsigned integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: bool) -> typing.List[int]:
-        """
-        Returns the specified Boolean value as a byte array.
-        
-        :param value: A Boolean value.
-        :returns: A byte array with length 1.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: str) -> typing.List[int]:
-        """
-        Returns the specified Unicode character value as a byte array.
-        
-        :param value: A Char value.
-        :returns: An array of bytes with length 2.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: int) -> typing.List[int]:
-        """
-        Returns the specified 16-bit signed integer value as an array of bytes.
-        
-        :param value: The number to convert.
-        :returns: An array of bytes with length 2.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: System.Int128) -> typing.List[int]:
-        """
-        Returns the specified 128-bit signed integer value as an array of bytes.
-        
-        :param value: The number to convert.
-        :returns: An array of bytes with length 16.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: System.UInt128) -> typing.List[int]:
-        """
-        Returns the specified 128-bit unsigned integer value as an array of bytes.
-        
-        :param value: The number to convert.
-        :returns: An array of bytes with length 16.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: System.Half) -> typing.List[int]:
-        """
-        Returns the specified half-precision floating point value as an array of bytes.
-        
-        :param value: The number to convert.
-        :returns: An array of bytes with length 2.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get_bytes(value: float) -> typing.List[int]:
-        """
-        Returns the specified single-precision floating point value as an array of bytes.
-        
-        :param value: The number to convert.
-        :returns: An array of bytes with length 4.
-        """
-        ...
-
-    @staticmethod
-    def half_to_int_16_bits(value: System.Half) -> int:
-        """
-        Converts the specified half-precision floating point number to a 16-bit signed integer.
-        
-        :param value: The number to convert.
-        :returns: A 16-bit signed integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def half_to_u_int_16_bits(value: System.Half) -> int:
-        """
-        Converts the specified half-precision floating point number to a 16-bit unsigned integer.
-        
-        :param value: The number to convert.
-        :returns: A 16-bit unsigned integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def int_16_bits_to_half(value: int) -> System.Half:
-        """
-        Converts the specified 16-bit signed integer to a half-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A half-precision floating point number whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def int_32_bits_to_single(value: int) -> float:
-        """
-        Converts the specified 32-bit signed integer to a single-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A single-precision floating point number whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def int_64_bits_to_double(value: int) -> float:
-        """
-        Converts the specified 64-bit signed integer to a double-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A double-precision floating point number whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def single_to_int_32_bits(value: float) -> int:
-        """
-        Converts the specified single-precision floating point number to a 32-bit signed integer.
-        
-        :param value: The number to convert.
-        :returns: A 32-bit signed integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def single_to_u_int_32_bits(value: float) -> int:
-        """
-        Converts the specified single-precision floating point number to a 32-bit unsigned integer.
-        
-        :param value: The number to convert.
-        :returns: A 32-bit unsigned integer whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_boolean(value: typing.List[int], start_index: int) -> bool:
-        """
-        Returns a Boolean value converted from two bytes at a specified position in a byte array.
-        
-        :param value: A byte array.
-        :param start_index: The index of the byte within .
-        :returns: true if the byte at  is nonzero; otherwise false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_boolean(value: System.ReadOnlySpan[int]) -> bool:
-        """
-        Converts a read-only byte span into a Boolean value.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A Boolean representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_char(value: typing.List[int], start_index: int) -> str:
-        """
-        Returns a Unicode character converted from two bytes at a specified position in a byte array.
-        
-        :param value: An array.
-        :param start_index: The starting position within .
-        :returns: A character formed by two bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_char(value: System.ReadOnlySpan[int]) -> str:
-        """
-        Converts a read-only byte span into a character.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A character representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_double(value: typing.List[int], start_index: int) -> float:
-        """
-        Returns a double-precision floating point number converted from eight bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A double-precision floating point number formed by eight bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_double(value: System.ReadOnlySpan[int]) -> float:
-        """
-        Converts a read-only byte span into a double-precision floating-point value.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A double-precision floating-point value representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_half(value: typing.List[int], start_index: int) -> System.Half:
-        """
-        Returns a half-precision floating point number converted from two bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A half-precision floating point number signed integer formed by two bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_half(value: System.ReadOnlySpan[int]) -> System.Half:
-        """
-        Converts a read-only byte span into a half-precision floating-point value.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A half-precision floating-point value representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_128(value: typing.List[int], start_index: int) -> System.Int128:
-        """
-        Returns a 128-bit signed integer converted from sixteen bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 128-bit signed integer formed by sixteen bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_128(value: System.ReadOnlySpan[int]) -> System.Int128:
-        """
-        Converts a read-only byte span into a 128-bit signed integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 128-bit signed integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_16(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 16-bit signed integer converted from two bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 16-bit signed integer formed by two bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_16(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 16-bit signed integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 16-bit signed integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_32(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 32-bit signed integer converted from four bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 32-bit signed integer formed by four bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_32(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 32-bit signed integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 32-bit signed integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_64(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 64-bit signed integer converted from eight bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 64-bit signed integer formed by eight bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_int_64(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 64-bit signed integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 64-bit signed integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_single(value: typing.List[int], start_index: int) -> float:
-        """
-        Returns a single-precision floating point number converted from four bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A single-precision floating point number formed by four bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_single(value: System.ReadOnlySpan[int]) -> float:
-        """
-        Converts a read-only byte span into a single-precision floating-point value.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A single-precision floating-point value representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_string(value: typing.List[int], start_index: int, length: int) -> str:
-        """
-        Converts the numeric value of each element of a specified array of bytes
-        to its equivalent hexadecimal string representation.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :param length: The number of array elements in  to convert.
-        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in a subarray of ; for example, "7F-2C-4A-00".
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_string(value: typing.List[int]) -> str:
-        """
-        Converts the numeric value of each element of a specified array of bytes
-        to its equivalent hexadecimal string representation.
-        
-        :param value: An array of bytes.
-        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in ; for example, "7F-2C-4A-00".
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_string(value: typing.List[int], start_index: int) -> str:
-        """
-        Converts the numeric value of each element of a specified array of bytes
-        to its equivalent hexadecimal string representation.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A string of hexadecimal pairs separated by hyphens, where each pair represents the corresponding element in a subarray of ; for example, "7F-2C-4A-00".
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_128(value: typing.List[int], start_index: int) -> System.UInt128:
-        """
-        Returns a 128-bit unsigned integer converted from sixteen bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 128-bit unsigned integer formed by sixteen bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_128(value: System.ReadOnlySpan[int]) -> System.UInt128:
-        """
-        Converts a read-only byte span into a 128-bit unsigned integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 128-bit unsigned integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_16(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 16-bit unsigned integer converted from two bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 16-bit unsigned integer formed by two bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_16(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 16-bit unsigned integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 16-bit unsigned integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_32(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 32-bit unsigned integer converted from four bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 32-bit unsigned integer formed by four bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_32(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 32-bit unsigned integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 32-bit unsigned integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_64(value: typing.List[int], start_index: int) -> int:
-        """
-        Returns a 64-bit unsigned integer converted from eight bytes at a specified position in a byte array.
-        
-        :param value: An array of bytes.
-        :param start_index: The starting position within .
-        :returns: A 64-bit unsigned integer formed by eight bytes beginning at .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def to_u_int_64(value: System.ReadOnlySpan[int]) -> int:
-        """
-        Converts a read-only byte span into a 64-bit unsigned integer.
-        
-        :param value: A read-only span containing the bytes to convert.
-        :returns: A 64-bit unsigned integer representing the converted bytes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: bool) -> bool:
-        """
-        Converts a Boolean into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted Boolean.
-        :param value: The Boolean to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: str) -> bool:
-        """
-        Converts a character into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted character.
-        :param value: The character to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: int) -> bool:
-        """
-        Converts a 16-bit signed integer into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted 16-bit signed integer.
-        :param value: The 16-bit signed integer to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: System.Int128) -> bool:
-        """
-        Converts a 128-bit signed integer into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted 128-bit signed integer.
-        :param value: The 128-bit signed integer to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: System.UInt128) -> bool:
-        """
-        Converts a 128-bit unsigned integer into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted 128-bit unsigned integer.
-        :param value: The 128-bit unsigned integer to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: System.Half) -> bool:
-        """
-        Converts a half-precision floating-point value into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted half-precision floating-point value.
-        :param value: The half-precision floating-point value to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write_bytes(destination: System.Span[int], value: float) -> bool:
-        """
-        Converts a single-precision floating-point value into a span of bytes.
-        
-        :param destination: When this method returns, the bytes representing the converted single-precision floating-point value.
-        :param value: The single-precision floating-point value to convert.
-        :returns: true if the conversion was successful; false otherwise.
-        """
-        ...
-
-    @staticmethod
-    def u_int_16_bits_to_half(value: int) -> System.Half:
-        """
-        Converts the specified 16-bit unsigned integer to a half-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A half-precision floating point number whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def u_int_32_bits_to_single(value: int) -> float:
-        """
-        Converts the specified 32-bit unsigned integer to a single-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A single-precision floating point number whose bits are identical to .
-        """
-        ...
-
-    @staticmethod
-    def u_int_64_bits_to_double(value: int) -> float:
-        """
-        Converts the specified 64-bit unsigned integer to a double-precision floating point number.
-        
-        :param value: The number to convert.
-        :returns: A double-precision floating point number whose bits are identical to .
-        """
-        ...
-
-
-class FormatException(System.SystemException):
-    """The exception that is thrown when the format of an argument is invalid, or when a composite format string is not well formed."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class MethodAccessException(System.MemberAccessException):
-    """The exception that is thrown when there is an invalid attempt to access a method."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class TimeoutException(System.SystemException):
-    """The exception that is thrown when the time allotted for a process or operation has expired."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class EventArgs(System.Object):
-    """This class has no documentation."""
-
-    EMPTY: System.EventArgs = ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class AssemblyLoadEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def loaded_assembly(self) -> System.Reflection.Assembly:
-        ...
-
-    def __init__(self, loaded_assembly: System.Reflection.Assembly) -> None:
-        ...
-
-
-class NonSerializedAttribute(System.Attribute):
-    """This class has no documentation."""
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
-    def __init__(self) -> None:
+    def remove_impl(self, value: System.Delegate) -> System.Delegate:
+        """This method is protected."""
         ...
 
 
@@ -8399,152 +15265,104 @@ class MTAThreadAttribute(System.Attribute):
         ...
 
 
-class GCGenerationInfo:
+class Activator(System.Object):
+    """Activator contains the Activation (CreateInstance/New) methods for late bound support."""
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(assembly_name: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(assembly_name: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(assembly_name: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type, non_public: bool) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type, args: typing.List[System.Object], activation_attributes: typing.List[System.Object]) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance(type: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance_from(assembly_file: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance_from(assembly_file: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def create_instance_from(assembly_file: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
+        ...
+
+
+class IProgress(typing.Generic[System_IProgress_T], metaclass=abc.ABCMeta):
+    """Defines a provider for progress updates."""
+
+    def report(self, value: System_IProgress_T) -> None:
+        """
+        Reports a progress update.
+        
+        :param value: The value of the updated progress.
+        """
+        ...
+
+
+class CannotUnloadAppDomainException(System.SystemException):
     """This class has no documentation."""
 
-    @property
-    def size_before_bytes(self) -> int:
-        """Size in bytes on entry to the reported collection."""
+    @overload
+    def __init__(self) -> None:
         ...
 
-    @property
-    def fragmentation_before_bytes(self) -> int:
-        """Fragmentation in bytes on entry to the reported collection."""
+    @overload
+    def __init__(self, message: str) -> None:
         ...
 
-    @property
-    def size_after_bytes(self) -> int:
-        """Size in bytes on exit from the reported collection."""
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
-    @property
-    def fragmentation_after_bytes(self) -> int:
-        """Fragmentation in bytes on exit from the reported collection."""
-        ...
-
-
-class GCKind(Enum):
-    """This class has no documentation."""
-
-    ANY = 0
-    """Any kind of collection."""
-
-    EPHEMERAL = 1
-    """A gen0 or gen1 collection."""
-
-    FULL_BLOCKING = 2
-    """A blocking gen2 collection."""
-
-    BACKGROUND = 3
-    """A background collection."""
-
-
-class GCMemoryInfo:
-    """Provides a set of APIs that can be used to retrieve garbage collection information."""
-
-    @property
-    def high_memory_load_threshold_bytes(self) -> int:
-        """High memory load threshold when this GC occurred"""
-        ...
-
-    @property
-    def memory_load_bytes(self) -> int:
-        """Memory load when this GC occurred"""
-        ...
-
-    @property
-    def total_available_memory_bytes(self) -> int:
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """
-        Total available memory for the GC to use when this GC occurred.
+        This method is protected.
         
-        If the environment variable DOTNET_GCHeapHardLimit is set,
-        or "Server.GC.HeapHardLimit" is in runtimeconfig.json, this will come from that.
-        If the program is run in a container, this will be an implementation-defined fraction of the container's size.
-        Else, this is the physical memory on the machine that was available for the GC to use when this GC occurred.
+        Obsoletions.LegacyFormatterImplMessage
         """
-        ...
-
-    @property
-    def heap_size_bytes(self) -> int:
-        """The total heap size when this GC occurred"""
-        ...
-
-    @property
-    def fragmented_bytes(self) -> int:
-        """
-        The total fragmentation when this GC occurred
-        
-        Let's take the example below:
-         | OBJ_A |     OBJ_B     | OBJ_C |   OBJ_D   | OBJ_E |
-        
-        Let's say OBJ_B, OBJ_C and and OBJ_E are garbage and get collected, but the heap does not get compacted, the resulting heap will look like the following:
-         | OBJ_A |           F           |   OBJ_D   |
-        
-        The memory between OBJ_A and OBJ_D marked `F` is considered part of the FragmentedBytes, and will be used to allocate new objects. The memory after OBJ_D will not be
-        considered part of the FragmentedBytes, and will also be used to allocate new objects
-        """
-        ...
-
-    @property
-    def index(self) -> int:
-        """
-        The index of this GC. GC indices start with 1 and get increased at the beginning of a GC.
-        Since the info is updated at the end of a GC, this means you can get the info for a BGC
-        with a smaller index than a foreground GC finished earlier.
-        """
-        ...
-
-    @property
-    def generation(self) -> int:
-        """
-        The generation this GC collected. Collecting a generation means all its younger generation(s)
-        are also collected.
-        """
-        ...
-
-    @property
-    def compacted(self) -> bool:
-        """Is this a compacting GC or not."""
-        ...
-
-    @property
-    def concurrent(self) -> bool:
-        """Is this a concurrent GC (BGC) or not."""
-        ...
-
-    @property
-    def total_committed_bytes(self) -> int:
-        """Total committed bytes of the managed heap."""
-        ...
-
-    @property
-    def promoted_bytes(self) -> int:
-        """Promoted bytes for this GC."""
-        ...
-
-    @property
-    def pinned_objects_count(self) -> int:
-        """Number of pinned objects this GC observed."""
-        ...
-
-    @property
-    def finalization_pending_count(self) -> int:
-        """Number of objects ready for finalization this GC observed."""
-        ...
-
-    @property
-    def pause_durations(self) -> System.ReadOnlySpan[datetime.timedelta]:
-        """Pause durations. For blocking GCs there's only 1 pause; for BGC there are 2."""
-        ...
-
-    @property
-    def pause_time_percentage(self) -> float:
-        """This is the % pause time in GC so far. If it's 1.2%, this number is 1.2."""
-        ...
-
-    @property
-    def generation_info(self) -> System.ReadOnlySpan[System.GCGenerationInfo]:
-        """Generation info for all generations."""
         ...
 
 
@@ -9470,6 +16288,272 @@ class Convert(System.Object):
         ...
 
 
+class LocalDataStoreSlot(System.Object):
+    """This class has no documentation."""
+
+
+class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+    """This class has no documentation."""
+
+    MAX_VALUE: int = ...
+
+    MIN_VALUE: int = ...
+
+    @overload
+    def __ge__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __ge__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __gt__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: int) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: int) -> bool:
+        ...
+
+    @staticmethod
+    def abs(value: int) -> int:
+        ...
+
+    @staticmethod
+    def clamp(value: int, min: int, max: int) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: int) -> int:
+        ...
+
+    @staticmethod
+    def copy_sign(value: int, sign: int) -> int:
+        ...
+
+    @staticmethod
+    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: int) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @staticmethod
+    def is_even_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_negative(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_odd_integer(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_positive(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    def max(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def max_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    def min_magnitude(x: int, y: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
+        ...
+
+    @staticmethod
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_left(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def rotate_right(value: int, rotate_amount: int) -> int:
+        ...
+
+    @staticmethod
+    def sign(value: int) -> int:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str) -> str:
+        ...
+
+    @overload
+    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
+        ...
+
+    @staticmethod
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 16-bit signed integer equivalent.
+        
+        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
+        :param result: When this method returns, contains the 16-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :returns: true if  was converted successfully; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class ISpanParsable(typing.Generic[System_ISpanParsable_TSelf], System.IParsable[System_ISpanParsable_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for parsing a span of characters to a value."""
+
+
 class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, System_ValueTuple_T3, System_ValueTuple_T4, System_ValueTuple_T5, System_ValueTuple_T6, System_ValueTuple_T7, System_ValueTuple_TRest], System.IEquatable[System_ValueTuple], System.Collections.IStructuralEquatable, System.Collections.IStructuralComparable, System.IComparable[System_ValueTuple], System.IValueTupleInternal):
     """Represents an 8-tuple, or octuple, as a value type."""
 
@@ -10264,2740 +17348,6 @@ class ValueTuple(typing.Generic[System_ValueTuple_T1, System_ValueTuple_T2, Syst
         ...
 
 
-class NullReferenceException(System.SystemException):
-    """The exception that is thrown when there is an attempt to dereference a null object reference."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class FlagsAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class Boolean(System.IComparable[bool], System.IConvertible, System.IEquatable[bool], System.ISpanParsable[bool]):
-    """Represents a boolean (true or false) value."""
-
-    TRUE_STRING: str = ...
-
-    FALSE_STRING: str = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: bool) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: bool) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: bool) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: bool) -> bool:
-        ...
-
-    @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: bool) -> int:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: bool) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(value: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(value: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(value: str, result: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(value: System.ReadOnlySpan[str], result: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
-        ...
-
-
-class TypeUnloadedException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class TypeLoadException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def type_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class StringSplitOptions(Enum):
-    """Specifies how the results should be transformed when splitting a string into substrings."""
-
-    NONE = 0
-    """Do not transform the results. This is the default behavior."""
-
-    REMOVE_EMPTY_ENTRIES = 1
-    """Remove empty (zero-length) substrings from the result."""
-
-    TRIM_ENTRIES = 2
-    """Trim whitespace from each substring in the result."""
-
-
-class MemoryExtensions(System.Object):
-    """Extension methods for Span{T}, Memory{T}, and friends."""
-
-    class SpanSplitEnumerator(typing.Generic[System_MemoryExtensions_SpanSplitEnumerator_T], System.Collections.Generic.IEnumerator[System.Range], typing.Iterable[System_MemoryExtensions_SpanSplitEnumerator_T]):
-        """Enables enumerating each split within a ReadOnlySpan{T} that has been divided using one or more separators."""
-
-        @property
-        def source(self) -> System.ReadOnlySpan[System_MemoryExtensions_SpanSplitEnumerator_T]:
-            """Gets the source span being enumerated."""
-            ...
-
-        @property
-        def current(self) -> System.Range:
-            """Gets the current element of the enumeration."""
-            ...
-
-        def __iter__(self) -> typing.Iterator[System_MemoryExtensions_SpanSplitEnumerator_T]:
-            ...
-
-        def get_enumerator(self) -> System.MemoryExtensions.SpanSplitEnumerator[System_MemoryExtensions_SpanSplitEnumerator_T]:
-            """
-            Gets an enumerator that allows for iteration over the split span.
-            
-            :returns: Returns a SpanSplitEnumerator{T} that can be used to iterate over the split span.
-            """
-            ...
-
-        def move_next(self) -> bool:
-            """
-            Advances the enumerator to the next element of the enumeration.
-            
-            :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the enumeration.
-            """
-            ...
-
-    class TryWriteInterpolatedStringHandler:
-        """Provides a handler used by the language compiler to format interpolated strings into character spans."""
-
-        @overload
-        def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-            """
-            Creates a handler used to write an interpolated string into a Span{Char}.
-            
-            :param literal_length: The number of constant characters outside of interpolation expressions in the interpolated string.
-            :param formatted_count: The number of interpolation expressions in the interpolated string.
-            :param destination: The destination buffer.
-            :param should_append: Upon return, true if the destination may be long enough to support the formatting, or false if it won't be.
-            """
-            ...
-
-        @overload
-        def __init__(self, literal_length: int, formatted_count: int, destination: System.Span[str], provider: System.IFormatProvider, should_append: typing.Optional[bool]) -> typing.Tuple[None, bool]:
-            """
-            Creates a handler used to write an interpolated string into a Span{Char}.
-            
-            :param literal_length: The number of constant characters outside of interpolation expressions in the interpolated string.
-            :param formatted_count: The number of interpolation expressions in the interpolated string.
-            :param destination: The destination buffer.
-            :param provider: An object that supplies culture-specific formatting information.
-            :param should_append: Upon return, true if the destination may be long enough to support the formatting, or false if it won't be.
-            """
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> bool:
-            """
-            Writes the specified string of chars to the handler.
-            
-            :param value: The span to write.
-            :param alignment: Minimum number of characters that should be written for this value.  If the value is negative, it indicates left-aligned and the required minimum is the absolute value.
-            :param format: The format string.
-            """
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> bool:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> bool:
-            """
-            Writes the specified value to the handler.
-            
-            :param value: The value to write.
-            :param alignment: Minimum number of characters that should be written for this value.  If the value is negative, it indicates left-aligned and the required minimum is the absolute value.
-            :param format: The format string.
-            """
-            ...
-
-        def append_literal(self, value: str) -> bool:
-            """
-            Writes the specified string to the handler.
-            
-            :param value: The string to write.
-            :returns: true if the value could be formatted to the span; otherwise, false.
-            """
-            ...
-
-    @staticmethod
-    @overload
-    def as_memory(text: str) -> System.ReadOnlyMemory[str]:
-        """
-        Creates a new ReadOnlyMemory{T} over the portion of the target string.
-        
-        :param text: The target string.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_memory(text: str, start: int) -> System.ReadOnlyMemory[str]:
-        """
-        Creates a new ReadOnlyMemory{T} over the portion of the target string.
-        
-        :param text: The target string.
-        :param start: The index at which to begin this slice.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_memory(text: str, start_index: System.Index) -> System.ReadOnlyMemory[str]:
-        """
-        Creates a new ReadOnlyMemory{T} over the portion of the target string.
-        
-        :param text: The target string.
-        :param start_index: The index at which to begin this slice.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_memory(text: str, start: int, length: int) -> System.ReadOnlyMemory[str]:
-        """
-        Creates a new ReadOnlyMemory{T} over the portion of the target string.
-        
-        :param text: The target string.
-        :param start: The index at which to begin this slice.
-        :param length: The desired length for the slice (exclusive).
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_memory(text: str, range: System.Range) -> System.ReadOnlyMemory[str]:
-        """
-        Creates a new ReadOnlyMemory{T} over the portion of the target string.
-        
-        :param text: The target string.
-        :param range: The range used to indicate the start and length of the sliced string.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_span(text: str) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new readonly span over the portion of the target string.
-        
-        :param text: The target string.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_span(text: str, start: int) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new readonly span over the portion of the target string.
-        
-        :param text: The target string.
-        :param start: The index at which to begin this slice.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_span(text: str, start_index: System.Index) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new ReadOnlySpan{Char} over a portion of the target string from a specified position to the end of the string.
-        
-        :param text: The target string.
-        :param start_index: The index at which to begin this slice.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_span(text: str, range: System.Range) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new ReadOnlySpan{Char} over a portion of a target string using the range start and end indexes.
-        
-        :param text: The target string.
-        :param range: The range which has start and end indexes to use for slicing the string.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def as_span(text: str, start: int, length: int) -> System.ReadOnlySpan[str]:
-        """
-        Creates a new readonly span over the portion of the target string.
-        
-        :param text: The target string.
-        :param start: The index at which to begin this slice.
-        :param length: The desired length for the slice (exclusive).
-        """
-        ...
-
-    @staticmethod
-    def compare_to(span: System.ReadOnlySpan[str], other: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        """
-        Compares the specified  and  using the specified ,
-        and returns an integer that indicates their relative position in the sort order.
-        
-        :param span: The source span.
-        :param other: The value to compare with the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    def contains(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
-        """
-        Returns a value indicating whether the specified  occurs within the .
-        
-        :param span: The source span.
-        :param value: The value to seek within the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def contains_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def contains_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> bool:
-        """
-        Searches for any occurrence of any of the specified substring  and returns true if found. If not found, returns false.
-        
-        :param span: The span to search.
-        :param values: The set of values to search for.
-        """
-        ...
-
-    @staticmethod
-    def ends_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
-        """
-        Determines whether the end of the  matches the specified  when compared using the specified  option.
-        
-        :param span: The source span.
-        :param value: The sequence to compare to the end of the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_lines(span: System.ReadOnlySpan[str]) -> System.Text.SpanLineEnumerator:
-        """Returns an enumeration of lines over the provided span."""
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_lines(span: System.Span[str]) -> System.Text.SpanLineEnumerator:
-        """Returns an enumeration of lines over the provided span."""
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_runes(span: System.ReadOnlySpan[str]) -> System.Text.SpanRuneEnumerator:
-        """Returns an enumeration of Rune from the provided span."""
-        ...
-
-    @staticmethod
-    @overload
-    def enumerate_runes(span: System.Span[str]) -> System.Text.SpanRuneEnumerator:
-        """Returns an enumeration of Rune from the provided span."""
-        ...
-
-    @staticmethod
-    def equals(span: System.ReadOnlySpan[str], other: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
-        """
-        Determines whether this  and the specified  span have the same characters
-        when compared using the specified  option.
-        
-        :param span: The source span.
-        :param other: The value to compare with the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    def index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        """
-        Reports the zero-based index of the first occurrence of the specified  in the current .
-        
-        :param span: The source span.
-        :param value: The value to seek within the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_any(span: System.Span[str], values: System.Buffers.SearchValues[str]) -> int:
-        """
-        Searches for the first index of any of the specified substring values.
-        
-        :param span: The span to search.
-        :param values: The set of values to search for.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def index_of_any(span: System.ReadOnlySpan[str], values: System.Buffers.SearchValues[str]) -> int:
-        """
-        Searches for the first index of any of the specified substring values.
-        
-        :param span: The span to search.
-        :param values: The set of values to search for.
-        :returns: The first index of any of the specified values, or -1 if none are found.
-        """
-        ...
-
-    @staticmethod
-    def is_white_space(span: System.ReadOnlySpan[str]) -> bool:
-        """Indicates whether the specified span contains only white-space characters."""
-        ...
-
-    @staticmethod
-    def last_index_of(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        """
-        Reports the zero-based index of the last occurrence of the specified  in the current .
-        
-        :param span: The source span.
-        :param value: The value to seek within the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: str, options: System.StringSplitOptions = ...) -> int:
-        """
-        Parses the source ReadOnlySpan{Char} for the specified , populating the  span
-        with Range instances representing the regions between the separators.
-        
-        :param source: The source span to parse.
-        :param destination: The destination span into which the resulting ranges are written.
-        :param separator: A character that delimits the regions in this instance.
-        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
-        :returns: The number of ranges written into .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def split(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separator: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
-        """
-        Parses the source ReadOnlySpan{Char} for the specified , populating the  span
-        with Range instances representing the regions between the separators.
-        
-        :param source: The source span to parse.
-        :param destination: The destination span into which the resulting ranges are written.
-        :param separator: A character that delimits the regions in this instance.
-        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
-        :returns: The number of ranges written into .
-        """
-        ...
-
-    @staticmethod
-    def split_any(source: System.ReadOnlySpan[str], destination: System.Span[System.Range], separators: System.ReadOnlySpan[str], options: System.StringSplitOptions = ...) -> int:
-        """
-        Parses the source ReadOnlySpan{Char} for one of the specified , populating the  span
-        with Range instances representing the regions between the separators.
-        
-        :param source: The source span to parse.
-        :param destination: The destination span into which the resulting ranges are written.
-        :param separators: Any number of characters that may delimit the regions in this instance. If empty, all Unicode whitespace characters are used as the separators.
-        :param options: A bitwise combination of the enumeration values that specifies whether to trim whitespace and include empty ranges.
-        :returns: The number of ranges written into .
-        """
-        ...
-
-    @staticmethod
-    def starts_with(span: System.ReadOnlySpan[str], value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> bool:
-        """
-        Determines whether the beginning of the  matches the specified  when compared using the specified  option.
-        
-        :param span: The source span.
-        :param value: The sequence to compare to the beginning of the source span.
-        :param comparison_type: One of the enumeration values that determines how the  and  are compared.
-        """
-        ...
-
-    @staticmethod
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], culture: System.Globalization.CultureInfo) -> int:
-        """
-        Copies the characters from the source span into the destination, converting each character to lowercase,
-        using the casing rules of the specified culture.
-        
-        :param source: The source span.
-        :param destination: The destination span which contains the transformed characters.
-        :param culture: An object that supplies culture-specific casing rules.
-        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
-        """
-        ...
-
-    @staticmethod
-    def to_lower_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
-        """
-        Copies the characters from the source span into the destination, converting each character to lowercase,
-        using the casing rules of the invariant culture.
-        
-        :param source: The source span.
-        :param destination: The destination span which contains the transformed characters.
-        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
-        """
-        ...
-
-    @staticmethod
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], culture: System.Globalization.CultureInfo) -> int:
-        """
-        Copies the characters from the source span into the destination, converting each character to uppercase,
-        using the casing rules of the specified culture.
-        
-        :param source: The source span.
-        :param destination: The destination span which contains the transformed characters.
-        :param culture: An object that supplies culture-specific casing rules.
-        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
-        """
-        ...
-
-    @staticmethod
-    def to_upper_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
-        """
-        Copies the characters from the source span into the destination, converting each character to uppercase
-        using the casing rules of the invariant culture.
-        
-        :param source: The source span.
-        :param destination: The destination span which contains the transformed characters.
-        :returns: The number of characters written into the destination span. If the destination is too small, returns -1.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(memory: System.Memory[str]) -> System.Memory[str]:
-        """
-        Removes all leading and trailing white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
-        """
-        Removes all leading and trailing white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading and trailing white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading and trailing occurrences of a specified character from the span.
-        
-        :param span: The source span from which the character is removed.
-        :param trim_char: The specified character to look for and remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading and trailing occurrences of a set of characters specified
-        in a readonly span from the span.
-        
-        :param span: The source span from which the characters are removed.
-        :param trim_chars: The span which contains the set of characters to remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim(span: System.Span[str]) -> System.Span[str]:
-        """
-        Removes all leading and trailing white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(memory: System.Memory[str]) -> System.Memory[str]:
-        """
-        Removes all trailing white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
-        """
-        Removes all trailing white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all trailing white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
-        """
-        Removes all trailing occurrences of a specified character from the span.
-        
-        :param span: The source span from which the character is removed.
-        :param trim_char: The specified character to look for and remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all trailing occurrences of a set of characters specified
-        in a readonly span from the span.
-        
-        :param span: The source span from which the characters are removed.
-        :param trim_chars: The span which contains the set of characters to remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(span: System.Span[str]) -> System.Span[str]:
-        """
-        Removes all trailing white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(memory: System.Memory[str]) -> System.Memory[str]:
-        """
-        Removes all leading white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(memory: System.ReadOnlyMemory[str]) -> System.ReadOnlyMemory[str]:
-        """
-        Removes all leading white-space characters from the memory.
-        
-        :param memory: The source memory from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str], trim_char: str) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading occurrences of a specified character from the span.
-        
-        :param span: The source span from which the character is removed.
-        :param trim_char: The specified character to look for and remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.ReadOnlySpan[str], trim_chars: System.ReadOnlySpan[str]) -> System.ReadOnlySpan[str]:
-        """
-        Removes all leading occurrences of a set of characters specified
-        in a readonly span from the span.
-        
-        :param span: The source span from which the characters are removed.
-        :param trim_chars: The span which contains the set of characters to remove.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(span: System.Span[str]) -> System.Span[str]:
-        """
-        Removes all leading white-space characters from the span.
-        
-        :param span: The source span from which the characters are removed.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Writes the specified interpolated string to the character span.
-        
-        :param destination: The span to which the interpolated string should be formatted.
-        :param handler: The interpolated string.
-        :param chars_written: The number of characters written to the span.
-        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], provider: System.IFormatProvider, handler: System.MemoryExtensions.TryWriteInterpolatedStringHandler, chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Writes the specified interpolated string to the character span.
-        
-        :param destination: The span to which the interpolated string should be formatted.
-        :param provider: An object that supplies culture-specific formatting information.
-        :param handler: The interpolated string.
-        :param chars_written: The number of characters written to the span.
-        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_write(destination: System.Span[str], provider: System.IFormatProvider, format: System.Text.CompositeFormat, chars_written: typing.Optional[int], *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> typing.Tuple[bool, int]:
-        """
-        Writes the CompositeFormat string to the character span, substituting the format item or items
-        with the string representation of the corresponding arguments.
-        
-        :param destination: The span to which the string should be formatted.
-        :param provider: An object that supplies culture-specific formatting information.
-        :param format: A CompositeFormat.
-        :param chars_written: The number of characters written to the span.
-        :param args: An array of objects to format.
-        :returns: true if the entire interpolated string could be formatted successfully; otherwise, false.
-        """
-        ...
-
-
-class MathF(System.Object):
-    """Provides constants and static methods for trigonometric, logarithmic, and other common mathematical functions."""
-
-    E: float = ...
-
-    PI: float = ...
-
-    TAU: float = ...
-
-    @staticmethod
-    def abs(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_2(y: float, x: float) -> float:
-        ...
-
-    @staticmethod
-    def atanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_decrement(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_increment(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cbrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def ceiling(x: float) -> float:
-        ...
-
-    @staticmethod
-    def copy_sign(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def cos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp(x: float) -> float:
-        ...
-
-    @staticmethod
-    def floor(x: float) -> float:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(x: float, y: float, z: float) -> float:
-        ...
-
-    @staticmethod
-    def ieee_remainder(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def i_log_b(x: float) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_10(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_2(x: float) -> float:
-        ...
-
-    @staticmethod
-    def max(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def pow(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def reciprocal_estimate(x: float) -> float:
-        """
-        Returns an estimate of the reciprocal of a specified number.
-        
-        :param x: The number whose reciprocal is to be estimated.
-        :returns: An estimate of the reciprocal of .
-        """
-        ...
-
-    @staticmethod
-    def reciprocal_sqrt_estimate(x: float) -> float:
-        """
-        Returns an estimate of the reciprocal square root of a specified number.
-        
-        :param x: The number whose reciprocal square root is to be estimated.
-        :returns: An estimate of the reciprocal square root .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    def scale_b(x: float, n: int) -> float:
-        ...
-
-    @staticmethod
-    def sign(x: float) -> int:
-        ...
-
-    @staticmethod
-    def sin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sin_cos(x: float) -> System.ValueTuple[float, float]:
-        ...
-
-    @staticmethod
-    def sinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sqrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def truncate(x: float) -> float:
-        ...
-
-
-class InvalidTimeZoneException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_IntPtr], System.Numerics.IMinMaxValue[System_IntPtr], System.Numerics.ISignedNumber[System_IntPtr], System.IUtf8SpanFormattable):
-    """This class has no documentation."""
-
-    ZERO: System.IntPtr
-
-    SIZE: int
-
-    MAX_VALUE: System.IntPtr
-
-    MIN_VALUE: System.IntPtr
-
-    def __add__(self, offset: int) -> System.IntPtr:
-        ...
-
-    def __eq__(self, value_2: System.IntPtr) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: System.IntPtr) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: System.IntPtr) -> bool:
-        ...
-
-    def __iadd__(self, offset: int) -> System.IntPtr:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        ...
-
-    def __isub__(self, offset: int) -> System.IntPtr:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: System.IntPtr) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: System.IntPtr) -> bool:
-        ...
-
-    def __ne__(self, value_2: System.IntPtr) -> bool:
-        ...
-
-    def __sub__(self, offset: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def abs(value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def add(pointer: System.IntPtr, offset: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def clamp(value: System.IntPtr, min: System.IntPtr, max: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: System.IntPtr, sign: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def div_rem(left: System.IntPtr, right: System.IntPtr) -> System.ValueTuple[System.IntPtr, System.IntPtr]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.IntPtr) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    def is_negative(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def log_2(value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def max(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def min(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: System.IntPtr, y: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def pop_count(value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def rotate_left(value: System.IntPtr, rotate_amount: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def rotate_right(value: System.IntPtr, rotate_amount: int) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def sign(value: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    def subtract(pointer: System.IntPtr, offset: int) -> System.IntPtr:
-        ...
-
-    def to_int_32(self) -> int:
-        ...
-
-    def to_int_64(self) -> int:
-        ...
-
-    def to_pointer(self) -> typing.Any:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: System.IntPtr) -> System.IntPtr:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its signed integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        """
-        Tries to parse a string into a value.
-        
-        :param s: A read-only span of characters containing a number to convert.
-        :param provider: An object that provides culture-specific formatting information about .
-        :param result: When this method returns, contains the result of successfully parsing  or an undefined value on failure.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
-        ...
-
-
-class UnhandledExceptionEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def exception_object(self) -> System.Object:
-        ...
-
-    @property
-    def is_terminating(self) -> bool:
-        ...
-
-    def __init__(self, exception: typing.Any, is_terminating: bool) -> None:
-        ...
-
-
-class DateTime(System.IComparable[datetime.datetime], System.ISpanFormattable, System.IConvertible, System.IEquatable[datetime.datetime], System.Runtime.Serialization.ISerializable, System.ISpanParsable[datetime.datetime], System.IUtf8SpanFormattable):
-    """This class has no documentation."""
-
-    MIN_VALUE: datetime.datetime
-
-    MAX_VALUE: datetime.datetime = ...
-
-    UNIX_EPOCH: datetime.datetime = ...
-
-    @property
-    def date(self) -> datetime.datetime:
-        ...
-
-    @property
-    def day(self) -> int:
-        ...
-
-    @property
-    def day_of_week(self) -> System.DayOfWeek:
-        ...
-
-    @property
-    def day_of_year(self) -> int:
-        ...
-
-    @property
-    def hour(self) -> int:
-        ...
-
-    @property
-    def kind(self) -> System.DateTimeKind:
-        ...
-
-    @property
-    def millisecond(self) -> int:
-        ...
-
-    @property
-    def microsecond(self) -> int:
-        """The microseconds component, expressed as a value between 0 and 999."""
-        ...
-
-    @property
-    def nanosecond(self) -> int:
-        """The nanoseconds component, expressed as a value between 0 and 900 (in increments of 100 nanoseconds)."""
-        ...
-
-    @property
-    def minute(self) -> int:
-        ...
-
-    @property
-    def month(self) -> int:
-        ...
-
-    NOW: datetime.datetime
-
-    @property
-    def second(self) -> int:
-        ...
-
-    @property
-    def ticks(self) -> int:
-        ...
-
-    @property
-    def time_of_day(self) -> datetime.timedelta:
-        ...
-
-    TODAY: datetime.datetime
-
-    @property
-    def year(self) -> int:
-        ...
-
-    UTC_NOW: datetime.datetime
-
-    def __add__(self, t: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    def __eq__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    def __iadd__(self, t: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    @overload
-    def __init__(self, ticks: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, ticks: int, kind: System.DateTimeKind) -> None:
-        ...
-
-    @overload
-    def __init__(self, date: System.DateOnly, time: System.TimeOnly) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified DateOnly and TimeOnly.
-        The new instance will have the DateTimeKind.Unspecified kind.
-        
-        :param date: The date part.
-        :param time: The time part.
-        """
-        ...
-
-    @overload
-    def __init__(self, date: System.DateOnly, time: System.TimeOnly, kind: System.DateTimeKind) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified DateOnly and TimeOnly respecting a DateTimeKind.
-        
-        :param date: The date part.
-        :param time: The time part.
-        :param kind: One of the enumeration values that indicates whether  and  specify a local time, Coordinated Universal Time (UTC), or neither.
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, calendar: System.Globalization.Calendar) -> None:
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, calendar: System.Globalization.Calendar, kind: System.DateTimeKind) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through the number of years in ).
-        :param month: The month (1 through the number of months in ).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param calendar: The calendar that is used to interpret , , and .
-        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, kind: System.DateTimeKind) -> None:
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, calendar: System.Globalization.Calendar) -> None:
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through 9999).
-        :param month: The month (1 through 12).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, kind: System.DateTimeKind) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through 9999).
-        :param month: The month (1 through 12).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, calendar: System.Globalization.Calendar) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through the number of years in ).
-        :param month: The month (1 through the number of months in ).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param calendar: The calendar that is used to interpret , , and .
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through 9999).
-        :param month: The month (1 through 12).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param microsecond: The microseconds (0 through 999).
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, kind: System.DateTimeKind) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through 9999).
-        :param month: The month (1 through 12).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param microsecond: The microseconds (0 through 999).
-        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, calendar: System.Globalization.Calendar) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through the number of years in ).
-        :param month: The month (1 through the number of months in ).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param microsecond: The microseconds (0 through 999).
-        :param calendar: The calendar that is used to interpret , , and .
-        """
-        ...
-
-    @overload
-    def __init__(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, microsecond: int, calendar: System.Globalization.Calendar, kind: System.DateTimeKind) -> None:
-        """
-        Initializes a new instance of the DateTime structure to the specified year, month, day, hour, minute, second,
-        millisecond, and Coordinated Universal Time (UTC) or local time for the specified calendar.
-        
-        :param year: The year (1 through the number of years in ).
-        :param month: The month (1 through the number of months in ).
-        :param day: The day (1 through the number of days in ).
-        :param hour: The hours (0 through 23).
-        :param minute: The minutes (0 through 59).
-        :param second: The seconds (0 through 59).
-        :param millisecond: The milliseconds (0 through 999).
-        :param microsecond: The microseconds (0 through 999).
-        :param calendar: The calendar that is used to interpret , , and .
-        :param kind: One of the enumeration values that indicates whether , , , , , , and  specify a local time, Coordinated Universal Time (UTC), or neither.
-        """
-        ...
-
-    @overload
-    def __isub__(self, t: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    @overload
-    def __isub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __le__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    def __ne__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @overload
-    def __sub__(self, t: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    @overload
-    def __sub__(self, d_2: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
-        ...
-
-    def add(self, value: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    def add_days(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of days to the value of this instance.
-        
-        :param value: A number of whole and fractional days. The value parameter can be negative or positive.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of days represented by value.
-        """
-        ...
-
-    def add_hours(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of hours to the value of this instance.
-        
-        :param value: A number of whole and fractional hours. The value parameter can be negative or positive.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of hours represented by value.
-        """
-        ...
-
-    def add_microseconds(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of microseconds to the value of this instance.
-        
-        :param value: A number of whole and fractional microseconds. The  parameter can be negative or positive. Note that this value is rounded to the nearest integer.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of microseconds represented by .
-        """
-        ...
-
-    def add_milliseconds(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of milliseconds to the value of this instance.
-        
-        :param value: A number of whole and fractional milliseconds. The value parameter can be negative or positive.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of milliseconds represented by value.
-        """
-        ...
-
-    def add_minutes(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of minutes to the value of this instance.
-        
-        :param value: A number of whole and fractional minutes. The value parameter can be negative or positive.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of minutes represented by value.
-        """
-        ...
-
-    def add_months(self, months: int) -> datetime.datetime:
-        ...
-
-    def add_seconds(self, value: float) -> datetime.datetime:
-        """
-        Returns a new DateTime that adds the specified number of seconds to the value of this instance.
-        
-        :param value: A number of whole and fractional seconds. The value parameter can be negative or positive.
-        :returns: An object whose value is the sum of the date and time represented by this instance and the number of seconds represented by value.
-        """
-        ...
-
-    def add_ticks(self, value: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, value: int) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def compare(t_1: typing.Union[datetime.datetime, datetime.date], t_2: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    @staticmethod
-    def days_in_month(year: int, month: int) -> int:
-        ...
-
-    @overload
-    def deconstruct(self, date: typing.Optional[System.DateOnly], time: typing.Optional[System.TimeOnly]) -> typing.Tuple[None, System.DateOnly, System.TimeOnly]:
-        """
-        Deconstructs DateTime into DateOnly and TimeOnly.
-        
-        :param date: Deconstructed DateOnly.
-        :param time: Deconstructed TimeOnly.
-        """
-        ...
-
-    @overload
-    def deconstruct(self, year: typing.Optional[int], month: typing.Optional[int], day: typing.Optional[int]) -> typing.Tuple[None, int, int, int]:
-        """
-        Deconstructs DateOnly by Year, Month and Day.
-        
-        :param year: Deconstructed parameter for Year.
-        :param month: Deconstructed parameter for Month.
-        :param day: Deconstructed parameter for Day.
-        """
-        ...
-
-    @overload
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, value: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(t_1: typing.Union[datetime.datetime, datetime.date], t_2: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @staticmethod
-    def from_binary(date_data: int) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def from_file_time(file_time: int) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def from_file_time_utc(file_time: int) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def from_oa_date(d: float) -> datetime.datetime:
-        ...
-
-    @overload
-    def get_date_time_formats(self) -> typing.List[str]:
-        ...
-
-    @overload
-    def get_date_time_formats(self, provider: System.IFormatProvider) -> typing.List[str]:
-        ...
-
-    @overload
-    def get_date_time_formats(self, format: str) -> typing.List[str]:
-        ...
-
-    @overload
-    def get_date_time_formats(self, format: str, provider: System.IFormatProvider) -> typing.List[str]:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    def is_daylight_saving_time(self) -> bool:
-        ...
-
-    @staticmethod
-    def is_leap_year(year: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider = None, styles: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(s: str, format: str, provider: System.IFormatProvider) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(s: str, format: str, provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(s: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(s: str, formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(s: System.ReadOnlySpan[str], formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles = ...) -> datetime.datetime:
-        ...
-
-    @staticmethod
-    def specify_kind(value: typing.Union[datetime.datetime, datetime.date], kind: System.DateTimeKind) -> datetime.datetime:
-        ...
-
-    @overload
-    def subtract(self, value: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
-        ...
-
-    @overload
-    def subtract(self, value: datetime.timedelta) -> datetime.datetime:
-        ...
-
-    def to_binary(self) -> int:
-        ...
-
-    def to_file_time(self) -> int:
-        ...
-
-    def to_file_time_utc(self) -> int:
-        ...
-
-    def to_local_time(self) -> datetime.datetime:
-        ...
-
-    def to_long_date_string(self) -> str:
-        ...
-
-    def to_long_time_string(self) -> str:
-        ...
-
-    def to_oa_date(self) -> float:
-        ...
-
-    def to_short_date_string(self) -> str:
-        ...
-
-    def to_short_time_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    def to_universal_time(self) -> datetime.datetime:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, styles: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(s: str, format: str, provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(s: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(s: str, formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(s: System.ReadOnlySpan[str], formats: typing.List[str], provider: System.IFormatProvider, style: System.Globalization.DateTimeStyles, result: typing.Optional[typing.Union[datetime.datetime, datetime.date]]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date]]:
-        ...
-
-
-class Single(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
-    """Represents a single-precision floating-point number."""
-
-    MIN_VALUE: float = ...
-
-    MAX_VALUE: float = ...
-
-    EPSILON: float = ...
-
-    NEGATIVE_INFINITY: float = ...
-
-    POSITIVE_INFINITY: float = ...
-
-    NA_N: float = ...
-
-    NEGATIVE_ZERO: float = ...
-    """Represents the number negative zero (-0)."""
-
-    E: float = ...
-    """Represents the natural logarithmic base, specified by the constant, e."""
-
-    PI: float = ...
-    """Represents the ratio of the circumference of a circle to its diameter, specified by the constant, PI."""
-
-    TAU: float = ...
-    """Represents the number of radians in one turn, specified by the constant, Tau."""
-
-    def __eq__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __le__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, right: float) -> bool:
-        ...
-
-    def __ne__(self, right: float) -> bool:
-        ...
-
-    @staticmethod
-    def abs(value: float) -> float:
-        ...
-
-    @staticmethod
-    def acos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acos_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asin_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_2(y: float, x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_2_pi(y: float, x: float) -> float:
-        ...
-
-    @staticmethod
-    def atanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_decrement(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_increment(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cbrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def ceiling(x: float) -> float:
-        ...
-
-    @staticmethod
-    def clamp(value: float, min: float, max: float) -> float:
-        ...
-
-    @staticmethod
-    def clamp_native(value: float, min: float, max: float) -> float:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: float) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: float, sign: float) -> float:
-        ...
-
-    @staticmethod
-    def cos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cos_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: float) -> float:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: float) -> bool:
-        ...
-
-    @staticmethod
-    def exp(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_10(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_10_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_2(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_2_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def floor(x: float) -> float:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: float, right: float, addend: float) -> float:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def hypot(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def ieee_754_remainder(left: float, right: float) -> float:
-        ...
-
-    @staticmethod
-    def i_log_b(x: float) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_finite(f: float) -> bool:
-        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
-        ...
-
-    @staticmethod
-    def is_infinity(f: float) -> bool:
-        """Determines whether the specified value is infinite."""
-        ...
-
-    @staticmethod
-    def is_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_na_n(f: float) -> bool:
-        """Determines whether the specified value is NaN."""
-        ...
-
-    @staticmethod
-    def is_negative(f: float) -> bool:
-        """Determines whether the specified value is negative."""
-        ...
-
-    @staticmethod
-    def is_negative_infinity(f: float) -> bool:
-        """Determines whether the specified value is negative infinity."""
-        ...
-
-    @staticmethod
-    def is_normal(f: float) -> bool:
-        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive_infinity(f: float) -> bool:
-        """Determines whether the specified value is positive infinity."""
-        ...
-
-    @staticmethod
-    def is_pow_2(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_real_number(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_subnormal(f: float) -> bool:
-        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
-        ...
-
-    @staticmethod
-    def lerp(value_1: float, value_2: float, amount: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float, new_base: float) -> float:
-        ...
-
-    @staticmethod
-    def log_10(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_10_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_2(value: float) -> float:
-        ...
-
-    @staticmethod
-    def log_2_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def max(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_native(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_native(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: float, right: float, addend: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    def pow(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: float) -> float:
-        ...
-
-    @staticmethod
-    def reciprocal_estimate(x: float) -> float:
-        ...
-
-    @staticmethod
-    def reciprocal_sqrt_estimate(x: float) -> float:
-        ...
-
-    @staticmethod
-    def root_n(x: float, n: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    def scale_b(x: float, n: int) -> float:
-        ...
-
-    @staticmethod
-    def sign(value: float) -> int:
-        ...
-
-    @staticmethod
-    def sin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sin_cos(x: float) -> System.ValueTuple[float, float]:
-        ...
-
-    @staticmethod
-    def sin_cos_pi(x: float) -> System.ValueTuple[float, float]:
-        ...
-
-    @staticmethod
-    def sinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sin_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sqrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tan_pi(x: float) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def truncate(x: float) -> float:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its single-precision floating-point number equivalent.
-        
-        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
-        :param result: When this method returns, contains a single-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-
-class MissingFieldException(System.MissingMemberException, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, class_name: str, field_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
 class RankException(System.SystemException):
     """The exception that is thrown when an array with the wrong number of dimensions is passed to a method."""
 
@@ -13023,1266 +17373,505 @@ class RankException(System.SystemException):
         ...
 
 
-class Lazy(typing.Generic[System_Lazy_T, System_Lazy_TMetadata], System_Lazy):
-    """This class has no documentation."""
+class OperationCanceledException(System.SystemException):
+    """The exception that is thrown in a thread upon cancellation of an operation that the thread was executing."""
 
     @property
-    def is_value_created(self) -> bool:
-        """Gets a value indicating whether the Lazy{T} has been initialized."""
-        ...
-
-    @property
-    def value(self) -> System_Lazy_T:
-        """Gets the lazily initialized value of the current Lazy{T}."""
-        ...
-
-    @property
-    def metadata(self) -> System_Lazy_TMetadata:
+    def cancellation_token(self) -> System.Threading.CancellationToken:
         ...
 
     @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, token: System.Threading.CancellationToken) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, token: System.Threading.CancellationToken) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """
-        Initializes a new instance of the Lazy{T} class that
-        uses T's default constructor for lazy initialization.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: System_Lazy_T) -> None:
-        """
-        Initializes a new instance of the Lazy{T} class that
-        uses a pre-initialized specified value.
-        """
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T]) -> None:
-        """
-        Initializes a new instance of the Lazy{T} class that uses a
-        specified initialization function.
-        
-        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
-        """
-        ...
-
-    @overload
-    def __init__(self, is_thread_safe: bool) -> None:
-        """
-        Initializes a new instance of the Lazy{T}
-        class that uses T's default constructor and a specified thread-safety mode.
-        
-        :param is_thread_safe: true if this instance should be usable by multiple threads concurrently; false if the instance will only be used by one thread at a time.
-        """
-        ...
-
-    @overload
-    def __init__(self, mode: System.Threading.LazyThreadSafetyMode) -> None:
-        """
-        Initializes a new instance of the Lazy{T}
-        class that uses T's default constructor and a specified thread-safety mode.
-        
-        :param mode: The lazy thread-safety mode
-        """
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], is_thread_safe: bool) -> None:
-        """
-        Initializes a new instance of the Lazy{T} class
-        that uses a specified initialization function and a specified thread-safety mode.
-        
-        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
-        :param is_thread_safe: true if this instance should be usable by multiple threads concurrently; false if the instance will only be used by one thread at a time.
-        """
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], mode: System.Threading.LazyThreadSafetyMode) -> None:
-        """
-        Initializes a new instance of the Lazy{T} class
-        that uses a specified initialization function and a specified thread-safety mode.
-        
-        :param value_factory: The Func{T} invoked to produce the lazily-initialized value when it is needed.
-        :param mode: The lazy thread-safety mode.
-        """
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata) -> None:
-        ...
-
-    @overload
-    def __init__(self, metadata: System_Lazy_TMetadata) -> None:
-        ...
-
-    @overload
-    def __init__(self, metadata: System_Lazy_TMetadata, is_thread_safe: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata, is_thread_safe: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, metadata: System_Lazy_TMetadata, mode: System.Threading.LazyThreadSafetyMode) -> None:
-        ...
-
-    @overload
-    def __init__(self, value_factory: typing.Callable[[], System_Lazy_T], metadata: System_Lazy_TMetadata, mode: System.Threading.LazyThreadSafetyMode) -> None:
-        ...
-
-    def to_string(self) -> str:
-        """
-        Creates and returns a string representation of this instance.
-        
-        :returns: The result of calling object.ToString on the Value.
-        """
-        ...
-
-
-class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
-    """This class has no documentation."""
-
-    MAX_VALUE: int = ...
-
-    MIN_VALUE: int = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: int) -> bool:
-        ...
-
-    @staticmethod
-    def abs(value: int) -> int:
-        ...
-
-    @staticmethod
-    def big_mul(left: int, right: int) -> System.Int128:
-        """
-        Produces the full product of two 64-bit numbers.
-        
-        :param left: The first number to multiply.
-        :param right: The second number to multiply.
-        :returns: The number containing the product of the specified numbers.
-        """
-        ...
-
-    @staticmethod
-    def clamp(value: int, min: int, max: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: int, sign: int) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: int) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_negative(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    def max(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_left(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_right(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def sign(value: int) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 64-bit signed integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 64-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class CharEnumerator(System.Object, System.Collections.Generic.IEnumerator[str], System.ICloneable):
-    """Supports iterating over a string object and reading its individual characters."""
-
-    @property
-    def current(self) -> str:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-
-class String(System.Object, System.IComparable[str], System.IConvertible, System.Collections.Generic.IEnumerable[str], System.IEquatable[str], System.ICloneable, System.ISpanParsable[str], typing.Iterable[str]):
-    """This class has no documentation."""
-
-    EMPTY: str
-
-    @property
-    def length(self) -> int:
-        ...
-
-    def __eq__(self, b: str) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: str) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> str:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any, start_index: int, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any, start_index: int, length: int, enc: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[str]) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[str], start_index: int, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, c: str, count: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.ReadOnlySpan[str]) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[str]:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: str) -> bool:
-        ...
-
-    def __ne__(self, b: str) -> bool:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, str_b: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, str_b: str, ignore_case: bool) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, str_b: str, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, str_b: str, culture: System.Globalization.CultureInfo, options: System.Globalization.CompareOptions) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, str_b: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, ignore_case: bool) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, ignore_case: bool, culture: System.Globalization.CultureInfo) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, culture: System.Globalization.CultureInfo, options: System.Globalization.CompareOptions) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare(str_a: str, index_a: int, str_b: str, index_b: int, length: int, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_ordinal(str_a: str, str_b: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def compare_ordinal(str_a: str, index_a: int, str_b: str, index_b: int, length: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, str_b: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(*args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(values: System.Collections.Generic.IEnumerable[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str, str_2: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: str, str_1: str, str_2: str, str_3: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(str_0: System.ReadOnlySpan[str], str_1: System.ReadOnlySpan[str], str_2: System.ReadOnlySpan[str], str_3: System.ReadOnlySpan[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def concat(*values: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @overload
-    def contains(self, value: str) -> bool:
-        ...
-
-    @overload
-    def contains(self, value: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @staticmethod
-    def copy(str: str) -> str:
-        """This API should not be used to create mutable strings. See https://go.microsoft.com/fwlink/?linkid=2084035 for alternatives."""
-        warnings.warn("This API should not be used to create mutable strings. See https://go.microsoft.com/fwlink/?linkid=2084035 for alternatives.", DeprecationWarning)
-
-    @overload
-    def copy_to(self, source_index: int, destination: typing.List[str], destination_index: int, count: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, destination: System.Span[str]) -> None:
-        """
-        Copies the contents of this string into the destination span.
-        
-        :param destination: The span into which to copy this string's contents.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(provider: System.IFormatProvider, handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
-        """
-        Creates a new string by using the specified provider to control the formatting of the specified interpolated string.
-        
-        :param provider: An object that supplies culture-specific formatting information.
-        :param handler: The interpolated string.
-        :returns: The string that results for formatting the interpolated string using the specified format provider.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(provider: System.IFormatProvider, initial_buffer: System.Span[str], handler: System.Runtime.CompilerServices.DefaultInterpolatedStringHandler) -> str:
-        """
-        Creates a new string by using the specified provider to control the formatting of the specified interpolated string.
-        
-        :param provider: An object that supplies culture-specific formatting information.
-        :param initial_buffer: The initial buffer that may be used as temporary space as part of the formatting operation. The contents of this buffer may be overwritten.
-        :param handler: The interpolated string.
-        :returns: The string that results for formatting the interpolated string using the specified format provider.
-        """
-        ...
-
-    @overload
-    def ends_with(self, value: str) -> bool:
-        ...
-
-    @overload
-    def ends_with(self, value: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @overload
-    def ends_with(self, value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> bool:
-        ...
-
-    def enumerate_runes(self) -> System.Text.StringRuneEnumerator:
-        """Returns an enumeration of Rune from this string."""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, value: str) -> bool:
-        ...
-
-    @overload
-    def equals(self, value: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(a: str, b: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(a: str, b: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def format(provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        """
-        Replaces the format item or items in a CompositeFormat with the string representation of the corresponding objects.
-        A parameter supplies culture-specific formatting information.
-        
-        :param provider: An object that supplies culture-specific formatting information.
-        :param format: A CompositeFormat.
-        :param args: An array of objects to format.
-        :returns: The formatted string.
-        """
-        ...
-
-    def get_enumerator(self) -> System.CharEnumerator:
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def get_hash_code(self, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_hash_code(value: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_hash_code(value: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> int:
-        ...
-
-    def get_pinnable_reference(self) -> typing.Any:
-        """Returns a reference to the first element of the String. If the string is null, an access will throw a NullReferenceException."""
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @overload
-    def index_of(self, value: str) -> int:
-        ...
-
-    @overload
-    def index_of(self, value: str, start_index: int) -> int:
-        ...
-
-    @overload
-    def index_of(self, value: str, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def index_of(self, value: str, start_index: int, count: int) -> int:
-        ...
-
-    @overload
-    def index_of(self, value: str, start_index: int, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def index_of(self, value: str, start_index: int, count: int, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def index_of_any(self, any_of: typing.List[str]) -> int:
-        ...
-
-    @overload
-    def index_of_any(self, any_of: typing.List[str], start_index: int) -> int:
-        ...
-
-    @overload
-    def index_of_any(self, any_of: typing.List[str], start_index: int, count: int) -> int:
-        ...
-
-    def insert(self, start_index: int, value: str) -> str:
-        ...
-
-    @staticmethod
-    def intern(str: str) -> str:
-        ...
-
-    @staticmethod
-    def is_interned(str: str) -> str:
-        ...
-
-    @overload
-    def is_normalized(self) -> bool:
-        ...
-
-    @overload
-    def is_normalized(self, normalization_form: System.Text.NormalizationForm) -> bool:
-        ...
-
-    @staticmethod
-    def is_null_or_empty(value: str) -> bool:
-        ...
-
-    @staticmethod
-    def is_null_or_white_space(value: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, *value: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, value: typing.List[str], start_index: int, count: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, values: System.Collections.Generic.IEnumerable[str]) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def join(separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> str:
-        ...
-
-    @overload
-    def last_index_of(self, value: str) -> int:
-        ...
-
-    @overload
-    def last_index_of(self, value: str, start_index: int) -> int:
-        ...
-
-    @overload
-    def last_index_of(self, value: str, start_index: int, count: int) -> int:
-        ...
-
-    @overload
-    def last_index_of(self, value: str, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def last_index_of(self, value: str, start_index: int, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def last_index_of(self, value: str, start_index: int, count: int, comparison_type: System.StringComparison) -> int:
-        ...
-
-    @overload
-    def last_index_of_any(self, any_of: typing.List[str]) -> int:
-        ...
-
-    @overload
-    def last_index_of_any(self, any_of: typing.List[str], start_index: int) -> int:
-        ...
-
-    @overload
-    def last_index_of_any(self, any_of: typing.List[str], start_index: int, count: int) -> int:
-        ...
-
-    @overload
-    def normalize(self) -> str:
-        ...
-
-    @overload
-    def normalize(self, normalization_form: System.Text.NormalizationForm) -> str:
-        ...
-
-    @overload
-    def pad_left(self, total_width: int) -> str:
-        ...
-
-    @overload
-    def pad_left(self, total_width: int, padding_char: str) -> str:
-        ...
-
-    @overload
-    def pad_right(self, total_width: int) -> str:
-        ...
-
-    @overload
-    def pad_right(self, total_width: int, padding_char: str) -> str:
-        ...
-
-    @overload
-    def remove(self, start_index: int, count: int) -> str:
-        ...
-
-    @overload
-    def remove(self, start_index: int) -> str:
-        ...
-
-    @overload
-    def replace(self, old_value: str, new_value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> str:
-        ...
-
-    @overload
-    def replace(self, old_value: str, new_value: str, comparison_type: System.StringComparison) -> str:
-        ...
-
-    @overload
-    def replace(self, old_char: str, new_char: str) -> str:
-        ...
-
-    @overload
-    def replace(self, old_value: str, new_value: str) -> str:
-        ...
-
-    @overload
-    def replace_line_endings(self) -> str:
-        """
-        Replaces all newline sequences in the current string with Environment.NewLine.
-        
-        :returns: A string whose contents match the current string, but with all newline sequences replaced with Environment.NewLine.
-        """
-        ...
-
-    @overload
-    def replace_line_endings(self, replacement_text: str) -> str:
-        """
-        Replaces all newline sequences in the current string with .
-        
-        :returns: A string whose contents match the current string, but with all newline sequences replaced with .
-        """
-        ...
-
-    @overload
-    def split(self, separator: str, options: System.StringSplitOptions = ...) -> typing.List[str]:
-        ...
-
-    @overload
-    def split(self, separator: str, count: int, options: System.StringSplitOptions = ...) -> typing.List[str]:
-        ...
-
-    @overload
-    def split(self, *separator: typing.Union[str, typing.Iterable[str]]) -> typing.List[str]:
-        ...
-
-    @overload
-    def split(self, separator: typing.List[str], count: int) -> typing.List[str]:
-        ...
-
-    @overload
-    def split(self, separator: typing.List[str], options: System.StringSplitOptions) -> typing.List[str]:
-        ...
-
-    @overload
-    def split(self, separator: typing.List[str], count: int, options: System.StringSplitOptions) -> typing.List[str]:
-        ...
-
-    @overload
-    def starts_with(self, value: str) -> bool:
-        ...
-
-    @overload
-    def starts_with(self, value: str, comparison_type: System.StringComparison) -> bool:
-        ...
-
-    @overload
-    def starts_with(self, value: str, ignore_case: bool, culture: System.Globalization.CultureInfo) -> bool:
-        ...
-
-    @overload
-    def substring(self, start_index: int) -> str:
-        ...
-
-    @overload
-    def substring(self, start_index: int, length: int) -> str:
-        ...
-
-    @overload
-    def to_char_array(self) -> typing.List[str]:
-        ...
-
-    @overload
-    def to_char_array(self, start_index: int, length: int) -> typing.List[str]:
-        ...
-
-    @overload
-    def to_lower(self) -> str:
-        ...
-
-    @overload
-    def to_lower(self, culture: System.Globalization.CultureInfo) -> str:
-        ...
-
-    def to_lower_invariant(self) -> str:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_upper(self) -> str:
-        ...
-
-    @overload
-    def to_upper(self, culture: System.Globalization.CultureInfo) -> str:
-        ...
-
-    def to_upper_invariant(self) -> str:
-        ...
-
-    @overload
-    def trim(self) -> str:
-        ...
-
-    @overload
-    def trim(self, trim_char: str) -> str:
-        ...
-
-    @overload
-    def trim(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @overload
-    def trim_end(self) -> str:
-        ...
-
-    @overload
-    def trim_end(self, trim_char: str) -> str:
-        ...
-
-    @overload
-    def trim_end(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    @overload
-    def trim_start(self) -> str:
-        ...
-
-    @overload
-    def trim_start(self, trim_char: str) -> str:
-        ...
-
-    @overload
-    def trim_start(self, *trim_chars: typing.Union[str, typing.Iterable[str]]) -> str:
-        ...
-
-    def try_copy_to(self, destination: System.Span[str]) -> bool:
-        """
-        Copies the contents of this string into the destination span.
-        
-        :param destination: The span into which to copy this string's contents.
-        :returns: true if the data was copied; false if the destination was too short to fit the contents of the string.
-        """
-        ...
-
-
-class Random(System.Object):
-    """
-    Represents a pseudo-random number generator, which is an algorithm that produces a sequence of numbers
-    that meet certain statistical requirements for randomness.
-    """
-
-    SHARED: System.Random
-    """Provides a thread-safe Random instance that may be used concurrently from any thread."""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Random class using a default seed value."""
-        ...
-
-    @overload
-    def __init__(self, seed: int) -> None:
-        """
-        Initializes a new instance of the Random class, using the specified seed value.
-        
-        :param seed: A number used to calculate a starting value for the pseudo-random number sequence. If a negative number is specified, the absolute value of the number is used.
-        """
-        ...
-
-    @overload
-    def get_hex_string(self, string_length: int, lowercase: bool = False) -> str:
-        """
-        Creates a string filled with random hexadecimal characters.
-        
-        :param string_length: The length of string to create.
-        :param lowercase: true if the hexadecimal characters should be lowercase; false if they should be uppercase. The default is false.
-        :returns: A string populated with random hexadecimal characters.
-        """
-        ...
-
-    @overload
-    def get_hex_string(self, destination: System.Span[str], lowercase: bool = False) -> None:
-        """
-        Fills a buffer with random hexadecimal characters.
-        
-        :param destination: The buffer to receive the characters.
-        :param lowercase: true if the hexadecimal characters should be lowercase; false if they should be uppercase. The default is false.
-        """
-        ...
-
-    def get_string(self, choices: System.ReadOnlySpan[str], length: int) -> str:
-        """
-        Creates a string populated with characters chosen at random from .
-        
-        :param choices: The characters to use to populate the string.
-        :param length: The length of string to return.
-        :returns: A string populated with items selected at random from .
-        """
-        ...
-
-    @overload
-    def next(self) -> int:
-        """
-        Returns a non-negative random integer.
-        
-        :returns: A 32-bit signed integer that is greater than or equal to 0 and less than int.MaxValue.
-        """
-        ...
-
-    @overload
-    def next(self, max_value: int) -> int:
-        """
-        Returns a non-negative random integer that is less than the specified maximum.
-        
-        :param max_value: The exclusive upper bound of the random number to be generated.  must be greater than or equal to 0.
-        :returns: A 32-bit signed integer that is greater than or equal to 0, and less than ; that is, the range of return values ordinarily includes 0 but not . However, if  equals 0,  is returned.
-        """
-        ...
-
-    @overload
-    def next(self, min_value: int, max_value: int) -> int:
-        """
-        Returns a random integer that is within a specified range.
-        
-        :param min_value: The inclusive lower bound of the random number returned.
-        :param max_value: The exclusive upper bound of the random number returned.  must be greater than or equal to .
-        :returns: A 32-bit signed integer greater than or equal to  and less than ; that is, the range of return values includes  but not . If min_value equals ,  is returned.
-        """
-        ...
-
-    @overload
-    def next_bytes(self, buffer: typing.List[int]) -> None:
-        """
-        Fills the elements of a specified array of bytes with random numbers.
-        
-        :param buffer: The array to be filled with random numbers.
-        """
-        ...
-
-    @overload
-    def next_bytes(self, buffer: System.Span[int]) -> None:
-        """
-        Fills the elements of a specified span of bytes with random numbers.
-        
-        :param buffer: The array to be filled with random numbers.
-        """
-        ...
-
-    def next_double(self) -> float:
-        """
-        Returns a random floating-point number that is greater than or equal to 0.0, and less than 1.0.
-        
-        :returns: A double-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
-        """
-        ...
-
-    @overload
-    def next_int_64(self) -> int:
-        """
-        Returns a non-negative random integer.
-        
-        :returns: A 64-bit signed integer that is greater than or equal to 0 and less than long.MaxValue.
-        """
-        ...
-
-    @overload
-    def next_int_64(self, max_value: int) -> int:
-        """
-        Returns a non-negative random integer that is less than the specified maximum.
-        
-        :param max_value: The exclusive upper bound of the random number to be generated.  must be greater than or equal to 0.
-        :returns: A 64-bit signed integer that is greater than or equal to 0, and less than ; that is, the range of return values ordinarily includes 0 but not . However, if  equals 0,  is returned.
-        """
-        ...
-
-    @overload
-    def next_int_64(self, min_value: int, max_value: int) -> int:
-        """
-        Returns a random integer that is within a specified range.
-        
-        :param min_value: The inclusive lower bound of the random number returned.
-        :param max_value: The exclusive upper bound of the random number returned.  must be greater than or equal to .
-        :returns: A 64-bit signed integer greater than or equal to  and less than ; that is, the range of return values includes  but not . If min_value equals ,  is returned.
-        """
-        ...
-
-    def next_single(self) -> float:
-        """
-        Returns a random floating-point number that is greater than or equal to 0.0, and less than 1.0.
-        
-        :returns: A single-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
-        """
-        ...
-
-    def sample(self) -> float:
-        """
-        Returns a random floating-point number between 0.0 and 1.0.
-        
         This method is protected.
         
-        :returns: A double-precision floating point number that is greater than or equal to 0.0, and less than 1.0.
+        Obsoletions.LegacyFormatterImplMessage
         """
         ...
+
+
+class ExecutionEngineException(System.SystemException):
+    """
+    The exception that is thrown when there is an internal error in the execution engine of the common language runtime.
+    
+    ExecutionEngineException previously indicated an unspecified fatal error in the runtime. The runtime no longer raises this exception so this type is obsolete.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class AppContext(System.Object):
+    """This class has no documentation."""
+
+    BASE_DIRECTORY: str
+
+    TARGET_FRAMEWORK_NAME: str
+
+    @staticmethod
+    def get_data(name: str) -> System.Object:
+        ...
+
+    @staticmethod
+    def set_data(name: str, data: typing.Any) -> None:
+        """
+        Sets the value of the named data element assigned to the current application domain.
+        
+        :param name: The name of the data element
+        :param data: The value of
+        """
+        ...
+
+    @staticmethod
+    def set_switch(switch_name: str, is_enabled: bool) -> None:
+        """
+        Assign a switch a value
+        
+        :param switch_name: The name of the switch
+        :param is_enabled: The value to assign
+        """
+        ...
+
+    @staticmethod
+    def try_get_switch(switch_name: str, is_enabled: typing.Optional[bool]) -> typing.Tuple[bool, bool]:
+        """
+        Try to get the value of the switch.
+        
+        :param switch_name: The name of the switch
+        :param is_enabled: A variable where to place the value of the switch
+        :returns: A return value of true represents that the switch was set and  contains the value of the switch.
+        """
+        ...
+
+
+class TypedReference:
+    """This class has no documentation."""
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def get_target_type(value: System.TypedReference) -> typing.Type:
+        ...
+
+    @staticmethod
+    def make_typed_reference(target: typing.Any, flds: typing.List[System.Reflection.FieldInfo]) -> System.TypedReference:
+        ...
+
+    @staticmethod
+    def set_typed_reference(target: System.TypedReference, value: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def target_type_token(value: System.TypedReference) -> System.RuntimeTypeHandle:
+        ...
+
+    @staticmethod
+    def to_object(value: System.TypedReference) -> System.Object:
+        ...
+
+
+class BadImageFormatException(System.SystemException):
+    """The exception that is thrown when the file image of an assembly or an executable program is invalid."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def file_name(self) -> str:
+        ...
+
+    @property
+    def fusion_log(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
+        ...
+
+
+class DBNull(System.Object, System.Runtime.Serialization.ISerializable, System.IConvertible):
+    """This class has no documentation."""
+
+    VALUE: System.DBNull = ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def get_type_code(self) -> System.TypeCode:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, provider: System.IFormatProvider) -> str:
+        ...
+
+
+class InvalidProgramException(System.SystemException):
+    """
+    The exception that is thrown when a program contains invalid IL or metadata.
+    This exception is also thrown when internal runtime implementation limits have been exceeded by the program.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class GCNotificationStatus(Enum):
+    """This class has no documentation."""
+
+    SUCCEEDED = 0
+
+    FAILED = 1
+
+    CANCELED = 2
+
+    TIMEOUT = 3
+
+    NOT_APPLICABLE = 4
+
+
+class GCCollectionMode(Enum):
+    """This class has no documentation."""
+
+    DEFAULT = 0
+
+    FORCED = 1
+
+    OPTIMIZED = 2
+
+    AGGRESSIVE = 3
+
+
+class GC(System.Object):
+    """This class has no documentation."""
+
+    MAX_GENERATION: int
+
+    @staticmethod
+    def add_memory_pressure(bytes_allocated: int) -> None:
+        ...
+
+    @staticmethod
+    def cancel_full_gc_notification() -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def collect(generation: int) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def collect() -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def collect(generation: int, mode: System.GCCollectionMode) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def collect(generation: int, mode: System.GCCollectionMode, blocking: bool) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def collect(generation: int, mode: System.GCCollectionMode, blocking: bool, compacting: bool) -> None:
+        ...
+
+    @staticmethod
+    def collection_count(generation: int) -> int:
+        ...
+
+    @staticmethod
+    def end_no_gc_region() -> None:
+        ...
+
+    @staticmethod
+    def get_allocated_bytes_for_current_thread() -> int:
+        ...
+
+    @staticmethod
+    def get_configuration_variables() -> System.Collections.Generic.IReadOnlyDictionary[str, System.Object]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_gc_memory_info() -> System.GCMemoryInfo:
+        ...
+
+    @staticmethod
+    @overload
+    def get_gc_memory_info(kind: System.GCKind) -> System.GCMemoryInfo:
+        ...
+
+    @staticmethod
+    @overload
+    def get_generation(obj: typing.Any) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_generation(wo: System.WeakReference) -> int:
+        ...
+
+    @staticmethod
+    def get_total_allocated_bytes(precise: bool = False) -> int:
+        ...
+
+    @staticmethod
+    def get_total_memory(force_full_collection: bool) -> int:
+        ...
+
+    @staticmethod
+    def get_total_pause_duration() -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    def keep_alive(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def refresh_memory_limit() -> None:
+        ...
+
+    @staticmethod
+    def register_for_full_gc_notification(max_generation_threshold: int, large_object_heap_threshold: int) -> None:
+        ...
+
+    @staticmethod
+    def register_no_gc_region_callback(total_size: int, callback: typing.Callable[[], None]) -> None:
+        ...
+
+    @staticmethod
+    def remove_memory_pressure(bytes_allocated: int) -> None:
+        ...
+
+    @staticmethod
+    def re_register_for_finalize(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    def suppress_finalize(obj: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def try_start_no_gc_region(total_size: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def try_start_no_gc_region(total_size: int, loh_size: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def try_start_no_gc_region(total_size: int, disallow_full_blocking_gc: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def try_start_no_gc_region(total_size: int, loh_size: int, disallow_full_blocking_gc: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_approach(timeout: datetime.timedelta) -> System.GCNotificationStatus:
+        """
+        Returns, in a specified time-out period, the status of a registered notification for determining whether a full,
+        blocking garbage collection by the common language runtime is imminent.
+        
+        :param timeout: The timeout on waiting for a full GC approach
+        :returns: The status of a registered full GC notification.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_approach() -> System.GCNotificationStatus:
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_approach(milliseconds_timeout: int) -> System.GCNotificationStatus:
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_complete(timeout: datetime.timedelta) -> System.GCNotificationStatus:
+        """
+        Returns the status of a registered notification about whether a blocking garbage collection
+        has completed. May wait indefinitely for a full collection.
+        
+        :param timeout: The timeout on waiting for a full collection
+        :returns: The status of a registered full GC notification.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_complete() -> System.GCNotificationStatus:
+        ...
+
+    @staticmethod
+    @overload
+    def wait_for_full_gc_complete(milliseconds_timeout: int) -> System.GCNotificationStatus:
+        ...
+
+    @staticmethod
+    def wait_for_pending_finalizers() -> None:
+        ...
+
+
+class DataMisalignedException(System.SystemException):
+    """The exception that is thrown when a unit of data is read from or written to an address that is not a multiple of the data size."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class CLSCompliantAttribute(System.Attribute):
+    """Indicates whether a program element is compliant with the Common Language Specification (CLS)."""
+
+    @property
+    def is_compliant(self) -> bool:
+        ...
+
+    def __init__(self, is_compliant: bool) -> None:
+        ...
+
+
+class IAsyncResult(metaclass=abc.ABCMeta):
+    """Represents the status of an asynchronous operation."""
+
+    @property
+    @abc.abstractmethod
+    def is_completed(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def async_wait_handle(self) -> System.Threading.WaitHandle:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def async_state(self) -> System.Object:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def completed_synchronously(self) -> bool:
+        ...
+
+
+class TypeInitializationException(System.SystemException):
+    """The exception that is thrown as a wrapper around the exception thrown by the class initializer."""
+
+    @property
+    def type_name(self) -> str:
+        ...
+
+    def __init__(self, full_type_name: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
@@ -14543,22 +18132,34 @@ class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
 
-class CLSCompliantAttribute(System.Attribute):
-    """Indicates whether a program element is compliant with the Common Language Specification (CLS)."""
+class AttributeUsageAttribute(System.Attribute):
+    """Specifies the usage of another attribute class."""
 
     @property
-    def is_compliant(self) -> bool:
+    def valid_on(self) -> System.AttributeTargets:
         ...
 
-    def __init__(self, is_compliant: bool) -> None:
+    @property
+    def allow_multiple(self) -> bool:
+        ...
+
+    @allow_multiple.setter
+    def allow_multiple(self, value: bool) -> None:
+        ...
+
+    @property
+    def inherited(self) -> bool:
+        ...
+
+    @inherited.setter
+    def inherited(self, value: bool) -> None:
+        ...
+
+    def __init__(self, valid_on: System.AttributeTargets) -> None:
         ...
 
 
-class IParsable(typing.Generic[System_IParsable_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for parsing a string to a value."""
-
-
-class CannotUnloadAppDomainException(System.SystemException):
+class InsufficientExecutionStackException(System.SystemException):
     """This class has no documentation."""
 
     @overload
@@ -14567,6 +18168,115 @@ class CannotUnloadAppDomainException(System.SystemException):
 
     @overload
     def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class MethodAccessException(System.MemberAccessException):
+    """The exception that is thrown when there is an invalid attempt to access a method."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class MissingMemberException(System.MemberAccessException):
+    """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @property
+    def class_name(self) -> str:
+        """This field is protected."""
+        ...
+
+    @class_name.setter
+    def class_name(self, value: str) -> None:
+        ...
+
+    @property
+    def member_name(self) -> str:
+        """This field is protected."""
+        ...
+
+    @member_name.setter
+    def member_name(self, value: str) -> None:
+        ...
+
+    @property
+    def signature(self) -> typing.List[int]:
+        """This field is protected."""
+        ...
+
+    @signature.setter
+    def signature(self, value: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, class_name: str, member_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class DuplicateWaitObjectException(System.ArgumentException):
+    """The exception that is thrown when an object appears more than once in an array of synchronization objects."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, parameter_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, parameter_name: str, message: str) -> None:
         ...
 
     @overload
@@ -14583,66 +18293,18 @@ class CannotUnloadAppDomainException(System.SystemException):
         ...
 
 
-class LoaderOptimization(Enum):
+class UnhandledExceptionEventArgs(System.EventArgs):
     """This class has no documentation."""
 
-    DISALLOW_BINDINGS = 4
-    """LoaderOptimization.DisallowBindings has been deprecated and is not supported."""
-
-    DOMAIN_MASK = 3
-    """LoaderOptimization.DomainMask has been deprecated and is not supported."""
-
-    MULTI_DOMAIN = 2
-
-    MULTI_DOMAIN_HOST = 3
-
-    NOT_SPECIFIED = 0
-
-    SINGLE_DOMAIN = 1
-
-
-class AppDomainUnloadedException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
+    @property
+    def exception_object(self) -> System.Object:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
+    @property
+    def is_terminating(self) -> bool:
         ...
 
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class MarshalByRefObject(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def get_lifetime_service(self) -> System.Object:
-        """Obsoletions.RemotingApisMessage"""
-        warnings.warn("Obsoletions.RemotingApisMessage", DeprecationWarning)
-
-    def initialize_lifetime_service(self) -> System.Object:
-        """Obsoletions.RemotingApisMessage"""
-        warnings.warn("Obsoletions.RemotingApisMessage", DeprecationWarning)
-
-    def memberwise_clone(self, clone_identity: bool) -> System.MarshalByRefObject:
-        """This method is protected."""
+    def __init__(self, exception: typing.Any, is_terminating: bool) -> None:
         ...
 
 
@@ -14658,28 +18320,23 @@ class AppDomainSetup(System.Object):
         ...
 
 
-class ResolveEventArgs(System.EventArgs):
+class AssemblyLoadEventArgs(System.EventArgs):
     """This class has no documentation."""
 
     @property
-    def name(self) -> str:
+    def loaded_assembly(self) -> System.Reflection.Assembly:
         ...
 
-    @property
-    def requesting_assembly(self) -> System.Reflection.Assembly:
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, requesting_assembly: System.Reflection.Assembly) -> None:
+    def __init__(self, loaded_assembly: System.Reflection.Assembly) -> None:
         ...
 
 
 class AppDomain(System.MarshalByRefObject):
     """This class has no documentation."""
+
+    @property
+    def monitoring_total_processor_time(self) -> datetime.timedelta:
+        ...
 
     CURRENT_DOMAIN: System.AppDomain
 
@@ -14806,10 +18463,6 @@ class AppDomain(System.MarshalByRefObject):
 
     @resource_resolve.setter
     def resource_resolve(self, value: _EventContainer[typing.Callable[[System.Object, System.ResolveEventArgs], System.Reflection.Assembly], System.Reflection.Assembly]) -> None:
-        ...
-
-    @property
-    def monitoring_total_processor_time(self) -> datetime.timedelta:
         ...
 
     def append_private_path(self, path: str) -> None:
@@ -14978,24 +18631,8 @@ class AppDomain(System.MarshalByRefObject):
         warnings.warn("Obsoletions.AppDomainCreateUnloadMessage", DeprecationWarning)
 
 
-class StackOverflowException(System.SystemException):
-    """Exception thrown on a stack overflow."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class TimeZoneNotFoundException(System.Exception):
-    """This class has no documentation."""
+class ApplicationException(System.Exception):
+    """Serves as the base class for application-defined exceptions."""
 
     @overload
     def __init__(self) -> None:
@@ -15019,95 +18656,790 @@ class TimeZoneNotFoundException(System.Exception):
         ...
 
 
-class ArraySegment(typing.Generic[System_ArraySegment_T], System.Collections.Generic.IList[System_ArraySegment_T], System.Collections.Generic.IReadOnlyList[System_ArraySegment_T], typing.Iterable[System_ArraySegment_T]):
-    """Delimits a section of a one-dimensional array."""
+class DivideByZeroException(System.ArithmeticException):
+    """The exception that is thrown when there is an attempt to divide an integral or decimal value by zero."""
 
-    class Enumerator(System.Collections.Generic.IEnumerator[System_ArraySegment_T]):
-        """This class has no documentation."""
+    @overload
+    def __init__(self) -> None:
+        ...
 
-        @property
-        def current(self) -> System_ArraySegment_T:
-            ...
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
 
-        def dispose(self) -> None:
-            ...
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
 
-        def move_next(self) -> bool:
-            ...
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
 
-    EMPTY: System.ArraySegment[System_ArraySegment_T]
+
+class AccessViolationException(System.SystemException):
+    """The exception that is thrown when there is an attempt to read or write protected memory."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class ICustomFormatter(metaclass=abc.ABCMeta):
+    """Defines a method that supports custom formatting of the value of an object."""
+
+    def format(self, format: str, arg: typing.Any, format_provider: System.IFormatProvider) -> str:
+        ...
+
+
+class TimeSpan(System.IComparable[datetime.timedelta], System.IEquatable[datetime.timedelta], System.ISpanFormattable, System.ISpanParsable[datetime.timedelta], System.IUtf8SpanFormattable):
+    """This class has no documentation."""
+
+    NANOSECONDS_PER_TICK: int = 100
+    """Represents the number of nanoseconds per tick. This field is constant."""
+
+    TICKS_PER_MICROSECOND: int = 10
+    """Represents the number of ticks in 1 microsecond. This field is constant."""
+
+    TICKS_PER_MILLISECOND: int = ...
+    """Represents the number of ticks in 1 millisecond. This field is constant."""
+
+    TICKS_PER_SECOND: int = ...
+    """Represents the number of ticks in 1 second. This field is constant."""
+
+    TICKS_PER_MINUTE: int = ...
+    """Represents the number of ticks in 1 minute. This field is constant."""
+
+    TICKS_PER_HOUR: int = ...
+    """Represents the number of ticks in 1 hour. This field is constant."""
+
+    TICKS_PER_DAY: int = ...
+    """Represents the number of ticks in 1 day. This field is constant."""
+
+    MICROSECONDS_PER_MILLISECOND: int = ...
+    """Represents the number of microseconds in 1 millisecond. This field is constant."""
+
+    MICROSECONDS_PER_SECOND: int = ...
+    """Represents the number of microseconds in 1 second. This field is constant."""
+
+    MICROSECONDS_PER_MINUTE: int = ...
+    """Represents the number of microseconds in 1 minute. This field is constant."""
+
+    MICROSECONDS_PER_HOUR: int = ...
+    """Represents the number of microseconds in 1 hour. This field is constant."""
+
+    MICROSECONDS_PER_DAY: int = ...
+    """Represents the number of microseconds in 1 day. This field is constant."""
+
+    MILLISECONDS_PER_SECOND: int = ...
+    """Represents the number of milliseconds in 1 second. This field is constant."""
+
+    MILLISECONDS_PER_MINUTE: int = ...
+    """Represents the number of milliseconds in 1 minute. This field is constant."""
+
+    MILLISECONDS_PER_HOUR: int = ...
+    """Represents the number of milliseconds in 1 hour. This field is constant."""
+
+    MILLISECONDS_PER_DAY: int = ...
+    """Represents the number of milliseconds in 1 day. This field is constant."""
+
+    SECONDS_PER_MINUTE: int = ...
+    """Represents the number of seconds in 1 minute. This field is constant."""
+
+    SECONDS_PER_HOUR: int = ...
+    """Represents the number of seconds in 1 hour. This field is constant."""
+
+    SECONDS_PER_DAY: int = ...
+    """Represents the number of seconds in 1 day. This field is constant."""
+
+    MINUTES_PER_HOUR: int = ...
+    """Represents the number of minutes in 1 hour. This field is constant."""
+
+    MINUTES_PER_DAY: int = ...
+    """Represents the number of minutes in 1 day. This field is constant."""
+
+    HOURS_PER_DAY: int = ...
+    """Represents the number of hours in 1 day. This field is constant."""
+
+    ZERO: datetime.timedelta = ...
+
+    MAX_VALUE: datetime.timedelta = ...
+
+    MIN_VALUE: datetime.timedelta = ...
 
     @property
-    def array(self) -> typing.List[System_ArraySegment_T]:
+    def ticks(self) -> int:
         ...
 
     @property
-    def offset(self) -> int:
+    def days(self) -> int:
         ...
 
     @property
-    def count(self) -> int:
+    def hours(self) -> int:
         ...
 
-    def __eq__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
+    @property
+    def milliseconds(self) -> int:
         ...
 
-    def __getitem__(self, index: int) -> System_ArraySegment_T:
+    @property
+    def microseconds(self) -> int:
+        """Gets the microseconds component of the time interval represented by the current TimeSpan structure."""
+        ...
+
+    @property
+    def nanoseconds(self) -> int:
+        """Gets the nanoseconds component of the time interval represented by the current TimeSpan structure."""
+        ...
+
+    @property
+    def minutes(self) -> int:
+        ...
+
+    @property
+    def seconds(self) -> int:
+        ...
+
+    @property
+    def total_days(self) -> float:
+        ...
+
+    @property
+    def total_hours(self) -> float:
+        ...
+
+    @property
+    def total_milliseconds(self) -> float:
+        ...
+
+    @property
+    def total_microseconds(self) -> float:
+        """Gets the value of the current TimeSpan structure expressed in whole and fractional microseconds."""
+        ...
+
+    @property
+    def total_nanoseconds(self) -> float:
+        """Gets the value of the current TimeSpan structure expressed in whole and fractional nanoseconds."""
+        ...
+
+    @property
+    def total_minutes(self) -> float:
+        ...
+
+    @property
+    def total_seconds(self) -> float:
         ...
 
     @overload
-    def __init__(self, array: typing.List[System_ArraySegment_T]) -> None:
+    def __add__(self) -> datetime.timedelta:
         ...
 
     @overload
-    def __init__(self, array: typing.List[System_ArraySegment_T], offset: int, count: int) -> None:
+    def __add__(self, t_2: datetime.timedelta) -> datetime.timedelta:
         ...
 
-    def __iter__(self) -> typing.Iterator[System_ArraySegment_T]:
-        ...
-
-    def __ne__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
-        ...
-
-    def __setitem__(self, index: int, value: System_ArraySegment_T) -> None:
+    def __eq__(self, t_2: datetime.timedelta) -> bool:
         ...
 
     @overload
-    def copy_to(self, destination: typing.List[System_ArraySegment_T]) -> None:
+    def __ge__(self, other: typing.Any) -> bool:
         ...
 
     @overload
-    def copy_to(self, destination: typing.List[System_ArraySegment_T], destination_index: int) -> None:
+    def __ge__(self, other: datetime.timedelta) -> bool:
         ...
 
     @overload
-    def copy_to(self, destination: System.ArraySegment[System_ArraySegment_T]) -> None:
+    def __ge__(self, t_2: datetime.timedelta) -> bool:
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def __gt__(self, other: typing.Any) -> bool:
         ...
 
     @overload
-    def equals(self, obj: System.ArraySegment[System_ArraySegment_T]) -> bool:
+    def __gt__(self, other: datetime.timedelta) -> bool:
         ...
 
-    def get_enumerator(self) -> System.ArraySegment.Enumerator:
+    @overload
+    def __gt__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __iadd__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __iadd__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __imul__(self, factor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __imul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __init__(self, ticks: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, hours: int, minutes: int, seconds: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, days: int, hours: int, minutes: int, seconds: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, days: int, hours: int, minutes: int, seconds: int, milliseconds: int) -> None:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        days, hours, minutes, seconds, and milliseconds.
+        
+        :param days: Number of days.
+        :param hours: Number of hours.
+        :param minutes: Number of minutes.
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        """
+        ...
+
+    @overload
+    def __init__(self, days: int, hours: int, minutes: int, seconds: int, milliseconds: int, microseconds: int) -> None:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        days, hours, minutes, seconds, and milliseconds.
+        
+        :param days: Number of days.
+        :param hours: Number of hours.
+        :param minutes: Number of minutes.
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        """
+        ...
+
+    @overload
+    def __isub__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __isub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __itruediv__(self, divisor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __itruediv__(self, t_2: datetime.timedelta) -> float:
+        ...
+
+    @overload
+    def __le__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __le__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __le__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: typing.Any) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, other: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __lt__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __mul__(self, factor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __mul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    def __ne__(self, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @overload
+    def __sub__(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __sub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __truediv__(self, divisor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __truediv__(self, t_2: datetime.timedelta) -> float:
+        ...
+
+    def add(self, ts: datetime.timedelta) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    def compare(t_1: datetime.timedelta, t_2: datetime.timedelta) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: typing.Any) -> int:
+        ...
+
+    @overload
+    def compare_to(self, value: datetime.timedelta) -> int:
+        ...
+
+    @overload
+    def divide(self, divisor: float) -> datetime.timedelta:
+        ...
+
+    @overload
+    def divide(self, ts: datetime.timedelta) -> float:
+        ...
+
+    def duration(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: datetime.timedelta) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(t_1: datetime.timedelta, t_2: datetime.timedelta) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def from_days(value: float) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def from_days(days: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        days.
+        
+        :param days: Number of days.
+        :returns: Returns a TimeSpan that represents a specified number of days.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_days(days: int, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        days, hours, minutes, seconds, milliseconds, and microseconds.
+        
+        :param days: Number of days.
+        :param hours: Number of hours.
+        :param minutes: Number of minutes.
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of days, hours, minutes, seconds, milliseconds, and microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_hours(hours: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        hours.
+        
+        :param hours: Number of hours.
+        :returns: Returns a TimeSpan that represents a specified number of hours.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_hours(hours: int, minutes: int = 0, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        hours, minutes, seconds, milliseconds, and microseconds.
+        
+        :param hours: Number of hours.
+        :param minutes: Number of minutes.
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of hours, minutes, seconds, milliseconds, and microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_hours(value: float) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def from_microseconds(microseconds: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        microseconds.
+        
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_microseconds(value: float) -> datetime.timedelta:
+        """
+        Returns a TimeSpan that represents a specified number of microseconds.
+        
+        :param value: A number of microseconds.
+        :returns: An object that represents .
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_milliseconds(milliseconds: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        milliseconds.
+        
+        :param milliseconds: Number of milliseconds.
+        :returns: Returns a TimeSpan that represents a specified number of milliseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_milliseconds(milliseconds: int, microseconds: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        milliseconds, and microseconds.
+        
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of milliseconds, and microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_milliseconds(value: float) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def from_minutes(minutes: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        minutes.
+        
+        :param minutes: Number of minutes.
+        :returns: Returns a TimeSpan that represents a specified number of minutes.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_minutes(minutes: int, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        minutes, seconds, milliseconds, and microseconds.
+        
+        :param minutes: Number of minutes.
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of minutes, seconds, milliseconds, and microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_minutes(value: float) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def from_seconds(seconds: int) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        seconds.
+        
+        :param seconds: Number of seconds.
+        :returns: Returns a TimeSpan that represents a specified number of seconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_seconds(seconds: int, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
+        """
+        Initializes a new instance of the TimeSpan structure to a specified number of
+        seconds, milliseconds, and microseconds.
+        
+        :param seconds: Number of seconds.
+        :param milliseconds: Number of milliseconds.
+        :param microseconds: Number of microseconds.
+        :returns: Returns a TimeSpan that represents a specified number of seconds, milliseconds, and microseconds.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_seconds(value: float) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    def from_ticks(value: int) -> datetime.timedelta:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
+    def multiply(self, factor: float) -> datetime.timedelta:
+        ...
+
+    def negate(self) -> datetime.timedelta:
+        ...
+
+    @staticmethod
     @overload
-    def slice(self, index: int) -> System.ArraySegment[System_ArraySegment_T]:
+    def parse(s: str) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(input: str, format_provider: System.IFormatProvider) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(input: System.ReadOnlySpan[str], format_provider: System.IFormatProvider = None) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: str, format: str, format_provider: System.IFormatProvider) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: str, format: str, format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles = ...) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles = ...) -> datetime.timedelta:
+        ...
+
+    def subtract(self, ts: datetime.timedelta) -> datetime.timedelta:
         ...
 
     @overload
-    def slice(self, index: int, count: int) -> System.ArraySegment[System_ArraySegment_T]:
+    def to_string(self) -> str:
         ...
 
-    def to_array(self) -> typing.List[System_ArraySegment_T]:
+    @overload
+    def to_string(self, format: str) -> str:
         ...
+
+    @overload
+    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., format_provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., format_provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: str, format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(input: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, format: str, format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, format: str, format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
+        ...
+
+
+class ApplicationId(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def culture(self) -> str:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def processor_architecture(self) -> str:
+        ...
+
+    @property
+    def version(self) -> System.Version:
+        ...
+
+    @property
+    def public_key_token(self) -> typing.List[int]:
+        ...
+
+    def __init__(self, public_key_token: typing.List[int], name: str, version: System.Version, processor_architecture: str, culture: str) -> None:
+        ...
+
+    def copy(self) -> System.ApplicationId:
+        ...
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class IComparable(typing.Generic[System_IComparable_T], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @overload
+    def compare_to(self, obj: typing.Any) -> int:
+        """
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        
+        :param obj: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings:ValueMeaningLess than zeroThis instance precedes  in the sort order.ZeroThis instance occurs in the same position in the sort order as .Greater than zeroThis instance follows  in the sort order.
+        """
+        ...
+
+    @overload
+    def compare_to(self, other: System_IComparable_T) -> int:
+        """
+        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
+        
+        :param other: An object to compare with this instance.
+        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings:ValueMeaningLess than zeroThis instance precedes  in the sort order.ZeroThis instance occurs in the same position in the sort order as .Greater than zeroThis instance follows  in the sort order.
+        """
+        ...
+
+
+class IParsable(typing.Generic[System_IParsable_TSelf], metaclass=abc.ABCMeta):
+    """Defines a mechanism for parsing a string to a value."""
 
 
 class UnitySerializationHolder(System.Object, System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IObjectReference):
@@ -15128,253 +19460,27 @@ class UnitySerializationHolder(System.Object, System.Runtime.Serialization.ISeri
         ...
 
 
-class Buffer(System.Object):
+class IAsyncDisposable(metaclass=abc.ABCMeta):
+    """Provides a mechanism for releasing unmanaged resources asynchronously."""
+
+    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
+        """
+        Performs application-defined tasks associated with freeing, releasing, or
+        resetting unmanaged resources asynchronously.
+        """
+        ...
+
+
+class IObserver(typing.Generic[System_IObserver_T], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @staticmethod
-    def block_copy(src: System.Array, src_offset: int, dst: System.Array, dst_offset: int, count: int) -> None:
+    def on_completed(self) -> None:
         ...
 
-    @staticmethod
-    def byte_length(array: System.Array) -> int:
+    def on_error(self, error: System.Exception) -> None:
         ...
 
-    @staticmethod
-    def get_byte(array: System.Array, index: int) -> int:
-        ...
-
-    @staticmethod
-    def memory_copy(source: typing.Any, destination: typing.Any, destination_size_in_bytes: int, source_bytes_to_copy: int) -> None:
-        ...
-
-    @staticmethod
-    def set_byte(array: System.Array, index: int, value: int) -> None:
-        ...
-
-
-class NotFiniteNumberException(System.ArithmeticException):
-    """This class has no documentation."""
-
-    @property
-    def offending_number(self) -> float:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, offending_number: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, offending_number: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, offending_number: float, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class Memory(typing.Generic[System_Memory_T], System.IEquatable[System_Memory]):
-    """
-    Memory represents a contiguous region of arbitrary memory similar to Span{T}.
-    Unlike Span{T}, it is not a byref-like type.
-    """
-
-    EMPTY: System.Memory[System_Memory_T]
-    """Returns an empty Memory{T}"""
-
-    @property
-    def length(self) -> int:
-        """The number of items in the memory."""
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Returns true if Length is 0."""
-        ...
-
-    @property
-    def span(self) -> System.Span[System_Memory_T]:
-        """Returns a span from the memory."""
-        ...
-
-    @overload
-    def __init__(self, array: typing.List[System_Memory_T]) -> None:
-        """
-        Creates a new memory over the entirety of the target array.
-        
-        :param array: The target array.
-        """
-        ...
-
-    @overload
-    def __init__(self, array: typing.List[System_Memory_T], start: int, length: int) -> None:
-        """
-        Creates a new memory over the portion of the target array beginning
-        at 'start' index and ending at 'end' index (exclusive).
-        
-        :param array: The target array.
-        :param start: The index at which to begin the memory.
-        :param length: The number of items in the memory.
-        """
-        ...
-
-    def copy_to(self, destination: System.Memory[System_Memory_T]) -> None:
-        """
-        Copies the contents of the memory into the destination. If the source
-        and destination overlap, this method behaves as if the original values are in
-        a temporary location before the destination is overwritten.
-        
-        :param destination: The Memory to copy items into.
-        """
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        Returns true if the object is Memory or ReadOnlyMemory and if both objects point to the same array and have the same length.
-        """
-        ...
-
-    @overload
-    def equals(self, other: System.Memory[System_Memory_T]) -> bool:
-        """
-        Returns true if the memory points to the same array and has the same length.  Note that
-        this does *not* check to see if the *contents* are equal.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """Serves as the default hash function."""
-        ...
-
-    def pin(self) -> System.Buffers.MemoryHandle:
-        """
-        Creates a handle for the memory.
-        The GC will not move the memory until the returned MemoryHandle
-        is disposed, enabling taking and using the memory's address.
-        """
-        ...
-
-    @overload
-    def slice(self, start: int) -> System.Memory[System_Memory_T]:
-        """
-        Forms a slice out of the given memory, beginning at 'start'.
-        
-        :param start: The index at which to begin this slice.
-        """
-        ...
-
-    @overload
-    def slice(self, start: int, length: int) -> System.Memory[System_Memory_T]:
-        """
-        Forms a slice out of the given memory, beginning at 'start', of given length
-        
-        :param start: The index at which to begin this slice.
-        :param length: The desired length for the slice (exclusive).
-        """
-        ...
-
-    def to_array(self) -> typing.List[System_Memory_T]:
-        """
-        Copies the contents from the memory into a new array.  This heap
-        allocates, so should generally be avoided, however it is sometimes
-        necessary to bridge the gap with APIs written in terms of arrays.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        For Memory{Char}, returns a new instance of string that represents the characters pointed to by the memory.
-        Otherwise, returns a string with the name of the type and the number of elements.
-        """
-        ...
-
-    def try_copy_to(self, destination: System.Memory[System_Memory_T]) -> bool:
-        """
-        Copies the contents of the memory into the destination. If the source
-        and destination overlap, this method behaves as if the original values are in
-        a temporary location before the destination is overwritten.
-        
-        :param destination: The span to copy items into.
-        :returns: If the destination is shorter than the source, this method return false and no data is written to the destination.
-        """
-        ...
-
-
-class BadImageFormatException(System.SystemException):
-    """The exception that is thrown when the file image of an assembly or an executable program is invalid."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @property
-    def file_name(self) -> str:
-        ...
-
-    @property
-    def fusion_log(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, file_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, file_name: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def to_string(self) -> str:
+    def on_next(self, value: System_IObserver_T) -> None:
         ...
 
 
@@ -15612,8 +19718,16 @@ class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable
         ...
 
 
-class AccessViolationException(System.SystemException):
-    """The exception that is thrown when there is an attempt to read or write protected memory."""
+class ContextBoundObject(System.MarshalByRefObject, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+
+class ContextMarshalException(System.SystemException):
+    """This class has no documentation."""
 
     @overload
     def __init__(self) -> None:
@@ -15624,7 +19738,7 @@ class AccessViolationException(System.SystemException):
         ...
 
     @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
     @overload
@@ -15634,6 +19748,20 @@ class AccessViolationException(System.SystemException):
         
         Obsoletions.LegacyFormatterImplMessage
         """
+        ...
+
+
+class ContextStaticAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class SerializableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 
@@ -15723,130 +19851,12 @@ class StringNormalizationExtensions(System.Object):
         ...
 
 
-class ICustomFormatter(metaclass=abc.ABCMeta):
-    """Defines a method that supports custom formatting of the value of an object."""
-
-    def format(self, format: str, arg: typing.Any, format_provider: System.IFormatProvider) -> str:
-        ...
-
-
-class HashCode:
-    """This class has no documentation."""
-
-    def add_bytes(self, value: System.ReadOnlySpan[int]) -> None:
-        """
-        Adds a span of bytes to the hash code.
-        
-        :param value: The span.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """HashCode is a mutable struct and should not be compared with other HashCodes."""
-        warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes.", DeprecationWarning)
-
-    def get_hash_code(self) -> int:
-        """HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code."""
-        warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", DeprecationWarning)
-
-    def to_hash_code(self) -> int:
-        ...
-
-
-class OutOfMemoryException(System.SystemException):
-    """The exception class for OOM."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ApplicationId(System.Object):
-    """This class has no documentation."""
+class MissingMethodException(System.MissingMemberException):
+    """The exception that is thrown when there is an attempt to dynamically access a method that does not exist."""
 
     @property
-    def culture(self) -> str:
+    def message(self) -> str:
         ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def processor_architecture(self) -> str:
-        ...
-
-    @property
-    def version(self) -> System.Version:
-        ...
-
-    @property
-    def public_key_token(self) -> typing.List[int]:
-        ...
-
-    def __init__(self, public_key_token: typing.List[int], name: str, version: System.Version, processor_architecture: str, culture: str) -> None:
-        ...
-
-    def copy(self) -> System.ApplicationId:
-        ...
-
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class NotSupportedException(System.SystemException):
-    """
-    The exception that is thrown when an invoked method is not supported,
-    typically because it should have been implemented on a subclass.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class PlatformNotSupportedException(System.NotSupportedException):
-    """The exception that is thrown when a feature is not supported on the current platform."""
 
     @overload
     def __init__(self) -> None:
@@ -15861,6 +19871,10 @@ class PlatformNotSupportedException(System.NotSupportedException):
         ...
 
     @overload
+    def __init__(self, class_name: str, method_name: str) -> None:
+        ...
+
+    @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """
         This method is protected.
@@ -15870,32 +19884,12 @@ class PlatformNotSupportedException(System.NotSupportedException):
         ...
 
 
-class IAsyncResult(metaclass=abc.ABCMeta):
-    """Represents the status of an asynchronous operation."""
-
-    @property
-    @abc.abstractmethod
-    def is_completed(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def async_wait_handle(self) -> System.Threading.WaitHandle:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def async_state(self) -> System.Object:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def completed_synchronously(self) -> bool:
-        ...
-
-
-class MulticastNotSupportedException(System.SystemException):
+class MissingFieldException(System.MissingMemberException, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
+
+    @property
+    def message(self) -> str:
+        ...
 
     @overload
     def __init__(self) -> None:
@@ -15909,613 +19903,8 @@ class MulticastNotSupportedException(System.SystemException):
     def __init__(self, message: str, inner: System.Exception) -> None:
         ...
 
-
-class Double(System.IComparable[float], System.IConvertible, System.ISpanFormattable, System.IEquatable[float], System.IUtf8SpanFormattable, System.IBinaryFloatParseAndFormatInfo[float]):
-    """Represents a double-precision floating-point number."""
-
-    MIN_VALUE: float = ...
-
-    MAX_VALUE: float = ...
-
-    EPSILON: float = ...
-
-    NEGATIVE_INFINITY: float = ...
-
-    POSITIVE_INFINITY: float = ...
-
-    NA_N: float = ...
-
-    NEGATIVE_ZERO: float = -0.0
-    """Represents the number negative zero (-0)."""
-
-    E: float = ...
-    """Represents the natural logarithmic base, specified by the constant, e."""
-
-    PI: float = ...
-    """Represents the ratio of the circumference of a circle to its diameter, specified by the constant, PI."""
-
-    TAU: float = ...
-    """Represents the number of radians in one turn, specified by the constant, Tau."""
-
-    def __eq__(self, right: float) -> bool:
-        ...
-
     @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __le__(self, right: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, right: float) -> bool:
-        ...
-
-    def __ne__(self, right: float) -> bool:
-        ...
-
-    @staticmethod
-    def abs(value: float) -> float:
-        ...
-
-    @staticmethod
-    def acos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def acos_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def asin_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_2(y: float, x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_2_pi(y: float, x: float) -> float:
-        ...
-
-    @staticmethod
-    def atanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def atan_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_decrement(x: float) -> float:
-        ...
-
-    @staticmethod
-    def bit_increment(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cbrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def ceiling(x: float) -> float:
-        ...
-
-    @staticmethod
-    def clamp(value: float, min: float, max: float) -> float:
-        ...
-
-    @staticmethod
-    def clamp_native(value: float, min: float, max: float) -> float:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: float) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: float, sign: float) -> float:
-        ...
-
-    @staticmethod
-    def cos(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cosh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def cos_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def degrees_to_radians(degrees: float) -> float:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: float) -> bool:
-        ...
-
-    @staticmethod
-    def exp(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_10(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_10_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_2(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_2_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def exp_m_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def floor(x: float) -> float:
-        ...
-
-    @staticmethod
-    def fused_multiply_add(left: float, right: float, addend: float) -> float:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def hypot(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def ieee_754_remainder(left: float, right: float) -> float:
-        ...
-
-    @staticmethod
-    def i_log_b(x: float) -> int:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_finite(d: float) -> bool:
-        """Determines whether the specified value is finite (zero, subnormal, or normal)."""
-        ...
-
-    @staticmethod
-    def is_infinity(d: float) -> bool:
-        """Determines whether the specified value is infinite."""
-        ...
-
-    @staticmethod
-    def is_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_na_n(d: float) -> bool:
-        """Determines whether the specified value is NaN."""
-        ...
-
-    @staticmethod
-    def is_negative(d: float) -> bool:
-        """Determines whether the specified value is negative."""
-        ...
-
-    @staticmethod
-    def is_negative_infinity(d: float) -> bool:
-        """Determines whether the specified value is negative infinity."""
-        ...
-
-    @staticmethod
-    def is_normal(d: float) -> bool:
-        """Determines whether the specified value is normal (finite, but not zero or subnormal)."""
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive_infinity(d: float) -> bool:
-        """Determines whether the specified value is positive infinity."""
-        ...
-
-    @staticmethod
-    def is_pow_2(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_real_number(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_subnormal(d: float) -> bool:
-        """Determines whether the specified value is subnormal (finite, but not zero or normal)."""
-        ...
-
-    @staticmethod
-    def lerp(value_1: float, value_2: float, amount: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def log(x: float, new_base: float) -> float:
-        ...
-
-    @staticmethod
-    def log_10(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_10_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_2(value: float) -> float:
-        ...
-
-    @staticmethod
-    def log_2_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def log_p_1(x: float) -> float:
-        ...
-
-    @staticmethod
-    def max(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_native(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_native(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_number(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def multiply_add_estimate(left: float, right: float, addend: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    def pow(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def radians_to_degrees(radians: float) -> float:
-        ...
-
-    @staticmethod
-    def reciprocal_estimate(x: float) -> float:
-        ...
-
-    @staticmethod
-    def reciprocal_sqrt_estimate(x: float) -> float:
-        ...
-
-    @staticmethod
-    def root_n(x: float, n: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(x: float, digits: int, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    def scale_b(x: float, n: int) -> float:
-        ...
-
-    @staticmethod
-    def sign(value: float) -> int:
-        ...
-
-    @staticmethod
-    def sin(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sin_cos(x: float) -> System.ValueTuple[float, float]:
-        ...
-
-    @staticmethod
-    def sin_cos_pi(x: float) -> System.ValueTuple[float, float]:
-        ...
-
-    @staticmethod
-    def sinh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sin_pi(x: float) -> float:
-        ...
-
-    @staticmethod
-    def sqrt(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tan(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tanh(x: float) -> float:
-        ...
-
-    @staticmethod
-    def tan_pi(x: float) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def truncate(x: float) -> float:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its double-precision floating-point number equivalent.
-        
-        :param utf_8_text: A read-only UTF-8 character span that contains the number to convert.
-        :param result: When this method returns, contains a double-precision floating-point number equivalent of the numeric value or symbol contained in  if the conversion succeeded or zero if the conversion failed. The conversion fails if the  is ReadOnlySpan{T}.Empty or is not in a valid format. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-
-class ThreadStaticAttribute(System.Attribute):
-    """Indicates that the value of a static field is unique for each thread."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class InvalidOperationException(System.SystemException):
-    """The exception that is thrown when a method call is invalid for the object's current state."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+    def __init__(self, class_name: str, field_name: str) -> None:
         ...
 
     @overload
@@ -16528,12 +19917,12 @@ class InvalidOperationException(System.SystemException):
         ...
 
 
-class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
+class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
     """This class has no documentation."""
 
     MAX_VALUE: int = ...
 
-    MIN_VALUE: int = ...
+    MIN_VALUE: int = 0
 
     @overload
     def __ge__(self, other: typing.Any) -> bool:
@@ -16568,21 +19957,6 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
     @staticmethod
-    def abs(value: int) -> int:
-        ...
-
-    @staticmethod
-    def big_mul(left: int, right: int) -> int:
-        """
-        Produces the full product of two 32-bit numbers.
-        
-        :param left: The first number to multiply.
-        :param right: The second number to multiply.
-        :returns: The number containing the product of the specified numbers.
-        """
-        ...
-
-    @staticmethod
     def clamp(value: int, min: int, max: int) -> int:
         ...
 
@@ -16592,10 +19966,6 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @overload
     def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: int, sign: int) -> int:
         ...
 
     @staticmethod
@@ -16621,15 +19991,7 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
     @staticmethod
-    def is_negative(value: int) -> bool:
-        ...
-
-    @staticmethod
     def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: int) -> bool:
         ...
 
     @staticmethod
@@ -16649,352 +20011,7 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
     @staticmethod
-    def max_magnitude(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
     def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_left(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_right(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def sign(value: int) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 32-bit signed integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 32-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class AttributeTargets(Enum):
-    """This class has no documentation."""
-
-    ASSEMBLY = ...
-
-    MODULE = ...
-
-    CLASS = ...
-
-    STRUCT = ...
-
-    ENUM = ...
-
-    CONSTRUCTOR = ...
-
-    METHOD = ...
-
-    PROPERTY = ...
-
-    FIELD = ...
-
-    EVENT = ...
-
-    INTERFACE = ...
-
-    PARAMETER = ...
-
-    DELEGATE = ...
-
-    RETURN_VALUE = ...
-
-    GENERIC_PARAMETER = ...
-
-    ALL = ...
-
-
-class AttributeUsageAttribute(System.Attribute):
-    """Specifies the usage of another attribute class."""
-
-    @property
-    def valid_on(self) -> System.AttributeTargets:
-        ...
-
-    @property
-    def allow_multiple(self) -> bool:
-        ...
-
-    @allow_multiple.setter
-    def allow_multiple(self, value: bool) -> None:
-        ...
-
-    @property
-    def inherited(self) -> bool:
-        ...
-
-    @inherited.setter
-    def inherited(self, value: bool) -> None:
-        ...
-
-    def __init__(self, valid_on: System.AttributeTargets) -> None:
-        ...
-
-
-class IndexOutOfRangeException(System.SystemException):
-    """The exception that is thrown when an attempt is made to access an element of an array or collection with an index that is outside its bounds."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.ISignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
-    """This class has no documentation."""
-
-    MAX_VALUE: int = ...
-
-    MIN_VALUE: int = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: int) -> bool:
-        ...
-
-    @staticmethod
-    def abs(value: int) -> int:
-        ...
-
-    @staticmethod
-    def clamp(value: int, min: int, max: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: int, sign: int) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: int) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_negative(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    def max(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: int, y: int) -> int:
         ...
 
     @staticmethod
@@ -17095,10 +20112,10 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     @overload
     def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
         """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 16-bit signed integer equivalent.
+        Tries to convert a UTF-8 character span containing the string representation of a number to its 16-bit unsigned integer equivalent.
         
         :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 16-bit signed integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
+        :param result: When this method returns, contains the 16-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
         :returns: true if  was converted successfully; otherwise, false.
         """
         ...
@@ -17134,19 +20151,78 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
         ...
 
 
-class TypeInitializationException(System.SystemException):
-    """The exception that is thrown as a wrapper around the exception thrown by the class initializer."""
+class InvalidTimeZoneException(System.Exception):
+    """This class has no documentation."""
 
-    @property
-    def type_name(self) -> str:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    def __init__(self, full_type_name: str, inner_exception: System.Exception) -> None:
+    @overload
+    def __init__(self, message: str) -> None:
         ...
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class Buffer(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def block_copy(src: System.Array, src_offset: int, dst: System.Array, dst_offset: int, count: int) -> None:
+        ...
+
+    @staticmethod
+    def byte_length(array: System.Array) -> int:
+        ...
+
+    @staticmethod
+    def get_byte(array: System.Array, index: int) -> int:
+        ...
+
+    @staticmethod
+    def memory_copy(source: typing.Any, destination: typing.Any, destination_size_in_bytes: int, source_bytes_to_copy: int) -> None:
+        ...
+
+    @staticmethod
+    def set_byte(array: System.Array, index: int, value: int) -> None:
+        ...
+
+
+class ArrayTypeMismatchException(System.SystemException):
+    """The exception that is thrown when an attempt is made to store an element of the wrong type within an array."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
 
 
 class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntPtr], System.ISpanFormattable, System.Runtime.Serialization.ISerializable, System.Numerics.IBinaryInteger[System_UIntPtr], System.Numerics.IMinMaxValue[System_UIntPtr], System.Numerics.IUnsignedNumber[System_UIntPtr], System.IUtf8SpanFormattable):
@@ -17855,610 +20931,6 @@ class Math(System.Object):
         ...
 
 
-class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConvertible, System.IEquatable[float], System.Runtime.Serialization.ISerializable, System.Runtime.Serialization.IDeserializationCallback, System.Numerics.IFloatingPoint[float], System.Numerics.IMinMaxValue[float], System.IUtf8SpanFormattable):
-    """This class has no documentation."""
-
-    ZERO: float = 0
-
-    ONE: float = 1
-
-    MINUS_ONE: float = -1
-
-    MAX_VALUE: float = 79228162514264337593543950335
-
-    MIN_VALUE: float = -79228162514264337593543950335
-
-    @property
-    def scale(self) -> int:
-        """Gets the scaling factor of the decimal, which is a number from 0 to 28 that represents the number of decimal digits."""
-        ...
-
-    @overload
-    def __add__(self) -> float:
-        ...
-
-    @overload
-    def __add__(self, d_2: float) -> float:
-        ...
-
-    def __eq__(self, d_2: float) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, d_2: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, d_2: float) -> bool:
-        ...
-
-    @overload
-    def __iadd__(self) -> float:
-        ...
-
-    @overload
-    def __iadd__(self, d_2: float) -> float:
-        ...
-
-    def __imod__(self, d_2: float) -> float:
-        ...
-
-    def __imul__(self, d_2: float) -> float:
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, bits: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, bits: System.ReadOnlySpan[int]) -> None:
-        """
-        Initializes a new instance of decimal to a decimal value represented in binary and contained in the specified span.
-        
-        :param bits: A span of four ints containing a binary representation of a decimal value.
-        """
-        ...
-
-    @overload
-    def __init__(self, lo: int, mid: int, hi: int, is_negative: bool, scale: int) -> None:
-        ...
-
-    @overload
-    def __isub__(self) -> float:
-        ...
-
-    @overload
-    def __isub__(self, d_2: float) -> float:
-        ...
-
-    def __itruediv__(self, d_2: float) -> float:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __le__(self, d_2: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: float) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, d_2: float) -> bool:
-        ...
-
-    def __mod__(self, d_2: float) -> float:
-        ...
-
-    def __mul__(self, d_2: float) -> float:
-        ...
-
-    def __ne__(self, d_2: float) -> bool:
-        ...
-
-    @overload
-    def __sub__(self) -> float:
-        ...
-
-    @overload
-    def __sub__(self, d_2: float) -> float:
-        ...
-
-    def __truediv__(self, d_2: float) -> float:
-        ...
-
-    @staticmethod
-    def abs(value: float) -> float:
-        ...
-
-    @staticmethod
-    def add(d_1: float, d_2: float) -> float:
-        ...
-
-    @staticmethod
-    def ceiling(d: float) -> float:
-        ...
-
-    @staticmethod
-    def clamp(value: float, min: float, max: float) -> float:
-        ...
-
-    @staticmethod
-    def compare(d_1: float, d_2: float) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: float) -> int:
-        ...
-
-    @staticmethod
-    def copy_sign(value: float, sign: float) -> float:
-        ...
-
-    @staticmethod
-    def divide(d_1: float, d_2: float) -> float:
-        ...
-
-    @overload
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, value: float) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(d_1: float, d_2: float) -> bool:
-        ...
-
-    @staticmethod
-    def floor(d: float) -> float:
-        ...
-
-    @staticmethod
-    def from_oa_currency(cy: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_bits(d: float) -> typing.List[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_bits(d: float, destination: System.Span[int]) -> int:
-        """
-        Converts the value of a specified instance of decimal to its equivalent binary representation.
-        
-        :param d: The value to convert.
-        :param destination: The span into which to store the four-integer binary representation.
-        :returns: Four, the number of integers in the binary representation.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_canonical(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_negative(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def is_positive(value: float) -> bool:
-        ...
-
-    @staticmethod
-    def max(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def max_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def min_magnitude(x: float, y: float) -> float:
-        ...
-
-    @staticmethod
-    def multiply(d_1: float, d_2: float) -> float:
-        ...
-
-    @staticmethod
-    def negate(d: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> float:
-        ...
-
-    @staticmethod
-    def remainder(d_1: float, d_2: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(d: float) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(d: float, decimals: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(d: float, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def round(d: float, decimals: int, mode: System.MidpointRounding) -> float:
-        ...
-
-    @staticmethod
-    def sign(d: float) -> int:
-        ...
-
-    @staticmethod
-    def subtract(d_1: float, d_2: float) -> float:
-        ...
-
-    @staticmethod
-    def to_byte(value: float) -> int:
-        ...
-
-    @staticmethod
-    def to_double(d: float) -> float:
-        ...
-
-    @staticmethod
-    def to_int_16(value: float) -> int:
-        ...
-
-    @staticmethod
-    def to_int_32(d: float) -> int:
-        ...
-
-    @staticmethod
-    def to_int_64(d: float) -> int:
-        ...
-
-    @staticmethod
-    def to_oa_currency(value: float) -> int:
-        ...
-
-    @staticmethod
-    def to_s_byte(value: float) -> int:
-        ...
-
-    @staticmethod
-    def to_single(d: float) -> float:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def to_u_int_16(value: float) -> int:
-        ...
-
-    @staticmethod
-    def to_u_int_32(d: float) -> int:
-        ...
-
-    @staticmethod
-    def to_u_int_64(d: float) -> int:
-        ...
-
-    @staticmethod
-    def truncate(d: float) -> float:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    def try_get_bits(d: float, destination: System.Span[int], values_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert the value of a specified instance of decimal to its equivalent binary representation.
-        
-        :param d: The value to convert.
-        :param destination: The span into which to store the binary representation.
-        :param values_written: The number of integers written to the destination.
-        :returns: true if the decimal's binary representation was written to the destination; false if the destination wasn't long enough.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its signed decimal equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the signed decimal value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
-        ...
-
-
-class UnauthorizedAccessException(System.SystemException):
-    """The exception that is thrown when the operating system denies access because of an I/O error or a specific type of security error."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class FieldAccessException(System.MemberAccessException):
-    """The exception that is thrown when there is an invalid attempt to access a private or protected field inside a class."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ArrayTypeMismatchException(System.SystemException):
-    """The exception that is thrown when an attempt is made to store an element of the wrong type within an array."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class TimeZone(System.Object, metaclass=abc.ABCMeta):
-    """
-    Represents a time zone.
-    
-    System.TimeZone has been deprecated. Investigate the use of System.TimeZoneInfo instead.
-    """
-
-    CURRENT_TIME_ZONE: System.TimeZone
-
-    @property
-    @abc.abstractmethod
-    def standard_name(self) -> str:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def daylight_name(self) -> str:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def get_daylight_changes(self, year: int) -> System.Globalization.DaylightTime:
-        ...
-
-    def get_utc_offset(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.timedelta:
-        ...
-
-    @overload
-    def is_daylight_saving_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_daylight_saving_time(time: typing.Union[datetime.datetime, datetime.date], daylight_times: System.Globalization.DaylightTime) -> bool:
-        ...
-
-    def to_local_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        ...
-
-    def to_universal_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:
-        ...
-
-
 class ArgumentOutOfRangeException(System.ArgumentException):
     """The exception that is thrown when the value of an argument is outside the allowable range of values as defined by the invoked method."""
 
@@ -18504,2466 +20976,8 @@ class ArgumentOutOfRangeException(System.ArgumentException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
-class IComparable(typing.Generic[System_IComparable_T], metaclass=abc.ABCMeta):
+class Void:
     """This class has no documentation."""
-
-    @overload
-    def compare_to(self, obj: typing.Any) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param obj: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings:ValueMeaningLess than zeroThis instance precedes  in the sort order.ZeroThis instance occurs in the same position in the sort order as .Greater than zeroThis instance follows  in the sort order.
-        """
-        ...
-
-    @overload
-    def compare_to(self, other: System_IComparable_T) -> int:
-        """
-        Compares the current instance with another object of the same type and returns an integer that indicates whether the current instance precedes, follows, or occurs in the same position in the sort order as the other object.
-        
-        :param other: An object to compare with this instance.
-        :returns: A value that indicates the relative order of the objects being compared. The return value has these meanings:ValueMeaningLess than zeroThis instance precedes  in the sort order.ZeroThis instance occurs in the same position in the sort order as .Greater than zeroThis instance follows  in the sort order.
-        """
-        ...
-
-
-class DuplicateWaitObjectException(System.ArgumentException):
-    """The exception that is thrown when an object appears more than once in an array of synchronization objects."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, parameter_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, parameter_name: str, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class Activator(System.Object):
-    """Activator contains the Activation (CreateInstance/New) methods for late bound support."""
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(assembly_name: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, non_public: bool) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type, args: typing.List[System.Object], activation_attributes: typing.List[System.Object]) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance(type: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance_from(assembly_file: str, type_name: str) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance_from(assembly_file: str, type_name: str, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def create_instance_from(assembly_file: str, type_name: str, ignore_case: bool, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, args: typing.List[System.Object], culture: System.Globalization.CultureInfo, activation_attributes: typing.List[System.Object]) -> System.Runtime.Remoting.ObjectHandle:
-        ...
-
-
-class TypeAccessException(System.TypeLoadException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ExecutionEngineException(System.SystemException):
-    """
-    The exception that is thrown when there is an internal error in the execution engine of the common language runtime.
-    
-    ExecutionEngineException previously indicated an unspecified fatal error in the runtime. The runtime no longer raises this exception so this type is obsolete.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class ContextBoundObject(System.MarshalByRefObject, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-
-class ContextMarshalException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ContextStaticAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class TimeSpan(System.IComparable[datetime.timedelta], System.IEquatable[datetime.timedelta], System.ISpanFormattable, System.ISpanParsable[datetime.timedelta], System.IUtf8SpanFormattable):
-    """This class has no documentation."""
-
-    NANOSECONDS_PER_TICK: int = 100
-    """Represents the number of nanoseconds per tick. This field is constant."""
-
-    TICKS_PER_MICROSECOND: int = 10
-    """Represents the number of ticks in 1 microsecond. This field is constant."""
-
-    TICKS_PER_MILLISECOND: int = ...
-    """Represents the number of ticks in 1 millisecond. This field is constant."""
-
-    TICKS_PER_SECOND: int = ...
-    """Represents the number of ticks in 1 second. This field is constant."""
-
-    TICKS_PER_MINUTE: int = ...
-    """Represents the number of ticks in 1 minute. This field is constant."""
-
-    TICKS_PER_HOUR: int = ...
-    """Represents the number of ticks in 1 hour. This field is constant."""
-
-    TICKS_PER_DAY: int = ...
-    """Represents the number of ticks in 1 day. This field is constant."""
-
-    MICROSECONDS_PER_MILLISECOND: int = ...
-    """Represents the number of microseconds in 1 millisecond. This field is constant."""
-
-    MICROSECONDS_PER_SECOND: int = ...
-    """Represents the number of microseconds in 1 second. This field is constant."""
-
-    MICROSECONDS_PER_MINUTE: int = ...
-    """Represents the number of microseconds in 1 minute. This field is constant."""
-
-    MICROSECONDS_PER_HOUR: int = ...
-    """Represents the number of microseconds in 1 hour. This field is constant."""
-
-    MICROSECONDS_PER_DAY: int = ...
-    """Represents the number of microseconds in 1 day. This field is constant."""
-
-    MILLISECONDS_PER_SECOND: int = ...
-    """Represents the number of milliseconds in 1 second. This field is constant."""
-
-    MILLISECONDS_PER_MINUTE: int = ...
-    """Represents the number of milliseconds in 1 minute. This field is constant."""
-
-    MILLISECONDS_PER_HOUR: int = ...
-    """Represents the number of milliseconds in 1 hour. This field is constant."""
-
-    MILLISECONDS_PER_DAY: int = ...
-    """Represents the number of milliseconds in 1 day. This field is constant."""
-
-    SECONDS_PER_MINUTE: int = ...
-    """Represents the number of seconds in 1 minute. This field is constant."""
-
-    SECONDS_PER_HOUR: int = ...
-    """Represents the number of seconds in 1 hour. This field is constant."""
-
-    SECONDS_PER_DAY: int = ...
-    """Represents the number of seconds in 1 day. This field is constant."""
-
-    MINUTES_PER_HOUR: int = ...
-    """Represents the number of minutes in 1 hour. This field is constant."""
-
-    MINUTES_PER_DAY: int = ...
-    """Represents the number of minutes in 1 day. This field is constant."""
-
-    HOURS_PER_DAY: int = ...
-    """Represents the number of hours in 1 day. This field is constant."""
-
-    ZERO: datetime.timedelta = ...
-
-    MAX_VALUE: datetime.timedelta = ...
-
-    MIN_VALUE: datetime.timedelta = ...
-
-    @property
-    def ticks(self) -> int:
-        ...
-
-    @property
-    def days(self) -> int:
-        ...
-
-    @property
-    def hours(self) -> int:
-        ...
-
-    @property
-    def milliseconds(self) -> int:
-        ...
-
-    @property
-    def microseconds(self) -> int:
-        """Gets the microseconds component of the time interval represented by the current TimeSpan structure."""
-        ...
-
-    @property
-    def nanoseconds(self) -> int:
-        """Gets the nanoseconds component of the time interval represented by the current TimeSpan structure."""
-        ...
-
-    @property
-    def minutes(self) -> int:
-        ...
-
-    @property
-    def seconds(self) -> int:
-        ...
-
-    @property
-    def total_days(self) -> float:
-        ...
-
-    @property
-    def total_hours(self) -> float:
-        ...
-
-    @property
-    def total_milliseconds(self) -> float:
-        ...
-
-    @property
-    def total_microseconds(self) -> float:
-        """Gets the value of the current TimeSpan structure expressed in whole and fractional microseconds."""
-        ...
-
-    @property
-    def total_nanoseconds(self) -> float:
-        """Gets the value of the current TimeSpan structure expressed in whole and fractional nanoseconds."""
-        ...
-
-    @property
-    def total_minutes(self) -> float:
-        ...
-
-    @property
-    def total_seconds(self) -> float:
-        ...
-
-    @overload
-    def __add__(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __add__(self, t_2: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    def __eq__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __iadd__(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __iadd__(self, t_2: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __imul__(self, factor: float) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __imul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __init__(self, ticks: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, hours: int, minutes: int, seconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, days: int, hours: int, minutes: int, seconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, days: int, hours: int, minutes: int, seconds: int, milliseconds: int) -> None:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        days, hours, minutes, seconds, and milliseconds.
-        
-        :param days: Number of days.
-        :param hours: Number of hours.
-        :param minutes: Number of minutes.
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        """
-        ...
-
-    @overload
-    def __init__(self, days: int, hours: int, minutes: int, seconds: int, milliseconds: int, microseconds: int) -> None:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        days, hours, minutes, seconds, and milliseconds.
-        
-        :param days: Number of days.
-        :param hours: Number of hours.
-        :param minutes: Number of minutes.
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        """
-        ...
-
-    @overload
-    def __isub__(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __isub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __itruediv__(self, divisor: float) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __itruediv__(self, t_2: datetime.timedelta) -> float:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __le__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __mul__(self, factor: float) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __mul__(self, time_span: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    def __ne__(self, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @overload
-    def __sub__(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __sub__(self, t_2: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __truediv__(self, divisor: float) -> datetime.timedelta:
-        ...
-
-    @overload
-    def __truediv__(self, t_2: datetime.timedelta) -> float:
-        ...
-
-    def add(self, ts: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    def compare(t_1: datetime.timedelta, t_2: datetime.timedelta) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: datetime.timedelta) -> int:
-        ...
-
-    @overload
-    def divide(self, divisor: float) -> datetime.timedelta:
-        ...
-
-    @overload
-    def divide(self, ts: datetime.timedelta) -> float:
-        ...
-
-    def duration(self) -> datetime.timedelta:
-        ...
-
-    @overload
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: datetime.timedelta) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(t_1: datetime.timedelta, t_2: datetime.timedelta) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def from_days(value: float) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def from_days(days: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        days.
-        
-        :param days: Number of days.
-        :returns: Returns a TimeSpan that represents a specified number of days.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_days(days: int, hours: int = 0, minutes: int = 0, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        days, hours, minutes, seconds, milliseconds, and microseconds.
-        
-        :param days: Number of days.
-        :param hours: Number of hours.
-        :param minutes: Number of minutes.
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of days, hours, minutes, seconds, milliseconds, and microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_hours(hours: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        hours.
-        
-        :param hours: Number of hours.
-        :returns: Returns a TimeSpan that represents a specified number of hours.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_hours(hours: int, minutes: int = 0, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        hours, minutes, seconds, milliseconds, and microseconds.
-        
-        :param hours: Number of hours.
-        :param minutes: Number of minutes.
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of hours, minutes, seconds, milliseconds, and microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_hours(value: float) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def from_microseconds(microseconds: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        microseconds.
-        
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_microseconds(value: float) -> datetime.timedelta:
-        """
-        Returns a TimeSpan that represents a specified number of microseconds.
-        
-        :param value: A number of microseconds.
-        :returns: An object that represents .
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_milliseconds(milliseconds: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        milliseconds.
-        
-        :param milliseconds: Number of milliseconds.
-        :returns: Returns a TimeSpan that represents a specified number of milliseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_milliseconds(milliseconds: int, microseconds: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        milliseconds, and microseconds.
-        
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of milliseconds, and microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_milliseconds(value: float) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def from_minutes(minutes: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        minutes.
-        
-        :param minutes: Number of minutes.
-        :returns: Returns a TimeSpan that represents a specified number of minutes.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_minutes(minutes: int, seconds: int = 0, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        minutes, seconds, milliseconds, and microseconds.
-        
-        :param minutes: Number of minutes.
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of minutes, seconds, milliseconds, and microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_minutes(value: float) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def from_seconds(seconds: int) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        seconds.
-        
-        :param seconds: Number of seconds.
-        :returns: Returns a TimeSpan that represents a specified number of seconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_seconds(seconds: int, milliseconds: int = 0, microseconds: int = 0) -> datetime.timedelta:
-        """
-        Initializes a new instance of the TimeSpan structure to a specified number of
-        seconds, milliseconds, and microseconds.
-        
-        :param seconds: Number of seconds.
-        :param milliseconds: Number of milliseconds.
-        :param microseconds: Number of microseconds.
-        :returns: Returns a TimeSpan that represents a specified number of seconds, milliseconds, and microseconds.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def from_seconds(value: float) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    def from_ticks(value: int) -> datetime.timedelta:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def multiply(self, factor: float) -> datetime.timedelta:
-        ...
-
-    def negate(self) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(input: str, format_provider: System.IFormatProvider) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(input: System.ReadOnlySpan[str], format_provider: System.IFormatProvider = None) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: str, format: str, format_provider: System.IFormatProvider) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: str, format: str, format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles = ...) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles = ...) -> datetime.timedelta:
-        ...
-
-    def subtract(self, ts: datetime.timedelta) -> datetime.timedelta:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, format_provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., format_provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., format_provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: str, format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(input: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, format: str, format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, format: str, format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: System.ReadOnlySpan[str], format: System.ReadOnlySpan[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: str, formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse_exact(input: System.ReadOnlySpan[str], formats: typing.List[str], format_provider: System.IFormatProvider, styles: System.Globalization.TimeSpanStyles, result: typing.Optional[datetime.timedelta]) -> typing.Tuple[bool, datetime.timedelta]:
-        ...
-
-
-class Progress(typing.Generic[System_Progress_T], System.Object, System.IProgress[System_Progress_T]):
-    """Provides an IProgress{T} that invokes callbacks for each reported progress value."""
-
-    @property
-    def progress_changed(self) -> _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]:
-        """Raised for each reported progress value."""
-        ...
-
-    @progress_changed.setter
-    def progress_changed(self, value: _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes the Progress{T}."""
-        ...
-
-    @overload
-    def __init__(self, handler: typing.Callable[[System_Progress_T], None]) -> None:
-        """
-        Initializes the Progress{T} with the specified callback.
-        
-        :param handler: A handler to invoke for each reported progress value.  This handler will be invoked in addition to any delegates registered with the ProgressChanged event. Depending on the SynchronizationContext instance captured by the Progress{T} at construction, it's possible that this handler instance could be invoked concurrently with itself.
-        """
-        ...
-
-    def on_report(self, value: System_Progress_T) -> None:
-        """
-        Reports a progress change.
-        
-        This method is protected.
-        
-        :param value: The value of the updated progress.
-        """
-        ...
-
-
-class ApplicationException(System.Exception):
-    """Serves as the base class for application-defined exceptions."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class IProgress(typing.Generic[System_IProgress_T], metaclass=abc.ABCMeta):
-    """Defines a provider for progress updates."""
-
-    def report(self, value: System_IProgress_T) -> None:
-        """
-        Reports a progress update.
-        
-        :param value: The value of the updated progress.
-        """
-        ...
-
-
-class GCNotificationStatus(Enum):
-    """This class has no documentation."""
-
-    SUCCEEDED = 0
-
-    FAILED = 1
-
-    CANCELED = 2
-
-    TIMEOUT = 3
-
-    NOT_APPLICABLE = 4
-
-
-class GCCollectionMode(Enum):
-    """This class has no documentation."""
-
-    DEFAULT = 0
-
-    FORCED = 1
-
-    OPTIMIZED = 2
-
-    AGGRESSIVE = 3
-
-
-class GC(System.Object):
-    """This class has no documentation."""
-
-    MAX_GENERATION: int
-
-    @staticmethod
-    def add_memory_pressure(bytes_allocated: int) -> None:
-        ...
-
-    @staticmethod
-    def cancel_full_gc_notification() -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def collect(generation: int) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def collect() -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def collect(generation: int, mode: System.GCCollectionMode) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def collect(generation: int, mode: System.GCCollectionMode, blocking: bool) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def collect(generation: int, mode: System.GCCollectionMode, blocking: bool, compacting: bool) -> None:
-        ...
-
-    @staticmethod
-    def collection_count(generation: int) -> int:
-        ...
-
-    @staticmethod
-    def end_no_gc_region() -> None:
-        ...
-
-    @staticmethod
-    def get_allocated_bytes_for_current_thread() -> int:
-        ...
-
-    @staticmethod
-    def get_configuration_variables() -> System.Collections.Generic.IReadOnlyDictionary[str, System.Object]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_gc_memory_info() -> System.GCMemoryInfo:
-        ...
-
-    @staticmethod
-    @overload
-    def get_gc_memory_info(kind: System.GCKind) -> System.GCMemoryInfo:
-        ...
-
-    @staticmethod
-    @overload
-    def get_generation(obj: typing.Any) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_generation(wo: System.WeakReference) -> int:
-        ...
-
-    @staticmethod
-    def get_total_allocated_bytes(precise: bool = False) -> int:
-        ...
-
-    @staticmethod
-    def get_total_memory(force_full_collection: bool) -> int:
-        ...
-
-    @staticmethod
-    def get_total_pause_duration() -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    def keep_alive(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def refresh_memory_limit() -> None:
-        ...
-
-    @staticmethod
-    def register_for_full_gc_notification(max_generation_threshold: int, large_object_heap_threshold: int) -> None:
-        ...
-
-    @staticmethod
-    def register_no_gc_region_callback(total_size: int, callback: typing.Callable[[], None]) -> None:
-        ...
-
-    @staticmethod
-    def remove_memory_pressure(bytes_allocated: int) -> None:
-        ...
-
-    @staticmethod
-    def re_register_for_finalize(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def suppress_finalize(obj: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def try_start_no_gc_region(total_size: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def try_start_no_gc_region(total_size: int, loh_size: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def try_start_no_gc_region(total_size: int, disallow_full_blocking_gc: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def try_start_no_gc_region(total_size: int, loh_size: int, disallow_full_blocking_gc: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_approach(timeout: datetime.timedelta) -> System.GCNotificationStatus:
-        """
-        Returns, in a specified time-out period, the status of a registered notification for determining whether a full,
-        blocking garbage collection by the common language runtime is imminent.
-        
-        :param timeout: The timeout on waiting for a full GC approach
-        :returns: The status of a registered full GC notification.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_approach() -> System.GCNotificationStatus:
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_approach(milliseconds_timeout: int) -> System.GCNotificationStatus:
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_complete(timeout: datetime.timedelta) -> System.GCNotificationStatus:
-        """
-        Returns the status of a registered notification about whether a blocking garbage collection
-        has completed. May wait indefinitely for a full collection.
-        
-        :param timeout: The timeout on waiting for a full collection
-        :returns: The status of a registered full GC notification.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_complete() -> System.GCNotificationStatus:
-        ...
-
-    @staticmethod
-    @overload
-    def wait_for_full_gc_complete(milliseconds_timeout: int) -> System.GCNotificationStatus:
-        ...
-
-    @staticmethod
-    def wait_for_pending_finalizers() -> None:
-        ...
-
-
-class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible, System.ISpanFormattable, System.Numerics.IUnsignedNumber[str], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[str], System.IUtfChar[str], System.IBinaryIntegerParseAndFormatInfo[str]):
-    """Represents a character as a UTF-16 code unit."""
-
-    MAX_VALUE: str = ...
-
-    MIN_VALUE: str = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: str) -> bool:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: str) -> int:
-        ...
-
-    @staticmethod
-    def convert_from_utf_32(utf_32: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_utf_32(high_surrogate: str, low_surrogate: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_utf_32(s: str, index: int) -> int:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: str) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_numeric_value(c: str) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_numeric_value(s: str, index: int) -> float:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    @overload
-    def get_unicode_category(c: str) -> System.Globalization.UnicodeCategory:
-        ...
-
-    @staticmethod
-    @overload
-    def get_unicode_category(s: str, index: int) -> System.Globalization.UnicodeCategory:
-        ...
-
-    @staticmethod
-    def is_ascii(c: str) -> bool:
-        """
-        Returns true if  is an ASCII
-        character ([ U+0000..U+007F ]).
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_digit(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII digit.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is an ASCII digit; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_hex_digit(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII hexadecimal digit.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is a hexadecimal digit; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_hex_digit_lower(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII lower-case hexadecimal digit.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is a lower-case hexadecimal digit; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_hex_digit_upper(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII upper-case hexadecimal digit.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is a hexadecimal digit; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_letter(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII letter.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is an ASCII letter; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_letter_lower(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as a lowercase ASCII letter.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is a lowercase ASCII letter; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_letter_or_digit(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an ASCII letter or digit.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is an ASCII letter or digit; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_ascii_letter_upper(c: str) -> bool:
-        """
-        Indicates whether a character is categorized as an uppercase ASCII letter.
-        
-        :param c: The character to evaluate.
-        :returns: true if  is an uppercase ASCII letter; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def is_between(c: str, min_inclusive: str, max_inclusive: str) -> bool:
-        """
-        Indicates whether a character is within the specified inclusive range.
-        
-        :param c: The character to evaluate.
-        :param min_inclusive: The lower bound, inclusive.
-        :param max_inclusive: The upper bound, inclusive.
-        :returns: true if  is within the specified range; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_control(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_control(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_digit(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_digit(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_high_surrogate(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_high_surrogate(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_letter(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_letter(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_letter_or_digit(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_letter_or_digit(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_lower(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_lower(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_low_surrogate(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_low_surrogate(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_number(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_number(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_punctuation(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_punctuation(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_separator(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_separator(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_surrogate(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_surrogate(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_surrogate_pair(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_surrogate_pair(high_surrogate: str, low_surrogate: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_symbol(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_symbol(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_upper(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_upper(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_white_space(c: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_white_space(s: str, index: int) -> bool:
-        ...
-
-    @staticmethod
-    def parse(s: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(c: str, culture: System.Globalization.CultureInfo) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(c: str) -> str:
-        ...
-
-    @staticmethod
-    def to_lower_invariant(c: str) -> str:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def to_string(c: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(c: str, culture: System.Globalization.CultureInfo) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(c: str) -> str:
-        ...
-
-    @staticmethod
-    def to_upper_invariant(c: str) -> str:
-        ...
-
-    @staticmethod
-    def try_parse(s: str, result: typing.Optional[str]) -> typing.Tuple[bool, str]:
-        ...
-
-
-class ObjectDisposedException(System.InvalidOperationException):
-    """The exception that is thrown when accessing an object that was disposed."""
-
-    @property
-    def message(self) -> str:
-        """Gets the text for the message for this exception."""
-        ...
-
-    @property
-    def object_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, object_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, object_name: str, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    @staticmethod
-    @overload
-    def throw_if(condition: bool, instance: typing.Any) -> None:
-        """
-        Throws an ObjectDisposedException if the specified  is true.
-        
-        :param condition: The condition to evaluate.
-        :param instance: The object whose type's full name should be included in any resulting ObjectDisposedException.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def throw_if(condition: bool, type: typing.Type) -> None:
-        """
-        Throws an ObjectDisposedException if the specified  is true.
-        
-        :param condition: The condition to evaluate.
-        :param type: The type whose full name should be included in any resulting ObjectDisposedException.
-        """
-        ...
-
-
-class MissingMethodException(System.MissingMemberException):
-    """The exception that is thrown when there is an attempt to dynamically access a method that does not exist."""
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, class_name: str, method_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
-    """This class has no documentation."""
-
-    MAX_VALUE: int = ...
-
-    MIN_VALUE: int = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: int) -> bool:
-        ...
-
-    @staticmethod
-    def big_mul(left: int, right: int) -> int:
-        """
-        Produces the full product of two unsigned 32-bit numbers.
-        
-        :param left: The first number to multiply.
-        :param right: The second number to multiply.
-        :returns: The number containing the product of the specified numbers.
-        """
-        ...
-
-    @staticmethod
-    def clamp(value: int, min: int, max: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: int) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    def max(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_left(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_right(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def sign(value: int) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 32-bit unsigned integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 32-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class WeakReference(typing.Generic[System_WeakReference_T], System.Object, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    @property
-    def track_resurrection(self) -> bool:
-        ...
-
-    @property
-    def is_alive(self) -> bool:
-        ...
-
-    @property
-    def target(self) -> System.Object:
-        ...
-
-    @target.setter
-    def target(self, value: System.Object) -> None:
-        ...
-
-    @overload
-    def __init__(self, target: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, target: typing.Any, track_resurrection: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, target: System_WeakReference_T) -> None:
-        ...
-
-    @overload
-    def __init__(self, target: System_WeakReference_T, track_resurrection: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def set_target(self, target: System_WeakReference_T) -> None:
-        ...
-
-    def try_get_target(self, target: typing.Optional[System_WeakReference_T]) -> typing.Tuple[bool, System_WeakReference_T]:
-        ...
-
-
-class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
-    """This class has no documentation."""
-
-    MAX_VALUE: int = ...
-
-    MIN_VALUE: int = 0
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: int) -> bool:
-        ...
-
-    @staticmethod
-    def clamp(value: int, min: int, max: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: int) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    def max(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_left(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_right(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def sign(value: int) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 16-bit unsigned integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 16-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattable, System.IEquatable[int], System.Numerics.IUnsignedNumber[int], System.IUtf8SpanFormattable, System.IBinaryIntegerParseAndFormatInfo[int]):
-    """This class has no documentation."""
-
-    MAX_VALUE: int = ...
-
-    MIN_VALUE: int = ...
-
-    @overload
-    def __ge__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __ge__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __gt__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __le__(self, other: int) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: typing.Any) -> bool:
-        ...
-
-    @overload
-    def __lt__(self, other: int) -> bool:
-        ...
-
-    @staticmethod
-    def big_mul(left: int, right: int) -> System.UInt128:
-        """
-        Produces the full product of two unsigned 64-bit numbers.
-        
-        :param left: The first number to multiply.
-        :param right: The second number to multiply.
-        :returns: The number containing the product of the specified numbers.
-        """
-        ...
-
-    @staticmethod
-    def clamp(value: int, min: int, max: int) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: typing.Any) -> int:
-        ...
-
-    @overload
-    def compare_to(self, value: int) -> int:
-        ...
-
-    @staticmethod
-    def div_rem(left: int, right: int) -> System.ValueTuple[int, int]:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: int) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_type_code(self) -> System.TypeCode:
-        ...
-
-    @staticmethod
-    def is_even_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_odd_integer(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    def max(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    def min(x: int, y: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles = ..., provider: System.IFormatProvider = None) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider) -> int:
-        ...
-
-    @staticmethod
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_left(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def rotate_right(value: int, rotate_amount: int) -> int:
-        ...
-
-    @staticmethod
-    def sign(value: int) -> int:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str) -> str:
-        ...
-
-    @overload
-    def to_string(self, format: str, provider: System.IFormatProvider) -> str:
-        ...
-
-    @staticmethod
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str] = ..., provider: System.IFormatProvider = None) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Tries to convert a UTF-8 character span containing the string representation of a number to its 64-bit unsigned integer equivalent.
-        
-        :param utf_8_text: A span containing the UTF-8 characters representing the number to convert.
-        :param result: When this method returns, contains the 64-bit unsigned integer value equivalent to the number contained in  if the conversion succeeded, or zero if the conversion failed. This parameter is passed uninitialized; any value originally supplied in result will be overwritten.
-        :returns: true if  was converted successfully; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(s: System.ReadOnlySpan[str], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-
-class DllNotFoundException(System.TypeLoadException):
-    """The exception that is thrown when a DLL specified in a DLL import cannot be found."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class InsufficientMemoryException(System.OutOfMemoryException):
-    """
-    Purpose: The exception class for running out of memory
-    but most likely in a non-fatal way that shouldn't
-    be affected by escalation policy.  Use this for cases
-    like MemoryFailPoint or a TryAllocate method, where you
-    expect OOM's with no shared state corruption and you
-    want to recover from these errors.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
 
 
 class Span(typing.Generic[System_Span_T]):
@@ -21153,280 +21167,94 @@ class Span(typing.Generic[System_Span_T]):
         ...
 
 
-class InvalidCastException(System.SystemException):
-    """The exception that is thrown for invalid casting or explicit conversion."""
+class ArraySegment(typing.Generic[System_ArraySegment_T], System.Collections.Generic.IList[System_ArraySegment_T], System.Collections.Generic.IReadOnlyList[System_ArraySegment_T], typing.Iterable[System_ArraySegment_T]):
+    """Delimits a section of a one-dimensional array."""
 
-    @overload
-    def __init__(self) -> None:
-        ...
+    class Enumerator(System.Collections.Generic.IEnumerator[System_ArraySegment_T]):
+        """This class has no documentation."""
 
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
+        @property
+        def current(self) -> System_ArraySegment_T:
+            ...
 
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
+        def dispose(self) -> None:
+            ...
 
-    @overload
-    def __init__(self, message: str, error_code: int) -> None:
-        ...
+        def move_next(self) -> bool:
+            ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class NotImplementedException(System.SystemException):
-    """The exception that is thrown when a requested method or operation is not implemented."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class AggregateException(System.Exception):
-    """Represents one or more errors that occur during application execution."""
+    EMPTY: System.ArraySegment[System_ArraySegment_T]
 
     @property
-    def inner_exceptions(self) -> System.Collections.ObjectModel.ReadOnlyCollection[System.Exception]:
-        """
-        Gets a read-only collection of the Exception instances that caused the
-        current exception.
-        """
+    def array(self) -> typing.List[System_ArraySegment_T]:
         ...
 
     @property
-    def message(self) -> str:
-        """Gets a message that describes the exception."""
+    def offset(self) -> int:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __eq__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> System_ArraySegment_T:
         ...
 
     @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the AggregateException class."""
+    def __init__(self, array: typing.List[System_ArraySegment_T]) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the AggregateException class with
-        a specified error message.
-        
-        :param message: The error message that explains the reason for the exception.
-        """
+    def __init__(self, array: typing.List[System_ArraySegment_T], offset: int, count: int) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_ArraySegment_T]:
+        ...
+
+    def __ne__(self, b: System.ArraySegment[System_ArraySegment_T]) -> bool:
+        ...
+
+    def __setitem__(self, index: int, value: System_ArraySegment_T) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the AggregateException class with a specified error
-        message and a reference to the inner exception that is the cause of this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
+    def copy_to(self, destination: typing.List[System_ArraySegment_T]) -> None:
         ...
 
     @overload
-    def __init__(self, inner_exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
-        """
-        Initializes a new instance of the AggregateException class with
-        references to the inner exceptions that are the cause of this exception.
-        
-        :param inner_exceptions: The exceptions that are the cause of the current exception.
-        """
+    def copy_to(self, destination: typing.List[System_ArraySegment_T], destination_index: int) -> None:
         ...
 
     @overload
-    def __init__(self, *inner_exceptions: typing.Union[System.Exception, typing.Iterable[System.Exception]]) -> None:
-        """
-        Initializes a new instance of the AggregateException class with
-        references to the inner exceptions that are the cause of this exception.
-        
-        :param inner_exceptions: The exceptions that are the cause of the current exception.
-        """
+    def copy_to(self, destination: System.ArraySegment[System_ArraySegment_T]) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner_exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
-        """
-        Initializes a new instance of the AggregateException class with a specified error
-        message and references to the inner exceptions that are the cause of this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exceptions: The exceptions that are the cause of the current exception.
-        """
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
     @overload
-    def __init__(self, message: str, *inner_exceptions: typing.Union[System.Exception, typing.Iterable[System.Exception]]) -> None:
-        """
-        Initializes a new instance of the AggregateException class with a specified error
-        message and references to the inner exceptions that are the cause of this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exceptions: The exceptions that are the cause of the current exception.
-        """
+    def equals(self, obj: System.ArraySegment[System_ArraySegment_T]) -> bool:
         ...
 
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the AggregateException class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        
-        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
-        :param context: The StreamingContext that contains contextual information about the source or destination.
-        """
-        ...
-
-    def flatten(self) -> System.AggregateException:
-        """
-        Flattens the inner instances of AggregateException by expanding its contained Exception instances
-        into a new AggregateException
-        
-        :returns: A new, flattened AggregateException.
-        """
-        ...
-
-    def get_base_exception(self) -> System.Exception:
-        """Returns the Exception that is the root cause of this exception."""
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Sets the SerializationInfo with information about
-        the exception.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        
-        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
-        :param context: The StreamingContext that contains contextual information about the source or destination.
-        """
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def handle(self, predicate: typing.Callable[[System.Exception], bool]) -> None:
-        """
-        Invokes a handler on each Exception contained by this AggregateException.
-        
-        :param predicate: The predicate to execute for each exception. The predicate accepts as an argument the Exception to be processed and returns a Boolean to indicate whether the exception was handled.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Creates and returns a string representation of the current AggregateException.
-        
-        :returns: A string representation of the current exception.
-        """
-        ...
-
-
-class EntryPointNotFoundException(System.TypeLoadException):
-    """The exception that is thrown when an attempt to load a class fails due to the absence of an entry method."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class IUtf8SpanParsable(typing.Generic[System_IUtf8SpanParsable_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for parsing a span of UTF-8 characters to a value."""
-
-
-class TypedReference:
-    """This class has no documentation."""
-
-    def equals(self, o: typing.Any) -> bool:
+    def get_enumerator(self) -> System.ArraySegment.Enumerator:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
-    @staticmethod
-    def get_target_type(value: System.TypedReference) -> typing.Type:
+    @overload
+    def slice(self, index: int) -> System.ArraySegment[System_ArraySegment_T]:
         ...
 
-    @staticmethod
-    def make_typed_reference(target: typing.Any, flds: typing.List[System.Reflection.FieldInfo]) -> System.TypedReference:
+    @overload
+    def slice(self, index: int, count: int) -> System.ArraySegment[System_ArraySegment_T]:
         ...
 
-    @staticmethod
-    def set_typed_reference(target: System.TypedReference, value: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def target_type_token(value: System.TypedReference) -> System.RuntimeTypeHandle:
-        ...
-
-    @staticmethod
-    def to_object(value: System.TypedReference) -> System.Object:
-        ...
-
-
-class IEquatable(typing.Generic[System_IEquatable_T], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, other: System_IEquatable_T) -> bool:
-        """
-        Indicates whether the current object is equal to another object of the same type.
-        
-        :param other: An object to compare with this object.
-        :returns: true if the current object is equal to the  parameter; otherwise, false.
-        """
-        ...
-
-
-class IAsyncDisposable(metaclass=abc.ABCMeta):
-    """Provides a mechanism for releasing unmanaged resources asynchronously."""
-
-    def dispose_async(self) -> System.Threading.Tasks.ValueTask:
-        """
-        Performs application-defined tasks associated with freeing, releasing, or
-        resetting unmanaged resources asynchronously.
-        """
+    def to_array(self) -> typing.List[System_ArraySegment_T]:
         ...
 
 
@@ -21556,42 +21384,256 @@ class ReadOnlyMemory(typing.Generic[System_ReadOnlyMemory_T], System.IEquatable[
         ...
 
 
-class IObserver(typing.Generic[System_IObserver_T], metaclass=abc.ABCMeta):
+class TimeZoneNotFoundException(System.Exception):
     """This class has no documentation."""
 
-    def on_completed(self) -> None:
-        ...
-
-    def on_error(self, error: System.Exception) -> None:
-        ...
-
-    def on_next(self, value: System_IObserver_T) -> None:
-        ...
-
-
-class DBNull(System.Object, System.Runtime.Serialization.ISerializable, System.IConvertible):
-    """This class has no documentation."""
-
-    VALUE: System.DBNull = ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def get_type_code(self) -> System.TypeCode:
+    @overload
+    def __init__(self) -> None:
         ...
 
     @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class HashCode:
+    """This class has no documentation."""
+
+    def add_bytes(self, value: System.ReadOnlySpan[int]) -> None:
+        """
+        Adds a span of bytes to the hash code.
+        
+        :param value: The span.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """HashCode is a mutable struct and should not be compared with other HashCodes."""
+        warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes.", DeprecationWarning)
+
+    def get_hash_code(self) -> int:
+        """HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code."""
+        warnings.warn("HashCode is a mutable struct and should not be compared with other HashCodes. Use ToHashCode to retrieve the computed hash code.", DeprecationWarning)
+
+    def to_hash_code(self) -> int:
+        ...
+
+
+class Memory(typing.Generic[System_Memory_T], System.IEquatable[System_Memory]):
+    """
+    Memory represents a contiguous region of arbitrary memory similar to Span{T}.
+    Unlike Span{T}, it is not a byref-like type.
+    """
+
+    EMPTY: System.Memory[System_Memory_T]
+    """Returns an empty Memory{T}"""
+
+    @property
+    def length(self) -> int:
+        """The number of items in the memory."""
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        """Returns true if Length is 0."""
+        ...
+
+    @property
+    def span(self) -> System.Span[System_Memory_T]:
+        """Returns a span from the memory."""
+        ...
+
+    @overload
+    def __init__(self, array: typing.List[System_Memory_T]) -> None:
+        """
+        Creates a new memory over the entirety of the target array.
+        
+        :param array: The target array.
+        """
+        ...
+
+    @overload
+    def __init__(self, array: typing.List[System_Memory_T], start: int, length: int) -> None:
+        """
+        Creates a new memory over the portion of the target array beginning
+        at 'start' index and ending at 'end' index (exclusive).
+        
+        :param array: The target array.
+        :param start: The index at which to begin the memory.
+        :param length: The number of items in the memory.
+        """
+        ...
+
+    def copy_to(self, destination: System.Memory[System_Memory_T]) -> None:
+        """
+        Copies the contents of the memory into the destination. If the source
+        and destination overlap, this method behaves as if the original values are in
+        a temporary location before the destination is overwritten.
+        
+        :param destination: The Memory to copy items into.
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        Returns true if the object is Memory or ReadOnlyMemory and if both objects point to the same array and have the same length.
+        """
+        ...
+
+    @overload
+    def equals(self, other: System.Memory[System_Memory_T]) -> bool:
+        """
+        Returns true if the memory points to the same array and has the same length.  Note that
+        this does *not* check to see if the *contents* are equal.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """Serves as the default hash function."""
+        ...
+
+    def pin(self) -> System.Buffers.MemoryHandle:
+        """
+        Creates a handle for the memory.
+        The GC will not move the memory until the returned MemoryHandle
+        is disposed, enabling taking and using the memory's address.
+        """
+        ...
+
+    @overload
+    def slice(self, start: int) -> System.Memory[System_Memory_T]:
+        """
+        Forms a slice out of the given memory, beginning at 'start'.
+        
+        :param start: The index at which to begin this slice.
+        """
+        ...
+
+    @overload
+    def slice(self, start: int, length: int) -> System.Memory[System_Memory_T]:
+        """
+        Forms a slice out of the given memory, beginning at 'start', of given length
+        
+        :param start: The index at which to begin this slice.
+        :param length: The desired length for the slice (exclusive).
+        """
+        ...
+
+    def to_array(self) -> typing.List[System_Memory_T]:
+        """
+        Copies the contents from the memory into a new array.  This heap
+        allocates, so should generally be avoided, however it is sometimes
+        necessary to bridge the gap with APIs written in terms of arrays.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        For Memory{Char}, returns a new instance of string that represents the characters pointed to by the memory.
+        Otherwise, returns a string with the name of the type and the number of elements.
+        """
+        ...
+
+    def try_copy_to(self, destination: System.Memory[System_Memory_T]) -> bool:
+        """
+        Copies the contents of the memory into the destination. If the source
+        and destination overlap, this method behaves as if the original values are in
+        a temporary location before the destination is overwritten.
+        
+        :param destination: The span to copy items into.
+        :returns: If the destination is shorter than the source, this method return false and no data is written to the destination.
+        """
+        ...
+
+
+class Nullable(typing.Generic[System_Nullable_T]):
+    """This class has no documentation."""
+
+    @property
+    def has_value(self) -> bool:
+        ...
+
+    @property
+    def value(self) -> System_Nullable_T:
+        ...
+
+    def __init__(self, value: System_Nullable_T) -> None:
+        ...
+
+    def equals(self, other: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def get_underlying_type(nullable_type: typing.Type) -> typing.Type:
+        ...
+
+    @overload
+    def get_value_or_default(self) -> System_Nullable_T:
+        ...
+
+    @overload
+    def get_value_or_default(self, default_value: System_Nullable_T) -> System_Nullable_T:
+        ...
+
     def to_string(self) -> str:
         ...
 
+
+class ArgumentNullException(System.ArgumentException):
+    """The exception that is thrown when a null reference (Nothing in Visual Basic) is passed to a method that does not accept it as a valid argument."""
+
     @overload
-    def to_string(self, provider: System.IFormatProvider) -> str:
+    def __init__(self) -> None:
         ...
 
+    @overload
+    def __init__(self, param_name: str) -> None:
+        ...
 
-class ISpanParsable(typing.Generic[System_ISpanParsable_TSelf], System.IParsable[System_ISpanParsable_TSelf], metaclass=abc.ABCMeta):
-    """Defines a mechanism for parsing a span of characters to a value."""
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, param_name: str, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    @staticmethod
+    def throw_if_null(argument: typing.Any, param_name: str = None) -> None:
+        """
+        Throws an ArgumentNullException if  is null.
+        
+        :param argument: The reference type argument to validate as non-null.
+        :param param_name: The name of the parameter with which  corresponds.
+        """
+        ...
 
 
 class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
@@ -21773,81 +21815,39 @@ class ReadOnlySpan(typing.Generic[System_ReadOnlySpan_T]):
         ...
 
 
-class Void:
-    """This class has no documentation."""
-
-
-class LoaderOptimizationAttribute(System.Attribute):
-    """This class has no documentation."""
+class Progress(typing.Generic[System_Progress_T], System.Object, System.IProgress[System_Progress_T]):
+    """Provides an IProgress{T} that invokes callbacks for each reported progress value."""
 
     @property
-    def value(self) -> System.LoaderOptimization:
+    def progress_changed(self) -> _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]:
+        """Raised for each reported progress value."""
         ...
 
-    @overload
-    def __init__(self, value: int) -> None:
+    @progress_changed.setter
+    def progress_changed(self, value: _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]) -> None:
         ...
-
-    @overload
-    def __init__(self, value: System.LoaderOptimization) -> None:
-        ...
-
-
-class TupleExtensions(System.Object):
-    """Provides extension methods for Tuple instances to interop with C# tuples features (deconstruction syntax, converting from and to ValueTuple)."""
-
-
-class InsufficientExecutionStackException(System.SystemException):
-    """This class has no documentation."""
 
     @overload
     def __init__(self) -> None:
+        """Initializes the Progress{T}."""
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class ArgumentNullException(System.ArgumentException):
-    """The exception that is thrown when a null reference (Nothing in Visual Basic) is passed to a method that does not accept it as a valid argument."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, param_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, param_name: str, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+    def __init__(self, handler: typing.Callable[[System_Progress_T], None]) -> None:
         """
+        Initializes the Progress{T} with the specified callback.
+        
+        :param handler: A handler to invoke for each reported progress value.  This handler will be invoked in addition to any delegates registered with the ProgressChanged event. Depending on the SynchronizationContext instance captured by the Progress{T} at construction, it's possible that this handler instance could be invoked concurrently with itself.
+        """
+        ...
+
+    def on_report(self, value: System_Progress_T) -> None:
+        """
+        Reports a progress change.
+        
         This method is protected.
         
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    @staticmethod
-    def throw_if_null(argument: typing.Any, param_name: str = None) -> None:
-        """
-        Throws an ArgumentNullException if  is null.
-        
-        :param argument: The reference type argument to validate as non-null.
-        :param param_name: The name of the parameter with which  corresponds.
+        :param value: The value of the updated progress.
         """
         ...
 
@@ -21885,6 +21885,42 @@ class UriTypeConverter(System.ComponentModel.TypeConverter):
 
     def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
         ...
+
+
+class ConsoleColor(Enum):
+    """This class has no documentation."""
+
+    BLACK = 0
+
+    DARK_BLUE = 1
+
+    DARK_GREEN = 2
+
+    DARK_CYAN = 3
+
+    DARK_RED = 4
+
+    DARK_MAGENTA = 5
+
+    DARK_YELLOW = 6
+
+    GRAY = 7
+
+    DARK_GRAY = 8
+
+    BLUE = 9
+
+    GREEN = 10
+
+    CYAN = 11
+
+    RED = 12
+
+    MAGENTA = 13
+
+    YELLOW = 14
+
+    WHITE = 15
 
 
 class ConsoleKey(Enum):
@@ -22181,66 +22217,6 @@ class ConsoleKey(Enum):
     OEM_CLEAR = ...
 
 
-class ConsoleColor(Enum):
-    """This class has no documentation."""
-
-    BLACK = 0
-
-    DARK_BLUE = 1
-
-    DARK_GREEN = 2
-
-    DARK_CYAN = 3
-
-    DARK_RED = 4
-
-    DARK_MAGENTA = 5
-
-    DARK_YELLOW = 6
-
-    GRAY = 7
-
-    DARK_GRAY = 8
-
-    BLUE = 9
-
-    GREEN = 10
-
-    CYAN = 11
-
-    RED = 12
-
-    MAGENTA = 13
-
-    YELLOW = 14
-
-    WHITE = 15
-
-
-class ConsoleSpecialKey(Enum):
-    """This class has no documentation."""
-
-    CONTROL_C = 0
-
-    CONTROL_BREAK = 1
-
-
-class ConsoleCancelEventArgs(System.EventArgs):
-    """This class has no documentation."""
-
-    @property
-    def cancel(self) -> bool:
-        ...
-
-    @cancel.setter
-    def cancel(self, value: bool) -> None:
-        ...
-
-    @property
-    def special_key(self) -> System.ConsoleSpecialKey:
-        ...
-
-
 class ConsoleModifiers(Enum):
     """This class has no documentation."""
 
@@ -22286,6 +22262,30 @@ class ConsoleKeyInfo(System.IEquatable[System_ConsoleKeyInfo]):
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+
+class ConsoleSpecialKey(Enum):
+    """This class has no documentation."""
+
+    CONTROL_C = 0
+
+    CONTROL_BREAK = 1
+
+
+class ConsoleCancelEventArgs(System.EventArgs):
+    """This class has no documentation."""
+
+    @property
+    def cancel(self) -> bool:
+        ...
+
+    @cancel.setter
+    def cancel(self, value: bool) -> None:
+        ...
+
+    @property
+    def special_key(self) -> System.ConsoleSpecialKey:
         ...
 
 

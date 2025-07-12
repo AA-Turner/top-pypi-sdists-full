@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2024 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -9,5 +9,5 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-__version__ = "3.7.1"
-__expected_server_version__ = "2.36"
+__version__ = "3.8.0"
+__expected_server_version__ = "2.37"

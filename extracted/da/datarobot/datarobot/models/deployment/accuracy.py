@@ -1,5 +1,5 @@
 #
-# Copyright 2021 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -196,7 +196,7 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
             metrics[metric] = from_api(value, keep_null_keys=True)
 
         data = from_api(data, keep_null_keys=True)
-        data["metrics"] = metrics
+        data["metrics"] = metrics  # type: ignore[call-overload]
         return cls.from_data(data)
 
     @property

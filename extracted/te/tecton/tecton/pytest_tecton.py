@@ -40,6 +40,8 @@ def tecton_pytest_spark_session():
             # Enable Arrow for PySpark to be compatible with Pandas 2.0. More details, refer to:
             # https://www.notion.so/tecton/mini-RFC-Pandas-2-0-Spark-Compatibility-70687042a6144e60b0bc2a622af65f09?pvs=4#ef8b77bdcc8e4147a224543725ea1936
             .config("spark.sql.execution.arrow.pyspark.enabled", "true")
+            # pyarrow 16+ uses fork in a way that doesn't play nicely with modern MacOS protections, but it is harmless.
+            .config("spark.executorEnv.OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
             .getOrCreate()
         )
     except Exception as e:

@@ -35,7 +35,7 @@ class MockContext:
         self._resources = resources
 
     def __str__(self) -> str:
-        return f"MockContext(secrets={self._secrets}, " f"resources={self._resources})"
+        return f"MockContext(secrets={self._secrets}, resources={self._resources})"
 
     @property
     def secrets(self) -> Optional[Mapping[str, str]]:

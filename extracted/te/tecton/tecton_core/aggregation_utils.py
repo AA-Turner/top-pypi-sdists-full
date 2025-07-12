@@ -19,6 +19,7 @@ from tecton_core.data_types import Float64Type
 from tecton_core.data_types import Int64Type
 from tecton_proto.args import feature_view__client_pb2 as feature_view__args_pb2
 from tecton_proto.common import aggregation_function__client_pb2 as afpb
+from tecton_proto.data.feature_view__client_pb2 import Aggregate
 
 
 if TYPE_CHECKING:
@@ -145,9 +146,9 @@ def get_materialization_aggregation_column_prefixes(
         if isinstance(function_params, afpb.AggregationFunctionParams):
             return [prefixes[0] + str(function_params.first_n.n)]
 
-        assert (
-            function_params is not None
-        ), "function_params must be set for first N aggregations in non-continuous mode"
+        assert function_params is not None, (
+            "function_params must be set for first N aggregations in non-continuous mode"
+        )
         return [prefixes[0] + str(function_params["n"].int64_value)]
 
     return prefixes
@@ -247,11 +248,22 @@ _AGGREGATION_RESULT_TYPE: Dict[int, Callable[[DataType], DataType]] = {
 }
 
 
+# For time window series aggregations, we need an intermediate type to store the per-window results
+# E.g. for a day mean of a 7-day time window series, we calculate the mean for each individual day first
 @typechecked
-def get_aggregation_function_result_type(
-    aggregation_function_enum: afpb.AggregationFunction, feature_type: DataType
-) -> DataType:
-    return _AGGREGATION_RESULT_TYPE[aggregation_function_enum](feature_type)
+def get_aggregation_function_intermediate_type(aggregation: Aggregate, feature_type: DataType) -> DataType:
+    return _AGGREGATION_RESULT_TYPE[aggregation.function](feature_type)
+
+
+@typechecked
+def get_aggregation_function_result_type(aggregation: Aggregate, feature_type: DataType) -> DataType:
+    base_type = get_aggregation_function_intermediate_type(aggregation, feature_type)
+
+    # If this is a time window series aggregation, wrap the result type in an array
+    if aggregation.time_window and aggregation.time_window.HasField("time_window_series"):
+        return ArrayType(base_type)
+
+    return base_type
 
 
 def _range_edge_to_str(edge: Union[str, WindowFrameAnalyticFunction.Edge]) -> str:

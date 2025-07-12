@@ -3,7 +3,9 @@ registering temp views. Methods within this class should exclusively operate on 
 representations of the data model.
 """
 
+import base64
 import json
+import logging
 import os
 import time
 from datetime import datetime
@@ -29,6 +31,7 @@ import tecton_spark.errors_spark
 from tecton_core import conf
 from tecton_core import specs
 from tecton_core.filter_context import FilterContext
+from tecton_core.snowflake_context import decrypt_private_key
 from tecton_core.spark_type_annotations import PySparkColumn
 from tecton_core.spark_type_annotations import PySparkDataFrame
 from tecton_core.spark_type_annotations import PySparkSession
@@ -40,6 +43,8 @@ from tecton_proto.data.batch_data_source__client_pb2 import FileDataSourceFormat
 from tecton_spark.data_source_credentials import get_kafka_secrets
 from tecton_spark.spark_schema_wrapper import SparkSchemaWrapper
 
+
+logger = logging.getLogger(__name__)
 
 INITIAL_STREAM_POSITION_STR_TO_ENUM = {
     "latest": INITIAL_STREAM_POSITION_LATEST,
@@ -53,8 +58,6 @@ INITIAL_STREAM_POSITION_ENUM_TO_STR[INITIAL_STREAM_POSITION_UNSPECIFIED] = None
 
 KAFKA_DEFAULT_MAX_OFFSETS_PER_TRIGGER = 100000
 
-KAFKA_STARTING_OFFSET_CONFIG_KEYS = {"startingOffsetsByTimestamp", "startingOffsets"}
-
 # Set of temporal Kafka consumer settings that will be set by the environment variables set in the
 # cluster's `textproto` files.
 #
@@ -67,6 +70,8 @@ KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV = "KAFKA_STARTING_OFFSETS_NUM_H
 KAFKA_NUM_PARTITIONS_ENV = "KAFKA_NUM_PARTITIONS"
 
 TEST_ONLY_UNITY_CATALOG_NAME = "TECTON_LOCAL_INTEGRATION_TEST_ONLY_UNITY_CATALOG"
+
+KAFKA_STARTING_OFFSET_CONFIG_KEYS = {"startingOffsetsByTimestamp", "startingOffsets", KAFKA_MAX_OFFSETS_PER_TRIGGER_ENV}
 
 
 def _is_running_on_emr() -> bool:
@@ -110,9 +115,9 @@ def get_non_dsf_raw_dataframe(
     :return: The DataFrame for the raw data.
     """
 
-    assert not isinstance(
-        data_source, specs.SparkBatchSourceSpec
-    ), "get_raw_dataframe can not be used with data source function (spark_batch_config)."
+    assert not isinstance(data_source, specs.SparkBatchSourceSpec), (
+        "get_raw_dataframe can not be used with data source function (spark_batch_config)."
+    )
 
     if isinstance(data_source, specs.HiveSourceSpec):
         df = _get_raw_hive_table_dataframe(spark, data_source.database, data_source.table)
@@ -197,9 +202,9 @@ def get_table_dataframe(
 
     :return: The DataFrame created from the data source.
     """
-    assert not isinstance(
-        data_source, specs.SparkBatchSourceSpec
-    ), f"get_table_dataframe can not be used with data source function (spark_batch_config). Data source: {data_source}"
+    assert not isinstance(data_source, specs.SparkBatchSourceSpec), (
+        f"get_table_dataframe can not be used with data source function (spark_batch_config). Data source: {data_source}"
+    )
 
     df = get_non_dsf_raw_dataframe(spark, data_source, called_for_schema_computation)
     if data_source.post_processor:
@@ -254,6 +259,9 @@ def get_redshift_dataframe(
     return df
 
 
+CONNECTING_SNOWFLAKE_USING_SPARK_INSTRUCTIONS = "https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-spark/connecting-to-snowflake-using-spark"
+
+
 def get_snowflake_dataframe(
     spark: PySparkSession,
     url: str,
@@ -278,19 +286,32 @@ def get_snowflake_dataframe(
 
     user = conf.get_or_none("SNOWFLAKE_USER")
     password = conf.get_or_none("SNOWFLAKE_PASSWORD")
-    if not user or not password:
-        msg = "Snowflake user and password not configured. Instructions at https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-spark/connecting-to-snowflake-using-spark"
+    private_key = conf.get_or_none("SNOWFLAKE_PRIVATE_KEY")
+    private_key_passphrase = conf.get_or_none("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+    missing_password_or_private_key = not (password or private_key)
+    if not user or missing_password_or_private_key:
+        msg = f"Snowflake user and private key not configured. Instructions at {CONNECTING_SNOWFLAKE_USING_SPARK_INSTRUCTIONS}"
         raise ValueError(msg)
+    if password is not None and private_key is None:
+        logger.warning(
+            f"Snowflake will deprecate use of password authentication. Please use private key instead. Instructions at {CONNECTING_SNOWFLAKE_USING_SPARK_INSTRUCTIONS}"
+        )
 
     options = {
         "sfUrl": url,
         "sfUser": user,
-        "sfPassword": password,
         "sfDatabase": database,
         "sfSchema": schema,
         "sfWarehouse": warehouse,
         "APPLICATION": "tecton-ai",
     }
+
+    # let private_key take priority over password
+    if private_key:
+        pem_private_key = decrypt_private_key(private_key, private_key_passphrase)
+        options["pem_private_key"] = base64.b64encode(pem_private_key).decode("utf-8")
+    elif password:
+        options["sfPassword"] = password
 
     if role:
         options["sfRole"] = role
@@ -318,9 +339,9 @@ def apply_timestamp_column(df: PySparkDataFrame, ts_column: str, ts_format: Opti
 
     ts_type = df.schema[ts_column].dataType.jsonValue()
     if ts_type != "timestamp":
-        assert (
-            ts_type == "string"
-        ), f"Timestamp Column '{ts_column}' has type '{ts_type}', expected 'string' or 'timestamp'"
+        assert ts_type == "string", (
+            f"Timestamp Column '{ts_column}' has type '{ts_type}', expected 'string' or 'timestamp'"
+        )
         # Apply timestamp transform
 
         # Here we use coalesce to first try transforming string to timestamp using the user provided format,
@@ -522,14 +543,15 @@ def create_kafka_stream_reader(
     options = {o.key: o.value for o in stream_source.options}
     options["kafka.bootstrap.servers"] = stream_source.bootstrap_servers
     options["subscribe"] = stream_source.topics
-    # Kafka by default consumes all the exisitng data into a single micro-batch, that can overwhelm
-    # the Spark cluster during backfilling from a stream for the first time.
-    # Set the default number of records to be read per micro-batch (across all partitions).
-    options["maxOffsetsPerTrigger"] = str(KAFKA_DEFAULT_MAX_OFFSETS_PER_TRIGGER)
+
     if all(key not in options for key in KAFKA_STARTING_OFFSET_CONFIG_KEYS):
         # Don't override startingOffsets if it or similar option is set
         # explicitly in the data source definition.
         options["startingOffsets"] = "earliest"
+        # Kafka by default consumes all the exisitng data into a single micro-batch, that can overwhelm
+        # the Spark cluster during backfilling from a stream for the first time.
+        # Set the default number of records to be read per micro-batch (across all partitions).
+        options["maxOffsetsPerTrigger"] = str(KAFKA_DEFAULT_MAX_OFFSETS_PER_TRIGGER)
     options = _populate_kafka_consumer_options(stream_source.topics, options)
 
     if stream_source.ssl_keystore_location:
@@ -584,19 +606,19 @@ def _populate_kafka_consumer_options(topics: str, kafka_options: Dict[str, Any])
 
     num_hours_to_process = os.environ.get(KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV)
     if num_hours_to_process is not None:
-        assert str.isdigit(
-            num_hours_to_process
-        ), f"{KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV} must be a string encoded integer"
+        assert str.isdigit(num_hours_to_process), (
+            f"{KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV} must be a string encoded integer"
+        )
         num_partitions = os.environ.get(KAFKA_NUM_PARTITIONS_ENV)
-        assert num_partitions is not None and str.isdigit(
-            num_partitions
-        ), f"{KAFKA_NUM_PARTITIONS_ENV} missing/invalid when {KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV} is set"
+        assert num_partitions is not None and str.isdigit(num_partitions), (
+            f"{KAFKA_NUM_PARTITIONS_ENV} missing/invalid when {KAFKA_STARTING_OFFSETS_NUM_HOURS_IN_THE_PAST_ENV} is set"
+        )
         # `startingOffsetsByTimestamp` needs unix timestamps in millis per partition number.
         current_ts = int(time.time())
         starting_ts = (current_ts - int(num_hours_to_process) * 3600) * 1000
         ts_per_partition = {str(partition): starting_ts for partition in range(int(num_partitions))}
         topic_names = topics.split(",")
-        starting_offsets_by_ts = {topic_name: ts_per_partition for topic_name in topic_names}
+        starting_offsets_by_ts = dict.fromkeys(topic_names, ts_per_partition)
         kafka_options["startingOffsetsByTimestamp"] = json.dumps(starting_offsets_by_ts)
 
     return kafka_options
@@ -645,9 +667,9 @@ def get_stream_dataframe(
 
     :return: The DataFrame created from the data source.
     """
-    assert isinstance(
-        stream_data_source, (specs.KinesisSourceSpec, specs.KafkaSourceSpec)
-    ), "get_stream_dataframe can not be used with data source function (spark_stream_config)."
+    assert isinstance(stream_data_source, (specs.KinesisSourceSpec, specs.KafkaSourceSpec)), (
+        "get_stream_dataframe can not be used with data source function (spark_stream_config)."
+    )
 
     df = get_non_dsf_raw_stream_dataframe(spark, stream_data_source, option_overrides)
     return stream_data_source.post_processor(df)
@@ -667,9 +689,9 @@ def get_stream_dataframe_with_options(
 
     :return: The DataFrame created from the data source.
     """
-    assert not isinstance(
-        stream_data_source, specs.SparkStreamSourceSpec
-    ), "get_stream_dataframe_with_options can not be used with data source function (spark_stream_config)."
+    assert not isinstance(stream_data_source, specs.SparkStreamSourceSpec), (
+        "get_stream_dataframe_with_options can not be used with data source function (spark_stream_config)."
+    )
 
     df = get_stream_dataframe(spark, stream_data_source, option_overrides)
 
@@ -708,9 +730,9 @@ def get_ds_dataframe(
         raise AssertionError(msg)
 
     if consume_streaming_data_source:
-        assert (
-            data_source.stream_source
-        ), f"Can't consume streaming data source from the data source: {data_source.name}."
+        assert data_source.stream_source, (
+            f"Can't consume streaming data source from the data source: {data_source.name}."
+        )
 
         if isinstance(data_source.stream_source, specs.SparkStreamSourceSpec):
             df = data_source.stream_source.function(spark)
@@ -771,9 +793,9 @@ def convert_json_like_schema_to_glue_format(spark: PySparkSession, df: PySparkDa
         return StructType(struct_fields)
 
     def _get_lowercase_array_schema(c: ArrayType) -> ArrayType:
-        assert isinstance(
-            c.elementType, StructType
-        ), f"Invalid ArrayType element type {type(c)}, expected StructType for valid JSON arrays."
+        assert isinstance(c.elementType, StructType), (
+            f"Invalid ArrayType element type {type(c)}, expected StructType for valid JSON arrays."
+        )
         datatype = c.elementType
         struct_schema = _get_lowercase_structtype_schema(datatype)
         return ArrayType(struct_schema)

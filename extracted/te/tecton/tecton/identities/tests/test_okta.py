@@ -47,3 +47,10 @@ class OktaTest(TestCase):
         with patch("tecton.identities.okta.get_tokens_helper", fake_get_tokens_helper):
             with pytest.raises(PermissionError, match="Authorization token expired"):
                 okta.get_user_profile()
+
+    def test_get_user_profile_refresh_token_expired_str_type(self):
+        # When the okta vars are passed to a subprocess, they are passed as strings. Ensure they can still be used
+        conf.set_okta_tokens(access_token="dummy", access_token_expiration=str(time.time() - 60), refresh_token="dummy")
+        with patch("tecton.identities.okta.get_tokens_helper", fake_get_tokens_helper):
+            with pytest.raises(PermissionError, match="Authorization token expired"):
+                okta.get_user_profile()

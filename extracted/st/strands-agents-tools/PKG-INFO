@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents-tools
-Version: 0.1.8
+Version: 0.1.9
 Summary: A collection of specialized tools for Strands Agents
 Project-URL: Homepage, https://github.com/strands-agents/tools
 Project-URL: Bug Tracker, https://github.com/strands-agents/tools/issues
@@ -22,7 +22,6 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: aws-requests-auth<0.5.0,>=0.4.3
-Requires-Dist: colorama<0.5.0,>=0.4.6
 Requires-Dist: dill<0.5.0,>=0.4.0
 Requires-Dist: pillow<12.0.0,>=11.2.1
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.51
@@ -34,6 +33,8 @@ Requires-Dist: sympy<2.0.0,>=1.12.0
 Requires-Dist: tenacity<10.0.0,>=9.1.2
 Requires-Dist: tzdata; platform_system == 'Windows'
 Requires-Dist: watchdog<7.0.0,>=6.0.0
+Provides-Extra: a2a-client
+Requires-Dist: a2a-sdk[sql]>=0.2.11; extra == 'a2a-client'
 Provides-Extra: dev
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'dev'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'dev'
@@ -53,6 +54,9 @@ Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: mem0-memory
 Requires-Dist: mem0ai<1.0.0,>=0.1.99; extra == 'mem0-memory'
 Requires-Dist: opensearch-py<3.0.0,>=2.8.0; extra == 'mem0-memory'
+Provides-Extra: use-browser
+Requires-Dist: nest-asyncio<2.0.0,>=1.5.0; extra == 'use-browser'
+Requires-Dist: playwright<2.0.0,>=1.42.0; extra == 'use-browser'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -78,7 +82,7 @@ Description-Content-Type: text/markdown
     <a href="https://pypi.org/project/strands-agents-tools/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/strands-agents-tools"/></a>
     <a href="https://python.org"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/strands-agents-tools"/></a>
   </div>
-  
+
   <p>
     <a href="https://strandsagents.com/">Documentation</a>
     ◆ <a href="https://github.com/strands-agents/samples">Samples</a>
@@ -123,7 +127,7 @@ pip install strands-agents-tools
 To install the dependencies for optional tools:
 
 ```bash
-pip install strands-agents-tools[mem0_memory]
+pip install strands-agents-tools[mem0_memory, use_browser]
 ```
 
 ### Development Install
@@ -150,6 +154,7 @@ Below is a comprehensive table of all available tools, how to use them with an a
 
 | Tool | Agent Usage | Use Case |
 |------|-------------|----------|
+| a2a_client | `provider = A2AClientToolProvider(known_agent_urls=["http://localhost:9000"]); agent = Agent(tools=provider.tools)` | Discover and communicate with A2A-compliant agents, send messages between agents |
 | file_read | `agent.tool.file_read(path="path/to/file.txt")` | Reading configuration files, parsing code files, loading datasets |
 | file_write | `agent.tool.file_write(path="path/to/file.txt", content="file content")` | Writing results to files, creating new files, saving output data |
 | editor | `agent.tool.editor(command="view", path="path/to/file.py")` | Advanced file operations like syntax highlighting, pattern replacement, and multi-file edits |
@@ -160,9 +165,10 @@ Below is a comprehensive table of all available tools, how to use them with an a
 | use_aws | `agent.tool.use_aws(service_name="s3", operation_name="list_buckets", parameters={}, region="us-west-2")` | Interacting with AWS services, cloud resource management |
 | retrieve | `agent.tool.retrieve(text="What is STRANDS?")` | Retrieving information from Amazon Bedrock Knowledge Bases |
 | nova_reels | `agent.tool.nova_reels(action="create", text="A cinematic shot of mountains", s3_bucket="my-bucket")` | Create high-quality videos using Amazon Bedrock Nova Reel with configurable parameters via environment variables |
-| mem0_memory | `agent.tool.mem0_memory(action="store", content="Remember I like to tennis", user_id="alex")` | Store user and agent memories across agent runs to provide personalized experience |
+| mem0_memory | `agent.tool.mem0_memory(action="store", content="Remember I like to play tennis", user_id="alex")` | Store user and agent memories across agent runs to provide personalized experience |
 | memory | `agent.tool.memory(action="retrieve", query="product features")` | Store, retrieve, list, and manage documents in Amazon Bedrock Knowledge Bases with configurable parameters via environment variables |
 | environment | `agent.tool.environment(action="list", prefix="AWS_")` | Managing environment variables, configuration management |
+| generate_image_stability | `agent.tool.generate_image_stability(prompt="A tranquil pool")` | Creating images using Stability AI models |
 | generate_image | `agent.tool.generate_image(prompt="A sunset over mountains")` | Creating AI-generated images for various applications |
 | image_reader | `agent.tool.image_reader(image_path="path/to/image.jpg")` | Processing and reading image files for AI analysis |
 | journal | `agent.tool.journal(action="write", content="Today's progress notes")` | Creating structured logs, maintaining documentation |
@@ -386,6 +392,25 @@ result = agent.tool.use_browser(actions=[
 ])
 ```
 
+### A2A Client
+
+```python
+from strands import Agent
+from strands_tools.a2a_client import A2AClientToolProvider
+
+# Initialize the A2A client provider with known agent URLs
+provider = A2AClientToolProvider(known_agent_urls=["http://localhost:9000"])
+agent = Agent(tools=provider.tools)
+
+# Use natural language to interact with A2A agents
+response = agent("discover available agents and send a greeting message")
+
+# The agent will automatically use the available tools:
+# - discover_agent(url) to find agents
+# - list_discovered_agents() to see all discovered agents
+# - send_message(message_text, target_agent_url) to communicate
+```
+
 ## 🌍 Environment Variables Configuration
 
 Agents Tools provides extensive customization through environment variables. This allows you to configure tool behavior without modifying code, making it ideal for different environments (development, testing, production).
@@ -406,7 +431,7 @@ These variables affect multiple tools:
 
 #### Calculator Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | CALCULATOR_MODE | Default calculation mode | evaluate |
 | CALCULATOR_PRECISION | Number of decimal places for results | 10 |
@@ -419,13 +444,13 @@ These variables affect multiple tools:
 
 #### Current Time Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | DEFAULT_TIMEZONE | Default timezone for current_time tool | UTC |
 
 #### Sleep Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | MAX_SLEEP_SECONDS | Maximum allowed sleep duration in seconds | 300 |
 
@@ -459,13 +484,13 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Memory Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | MEMORY_DEFAULT_MAX_RESULTS | Default maximum results for list operations | 50 |
 | MEMORY_DEFAULT_MIN_SCORE | Default minimum relevance score for filtering results | 0.4 |
 #### Nova Reels Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | NOVA_REEL_DEFAULT_SEED | Default seed for video generation | 0 |
 | NOVA_REEL_DEFAULT_FPS | Default frames per second for generated videos | 24 |
@@ -474,19 +499,19 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Python REPL Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | PYTHON_REPL_BINARY_MAX_LEN | Maximum length for binary content before truncation | 100 |
 
 #### Shell Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | SHELL_DEFAULT_TIMEOUT | Default timeout in seconds for shell commands | 900 |
 
 #### Slack Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | SLACK_DEFAULT_EVENT_COUNT | Default number of events to retrieve | 42 |
 | STRANDS_SLACK_AUTO_REPLY | Enable automatic replies to messages | false |
@@ -494,7 +519,7 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Speak Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | SPEAK_DEFAULT_STYLE | Default style for status messages | green |
 | SPEAK_DEFAULT_MODE | Default speech mode (fast/polly) | fast |
@@ -504,7 +529,7 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Editor Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | EDITOR_DIR_TREE_MAX_DEPTH | Maximum depth for directory tree visualization | 2 |
 | EDITOR_DEFAULT_STYLE | Default style for output panels | default |
@@ -512,13 +537,13 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Environment Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | ENV_VARS_MASKED_DEFAULT | Default setting for masking sensitive values | true |
 
 #### File Read Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | FILE_READ_RECURSIVE_DEFAULT | Default setting for recursive file searching | true |
 | FILE_READ_CONTEXT_LINES_DEFAULT | Default number of context lines around search matches | 2 |
@@ -530,7 +555,7 @@ The Mem0 Memory Tool supports three different backend configurations:
 
 #### Use Browser Tool
 
-| Environment Variable | Description | Default | 
+| Environment Variable | Description | Default |
 |----------------------|-------------|---------|
 | STRANDS_DEFAULT_WAIT_TIME | Default setting for wait time with actions | 1 |
 | STRANDS_BROWSER_MAX_RETRIES | Default number of retries to perform when an action fails | 3 |

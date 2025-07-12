@@ -12,7 +12,6 @@ import numpy
 import pandas
 import pyarrow
 import pyarrow.compute
-from deltalake import DeltaTable
 
 import tecton_core.tecton_pendulum as pendulum
 from tecton_core import conf
@@ -385,6 +384,10 @@ def _calculate_split_count(
 
 # Calculate the total number of rows within the partitions of a Delta table that overlap with a given time range.
 def _get_total_row_number(materialized_data_path: str, spine_time_limits: pendulum.period) -> int:
+    # Keeping this import scoped because deltalake library only installed on python > 3.7
+    # 6.x EMR versions run python 3.7 so will not be able to import this library, but this method only used in Rift
+    from deltalake import DeltaTable
+
     delta_table = DeltaTable(materialized_data_path)
     add_actions = delta_table.get_add_actions(flatten=True).to_pandas()
 

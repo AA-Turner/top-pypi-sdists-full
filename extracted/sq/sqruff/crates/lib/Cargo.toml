@@ -44,7 +44,7 @@ python = ["pyo3", "sqruff-lib-core/serde"]
 sqruff-lib-core.workspace = true
 sqruff-lib-dialects.workspace = true
 
-fancy-regex = "0.14.0"
+fancy-regex = "0.15.0"
 itertools = "0.14.0"
 regex = "1"
 walkdir = "2.5.0"
@@ -52,7 +52,6 @@ enum_dispatch = "0.3.13"
 indexmap.workspace = true
 common-path = "1.0.0"
 configparser = "3.1.0"
-anstyle = "1.0"
 log.workspace = true
 pretty_assertions = "1.4.0"
 ahash.workspace = true

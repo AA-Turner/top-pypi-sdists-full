@@ -1,15 +1,14 @@
 import dataclasses
-import functools
 import json
+import logging
 import os
-import typing
 import uuid
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
-from urllib.parse import urlparse
 
 import pyarrow
 import pyarrow.dataset
@@ -20,12 +19,10 @@ from deltalake.writer import get_file_stats_from_metadata
 from pyarrow._dataset import WrittenFile
 
 from tecton_core import conf
-from tecton_core import duckdb_factory
 from tecton_core import offline_store
 from tecton_core.arrow import PARQUET_WRITE_OPTIONS
 from tecton_core.compute_mode import ComputeMode
 from tecton_core.data_types import TimestampType
-from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
 from tecton_core.offline_store import patch_timestamps_in_arrow_schema
 from tecton_core.query.dialect import Dialect
 from tecton_core.query.nodes import AddAnchorTimeNode
@@ -34,42 +31,20 @@ from tecton_core.query.nodes import StagedTableScanNode
 from tecton_core.schema import Schema
 from tecton_materialization.common.task_params import TimeInterval
 from tecton_materialization.ray.nodes import AddTimePartitionNode
-from tecton_materialization.ray.nodes import TimeSpec
+from tecton_materialization.ray.offline_store_writer import OfflineStoreParams
+from tecton_materialization.ray.offline_store_writer import OfflineStoreWriter
+from tecton_materialization.ray.offline_store_writer import path_from_uri
 from tecton_proto.common import data_type__client_pb2 as data_type_pb2
 from tecton_proto.common import schema__client_pb2 as schema_pb2
 from tecton_proto.common.aws_credentials__client_pb2 import AwsIamRole
 from tecton_proto.offlinestore.delta import metadata__client_pb2 as metadata_pb2
 from tecton_proto.offlinestore.delta import transaction_writer__client_pb2 as transaction_writer_pb2
-from tecton_proto.offlinestore.delta.metadata__client_pb2 import TectonDeltaMetadata
 
-
-R = typing.TypeVar("R")
-TxnFn = Callable[[], R]
 
 Z_ORDER_TAG = "optimizationType"
 Z_ORDER_TAG_VALUE = "z-order"
 
-
-@dataclasses.dataclass
-class OfflineStoreParams:
-    feature_view_id: str
-    feature_view_name: str
-    schema: schema_pb2.Schema
-    time_spec: TimeSpec
-    feature_store_format_version: int
-    batch_schedule: Optional[int]
-
-    @staticmethod
-    def for_feature_definition(fd: FeatureDefinitionWrapper) -> "OfflineStoreParams":
-        return OfflineStoreParams(
-            feature_view_id=fd.id,
-            feature_view_name=fd.name,
-            schema=fd.materialization_schema.to_proto(),
-            time_spec=TimeSpec.for_feature_definition(fd),
-            feature_store_format_version=fd.get_feature_store_format_version,
-            # feature tables do not have schedules
-            batch_schedule=fd.get_batch_schedule_for_version if not fd.is_feature_table else None,
-        )
+logger = logging.getLogger(__name__)
 
 
 class DeltaConcurrentModificationException(Exception):
@@ -194,8 +169,12 @@ def _in_range(
     return _binary_expr(op=transaction_writer_pb2.Expression.Binary.OP_AND, left=start_cond, right=end_cond)
 
 
+def _get_fs_and_path(table_uri: str) -> Tuple[pyarrow.fs.FileSystem, str]:
+    return pyarrow.fs.FileSystem.from_uri(table_uri)
+
+
 @dataclasses.dataclass
-class DeltaWriter:
+class DeltaWriter(OfflineStoreWriter):
     def __init__(
         self,
         store_params: OfflineStoreParams,
@@ -205,38 +184,56 @@ class DeltaWriter:
         dynamodb_log_table_region: str,
         dynamodb_cross_account_role: Optional[AwsIamRole],
         kms_key_arn: str,
+        partition_type: Optional[offline_store.PartitionType] = None,
     ):
-        self._feature_params = store_params
-        self._table_uri = table_uri
-        self._join_keys = join_keys
-        self._fs, self._base_path = pyarrow.fs.FileSystem.from_uri(self._table_uri)
+        super().__init__(store_params, table_uri, join_keys)
+        self._fs, self._base_path = _get_fs_and_path(self._table_uri)
         self._adds: List[transaction_writer_pb2.AddFile] = []
         self._delete_uris: List[str] = []
         self._dynamodb_log_table_name = dynamodb_log_table_name
         self._dynamodb_log_table_region = dynamodb_log_table_region
         self._dynamodb_cross_account_role = dynamodb_cross_account_role
         self._current_transaction_writer: Optional[TransactionWriter] = None
-        self._partitioning = pyarrow.dataset.partitioning(
-            pyarrow.schema([(offline_store.TIME_PARTITION, pyarrow.string())]), flavor="hive"
-        )
+        if partition_type == offline_store.PartitionType.NONE:
+            self._partitioning = None
+        # for compaction jobs, we use delta v2 (epoch nanoseconds) as partition
+        elif partition_type == offline_store.PartitionType.EPOCH:
+            self._partitioning = pyarrow.dataset.partitioning(
+                pyarrow.schema([(offline_store.TIME_PARTITION, pyarrow.int64())]), flavor="hive"
+            )
+        else:
+            self._partitioning = pyarrow.dataset.partitioning(
+                pyarrow.schema([(offline_store.TIME_PARTITION, pyarrow.string())]), flavor="hive"
+            )
         self._kms_key_arn = kms_key_arn
-        self._duckdb_conn = duckdb_factory.create_connection()
+        self._retry_exceptions = [DeltaConcurrentModificationException]
+        self._partition_type = partition_type
 
     def _transaction_writer(self) -> TransactionWriter:
         if not self._current_transaction_writer:
-            schema = self._feature_params.schema
-            partition_column = schema_pb2.Column(
-                name=offline_store.TIME_PARTITION,
-                offline_data_type=data_type_pb2.DataType(type=data_type_pb2.DataTypeEnum.DATA_TYPE_STRING),
-            )
-            schema.columns.append(partition_column)
+            # for untiled offline store, we use view schema
+            if self._partition_type == offline_store.PartitionType.EPOCH:
+                schema = self._feature_params.view_schema
+            else:
+                schema = self._feature_params.schema
+
+            if self._partition_type == offline_store.PartitionType.NONE:
+                partition_columns = []
+            else:
+                partition_columns = [offline_store.TIME_PARTITION]
+                partition_column = schema_pb2.Column(
+                    name=offline_store.TIME_PARTITION,
+                    offline_data_type=data_type_pb2.DataType(type=data_type_pb2.DataTypeEnum.DATA_TYPE_STRING),
+                )
+                schema.columns.append(partition_column)
+
             init_args = transaction_writer_pb2.InitializeArgs(
                 path=self._table_uri,
                 id=self._feature_params.feature_view_id,
                 name=self._feature_params.feature_view_name,
                 description=f"Offline store for FeatureView {self._feature_params.feature_view_id} ({self._feature_params.feature_view_name})",
                 schema=schema,
-                partition_columns=[offline_store.TIME_PARTITION],
+                partition_columns=partition_columns,
                 dynamodb_log_table_name=self._dynamodb_log_table_name,
                 dynamodb_log_table_region=self._dynamodb_log_table_region,
                 kms_key_arn=self._kms_key_arn,
@@ -252,7 +249,7 @@ class DeltaWriter:
         """Returns a Table specifying the limits of data affected by a materialization job.
 
         :param time_interval: The feature time interval
-        :returns: A relation with one column for the timestamp key or anchor time, and one with the partition value
+        :returns: A relation with one column for the timestamp key, anchor time, and one with the partition value
             corresponding to the first column. The first row will be the values for feature start time and the second for
             feature end time.
         """
@@ -304,7 +301,7 @@ class DeltaWriter:
         )
         return predicate
 
-    def _filter_files(
+    def _filter_files_for_deletion(
         self,
         predicate: transaction_writer_pb2.Expression,
         filter_table: Callable[[pyarrow.dataset.Dataset], pyarrow.Table],
@@ -326,11 +323,39 @@ class DeltaWriter:
                     self.write(output_table, **write_kwargs)
         self._delete_uris.extend(deletes)
 
-    def _filter_materialized_range_for_deletion(self, interval: TimeInterval) -> None:
-        """Filters data within a materialized time range from parquet files in the offline store.
+    def transaction_exists(self, metadata: metadata_pb2.TectonDeltaMetadata) -> bool:
+        """checks matching transaction metadata, which signals that a previous task attempt already wrote data
+        If the task overwrites a previous materialization task interval then we treat it as a new transaction.
+        # TODO (vitaly): replace with txnAppId since overwrite tasks might also have multiple attempts (redundant txns)
+
+        :param metadata: transaction metadata
+        :return: whether the same transaction has been executed before
+        """
+        return self._transaction_writer().has_commit_with_metadata(metadata)
+
+    def delete_time_range(self, interval: TimeInterval) -> None:
+        """Filters and deletes previously materialized data within the interval.
 
         :param interval: The feature data time interval to delete
+
+        High level process:
+        1. Construct a Delta predicate expression matching the data we want to delete. This includes both a partition
+           predicate to limit the files we have to look at, and a predicate on timestamp/anchor time which doesn't limit
+           the files we have to consider, but can help with limit transaction conflicts.
+        2. Mark files matching the predicate as read in the Delta transaction. This returns a list of files possibly
+           matching the predicate.
+        3. For each file:
+           3a. Open it, filter out all data matching the predicate, and write out remaining data (if any) to a
+               new file.
+           3b. If any data was filtered out, add the old file to the list of deletes in the transaction. If any data remains,
+               add the new file to the transaction.
+
+        Implementation notes:
+        1. This is racy if there is another job running at the same time. This behavior is the same as in Spark.
+        2. We have corrected a bug that exists in Spark where we're not correctly selecting the data to delete: TEC-16681
         """
+        print(f"Clearing prior data in range {interval.start} - {interval.end}")
+
         time_spec = self._feature_params.time_spec
 
         def table_filter(input_table: pyarrow.dataset.Dataset) -> pyarrow.Table:
@@ -353,39 +378,7 @@ class DeltaWriter:
             ).arrow()
 
         predicate = self._time_limit_predicate(interval)
-        self._filter_files(predicate, table_filter)
-
-    def transaction_exists(self, metadata: metadata_pb2.TectonDeltaMetadata) -> bool:
-        """checks matching transaction metadata, which signals that a previous task attempt already wrote data
-        If the task overwrites a previous materialization task interval then we treat it as a new transaction.
-        # TODO (vitaly): replace with txnAppId since overwrite tasks might also have multiple attempts (redundant txns)
-
-        :param metadata: transaction metadata
-        :return: whether the same transaction has been executed before
-        """
-        return self._transaction_writer().has_commit_with_metadata(metadata)
-
-    def delete_time_range(self, interval: TimeInterval) -> None:
-        """Deletes previously materialized data within the interval if the interval overlaps with a previous task.
-
-        High level process:
-        1. Construct a Delta predicate expression matching the data we want to delete. This includes both a partition
-           predicate to limit the files we have to look at, and a predicate on timestamp/anchor time which doesn't limit
-           the files we have to consider, but can help with limit transaction conflicts.
-        2. Mark files matching the predicate as read in the Delta transaction. This returns a list of files possibly
-           matching the predicate.
-        3. For each file:
-           3a. Open it, filter out all data matching the predicate, and write out remaining data (if any) to a
-               new file.
-           3b. If any data was filtered out, add the old file to the list of deletes in the transaction. If any data remains,
-               add the new file to the transaction.
-
-        Implementation notes:
-        1. This is racy if there is another job running at the same time. This behavior is the same as in Spark.
-        2. We have corrected a bug that exists in Spark where we're not correctly selecting the data to delete: TEC-16681
-        """
-        print(f"Clearing prior data in range {interval.start} - {interval.end}")
-        self._filter_materialized_range_for_deletion(interval)
+        self._filter_files_for_deletion(predicate, table_filter)
 
     def write(
         self, table: Union[pyarrow.Table, pyarrow.RecordBatchReader], tags: Optional[Dict[str, str]] = None
@@ -396,6 +389,9 @@ class DeltaWriter:
 
         This does NOT commit to the Delta log. Call commit() after calling this to commit your changes.
         """
+
+        if conf.get_bool("DUCKDB_DEBUG"):
+            logger.warning("Beginning write to Delta table")
 
         adds = write(table, self._base_path, self._table_uri, self._join_keys, self._fs, self._partitioning, tags)
 
@@ -421,11 +417,11 @@ class DeltaWriter:
         # practice the only types of conflicts we could avoid would be key deletion operations on
         # disjoint sets of keys and also end up only touching disjoint sets of files. This is probably not very likely
         # to occur.
-        return self._filter_files(TRUE, filter_table)
+        return self._filter_files_for_deletion(TRUE, filter_table)
 
     # Collect entity samples for each Parquet file in Delta
     # Each sample is accompanied by weight = (number of rows in file) / (sample size)
-    def collect_sample_entities_in_delta(self, entity_sample_rows: int):
+    def collect_sample_entities(self, entity_sample_rows: int):
         for add_file in self._adds:
             parquet_path = os.path.join(self._base_path, add_file.uri)
             count_query = f"SELECT COUNT(*) AS total_rows FROM parquet_scan('{parquet_path}')"
@@ -433,7 +429,7 @@ class DeltaWriter:
             sample_size = min(total_rows, entity_sample_rows)
 
             get_sample_query = f"""
-                SELECT {', '.join(self._join_keys)}
+                SELECT {", ".join(self._join_keys)}
                 FROM parquet_scan('{parquet_path}')
                 TABLESAMPLE RESERVOIR({sample_size} rows)
             """
@@ -474,7 +470,7 @@ class DeltaWriter:
                     literal=transaction_writer_pb2.Expression.Literal(str=partition[offline_store.TIME_PARTITION])
                 ),
             )
-            self._filter_files(
+            self._filter_files_for_deletion(
                 partition_predicate,
                 table_sorted,
                 force_overwrite=True,
@@ -492,43 +488,13 @@ class DeltaWriter:
         )
         try:
             return self._transaction_writer().update(args).committed_version
-        except DeltaConcurrentModificationException:
+        except tuple(self._retry_exceptions):
             # Commit should be retried together with new write.
             self.abort()
 
             raise
         finally:
             self._reset_state()
-
-    def transaction(self, metadata: Optional[TectonDeltaMetadata] = None) -> Callable[[TxnFn], TxnFn]:
-        """Returns a decorator which wraps a function in a Delta transaction.
-
-        If the function returns successfully, the Delta transaction will be committed automatically. Any exceptions will
-        cause an aborted transaction.
-
-        Any Delta conflicts which occur will result in the function being retried in a new transaction.
-
-        :param metadata: Optional metadata to be added to the transaction.
-        """
-
-        def decorator(f: TxnFn, max_attempts=5) -> TxnFn:
-            @functools.wraps(f)
-            def wrapper() -> R:
-                for attempt in range(1, max_attempts + 1):
-                    r = f()
-                    try:
-                        self.commit(metadata)
-                        return r
-                    except DeltaConcurrentModificationException:
-                        if attempt >= max_attempts:
-                            raise
-                        print(f"Delta commit attempt {attempt} failed. Retrying...")
-                    finally:
-                        self.abort()
-
-            return wrapper
-
-        return decorator
 
     def abort(self):
         """
@@ -545,11 +511,6 @@ class DeltaWriter:
         self._delete_uris = []
 
 
-def path_from_uri(uri):
-    parts = urlparse(uri)
-    return parts.netloc + parts.path
-
-
 # Create this standalone function to avoid serialization of DeltaWriter. This function is called in the Ray sub-task.
 def write(
     table: Union[pyarrow.Table, pyarrow.RecordBatchReader],
@@ -557,7 +518,7 @@ def write(
     table_uri: str,
     join_keys: List[str],
     fs: pyarrow.fs.FileSystem,
-    partitioning: pyarrow.dataset.Partitioning,
+    partitioning: Optional[pyarrow.dataset.Partitioning],
     tags: Optional[Dict[str, str]] = None,
 ) -> List[transaction_writer_pb2.AddFile]:
     """Writes a pyarrow Table to the Delta table at base_uri partitioned by the TIME_PARTITION column.
@@ -569,8 +530,16 @@ def write(
 
     adds = []
     failed = False
+    visited_files_count = 0
 
     def visit_file(f: WrittenFile):
+        if conf.get_bool("DUCKDB_DEBUG"):
+            nonlocal visited_files_count
+            visited_files_count += 1
+
+            if visited_files_count % 10 == 0:
+                logger.warning(f"Processed {visited_files_count} files")
+
         try:
             path = f.path
             _, prefix, relative = path.partition(base_path)
@@ -578,7 +547,14 @@ def write(
             path_pieces = relative.split("/")
             partition = path_pieces[1]
             k, eq, v = partition.partition("=")
-            assert k == offline_store.TIME_PARTITION and eq == "=", f"Unexpected partition format: {path}"
+            # if there is a valid partitioning, then v will be non-empty
+            if v:
+                assert k == offline_store.TIME_PARTITION and eq == "=", (
+                    f"path_pieces: {path_pieces}\n Unexpected partition format: {path}"
+                )
+                partition_values = {k: v}
+            else:
+                partition_values = {}
             stats = get_file_stats_from_metadata(
                 f.metadata,
                 num_indexed_cols=-1,  # since we specify columns_to_collect_stats this should be -1
@@ -590,7 +566,7 @@ def write(
             adds.append(
                 transaction_writer_pb2.AddFile(
                     uri=table_uri + relative,
-                    partition_values={k: v},
+                    partition_values=partition_values,
                     tags=tags,
                     stats=serialized_stats,
                 )
@@ -604,7 +580,6 @@ def write(
 
     max_rows_per_file = conf.get_or_none("PARQUET_MAX_ROWS_PER_FILE")
     max_rows_per_group = conf.get_or_none("PARQUET_MAX_ROWS_PER_GROUP")
-
     pyarrow.dataset.write_dataset(
         data=table,
         filesystem=fs,

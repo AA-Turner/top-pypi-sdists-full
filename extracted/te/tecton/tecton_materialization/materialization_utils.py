@@ -13,7 +13,10 @@ from pyspark.sql.types import StringType
 from pyspark.sql.types import StructType
 
 from tecton_core.query_consts import anchor_time
+from tecton_core.secret_management import SecretResolver
+from tecton_materialization.mds_secrets import MDSSecretResolver
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
+from tecton_proto.materialization.params__client_pb2 import SecretServiceParams
 from tecton_spark.materialization_plan import MATERIALIZED_RAW_DATA_END_TIME
 
 
@@ -194,3 +197,16 @@ def has_prior_delta_commit(spark, materialization_params, idempotence_key, idemp
         .count()
     )
     return commit_count != 0
+
+
+def get_secret_resolver(
+    secret_service_params: SecretServiceParams,
+) -> Optional[SecretResolver]:
+    if not secret_service_params.secrets_api_service_url:
+        return None
+
+    assert secret_service_params.secret_access_api_key, "Secret access key is required when using secret service"
+    return MDSSecretResolver(
+        secret_service_params.secrets_api_service_url,
+        secret_service_params.secret_access_api_key,
+    )

@@ -75,6 +75,7 @@ class BaseCompletion(ABC):
         response_format: Optional[ResponseFormat] | NotGiven = NOT_GIVEN,
         context_length_exceeded_behavior: Optional[str] | NotGiven = NOT_GIVEN,
         user: Optional[str] | NotGiven = NOT_GIVEN,
+        perf_metrics_in_response: Optional[bool] | NotGiven = NOT_GIVEN,
         extra_headers=None,
         **kwargs,
     ) -> dict:
@@ -105,6 +106,7 @@ class BaseCompletion(ABC):
             "response_format": response_format,
             "context_length_exceeded_behavior": context_length_exceeded_behavior,
             "user": user,
+            "perf_metrics_in_response": perf_metrics_in_response,
         }
 
         # Add only non-NOT_GIVEN optional parameters

@@ -119,6 +119,7 @@ from .recipe import (
 )
 from .recommended_model import ModelRecommendation
 from .relationships_configuration import RelationshipsConfiguration
+from .resource_bundle import ResourceBundle
 from .ruleset import Ruleset
 from .secondary_dataset import SecondaryDatasetConfigurations
 from .segmentation import SegmentationTask, SegmentInfo

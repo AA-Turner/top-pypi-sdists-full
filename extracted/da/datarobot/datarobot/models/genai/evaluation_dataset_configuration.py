@@ -1,5 +1,5 @@
 #
-# Copyright 2024 DataRobot, Inc. and its affiliates.
+# Copyright 2024-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -30,6 +30,8 @@ evaluation_dataset_configuration_trafaret = t.Dict(
         t.Key("dataset_name"): t.String(allow_blank=True),
         t.Key("prompt_column_name"): t.String,
         t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("tool_calls_column_name", optional=True): t.Or(t.String, t.Null),
+        t.Key("agent_goals_column_name", optional=True): t.Or(t.String, t.Null),
         t.Key("user_name"): t.String(allow_blank=True),
         t.Key("correctness_enabled", optional=True): t.Or(t.Bool, t.Null),
         t.Key("creation_user_id"): t.String,
@@ -67,8 +69,12 @@ class EvaluationDatasetConfiguration(APIObject):
         The name of the dataset column containing the prompt text.
     response_column_name : Optional[str]
         The name of the dataset column containing the response text.
-    user_name : str
-        The name of the user who created the evaluation dataset configuration.
+    tool_calls_column_name : Optional[str]
+        The name of the dataset column containing the expected tool calls.  It is required to evaluate
+        the tool call accuracy metric for agentic workflows.
+    agent_goals_column_name : Optional[str]
+        The name of the dataset column containing the expected agent goals. It is required to
+        evaluate the agent goal accuracy with reference metrics for agentic workflows.
     correctness_enabled : Optional[bool]
         Whether correctness is enabled for the evaluation dataset configuration.
     creation_user_id : str
@@ -103,6 +109,8 @@ class EvaluationDatasetConfiguration(APIObject):
         execution_status: str,
         playground_id: Optional[str] = None,
         response_column_name: Optional[str] = None,
+        tool_calls_column_name: Optional[str] = None,
+        agent_goals_column_name: Optional[str] = None,
         correctness_enabled: Optional[bool] = None,
         error_message: Optional[str] = None,
     ):
@@ -116,6 +124,9 @@ class EvaluationDatasetConfiguration(APIObject):
         self.dataset_name = dataset_name
         self.prompt_column_name = prompt_column_name
         self.response_column_name = response_column_name
+        self.tool_calls_column_name = tool_calls_column_name
+        self.prompt_column_name = prompt_column_name
+        self.agent_goals_column_name = agent_goals_column_name
         self.user_name = user_name
         self.correctness_enabled = correctness_enabled
         self.creation_user_id = creation_user_id
@@ -214,6 +225,8 @@ class EvaluationDatasetConfiguration(APIObject):
         playground_id: str,
         is_synthetic_dataset: bool = False,
         response_column_name: Optional[str] = None,
+        tool_calls_column_name: Optional[str] = None,
+        agent_goals_column_name: Optional[str] = None,
     ) -> EvaluationDatasetConfiguration:
         """Create an evaluation dataset configuration for an existing dataset.
 
@@ -232,6 +245,12 @@ class EvaluationDatasetConfiguration(APIObject):
             The name of the prompt column in the dataset.
         response_column_name: str
             The name of the response column in the dataset.
+        tool_calls_column_name : Optional[str]
+            The name of the dataset column containing the expected tool calls.  It is required to evaluate
+            the tool call accuracy metric for agentic workflows.
+        agent_goals_column_name : Optional[str]
+            The name of the dataset column containing the expected agent goals. It is required to
+            evaluate the agent goal accuracy with reference metrics for agentic workflows.
         is_synthetic_dataset: bool
             Whether the evaluation dataset is synthetic.
 
@@ -249,8 +268,10 @@ class EvaluationDatasetConfiguration(APIObject):
             "dataset_id": dataset_id,
             "prompt_column_name": prompt_column_name,
             "response_column_name": response_column_name,
-            "is_synthetic_data": is_synthetic_dataset,
+            "is_synthetic_dataset": is_synthetic_dataset,
             "playground_id": playground_id,
+            "tool_calls_column_name": tool_calls_column_name,
+            "agent_goals_column_name": agent_goals_column_name,
         }
         response = cls._client.post(url, data=payload)
         return cls.from_server_data(response.json())
@@ -261,6 +282,8 @@ class EvaluationDatasetConfiguration(APIObject):
         dataset_id: Optional[str] = None,
         prompt_column_name: Optional[str] = None,
         response_column_name: Optional[str] = None,
+        tool_calls_column_name: Optional[str] = None,
+        agent_goals_column_name: Optional[str] = None,
     ) -> EvaluationDatasetConfiguration:
         """Update the evaluation dataset configuration.
 
@@ -274,6 +297,12 @@ class EvaluationDatasetConfiguration(APIObject):
             The name of the prompt column in the dataset.
         response_column_name : Optional[str]
             The name of the response column in the dataset.
+        tool_calls_column_name : Optional[str]
+            The name of the dataset column containing the expected tool calls.  It is required to evaluate
+            the tool call accuracy metric for agentic workflows.
+        agent_goals_column_name : Optional[str]
+            The name of the dataset column containing the expected agent goals. It is required to
+            evaluate the agent goal accuracy with reference metrics for agentic workflows.
 
         Returns
         -------
@@ -286,6 +315,8 @@ class EvaluationDatasetConfiguration(APIObject):
             "dataset_id": dataset_id,
             "prompt_column_name": prompt_column_name,
             "response_column_name": response_column_name,
+            "tool_calls_column_name": tool_calls_column_name,
+            "agent_goals_column_name": agent_goals_column_name,
         }
         url = f"{self._client.domain}/{self._path}/{self.id}/"
         response = self._client.patch(url, data=payload)

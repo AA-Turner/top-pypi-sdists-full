@@ -61,9 +61,17 @@ class FeatureTableDefaults(BatchFeatureViewDefaults):
 
 class FeatureServiceDefaults(StrictModel):
     realtime_environment: Optional[str] = None
-    on_demand_environment: Optional[str] = None
     transform_server_group: Optional[str] = None
     feature_server_group: Optional[str] = None
+
+
+class PushConfigDefaults(StrictModel):
+    transform_server_group: Optional[str] = None
+    ingest_server_group: Optional[str] = None
+
+
+class StreamSourceDefaults(StrictModel):
+    push_config: Optional[PushConfigDefaults] = None
 
 
 class TectonObjectDefaults(StrictModel):
@@ -71,6 +79,7 @@ class TectonObjectDefaults(StrictModel):
     stream_feature_view: Optional[StreamFeatureViewDefaults] = None
     feature_table: Optional[FeatureTableDefaults] = None
     feature_service: Optional[FeatureServiceDefaults] = None
+    stream_source: Optional[StreamSourceDefaults] = None
 
 
 class TectonConfSettings(StrictModel):
@@ -137,3 +146,11 @@ def get_feature_table_defaults() -> FeatureTableDefaults:
         return FeatureTableDefaults()
 
     return _repo_config.defaults.feature_table
+
+
+def get_stream_source_defaults() -> StreamSourceDefaults:
+    """Get the user-specified Stream Source defaults or a default instance if the user did not specify defaults."""
+    if _repo_config is None or _repo_config.defaults is None or _repo_config.defaults.stream_source is None:
+        return StreamSourceDefaults()
+
+    return _repo_config.defaults.stream_source

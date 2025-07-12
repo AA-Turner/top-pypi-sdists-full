@@ -8,6 +8,7 @@ import abc
 import enum
 import struct as _struct
 import logging
+import datetime
 import functools as _functools
 import itertools as _itertools
 from typing import TYPE_CHECKING, Any, Dict, List, Type, Tuple, Union, Generic, TypeVar, Optional, Sequence
@@ -980,3 +981,53 @@ class ClrResource(abc.ABC):
     @abc.abstractmethod
     def parse(self):
         raise NotImplementedError()
+
+
+class DateTimeStruct(Structure):
+    Ticks: int
+    Kind: int
+
+
+class DateTime(object):
+    struct: Optional[DateTimeStruct]
+    kind: Optional[enums.DateTimeKind]
+    value: Optional[datetime.datetime]
+    seconds: Optional[int]
+    __data__: bytes
+
+    def __init__(self, raw_bytes: bytes, rva: Optional[int] = None):
+        self.struct: Optional[DateTimeStruct] = None
+        self.kind: Optional[enums.DateTimeKind] = None
+        self.value: Optional[datetime.datetime] = None
+        self.seconds: Optional[int] = None
+        self.__data__: bytes = raw_bytes
+        self.rva: Optional[int] = rva
+
+    def parse(self):
+        if not self.__data__:
+            # TODO: warn/error
+            return
+        # Should be 64 bits
+        if len(self.__data__) != 8:
+            # TODO: warn/error
+            return
+        x = _struct.unpack("<q", self.__data__)[0]
+        self.struct = DateTimeStruct()
+        self.struct.Ticks = x & 0x3FFFFFFFFFFFFFFF
+        # Value is stored in lower 62-bits
+        # https://github.com/dotnet/runtime/blob/17c55f1/src/libraries/System.Private.CoreLib/src/System/DateTime.cs#L130-L138
+        self.struct.Kind = x >> 62
+        # https://stackoverflow.com/questions/3169517/python-c-sharp-binary-datetime-encoding
+        self.Seconds = self.struct.Ticks / 10.0 ** 7
+        self.Kind = enums.DateTimeKind(self.struct.Kind)
+        delta = datetime.timedelta(seconds=self.Seconds)
+        if self.Kind == enums.DateTimeKind.Utc:
+            self.value = datetime.datetime(1, 1, 1, 0, 0, 0, 0, datetime.timezone.utc) + delta
+        else:
+            self.value = datetime.datetime(1, 1, 1, 0, 0, 0, 0) + delta
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    def to_datetime(self) -> Optional[datetime.datetime]:
+        return self.value

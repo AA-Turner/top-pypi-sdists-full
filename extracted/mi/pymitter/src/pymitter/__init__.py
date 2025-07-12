@@ -11,7 +11,7 @@ __credits__ = ["Marcel Rieger"]
 __contact__ = "https://github.com/riga/pymitter"
 __license__ = "BSD-3-Clause"
 __status__ = "Development"
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 __all__ = ["EventEmitter", "Listener"]
 
 import asyncio
@@ -140,18 +140,18 @@ class EventEmitter:
     @overload
     def off(self, event: str) -> Callable[[F], F]: ...
 
-    def off(self, event: str, func: F | None = None):
+    def off(self, event: str, func: F | None = None) -> F | None:
         """
-        Removes a function that is registered to an event. When *func* is *None*, decorator usage is assumed. Returns
-        the wrapped function.
+        Removes a function that is registered to an event and returns it. When *func* is *None*, all listeners
+        registered to *event* are removed and *None* is returned.
         """
+        if func is None:
+            # remove all listeners
+            self._event_tree.remove_listeners_by_event(event)
+            return None
 
-        def off(func: Callable) -> Callable:
-            self._event_tree.remove_listeners_by_func(event, func)
-
-            return func
-
-        return off(func) if func else off
+        self._event_tree.remove_listeners_by_func(event, func)
+        return func
 
     @overload
     def off_any(self, func: F) -> F: ...
@@ -400,6 +400,10 @@ class Tree(BaseNode):
     def remove_listeners_by_func(self, event: str, func: Callable[..., Any]) -> None:
         for node in self.find_nodes(event):
             node.remove_listeners_by_func(func)
+
+    def remove_listeners_by_event(self, event: str) -> None:
+        for node in self.find_nodes(event):
+            node.listeners.clear()
 
     def find_listeners(self, event: str, sort: bool = True) -> list[Listener]:
         listeners: list[Listener] = sum((node.listeners for node in self.find_nodes(event)), [])

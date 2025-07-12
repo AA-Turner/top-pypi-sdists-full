@@ -5,7 +5,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-import click
+import rich_click as click
 
 import tecton
 from tecton import conf
@@ -19,6 +19,7 @@ from tecton.cli import cli_utils
 from tecton.cli import completion
 from tecton.cli import engine
 from tecton.cli import environment
+from tecton.cli import infra_commands
 from tecton.cli import materialization
 from tecton.cli import model
 from tecton.cli import plan
@@ -32,7 +33,6 @@ from tecton.cli import test
 from tecton.cli import upgrade
 from tecton.cli import user
 from tecton.cli import workspace
-from tecton.cli.command import CategorizedTectonGroup
 from tecton.cli.command import TectonGroup
 from tecton.cli.engine import dump_local_state
 from tecton.cli.workspace_utils import WorkspaceType
@@ -46,10 +46,13 @@ CONTEXT_SETTINGS = {
 }
 
 
-@click.group(name="tecton", context_settings=CONTEXT_SETTINGS, cls=CategorizedTectonGroup)
+@click.group(name="tecton", context_settings=CONTEXT_SETTINGS, cls=TectonGroup)
 @click.option("--verbose", "-v", is_flag=True, help="Increase verbosity level to print more information.")
 def cli(verbose: bool = False):
-    """Tecton command-line tool."""
+    """The Tecton command-line tool is used to manage feature repositories, infrastructure, and access controls in Tecton.
+
+    See https://docs.tecton.ai/ for documentation and more information about building on Tecton.
+    """
     sdk_decorators.disable_sdk_public_method_decorator()
     conf.enable_save_tecton_configs()
 
@@ -80,6 +83,12 @@ cli.add_command(repo.init)
 cli.add_command(repo_config.repo_config_group)
 cli.add_command(secrets.secrets)
 cli.add_command(server_group.server_group)
+cli.add_command(infra_commands.feature_server_cache)
+cli.add_command(infra_commands.feature_server_group)
+cli.add_command(infra_commands.ingest_server_group)
+cli.add_command(infra_commands.isg)
+cli.add_command(infra_commands.transform_server_group)
+cli.add_command(infra_commands.tsg)
 cli.add_command(service_account.service_account)
 cli.add_command(test.test)
 cli.add_command(user.user)
@@ -119,16 +128,21 @@ def log(limit):
         workspace=tecton_context.get_current_workspace(), limit=limit
     )
     response = metadata_service.instance().GetStateUpdateLog(request)
+
+    headings = ["Plan ID", "Author", "Date", "SDK Version"]
+    display_rows = []
+
     for entry in response.entries:
-        # Use f-string left alignment for a better looking format
-        printer.safe_print(f"{'Plan ID: ' : <15}{entry.commit_id}")
-        printer.safe_print(
-            f"{'Author: ' : <15}{cli_utils.display_principal(entry.applied_by_principal, entry.applied_by)}"
+        display_rows.append(
+            (
+                entry.commit_id,
+                cli_utils.display_principal(entry.applied_by_principal, entry.applied_by),
+                str(entry.applied_at.ToDatetime()),
+                entry.sdk_version if entry.sdk_version else "",
+            )
         )
-        printer.safe_print(f"{'Date: ' : <15}{entry.applied_at.ToDatetime()}")
-        if entry.sdk_version:
-            printer.safe_print(f"{'SDK Version: ' : <15}{entry.sdk_version}")
-        printer.safe_print()
+
+    cli_utils.display_table(headings, display_rows)
 
 
 @cli.command()
@@ -153,6 +167,8 @@ def web(workspace, print_) -> None:
     if print_:
         printer.safe_print(f"Web URL: {web_url}")
     else:
+        import click
+
         printer.safe_print(f"Opening {web_url}")
         # Sleep before opening the browser to improve the UX and make it less jarring.
         time.sleep(1)

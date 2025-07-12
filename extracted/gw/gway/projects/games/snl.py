@@ -117,6 +117,7 @@ def view_massive_snake(*, action=None, name=None, color=None):
     board = load_board()
     pid = _get_player_id()
     asc = _get_ascensions()
+    ready_to_ascend = False
 
     if not pid and name and color:
         pid = _add_player(board, name, color)
@@ -124,6 +125,7 @@ def view_massive_snake(*, action=None, name=None, color=None):
         _set_player_id(pid)
 
     message = ""
+    roll_msg = ""
     if action == "ascend" and pid and board["players"].get(pid, {}).get("pos") >= BOARD_SIZE:
         asc += 1
         _set_ascensions(asc)
@@ -145,6 +147,11 @@ def view_massive_snake(*, action=None, name=None, color=None):
             message += " You went up a ladder!"
         elif event == "snake":
             message += " You fell down a snake!"
+        if pid and board["players"].get(pid, {}).get("pos", 0) >= BOARD_SIZE:
+            ready_to_ascend = True
+            message += " Ready to ascend!"
+        roll_msg = message
+        message = ""
 
     rows = []
     for pid_, info in board["players"].items():
@@ -166,21 +173,45 @@ def view_massive_snake(*, action=None, name=None, color=None):
     roll_button = ""
     ascend_button = ""
     if pid:
-        roll_button = (
-            "<form method='post'>"
-            "<button type='submit' name='action' value='roll'>Roll Dice</button>"
-            "</form>"
-        )
-        if board["players"].get(pid, {}).get("pos") >= BOARD_SIZE:
+        player_pos = board["players"].get(pid, {}).get("pos", 0)
+        ready_to_ascend = ready_to_ascend or player_pos >= BOARD_SIZE
+        if player_pos < BOARD_SIZE:
+            roll_button = (
+                "<form method='post' class='snake-roll'>"
+                "<button class='snake-button roll-button' type='submit' name='action' value='roll'>Roll Dice</button>"
+                f"<span class='roll-msg'>{gw.web.nav.html_escape(roll_msg)}</span>"
+                "</form>"
+            )
+        if player_pos >= BOARD_SIZE:
             ascend_button = (
-                "<form method='post'>"
-                "<button type='submit' name='action' value='ascend'>Ascend</button>"
+                "<form method='post' class='snake-ascend' style='display:inline-block'>"
+                "<button class='snake-button ascend-button' type='submit' name='action' value='ascend'>Ascend</button>"
+                "<span id='ascend-msg' class='ascend-msg'></span>"
                 "</form>"
             )
 
+    script = ""
+    if ready_to_ascend and pid:
+        script = (
+            "<script>"
+            "const title=document.getElementById('msnake-title');"
+            "const msg=document.getElementById('ascend-msg');"
+            "msg.textContent='Ready to ascend! ';"
+            "const span=document.createElement('span');"
+            "span.textContent=title.textContent;"
+            "span.className='snake-title ascended';"
+            "msg.appendChild(span);"
+            "const roll=document.querySelector('.roll-button');"
+            "const asc=document.querySelector('.snake-ascend button');"
+            "asc.disabled=true; if(roll) roll.disabled=true;"
+            "setTimeout(()=>{msg.remove();asc.disabled=false;if(roll) roll.disabled=false;},2000);"
+            "</script>"
+        )
+
     html = [
         '<link rel="stylesheet" href="/static/games/massive_snake/board.css">',
-        "<h1>Massive Snake</h1>",
+        "<h1 id='msnake-title' class='snake-title'>Massive Snake</h1>",
+        script,
         "<p><em>A Massively Multiplayer Game of Snakes and Ladders.</em></p>",
         join_form,
         f"<p>{message}</p>" if message else "",

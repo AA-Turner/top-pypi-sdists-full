@@ -15,9 +15,9 @@ use std::{collections::HashMap, slice::Iter};
 use itertools::EitherOrBoth;
 use smallvec::{SmallVec, smallvec};
 
-use super::{DynamicType, Type, TypeVarVariance, TypeVisitor, definition_expression_type};
+use super::{DynamicType, Type, TypeTransformer, TypeVarVariance, definition_expression_type};
 use crate::semantic_index::definition::Definition;
-use crate::types::generics::GenericContext;
+use crate::types::generics::{GenericContext, walk_generic_context};
 use crate::types::{TypeMapping, TypeRelation, TypeVarInstance, todo_type};
 use crate::{Db, FxOrderSet};
 use ruff_python_ast::{self as ast, name::Name};
@@ -61,7 +61,11 @@ impl<'db> CallableSignature<'db> {
         )
     }
 
-    pub(crate) fn normalized_impl(&self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+    pub(crate) fn normalized_impl(
+        &self,
+        db: &'db dyn Db,
+        visitor: &mut TypeTransformer<'db>,
+    ) -> Self {
         Self::from_overloads(
             self.overloads
                 .iter()
@@ -209,7 +213,7 @@ impl<'a, 'db> IntoIterator for &'a CallableSignature<'db> {
 }
 
 /// The signature of one of the overloads of a callable.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
+#[derive(Clone, Debug, salsa::Update, get_size2::GetSize)]
 pub struct Signature<'db> {
     /// The generic context for this overload, if it is generic.
     pub(crate) generic_context: Option<GenericContext<'db>>,
@@ -218,6 +222,10 @@ pub struct Signature<'db> {
     /// specialization of its generic class. If the method is itself generic, this is in addition
     /// to its own generic context.
     pub(crate) inherited_generic_context: Option<GenericContext<'db>>,
+
+    /// The original definition associated with this function, if available.
+    /// This is useful for locating and extracting docstring information for the signature.
+    pub(crate) definition: Option<Definition<'db>>,
 
     /// Parameters, in source order.
     ///
@@ -233,11 +241,35 @@ pub struct Signature<'db> {
     pub(crate) return_ty: Option<Type<'db>>,
 }
 
+pub(super) fn walk_signature<'db, V: super::visitor::TypeVisitor<'db> + ?Sized>(
+    db: &'db dyn Db,
+    signature: &Signature<'db>,
+    visitor: &mut V,
+) {
+    if let Some(generic_context) = &signature.generic_context {
+        walk_generic_context(db, *generic_context, visitor);
+    }
+    if let Some(inherited_generic_context) = &signature.inherited_generic_context {
+        walk_generic_context(db, *inherited_generic_context, visitor);
+    }
+    // By default we usually don't visit the type of the default value,
+    // as it isn't relevant to most things
+    for parameter in &signature.parameters {
+        if let Some(ty) = parameter.annotated_type() {
+            visitor.visit_type(db, ty);
+        }
+    }
+    if let Some(return_ty) = &signature.return_ty {
+        visitor.visit_type(db, *return_ty);
+    }
+}
+
 impl<'db> Signature<'db> {
     pub(crate) fn new(parameters: Parameters<'db>, return_ty: Option<Type<'db>>) -> Self {
         Self {
             generic_context: None,
             inherited_generic_context: None,
+            definition: None,
             parameters,
             return_ty,
         }
@@ -251,6 +283,7 @@ impl<'db> Signature<'db> {
         Self {
             generic_context,
             inherited_generic_context: None,
+            definition: None,
             parameters,
             return_ty,
         }
@@ -261,6 +294,7 @@ impl<'db> Signature<'db> {
         Signature {
             generic_context: None,
             inherited_generic_context: None,
+            definition: None,
             parameters: Parameters::gradual_form(),
             return_ty: Some(signature_type),
         }
@@ -273,6 +307,7 @@ impl<'db> Signature<'db> {
         Signature {
             generic_context: None,
             inherited_generic_context: None,
+            definition: None,
             parameters: Parameters::todo(),
             return_ty: Some(signature_type),
         }
@@ -305,6 +340,7 @@ impl<'db> Signature<'db> {
         Self {
             generic_context: generic_context.or(legacy_generic_context),
             inherited_generic_context,
+            definition: Some(definition),
             parameters,
             return_ty,
         }
@@ -324,6 +360,7 @@ impl<'db> Signature<'db> {
         Self {
             generic_context: self.generic_context,
             inherited_generic_context: self.inherited_generic_context,
+            definition: self.definition,
             // Parameters are at contravariant position, so the variance is flipped.
             parameters: self.parameters.materialize(db, variance.flip()),
             return_ty: Some(
@@ -334,7 +371,11 @@ impl<'db> Signature<'db> {
         }
     }
 
-    pub(crate) fn normalized_impl(&self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+    pub(crate) fn normalized_impl(
+        &self,
+        db: &'db dyn Db,
+        visitor: &mut TypeTransformer<'db>,
+    ) -> Self {
         Self {
             generic_context: self
                 .generic_context
@@ -342,6 +383,7 @@ impl<'db> Signature<'db> {
             inherited_generic_context: self
                 .inherited_generic_context
                 .map(|ctx| ctx.normalized_impl(db, visitor)),
+            definition: self.definition,
             parameters: self
                 .parameters
                 .iter()
@@ -361,6 +403,7 @@ impl<'db> Signature<'db> {
         Self {
             generic_context: self.generic_context,
             inherited_generic_context: self.inherited_generic_context,
+            definition: self.definition,
             parameters: self.parameters.apply_type_mapping(db, type_mapping),
             return_ty: self
                 .return_ty
@@ -391,10 +434,16 @@ impl<'db> Signature<'db> {
         &self.parameters
     }
 
+    /// Return the definition associated with this signature, if any.
+    pub(crate) fn definition(&self) -> Option<Definition<'db>> {
+        self.definition
+    }
+
     pub(crate) fn bind_self(&self) -> Self {
         Self {
             generic_context: self.generic_context,
             inherited_generic_context: self.inherited_generic_context,
+            definition: self.definition,
             parameters: Parameters::new(self.parameters().iter().skip(1).cloned()),
             return_ty: self.return_ty,
         }
@@ -868,6 +917,33 @@ impl<'db> Signature<'db> {
 
         true
     }
+
+    /// Create a new signature with the given definition.
+    pub(crate) fn with_definition(self, definition: Option<Definition<'db>>) -> Self {
+        Self { definition, ..self }
+    }
+}
+
+// Manual implementations of PartialEq, Eq, and Hash that exclude the definition field
+// since the definition is not relevant for type equality/equivalence
+impl PartialEq for Signature<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.generic_context == other.generic_context
+            && self.inherited_generic_context == other.inherited_generic_context
+            && self.parameters == other.parameters
+            && self.return_ty == other.return_ty
+    }
+}
+
+impl Eq for Signature<'_> {}
+
+impl std::hash::Hash for Signature<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.generic_context.hash(state);
+        self.inherited_generic_context.hash(state);
+        self.parameters.hash(state);
+        self.return_ty.hash(state);
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
@@ -1276,15 +1352,24 @@ impl<'db> Parameter<'db> {
     /// Normalize nested unions and intersections in the annotated type, if any.
     ///
     /// See [`Type::normalized`] for more details.
-    pub(crate) fn normalized_impl(&self, db: &'db dyn Db, visitor: &mut TypeVisitor<'db>) -> Self {
+    pub(crate) fn normalized_impl(
+        &self,
+        db: &'db dyn Db,
+        visitor: &mut TypeTransformer<'db>,
+    ) -> Self {
         let Parameter {
             annotated_type,
             kind,
             form,
         } = self;
 
-        // Ensure unions and intersections are ordered in the annotated type (if there is one)
-        let annotated_type = annotated_type.map(|ty| ty.normalized_impl(db, visitor));
+        // Ensure unions and intersections are ordered in the annotated type (if there is one).
+        // Ensure that a parameter without an annotation is treated equivalently to a parameter
+        // with a dynamic type as its annotation. (We must use `Any` here as all dynamic types
+        // normalize to `Any`.)
+        let annotated_type = annotated_type
+            .map(|ty| ty.normalized_impl(db, visitor))
+            .unwrap_or_else(Type::any);
 
         // Ensure that parameter names are stripped from positional-only, variadic and keyword-variadic parameters.
         // Ensure that we only record whether a parameter *has* a default
@@ -1316,7 +1401,7 @@ impl<'db> Parameter<'db> {
         };
 
         Self {
-            annotated_type,
+            annotated_type: Some(annotated_type),
             kind,
             form: *form,
         }

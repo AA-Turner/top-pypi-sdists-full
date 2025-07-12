@@ -1,4 +1,4 @@
-import os
+import logging
 from datetime import datetime
 from typing import Dict
 from typing import List
@@ -41,6 +41,7 @@ from tecton_core.query.nodes import AddUniqueIdNode
 from tecton_core.query.nodes import AdjustAnchorTimeToWindowEndNode
 from tecton_core.query.nodes import AggregationSecondaryKeyExplodeNode
 from tecton_core.query.nodes import AggregationSecondaryKeyRollupNode
+from tecton_core.query.nodes import AsofBitemporalJoinFullAggNode
 from tecton_core.query.nodes import AsofJoinFullAggNode
 from tecton_core.query.nodes import AsofJoinInputContainer
 from tecton_core.query.nodes import AsofJoinNode
@@ -78,11 +79,11 @@ from tecton_core.query.nodes import TrimValidityPeriodNode
 from tecton_core.query.nodes import UnionNode
 from tecton_core.query.nodes import UserSpecifiedDataNode
 from tecton_core.query.nodes import WildcardJoinNode
+from tecton_core.query_consts import MOCK_COLUMN_SEPARATOR
 from tecton_core.query_consts import aggregation_group_id
 from tecton_core.query_consts import aggregation_tile_id
 from tecton_core.query_consts import anchor_time
 from tecton_core.query_consts import anchor_time_for_non_sawtooth
-from tecton_core.query_consts import default_case
 from tecton_core.query_consts import effective_timestamp
 from tecton_core.query_consts import exclusive_end_time
 from tecton_core.query_consts import expiration_timestamp
@@ -97,10 +98,14 @@ from tecton_core.query_consts import timestamp_plus_ttl
 from tecton_core.query_consts import udf_internal
 from tecton_core.query_consts import window_end_column_name
 from tecton_core.schema import Schema
+from tecton_core.skew_config import SkewConfig
 from tecton_core.specs import DataSourceSpec
 from tecton_proto.args.pipeline__client_pb2 import DataSourceNode as ProtoDataSourceNode
 from tecton_proto.common import aggregation_function__client_pb2 as aggregation_function_pb2
 from tecton_proto.data import feature_view__client_pb2 as feature_view__data_pb2
+
+
+logger = logging.getLogger(__name__)
 
 
 def _is_wildcard_join(fdw: feature_definition_wrapper.FeatureDefinitionWrapper, spine_node: NodeRef) -> bool:
@@ -125,6 +130,7 @@ def build_datasource_scan_node(
     for_stream: bool,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     tree = DataSourceScanNode(
         dialect=dialect,
@@ -134,6 +140,7 @@ def build_datasource_scan_node(
         is_stream=for_stream,
         start_time=start_time,
         end_time=end_time,
+        skew_config=skew_config,
     ).as_ref()
     return StagingNode(
         dialect=dialect,
@@ -148,9 +155,10 @@ def _get_ds_time_limits(
     feature_data_time_limits: Optional[pendulum.Period],
     schedule_interval: Optional[pendulum.Duration],
     data_source_node: ProtoDataSourceNode,
+    skew_config: Optional[SkewConfig],
 ) -> Tuple[Optional[datetime], Optional[datetime]]:
     ds_time_limits = get_time_window_from_data_source_node(
-        feature_data_time_limits, schedule_interval, data_source_node
+        feature_data_time_limits, schedule_interval, data_source_node, skew_config
     )
     if ds_time_limits:
         return ds_time_limits.start, ds_time_limits.end
@@ -163,6 +171,7 @@ def _build_datasource_input_querynodes(
     fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
     for_stream: bool,
     feature_data_time_limits: Optional[pendulum.Period] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> Dict[str, NodeRef]:
     """
     Starting in FWV5, data sources of FVs with incremental backfills may contain transformations that are only
@@ -173,7 +182,7 @@ def _build_datasource_input_querynodes(
 
     input_querynodes = {}
     for input_name, node in ds_inputs.items():
-        start_time, end_time = _get_ds_time_limits(feature_data_time_limits, schedule_interval, node)
+        start_time, end_time = _get_ds_time_limits(feature_data_time_limits, schedule_interval, node, skew_config)
         ds = fdw.fco_container.get_by_id_proto(node.virtual_data_source_id)
         assert isinstance(ds, DataSourceSpec)
         tree = DataSourceScanNode(
@@ -184,6 +193,7 @@ def _build_datasource_input_querynodes(
             is_stream=for_stream,
             start_time=start_time,
             end_time=end_time,
+            skew_config=skew_config,
         ).as_ref()
         input_querynodes[input_name] = StagingNode(
             dialect=dialect,
@@ -218,8 +228,11 @@ def build_pipeline_querytree(
     for_stream: bool,
     feature_data_time_limits: Optional[pendulum.Period] = None,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
-    inputs_map = _build_datasource_input_querynodes(dialect, compute_mode, fdw, for_stream, feature_data_time_limits)
+    inputs_map = _build_datasource_input_querynodes(
+        dialect, compute_mode, fdw, for_stream, feature_data_time_limits, skew_config
+    )
     tree = FeatureViewPipelineNode(
         dialect=dialect,
         compute_mode=compute_mode,
@@ -237,6 +250,11 @@ def build_pipeline_querytree(
         input_node=tree,
     )
 
+    timestamp_field = (
+        fdw.materialization_job_partition_timestamp
+        if _should_account_for_batch_publish_timestamp(fdw=fdw, skew_config=skew_config)
+        else fdw.timestamp_key
+    )
     if feature_data_time_limits:
         tree = FeatureTimeFilterNode(
             dialect=dialect,
@@ -244,8 +262,8 @@ def build_pipeline_querytree(
             input_node=tree,
             feature_data_time_limits=feature_data_time_limits,
             policy=fdw.time_range_policy,
-            start_timestamp_field=fdw.timestamp_key,
-            end_timestamp_field=fdw.timestamp_key,
+            start_timestamp_field=timestamp_field,
+            end_timestamp_field=timestamp_field,
         ).as_ref()
 
     tree = StagingNode(
@@ -258,19 +276,47 @@ def build_pipeline_querytree(
     return tree
 
 
-def build_snowflake_materialization_querytree(
+def _build_core_materialization_querytree(
+    dialect: Dialect,
+    compute_mode: ComputeMode,
     fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
+    for_stream: bool,
     feature_data_time_limits: Optional[pendulum.Period] = None,
+    enable_feature_metrics: bool = False,
+    mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
-    materialization_node = build_materialization_querytree(
-        dialect=Dialect.SNOWFLAKE,
-        compute_mode=ComputeMode.SNOWFLAKE,
+    """Builds a querytree to construct a dataframe for materialization. This contains the common QT used for online and offline materialization.
+
+    Args:
+        dialect: The SQL dialect
+        compute_mode: Current compute mode
+        fdw: The feature view to be materialized.
+        for_stream: If True, the underlying data source is a streaming source.
+        feature_data_time_limits: If set, the resulting features will be filtered with respect to these time limits.
+        enable_feature_metrics: If True, metrics will be collected on the querytree.
+    """
+    assert not for_stream or feature_data_time_limits is None, "Cannot run with time limits on a stream source"
+    tree = build_pipeline_querytree(
+        dialect=dialect,
+        compute_mode=compute_mode,
         fdw=fdw,
-        for_stream=False,
+        for_stream=for_stream,
         feature_data_time_limits=feature_data_time_limits,
-        use_timestamp_key=True,
+        mock_context=mock_context,
+        skew_config=skew_config,
     )
-    return materialization_node
+    if for_stream:
+        watermark = _get_stream_watermark(fdw)
+        if watermark:
+            tree = StreamWatermarkNode(dialect, compute_mode, tree, fdw.time_key, watermark).as_ref()
+    if enable_feature_metrics:
+        tree = MetricsCollectorNode(dialect, compute_mode, tree).as_ref()
+
+    if fdw.is_temporal:
+        if len(fdw.fv_spec.embedding_features) or len(fdw.fv_spec.inference_features):
+            tree = _add_text_embedding_inference_node(fdw=fdw, compute_mode=compute_mode, pipeline_tree=tree)
+    return tree
 
 
 def build_materialization_querytree(
@@ -284,17 +330,19 @@ def build_materialization_querytree(
     enable_feature_metrics: bool = False,
     use_timestamp_key: bool = False,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
-    """Builds a querytree to construct a dataframe for materialization.
+    """Builds a querytree to construct a dataframe for batch materialization or stream materialization. This is not used by compaction jobs.
 
-    For example, WAFVs are partially aggregated, and BFVs are augmented with an anchor time column. The resulting
-    dataframe can also be easily modified to be used for `fv.run`.
+    If the Feature View uses an untiled offline store and offline=True, the resulting querytree will be the output of the pipeline querytree.
+    If the Feature View uses a tiled offline store and/or online=True, we will compute the partial agg tiles.
+    The resulting dataframe can also be easily modified to be used for `fv.run`.
 
     Args:
         dialect: The SQL dialect
         compute_mode: Current compute mode
         fdw: The feature view to be materialized.
-        for_stream: If True, the underlying data source is a streaming source.
+        for_stream: If True, the underlying data source is a streaming source..
         feature_data_time_limits: If set, the resulting features will be filtered with respect to these time limits.
         include_window_end_time: If True, a tile end time column with name "tile_end_time" will be included for WAFVs.
             Should only be set for WAFVs.
@@ -302,56 +350,32 @@ def build_materialization_querytree(
         enable_feature_metrics: If True, metrics will be collected on the querytree.
         use_timestamp_key: If True, the timestamp key will be used instead of _ANCHOR_TIME. This is used for Snowflake Compute only.
     """
-    assert not for_stream or feature_data_time_limits is None, "Cannot run with time limits on a stream source"
-    tree = build_pipeline_querytree(dialect, compute_mode, fdw, for_stream, feature_data_time_limits, mock_context)
-    if for_stream:
-        watermark = _get_stream_watermark(fdw)
-        if watermark:
-            tree = StreamWatermarkNode(dialect, compute_mode, tree, fdw.time_key, watermark).as_ref()
-    if enable_feature_metrics:
-        tree = MetricsCollectorNode(dialect, compute_mode, tree).as_ref()
+    tree = _build_core_materialization_querytree(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        fdw=fdw,
+        for_stream=for_stream,
+        feature_data_time_limits=feature_data_time_limits,
+        enable_feature_metrics=enable_feature_metrics,
+        mock_context=mock_context,
+        skew_config=skew_config,
+    )
 
-    if fdw.compaction_enabled and for_stream:
-        # The compaction stream table TTLs any data older than 14 days from the time the record was added. Therefore,
-        # we don't need to materialize data that is outside of 14 days. Will add a buffer of 1 day to make sure we don't
-        # accidentally TTL out some data in range.
-
-        # For local integration tests, the now in MDS is stamped to 2023, so we need to disable this node in order
-        # for those tests to work.
-        is_test_materialization = os.environ.get("TEST_LOCAL_MATERIALIZATION_MODE")
-        # this is bugged out, reenable @kevjumba (BAT-11254)
-        # if not is_test_materialization:
-        #     tree = FeatureTimeFilterNode(
-        #         dialect=dialect,
-        #         compute_mode=compute_mode,
-        #         input_node=tree,
-        #         feature_data_time_limits=pendulum.Period(
-        #             pendulum.now("UTC").subtract(days=15), pendulum.now("UTC")
-        #         ),  # Use 15 days for a buffer
-        #         policy=fdw.time_range_policy,
-        #         start_timestamp_field=fdw.timestamp_key,
-        #         end_timestamp_field=fdw.timestamp_key,
-        #     ).as_ref()
-
-    if fdw.compaction_enabled and not for_stream:
-        return _build_compaction_materialization_querytree(
-            dialect=dialect,
-            compute_mode=compute_mode,
-            fdw=fdw,
-            pipeline_tree=tree,
+    if not for_stream and fdw.has_untiled_offline_store:
+        # As of right now, fvs with untiled offline store never run batch online materialization (they use compaction) so we can assume this function is always used for offline materialization.
+        tree = ConvertTimestampToUTCNode.for_feature_definition(
+            dialect=dialect, compute_mode=compute_mode, fd=fdw, input_node=tree
         )
+        # TODO(samantha): Remove anchor time from untiled offline store schema
+        return AddAnchorTimeNode.for_feature_definition(dialect, compute_mode, fdw, tree)
 
-    anchor_time_field = anchor_time()
+    # Below should only contain nodes required for online materialization and/or tiled offline store. Common nodes should be in _build_core_materialization_querytree.
     if fdw.is_temporal:
-        if len(fdw.fv_spec.embedding_features) or len(fdw.fv_spec.inference_features):
-            tree = _add_text_embedding_inference_node(fdw=fdw, compute_mode=compute_mode, pipeline_tree=tree)
-
-        # BFVs require an anchor time column, but SFVs do not.
-        if not for_stream:
-            assert not include_window_end_time, "Not supported window end time for temporal"
-            if not use_timestamp_key:
-                tree = AddAnchorTimeNode.for_feature_definition(dialect, compute_mode, fdw, tree)
+        assert not include_window_end_time, "Not supported window end time for temporal"
+        if not for_stream and not use_timestamp_key:
+            tree = AddAnchorTimeNode.for_feature_definition(dialect, compute_mode, fdw, tree)
     elif fdw.is_temporal_aggregate:
+        anchor_time_field = anchor_time()
         end_column_name = window_end_column_name() if include_window_end_time else None
         tree = PartialAggNode(
             dialect=dialect,
@@ -431,19 +455,6 @@ def _add_text_embedding_inference_node(
     return tree.as_ref()
 
 
-def _build_compaction_materialization_querytree(
-    dialect: Dialect,
-    compute_mode: ComputeMode,
-    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
-    pipeline_tree: NodeRef,
-) -> NodeRef:
-    # Offline materialization query for fvs with compaction_enabled=True
-    tree = ConvertTimestampToUTCNode.for_feature_definition(
-        dialect=dialect, compute_mode=compute_mode, fd=fdw, input_node=pipeline_tree
-    )
-    return AddAnchorTimeNode.for_feature_definition(dialect, compute_mode, fdw, tree)
-
-
 def build_get_partial_aggregates_query(
     dialect: Dialect,
     compute_mode: ComputeMode,
@@ -493,6 +504,7 @@ def _build_get_features(
     aggregation_anchor_time: Optional[datetime] = None,
     include_window_end_time: Optional[bool] = False,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     # NOTE: this is ideally the *only* place where we validate
     # from_source arguments. However, until Snowflake and Athena are migrated
@@ -516,12 +528,31 @@ def _build_get_features(
             compute_mode=compute_mode,
             feature_definition_wrapper=fdw,
             partition_time_filter=feature_data_time_limits,
+            skew_config=skew_config,
         ).as_ref()
+        if (
+            feature_data_time_limits is not None
+            and skew_config is not None
+            and skew_config.simulate_offline_store_materialized_until is not None
+        ):
+            tree = FeatureTimeFilterNode(
+                dialect=dialect,
+                compute_mode=compute_mode,
+                input_node=tree,
+                feature_data_time_limits=pendulum.Period(
+                    start=feature_data_time_limits.start,
+                    end=pendulum.instance(skew_config.simulate_offline_store_materialized_until),
+                ),
+                policy=fdw.time_range_policy,
+                start_timestamp_field=fdw.materialization_job_partition_timestamp,
+                end_timestamp_field=fdw.materialization_job_partition_timestamp,
+            ).as_ref()
         tree = StagingNode(
             dialect=Dialect.ARROW,
             compute_mode=compute_mode,
             input_node=tree,
             staging_table_name=f"offline_store_{fdw.name}",
+            query_tree_step=QueryTreeStep.OFFLINE_STORE,
         ).as_ref()
     else:
         if dialect == "athena":
@@ -541,6 +572,7 @@ def _build_get_features(
             aggregation_anchor_time=aggregation_anchor_time,
             include_window_end_time=include_window_end_time,
             mock_context=mock_context,
+            skew_config=skew_config,
         )
     return tree
 
@@ -555,6 +587,7 @@ def build_get_features(
     include_window_end_time: Optional[bool] = False,
     aggregation_tile_interval_override: Optional[pendulum.Duration] = None,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     """Builds a query tree to get features from the offline store or source and computes partial aggs."""
     tree = _build_get_features(
@@ -566,9 +599,21 @@ def build_get_features(
         aggregation_anchor_time=aggregation_anchor_time,
         include_window_end_time=include_window_end_time,
         mock_context=mock_context,
+        skew_config=skew_config,
     )
 
     if fdw.compaction_enabled and fdw.is_temporal_aggregate:
+        tree = AddEffectiveTimestampNode(
+            dialect=dialect,
+            compute_mode=compute_mode,
+            input_node=tree,
+            timestamp_field=fdw.materialization_job_partition_timestamp,
+            effective_timestamp_name=effective_timestamp(),
+            batch_schedule_seconds=fdw.batch_materialization_schedule.in_seconds(),
+            data_delay_seconds=fdw.online_store_data_delay_seconds,
+            is_stream=fdw.is_stream,
+        ).as_ref()
+
         end_column_name = window_end_column_name() if include_window_end_time else None
         if aggregation_tile_interval_override is not None:
             aggregation_tile_interval = aggregation_tile_interval_override
@@ -617,7 +662,6 @@ def build_temporal_time_range_query(
         batch_schedule_seconds=batch_schedule_seconds,
         data_delay_seconds=fd.online_store_data_delay_seconds,
         is_stream=fd.is_stream,
-        is_temporal_aggregate=False,
     ).as_ref()
 
     if entities is not None:
@@ -636,6 +680,7 @@ def build_temporal_time_range_validity_query(
     entities: Optional[DataframeWrapper],
     query_time_range: pendulum.Period,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     qt = build_get_features(
         dialect=dialect,
@@ -644,6 +689,7 @@ def build_temporal_time_range_validity_query(
         from_source=from_source,
         feature_data_time_limits=lookback_time_range,
         mock_context=mock_context,
+        skew_config=skew_config,
     )
     qt = RenameColsNode(dialect, compute_mode, qt, drop=[anchor_time()]).as_ref()
     batch_schedule_seconds = 0 if fd.is_feature_table else fd.batch_materialization_schedule.in_seconds()
@@ -652,12 +698,13 @@ def build_temporal_time_range_validity_query(
         dialect,
         compute_mode,
         qt,
-        timestamp_field=fd.timestamp_key,
+        timestamp_field=fd.materialization_job_partition_timestamp
+        if _should_account_for_batch_publish_timestamp(fd, skew_config)
+        else fd.timestamp_key,
         effective_timestamp_name=effective_timestamp(),
         batch_schedule_seconds=batch_schedule_seconds,
         data_delay_seconds=fd.online_store_data_delay_seconds,
         is_stream=fd.is_stream,
-        is_temporal_aggregate=False,
     ).as_ref()
 
     qt = TakeLastRowNode(
@@ -695,6 +742,7 @@ def build_aggregated_time_range_validity_query(
     feature_data_time_limits: pendulum.Period,
     entities: Optional[DataframeWrapper],
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     partial_aggs = build_get_features(
         dialect,
@@ -703,6 +751,7 @@ def build_aggregated_time_range_validity_query(
         from_source,
         feature_data_time_limits=feature_data_time_limits,
         mock_context=mock_context,
+        skew_config=skew_config,
     )
     if entities is not None:
         partial_aggs = _filter_entity_dataframe(dialect, compute_mode, partial_aggs, entities)
@@ -715,6 +764,14 @@ def build_aggregated_time_range_validity_query(
             from_source=from_source,
             query_time_range=query_time_range,
             feature_data_time_limits=feature_data_time_limits,
+            partial_aggs=partial_aggs,
+        )
+    elif _should_account_for_batch_publish_timestamp(fdw, skew_config):
+        full_aggregation_node = _build_full_aggs_for_late_arriving_data_time_range_validity_query(
+            dialect=dialect,
+            compute_mode=compute_mode,
+            fdw=fdw,
+            query_time_range=query_time_range,
             partial_aggs=partial_aggs,
         )
     else:
@@ -735,17 +792,33 @@ def build_aggregated_time_range_validity_query(
             group_by_columns=[*list(fdw.join_keys), anchor_time()],
         ).as_ref()
 
-    qt = _filter_and_update_timestamp_columns(
-        full_aggregation_node, dialect, compute_mode, fdw, show_effective_time=True, respect_feature_start_time=False
-    )
+    # The `AsofJoinFullAggNode` returned by `build_get_full_agg_features` converts timestamps to epochs. We convert back
+    # from epochs to timestamps so that we can add an effective timestamp column.
+    qt = ConvertEpochToTimestampNode(
+        dialect, compute_mode, full_aggregation_node, {anchor_time(): fdw.get_feature_store_format_version}
+    ).as_ref()
+
+    batch_schedule_seconds = 0 if fdw.is_feature_table else fdw.batch_materialization_schedule.in_seconds()
+    qt = AddEffectiveTimestampNode(
+        dialect,
+        compute_mode,
+        qt,
+        timestamp_field=anchor_time(),
+        effective_timestamp_name=effective_timestamp(),
+        batch_schedule_seconds=batch_schedule_seconds,
+        data_delay_seconds=fdw.online_store_data_delay_seconds,
+        is_stream=fdw.is_stream,
+    ).as_ref()
 
     qt = TakeLastRowNode(
         dialect,
         compute_mode,
         input_node=qt,
         partition_by_columns=(*fdw.join_keys, effective_timestamp()),
-        order_by_column=fdw.timestamp_key,
+        order_by_column=anchor_time(),
     ).as_ref()
+
+    qt = RenameColsNode(dialect, compute_mode, qt, drop=[anchor_time()]).as_ref()
 
     qt = DeriveValidityPeriodNode(dialect, compute_mode, qt, fdw, effective_timestamp()).as_ref()
 
@@ -777,6 +850,35 @@ def _build_full_aggs_for_time_range_validity_query(
         explode_anchor_time=True,
     )
     full_aggregation_node = AsofJoinFullAggNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        spine=spine,
+        partial_agg_node=partial_aggs,
+        fdw=fdw,
+        # Do not push down the timestamp if the spine is completely from partial agg, such as `ghf` and `run` with time
+        # range.
+        enable_spine_time_pushdown_rewrite=False,
+        enable_spine_entity_pushdown_rewrite=False,
+    ).as_ref()
+    return full_aggregation_node
+
+
+def _build_full_aggs_for_late_arriving_data_time_range_validity_query(
+    dialect: Dialect,
+    compute_mode: ComputeMode,
+    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
+    # query_time_range is the validated time range passed in the query
+    query_time_range: pendulum.Period,
+    partial_aggs: NodeRef,
+) -> NodeRef:
+    spine = _build_internal_spine_for_late_arriving_data(
+        dialect,
+        compute_mode,
+        fdw,
+        partial_aggs,
+        query_time_range=query_time_range,
+    )
+    full_aggregation_node = AsofBitemporalJoinFullAggNode(
         dialect=dialect,
         compute_mode=compute_mode,
         spine=spine,
@@ -825,6 +927,7 @@ def _build_sawtooth_full_aggs_for_time_range_validity_query(
     return full_aggregation_node
 
 
+# TODO(PRODENG-262): Remove build_aggregated_time_range_ghf_query once get_historical_features has been deprecated
 def build_aggregated_time_range_ghf_query(
     dialect: Dialect,
     compute_mode: ComputeMode,
@@ -866,14 +969,43 @@ def build_aggregated_time_range_ghf_query(
             group_by_columns=[*list(fdw.join_keys), anchor_time()],
         ).as_ref()
 
-    qt = _filter_and_update_timestamp_columns(
-        full_aggregation_node,
+    if fdw.feature_start_timestamp:
+        full_aggregation_node = RespectFeatureStartTimeNode.for_anchor_time_column(
+            dialect,
+            compute_mode,
+            full_aggregation_node,
+            anchor_time(),
+            fdw,
+        ).as_ref()
+
+    qt = ConvertEpochToTimestampNode(
+        dialect, compute_mode, full_aggregation_node, {anchor_time(): fdw.get_feature_store_format_version}
+    ).as_ref()
+
+    # We want the time to be on the end of the window not the start.
+    qt = AddDurationNode(
         dialect,
         compute_mode,
-        fdw,
-        respect_feature_start_time=True,
-        show_effective_time=True,
-    )
+        qt,
+        timestamp_field=anchor_time(),
+        duration=fdw.get_tile_interval_duration_for_offline_store,
+        new_column_name=fdw.trailing_time_window_aggregation().time_key,
+    ).as_ref()
+
+    qt = RenameColsNode(dialect, compute_mode, qt, drop=[anchor_time()]).as_ref()
+
+    batch_schedule_seconds = 0 if fdw.is_feature_table else fdw.batch_materialization_schedule.in_seconds()
+    qt = AddEffectiveTimestampNode(
+        dialect,
+        compute_mode,
+        qt,
+        timestamp_field=fdw.trailing_time_window_aggregation().time_key,
+        effective_timestamp_name=effective_timestamp(),
+        batch_schedule_seconds=batch_schedule_seconds,
+        data_delay_seconds=fdw.online_store_data_delay_seconds,
+        is_stream=fdw.is_stream,
+        use_legacy_temporal_aggregate_behavior=True,
+    ).as_ref()
 
     if entities is not None:
         qt = _filter_entity_dataframe(dialect, compute_mode, qt, entities)
@@ -883,6 +1015,7 @@ def build_aggregated_time_range_ghf_query(
     return qt
 
 
+# TODO(PRODENG-262): Remove build_aggregated_time_range_run_query once .run is removed
 def build_aggregated_time_range_run_query(
     dialect: Dialect,
     compute_mode: ComputeMode,
@@ -922,14 +1055,23 @@ def build_aggregated_time_range_run_query(
             fdw=fdw,
             group_by_columns=[*list(fdw.join_keys), anchor_time()],
         ).as_ref()
-    qt = _filter_and_update_timestamp_columns(
-        full_aggregation_node,
+
+    # The `AsofJoinFullAggNode` returned by `build_get_full_agg_features` converts timestamps to epochs. We convert back
+    # from epochs to timestamps so that we can add an effective timestamp column.
+    qt = ConvertEpochToTimestampNode(
+        dialect, compute_mode, full_aggregation_node, {anchor_time(): fdw.get_feature_store_format_version}
+    ).as_ref()
+
+    # We want the time to be on the end of the window not the start.
+    qt = AddDurationNode(
         dialect,
         compute_mode,
-        fdw,
-        respect_feature_start_time=False,
-        show_effective_time=False,
-    )
+        qt,
+        timestamp_field=anchor_time(),
+        duration=fdw.get_tile_interval_duration_for_offline_store,
+        new_column_name=fdw.trailing_time_window_aggregation().time_key,
+    ).as_ref()
+    qt = RenameColsNode(dialect, compute_mode, qt, drop=[anchor_time()]).as_ref()
 
     return qt
 
@@ -966,64 +1108,6 @@ def _filter_entity_dataframe(
         dialect, compute_mode, UserSpecifiedDataNode(dialect, compute_mode, entities).as_ref(), columns
     ).as_ref()
     qt = JoinNode(dialect, compute_mode, qt, entities_df, columns, how="right").as_ref()
-    return qt
-
-
-def _filter_and_update_timestamp_columns(
-    full_aggregation_node: NodeRef,
-    dialect: Dialect,
-    compute_mode: ComputeMode,
-    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
-    respect_feature_start_time: bool,
-    show_effective_time: bool = False,
-) -> NodeRef:
-    """
-    1. Filters rows by Feature Start Time
-    2. Converts the anchor time to a timestamp from epoch ns.
-    3. Adjusts the anchor time to reflect the end of the materialization window
-    4. Optionally adds the _effective_time column
-    """
-
-    if respect_feature_start_time and fdw.feature_start_timestamp:
-        full_aggregation_node = RespectFeatureStartTimeNode.for_anchor_time_column(
-            dialect,
-            compute_mode,
-            full_aggregation_node,
-            anchor_time(),
-            fdw,
-        ).as_ref()
-
-    # The `AsofJoinFullAggNode` returned by `build_get_full_agg_features` converts timestamps to epochs. We convert back
-    # from epochs to timestamps so that we can add an effective timestamp column.
-    qt = ConvertEpochToTimestampNode(
-        dialect, compute_mode, full_aggregation_node, {anchor_time(): fdw.get_feature_store_format_version}
-    ).as_ref()
-
-    # We want the time to be on the end of the window not the start.
-    qt = AddDurationNode(
-        dialect,
-        compute_mode,
-        qt,
-        timestamp_field=anchor_time(),
-        duration=fdw.get_tile_interval_duration_for_offline_store,
-        new_column_name=fdw.trailing_time_window_aggregation().time_key,
-    ).as_ref()
-    qt = RenameColsNode(dialect, compute_mode, qt, drop=[anchor_time()]).as_ref()
-
-    if show_effective_time:
-        batch_schedule_seconds = 0 if fdw.is_feature_table else fdw.batch_materialization_schedule.in_seconds()
-        qt = AddEffectiveTimestampNode(
-            dialect,
-            compute_mode,
-            qt,
-            timestamp_field=fdw.trailing_time_window_aggregation().time_key,
-            effective_timestamp_name=effective_timestamp(),
-            batch_schedule_seconds=batch_schedule_seconds,
-            data_delay_seconds=fdw.online_store_data_delay_seconds,
-            is_stream=fdw.is_stream,
-            is_temporal_aggregate=True,
-        ).as_ref()
-
     return qt
 
 
@@ -1076,12 +1160,122 @@ def _build_internal_spine(
             time_filter=spine_filter,
             fdw=fdw,
             sawtooth_aggregation_data=sawtooth_aggregation_data,
+            include_original_anchor_time=True,
         ).as_ref()
 
         if sawtooth_aggregation_data:
             spine = RenameColsNode(
                 dialect, compute_mode, spine, drop=sawtooth_aggregation_data.get_anchor_time_columns()
             ).as_ref()
+
+    if fdw.aggregation_secondary_key:
+        spine = AggregationSecondaryKeyExplodeNode.for_feature_definition(
+            dialect=dialect, compute_mode=compute_mode, spine=spine, fdw=fdw
+        )
+
+    return spine
+
+
+def _build_internal_spine_for_late_arriving_data(
+    dialect: Dialect,
+    compute_mode: ComputeMode,
+    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
+    partial_aggs: NodeRef,
+    query_time_range: Optional[pendulum.Period] = None,
+) -> NodeRef:
+    """
+    The goal of building the spine is to include every single time that a feature can change values. This includes:
+    - when events can leave an aggregation window - derived from anchor_time + all aggregation time deltas (but not the anchor time itself)
+    - when events can enter an aggregation window - derived from effective_timestamp (based on batch_publish_timestamp)
+
+    This function:
+    1. gets all anchor_time + aggregation time deltas (but not the anchor time itself) from the partial_agg node and backs out equivalent effective_timestamp - these are all the times when an event can leave an aggregation window
+    2. gets all the effective_timestamps from the partial_agg node and backs out equivalent anchor time - these are all the times when an event can enter an aggregation window
+    3. unions the two sets together, de-duplicates, and renames the effective_timestamp column to the feature definition's timestamp key
+    """
+    cols_to_keep = {*list(fdw.join_keys), anchor_time()}
+    if fdw.aggregation_secondary_key:
+        cols_to_keep.add(fdw.aggregation_secondary_key)
+
+    cols_to_drop = list(set(partial_aggs.columns) - cols_to_keep)
+
+    spine = RenameColsNode(dialect, compute_mode, partial_aggs, drop=cols_to_drop).as_ref()
+
+    earliest_valid_anchor_time = time_utils.get_nearest_anchor_time(
+        timestamp=query_time_range.start,
+        max_source_data_delay=fdw.max_source_data_delay,
+        batch_materialization_schedule=fdw.batch_materialization_schedule,
+        min_scheduling_interval=fdw.min_scheduling_interval,
+    )
+    spine_filter = pendulum.Period(earliest_valid_anchor_time, query_time_range.end)
+
+    intermediate_timestamp_field = "_INTERMEDIATE_TIMESTAMP_FIELD"
+    # 1. gets all anchor_time + aggregation time deltas (but not the anchor time itself) from the partial_agg node and backs out equivalent effective_timestamp - these are all the times when an event can leave an aggregation window
+    # the logic here is:
+    # - get all the anchor times where events leave time window (excluding original anchor time)
+    # - copy those times to _INTERMEDIATE_TIMESTAMP_FIELD
+    # - compute _effective_timestamp() equivalent of those anchor times by converting _INTERMEDIATE_TIMESTAMP_FIELD from epoch -> timestamp, then add effective timestamp
+    # - drop _INTERMEDIATE_TIMESTAMP_FIELD
+    anchor_time_spine = ExplodeTimestampByTimeWindowsNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        input_node=spine,
+        timestamp_field=anchor_time(),
+        time_filter=spine_filter,
+        fdw=fdw,
+        sawtooth_aggregation_data=None,
+        include_original_anchor_time=False,
+    ).as_ref()
+    anchor_time_spine = RenameColsNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        input_node=anchor_time_spine,
+        mapping={
+            anchor_time(): intermediate_timestamp_field,
+        },
+        keep_original_columns_from_mapping=True,
+    ).as_ref()
+    anchor_time_spine = ConvertEpochToTimestampNode(
+        dialect,
+        compute_mode,
+        anchor_time_spine,
+        {intermediate_timestamp_field: fdw.get_feature_store_format_version},
+    ).as_ref()
+    anchor_time_spine = AddEffectiveTimestampNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        timestamp_field=intermediate_timestamp_field,
+        input_node=anchor_time_spine,
+        effective_timestamp_name=effective_timestamp(),
+        batch_schedule_seconds=fdw.batch_materialization_schedule.in_seconds(),
+        is_stream=fdw.is_stream,
+        data_delay_seconds=fdw.online_store_data_delay_seconds,
+    ).as_ref()
+    anchor_time_spine = RenameColsNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        input_node=anchor_time_spine,
+        drop=[intermediate_timestamp_field],
+    ).as_ref()
+
+    # 2. gets all the effective_timestamps from the partial_agg node and backs out equivalent anchor time - these are all the times when an event can enter an aggregation window
+    effective_timestamp_spine = AddRetrievalAnchorTimeNode(
+        dialect=dialect,
+        compute_mode=compute_mode,
+        input_node=spine,
+        name=fdw.name,
+        feature_store_format_version=fdw.get_feature_store_format_version,
+        batch_schedule=fdw.get_batch_schedule_for_version,
+        tile_interval=fdw.get_tile_interval_for_offline_store,
+        timestamp_field=effective_timestamp(),
+        is_stream=fdw.is_stream,
+        data_delay_seconds=fdw.online_store_data_delay_seconds,
+    ).as_ref()
+
+    # 3. unions the two sets together, de-duplicates, and renames the effective_timestamp column to the feature definition's timestamp key
+    spine = UnionNode(dialect, compute_mode, anchor_time_spine, effective_timestamp_spine).as_ref()
+    spine = SelectDistinctNode(dialect, compute_mode, spine, [*cols_to_keep, effective_timestamp()]).as_ref()
+    spine = RenameColsNode(dialect, compute_mode, spine, mapping={effective_timestamp(): fdw.timestamp_key}).as_ref()
 
     if fdw.aggregation_secondary_key:
         spine = AggregationSecondaryKeyExplodeNode.for_feature_definition(
@@ -1108,6 +1302,23 @@ def _should_use_sawtooth_aggregation_impl(fdw: feature_definition_wrapper.Featur
     return False
 
 
+def _should_account_for_batch_publish_timestamp(
+    fdw: feature_definition_wrapper.FeatureDefinitionWrapper, skew_config: Optional[SkewConfig] = None
+) -> bool:
+    # if batch_publish_timestamp is not set, then we should never consider it.
+    if fdw.batch_publish_timestamp is None:
+        return False
+
+    # if skew_config is not set, then the QT is running for materialization purposes (i.e. not for offline retrieval)
+    # during actual materialization, we should account for batch_publish_timestamp
+    if skew_config is None:
+        return True
+
+    # if skew_config is set but simulate_events_published_on_time = True, then we do NOT want to account for batch_publish_timestamp
+    # because we are pretending all events were published on time
+    return not skew_config.simulate_events_published_on_time
+
+
 def build_spine_join_querytree(
     dialect: Dialect,
     compute_mode: ComputeMode,
@@ -1117,6 +1328,8 @@ def build_spine_join_querytree(
     from_source: Optional[bool],
     use_namespace_feature_prefix: bool = True,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
+    mocked_fv_columns: Optional[Dict[str, List[str]]] = None,
 ) -> NodeRef:
     fdw = dac.feature_definition
     if fdw.timestamp_key is not None and spine_time_field != fdw.timestamp_key:
@@ -1138,6 +1351,7 @@ def build_spine_join_querytree(
             from_source=from_source,
             use_namespace_feature_prefix=use_namespace_feature_prefix,
             mock_context=mock_context,
+            skew_config=skew_config,
         )
     elif fdw.is_temporal_aggregate:
         if _should_use_sawtooth_aggregation_impl(fdw):
@@ -1155,6 +1369,7 @@ def build_spine_join_querytree(
                     seconds=0
                 ),  # Explicitly set 0 because we need the row level offline events.
                 mock_context=mock_context,
+                skew_config=skew_config,
             )
             spine_node = _augment_spine_for_window_aggregation(
                 dialect,
@@ -1186,6 +1401,7 @@ def build_spine_join_querytree(
                 feature_data_time_limits=None,
                 aggregation_anchor_time=None,
                 mock_context=mock_context,
+                skew_config=skew_config,
             )
             augmented_spine = _augment_spine_for_window_aggregation(
                 dialect,
@@ -1195,16 +1411,29 @@ def build_spine_join_querytree(
                 spine_node,
                 partial_agg_node,
             )
-            full_agg_node = AsofJoinFullAggNode(
-                dialect=dialect,
-                compute_mode=compute_mode,
-                spine=augmented_spine,
-                partial_agg_node=partial_agg_node,
-                fdw=fdw,
-                # Allow timestamp push down if the spine is provided by users.
-                enable_spine_time_pushdown_rewrite=True,
-                enable_spine_entity_pushdown_rewrite=True,
-            ).as_ref()
+
+            if _should_account_for_batch_publish_timestamp(fdw=fdw, skew_config=skew_config):
+                full_agg_node = AsofBitemporalJoinFullAggNode(
+                    dialect=dialect,
+                    compute_mode=compute_mode,
+                    spine=augmented_spine,
+                    partial_agg_node=partial_agg_node,
+                    fdw=fdw,
+                    # Allow timestamp push down if the spine is provided by users.
+                    enable_spine_time_pushdown_rewrite=True,
+                    enable_spine_entity_pushdown_rewrite=True,
+                ).as_ref()
+            else:
+                full_agg_node = AsofJoinFullAggNode(
+                    dialect=dialect,
+                    compute_mode=compute_mode,
+                    spine=augmented_spine,
+                    partial_agg_node=partial_agg_node,
+                    fdw=fdw,
+                    # Allow timestamp push down if the spine is provided by users.
+                    enable_spine_time_pushdown_rewrite=True,
+                    enable_spine_entity_pushdown_rewrite=True,
+                ).as_ref()
 
         if fdw.aggregation_secondary_key:
             # Beside join keys and anchor time, we need to group by timestamp_key and TECTON_UNIQUE_ID_COL because:
@@ -1247,7 +1476,15 @@ def build_spine_join_querytree(
         dac = FeatureDefinitionAndJoinConfig.from_feature_definition(fdw)
         fsc = FeatureSetConfig([*inputs, dac])
         ret = build_feature_set_config_querytree(
-            dialect, compute_mode, fsc, spine_node, spine_time_field, from_source, use_namespace_feature_prefix
+            dialect=dialect,
+            compute_mode=compute_mode,
+            fsc=fsc,
+            spine_node=spine_node,
+            spine_time_field=spine_time_field,
+            from_source=from_source,
+            skew_config=skew_config,
+            use_namespace_feature_prefix=use_namespace_feature_prefix,
+            mocked_fv_columns=mocked_fv_columns,
         )
     else:
         raise NotImplementedError
@@ -1260,19 +1497,6 @@ def build_spine_join_querytree(
     return ret
 
 
-def _update_internal_cols(
-    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
-    dac: FeatureDefinitionAndJoinConfig,
-    internal_cols: Set[str],
-) -> None:
-    if dac.namespace.startswith(udf_internal()):
-        for feature in fdw.features:
-            internal_cols.add(dac.namespace + fdw.namespace_separator + feature)
-    for feature in dac.features:
-        if udf_internal() in feature:
-            internal_cols.add(feature)
-
-
 # Construct each wildcard materialized fvtree by joining against distinct set of join keys.
 # Then, outer join these using WildcardJoinNode which performs an outer join while handling null-valued features properly.
 def _build_wild_fv_subtree(
@@ -1282,6 +1506,7 @@ def _build_wild_fv_subtree(
     fv_dacs: List[FeatureDefinitionAndJoinConfig],
     spine_time_field: str,
     from_source: Optional[bool],
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     newtree = None
     for dac in fv_dacs:
@@ -1294,7 +1519,15 @@ def _build_wild_fv_subtree(
         subspine = SelectDistinctNode(
             dialect, compute_mode, spine_node, [*subspine_join_keys, spine_time_field]
         ).as_ref()
-        fvtree = build_spine_join_querytree(dialect, compute_mode, dac, subspine, spine_time_field, from_source)
+        fvtree = build_spine_join_querytree(
+            dialect=dialect,
+            compute_mode=compute_mode,
+            dac=dac,
+            spine_node=subspine,
+            spine_time_field=spine_time_field,
+            from_source=from_source,
+            skew_config=skew_config,
+        )
         if len(dac.features) < len(fdw.features):
             fvtree = RenameColsNode(
                 dialect,
@@ -1319,16 +1552,67 @@ def _build_standard_fv_subtree(
     fv_dacs: List[FeatureDefinitionAndJoinConfig],
     spine_time_field: str,
     from_source: Optional[bool],
+    skew_config: SkewConfig,
+    mocked_fv_columns: Optional[Dict[str, List[str]]] = None,
 ) -> Tuple[NodeRef, Set[str]]:
     internal_cols: Set[str] = set()
 
     # We check that feature definition with the same join config is not repeated.
     # This is an optimization to avoid retrieving & processing the same feature view multiple times
     unique_fv_dacs, namespace_restore_mapping = _group_dacs_by_name_and_join_config(fv_dacs, internal_cols)
-
+    input_name_to_namespace = {input_name: dac.namespace for dac in fv_dacs for input_name in dac.input_names}
     newtree = spine_node
+    all_feature_cols_to_namespaced_cols = {}
+    mock_mapping = {}
+    drop_cols = set()
+
     for dac in unique_fv_dacs:
         fdw = dac.feature_definition
+
+        # When we have multiple inputs that use the same FV,
+        # we only run the FV once and later need to map the feature columns
+        # to the namespace of each input.
+        feature_column_to_namespaced_cols = {
+            src: dest_list
+            for src, dest_list in namespace_restore_mapping.items()
+            if src.startswith(f"{dac.namespace}{dac.feature_definition.namespace_separator}")
+        }
+
+        input_name_to_mocked_columns = {}
+        if mocked_fv_columns is not None:
+            input_name_to_mocked_columns = {
+                input_name: mocked_cols
+                for input_name, mocked_cols in mocked_fv_columns.items()
+                if input_name in dac.input_names
+            }
+
+        all_features_mocked = (
+            input_name_to_mocked_columns
+            and
+            # All inputs are mocked
+            all(input_name in input_name_to_mocked_columns for input_name in dac.input_names)
+            and
+            # All features are mocked for each input
+            all(set(mocked_cols) == set(dac.features) for mocked_cols in input_name_to_mocked_columns.values())
+        )
+
+        # If all the features from the Feature View are mocked, we
+        # can skip the Feature Computation for this Feature View
+        if all_features_mocked:
+            for input_name, mocked_cols in input_name_to_mocked_columns.items():
+                for feature in mocked_cols:
+                    _update_mocked_rename_map(
+                        input_name=input_name,
+                        feature_name=feature,
+                        dac=dac,
+                        feature_column_to_namespaced_cols=feature_column_to_namespaced_cols,
+                        input_name_to_namespace=input_name_to_namespace,
+                        mock_mapping=mock_mapping,
+                        all_feature_cols_to_namespaced_cols=all_feature_cols_to_namespaced_cols,
+                        internal_cols=internal_cols,
+                        drop_cols=drop_cols,
+                    )
+            continue
 
         subspine_join_keys = [jk[0] for jk in dac.join_keys]
         # SelectDistinctNode is needed for correctness in the case that there are duplicate rows in the spine. The
@@ -1338,22 +1622,26 @@ def _build_standard_fv_subtree(
             dialect, compute_mode, spine_node, [*subspine_join_keys, spine_time_field]
         ).as_ref()
 
-        fvtree = build_spine_join_querytree(dialect, compute_mode, dac, subspine, spine_time_field, from_source)
-        restore_namespaces = {
-            src: dest_list
-            for src, dest_list in namespace_restore_mapping.items()
-            if src.startswith(f"{dac.namespace}{dac.feature_definition.namespace_separator}")
-        }
-        if len(dac.features) < len(fdw.features) or restore_namespaces:
-            fvtree = RenameColsNode(
-                dialect,
-                compute_mode,
-                fvtree,
-                mapping=restore_namespaces,
-                drop=[f"{fdw.name}{fdw.namespace_separator}{f}" for f in fdw.features if f not in dac.features],
-            ).as_ref()
+        fvtree = build_spine_join_querytree(
+            dialect=dialect,
+            compute_mode=compute_mode,
+            dac=dac,
+            spine_node=subspine,
+            spine_time_field=spine_time_field,
+            from_source=from_source,
+            skew_config=skew_config,
+        )
+
+        if len(dac.features) < len(fdw.features) or feature_column_to_namespaced_cols:
+            drop_cols.update(
+                feature_column
+                for feature_column, namespaced_columns in feature_column_to_namespaced_cols.items()
+                if feature_column not in namespaced_columns
+            )
+            all_feature_cols_to_namespaced_cols.update(feature_column_to_namespaced_cols)
 
         allow_null_features = conf.get_bool("ALLOW_NULL_FEATURES")
+
         newtree = JoinNode(
             dialect,
             compute_mode,
@@ -1363,7 +1651,101 @@ def _build_standard_fv_subtree(
             join_cols=([*subspine_join_keys, spine_time_field]),
             allow_nulls=allow_null_features,
         ).as_ref()
+
+        if mocked_fv_columns:
+            # Rename mocked columns to appropriate namespaced FV column
+            for input_name, mocked_columns in input_name_to_mocked_columns.items():
+                for feature in mocked_columns:
+                    _update_mocked_rename_map(
+                        input_name=input_name,
+                        feature_name=feature,
+                        dac=dac,
+                        feature_column_to_namespaced_cols=feature_column_to_namespaced_cols,
+                        input_name_to_namespace=input_name_to_namespace,
+                        mock_mapping=mock_mapping,
+                        all_feature_cols_to_namespaced_cols=all_feature_cols_to_namespaced_cols,
+                        internal_cols=internal_cols,
+                        drop_cols=drop_cols,
+                    )
+
+    if all_feature_cols_to_namespaced_cols or drop_cols:
+        # Separate rename node for the namespaced columns since we do not want to keep the original columns
+        newtree = RenameColsNode(
+            dialect,
+            compute_mode,
+            newtree,
+            mapping=all_feature_cols_to_namespaced_cols,
+            drop=drop_cols,
+        ).as_ref()
+
+    if mock_mapping:
+        newtree = RenameColsNode(
+            dialect,
+            compute_mode,
+            newtree,
+            mapping=mock_mapping,
+            keep_original_columns_from_mapping=True,
+        ).as_ref()
+
     return newtree, internal_cols
+
+
+def _update_mocked_rename_map(
+    input_name: str,
+    feature_name: str,
+    dac: FeatureDefinitionAndJoinConfig,
+    feature_column_to_namespaced_cols: Dict[str, List[str]],
+    input_name_to_namespace: Dict[str, str],
+    mock_mapping: Dict[str, str],
+    drop_cols: Set[str],
+    all_feature_cols_to_namespaced_cols: Dict[str, List[str]],
+    internal_cols: Set[str],
+) -> None:
+    """
+    Handles the logic for mapping a mocked feature column to its actual
+    or namespaced representation.
+    """
+    fdw = dac.feature_definition
+    mock_column_name = f"{input_name}{MOCK_COLUMN_SEPARATOR}{feature_name}"
+    actual_feature_column_key = f"{dac.namespace}{fdw.namespace_separator}{feature_name}"
+    internal_cols.add(actual_feature_column_key)
+
+    if not feature_column_to_namespaced_cols:
+        mock_mapping.update({mock_column_name: actual_feature_column_key})
+        drop_cols.add(actual_feature_column_key)
+        return
+
+    if actual_feature_column_key not in feature_column_to_namespaced_cols:
+        logger.warning(
+            f"WARNING: Mocked feature column {feature_name} not found in Feature View {fdw.name}, skipping..."
+        )
+        return
+
+    target_namespaced_cols = feature_column_to_namespaced_cols.get(actual_feature_column_key)
+    for namespaced_col in target_namespaced_cols:
+        if input_name_to_namespace[input_name] in namespaced_col:
+            mock_mapping.update({mock_column_name: namespaced_col})
+            drop_cols.add(actual_feature_column_key)
+
+            if (
+                actual_feature_column_key in all_feature_cols_to_namespaced_cols
+                and namespaced_col in all_feature_cols_to_namespaced_cols[actual_feature_column_key]
+            ):
+                all_feature_cols_to_namespaced_cols[actual_feature_column_key].remove(namespaced_col)
+            break
+
+
+def _update_internal_cols(
+    fdw: feature_definition_wrapper.FeatureDefinitionWrapper,
+    dac: FeatureDefinitionAndJoinConfig,
+    internal_cols: Set[str],
+) -> None:
+    if dac.namespace.startswith(udf_internal()):
+        for feature in fdw.features:
+            internal_cols.add(dac.namespace + fdw.namespace_separator + feature)
+    for feature in dac.features:
+        if udf_internal() in feature:
+            internal_cols.add(feature)
 
 
 def _group_dacs_by_name_and_join_config(
@@ -1381,8 +1763,8 @@ def _group_dacs_by_name_and_join_config(
     """
     unique_fv_dacs = {}  # non-repeating FeatureDefinitionAndJoinConfigs grouped by name and join config
 
-    # mapping for restoring namespaces
-    # since one feature can be used in multiple namespaces (ie, one per RTFV) - dict's value is a list
+    # One feature can be used in multiple namespaces (ie, one per RTFV)
+    # This is a map from one namespaced feature to list of namespaced features it should be renamed to
     restore_mapping: Dict[str, List[str]] = {}
 
     for dac in dacs:
@@ -1395,6 +1777,7 @@ def _group_dacs_by_name_and_join_config(
             unique_fv_dacs[key] = attrs.evolve(
                 unique_fv_dacs[key], features=list(set(unique_fv_dacs[key].features) | set(dac.features))
             )
+            unique_fv_dacs[key].input_names.extend(dac.input_names)
 
         for f in dac.features:
             grouped_f = f"{unique_fv_dacs[key].namespace}{dac.feature_definition.namespace_separator}{f}"
@@ -1435,10 +1818,10 @@ def _build_rtfv_subtree(
         ).as_ref()
 
     # if there are rtfvs with transformations, we compute them with the MultiOdfvPipelineNode
-    transform_feature_definition_namespaces = [
+    feature_definition_namespaces_with_transforms = [
         (dac.feature_definition, dac.namespace) for dac in rtfv_dacs if _dac_has_transformation(dac)
     ]
-    if transform_feature_definition_namespaces:
+    if feature_definition_namespaces_with_transforms:
         newtree = StagingNode(
             dialect=dialect,
             compute_mode=compute_mode,
@@ -1451,7 +1834,7 @@ def _build_rtfv_subtree(
             dialect=dialect,
             compute_mode=compute_mode,
             input_node=newtree,
-            feature_definition_namespaces=transform_feature_definition_namespaces,
+            feature_definition_namespaces=feature_definition_namespaces_with_transforms,
             events_df_timestamp_field=spine_timestamp_field,
             use_namespace_feature_prefix=use_namespace_feature_prefix,
         ).as_ref()
@@ -1485,11 +1868,15 @@ def build_feature_set_config_querytree(
     spine_node: NodeRef,
     spine_time_field: str,
     from_source: Optional[bool],
+    skew_config: Optional[SkewConfig],
     use_namespace_feature_prefix: bool = True,
+    mocked_fv_columns: Optional[Dict[str, List[str]]] = None,
 ) -> NodeRef:
     odfv_dacs: List[FeatureDefinitionAndJoinConfig] = []
     wildcard_dacs: List[FeatureDefinitionAndJoinConfig] = []
     normal_fv_dacs: List[FeatureDefinitionAndJoinConfig] = []
+    internal_cols: Set[str] = set()
+    newtree = spine_node
 
     for dac in fsc.definitions_and_configs:
         if dac.feature_definition.is_rtfv:
@@ -1501,15 +1888,25 @@ def build_feature_set_config_querytree(
 
     if wildcard_dacs:
         newtree = _build_wild_fv_subtree(
-            dialect, compute_mode, spine_node, wildcard_dacs, spine_time_field, from_source
+            dialect=dialect,
+            compute_mode=compute_mode,
+            spine_node=newtree,
+            fv_dacs=wildcard_dacs,
+            spine_time_field=spine_time_field,
+            from_source=from_source,
+            skew_config=skew_config,
         )
-    else:
-        newtree = spine_node
 
-    internal_cols: Set[str] = set()
     if normal_fv_dacs:
         newtree, internal_cols = _build_standard_fv_subtree(
-            dialect, compute_mode, newtree, normal_fv_dacs, spine_time_field, from_source
+            dialect=dialect,
+            compute_mode=compute_mode,
+            spine_node=newtree,
+            fv_dacs=normal_fv_dacs,
+            spine_time_field=spine_time_field,
+            from_source=from_source,
+            skew_config=skew_config,
+            mocked_fv_columns=mocked_fv_columns,
         )
 
     if odfv_dacs:
@@ -1533,27 +1930,33 @@ def _build_spine_query_tree_temporal_or_feature_table(
     from_source: Optional[bool],
     use_namespace_feature_prefix: bool = True,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> NodeRef:
     fdw = dac.feature_definition
-    base = build_get_features(dialect, compute_mode, fdw, from_source=from_source, mock_context=mock_context)
+    base = build_get_features(
+        dialect, compute_mode, fdw, from_source=from_source, mock_context=mock_context, skew_config=skew_config
+    )
     batch_schedule_seconds = 0 if fdw.is_feature_table else fdw.batch_materialization_schedule.in_seconds()
     base = AddEffectiveTimestampNode(
         dialect,
         compute_mode,
         base,
-        timestamp_field=fdw.timestamp_key,
+        timestamp_field=fdw.materialization_job_partition_timestamp
+        if _should_account_for_batch_publish_timestamp(fdw=fdw, skew_config=skew_config)
+        else fdw.timestamp_key,
         effective_timestamp_name=effective_timestamp(),
         batch_schedule_seconds=batch_schedule_seconds,
         data_delay_seconds=data_delay_seconds,
         is_stream=fdw.is_stream,
-        is_temporal_aggregate=False,
     ).as_ref()
     if fdw.serving_ttl is not None:
         base = AddDurationNode(
             dialect,
             compute_mode,
             base,
-            timestamp_field=fdw.timestamp_key,
+            timestamp_field=fdw.materialization_job_partition_timestamp
+            if _should_account_for_batch_publish_timestamp(fdw=fdw, skew_config=skew_config)
+            else fdw.timestamp_key,
             duration=fdw.serving_ttl,
             new_column_name=timestamp_plus_ttl(),
         ).as_ref()
@@ -1568,28 +1971,10 @@ def _build_spine_query_tree_temporal_or_feature_table(
             batch_schedule_seconds=batch_schedule_seconds,
             data_delay_seconds=data_delay_seconds,
             is_stream=fdw.is_stream,
-            is_temporal_aggregate=False,
         ).as_ref()
-    rightside_join_prefix = default_case("_tecton_right")
+
+    rightside_join_prefix = "_tecton_right"
     join_prefixed_feature_names = [f"{rightside_join_prefix}_{f}" for f in fdw.features]
-    prefix = f"{dac.namespace}{fdw.namespace_separator}" if use_namespace_feature_prefix else ""
-    # we can't just ask for the correct right_prefix to begin with because the asofJoin always sticks an extra underscore in between
-    rename_map: Dict[str, Optional[str]] = {}
-    cols_to_drop = []
-    for f in fdw.features:
-        if f not in dac.features:
-            cols_to_drop.append(f"{rightside_join_prefix}_{f}")
-        else:
-            rename_map[f"{rightside_join_prefix}_{f}"] = f"{prefix}{f}"
-
-    expiration_timestamp_col = f"{rightside_join_prefix}_{expiration_timestamp()}"
-
-    cols_to_drop.append(f"{rightside_join_prefix}_{fdw.timestamp_key}")
-    cols_to_drop.append(f"{rightside_join_prefix}_{anchor_time()}")
-    cols_to_drop.append(f"{rightside_join_prefix}_{effective_timestamp()}")
-    if fdw.serving_ttl is not None:
-        cols_to_drop.append(f"{rightside_join_prefix}_{timestamp_plus_ttl()}")
-        cols_to_drop.append(expiration_timestamp_col)
 
     if fdw.feature_start_timestamp is not None:
         base = RespectFeatureStartTimeNode(
@@ -1623,10 +2008,30 @@ def _build_spine_query_tree_temporal_or_feature_table(
         join_cols=fdw.join_keys,
     ).as_ref()
 
+    prefix = f"{dac.namespace}{fdw.namespace_separator}" if use_namespace_feature_prefix else ""
+    # we can't just ask for the correct right_prefix to begin with because the asofJoin always sticks an extra underscore in between
+    rename_map: Dict[str, Optional[str]] = {}
+    cols_to_drop = []
+    for f in fdw.features:
+        if f not in dac.features:
+            cols_to_drop.append(f"{rightside_join_prefix}_{f}")
+        else:
+            rename_map[f"{rightside_join_prefix}_{f}"] = f"{prefix}{f}"
+
+    cols_to_drop.append(f"{rightside_join_prefix}_{fdw.timestamp_key}")
+    cols_to_drop.append(f"{rightside_join_prefix}_{anchor_time()}")
+    cols_to_drop.append(f"{rightside_join_prefix}_{effective_timestamp()}")
+
+    expiration_timestamp_col = f"{rightside_join_prefix}_{expiration_timestamp()}"
     if fdw.serving_ttl is not None:
         base = RespectTTLNode(
             dialect, compute_mode, base, fdw.timestamp_key, expiration_timestamp_col, join_prefixed_feature_names
         ).as_ref()
+        cols_to_drop.append(f"{rightside_join_prefix}_{timestamp_plus_ttl()}")
+        cols_to_drop.append(expiration_timestamp_col)
+
+    if fdw.batch_publish_timestamp is not None:
+        cols_to_drop.append(f"{rightside_join_prefix}_{fdw.batch_publish_timestamp}")
     # remove anchor cols/dupe timestamp cols
     return RenameColsNode(dialect, compute_mode, base, mapping=rename_map, drop=cols_to_drop).as_ref()
 
@@ -1789,11 +2194,13 @@ def _build_partial_aggs_for_compacted_tile_rollup(
         extra_batch_partial_agg_node = _add_sawtooth_anchor_time_and_partition_columns(
             dialect=dialect,
             compute_mode=compute_mode,
-            input_node=untiled_partial_aggs_node_for_batch,  # Do NOT tile the partial aggs since 5min and 1min tiles are too small and hurt performance.
+            input_node=untiled_partial_aggs_node_for_batch,
+            # Do NOT tile the partial aggs since 5min and 1min tiles are too small and hurt performance.
             sawtooth_aggregation_data=sawtooth_aggregation_data,
             fdw=fdw,
             timestamp_field=anchor_time(),
-            should_truncate_timestamps=True,  # Since the extra partial aggs are not tiled, we need to adjust the timestamps to reflect the effective time of the event.
+            should_truncate_timestamps=True,
+            # Since the extra partial aggs are not tiled, we need to adjust the timestamps to reflect the effective time of the event.
             non_sawtooth_partition_value=True,
             sawtooth_partition_value=False,
         )

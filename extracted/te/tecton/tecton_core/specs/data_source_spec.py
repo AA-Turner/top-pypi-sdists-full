@@ -29,24 +29,24 @@ from tecton_proto.validation import validator__client_pb2 as validator_pb2
 
 
 __all__ = [
+    "BatchSourceSpec",
+    "BigquerySourceSpec",
     "DataSourceSpec",
     "DataSourceSpecArgsSupplement",
-    "BatchSourceSpec",
-    "HiveSourceSpec",
-    "UnitySourceSpec",
+    "DatetimePartitionColumnSpec",
     "FileSourceSpec",
-    "SparkBatchSourceSpec",
+    "HiveSourceSpec",
+    "KafkaSourceSpec",
+    "KinesisSourceSpec",
     "PandasBatchSourceSpec",
-    "PyArrowBatchSourceSpec",
     "PushTableSourceSpec",
+    "PyArrowBatchSourceSpec",
     "RedshiftSourceSpec",
     "SnowflakeSourceSpec",
-    "BigquerySourceSpec",
-    "DatetimePartitionColumnSpec",
-    "StreamSourceSpec",
-    "KinesisSourceSpec",
-    "KafkaSourceSpec",
+    "SparkBatchSourceSpec",
     "SparkStreamSourceSpec",
+    "StreamSourceSpec",
+    "UnitySourceSpec",
 ]
 
 
@@ -616,7 +616,7 @@ class PandasBatchSourceSpec(BatchSourceSpec):
             spark_schema=utils.get_field_or_none(proto, "spark_schema"),
             supports_time_filtering=proto.pandas_data_source_function.supports_time_filtering,
             function=function,
-            secrets=proto.secrets,
+            secrets=MappingProxyType(proto.secrets),
         )
 
     @classmethod
@@ -639,7 +639,7 @@ class PandasBatchSourceSpec(BatchSourceSpec):
             spark_schema=supplement.batch_schema,
             supports_time_filtering=proto.supports_time_filtering,
             function=data_source_function,
-            secrets=proto.secrets,
+            secrets=MappingProxyType(proto.secrets),
         )
 
 
@@ -667,7 +667,7 @@ class PyArrowBatchSourceSpec(BatchSourceSpec):
             spark_schema=utils.get_field_or_none(proto, "spark_schema"),
             supports_time_filtering=proto.pyarrow_data_source_function.supports_time_filtering,
             function=function,
-            secrets=proto.secrets,
+            secrets=MappingProxyType(proto.secrets),
         )
 
     @classmethod
@@ -690,7 +690,7 @@ class PyArrowBatchSourceSpec(BatchSourceSpec):
             spark_schema=supplement.batch_schema,
             supports_time_filtering=proto.supports_time_filtering,
             function=data_source_function,
-            secrets=proto.secrets,
+            secrets=MappingProxyType(proto.secrets),
         )
 
 
@@ -771,6 +771,8 @@ class SnowflakeSourceSpec(BatchSourceSpec):
     query: Optional[str]
     user: Optional[secret_pb2.SecretReference]
     password: Optional[secret_pb2.SecretReference]
+    private_key: Optional[secret_pb2.SecretReference]
+    private_key_passphrase: Optional[secret_pb2.SecretReference]
 
     @classmethod
     @typechecked
@@ -799,6 +801,8 @@ class SnowflakeSourceSpec(BatchSourceSpec):
             secrets=None,
             user=utils.get_field_or_none(proto.snowflake.snowflakeArgs, "user"),
             password=utils.get_field_or_none(proto.snowflake.snowflakeArgs, "password"),
+            private_key=utils.get_field_or_none(proto.snowflake.snowflakeArgs, "private_key"),
+            private_key_passphrase=utils.get_field_or_none(proto.snowflake.snowflakeArgs, "private_key_passphrase"),
         )
 
     @classmethod
@@ -829,6 +833,8 @@ class SnowflakeSourceSpec(BatchSourceSpec):
             secrets=None,
             user=utils.get_field_or_none(proto, "user"),
             password=utils.get_field_or_none(proto, "password"),
+            private_key=utils.get_field_or_none(proto, "private_key"),
+            private_key_passphrase=utils.get_field_or_none(proto, "private_key_passphrase"),
         )
 
 

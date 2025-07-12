@@ -817,6 +817,7 @@ snowflake_dialect.replace(
             optional=True,
         ),
     ),
+    CollateGrammar=Sequence("COLLATE", Ref("CollationReferenceSegment")),
 )
 
 # Add all Snowflake keywords
@@ -4177,7 +4178,7 @@ class ColumnConstraintSegment(ansi.ColumnConstraintSegment):
     """
 
     match_grammar: Matchable = AnySetOf(
-        Sequence("COLLATE", Ref("CollationReferenceSegment")),
+        Ref("CollateGrammar"),
         Sequence(
             "DEFAULT",
             Ref("ExpressionSegment"),
@@ -8988,7 +8989,15 @@ class SetOperatorSegment(ansi.SetOperatorSegment):
 
     type = "set_operator"
     match_grammar: Matchable = OneOf(
-        Sequence("UNION", OneOf("DISTINCT", "ALL", optional=True)),
+        Sequence(
+            "UNION",
+            OneOf("DISTINCT", "ALL", optional=True),
+            Sequence(
+                "BY",
+                "NAME",
+                optional=True,
+            ),
+        ),
         Sequence(
             OneOf(
                 "INTERSECT",

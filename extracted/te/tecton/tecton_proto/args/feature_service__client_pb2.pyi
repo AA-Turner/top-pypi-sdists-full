@@ -31,7 +31,7 @@ class FeatureReference(_message.Message):
     def __init__(self, feature_view_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., override_join_keys: _Optional[_Iterable[_Union[ColumnPair, _Mapping]]] = ..., namespace: _Optional[str] = ..., features: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class FeatureServiceArgs(_message.Message):
-    __slots__ = ["enable_online_caching", "feature_references", "feature_server_group", "feature_service_id", "info", "logging", "online_serving_enabled", "options", "prevent_destroy", "realtime_environment", "transform_server_group", "version"]
+    __slots__ = ["enable_online_caching", "feature_references", "feature_server_group", "feature_service_id", "info", "logging", "online_serving_enabled", "options", "prevent_destroy", "realtime_environment", "transform_server_group", "transform_server_group_name", "version"]
     class OptionsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -50,6 +50,7 @@ class FeatureServiceArgs(_message.Message):
     PREVENT_DESTROY_FIELD_NUMBER: _ClassVar[int]
     REALTIME_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     TRANSFORM_SERVER_GROUP_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORM_SERVER_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
     enable_online_caching: bool
     feature_references: _containers.RepeatedCompositeFieldContainer[FeatureReference]
@@ -62,8 +63,9 @@ class FeatureServiceArgs(_message.Message):
     prevent_destroy: bool
     realtime_environment: str
     transform_server_group: _server_group__client_pb2.ServerGroupReference
+    transform_server_group_name: str
     version: _framework_version__client_pb2.FrameworkVersion
-    def __init__(self, feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., info: _Optional[_Union[_basic_info__client_pb2.BasicInfo, _Mapping]] = ..., version: _Optional[_Union[_framework_version__client_pb2.FrameworkVersion, str]] = ..., prevent_destroy: bool = ..., options: _Optional[_Mapping[str, str]] = ..., enable_online_caching: bool = ..., feature_references: _Optional[_Iterable[_Union[FeatureReference, _Mapping]]] = ..., online_serving_enabled: bool = ..., logging: _Optional[_Union[LoggingConfigArgs, _Mapping]] = ..., realtime_environment: _Optional[str] = ..., transform_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroupReference, _Mapping]] = ..., feature_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroupReference, _Mapping]] = ...) -> None: ...
+    def __init__(self, feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., info: _Optional[_Union[_basic_info__client_pb2.BasicInfo, _Mapping]] = ..., version: _Optional[_Union[_framework_version__client_pb2.FrameworkVersion, str]] = ..., prevent_destroy: bool = ..., options: _Optional[_Mapping[str, str]] = ..., enable_online_caching: bool = ..., feature_references: _Optional[_Iterable[_Union[FeatureReference, _Mapping]]] = ..., online_serving_enabled: bool = ..., logging: _Optional[_Union[LoggingConfigArgs, _Mapping]] = ..., realtime_environment: _Optional[str] = ..., transform_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroupReference, _Mapping]] = ..., feature_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroupReference, _Mapping]] = ..., transform_server_group_name: _Optional[str] = ...) -> None: ...
 
 class LoggingConfigArgs(_message.Message):
     __slots__ = ["log_effective_times", "sample_rate"]

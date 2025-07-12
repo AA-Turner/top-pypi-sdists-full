@@ -6,12 +6,10 @@ __initializing__ = True
 
 __find_spark()
 
-#  When adding/removing a class here, also mirror them in the tecton-docs repo.
-#  We no longer autogenerate docs.
-
 
 # ruff: noqa: F401 E402
 from tecton import version as __version_lib
+from tecton._internals.materialization_api import DatasetJob
 from tecton._internals.materialization_api import MaterializationAttempt
 from tecton._internals.materialization_api import MaterializationJob
 from tecton.fco_listers import list_workspaces
@@ -21,7 +19,6 @@ from tecton.framework.configs import BigtableConfig
 from tecton.framework.configs import CacheConfig
 from tecton.framework.configs import DatabricksClusterConfig
 from tecton.framework.configs import DatabricksJsonClusterConfig
-from tecton.framework.configs import DataprocJsonClusterConfig
 from tecton.framework.configs import DatetimePartitionColumn
 from tecton.framework.configs import DeltaConfig
 from tecton.framework.configs import DynamoConfig
@@ -96,10 +93,10 @@ from tecton.framework.utils import PANDAS_MODE
 from tecton.framework.utils import PYSPARK_MODE
 from tecton.framework.utils import PYTHON_MODE
 from tecton.framework.utils import SNOWFLAKE_SQL_MODE
-from tecton.framework.utils import SNOWPARK_MODE
 from tecton.framework.utils import SPARK_SQL_MODE
 from tecton.framework.workspace import Workspace
 from tecton.framework.workspace import get_data_source
+from tecton.framework.workspace import get_dataset
 from tecton.framework.workspace import get_entity
 from tecton.framework.workspace import get_feature_service
 from tecton.framework.workspace import get_feature_table

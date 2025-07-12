@@ -153,8 +153,8 @@ class SupervisedFineTuningJob:
         if self.output_model is None:
             raise ValueError(f'Fine-tuning job "{self.display_name}" did not create an output model')
         if self.llm.addons_enabled:
-            return LLM(model=self.output_model, deployment_type="on-demand-lora")
-        return LLM(model=self.output_model, deployment_type=self.llm.deployment_type)
+            return LLM(model=self.output_model, deployment_type="on-demand-lora", base_id=self.llm.deployment_id)
+        return LLM(model=self.output_model, deployment_type=self.llm.deployment_type, base_id=self.llm.deployment_id)
 
     def wait_for_completion(self) -> "SupervisedFineTuningJob":
         """

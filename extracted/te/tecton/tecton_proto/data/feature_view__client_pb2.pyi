@@ -2,6 +2,8 @@ from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from tecton_proto.args import feature_view__client_pb2 as _feature_view__client_pb2
 from tecton_proto.args import pipeline__client_pb2 as _pipeline__client_pb2
+from tecton_proto.args import transformation__client_pb2 as _transformation__client_pb2
+from tecton_proto.args import user_defined_function__client_pb2 as _user_defined_function__client_pb2
 from tecton_proto.common import aggregation_function__client_pb2 as _aggregation_function__client_pb2
 from tecton_proto.common import calculation_node__client_pb2 as _calculation_node__client_pb2
 from tecton_proto.common import compute_mode__client_pb2 as _compute_mode__client_pb2
@@ -90,7 +92,7 @@ class BigtableOnlineStore(_message.Message):
     def __init__(self, enabled: bool = ..., project_id: _Optional[str] = ..., instance_id: _Optional[str] = ...) -> None: ...
 
 class Calculation(_message.Message):
-    __slots__ = ["abstract_syntax_tree_root", "description", "name", "tags"]
+    __slots__ = ["abstract_syntax_tree_root", "description", "expr", "name", "tags"]
     class TagsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -100,13 +102,15 @@ class Calculation(_message.Message):
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     ABSTRACT_SYNTAX_TREE_ROOT_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    EXPR_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     abstract_syntax_tree_root: _calculation_node__client_pb2.AbstractSyntaxTreeNode
     description: str
+    expr: str
     name: str
     tags: _containers.ScalarMap[str, str]
-    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., abstract_syntax_tree_root: _Optional[_Union[_calculation_node__client_pb2.AbstractSyntaxTreeNode, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., abstract_syntax_tree_root: _Optional[_Union[_calculation_node__client_pb2.AbstractSyntaxTreeNode, _Mapping]] = ..., expr: _Optional[str] = ...) -> None: ...
 
 class DataQualityConfig(_message.Message):
     __slots__ = ["data_quality_enabled", "skip_default_expectations"]
@@ -162,12 +166,14 @@ class Embedding(_message.Message):
     def __init__(self, input_column_name: _Optional[str] = ..., output_column_name: _Optional[str] = ..., model: _Optional[str] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class FeaturePublishOfflineStoreConfig(_message.Message):
-    __slots__ = ["publish_full_features", "publish_start_time"]
-    PUBLISH_FULL_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ["publish_features_offline", "publish_start_time", "sink_config"]
+    PUBLISH_FEATURES_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     PUBLISH_START_TIME_FIELD_NUMBER: _ClassVar[int]
-    publish_full_features: bool
+    SINK_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    publish_features_offline: bool
     publish_start_time: _timestamp_pb2.Timestamp
-    def __init__(self, publish_full_features: bool = ..., publish_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    sink_config: SinkConfig
+    def __init__(self, publish_features_offline: bool = ..., publish_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., sink_config: _Optional[_Union[SinkConfig, _Mapping]] = ...) -> None: ...
 
 class FeatureTable(_message.Message):
     __slots__ = ["attributes", "offline_enabled", "online_enabled", "serving_ttl"]
@@ -356,9 +362,10 @@ class MonitoringParams(_message.Message):
     def __init__(self, user_specified: bool = ..., monitor_freshness: bool = ..., expected_feature_freshness: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., alert_email: _Optional[str] = ..., grace_period_seconds: _Optional[int] = ...) -> None: ...
 
 class NewMaterializationParams(_message.Message):
-    __slots__ = ["aggregation_leading_edge", "batch_materialization", "compaction_enabled", "environment", "feature_publish_offline_store_config", "feature_start_timestamp", "manual_trigger_backfill_end_timestamp", "materialization_start_timestamp", "max_backfill_interval", "max_source_data_delay", "offline_store_config", "offline_store_params", "online_backfill_load_type", "online_store_params", "output_stream", "schedule_interval", "stream_materialization", "stream_tile_size", "stream_tiling_enabled", "tecton_materialization_runtime", "time_range_policy", "transform_server_group_id", "writes_to_offline_store", "writes_to_online_store"]
+    __slots__ = ["aggregation_leading_edge", "batch_materialization", "batch_publish_timestamp", "compaction_enabled", "environment", "feature_publish_offline_store_config", "feature_start_timestamp", "manual_trigger_backfill_end_timestamp", "materialization_start_timestamp", "max_backfill_interval", "max_source_data_delay", "offline_store_config", "offline_store_params", "online_backfill_load_type", "online_store_params", "output_stream", "schedule_interval", "stream_materialization", "stream_tile_size", "stream_tiling_enabled", "tecton_materialization_runtime", "time_range_policy", "transform_server_group_id", "writes_to_offline_store", "writes_to_online_store"]
     AGGREGATION_LEADING_EDGE_FIELD_NUMBER: _ClassVar[int]
     BATCH_MATERIALIZATION_FIELD_NUMBER: _ClassVar[int]
+    BATCH_PUBLISH_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     COMPACTION_ENABLED_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     FEATURE_PUBLISH_OFFLINE_STORE_CONFIG_FIELD_NUMBER: _ClassVar[int]
@@ -383,6 +390,7 @@ class NewMaterializationParams(_message.Message):
     WRITES_TO_ONLINE_STORE_FIELD_NUMBER: _ClassVar[int]
     aggregation_leading_edge: _feature_view__client_pb2.AggregationLeadingEdge
     batch_materialization: _feature_view__client_pb2.ClusterConfig
+    batch_publish_timestamp: str
     compaction_enabled: bool
     environment: str
     feature_publish_offline_store_config: FeaturePublishOfflineStoreConfig
@@ -405,7 +413,7 @@ class NewMaterializationParams(_message.Message):
     transform_server_group_id: _id__client_pb2.Id
     writes_to_offline_store: bool
     writes_to_online_store: bool
-    def __init__(self, schedule_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., materialization_start_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_start_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., manual_trigger_backfill_end_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_backfill_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., writes_to_online_store: bool = ..., writes_to_offline_store: bool = ..., offline_store_config: _Optional[_Union[_feature_view__client_pb2.OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store_params: _Optional[_Union[OfflineStoreParams, _Mapping]] = ..., batch_materialization: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., stream_materialization: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., max_source_data_delay: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., online_store_params: _Optional[_Union[OnlineStoreParams, _Mapping]] = ..., output_stream: _Optional[_Union[_feature_view__client_pb2.OutputStream, _Mapping]] = ..., time_range_policy: _Optional[_Union[MaterializationTimeRangePolicy, str]] = ..., online_backfill_load_type: _Optional[_Union[_fv_materialization__client_pb2.OnlineBackfillLoadType, str]] = ..., tecton_materialization_runtime: _Optional[str] = ..., feature_publish_offline_store_config: _Optional[_Union[FeaturePublishOfflineStoreConfig, _Mapping]] = ..., compaction_enabled: bool = ..., stream_tiling_enabled: bool = ..., environment: _Optional[str] = ..., transform_server_group_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., stream_tile_size: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., aggregation_leading_edge: _Optional[_Union[_feature_view__client_pb2.AggregationLeadingEdge, str]] = ...) -> None: ...
+    def __init__(self, schedule_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., materialization_start_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_start_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., manual_trigger_backfill_end_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_backfill_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., writes_to_online_store: bool = ..., writes_to_offline_store: bool = ..., offline_store_config: _Optional[_Union[_feature_view__client_pb2.OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store_params: _Optional[_Union[OfflineStoreParams, _Mapping]] = ..., batch_materialization: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., stream_materialization: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., max_source_data_delay: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., online_store_params: _Optional[_Union[OnlineStoreParams, _Mapping]] = ..., output_stream: _Optional[_Union[_feature_view__client_pb2.OutputStream, _Mapping]] = ..., time_range_policy: _Optional[_Union[MaterializationTimeRangePolicy, str]] = ..., online_backfill_load_type: _Optional[_Union[_fv_materialization__client_pb2.OnlineBackfillLoadType, str]] = ..., tecton_materialization_runtime: _Optional[str] = ..., feature_publish_offline_store_config: _Optional[_Union[FeaturePublishOfflineStoreConfig, _Mapping]] = ..., compaction_enabled: bool = ..., stream_tiling_enabled: bool = ..., environment: _Optional[str] = ..., transform_server_group_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., stream_tile_size: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., aggregation_leading_edge: _Optional[_Union[_feature_view__client_pb2.AggregationLeadingEdge, str]] = ..., batch_publish_timestamp: _Optional[str] = ...) -> None: ...
 
 class NullableStringList(_message.Message):
     __slots__ = ["values"]
@@ -488,6 +496,25 @@ class SecondaryKeyOutputColumn(_message.Message):
     name: str
     time_window: _time_window__client_pb2.TimeWindow
     def __init__(self, time_window: _Optional[_Union[_time_window__client_pb2.TimeWindow, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class SinkConfig(_message.Message):
+    __slots__ = ["function", "mode", "name", "secrets"]
+    class SecretsEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _secret__client_pb2.SecretReference
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ...) -> None: ...
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRETS_FIELD_NUMBER: _ClassVar[int]
+    function: _user_defined_function__client_pb2.UserDefinedFunction
+    mode: _transformation__client_pb2.TransformationMode
+    name: str
+    secrets: _containers.MessageMap[str, _secret__client_pb2.SecretReference]
+    def __init__(self, name: _Optional[str] = ..., function: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ..., mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ...) -> None: ...
 
 class SnowflakeData(_message.Message):
     __slots__ = ["snowflake_view_name"]

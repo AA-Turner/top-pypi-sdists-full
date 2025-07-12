@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.18.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-01T15:21:03.626333                                                            #
+# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-11T23:29:18.652192                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
     import metaflow.graph
+    import metaflow.exception
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current
@@ -22,6 +22,9 @@ from ..kubernetes.kube_utils import qos_requests_and_limits as qos_requests_and_
 from ..kubernetes.kubernetes_jobsets import KubernetesArgoJobSet as KubernetesArgoJobSet
 from ...user_configs.config_options import ConfigInput as ConfigInput
 from .argo_client import ArgoClient as ArgoClient
+from .exit_hooks import ExitHookHack as ExitHookHack
+from .exit_hooks import HttpExitHook as HttpExitHook
+from .exit_hooks import ContainerHook as ContainerHook
 
 inf: float
 
@@ -545,36 +548,6 @@ class TriggerParameter(object, metaclass=type):
     def src(self, dependency_name, value, data_key = None, data_template = None):
         ...
     def dest(self, dest):
-        ...
-    def to_json(self):
-        ...
-    def __str__(self):
-        ...
-    ...
-
-class Http(object, metaclass=type):
-    def __init__(self, method):
-        ...
-    def header(self, header, value):
-        ...
-    def body(self, body):
-        ...
-    def url(self, url):
-        ...
-    def success_condition(self, success_condition):
-        ...
-    def to_json(self):
-        ...
-    def __str__(self):
-        ...
-    ...
-
-class LifecycleHook(object, metaclass=type):
-    def __init__(self):
-        ...
-    def expression(self, expression):
-        ...
-    def template(self, template):
         ...
     def to_json(self):
         ...

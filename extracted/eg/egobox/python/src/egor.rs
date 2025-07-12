@@ -81,7 +81,11 @@ pub(crate) fn to_specs(py: Python, xlimits: Vec<Vec<f64>>) -> PyResult<Bound<'_,
 ///
 ///     infill_strategy (InfillStrategy enum):
 ///         Infill criteria to decide best next promising point.
-///         Can be either InfillStrategy.EI, InfillStrategy.WB2 or InfillStrategy.WB2S.
+///         Can be either InfillStrategy.EI, InfillStrategy.WB2, InfillStrategy.WB2S orInfillStrategy.LOG_EI
+///
+///     infill_optimizer (InfillOptimizer enum):
+///         Internal optimizer used to optimize infill criteria.
+///         Can be either InfillOptimizer.COBYLA or InfillOptimizer.SLSQP
 ///
 ///     cstr_infill (bool):
 ///         Activate constrained infill criterion where the product of probability of feasibility of constraints
@@ -108,9 +112,6 @@ pub(crate) fn to_specs(py: Python, xlimits: Vec<Vec<f64>>) -> PyResult<Bound<'_,
 ///         The value is used as a modulo of iteration number * q_points to trigger true training.
 ///         This is used to decrease the number of training at the expense of surrogate accuracy.    
 ///
-///     infill_optimizer (InfillOptimizer enum):
-///         Internal optimizer used to optimize infill criteria.
-///         Can be either InfillOptimizer.COBYLA or InfillOptimizer.SLSQP
 ///
 ///     trego (bool):
 ///         When true, TREGO algorithm is used, otherwise classic EGO algorithm is used.
@@ -535,13 +536,14 @@ impl Egor {
             .configure_gp(|gp| {
                 let regr = RegressionSpec(self.gp_config.regr_spec);
                 let corr = CorrelationSpec(self.gp_config.corr_spec);
+                let n_start = self.gp_config.n_start.max(0) as usize;
                 gp.regression_spec(egobox_moe::RegressionSpec::from_bits(regr.0).unwrap())
                     .correlation_spec(egobox_moe::CorrelationSpec::from_bits(corr.0).unwrap())
                     .kpls_dim(self.gp_config.kpls_dim)
                     .n_clusters(self.n_clusters())
                     .recombination(self.recombination())
                     .theta_tuning(self.theta_tuning())
-                    .n_start(self.gp_config.n_start)
+                    .n_start(n_start)
                     .max_eval(self.gp_config.max_eval)
             })
             .infill_strategy(infill_strategy)

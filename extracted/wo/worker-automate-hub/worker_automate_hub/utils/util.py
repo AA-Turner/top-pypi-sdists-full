@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, TypedDict
-
+from pyscreeze import ImageNotFoundException
 import aiohttp
 import cv2
 import psutil
@@ -4500,15 +4500,40 @@ async def cadastro_pre_venda_header(
         condicao_select = panel_TGroup_Box.child_window(
             class_name="TDBIComboBox", found_index=2
         )
-        condicao_select.click()
-        await worker_sleep(1)
+        condicao_select.click_input()
+        await worker_sleep(3)
         if "vista" in cod_pagamento.lower():
-            set_combobox("||List", cod_pagamento)
-            await worker_sleep(1)
-            pyautogui.press("down")
+            try:
+                # Verifica mensagem sem lote pra integrar
+                imagem_alvo ="assets\\entrada_notas\\a_vista.png" #ALTERAR CAMINHO PARA ASSETS
+
+                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                if localizacao:
+                    centro = pyautogui.center(localizacao)
+                    pyautogui.click(centro)
+
+            except ImageNotFoundException:
+                console.print(
+                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+                )
+
         else:
-            set_combobox("||List", cod_pagamento)
-        await worker_sleep(1)
+            try:
+                # Verifica mensagem sem lote pra integrar
+                imagem_alvo = "assets\\entrada_notas\\a_vista.png"
+
+                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                if localizacao:
+                    centro = pyautogui.center(localizacao)
+                    pyautogui.click(centro)
+
+            except ImageNotFoundException:
+                console.print(
+                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+                )
+        await worker_sleep(2)
 
         console.print("Inserindo codigo do cliente...\n")
         field_cod_cliente = panel_TGroup_Box.child_window(

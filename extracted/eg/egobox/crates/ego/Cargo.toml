@@ -18,11 +18,11 @@ persistent = ["egobox-moe/persistent"]
 blas = ["ndarray-linalg", "linfa/ndarray-linalg", "linfa-pls/blas"]
 
 [dependencies]
-egobox-doe = { version = "0.30.0", path = "../doe", features = [
+egobox-doe = { version = "0.31.0", path = "../doe", features = [
     "serializable",
 ] }
-egobox-gp = { version = "0.30.0", path = "../gp", features = ["serializable"] }
-egobox-moe = { version = "0.30.0", path = "../moe", features = [
+egobox-gp = { version = "0.31.0", path = "../gp", features = ["serializable"] }
+egobox-moe = { version = "0.31.0", path = "../moe", features = [
     "serializable",
 ] }
 
@@ -65,6 +65,7 @@ criterion.workspace = true
 approx.workspace = true
 argmin_testfunctions.workspace = true
 serial_test = "3.1.0"
+paste = "1.0"
 
 [[bench]]
 name = "ego"

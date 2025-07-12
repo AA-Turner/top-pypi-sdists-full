@@ -24,6 +24,7 @@ from tecton_core.id_helper import IdHelper
 from tecton_core.offline_store import OfflineStoreType
 from tecton_core.offline_store import get_offline_store_partition_params
 from tecton_core.offline_store import get_offline_store_type
+from tecton_core.offline_store import get_time_column_for_offline_writer
 from tecton_core.query_consts import anchor_time
 from tecton_core.time_utils import convert_timestamp_for_version
 from tecton_materialization.common.job_metadata import JobMetadataClient
@@ -38,7 +39,6 @@ from tecton_materialization.materialization_utils import batch_write_to_online_s
 from tecton_materialization.materialization_utils import df_to_online_store_msg
 from tecton_materialization.materialization_utils import has_prior_delta_commit
 from tecton_materialization.materialization_utils import wait_for_metric_scrape
-from tecton_proto.data.feature_view__client_pb2 import DeltaOfflineStoreVersion
 from tecton_proto.materialization.job_metadata__client_pb2 import OnlineStoreType
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
 from tecton_spark import materialization_plan
@@ -190,20 +190,6 @@ def _write_batch_to_hdfs(plan: MaterializationPlan, hdfs_output_path: str):
     plan.base_data_frame.write.parquet(hdfs_output_path)
 
 
-def _get_time_column_for_offline(fd: FeatureDefinitionWrapper) -> str:
-    if (
-        get_offline_store_type(fd) == OfflineStoreType.DELTA
-        and fd.offline_store_params is not None
-        and fd.offline_store_params.delta.version == DeltaOfflineStoreVersion.DELTA_OFFLINE_STORE_VERSION_2
-    ):
-        return fd.time_key
-
-    if fd.is_temporal_aggregate:
-        return anchor_time()
-
-    return fd.time_key
-
-
 def _materialize_batch_to_offline(
     spark: SparkSession,
     materialization_task_params: MaterializationTaskParams,
@@ -214,7 +200,6 @@ def _materialize_batch_to_offline(
 ):
     fd = feature_definition_from_task_params(materialization_task_params)
     version = fd.get_feature_store_format_version
-    is_delta_offline_store = get_offline_store_type(fd) == OfflineStoreType.DELTA
     coalesce = (
         COALESCE_FOR_SMALL_PARTITIONS
         if get_offline_store_partition_params(fd).partition_interval.as_timedelta() <= datetime.timedelta(hours=1)
@@ -229,9 +214,10 @@ def _materialize_batch_to_offline(
     offline_store_params = OfflineStoreWriterParams(
         s3_path=materialization_task_params.offline_store_path,
         always_store_anchor_column=True,
-        time_column=_get_time_column_for_offline(fd),
+        time_column=get_time_column_for_offline_writer(fd),
         join_key_columns=fd.join_keys,
         is_continuous=fd.is_continuous,
+        upsert_by_batch_publish_timestamp=fd.batch_publish_timestamp is not None,
     )
 
     logger.info(f"Writing to offline store for FV {fd.id} for interval {feature_start_time} to {feature_end_time}")
@@ -239,15 +225,19 @@ def _materialize_batch_to_offline(
 
     store_writer = get_offline_store_writer(offline_store_params, fd, version, spark)
 
+    # Replace previous the time range if doing a retry of a past job or if prev attempt already wrote data
     start_time_proto = Timestamp()
     start_time_proto.FromDatetime(feature_start_time)
-    # Need to replace previous the time range if doing a manual retry of a past job or if prev attempt wrote data
-    if is_delta_offline_store and (
+    offline_store_type = get_offline_store_type(fd)
+    is_overwrite_task = materialization_task_params.batch_task_info.batch_parameters.is_overwrite
+    write_tile = pendulum.period(feature_start_time, feature_end_time)
+    if offline_store_type == OfflineStoreType.DELTA and (
         has_prior_delta_commit(spark, materialization_task_params, idempotence_key, start_time_proto.ToJsonString())
-        or materialization_task_params.batch_task_info.batch_parameters.is_overwrite
+        or is_overwrite_task
     ):
-        tile = pendulum.period(feature_start_time, feature_end_time)
-        store_writer.overwrite_dataframe_in_tile(offline_store_df, tile)
+        store_writer.overwrite_dataframe_in_tile(offline_store_df, write_tile)
+    elif offline_store_type == OfflineStoreType.ICEBERG and is_overwrite_task:
+        store_writer.overwrite_dataframe_in_tile(offline_store_df, write_tile)
     else:
         store_writer.append_dataframe(offline_store_df)
 
@@ -495,6 +485,8 @@ def batch_materialize_from_params(
                 write_checkpoint(spark, materialization_task_params, query_feature_start_time, run_id)
 
         logger.info(f"Wrote {total_rows} total rows")
+        # Print this line too since occasionally the logger library doesn't work (BAT-15553)
+        print(f"Wrote {total_rows} total rows")
 
     if write_to_online_from_offline_store and not write_to_intermediate_store_only:
         assert not materialization_task_params.HasField("canary_id")

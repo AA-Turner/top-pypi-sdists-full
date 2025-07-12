@@ -479,7 +479,12 @@ def test_geo_interface():
     access using __geo_interface__
     """
     geom = Geometry.from_geojson(geojson_pt)
-    assert geojson_pt == geom.__geo_interface__
+    gj_coord = geojson_pt["coordinates"]
+    gi_coord = geom.__geo_interface__["coordinates"]
+    assert type(gj_coord) == list
+    assert type(gi_coord) == tuple
+    assert gj_coord[0] == gi_coord[0]
+    assert gj_coord[1] == gi_coord[1]
 
 def test_shape():
     """
@@ -993,6 +998,13 @@ def test_multigeometry_iadd():
     assert len(gc) == 5
     assert type(gc) == GeometryCollection
 
+def test_multigeometry_iadd_mixed_srid():
+    p1 = Point((1, 1, 1), srid=1000)
+    p2 = Point((2, 2, 2), srid=2000)
+
+    with pytest.raises(CollectionError):
+        p1 + p2
+
 def test_geometry_add():
     p1 = Point((1, 1, 1))
     p2 = Point((2, 2, 2))
@@ -1103,6 +1115,19 @@ def test_geometry_add_srid():
     with pytest.raises(CollectionError):
         mp3 = mp1 + mp2
         assert len(mp3) == 3
+
+def test_polygon_change_srid():
+    p = Geometry(wkb_pg)
+    p.dimz = True
+    assert p.dimz is True
+    for ring in p.rings:
+        for v in ring.vertices:
+            assert v.dimz is True
+    p.dimz = False
+    assert p.dimz is False
+    for ring in p.rings:
+        for v in ring.vertices:
+            assert v.dimz is False
 
 def test_multigeometry_getset():
     p0 = Point((0, 0))
@@ -1248,6 +1273,14 @@ def test_ewkt_read_point():
     with pytest.raises(WktError):
         Geometry.from_wkt("SRID=hello;POINT Z (0 1 1)")
 
+def test_ewkt_read_with_spaces():
+    g = Geometry.from_wkt("   SRID=123 ; POINT Z (    -1     3      9.3  )")
+    assert g.srid == 123
+    assert g.dimz == True
+    assert g.x == -1
+    assert g.y == 3
+    assert g.z == 9.3
+
 def test_ewkt_read_empty():
     with pytest.raises(WktError):
         Geometry.from_wkt("POINT Z EMPTY")
@@ -1299,6 +1332,9 @@ def test_read_wkt_malformed():
 
     with pytest.raises(WktError):
         Geometry.from_wkt("POLYGON ((0 0, 1 1, 2 2, 3 3), (0 0, 1 1, 2 2)")
+
+    with pytest.raises(WktError):
+        Geometry.from_wkt("POLYGON((1 1), (2 2), (3 1), (1 1))")
 
     with pytest.raises(WktError):
         Geometry.from_wkt("POINT (0 1) extra")

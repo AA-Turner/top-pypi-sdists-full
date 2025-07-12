@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: mailjet-rest
-Version: 1.4.0
+Version: 1.5.0
 Summary: Mailjet V3 API wrapper
 Author-email: starenka <starenka0@gmail.com>, Mailjet <api@mailjet.com>
 Maintainer-email: Serhii Kupriienko <kupriienko.serhii@gmail.com>
-License: MIT
-Project-URL: Issue Tracker, https://github.com/mailjet/mailjet-apiv3-python
-Project-URL: Repository, https://github.com/mailjet/mailjet-apiv3-python
+License-Expression: MIT
 Project-URL: Homepage, https://dev.mailjet.com
 Project-URL: Documentation, https://dev.mailjet.com
+Project-URL: Repository, https://github.com/mailjet/mailjet-apiv3-python
+Project-URL: Issue Tracker, https://github.com/mailjet/mailjet-apiv3-python/issues
 Keywords: Mailjet API v3 / v3.1 Python Wrapper,wrapper,email python-wrapper,transactional-emails,mailjet,mailjet-api
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,10 +24,10 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.32.3
+Requires-Dist: requests>=2.32.4
 Provides-Extra: linting
 Requires-Dist: make; extra == "linting"
 Requires-Dist: toml; extra == "linting"
@@ -142,7 +141,7 @@ Check out all the resources and Python code examples in the official [Mailjet Do
 
 This library `mailjet_rest` officially supports the following Python versions:
 
-- Python >=3.9,\<3.14
+- Python >=3.10,\<3.14
 
 It's tested up to 3.13 (including).
 
@@ -154,7 +153,7 @@ To build the `mailjet_rest` package from the sources you need `setuptools` (as a
 
 ### Runtime dependencies
 
-At runtime the package requires only `requests >=2.32.3`.
+At runtime the package requires only `requests >=2.32.4`.
 
 ### Test dependencies
 
@@ -527,5 +526,5 @@ If you have suggestions on how to improve the guides, please submit an issue in 
 - [@skupriienko](https://github.com/skupriienko)
 
 [api_credential]: https://app.mailjet.com/account/apikeys
-[doc]: http://dev.mailjet.com/guides/?python#
-[mailjet]: (http://www.mailjet.com/)
+[doc]: https://dev.mailjet.com/email/guides/?python#
+[mailjet]: (https://www.mailjet.com)

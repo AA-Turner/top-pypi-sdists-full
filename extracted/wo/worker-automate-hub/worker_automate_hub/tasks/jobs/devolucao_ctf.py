@@ -365,7 +365,7 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         itens_arla = [item for item in itens if item['descricao'].lower() == 'arla']
 
         #SELECIONAO A NOP 
-        console.print("SELECIONAO A NOP...\n")
+        console.print("SELECIONANDO A NOP...\n")
         select_box_nop_select = main_window.child_window(class_name="TDBIComboBox", found_index=0)
         select_box_nop_select.click()
 
@@ -387,23 +387,38 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                         if '2662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
                             nop_to_be_select = item
                             break
+                    else:
+                        if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                            nop_to_be_select = item
+                            break
                 else:
                     if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
                         nop_to_be_select = item
-                        break
-        
+                        break                
 
         if nop_to_be_select != '':
-            set_combobox("||List", nop_to_be_select)
+            console.print(f"NOP selecionada: {nop_to_be_select}\n")
+            try:
+                # Foca no campo
+                select_box_nop_select.click_input()
+                await worker_sleep(1)
+                # Usa select
+                select_box_nop_select.select(nop_to_be_select)
+                # Fecha o dropdown e confirma com TAB
+                select_box_nop_select.type_keys("{TAB}")
+            except Exception as e:
+                console.print(f"[yellow]Erro ao usar select(): {e} — tentando fallback com type_keys()[/yellow]")
+                # Fallback com digitação se o select() falhar
+                select_box_nop_select.click_input()
+                select_box_nop_select.type_keys(nop_to_be_select, with_spaces=True)
+                select_box_nop_select.type_keys("{ENTER}")
         else:
             retorno = f"Não foi possível encontrar a nop \nEtapas Executadas:\n{steps}"
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=retorno,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-            )
-
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)])
 
         try:
             pesquisar_icon = pyautogui.locateOnScreen(ASSETS_PATH + "\\emsys\\selecionar_venda.png", confidence=0.8)
@@ -764,7 +779,21 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 console.print(f"Selecionando a Especie de Caixa... \n")
                 tipo_cobranca.click()
                 await worker_sleep(2)
-                set_combobox("||List", "13 - DEVOLUCAO DE VENDA")
+                
+                try:
+                    # Verifica mensagem sem lote pra integrar
+                    imagem_alvo = "assets\\entrada_notas\\devolucao_venda.png"
+
+                    localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                    if localizacao:
+                        centro = pyautogui.center(localizacao)
+                        pyautogui.click(centro)
+
+                except ImageNotFoundException:
+                    console.print(
+                        "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+                    )
 
                 await worker_sleep(2)
 
@@ -1857,9 +1886,24 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                             panel_TNotebook = main_window.child_window(class_name="TNotebook", found_index=0)
                             recebimento_caixa_panel = panel_TNotebook.child_window(title="Recebimento Pelo Caixa")
                             especie_btn = recebimento_caixa_panel.child_window(class_name="TDBIComboBox", found_index=0)
-                            especie_btn.select("13 - DEVOLUCAO DE VENDA")
+                            especie_btn.click()
 
-                            await worker_sleep(2)
+                            await worker_sleep(3)
+                            
+                            try:
+                                # Verifica mensagem sem lote pra integrar
+                                imagem_alvo = "assets\\entrada_notas\\devolucao_venda.png" #ALTERAR CAMINHO PARA ASSETS
+
+                                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                                if localizacao:
+                                    centro = pyautogui.center(localizacao)
+                                    pyautogui.click(centro)
+
+                            except ImageNotFoundException:
+                                console.print(
+                                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+                                )
 
                             totais_panel = panel_TNotebook.child_window(title="Totais")
                             totais_panel.set_focus()
@@ -4110,8 +4154,21 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
             #SELECIONANDO A ESPECIE
             select_especie = main_window.child_window(class_name="TDBIComboBox", found_index=0)
             select_especie.click()
-            set_combobox("||List", "13 - DEVOLUCAO DE VENDA")
-            send_keys("%g")
+            await worker_sleep(2)
+            try:
+                # Verifica mensagem sem lote pra integrar
+                imagem_alvo = "assets\\entrada_notas\\devolucao_venda.png" #ALTERAR CAMINHO PARA ASSETS
+
+                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                if localizacao:
+                    centro = pyautogui.center(localizacao)
+                    pyautogui.click(centro)
+
+            except ImageNotFoundException:
+                console.print(
+                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+                )
         except Exception as e: 
             retorno = f"Não foi possivel filtar Devolução de Venda na tela de Rel. Boletim Caixa \nEtapas Executadas:\n{steps}"
             return RpaRetornoProcessoDTO(
@@ -4121,17 +4178,44 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        #CLICANDO NO ICONE DE IMPRIMIR 
-        await worker_sleep(10)
-        screen_width, screen_height = pyautogui.size()
-        x = 10
-        y = screen_height - 280 - (96 * 2) / .254
-        pyautogui.click(x,y)
+        # Clicando em Gerar        
+        app = Application().connect(class_name="TFrmRelBoletimCaixa", timeout=10)
+        main_window = app["TFrmRelBoletimCaixa"]
+        main_window.set_focus()
+        # Localiza o combobox da impressora
+        combo_impressora = main_window.child_window(class_name="TDBIComboBoxValues", found_index=0)
+
+        # Clica para abrir o dropdown
+        combo_impressora.click_input()
         
+        await worker_sleep(3)
+        
+        try:
+            # Verifica mensagem sem lote pra integrar
+            imagem_alvo = "assets\\entrada_notas\\\impressora.png" #ALTERAR CAMINHO PARA ASSETS
+
+            localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+            if localizacao:
+                centro = pyautogui.center(localizacao)
+                pyautogui.click(centro)
+
+        except ImageNotFoundException:
+            console.print(
+                "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
+            )
+        
+        
+        # Clicar em gerar
+        modelo_select = main_window.child_window(class_name="TBitBtn", found_index=0)
+        modelo_select.click_input()
+        
+        await worker_sleep(10)
+       
         #INTERAGINDO COM A TELA DE PRINT
         try:
             console.print("Interagindo com a tela 'PRINT'...\n")
-            app = Application().connect(class_name="TppPrintDialog", timeout=20)
+            app = Application().connect(class_name="TppPrintDialog", timeout=30)
             main_window = app["TppPrintDialog"]
             tpanel_btn_ok = main_window.child_window(class_name="TPanel", found_index=1)
             btn_ok_print_screen = tpanel_btn_ok.child_window(class_name="TButton", found_index=1)

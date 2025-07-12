@@ -33,7 +33,7 @@ class ScreenshotAttachmentTest(unittest.TestCase):
         start = time.time()
         while time.time() - start < timeout:
             try:
-                with socket.create_connection(("localhost", port), timeout=1):
+                with socket.create_connection(("127.0.0.1", port), timeout=1):
                     return
             except OSError:
                 time.sleep(0.2)
@@ -46,7 +46,7 @@ class ScreenshotAttachmentTest(unittest.TestCase):
         screenshot_file = screenshot_dir / "help_page.png"
         try:
             gw.web.auto.capture_page_source(
-                self.base_url + "/site/help",
+                self.base_url + "/web/site/help",
                 screenshot=str(screenshot_file),
             )
         except Exception as e:

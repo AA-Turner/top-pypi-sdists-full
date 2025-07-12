@@ -1,10 +1,13 @@
 import contextlib
 import logging
+import os
 import traceback
 import typing
+import uuid
 from datetime import datetime
 from typing import Optional
 
+from tecton_core.id_helper import IdHelper
 from tecton_core.query.executor_utils import QueryTreeMonitor
 from tecton_materialization.common.job_metadata import JobMetadataClient
 from tecton_proto.materialization.job_metadata__client_pb2 import JobMetadata
@@ -40,34 +43,35 @@ class JobStatusClient(QueryTreeMonitor):
         self._query_index = index
         self._query_count = count
 
-    def create_stage(self, stage_type: TectonManagedStage.StageType, description: str) -> int:
+    def create_stage(self, pid: int, staging_node_id: uuid.UUID, description: str) -> int:
         """
         Returns created stage index
         """
         self._started = True
+        stage_id = IdHelper.from_uuid(staging_node_id)
 
         def _update(job_metadata: JobMetadata) -> Optional[JobMetadata]:
-            if any(
-                s.stage_type == stage_type and s.description == description
-                for s in job_metadata.tecton_managed_info.stages
-            ):
+            # Use the combination of pid and stage_id to uniquely identify a stage
+            # Create a new stage only if it doesn't already exist
+            if any(s.pid == pid and s.stage_id == stage_id for s in job_metadata.tecton_managed_info.stages):
                 return None
             new_proto = JobMetadata()
             new_proto.CopyFrom(job_metadata)
 
             new_stage = TectonManagedStage(
-                description=description,
-                stage_type=stage_type,
                 state=TectonManagedStage.State.PENDING,
+                pid=pid,
+                stage_id=stage_id,
+                description=description,
             )
             new_proto.tecton_managed_info.stages.append(new_stage)
             return new_proto
 
         metadata = self._metadata_client.update(_update)
         for i, stage in enumerate(metadata.tecton_managed_info.stages):
-            if stage.stage_type == stage_type and stage.description == description:
+            if stage.pid == pid and stage.stage_id == stage_id:
                 return i
-        msg = f"Stage {stage_type} does not exist"
+        msg = f"Stage {description} for staging node {staging_node_id} (pid {pid}) does not exist"
         raise ValueError(msg)
 
     def set_query(self, stage_idx, sql: str):
@@ -113,15 +117,14 @@ class JobStatusClient(QueryTreeMonitor):
         self._metadata_client.update(_update)
 
     def set_completed(self, stage_idx: int):
-        if self._query_index < (self._query_count - 1):
-            return
-
         def _update(job_metadata: JobMetadata) -> JobMetadata:
             new_proto = JobMetadata()
             new_proto.CopyFrom(job_metadata)
 
             stage = new_proto.tecton_managed_info.stages[stage_idx]
             stage.state = TectonManagedStage.State.SUCCESS
+            stage.progress = 1.0
+            stage.duration.FromSeconds(int((datetime.now() - stage.start_time.ToDatetime()).total_seconds()))
 
             return new_proto
 
@@ -197,10 +200,16 @@ class JobStatusClient(QueryTreeMonitor):
 
     def create_stage_monitor(
         self,
-        stage_type: TectonManagedStage.StageType,
         description: str,
     ) -> MonitoringContextProvider:
-        stage_idx = self.create_stage(stage_type, description)
+        """
+        Create a context manager that can be used to monitor the progress of a stage outside of the query tree.
+        :param description: Human-readable description for the stage
+        :return: A context manager that can be used to monitor the progress of the stage
+        """
+
+        # For a given description, we expect only one non-QT stage to be created per process, so we use a random UUID here
+        stage_idx = self.create_stage(os.getpid(), uuid.uuid4(), description)
 
         @contextlib.contextmanager
         def monitor(sql: Optional[str] = None):
@@ -215,7 +224,6 @@ class JobStatusClient(QueryTreeMonitor):
                 self.set_failed(stage_idx, user_error=False)
                 raise
             else:
-                self.update_progress(stage_idx, 1)
                 self.set_completed(stage_idx)
 
         return monitor

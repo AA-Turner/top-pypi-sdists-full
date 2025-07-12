@@ -608,6 +608,52 @@ class AlphaModel(System.Object, QuantConnect.Algorithm.Framework.Alphas.IAlphaMo
         ...
 
 
+class AlphaModelExtensions(System.Object):
+    """Provides extension methods for alpha models"""
+
+    @staticmethod
+    def get_model_name(model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> str:
+        """Gets the name of the alpha model"""
+        ...
+
+
+class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Provides an implementation of IAlphaModel that wraps a PyObject object"""
+
+    @property
+    def name(self) -> str:
+        """Defines a name for a framework model"""
+        ...
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Constructor for initialising the IAlphaModel class with wrapped PyObject object
+        
+        :param model: >Model that generates alpha
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """
+        Updates this alpha model with the latest data from the algorithm.
+        This is called each time the algorithm receives data for subscribed securities
+        
+        :param algorithm: The algorithm instance
+        :param data: The new data available
+        :returns: The new insights generated.
+        """
+        ...
+
+
 class NullAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
     """Provides a null implementation of an alpha model"""
 
@@ -689,52 +735,6 @@ class CompositeAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities.
         This method patches this call through the each of the wrapped models.
-        
-        :param algorithm: The algorithm instance
-        :param data: The new data available
-        :returns: The new insights generated.
-        """
-        ...
-
-
-class AlphaModelExtensions(System.Object):
-    """Provides extension methods for alpha models"""
-
-    @staticmethod
-    def get_model_name(model: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> str:
-        """Gets the name of the alpha model"""
-        ...
-
-
-class AlphaModelPythonWrapper(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Provides an implementation of IAlphaModel that wraps a PyObject object"""
-
-    @property
-    def name(self) -> str:
-        """Defines a name for a framework model"""
-        ...
-
-    def __init__(self, model: typing.Any) -> None:
-        """
-        Constructor for initialising the IAlphaModel class with wrapped PyObject object
-        
-        :param model: >Model that generates alpha
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """
-        Updates this alpha model with the latest data from the algorithm.
-        This is called each time the algorithm receives data for subscribed securities
         
         :param algorithm: The algorithm instance
         :param data: The new data available
@@ -826,6 +826,98 @@ class BasePairsTradingAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaMo
         """
         Updates this alpha model with the latest data from the algorithm.
         This is called each time the algorithm receives data for subscribed securities
+        
+        :param algorithm: The algorithm instance
+        :param data: The new data available
+        :returns: The new insights generated.
+        """
+        ...
+
+
+class HistoricalReturnsAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Alpha model that uses historical returns to create insights"""
+
+    def __init__(self, lookback: int = 1, resolution: QuantConnect.Resolution = ...) -> None:
+        """
+        Initializes a new instance of the HistoricalReturnsAlphaModel class
+        
+        :param lookback: Historical return lookback period
+        :param resolution: The resolution of historical data
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """
+        Updates this alpha model with the latest data from the algorithm.
+        This is called each time the algorithm receives data for subscribed securities
+        
+        :param algorithm: The algorithm instance
+        :param data: The new data available
+        :returns: The new insights generated.
+        """
+        ...
+
+
+class ConstantAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
+    """Provides an implementation of IAlphaModel that always returns the same insight for each security"""
+
+    @overload
+    def __init__(self, type: QuantConnect.Algorithm.Framework.Alphas.InsightType, direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection, period: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the ConstantAlphaModel class
+        
+        :param type: The type of insight
+        :param direction: The direction of the insight
+        :param period: The period over which the insight with come to fruition
+        """
+        ...
+
+    @overload
+    def __init__(self, type: QuantConnect.Algorithm.Framework.Alphas.InsightType, direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection, period: datetime.timedelta, magnitude: typing.Optional[float], confidence: typing.Optional[float], weight: typing.Optional[float] = None) -> None:
+        """
+        Initializes a new instance of the ConstantAlphaModel class
+        
+        :param type: The type of insight
+        :param direction: The direction of the insight
+        :param period: The period over which the insight with come to fruition
+        :param magnitude: The predicted change in magnitude as a +- percentage
+        :param confidence: The confidence in the insight
+        :param weight: The portfolio weight of the insights
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+    def should_emit_insight(self, utc_time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determine if its time to emit insight for this symbol
+        
+        This method is protected.
+        
+        :param utc_time: Time of the insight
+        :param symbol: The symbol to emit an insight for
+        """
+        ...
+
+    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
+        """
+        Creates a constant insight for each security as specified via the constructor
         
         :param algorithm: The algorithm instance
         :param data: The new data available
@@ -1039,95 +1131,27 @@ class MacdAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
         ...
 
 
-class HistoricalReturnsAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Alpha model that uses historical returns to create insights"""
+class IInsightScoreFunction(metaclass=abc.ABCMeta):
+    """Abstraction in charge of scoring insights"""
 
-    def __init__(self, lookback: int = 1, resolution: QuantConnect.Resolution = ...) -> None:
-        """
-        Initializes a new instance of the HistoricalReturnsAlphaModel class
-        
-        :param lookback: Historical return lookback period
-        :param resolution: The resolution of historical data
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """
-        Updates this alpha model with the latest data from the algorithm.
-        This is called each time the algorithm receives data for subscribed securities
-        
-        :param algorithm: The algorithm instance
-        :param data: The new data available
-        :returns: The new insights generated.
-        """
+    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Method to evaluate and score insights for each time step"""
         ...
 
 
-class ConstantAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaModel):
-    """Provides an implementation of IAlphaModel that always returns the same insight for each security"""
+class InsightScoreFunctionPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction], QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction):
+    """A python implementation insight evaluator wrapper"""
 
-    @overload
-    def __init__(self, type: QuantConnect.Algorithm.Framework.Alphas.InsightType, direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection, period: datetime.timedelta) -> None:
+    def __init__(self, insight_evaluator: typing.Any) -> None:
         """
-        Initializes a new instance of the ConstantAlphaModel class
+        Creates a new python wrapper instance
         
-        :param type: The type of insight
-        :param direction: The direction of the insight
-        :param period: The period over which the insight with come to fruition
+        :param insight_evaluator: The python instance to wrap
         """
         ...
 
-    @overload
-    def __init__(self, type: QuantConnect.Algorithm.Framework.Alphas.InsightType, direction: QuantConnect.Algorithm.Framework.Alphas.InsightDirection, period: datetime.timedelta, magnitude: typing.Optional[float], confidence: typing.Optional[float], weight: typing.Optional[float] = None) -> None:
-        """
-        Initializes a new instance of the ConstantAlphaModel class
-        
-        :param type: The type of insight
-        :param direction: The direction of the insight
-        :param period: The period over which the insight with come to fruition
-        :param magnitude: The predicted change in magnitude as a +- percentage
-        :param confidence: The confidence in the insight
-        :param weight: The portfolio weight of the insights
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-    def should_emit_insight(self, utc_time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Determine if its time to emit insight for this symbol
-        
-        This method is protected.
-        
-        :param utc_time: Time of the insight
-        :param symbol: The symbol to emit an insight for
-        """
-        ...
-
-    def update(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: QuantConnect.Data.Slice) -> typing.Iterable[QuantConnect.Algorithm.Framework.Alphas.Insight]:
-        """
-        Creates a constant insight for each security as specified via the constructor
-        
-        :param algorithm: The algorithm instance
-        :param data: The new data available
-        :returns: The new insights generated.
-        """
+    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Method to evaluate and score insights for each time step"""
         ...
 
 
@@ -1308,14 +1332,6 @@ class InsightCollection(System.Object, typing.Iterable[QuantConnect.Algorithm.Fr
         ...
 
 
-class IInsightScoreFunction(metaclass=abc.ABCMeta):
-    """Abstraction in charge of scoring insights"""
-
-    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Method to evaluate and score insights for each time step"""
-        ...
-
-
 class GeneratedInsightsCollection(System.Object):
     """Defines a collection of insights that were generated at the same time step"""
 
@@ -1336,22 +1352,6 @@ class GeneratedInsightsCollection(System.Object):
         :param date_time_utc: The utc date time the sinals were generated
         :param insights: The generated insights
         """
-        ...
-
-
-class InsightScoreFunctionPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction], QuantConnect.Algorithm.Framework.Alphas.IInsightScoreFunction):
-    """A python implementation insight evaluator wrapper"""
-
-    def __init__(self, insight_evaluator: typing.Any) -> None:
-        """
-        Creates a new python wrapper instance
-        
-        :param insight_evaluator: The python instance to wrap
-        """
-        ...
-
-    def score(self, insight_manager: QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager, utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Method to evaluate and score insights for each time step"""
         ...
 
 

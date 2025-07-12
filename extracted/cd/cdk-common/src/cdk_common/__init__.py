@@ -5576,6 +5576,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_SAGE_MAKER_HYPER_POD_OBSERVABILITY_ADMIN_ACCESS = "AMAZON_SAGE_MAKER_HYPER_POD_OBSERVABILITY_ADMIN_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSDIRECTORY_SERVICE_SERVICE_ROLE_POLICY = "AWSDIRECTORY_SERVICE_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3tecton_proto/common/server_group_type__client.proto\x12\x13tecton_proto.common*\x8e\x01\n\x0fServerGroupType\x12!\n\x1dSERVER_GROUP_TYPE_UNSPECIFIED\x10\x00\x12*\n&SERVER_GROUP_TYPE_FEATURE_SERVER_GROUP\x10\x01\x12,\n(SERVER_GROUP_TYPE_TRANSFORM_SERVER_GROUP\x10\x02\x42?\n\x11\x63om.tecton.commonP\x01Z(github.com/tecton-ai/tecton_proto/common')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n3tecton_proto/common/server_group_type__client.proto\x12\x13tecton_proto.common*\xb9\x01\n\x0fServerGroupType\x12!\n\x1dSERVER_GROUP_TYPE_UNSPECIFIED\x10\x00\x12*\n&SERVER_GROUP_TYPE_FEATURE_SERVER_GROUP\x10\x01\x12,\n(SERVER_GROUP_TYPE_TRANSFORM_SERVER_GROUP\x10\x02\x12)\n%SERVER_GROUP_TYPE_INGEST_SERVER_GROUP\x10\x03\x42?\n\x11\x63om.tecton.commonP\x01Z(github.com/tecton-ai/tecton_proto/common')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.common.server_group_type__client_pb2', globals())
@@ -22,5 +22,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\021com.tecton.commonP\001Z(github.com/tecton-ai/tecton_proto/common'
   _SERVERGROUPTYPE._serialized_start=77
-  _SERVERGROUPTYPE._serialized_end=219
+  _SERVERGROUPTYPE._serialized_end=262
 # @@protoc_insertion_point(module_scope)

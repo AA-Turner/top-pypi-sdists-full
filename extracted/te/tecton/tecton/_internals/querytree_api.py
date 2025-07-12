@@ -15,6 +15,7 @@ from tecton import types as sdk_types
 from tecton._internals import errors
 from tecton._internals import type_utils
 from tecton._internals import utils
+from tecton._internals.utils import get_mocked_feature_view_columns
 from tecton.framework.data_frame import TectonDataFrame
 from tecton_core import conf
 from tecton_core import data_types
@@ -46,6 +47,7 @@ from tecton_core.query.retrieval_params import GetFeaturesInRangeParams
 from tecton_core.query.rewrite import MockDataRewrite
 from tecton_core.schema import Schema
 from tecton_core.schema_validation import tecton_schema_to_arrow_schema
+from tecton_core.skew_config import SkewConfig
 from tecton_core.time_utils import align_time_downwards
 from tecton_core.time_utils import temporal_fv_get_feature_data_time_limits
 from tecton_proto.common import schema__client_pb2 as schema_pb2
@@ -71,6 +73,7 @@ def get_features_from_params(
                     spine=params.events,
                     timestamp_key=params.timestamp_key,
                     from_source=params.from_source,
+                    skew_config=params.skew_config,
                 )
             else:
                 df = get_historical_features_for_feature_service(
@@ -80,6 +83,7 @@ def get_features_from_params(
                     spine=params.events,
                     timestamp_key=params.timestamp_key,
                     from_source=params.from_source,
+                    skew_config=params.skew_config,
                 )
         elif isinstance(params.fco, FeatureDefinitionWrapper):
             df = get_features_for_events(
@@ -91,6 +95,7 @@ def get_features_from_params(
                 from_source=params.from_source,
                 mock_data_sources=params.mock_data_sources,
                 mock_context=params.mock_context,
+                skew_config=params.skew_config,
             )
     elif isinstance(params, GetFeaturesInRangeParams):
         if conf.get_bool("DUCKDB_ENABLE_RANGE_SPLIT") and params.compute_mode == ComputeMode.RIFT:
@@ -110,6 +115,7 @@ def get_features_from_params(
                     valid_from=params.start_time,
                     valid_to=params.end_time,
                     mock_context=params.mock_context,
+                    skew_config=params.skew_config,
                 )
                 dfs.append(df)
             df = TectonDataFrame._create_from_dataframes(dfs)
@@ -125,6 +131,7 @@ def get_features_from_params(
                 from_source=params.from_source,
                 mock_data_sources=params.mock_data_sources,
                 mock_context=params.mock_context,
+                skew_config=params.skew_config,
             )
     else:
         error = f"Unsupported params type: {type(params)}"
@@ -141,6 +148,7 @@ def get_historical_features_for_feature_service_with_spine_split(
     spine: Union[pyspark_sql.DataFrame, pandas.DataFrame, TectonDataFrame, str],
     timestamp_key: Optional[str],
     from_source: Optional[bool],
+    skew_config: SkewConfig,
 ) -> TectonDataFrame:
     spine_split = split_spine(spine, feature_set_config.join_keys)
     dfs = []
@@ -152,6 +160,7 @@ def get_historical_features_for_feature_service_with_spine_split(
             spine=spine_df,
             timestamp_key=timestamp_key,
             from_source=from_source,
+            skew_config=skew_config,
         )
         dfs.append(df)
     return TectonDataFrame._create_from_dataframes(dfs)
@@ -164,6 +173,7 @@ def get_historical_features_for_feature_service(
     spine: Union[pyspark_sql.DataFrame, pandas.DataFrame, TectonDataFrame, str],
     timestamp_key: Optional[str],
     from_source: Optional[bool],
+    skew_config: SkewConfig,
 ) -> TectonDataFrame:
     timestamp_required = spine is not None and any(
         should_infer_timestamp_of_spine(fd, timestamp_key) for fd in feature_set_config.feature_definitions
@@ -190,12 +200,13 @@ def get_historical_features_for_feature_service(
         user_data_node = nodes.ConvertTimestampToUTCNode(dialect, compute_mode, user_data_node.as_ref(), timestamp_key)
 
     tree = builder.build_feature_set_config_querytree(
-        dialect,
-        compute_mode,
-        feature_set_config,
-        user_data_node.as_ref(),
-        timestamp_key,
-        from_source,
+        dialect=dialect,
+        compute_mode=compute_mode,
+        fsc=feature_set_config,
+        spine_node=user_data_node.as_ref(),
+        spine_time_field=timestamp_key,
+        from_source=from_source,
+        skew_config=skew_config,
     )
 
     df = TectonDataFrame._create(tree)
@@ -215,6 +226,7 @@ def get_features_in_range(
     valid_from: Optional[Union[pendulum.DateTime, datetime]] = None,
     valid_to: Optional[Union[pendulum.DateTime, datetime]] = None,
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> TectonDataFrame:
     """
     Returns a TectonDataFrame of historical values for this feature view which were valid within
@@ -257,6 +269,7 @@ def get_features_in_range(
         sources. The keys of the dictionary should match the feature view's function parameters. For feature views with multiple sources, mocking some data sources and using raw data for others is supported.
     :param valid_from: The start time for which the feature values are valid. If not provided, defaults to start_time.
     :param valid_to: The end time for which the feature values are valid. If not provided, defaults to end_time.
+    :param skew_config: Configuration with levers to tune historical feature calculation. defaults to settings that minimize online/offline skew.
 
     :return: A TectonDataFrame with Feature Values for the requested time range in the format specified above.
     """
@@ -266,9 +279,9 @@ def get_features_in_range(
     if entities is not None:
         if not isinstance(entities, TectonDataFrame):
             entities = TectonDataFrame._create(entities)
-        assert set(entities._dataframe.columns).issubset(
-            set(feature_definition.join_keys)
-        ), f"Entities should only contain columns that can be used as Join Keys: {feature_definition.join_keys}"
+        assert set(entities._dataframe.columns).issubset(set(feature_definition.join_keys)), (
+            f"Entities should only contain columns that can be used as Join Keys: {feature_definition.join_keys}"
+        )
 
     start_time = pendulum.instance(start_time)
     end_time = pendulum.instance(end_time)
@@ -292,6 +305,7 @@ def get_features_in_range(
             lookback_time_range=lookback_time_range,
             entities=entities,
             query_time_range=valid_time_range,
+            skew_config=skew_config,
         )
     else:
         feature_data_time_limits = time_utils.get_feature_data_time_limits(
@@ -306,6 +320,7 @@ def get_features_in_range(
             query_time_range=query_time_range,
             from_source=from_source,
             entities=entities,
+            skew_config=skew_config,
         )
 
     rewrite.MockDataRewrite(mock_data_sources).rewrite(qt)
@@ -363,6 +378,7 @@ def get_features_for_events(
     from_source: Optional[bool],
     mock_data_sources: Dict[str, NodeRef],
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ):
     if not feature_definition.is_rtfv:
         check_spark_version(feature_definition.fv_spec.batch_cluster_config)
@@ -396,7 +412,14 @@ def get_features_for_events(
     )
 
     qt = _point_in_time_get_historical_features_for_feature_definition(
-        dialect, compute_mode, feature_definition, tecton_spine_df, timestamp_key, from_source, mock_context
+        dialect,
+        compute_mode,
+        feature_definition,
+        tecton_spine_df,
+        timestamp_key,
+        from_source,
+        mock_context,
+        skew_config,
     )
 
     rewrite.MockDataRewrite(mock_data_sources).rewrite(qt)
@@ -440,9 +463,9 @@ def get_historical_features_for_feature_definition(
         if entities is not None:
             if not isinstance(entities, TectonDataFrame):
                 entities = TectonDataFrame._create(entities)
-            assert set(entities._dataframe.columns).issubset(
-                set(feature_definition.join_keys)
-            ), f"Entities should only contain columns that can be used as Join Keys: {feature_definition.join_keys}"
+            assert set(entities._dataframe.columns).issubset(set(feature_definition.join_keys)), (
+                f"Entities should only contain columns that can be used as Join Keys: {feature_definition.join_keys}"
+            )
 
         query_time_range = _get_feature_data_time_range(feature_definition, start_time, end_time)
         tecton_spine_df = None
@@ -502,6 +525,7 @@ def _point_in_time_get_historical_features_for_feature_definition(
     timestamp_key: Optional[str],
     from_source: Optional[bool],
     mock_context: Optional[MockContext] = None,
+    skew_config: Optional[SkewConfig] = None,
 ) -> node_interface.NodeRef:
     if feature_definition.is_rtfv:
         utils.validate_spine_dataframe(spine, timestamp_key, feature_definition.request_context_keys)
@@ -511,6 +535,7 @@ def _point_in_time_get_historical_features_for_feature_definition(
     dac = FeatureDefinitionAndJoinConfig.from_feature_definition(feature_definition)
     user_data_node_metadata = {}
     user_data_node = nodes.UserSpecifiedDataNode(dialect, compute_mode, spine, user_data_node_metadata)
+    mocked_fv_columns = get_mocked_feature_view_columns(list(spine._dataframe.columns))
 
     if timestamp_key:
         user_data_node_metadata["timestamp_key"] = timestamp_key
@@ -525,6 +550,8 @@ def _point_in_time_get_historical_features_for_feature_definition(
         from_source,
         use_namespace_feature_prefix=dialect != tecton_core.query.dialect.Dialect.SNOWFLAKE,
         mock_context=mock_context,
+        skew_config=skew_config,
+        mocked_fv_columns=mocked_fv_columns,
     )
 
     return qt
@@ -646,6 +673,7 @@ def get_dataframe_for_data_source(
             for_stream=False,
             start_time=start_time,
             end_time=end_time,
+            skew_config=None,  # skew config only used for fetching data sources within feature views
         )
         return TectonDataFrame._create(node)
     elif apply_translator:
@@ -718,12 +746,12 @@ def scan_dataset(
     start_time: Optional[datetime],
     end_time: Optional[datetime],
 ) -> TectonDataFrame:
-    partition_time_filter = pendulum.Period(start_time, end_time) if start_time and end_time else None
+    time_filter = pendulum.Period(start_time, end_time) if start_time and end_time else None
     qt = DatasetScanNode(
         dialect=Dialect.ARROW,  # Spark will ignore this, so this is only for Rift
         compute_mode=compute_mode,
         dataset=dataset,
-        partition_time_filter=partition_time_filter,
+        time_filter=time_filter,
     ).as_ref()
     qt = StagingNode(
         dialect=Dialect.ARROW,

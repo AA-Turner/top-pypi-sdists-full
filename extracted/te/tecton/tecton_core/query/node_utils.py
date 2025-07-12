@@ -21,7 +21,7 @@ from tecton_proto.args.transformation__client_pb2 import TransformationMode
 
 def get_staging_nodes(
     qt_root: NodeRef, query_tree_step: QueryTreeStep, as_ref: bool = False
-) -> Dict[str, Union[QueryNode, NodeRef]]:
+) -> Dict[str, Union[StagingNode, NodeRef]]:
     """Returns all StagingNodes in the query tree that belong to the specified QueryTreeStep."""
     # Note: can have the same staging node show up multiple times in the query tree. e.g. GHF(start/end time)
     staging_nodes = {}
@@ -70,9 +70,6 @@ def get_pipeline_dialect(qt_root: NodeRef) -> Optional[tecton_core.query.dialect
                 encountered_dialects.add(tecton_core.query.dialect.Dialect.SPARK)
             elif mode == TransformationMode.TRANSFORMATION_MODE_PYSPARK:
                 encountered_dialects.add(tecton_core.query.dialect.Dialect.SPARK)
-            elif mode == TransformationMode.TRANSFORMATION_MODE_SNOWPARK:
-                # TODO(danny): should probably be a snowpark dialect
-                encountered_dialects.add(tecton_core.query.dialect.Dialect.SNOWFLAKE)
             elif mode == TransformationMode.TRANSFORMATION_MODE_SNOWFLAKE_SQL:
                 encountered_dialects.add(tecton_core.query.dialect.Dialect.SNOWFLAKE)
             elif mode == TransformationMode.TRANSFORMATION_MODE_PANDAS:

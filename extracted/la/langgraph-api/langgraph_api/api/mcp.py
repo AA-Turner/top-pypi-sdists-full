@@ -385,11 +385,12 @@ async def handle_tools_list(
             seen_names.add(name)
 
         schemas = await client.assistants.get_schemas(id_, headers=request.headers)
+        description = assistant.get("description") or ""
         tools.append(
             {
                 "name": name,
                 "inputSchema": schemas.get("input_schema", {}),
-                "description": "",
+                "description": description,
             },
         )
 

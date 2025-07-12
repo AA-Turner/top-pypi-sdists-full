@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymitter
-Version: 1.1.2
+Version: 1.1.3
 Summary: Python port of the extended Node.js EventEmitter 2 approach providing namespaces, wildcards and TTL.
 Project-URL: Homepage, https://github.com/riga/pymitter
 Project-URL: Documentation, https://pymitter.readthedocs.io
@@ -271,9 +271,8 @@ Negative values mean infinity.
     Returns the function.
 
 - #### `off(event, func=None)`
-    Removes a function that is registered to an event.
-    When *func* is *None*, decorator usage is assumed.
-    Returns the function.
+    Removes a function that is registered to an event and returns it.
+    When *func* is *None*, all functions of *event* are removed and *None* is returned.
 
 - #### `off_any(func=None)`
     Removes a function that was registered via `on_any()`.

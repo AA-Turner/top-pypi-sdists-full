@@ -16,12 +16,16 @@ from tecton_proto.materialization.params__client_pb2 import MaterializationTaskP
 class GCSMetadataClient(JobMetadataClient):
     def __init__(self, table: str, attempt_id: Id):
         matches = re.match("gs://(.*?)/(.*)", f"{table}/{IdHelper.to_string(attempt_id)}")
+        self._table, self._attempt_id = table, attempt_id
         self._bucket_name, self._blob_name = matches.groups()
         self._storage_client = storage.Client()
 
     @staticmethod
     def for_params(materialization_task_params: MaterializationTaskParams) -> JobMetadataClient:
         return GCSMetadataClient(materialization_task_params.job_metadata_table, materialization_task_params.attempt_id)
+
+    def __reduce__(self):
+        return GCSMetadataClient, (self._table, self._attempt_id)
 
     def get(self) -> Tuple[JobMetadata, int]:
         bucket = self._storage_client.bucket(self._bucket_name)

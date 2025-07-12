@@ -20,7 +20,6 @@ import System
 import System.Collections.Concurrent
 import System.Collections.Generic
 import System.Collections.Specialized
-import System.IO
 
 QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T")
 QuantConnect_Data_UniverseSelection_FuncUniverse_T = typing.TypeVar("QuantConnect_Data_UniverseSelection_FuncUniverse_T")
@@ -304,15 +303,6 @@ class BaseDataCollection(QuantConnect.Data.BaseData, typing.Iterable[QuantConnec
         """
         ...
 
-    @staticmethod
-    def cache_symbol(ticker: str, symbol: QuantConnect.Symbol) -> None:
-        """
-        Caches a symbol
-        
-        This method is protected.
-        """
-        ...
-
     def clone(self) -> QuantConnect.Data.BaseData:
         """
         Return a new instance clone of this object, used in fill forward
@@ -336,21 +326,51 @@ class BaseDataCollection(QuantConnect.Data.BaseData, typing.Iterable[QuantConnec
         """
         ...
 
-    @staticmethod
-    def try_get_cached_symbol(ticker: str, symbol: typing.Optional[QuantConnect.Symbol]) -> typing.Tuple[bool, QuantConnect.Symbol]:
-        """
-        Tries to get a symbol from the cache
-        
-        This method is protected.
-        """
-        ...
-
     def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
         """
         Creates the universe symbol for the target market
         
         :returns: The universe symbol to use.
         """
+        ...
+
+
+class SubscriptionRequest(QuantConnect.Data.BaseDataRequest):
+    """Defines the parameters required to add a subscription to a data feed."""
+
+    @property
+    def is_universe_subscription(self) -> bool:
+        """Gets true if the subscription is a universe"""
+        ...
+
+    @property
+    def universe(self) -> QuantConnect.Data.UniverseSelection.Universe:
+        """Gets the universe this subscription resides in"""
+        ...
+
+    @property
+    def security(self) -> QuantConnect.Securities.Security:
+        """Gets the security. This is the destination of data for non-internal subscriptions."""
+        ...
+
+    @property
+    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """Gets the subscription configuration. This defines how/where to read the data."""
+        ...
+
+    @property
+    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
+        """Gets the tradable days specified by this request, in the security's data time zone"""
+        ...
+
+    @overload
+    def __init__(self, is_universe_subscription: bool, universe: QuantConnect.Data.UniverseSelection.Universe, security: QuantConnect.Securities.Security, configuration: QuantConnect.Data.SubscriptionDataConfig, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Initializes a new instance of the SubscriptionRequest class"""
+        ...
+
+    @overload
+    def __init__(self, template: QuantConnect.Data.UniverseSelection.SubscriptionRequest, is_universe_subscription: typing.Optional[bool] = None, universe: QuantConnect.Data.UniverseSelection.Universe = None, security: QuantConnect.Securities.Security = None, configuration: QuantConnect.Data.SubscriptionDataConfig = None, start_time_utc: typing.Optional[datetime.datetime] = None, end_time_utc: typing.Optional[datetime.datetime] = None) -> None:
+        """Initializes a new instance of the SubscriptionRequest class"""
         ...
 
 
@@ -665,218 +685,20 @@ class CryptoCoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.Crypto
         ...
 
 
-class DerivativeUniverseData(System.Object):
-    """Represents derivative market data including trade and open interest information."""
-
-    @overload
-    def __init__(self, open_interest: QuantConnect.Data.Market.OpenInterest) -> None:
-        """
-        Initializes a new instance of DerivativeUniverseData using open interest data.
-        
-        :param open_interest: The open interest data.
-        """
-        ...
-
-    @overload
-    def __init__(self, trade_bar: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Initializes a new instance of DerivativeUniverseData using trade bar data.
-        
-        :param trade_bar: The trade bar data.
-        """
-        ...
-
-    @overload
-    def __init__(self, quote_bar: QuantConnect.Data.Market.QuoteBar) -> None:
-        """
-        Initializes a new instance of DerivativeUniverseData using quote bar data.
-        
-        :param quote_bar: The quote bar data.
-        """
-        ...
-
-    def to_csv(self) -> str:
-        """
-        Converts the current data to a CSV format string.
-        
-        :returns: A CSV formatted string representing the data.
-        """
-        ...
-
-    def update_by_open_interest(self, open_interest: QuantConnect.Data.Market.OpenInterest) -> None:
-        """
-        Updates the instance with new open interest data.
-        
-        :param open_interest: The new open interest data.
-        """
-        ...
-
-    def update_by_quote_bar(self, quote_bar: QuantConnect.Data.Market.QuoteBar) -> None:
-        """
-        Updates the instance with new quote bar data.
-        
-        :param quote_bar: The new quote bar data.
-        """
-        ...
-
-    def update_by_trade_bar(self, trade_bar: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Updates the instance with new trade bar data.
-        
-        :param trade_bar: The new trade bar data.
-        """
-        ...
-
-
-class IFundamentalDataProvider(metaclass=abc.ABCMeta):
-    """"""
-
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-
-class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelection.IFundamentalDataProvider):
-    """Base fundamental data provider"""
-
-    @property
-    def live_mode(self) -> bool:
-        """True if live trading"""
-        ...
-
-    @live_mode.setter
-    def live_mode(self, value: bool) -> None:
-        ...
-
-    @property
-    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
-        """
-        THe data provider instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    @data_provider.setter
-    def data_provider(self, value: QuantConnect.Interfaces.IDataProvider) -> None:
-        ...
-
-    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_none(value: typing.Any) -> bool:
-        """True if the given value is none"""
-        ...
-
-    @staticmethod
-    @overload
-    def is_none(type: typing.Type, value: typing.Any) -> bool:
-        """True if the given value is none"""
-        ...
-
-
-class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollection, QuantConnect.Securities.IChainUniverseData, metaclass=abc.ABCMeta):
-    """
-    Represents a chain universe.
-    Intended as a base for options and futures universe data.
-    """
-
-    @property
-    def csv_line(self) -> str:
-        """
-        Csv line to get the values from
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def id(self) -> QuantConnect.SecurityIdentifier:
-        """The security identifier of the option symbol"""
-        ...
-
-    @property
-    def value(self) -> float:
-        """Price of the security"""
-        ...
-
-    @property
-    def open(self) -> float:
-        """Open price of the security"""
-        ...
-
-    @property
-    def high(self) -> float:
-        """High price of the security"""
-        ...
-
-    @property
-    def low(self) -> float:
-        """Low price of the security"""
-        ...
-
-    @property
-    def close(self) -> float:
-        """Close price of the security"""
-        ...
-
-    @property
-    def volume(self) -> float:
-        """Volume value of the security"""
-        ...
-
-    @property
-    def open_interest(self) -> float:
-        """Open interest value"""
-        ...
+class ConstituentsUniverseData(QuantConnect.Data.BaseData):
+    """Custom base data class used for ConstituentsUniverse"""
 
     @property
     def end_time(self) -> datetime.datetime:
-        """Time that the data became available to use"""
+        """The end time of this data."""
         ...
 
     @end_time.setter
     def end_time(self, value: datetime.datetime) -> None:
         ...
 
-    @overload
     def __init__(self) -> None:
-        """
-        Creates a new instance of the BaseChainUniverseData class
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
-        """
-        Creates a new instance of the BaseChainUniverseData class
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, other: QuantConnect.Data.UniverseSelection.BaseChainUniverseData) -> None:
-        """
-        Creates a new instance of the BaseChainUniverseData class as a copy of the given instance
-        
-        This method is protected.
-        """
+        """Initializes a new instance of the CoarseFundamental class"""
         ...
 
     def default_resolution(self) -> QuantConnect.Resolution:
@@ -894,76 +716,120 @@ class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollecti
         """
         ...
 
-    @staticmethod
-    def get_universe_full_file_path(symbol: QuantConnect.Symbol, date: datetime.datetime) -> str:
+    def is_sparse_data(self) -> bool:
         """
-        Generates the file path for a universe data file based on the given symbol and date.
-        Optionally, creates the directory if it does not exist.
+        Indicates that the data set is expected to be sparse
         
-        :param symbol: The financial symbol for which the universe file is generated.
-        :param date: The date associated with the universe file.
-        :returns: The full file path to the universe data file.
+        :returns: True if the data set represented by this type is expected to be sparse.
         """
         ...
 
-    def to_symbol(self) -> QuantConnect.Symbol:
-        """Gets the symbol of the option"""
-        ...
-
-    @staticmethod
-    def try_read(config: QuantConnect.Data.SubscriptionDataConfig, stream: System.IO.StreamReader, date: datetime.datetime, symbol: typing.Optional[QuantConnect.Symbol], remaining_line: typing.Optional[str]) -> typing.Tuple[bool, QuantConnect.Symbol, str]:
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
         each time it is called.
         
-        This method is protected.
-        
         :param config: Subscription data config setup object
-        :param stream: Stream reader of the source document
+        :param line: Line of the source document
         :param date: Date of the requested data
-        :param symbol: The symbol read and parsed from the current line in the stream
-        :param remaining_line: The remaining string after reading the symbol from the current line in the stream
-        :returns: Whether a valid line starting with a symbol was read.
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
         """
         ...
 
-
-class SubscriptionRequest(QuantConnect.Data.BaseDataRequest):
-    """Defines the parameters required to add a subscription to a data feed."""
-
-    @property
-    def is_universe_subscription(self) -> bool:
-        """Gets true if the subscription is a universe"""
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
         ...
 
-    @property
-    def universe(self) -> QuantConnect.Data.UniverseSelection.Universe:
-        """Gets the universe this subscription resides in"""
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
         ...
 
-    @property
-    def security(self) -> QuantConnect.Securities.Security:
-        """Gets the security. This is the destination of data for non-internal subscriptions."""
-        ...
 
-    @property
-    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """Gets the subscription configuration. This defines how/where to read the data."""
-        ...
+class ConstituentsUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T], QuantConnect.Data.UniverseSelection.FuncUniverse[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]):
+    """
+    ConstituentsUniverse allows to perform universe selection based on an
+    already preselected set of Symbol.
+    """
 
-    @property
-    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
-        """Gets the tradable days specified by this request, in the security's data time zone"""
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Any = None) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param symbol: The universe symbol
+        :param universe_settings: The universe settings to use
+        :param constituents_filter: User-provided function to filter constituents universe with
+        """
         ...
 
     @overload
-    def __init__(self, is_universe_subscription: bool, universe: QuantConnect.Data.UniverseSelection.Universe, security: QuantConnect.Securities.Security, configuration: QuantConnect.Data.SubscriptionDataConfig, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Initializes a new instance of the SubscriptionRequest class"""
+    def __init__(self, subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Any = None) -> None:
+        """
+        Constituent universe for a Python function
+        
+        :param subscription_data_config: The universe configuration to use
+        :param universe_settings: The universe settings to use
+        :param constituents_filter: User-provided function to filter constituents universe with
+        """
         ...
 
     @overload
-    def __init__(self, template: QuantConnect.Data.UniverseSelection.SubscriptionRequest, is_universe_subscription: typing.Optional[bool] = None, universe: QuantConnect.Data.UniverseSelection.Universe = None, security: QuantConnect.Securities.Security = None, configuration: QuantConnect.Data.SubscriptionDataConfig = None, start_time_utc: typing.Optional[datetime.datetime] = None, end_time_utc: typing.Optional[datetime.datetime] = None) -> None:
-        """Initializes a new instance of the SubscriptionRequest class"""
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, filter_func: typing.Any) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param symbol: The universe symbol
+        :param universe_settings: The universe settings to use
+        :param filter_func: The constituents filter function
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]], typing.List[QuantConnect.Symbol]] = None) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param symbol: The universe symbol
+        :param universe_settings: The universe settings to use
+        :param constituents_filter: User-provided function to filter constituents universe with
+        """
+        ...
+
+    @overload
+    def __init__(self, subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]], typing.List[QuantConnect.Symbol]] = None) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param subscription_data_config: The universe configuration to use
+        :param universe_settings: The universe settings to use
+        :param constituents_filter: User-provided function to filter constituents universe with
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ConstituentsUniverseData]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param symbol: The universe symbol
+        :param universe_settings: The universe settings to use
+        :param filter_func: The constituents filter function
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Creates a new instance of the ConstituentsUniverse
+        
+        :param symbol: The universe symbol
+        :param universe_settings: The universe settings to use
+        """
         ...
 
 
@@ -1072,550 +938,6 @@ class UniverseDecorator(QuantConnect.Data.UniverseSelection.Universe, metaclass=
         ...
 
 
-class SelectSymbolsUniverseDecorator(QuantConnect.Data.UniverseSelection.UniverseDecorator):
-    """Provides a univese decoration that replaces the implementation of SelectSymbols"""
-
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, select_symbols: typing.Callable[[datetime.datetime, QuantConnect.Data.UniverseSelection.BaseDataCollection], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the SelectSymbolsUniverseDecorator class
-        
-        :param universe: The universe to be decorated
-        :param select_symbols: The new implementation of SelectSymbols
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection using the data specified
-        
-        :param utc_time: The current utc time
-        :param data: The symbols to remain in the universe
-        :returns: The data that passes the filter.
-        """
-        ...
-
-    def select_symbols_delegate(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Delegate type for the SelectSymbols method
-        
-        :param utc_time: The current utc frontier time
-        :param data: The universe selection data
-        :returns: The symbols selected by the universe.
-        """
-        ...
-
-
-class FundamentalUniverseFactory(QuantConnect.Data.UniverseSelection.Universe):
-    """Defines a universe that reads fundamental us equity data"""
-
-    @overload
-    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseFactory class
-        
-        :param market: The target market
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseFactory class
-        
-        :param market: The target market
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], System.Object]) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseFactory class
-        
-        :param market: The target market
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FundamentalUniverseFactory class
-        
-        :param symbol: Defines the symbol to use for this universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @staticmethod
-    def create_configuration(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Creates a Fundamental.Fundamental subscription configuration for the US-equity market
-        
-        :param symbol: The symbol used in the returned configuration
-        :returns: A fundamental subscription configuration with the specified symbol.
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection using the data specified
-        
-        :param utc_time: The current utc time
-        :param data: The symbols to remain in the universe
-        :returns: The data that passes the filter.
-        """
-        ...
-
-
-class FundamentalFilteredUniverse(QuantConnect.Data.UniverseSelection.SelectSymbolsUniverseDecorator):
-    """Provides a universe that can be filtered with a Fundamental.Fundamental selection function"""
-
-    @property
-    def fundamental_universe(self) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
-        """The universe that will be used for fine universe selection"""
-        ...
-
-    @overload
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fundamental_selector: typing.Any) -> None:
-        """
-        Initializes a new instance of the FundamentalFilteredUniverse class
-        
-        :param universe: The universe to be filtered
-        :param fundamental_selector: The fundamental selection function
-        """
-        ...
-
-    @overload
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fundamental_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FundamentalFilteredUniverse class
-        
-        :param universe: The universe to be filtered
-        :param fundamental_selector: The fundamental selection function
-        """
-        ...
-
-
-class ConstituentsUniverseData(QuantConnect.Data.BaseData):
-    """Custom base data class used for ConstituentsUniverse"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The end time of this data."""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the CoarseFundamental class"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class UniverseExtensions(System.Object):
-    """Provides extension methods for the Universe class"""
-
-    @staticmethod
-    def chained_to(first: QuantConnect.Data.UniverseSelection.Universe, second: QuantConnect.Data.UniverseSelection.Universe, configuration_per_symbol: bool) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe that logically is the result of wiring the two universes together such that
-        the first will produce subscriptions for the second and the second will only select on data that has
-        passed the first.
-        
-        NOTE: The  and  universe instances provided
-        to this method should not be manually added to the algorithm.
-        
-        :param first: The first universe in this 'chain'
-        :param second: The second universe in this 'chain'
-        :param configuration_per_symbol: True if each symbol as its own configuration, false otherwise
-        :returns: A new universe that can be added to the algorithm that represents invoking the first universe and then the second universe using the outputs of the first.
-        """
-        ...
-
-    @staticmethod
-    def create_symbol(security_type: QuantConnect.SecurityType, market: str, ticker: str) -> QuantConnect.Symbol:
-        """
-        Creates a universe symbol
-        
-        :param security_type: The security
-        :param market: The market
-        :param ticker: The Universe ticker
-        :returns: A symbol for user defined universe of the specified security type and market.
-        """
-        ...
-
-    @staticmethod
-    def prefilter_using(second: QuantConnect.Data.UniverseSelection.Universe, first: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new universe that restricts the universe selection data to symbols that passed the
-        first universe's selection critera
-        
-        NOTE: The  universe instance provided to this method should not be manually
-        added to the algorithm. The  should still be manually (assuming no other changes).
-        
-        :param second: The universe to be filtere
-        :param first: The universe providing the set of symbols used for filtered
-        :returns: A new universe that can be added to the algorithm that represents invoking the second using the selections from the first as a filter.
-        """
-        ...
-
-    @staticmethod
-    def run_universe_downloader(data_downloader: QuantConnect.IDataDownloader, universe_download_parameters: QuantConnect.DataUniverseDownloaderGetParameters) -> None:
-        """
-        Processes the universe download based on parameters.
-        
-        :param data_downloader: The data downloader instance.
-        :param universe_download_parameters: The parameters for universe downloading.
-        """
-        ...
-
-
-class UniversePythonWrapper(QuantConnect.Data.UniverseSelection.Universe):
-    """Provides an implementation of Universe that wraps a PyObject object"""
-
-    @property
-    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the settings used for subscriptions added for this universe"""
-        ...
-
-    @universe_settings.setter
-    def universe_settings(self, value: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        ...
-
-    @property
-    def dispose_requested(self) -> bool:
-        """Flag indicating if disposal of this universe has been requested"""
-        ...
-
-    @dispose_requested.setter
-    def dispose_requested(self, value: bool) -> None:
-        ...
-
-    @property
-    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """Gets the configuration used to get universe data"""
-        ...
-
-    @property
-    def securities(self) -> System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe.Member]:
-        """Gets the internal security collection used to define membership in this universe"""
-        ...
-
-    def __init__(self, universe: typing.Any) -> None:
-        """Initializes a new instance of the UniversePythonWrapper class"""
-        ...
-
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection using the data specified
-        
-        :param utc_time: The current utc time
-        :param data: The symbols to remain in the universe
-        :returns: The data that passes the filter.
-        """
-        ...
-
-
-class ITimeTriggeredUniverse(metaclass=abc.ABCMeta):
-    """
-    A universe implementing this interface will NOT use it's SubscriptionDataConfig to generate data
-    that is used to 'pulse' the universe selection function -- instead, the times output by
-    GetTriggerTimes are used to 'pulse' the universe selection function WITHOUT data.
-    """
-
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
-        """
-        Returns an enumerator that defines when this user defined universe will be invoked
-        
-        :returns: An enumerator of DateTime that defines when this universe will be invoked.
-        """
-        ...
-
-
-class ContinuousContractUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse):
-    """Continuous contract universe selection that based on the requested mapping mode will select each symbol"""
-
-    @property
-    def asynchronous(self) -> bool:
-        """
-        True if this universe filter can run async in the data stack
-        TODO: see IContinuousSecurity.Mapped
-        """
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, live_mode: bool, universe_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """Creates a new instance"""
-        ...
-
-    @staticmethod
-    def add_configurations(subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """Helper method to add and get the required configurations associated with a continuous universe"""
-        ...
-
-    @staticmethod
-    def create_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
-        """
-        Creates a continuous universe symbol
-        
-        :param symbol: The associated symbol
-        :returns: A symbol for a continuous universe of the specified symbol.
-        """
-        ...
-
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
-        """
-        ...
-
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
-        """
-        Each tradeable day of the future we trigger a new selection.
-        Allows use to select the current contract
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection based on the symbol mapping
-        
-        :param utc_time: The current utc time
-        :param data: Empty data
-        :returns: The symbols to use.
-        """
-        ...
-
-
-class CoarseFundamental(QuantConnect.Data.BaseData):
-    """Defines summary information about a single symbol for a given date"""
-
-    @property
-    def market(self) -> str:
-        """Gets the market for this symbol"""
-        ...
-
-    @property
-    def dollar_volume(self) -> float:
-        """Gets the day's dollar volume for this symbol"""
-        ...
-
-    @property
-    def volume(self) -> int:
-        """Gets the day's total volume"""
-        ...
-
-    @property
-    def has_fundamental_data(self) -> bool:
-        """Returns whether the symbol has fundamental data for the given date"""
-        ...
-
-    @property
-    def price_factor(self) -> float:
-        """Gets the price factor for the given date"""
-        ...
-
-    @property
-    def split_factor(self) -> float:
-        """Gets the split factor for the given date"""
-        ...
-
-    @property
-    def price_scale_factor(self) -> float:
-        """Gets the combined factor used to create adjusted prices from raw prices"""
-        ...
-
-    @property
-    def adjusted_price(self) -> float:
-        """Gets the split and dividend adjusted price"""
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The end time of this data."""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def price(self) -> float:
-        """Gets the raw price"""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the CoarseFundamental class"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    @staticmethod
-    def to_row(coarse: QuantConnect.Data.UniverseSelection.CoarseFundamental) -> str:
-        """Converts a given fundamental data point into row format"""
-        ...
-
-
-class CoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.Universe):
-    """Defines a universe that reads coarse us equity data"""
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
-        """
-        Initializes a new instance of the CoarseFundamentalUniverse class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
-        """
-        Initializes a new instance of the CoarseFundamentalUniverse class
-        
-        :param symbol: Defines the symbol to use for this universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the CoarseFundamentalUniverse class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the CoarseFundamentalUniverse class
-        
-        :param symbol: Defines the symbol to use for this universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @staticmethod
-    def create_configuration(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Creates a CoarseFundamental subscription configuration for the US-equity market
-        
-        :param symbol: The symbol used in the returned configuration
-        :returns: A coarse fundamental subscription configuration with the specified symbol.
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection using the data specified
-        
-        :param utc_time: The current utc time
-        :param data: The symbols to remain in the universe
-        :returns: The data that passes the filter.
-        """
-        ...
-
-
 class GetSubscriptionRequestsUniverseDecorator(QuantConnect.Data.UniverseSelection.UniverseDecorator):
     """Provides a universe decoration that replaces the implementation of GetSubscriptionRequests"""
 
@@ -1646,106 +968,6 @@ class GetSubscriptionRequestsUniverseDecorator(QuantConnect.Data.UniverseSelecti
         :param current_time_utc: The current utc frontier time
         :returns: The subscription requests for the security to be given to the data feed.
         """
-        ...
-
-
-class FundamentalService(System.Object):
-    """Fundamental data provider service"""
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: str, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param fundamental_data_provider: The fundamental data provider
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: QuantConnect.Data.UniverseSelection.IFundamentalDataProvider, live_mode: bool) -> None:
-        """
-        Initializes the service
-        
-        :param data_provider: The data provider instance to use
-        :param fundamental_data_provider: The fundamental data provider
-        :param live_mode: True if running in live mode
-        """
-        ...
-
-
-class OptionUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
-    """Represents a universe of options data"""
-
-    @property
-    def open_interest(self) -> float:
-        """Open interest value of the option"""
-        ...
-
-    @property
-    def implied_volatility(self) -> float:
-        """Implied volatility value of the option"""
-        ...
-
-    @property
-    def greeks(self) -> QuantConnect.Data.Market.Greeks:
-        """Greeks values of the option"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the OptionUniverse class"""
-        ...
-
-    @overload
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
-        """Creates a new instance of the OptionUniverse class"""
-        ...
-
-    @overload
-    def __init__(self, other: QuantConnect.Data.UniverseSelection.OptionUniverse) -> None:
-        """Creates a new instance of the OptionUniverse class as a copy of the given instance"""
-        ...
-
-    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
-        """
-        Adds a new data point to this collection.
-        If the data point is for the underlying, it will be stored in the BaseDataCollection.Underlying property.
-        
-        :param new_data_point: The new data point to add
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Creates a copy of the instance
-        
-        :returns: Clone of the instance.
-        """
-        ...
-
-    @staticmethod
-    def csv_header(security_type: QuantConnect.SecurityType) -> str:
-        """Gets the CSV header string for this universe entry"""
-        ...
-
-    @staticmethod
-    def to_csv(symbol: QuantConnect.Symbol, open: float, high: float, low: float, close: float, volume: float, open_interest: typing.Optional[float], implied_volatility: typing.Optional[float], greeks: QuantConnect.Data.Market.Greeks) -> str:
-        """Gets the CSV string representation of this universe entry"""
         ...
 
 
@@ -1864,46 +1086,15 @@ class SecurityChangesConstructor(System.Object):
         ...
 
 
-class OptionChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
-    """Defines a universe for a single option chain"""
+class SelectSymbolsUniverseDecorator(QuantConnect.Data.UniverseSelection.UniverseDecorator):
+    """Provides a univese decoration that replaces the implementation of SelectSymbols"""
 
-    @property
-    def asynchronous(self) -> bool:
-        """True if this universe filter can run async in the data stack"""
-        ...
-
-    @property
-    def option(self) -> QuantConnect.Securities.Option.Option:
-        """The canonical option chain security"""
-        ...
-
-    @property
-    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the settings used for subscriptons added for this universe"""
-        ...
-
-    @universe_settings.setter
-    def universe_settings(self, value: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        ...
-
-    def __init__(self, option: QuantConnect.Securities.Option.Option, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, select_symbols: typing.Callable[[datetime.datetime, QuantConnect.Data.UniverseSelection.BaseDataCollection], typing.List[QuantConnect.Symbol]]) -> None:
         """
-        Initializes a new instance of the OptionChainUniverse class
+        Initializes a new instance of the SelectSymbolsUniverseDecorator class
         
-        :param option: The canonical option chain security
-        :param universe_settings: The universe settings to be used for new subscriptions
-        """
-        ...
-
-    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
-        """
-        Gets the subscription requests to be added for the specified security
-        
-        :param security: The security to get subscriptions for
-        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
-        :param maximum_end_time_utc: The max end time
-        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
-        :returns: All subscriptions required by this security.
+        :param universe: The universe to be decorated
+        :param select_symbols: The new implementation of SelectSymbols
         """
         ...
 
@@ -1914,6 +1105,16 @@ class OptionChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
         :param utc_time: The current utc time
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
+        """
+        ...
+
+    def select_symbols_delegate(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Delegate type for the SelectSymbols method
+        
+        :param utc_time: The current utc frontier time
+        :param data: The universe selection data
+        :returns: The symbols selected by the universe.
         """
         ...
 
@@ -1963,124 +1164,482 @@ class FineFundamentalUniverse(QuantConnect.Data.UniverseSelection.Universe):
         ...
 
 
-class FutureUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
-    """Represents a universe of futures data"""
+class FineFundamentalFilteredUniverse(QuantConnect.Data.UniverseSelection.SelectSymbolsUniverseDecorator):
+    """Provides a universe that can be filtered with a FineFundamental selection function"""
 
-    CSV_HEADER: str
-    """Gets the CSV header string for this universe entry"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of the FutureUniverse class"""
+    @property
+    def fine_fundamental_universe(self) -> QuantConnect.Data.UniverseSelection.FineFundamentalUniverse:
+        """The universe that will be used for fine universe selection"""
         ...
 
     @overload
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
-        """Creates a new instance of the FutureUniverse class"""
-        ...
-
-    @overload
-    def __init__(self, other: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
-        """Creates a new instance of the FutureUniverse class as a copy of the given instance"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Any) -> None:
         """
-        Creates a copy of the instance
+        Initializes a new instance of the FineFundamentalFilteredUniverse class
         
-        :returns: Clone of the instance.
+        :param universe: The universe to be filtered
+        :param fine_selector: The fine selection function
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    @overload
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FineFundamentalFilteredUniverse class
+        
+        :param universe: The universe to be filtered
+        :param fine_selector: The fine selection function
+        """
+        ...
+
+
+class IFundamentalDataProvider(metaclass=abc.ABCMeta):
+    """"""
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+
+class BaseFundamentalDataProvider(System.Object, QuantConnect.Data.UniverseSelection.IFundamentalDataProvider):
+    """Base fundamental data provider"""
+
+    @property
+    def live_mode(self) -> bool:
+        """True if live trading"""
+        ...
+
+    @live_mode.setter
+    def live_mode(self, value: bool) -> None:
+        ...
+
+    @property
+    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
+        """
+        THe data provider instance to use
+        
+        This property is protected.
+        """
+        ...
+
+    @data_provider.setter
+    def data_provider(self, value: QuantConnect.Interfaces.IDataProvider) -> None:
+        ...
+
+    def initialize(self, data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
         ...
 
     @staticmethod
-    def to_csv(symbol: QuantConnect.Symbol, open: float, high: float, low: float, close: float, volume: float, open_interest: typing.Optional[float]) -> str:
-        """Gets the CSV string representation of this universe entry"""
+    @overload
+    def is_none(value: typing.Any) -> bool:
+        """True if the given value is none"""
+        ...
+
+    @staticmethod
+    @overload
+    def is_none(type: typing.Type, value: typing.Any) -> bool:
+        """True if the given value is none"""
         ...
 
 
-class ConstituentsUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T], QuantConnect.Data.UniverseSelection.FuncUniverse[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]):
+class CoarseFundamental(QuantConnect.Data.BaseData):
+    """Defines summary information about a single symbol for a given date"""
+
+    @property
+    def market(self) -> str:
+        """Gets the market for this symbol"""
+        ...
+
+    @property
+    def dollar_volume(self) -> float:
+        """Gets the day's dollar volume for this symbol"""
+        ...
+
+    @property
+    def volume(self) -> int:
+        """Gets the day's total volume"""
+        ...
+
+    @property
+    def has_fundamental_data(self) -> bool:
+        """Returns whether the symbol has fundamental data for the given date"""
+        ...
+
+    @property
+    def price_factor(self) -> float:
+        """Gets the price factor for the given date"""
+        ...
+
+    @property
+    def split_factor(self) -> float:
+        """Gets the split factor for the given date"""
+        ...
+
+    @property
+    def price_scale_factor(self) -> float:
+        """Gets the combined factor used to create adjusted prices from raw prices"""
+        ...
+
+    @property
+    def adjusted_price(self) -> float:
+        """Gets the split and dividend adjusted price"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The end time of this data."""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def price(self) -> float:
+        """Gets the raw price"""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the CoarseFundamental class"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    @staticmethod
+    def to_row(coarse: QuantConnect.Data.UniverseSelection.CoarseFundamental) -> str:
+        """Converts a given fundamental data point into row format"""
+        ...
+
+
+class CoarseFundamentalDataProvider(QuantConnect.Data.UniverseSelection.BaseFundamentalDataProvider):
+    """Coarse base fundamental data provider"""
+
+    class CoarseFundamentalSource(QuantConnect.Data.UniverseSelection.CoarseFundamental):
+        """Coarse fundamental with setters"""
+
+        @property
+        def volume_setter(self) -> int:
+            """Property to set the volume of the Coarse Fundamental"""
+            ...
+
+        @property
+        def dollar_volume_setter(self) -> float:
+            """Property to set the dollar volume of the Coarse Fundamental"""
+            ...
+
+        @property
+        def price_factor_setter(self) -> float:
+            """Property to set the price factor of the Coarse Fundamental"""
+            ...
+
+        @price_factor_setter.setter
+        def price_factor_setter(self, value: float) -> None:
+            ...
+
+        @property
+        def split_factor_setter(self) -> float:
+            """Property to set the split factor of the Coarse Fundamental"""
+            ...
+
+        @split_factor_setter.setter
+        def split_factor_setter(self, value: float) -> None:
+            ...
+
+        @property
+        def has_fundamental_data_setter(self) -> bool:
+            """Property to indicate if the Coarse Fundamental has fundamental data"""
+            ...
+
+        @has_fundamental_data_setter.setter
+        def has_fundamental_data_setter(self, value: bool) -> None:
+            ...
+
+        @property
+        def dollar_volume(self) -> float:
+            """Gets the day's dollar volume for this symbol"""
+            ...
+
+        @property
+        def volume(self) -> int:
+            """Gets the day's total volume"""
+            ...
+
+        @property
+        def has_fundamental_data(self) -> bool:
+            """Returns whether the symbol has fundamental data for the given date"""
+            ...
+
+        @property
+        def price_factor(self) -> float:
+            """Gets the price factor for the given date"""
+            ...
+
+        @property
+        def split_factor(self) -> float:
+            """Gets the split factor for the given date"""
+            ...
+
+    @staticmethod
+    def read(line: str, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.UniverseSelection.CoarseFundamentalDataProvider.CoarseFundamentalSource:
+        """Reads the given line and returns a CoarseFundamentalSource with the information within it"""
+        ...
+
+
+class FundamentalService(System.Object):
+    """Fundamental data provider service"""
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: str, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param fundamental_data_provider: The fundamental data provider
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def initialize(data_provider: QuantConnect.Interfaces.IDataProvider, fundamental_data_provider: QuantConnect.Data.UniverseSelection.IFundamentalDataProvider, live_mode: bool) -> None:
+        """
+        Initializes the service
+        
+        :param data_provider: The data provider instance to use
+        :param fundamental_data_provider: The fundamental data provider
+        :param live_mode: True if running in live mode
+        """
+        ...
+
+
+class FundamentalUniverseFactory(QuantConnect.Data.UniverseSelection.Universe):
+    """Defines a universe that reads fundamental us equity data"""
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the FundamentalUniverseFactory class
+        
+        :param market: The target market
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FundamentalUniverseFactory class
+        
+        :param market: The target market
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, market: str, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], System.Object]) -> None:
+        """
+        Initializes a new instance of the FundamentalUniverseFactory class
+        
+        :param market: The target market
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FundamentalUniverseFactory class
+        
+        :param symbol: Defines the symbol to use for this universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @staticmethod
+    def create_configuration(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Creates a Fundamental.Fundamental subscription configuration for the US-equity market
+        
+        :param symbol: The symbol used in the returned configuration
+        :returns: A fundamental subscription configuration with the specified symbol.
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs universe selection using the data specified
+        
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class FundamentalFilteredUniverse(QuantConnect.Data.UniverseSelection.SelectSymbolsUniverseDecorator):
+    """Provides a universe that can be filtered with a Fundamental.Fundamental selection function"""
+
+    @property
+    def fundamental_universe(self) -> QuantConnect.Data.UniverseSelection.FundamentalUniverseFactory:
+        """The universe that will be used for fine universe selection"""
+        ...
+
+    @overload
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fundamental_selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the FundamentalFilteredUniverse class
+        
+        :param universe: The universe to be filtered
+        :param fundamental_selector: The fundamental selection function
+        """
+        ...
+
+    @overload
+    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fundamental_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.Fundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FundamentalFilteredUniverse class
+        
+        :param universe: The universe to be filtered
+        :param fundamental_selector: The fundamental selection function
+        """
+        ...
+
+
+class ITimeTriggeredUniverse(metaclass=abc.ABCMeta):
     """
-    ConstituentsUniverse allows to perform universe selection based on an
-    already preselected set of Symbol.
+    A universe implementing this interface will NOT use it's SubscriptionDataConfig to generate data
+    that is used to 'pulse' the universe selection function -- instead, the times output by
+    GetTriggerTimes are used to 'pulse' the universe selection function WITHOUT data.
     """
 
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Any = None) -> None:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
         """
-        Creates a new instance of the ConstituentsUniverse
+        Returns an enumerator that defines when this user defined universe will be invoked
         
-        :param symbol: The universe symbol
-        :param universe_settings: The universe settings to use
-        :param constituents_filter: User-provided function to filter constituents universe with
+        :returns: An enumerator of DateTime that defines when this universe will be invoked.
+        """
+        ...
+
+
+class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse):
+    """Defines a user that is fired based on a specified IDateRule and ITimeRule"""
+
+    @overload
+    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the ScheduledUniverse class
+        
+        :param time_zone: The time zone the date/time rules are in
+        :param date_rule: Date rule defines what days the universe selection function will be invoked
+        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
+        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
+        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
         """
         ...
 
     @overload
-    def __init__(self, subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Any = None) -> None:
+    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Any, settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Constituent universe for a Python function
+        Initializes a new instance of the ScheduledUniverse class
         
-        :param subscription_data_config: The universe configuration to use
-        :param universe_settings: The universe settings to use
-        :param constituents_filter: User-provided function to filter constituents universe with
+        :param time_zone: The time zone the date/time rules are in
+        :param date_rule: Date rule defines what days the universe selection function will be invoked
+        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
+        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
+        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
         """
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, filter_func: typing.Any) -> None:
+    def __init__(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Any, settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Creates a new instance of the ConstituentsUniverse
+        Initializes a new instance of the ScheduledUniverse class
         
-        :param symbol: The universe symbol
-        :param universe_settings: The universe settings to use
-        :param filter_func: The constituents filter function
+        :param date_rule: Date rule defines what days the universe selection function will be invoked
+        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
+        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
+        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
         """
         ...
 
     @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]], typing.List[QuantConnect.Symbol]] = None) -> None:
+    def __init__(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
         """
-        Creates a new instance of the ConstituentsUniverse
+        Initializes a new instance of the ScheduledUniverse class
         
-        :param symbol: The universe symbol
-        :param universe_settings: The universe settings to use
-        :param constituents_filter: User-provided function to filter constituents universe with
+        :param date_rule: Date rule defines what days the universe selection function will be invoked
+        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
+        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
+        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
         """
         ...
 
-    @overload
-    def __init__(self, subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, constituents_filter: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_ConstituentsUniverse_T]], typing.List[QuantConnect.Symbol]] = None) -> None:
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
         """
-        Creates a new instance of the ConstituentsUniverse
+        Get an enumerator of UTC DateTimes that defines when this universe will be invoked
         
-        :param subscription_data_config: The universe configuration to use
-        :param universe_settings: The universe settings to use
-        :param constituents_filter: User-provided function to filter constituents universe with
+        :param start_time_utc: The start time of the range in UTC
+        :param end_time_utc: The end time of the range in UTC
+        :returns: An enumerator of UTC DateTimes that defines when this universe will be invoked.
         """
         ...
 
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, filter_func: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.ConstituentsUniverseData]], typing.List[QuantConnect.Symbol]]) -> None:
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
         """
-        Creates a new instance of the ConstituentsUniverse
+        Performs universe selection using the data specified
         
-        :param symbol: The universe symbol
-        :param universe_settings: The universe settings to use
-        :param filter_func: The constituents filter function
-        """
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        """
-        Creates a new instance of the ConstituentsUniverse
-        
-        :param symbol: The universe symbol
-        :param universe_settings: The universe settings to use
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
         """
         ...
 
@@ -2209,6 +1768,655 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
         :param utc_time: The current utc time
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
+        """
+        ...
+
+
+class FuturesChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
+    """Defines a universe for a single futures chain"""
+
+    @property
+    def asynchronous(self) -> bool:
+        """True if this universe filter can run async in the data stack"""
+        ...
+
+    @property
+    def future(self) -> QuantConnect.Securities.Future.Future:
+        """The canonical future chain security"""
+        ...
+
+    @property
+    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
+        """Gets the settings used for subscriptons added for this universe"""
+        ...
+
+    @universe_settings.setter
+    def universe_settings(self, value: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        ...
+
+    def __init__(self, future: QuantConnect.Securities.Future.Future, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Initializes a new instance of the FuturesChainUniverse class
+        
+        :param future: The canonical future chain security
+        :param universe_settings: The universe settings to be used for new subscriptions
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs universe selection using the data specified
+        
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class FuncUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_FuncUniverse_T], QuantConnect.Data.UniverseSelection.Universe):
+    """Provides a functional implementation of Universe"""
+
+    @overload
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the FuncUniverse{T} class for a filter function loaded from Python
+        
+        :param configuration: The configuration used to resolve the data for universe selection
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param universe_selector: Function that returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_FuncUniverse_T]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FuncUniverse{T} class
+        
+        :param configuration: The configuration used to resolve the data for universe selection
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param universe_selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the FuncUniverse class
+        
+        :param configuration: The configuration used to resolve the data for universe selection
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param universe_selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs an initial, coarse filter
+        
+        :param utc_time: The current utc time
+        :param data: The coarse fundamental data
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class ContinuousContractUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse):
+    """Continuous contract universe selection that based on the requested mapping mode will select each symbol"""
+
+    @property
+    def asynchronous(self) -> bool:
+        """
+        True if this universe filter can run async in the data stack
+        TODO: see IContinuousSecurity.Mapped
+        """
+        ...
+
+    def __init__(self, security: QuantConnect.Securities.Security, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, live_mode: bool, universe_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """Creates a new instance"""
+        ...
+
+    @staticmethod
+    def add_configurations(subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """Helper method to add and get the required configurations associated with a continuous universe"""
+        ...
+
+    @staticmethod
+    def create_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
+        """
+        Creates a continuous universe symbol
+        
+        :param symbol: The associated symbol
+        :returns: A symbol for a continuous universe of the specified symbol.
+        """
+        ...
+
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+        """
+        Gets the subscription requests to be added for the specified security
+        
+        :param security: The security to get subscriptions for
+        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
+        :param maximum_end_time_utc: The max end time
+        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
+        :returns: All subscriptions required by this security.
+        """
+        ...
+
+    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
+        """
+        Each tradeable day of the future we trigger a new selection.
+        Allows use to select the current contract
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs universe selection based on the symbol mapping
+        
+        :param utc_time: The current utc time
+        :param data: Empty data
+        :returns: The symbols to use.
+        """
+        ...
+
+
+class CoarseFundamentalUniverse(QuantConnect.Data.UniverseSelection.Universe):
+    """Defines a universe that reads coarse us equity data"""
+
+    @overload
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverse class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Any) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverse class
+        
+        :param symbol: Defines the symbol to use for this universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverse class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, selector: typing.Callable[[typing.List[QuantConnect.Data.UniverseSelection.CoarseFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
+        """
+        Initializes a new instance of the CoarseFundamentalUniverse class
+        
+        :param symbol: Defines the symbol to use for this universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @staticmethod
+    def create_configuration(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Creates a CoarseFundamental subscription configuration for the US-equity market
+        
+        :param symbol: The symbol used in the returned configuration
+        :returns: A coarse fundamental subscription configuration with the specified symbol.
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs universe selection using the data specified
+        
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class OptionChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
+    """Defines a universe for a single option chain"""
+
+    @property
+    def asynchronous(self) -> bool:
+        """True if this universe filter can run async in the data stack"""
+        ...
+
+    @property
+    def option(self) -> QuantConnect.Securities.Option.Option:
+        """The canonical option chain security"""
+        ...
+
+    @property
+    def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
+        """Gets the settings used for subscriptons added for this universe"""
+        ...
+
+    @universe_settings.setter
+    def universe_settings(self, value: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        ...
+
+    def __init__(self, option: QuantConnect.Securities.Option.Option, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Initializes a new instance of the OptionChainUniverse class
+        
+        :param option: The canonical option chain security
+        :param universe_settings: The universe settings to be used for new subscriptions
+        """
+        ...
+
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
+        """
+        Gets the subscription requests to be added for the specified security
+        
+        :param security: The security to get subscriptions for
+        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
+        :param maximum_end_time_utc: The max end time
+        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
+        :returns: All subscriptions required by this security.
+        """
+        ...
+
+    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Performs universe selection using the data specified
+        
+        :param utc_time: The current utc time
+        :param data: The symbols to remain in the universe
+        :returns: The data that passes the filter.
+        """
+        ...
+
+
+class UniverseExtensions(System.Object):
+    """Provides extension methods for the Universe class"""
+
+    @staticmethod
+    def chained_to(first: QuantConnect.Data.UniverseSelection.Universe, second: QuantConnect.Data.UniverseSelection.Universe, configuration_per_symbol: bool) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe that logically is the result of wiring the two universes together such that
+        the first will produce subscriptions for the second and the second will only select on data that has
+        passed the first.
+        
+        NOTE: The  and  universe instances provided
+        to this method should not be manually added to the algorithm.
+        
+        :param first: The first universe in this 'chain'
+        :param second: The second universe in this 'chain'
+        :param configuration_per_symbol: True if each symbol as its own configuration, false otherwise
+        :returns: A new universe that can be added to the algorithm that represents invoking the first universe and then the second universe using the outputs of the first.
+        """
+        ...
+
+    @staticmethod
+    def create_symbol(security_type: QuantConnect.SecurityType, market: str, ticker: str) -> QuantConnect.Symbol:
+        """
+        Creates a universe symbol
+        
+        :param security_type: The security
+        :param market: The market
+        :param ticker: The Universe ticker
+        :returns: A symbol for user defined universe of the specified security type and market.
+        """
+        ...
+
+    @staticmethod
+    def prefilter_using(second: QuantConnect.Data.UniverseSelection.Universe, first: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new universe that restricts the universe selection data to symbols that passed the
+        first universe's selection critera
+        
+        NOTE: The  universe instance provided to this method should not be manually
+        added to the algorithm. The  should still be manually (assuming no other changes).
+        
+        :param second: The universe to be filtere
+        :param first: The universe providing the set of symbols used for filtered
+        :returns: A new universe that can be added to the algorithm that represents invoking the second using the selections from the first as a filter.
+        """
+        ...
+
+    @staticmethod
+    def run_universe_downloader(data_downloader: QuantConnect.IDataDownloader, universe_download_parameters: QuantConnect.DataUniverseDownloaderGetParameters) -> None:
+        """
+        Processes the universe download based on parameters.
+        
+        :param data_downloader: The data downloader instance.
+        :param universe_download_parameters: The parameters for universe downloading.
+        """
+        ...
+
+
+class DerivativeUniverseData(System.Object):
+    """Represents derivative market data including trade and open interest information."""
+
+    @overload
+    def __init__(self, open_interest: QuantConnect.Data.Market.OpenInterest) -> None:
+        """
+        Initializes a new instance of DerivativeUniverseData using open interest data.
+        
+        :param open_interest: The open interest data.
+        """
+        ...
+
+    @overload
+    def __init__(self, trade_bar: QuantConnect.Data.Market.TradeBar) -> None:
+        """
+        Initializes a new instance of DerivativeUniverseData using trade bar data.
+        
+        :param trade_bar: The trade bar data.
+        """
+        ...
+
+    @overload
+    def __init__(self, quote_bar: QuantConnect.Data.Market.QuoteBar) -> None:
+        """
+        Initializes a new instance of DerivativeUniverseData using quote bar data.
+        
+        :param quote_bar: The quote bar data.
+        """
+        ...
+
+    def to_csv(self) -> str:
+        """
+        Converts the current data to a CSV format string.
+        
+        :returns: A CSV formatted string representing the data.
+        """
+        ...
+
+    def update_by_open_interest(self, open_interest: QuantConnect.Data.Market.OpenInterest) -> None:
+        """
+        Updates the instance with new open interest data.
+        
+        :param open_interest: The new open interest data.
+        """
+        ...
+
+    def update_by_quote_bar(self, quote_bar: QuantConnect.Data.Market.QuoteBar) -> None:
+        """
+        Updates the instance with new quote bar data.
+        
+        :param quote_bar: The new quote bar data.
+        """
+        ...
+
+    def update_by_trade_bar(self, trade_bar: QuantConnect.Data.Market.TradeBar) -> None:
+        """
+        Updates the instance with new trade bar data.
+        
+        :param trade_bar: The new trade bar data.
+        """
+        ...
+
+
+class BaseChainUniverseData(QuantConnect.Data.UniverseSelection.BaseDataCollection, QuantConnect.Securities.IChainUniverseData, metaclass=abc.ABCMeta):
+    """
+    Represents a chain universe.
+    Intended as a base for options and futures universe data.
+    """
+
+    @property
+    def csv_line(self) -> str:
+        """
+        Csv line to get the values from
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def id(self) -> QuantConnect.SecurityIdentifier:
+        """The security identifier of the option symbol"""
+        ...
+
+    @property
+    def value(self) -> float:
+        """Price of the security"""
+        ...
+
+    @property
+    def open(self) -> float:
+        """Open price of the security"""
+        ...
+
+    @property
+    def high(self) -> float:
+        """High price of the security"""
+        ...
+
+    @property
+    def low(self) -> float:
+        """Low price of the security"""
+        ...
+
+    @property
+    def close(self) -> float:
+        """Close price of the security"""
+        ...
+
+    @property
+    def volume(self) -> float:
+        """Volume value of the security"""
+        ...
+
+    @property
+    def open_interest(self) -> float:
+        """Open interest value"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time that the data became available to use"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates a new instance of the BaseChainUniverseData class
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
+        """
+        Creates a new instance of the BaseChainUniverseData class
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, other: QuantConnect.Data.UniverseSelection.BaseChainUniverseData) -> None:
+        """
+        Creates a new instance of the BaseChainUniverseData class as a copy of the given instance
+        
+        This method is protected.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    @staticmethod
+    def get_universe_full_file_path(symbol: QuantConnect.Symbol, date: datetime.datetime) -> str:
+        """
+        Generates the file path for a universe data file based on the given symbol and date.
+        Optionally, creates the directory if it does not exist.
+        
+        :param symbol: The financial symbol for which the universe file is generated.
+        :param date: The date associated with the universe file.
+        :returns: The full file path to the universe data file.
+        """
+        ...
+
+    def to_symbol(self) -> QuantConnect.Symbol:
+        """Gets the symbol of the option"""
+        ...
+
+
+class FutureUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
+    """Represents a universe of futures data"""
+
+    CSV_HEADER: str
+    """Gets the CSV header string for this universe entry"""
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the FutureUniverse class"""
+        ...
+
+    @overload
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
+        """Creates a new instance of the FutureUniverse class"""
+        ...
+
+    @overload
+    def __init__(self, other: QuantConnect.Data.UniverseSelection.FutureUniverse) -> None:
+        """Creates a new instance of the FutureUniverse class as a copy of the given instance"""
+        ...
+
+    @staticmethod
+    def cache_symbol(key: System.ValueTuple[QuantConnect.SecurityType, str, str, datetime.datetime], symbol: QuantConnect.Symbol) -> None:
+        """
+        Caches a symbol
+        
+        This method is protected.
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Creates a copy of the instance
+        
+        :returns: Clone of the instance.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    @staticmethod
+    def to_csv(symbol: QuantConnect.Symbol, open: float, high: float, low: float, close: float, volume: float, open_interest: typing.Optional[float]) -> str:
+        """Gets the CSV string representation of this universe entry"""
+        ...
+
+    @staticmethod
+    def try_get_cached_symbol(key: System.ValueTuple[QuantConnect.SecurityType, str, str, datetime.datetime], symbol: typing.Optional[QuantConnect.Symbol]) -> typing.Tuple[bool, QuantConnect.Symbol]:
+        """
+        Tries to get a symbol from the cache
+        
+        This method is protected.
+        """
+        ...
+
+
+class OptionUniverse(QuantConnect.Data.UniverseSelection.BaseChainUniverseData):
+    """Represents a universe of options data"""
+
+    @property
+    def open_interest(self) -> float:
+        """Open interest value of the option"""
+        ...
+
+    @property
+    def implied_volatility(self) -> float:
+        """Implied volatility value of the option"""
+        ...
+
+    @property
+    def greeks(self) -> QuantConnect.Data.Market.Greeks:
+        """Greeks values of the option"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the OptionUniverse class"""
+        ...
+
+    @overload
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], csv: str) -> None:
+        """Creates a new instance of the OptionUniverse class"""
+        ...
+
+    @overload
+    def __init__(self, other: QuantConnect.Data.UniverseSelection.OptionUniverse) -> None:
+        """Creates a new instance of the OptionUniverse class as a copy of the given instance"""
+        ...
+
+    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds a new data point to this collection.
+        If the data point is for the underlying, it will be stored in the BaseDataCollection.Underlying property.
+        
+        :param new_data_point: The new data point to add
+        """
+        ...
+
+    @staticmethod
+    def cache_symbol(key: System.ValueTuple[QuantConnect.SecurityType, str, str, datetime.datetime, float, QuantConnect.OptionRight], symbol: QuantConnect.Symbol) -> None:
+        """
+        Caches a symbol
+        
+        This method is protected.
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Creates a copy of the instance
+        
+        :returns: Clone of the instance.
+        """
+        ...
+
+    @staticmethod
+    def csv_header(security_type: QuantConnect.SecurityType) -> str:
+        """Gets the CSV header string for this universe entry"""
+        ...
+
+    @staticmethod
+    def to_csv(symbol: QuantConnect.Symbol, open: float, high: float, low: float, close: float, volume: float, open_interest: typing.Optional[float], implied_volatility: typing.Optional[float], greeks: QuantConnect.Data.Market.Greeks) -> str:
+        """Gets the CSV string representation of this universe entry"""
+        ...
+
+    @staticmethod
+    def try_get_cached_symbol(key: System.ValueTuple[QuantConnect.SecurityType, str, str, datetime.datetime, float, QuantConnect.OptionRight], symbol: typing.Optional[QuantConnect.Symbol]) -> typing.Tuple[bool, QuantConnect.Symbol]:
+        """
+        Tries to get a symbol from the cache
+        
+        This method is protected.
         """
         ...
 
@@ -2343,184 +2551,50 @@ class ETFConstituentData(QuantConnect.Data.UniverseSelection.ETFConstituentUnive
     """
 
 
-class FuturesChainUniverse(QuantConnect.Data.UniverseSelection.Universe):
-    """Defines a universe for a single futures chain"""
-
-    @property
-    def asynchronous(self) -> bool:
-        """True if this universe filter can run async in the data stack"""
-        ...
-
-    @property
-    def future(self) -> QuantConnect.Securities.Future.Future:
-        """The canonical future chain security"""
-        ...
+class UniversePythonWrapper(QuantConnect.Data.UniverseSelection.Universe):
+    """Provides an implementation of Universe that wraps a PyObject object"""
 
     @property
     def universe_settings(self) -> QuantConnect.Data.UniverseSelection.UniverseSettings:
-        """Gets the settings used for subscriptons added for this universe"""
+        """Gets the settings used for subscriptions added for this universe"""
         ...
 
     @universe_settings.setter
     def universe_settings(self, value: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
         ...
 
-    def __init__(self, future: QuantConnect.Securities.Future.Future, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
-        """
-        Initializes a new instance of the FuturesChainUniverse class
-        
-        :param future: The canonical future chain security
-        :param universe_settings: The universe settings to be used for new subscriptions
-        """
+    @property
+    def dispose_requested(self) -> bool:
+        """Flag indicating if disposal of this universe has been requested"""
         ...
 
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs universe selection using the data specified
-        
-        :param utc_time: The current utc time
-        :param data: The symbols to remain in the universe
-        :returns: The data that passes the filter.
-        """
+    @dispose_requested.setter
+    def dispose_requested(self, value: bool) -> None:
         ...
-
-
-class FineFundamentalFilteredUniverse(QuantConnect.Data.UniverseSelection.SelectSymbolsUniverseDecorator):
-    """Provides a universe that can be filtered with a FineFundamental selection function"""
 
     @property
-    def fine_fundamental_universe(self) -> QuantConnect.Data.UniverseSelection.FineFundamentalUniverse:
-        """The universe that will be used for fine universe selection"""
+    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """Gets the configuration used to get universe data"""
         ...
 
-    @overload
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Any) -> None:
-        """
-        Initializes a new instance of the FineFundamentalFilteredUniverse class
-        
-        :param universe: The universe to be filtered
-        :param fine_selector: The fine selection function
-        """
+    @property
+    def securities(self) -> System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Symbol, QuantConnect.Data.UniverseSelection.Universe.Member]:
+        """Gets the internal security collection used to define membership in this universe"""
         ...
 
-    @overload
-    def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, fine_selector: typing.Callable[[typing.List[QuantConnect.Data.Fundamental.FineFundamental]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FineFundamentalFilteredUniverse class
-        
-        :param universe: The universe to be filtered
-        :param fine_selector: The fine selection function
-        """
+    def __init__(self, universe: typing.Any) -> None:
+        """Initializes a new instance of the UniversePythonWrapper class"""
         ...
 
-
-class FuncUniverse(typing.Generic[QuantConnect_Data_UniverseSelection_FuncUniverse_T], QuantConnect.Data.UniverseSelection.Universe):
-    """Provides a functional implementation of Universe"""
-
-    @overload
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Any) -> None:
+    def get_subscription_requests(self, security: QuantConnect.Securities.Security, current_time_utc: typing.Union[datetime.datetime, datetime.date], maximum_end_time_utc: typing.Union[datetime.datetime, datetime.date], subscription_service: QuantConnect.Interfaces.ISubscriptionDataConfigService) -> typing.Iterable[QuantConnect.Data.UniverseSelection.SubscriptionRequest]:
         """
-        Initializes a new instance of the FuncUniverse{T} class for a filter function loaded from Python
+        Gets the subscription requests to be added for the specified security
         
-        :param configuration: The configuration used to resolve the data for universe selection
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param universe_selector: Function that returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Callable[[typing.List[QuantConnect_Data_UniverseSelection_FuncUniverse_T]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FuncUniverse{T} class
-        
-        :param configuration: The configuration used to resolve the data for universe selection
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param universe_selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings, universe_selector: typing.Callable[[typing.List[QuantConnect.Data.BaseData]], typing.List[QuantConnect.Symbol]]) -> None:
-        """
-        Initializes a new instance of the FuncUniverse class
-        
-        :param configuration: The configuration used to resolve the data for universe selection
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param universe_selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    def select_symbols(self, utc_time: typing.Union[datetime.datetime, datetime.date], data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Performs an initial, coarse filter
-        
-        :param utc_time: The current utc time
-        :param data: The coarse fundamental data
-        :returns: The data that passes the filter.
-        """
-        ...
-
-
-class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.ITimeTriggeredUniverse):
-    """Defines a user that is fired based on a specified IDateRule and ITimeRule"""
-
-    @overload
-    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the ScheduledUniverse class
-        
-        :param time_zone: The time zone the date/time rules are in
-        :param date_rule: Date rule defines what days the universe selection function will be invoked
-        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
-        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
-        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
-        """
-        ...
-
-    @overload
-    def __init__(self, time_zone: typing.Any, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Any, settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the ScheduledUniverse class
-        
-        :param time_zone: The time zone the date/time rules are in
-        :param date_rule: Date rule defines what days the universe selection function will be invoked
-        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
-        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
-        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
-        """
-        ...
-
-    @overload
-    def __init__(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Any, settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the ScheduledUniverse class
-        
-        :param date_rule: Date rule defines what days the universe selection function will be invoked
-        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
-        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
-        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
-        """
-        ...
-
-    @overload
-    def __init__(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, selector: typing.Callable[[datetime.datetime], typing.List[QuantConnect.Symbol]], settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the ScheduledUniverse class
-        
-        :param date_rule: Date rule defines what days the universe selection function will be invoked
-        :param time_rule: Time rule defines what times on each day selected by date rule the universe selection function will be invoked
-        :param selector: Selector function accepting the date time firing time and returning the universe selected symbols
-        :param settings: Universe settings for subscriptions added via this universe, null will default to algorithm's universe settings
-        """
-        ...
-
-    def get_trigger_times(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], market_hours_database: QuantConnect.Securities.MarketHoursDatabase) -> typing.Iterable[datetime.datetime]:
-        """
-        Get an enumerator of UTC DateTimes that defines when this universe will be invoked
-        
-        :param start_time_utc: The start time of the range in UTC
-        :param end_time_utc: The end time of the range in UTC
-        :returns: An enumerator of UTC DateTimes that defines when this universe will be invoked.
+        :param security: The security to get subscriptions for
+        :param current_time_utc: The current time in utc. This is the frontier time of the algorithm
+        :param maximum_end_time_utc: The max end time
+        :param subscription_service: Instance which implements ISubscriptionDataConfigService interface
+        :returns: All subscriptions required by this security.
         """
         ...
 
@@ -2532,80 +2606,6 @@ class ScheduledUniverse(QuantConnect.Data.UniverseSelection.Universe, QuantConne
         :param data: The symbols to remain in the universe
         :returns: The data that passes the filter.
         """
-        ...
-
-
-class CoarseFundamentalDataProvider(QuantConnect.Data.UniverseSelection.BaseFundamentalDataProvider):
-    """Coarse base fundamental data provider"""
-
-    class CoarseFundamentalSource(QuantConnect.Data.UniverseSelection.CoarseFundamental):
-        """Coarse fundamental with setters"""
-
-        @property
-        def volume_setter(self) -> int:
-            """Property to set the volume of the Coarse Fundamental"""
-            ...
-
-        @property
-        def dollar_volume_setter(self) -> float:
-            """Property to set the dollar volume of the Coarse Fundamental"""
-            ...
-
-        @property
-        def price_factor_setter(self) -> float:
-            """Property to set the price factor of the Coarse Fundamental"""
-            ...
-
-        @price_factor_setter.setter
-        def price_factor_setter(self, value: float) -> None:
-            ...
-
-        @property
-        def split_factor_setter(self) -> float:
-            """Property to set the split factor of the Coarse Fundamental"""
-            ...
-
-        @split_factor_setter.setter
-        def split_factor_setter(self, value: float) -> None:
-            ...
-
-        @property
-        def has_fundamental_data_setter(self) -> bool:
-            """Property to indicate if the Coarse Fundamental has fundamental data"""
-            ...
-
-        @has_fundamental_data_setter.setter
-        def has_fundamental_data_setter(self, value: bool) -> None:
-            ...
-
-        @property
-        def dollar_volume(self) -> float:
-            """Gets the day's dollar volume for this symbol"""
-            ...
-
-        @property
-        def volume(self) -> int:
-            """Gets the day's total volume"""
-            ...
-
-        @property
-        def has_fundamental_data(self) -> bool:
-            """Returns whether the symbol has fundamental data for the given date"""
-            ...
-
-        @property
-        def price_factor(self) -> float:
-            """Gets the price factor for the given date"""
-            ...
-
-        @property
-        def split_factor(self) -> float:
-            """Gets the split factor for the given date"""
-            ...
-
-    @staticmethod
-    def read(line: str, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.UniverseSelection.CoarseFundamentalDataProvider.CoarseFundamentalSource:
-        """Reads the given line and returns a CoarseFundamentalSource with the information within it"""
         ...
 
 

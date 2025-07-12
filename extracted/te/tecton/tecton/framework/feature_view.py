@@ -34,6 +34,7 @@ from tecton import Calculation
 from tecton import run_api_consts
 from tecton import tecton_context
 from tecton import types
+from tecton import vnext
 from tecton._internals import athena_api
 from tecton._internals import delete_keys_api
 from tecton._internals import display
@@ -45,7 +46,6 @@ from tecton._internals import query_helper
 from tecton._internals import querytree_api
 from tecton._internals import run_api
 from tecton._internals import sdk_decorators
-from tecton._internals import snowflake_api
 from tecton._internals import spark_api
 from tecton._internals import type_utils
 from tecton._internals import utils as internal_utils
@@ -64,7 +64,6 @@ from tecton.framework import feature
 from tecton.framework import model_config
 from tecton.framework import repo_config
 from tecton.framework import resource_provider
-from tecton.framework import server_group
 from tecton.framework import transformation as framework_transformation
 from tecton.framework import utils
 from tecton.framework.configs import RECOMMENDED_PYTHON_VERSION_EMR
@@ -116,12 +115,10 @@ from tecton_core.repo_file_handler import construct_fco_source_info
 from tecton_core.schema import Schema
 from tecton_core.spark_type_annotations import is_pyspark_df
 from tecton_core.specs import MaterializedFeatureViewSpec
-from tecton_core.specs.data_source_spec import DataSourceSpec
 from tecton_core.specs.time_window_spec import LifetimeWindowSpec
 from tecton_core.specs.time_window_spec import RelativeTimeWindowSpec
 from tecton_core.specs.time_window_spec import TimeWindowSeriesSpec
 from tecton_core.specs.time_window_spec import create_time_window_spec_from_data_proto
-from tecton_core.specs.transformation_spec import TransformationSpec
 from tecton_core.specs.utils import get_field_or_none
 from tecton_core.tecton_pendulum import Duration
 from tecton_proto.args import basic_info__client_pb2 as basic_info_pb2
@@ -129,7 +126,6 @@ from tecton_proto.args import fco_args__client_pb2 as fco_args_pb2
 from tecton_proto.args import feature_service__client_pb2 as feature_service_pb2
 from tecton_proto.args import feature_view__client_pb2 as feature_view__args_pb2
 from tecton_proto.args import pipeline__client_pb2 as pipeline_pb2
-from tecton_proto.args import server_group__client_pb2 as server_group__args_pb2
 from tecton_proto.args import transformation__client_pb2 as transformation_pb2
 from tecton_proto.args.pipeline__client_pb2 import PipelineNode
 from tecton_proto.common import data_source_type__client_pb2 as data_source_type_pb2
@@ -423,10 +419,6 @@ class FeatureView(base_tecton_object.BaseTectonObject):
 
     def _get_schemas(self) -> _Schemas:
         """Get schemas from the user-supplied schema or features argument."""
-        raise NotImplementedError
-
-    def _derive_schemas(self) -> _Schemas:
-        """Derive schemas from source."""
         raise NotImplementedError
 
     def _get_dependent_objects(self, include_indirect_dependencies: bool) -> List[base_tecton_object.BaseTectonObject]:
@@ -727,7 +719,7 @@ class FeatureView(base_tecton_object.BaseTectonObject):
 
 
 def _warn_if_emr_compute_uses_cluster_default_python(compute: configs.ComputeConfigTypes):
-    emr_warning = f'Tecton recommends overriding the Python version of your EMR cluster to {RECOMMENDED_PYTHON_VERSION_EMR}. This can be done by setting `python_version="{RECOMMENDED_PYTHON_VERSION_EMR}"` on `EMRClusterConfig`. Tecton will begin automatically applying this behavior in SDK 1.2.'
+    emr_warning = f'Tecton recommends overriding the Python version of your EMR cluster to {RECOMMENDED_PYTHON_VERSION_EMR}. This can be done by setting `python_version="{RECOMMENDED_PYTHON_VERSION_EMR}"` on `EMRClusterConfig`.'
     if isinstance(compute, configs.EMRClusterConfig):
         if compute.python_version == "default":
             logger.warning(
@@ -779,7 +771,7 @@ class MaterializedFeatureView(FeatureView):
 
     @property
     def _supported_modes(self) -> List[str]:
-        return ["pipeline", "spark_sql", "pyspark", "snowflake_sql", "athena", "snowpark"]
+        return ["pipeline", "spark_sql", "pyspark", "snowflake_sql", "athena"]
 
     @property
     def _batch_compute_mode(self) -> BatchComputeMode:
@@ -816,7 +808,7 @@ class MaterializedFeatureView(FeatureView):
         class MaterializedFeatureViewFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = MaterializedFeatureViewFromSpec.__new__(MaterializedFeatureViewFromSpec)
+        obj = MaterializedFeatureViewFromSpec.__new__(MaterializedFeatureViewFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             feature_definition=feature_definition,
@@ -846,7 +838,9 @@ class MaterializedFeatureView(FeatureView):
 
         online_batch_table_format = None
         if self._args.materialized_feature_view_args.compaction_enabled:
-            online_batch_table_format = schema_derivation_utils.compute_batch_table_format(self._args, view_schema)
+            online_batch_table_format = schema_derivation_utils.compute_batch_table_format_for_compaction(
+                self._args, view_schema
+            )
 
         return _Schemas(
             view_schema=view_schema,
@@ -890,78 +884,27 @@ class MaterializedFeatureView(FeatureView):
                     data_types.StringType()
                 )
 
-        schema_dict[self._args.materialized_feature_view_args.timestamp_field] = data_types.TimestampType()
+        # when timestamp_field is deprecated
+        if self._args.materialized_feature_view_args.timestamp_field:
+            schema_dict[self._args.materialized_feature_view_args.timestamp_field] = data_types.TimestampType()
+        else:
+            msg = "No timestamp field specified for the Materialized Feature View"
+            raise TectonValidationError(msg)
+
+        if self._args.materialized_feature_view_args.batch_publish_timestamp:
+            schema_dict[self._args.materialized_feature_view_args.batch_publish_timestamp] = data_types.TimestampType()
+
         return schema.Schema.from_dict(schema_dict)
-
-    def _derive_schemas(
-        self,
-        transformation_specs: Optional[List[specs.TransformationSpec]] = None,
-        data_source_specs: Optional[List[specs.DataSourceSpec]] = None,
-        entity_specs: Optional[List[specs.EntitySpec]] = None,
-    ) -> _Schemas:
-        view_schema = self._maybe_derive_view_schema(transformation_specs, data_source_specs)
-        materialization_schema = schema_derivation_utils.compute_aggregate_materialization_schema_from_view_schema(
-            view_schema,
-            self._args,
-        )
-
-        online_batch_table_format = None
-        if self._args.materialized_feature_view_args.compaction_enabled:
-            online_batch_table_format = schema_derivation_utils.compute_batch_table_format(self._args, view_schema)
-
-        return _Schemas(
-            view_schema=view_schema,
-            materialization_schema=materialization_schema,
-            online_batch_table_format=online_batch_table_format,
-        )
-
-    def _maybe_derive_view_schema(
-        self, transformation_specs: List[specs.TransformationSpec], data_source_specs: List[specs.DataSourceSpec]
-    ) -> Optional[schema_pb2.Schema]:
-        """Attempts to derive the view schema. Returns None if schema derivation is not supported in this configuration."""
-        has_push_source = any(
-            d.type
-            in (
-                data_source_type_pb2.DataSourceType.PUSH_NO_BATCH,
-                data_source_type_pb2.DataSourceType.PUSH_WITH_BATCH,
-            )
-            for d in data_source_specs
-        )
-        if has_push_source:
-            assert self._batch_compute_mode != BatchComputeMode.SNOWFLAKE
-            return self._derive_push_source_schema(transformation_specs, data_source_specs)
-        elif self._batch_compute_mode == BatchComputeMode.SNOWFLAKE:
-            return snowflake_api.derive_view_schema_for_feature_view(
-                self._args, transformation_specs, data_source_specs
-            )
-        elif self._batch_compute_mode == BatchComputeMode.SPARK:
-            return spark_api.derive_view_schema_for_feature_view(self._args, transformation_specs, data_source_specs)
-        else:
-            return None
-
-    def _derive_push_source_schema(
-        self, transformation_specs: List[TransformationSpec], push_sources: List[DataSourceSpec]
-    ) -> Optional[schema_pb2.Schema]:
-        if len(transformation_specs) > 0:
-            return None
-        else:
-            assert len(push_sources) == 1, "If there is a Push Source, there should be exactly one data source."
-            ds_spec = push_sources[0]
-            push_source_schema = ds_spec.schema.tecton_schema
-            schema_derivation_utils.populate_schema_with_derived_fields(push_source_schema)
-            return push_source_schema
 
     def _check_can_query_from_source(self, from_source: Optional[bool]) -> QuerySources:
         fd = self._feature_definition
 
         if fd.is_incremental_backfill:
             if self.info._is_local_object:
-                raise errors.FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES_IN_LOCAL_MODE(
-                    self.name,
-                )
+                raise errors.FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES(fv_name=self.name, workspace_name=None)
             if not fd.materialization_enabled:
-                raise errors.FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES_FROM_DEVELOPMENT_WORKSPACE(
-                    self.name, self.info.workspace
+                raise errors.FV_WITH_INC_BACKFILLS_GET_MATERIALIZED_FEATURES(
+                    fv_name=self.name, workspace_name=self.info.workspace
                 )
 
             if from_source:
@@ -1041,6 +984,7 @@ class MaterializedFeatureView(FeatureView):
         from_source: Optional[bool] = None,
         mock_inputs: Optional[Dict[str, MOCK_INPUT_TYPES]] = None,
         compute_mode: Optional[Union[ComputeMode, str]] = None,
+        **kwargs,
     ) -> TectonDataFrame:
         """Returns a `TectonDataFrame` of historical values for this feature view which were valid within the input time range.
 
@@ -1078,7 +1022,6 @@ class MaterializedFeatureView(FeatureView):
         :param compute_mode: Compute mode to use to produce the data frame. Examples include `spark` and `rift`.
         :param mock_inputs: Mock sources that should be used instead of fetching directly from raw data
             sources. The keys of the dictionary should match the Feature View's function parameters. For Feature Views with multiple sources, mocking some data sources and using raw data for others is supported. Using `mock_inputs` is incompatible with `from_source=False`.
-
         :return: A TectonDataFrame with Feature Values for the requested time range in the format specified above.
         """
         compute_mode = offline_retrieval_compute_mode(compute_mode)
@@ -1112,6 +1055,7 @@ class MaterializedFeatureView(FeatureView):
                 compute_mode=compute_mode,
                 mock_data_sources=mock_data_sources,
                 mock_context=mock_context,
+                skew_config=kwargs.get("skew_config"),
             )
         )
 
@@ -1123,6 +1067,7 @@ class MaterializedFeatureView(FeatureView):
         from_source: Optional[bool] = None,
         mock_inputs: Optional[Dict[str, MOCK_INPUT_TYPES]] = None,
         compute_mode: Optional[Union[ComputeMode, str]] = None,
+        **kwargs,
     ) -> TectonDataFrame:
         """Returns a `TectonDataFrame` of historical values for this feature view.
 
@@ -1130,26 +1075,21 @@ class MaterializedFeatureView(FeatureView):
         Views that have offline materialization enabled and otherwise computes feature values on the fly from raw data.
 
         :param events: A `DataFrame` containing all possible join key combinations and timestamps specifying which feature values to fetch. The returned DataFrame includes rollups for all (join key, timestamp) combinations necessary to compute a complete dataset. To differentiate between event columns and feature columns, feature columns are labeled as feature_view_name.feature_name in the returned `DataFrame`.
-        :type events: Union[pyspark.sql.DataFrame, pandas.DataFrame, TectonDataFrame]
         :param timestamp_key: Name of the time column in the `events` `DataFrame`. This method will fetch the latest features computed before the specified timestamps in this column. If unspecified, will default to the time column of the `events` `DataFrame` if there is only one present. If more than one time column is present in the `events` `DataFrame`, you must specify which column you would like to use.
-        :type timestamp_key: str
         :param from_source: Whether feature values should be recomputed from the original data source. If `None`,
             feature values will be fetched from the Offline Store for Feature Views that have offline materialization
             enabled and otherwise computes feature values on the fly from raw data. Use `from_source=True` to force
             computing from raw data and `from_source=False` to error if any Feature Views are not materialized.
             Defaults to None.
-        :type from_source: bool
         :param mock_inputs: Mock sources that should be used instead of fetching directly from raw data
             sources. The keys of the dictionary should match the Feature View's function parameters. For Feature Views with multiple sources, mocking some data sources and using raw data for others is supported. Using `mock_inputs` is incompatible with `from_source=False`.
-        :type mock_inputs: Optional[Dict[str, Union[pandas.DataFrame, pyspark_dataframe.DataFrame]]]
         :param compute_mode: Compute mode to use to produce the data frame. Valid examples include `spark` and `rift`.
-        :type compute_mode: Optional[Union[ComputeMode, str]]
 
         :return: A `TectonDataFrame`.
         """
         compute_mode = offline_retrieval_compute_mode(compute_mode)
         dialect = compute_mode.default_dialect()
-        if compute_mode == ComputeMode.SNOWFLAKE or compute_mode == ComputeMode.ATHENA:
+        if compute_mode == ComputeMode.ATHENA:
             raise errors.GET_FEATURES_FOR_EVENTS_UNSUPPORTED
 
         sources = self._check_can_query_from_source(from_source)
@@ -1173,6 +1113,7 @@ class MaterializedFeatureView(FeatureView):
                 compute_mode=compute_mode,
                 mock_data_sources=mock_data_sources,
                 mock_context=mock_context,
+                skew_config=kwargs.get("skew_config"),
             )
         )
 
@@ -1294,31 +1235,14 @@ class MaterializedFeatureView(FeatureView):
                 ["start_time", "end_time", "entities"], "the spine parameter is provided"
             )
 
+        # late-arriving data functionality is not supported for get_historical_features
+        if self._feature_definition.batch_publish_timestamp is not None:
+            msg = "`get_historical_features()` method does not support late-arriving data. Please use `get_features_for_events()` or `get_features_in_range` instead."
+            raise TectonValidationError(msg)
+
         self._validate_start_and_end_times(start_time, end_time)
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
-
-        if compute_mode == ComputeMode.SNOWFLAKE and (
-            conf.get_bool("USE_DEPRECATED_SNOWFLAKE_RETRIEVAL")
-            or snowflake_api.has_snowpark_transformation([self._feature_definition])
-        ):
-            # Snowflake retrieval is now migrated to QT and this code path is deprecated.
-            if snowflake_api.has_snowpark_transformation([self._feature_definition]):
-                logger.warning(
-                    "Snowpark transformations are deprecated in versions >=0.8. Consider using snowflake_sql transformations instead."
-                )
-            if mock_inputs:
-                raise errors.SNOWFLAKE_COMPUTE_MOCK_SOURCES_UNSUPPORTED
-            return snowflake_api.get_historical_features(
-                spine=spine,
-                timestamp_key=timestamp_key,
-                start_time=start_time,
-                end_time=end_time,
-                entities=entities,
-                from_source=from_source,
-                feature_set_config=self._construct_feature_set_config(),
-                append_prefix=False,
-            )
 
         if compute_mode == ComputeMode.ATHENA and conf.get_bool("USE_DEPRECATED_ATHENA_RETRIEVAL"):
             if self.info.workspace is None or not self._feature_definition.materialization_enabled:
@@ -1599,23 +1523,6 @@ class MaterializedFeatureView(FeatureView):
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
 
-        if compute_mode == ComputeMode.SNOWFLAKE and (
-            conf.get_bool("USE_DEPRECATED_SNOWFLAKE_RETRIEVAL")
-            or snowflake_api.has_snowpark_transformation([self._feature_definition])
-        ):
-            # Snowflake retrieval is now migrated to QT and this code path is deprecated.
-            if snowflake_api.has_snowpark_transformation([self._feature_definition]):
-                logger.warning(
-                    "Snowpark transformations are deprecated in versions >=0.8. Consider using snowflake_sql transformations instead."
-                )
-            return snowflake_api.run_batch(
-                fd=self._feature_definition,
-                feature_start_time=start_time,
-                feature_end_time=end_time,
-                mock_inputs=resolved_mock_inputs,
-                aggregation_level=aggregation_level,
-            )
-
         dialect = compute_mode.default_dialect()
 
         mock_data_sources = mock_source_utils.convert_mock_inputs_to_mock_sources(
@@ -1732,6 +1639,14 @@ class MaterializedFeatureView(FeatureView):
         return self._spec.timestamp_field
 
     @property
+    def batch_publish_timestamp(self) -> Optional[str]:
+        """Returns the batch publish timestamp for this Feature View."""
+        if not isinstance(self._spec, MaterializedFeatureViewSpec):
+            msg = "Cannot access batch_publish_timestamp for non-MaterializedFeatureView"
+            raise TectonValidationError(msg)
+        return self._spec.batch_publish_timestamp
+
+    @property
     @sdk_decorators.sdk_public_method
     def batch_schedule(self) -> Optional[datetime.timedelta]:
         """The batch schedule of this Feature View."""
@@ -1802,7 +1717,7 @@ class MaterializedFeatureView(FeatureView):
 
         This method kicks off a job to delete the data in the offline and online stores.
         If a FeatureView has multiple entities, the full set of join keys must be specified.
-        Only supports Delta as the offline store (`offline_store=DeltaConfig()`).
+        Only supports Delta or Iceberg as the offline store (`offline_store=DeltaConfig()`).
         Maximum 500,000 keys can be deleted per request.
 
         :param keys: The Dataframe to be deleted. Must conform to the FeatureView join keys.
@@ -1905,9 +1820,6 @@ class MaterializedFeatureView(FeatureView):
 
     @property
     def timestamp_field(self) -> Optional[str]:
-        """
-        timestamp column name for records from the feature view.
-        """
         return self._spec.timestamp_field
 
     @property
@@ -1932,13 +1844,17 @@ class MaterializedFeatureView(FeatureView):
         return self._spec.incremental_backfills
 
     @property
-    def offline_store(self) -> Optional[Union[configs.DeltaConfig, configs.ParquetConfig]]:
+    def offline_store(
+        self,
+    ) -> Optional[Union[configs.DeltaConfig, configs.ParquetConfig, vnext.IcebergConfig]]:
         """Configuration for the Offline Store of this Feature View."""
         offline_feature_store = self._spec.offline_store
         if offline_feature_store.HasField("delta"):
             staging_config = configs.DeltaConfig
         elif offline_feature_store.HasField("parquet"):
             staging_config = configs.ParquetConfig
+        elif offline_feature_store.HasField("iceberg"):
+            staging_config = vnext.IcebergConfig
         else:
             return None
 
@@ -2077,8 +1993,8 @@ class BatchFeatureView(MaterializedFeatureView):
         sources: Sequence[Union[framework_data_source.BatchSource, FilteredSource]],
         entities: Sequence[framework_entity.Entity],
         mode: str,
-        timestamp_field: str,
         features: Sequence[feature.Feature],
+        timestamp_field: str,
         aggregation_interval: Optional[datetime.timedelta] = None,
         aggregation_secondary_key: Optional[str] = None,
         online: bool = False,
@@ -2091,7 +2007,15 @@ class BatchFeatureView(MaterializedFeatureView):
         batch_schedule: Optional[datetime.timedelta] = None,
         online_serving_index: Optional[Sequence[str]] = None,
         batch_compute: Optional[configs.ComputeConfigTypes] = None,
-        offline_store: Optional[Union[configs.OfflineStoreConfig, configs.ParquetConfig, configs.DeltaConfig]] = None,
+        offline_store: Optional[
+            Union[
+                configs.OfflineStoreConfig,
+                configs.ParquetConfig,
+                configs.DeltaConfig,
+                vnext.IcebergConfig,
+            ]
+        ] = None,
+        publish_features_config: Optional[vnext.PublishFeaturesConfig] = None,
         online_store: Optional[configs.OnlineStoreTypes] = None,
         monitor_freshness: bool = False,
         data_quality_enabled: Optional[bool] = None,
@@ -2118,7 +2042,7 @@ class BatchFeatureView(MaterializedFeatureView):
 
         if offline_store is None:
             offline_store = repo_config.get_batch_feature_view_defaults().offline_store_config
-        elif isinstance(offline_store, (configs.DeltaConfig, configs.ParquetConfig)):
+        elif isinstance(offline_store, (configs.DeltaConfig, configs.ParquetConfig, vnext.IcebergConfig)):
             offline_store = configs.OfflineStoreConfig(staging_table_format=offline_store)
 
         if batch_compute is None:
@@ -2163,6 +2087,11 @@ class BatchFeatureView(MaterializedFeatureView):
         ):
             environment = repo_config.get_batch_feature_view_defaults().environment
 
+        if isinstance(offline_store, configs.OfflineStoreConfig):
+            assert not (offline_store.publish_full_features and publish_features_config), (
+                "Publish Features cannot be enabled via `OfflineStoreConfig` and `PublishFeaturesConfig` at once, please use `PublishFeaturesConfig`."
+            )
+
         args = _build_materialized_feature_view_args(
             feature_view_type=feature_view__args_pb2.FeatureViewType.FEATURE_VIEW_TYPE_FWV5_FEATURE_VIEW,
             name=name,
@@ -2172,6 +2101,7 @@ class BatchFeatureView(MaterializedFeatureView):
             online=online,
             offline=offline,
             offline_store=offline_store,
+            publish_features_config=publish_features_config,
             online_store=online_store,
             aggregation_interval=aggregation_interval,
             stream_processing_mode=stream_processing_mode,
@@ -2194,7 +2124,6 @@ class BatchFeatureView(MaterializedFeatureView):
             description=description,
             owner=owner,
             tags=tags,
-            timestamp_field=timestamp_field,
             data_source_type=data_source_type_pb2.DataSourceType.BATCH,
             max_backfill_interval=max_backfill_interval,
             output_stream=None,
@@ -2209,6 +2138,7 @@ class BatchFeatureView(MaterializedFeatureView):
             framework_version=self._framework_version,
             secrets=secrets,
             resource_providers=resource_providers,
+            timestamp_field=timestamp_field,
         )
 
         info = base_tecton_object.TectonObjectInfo.from_args_proto(args.info, args.feature_view_id)
@@ -2252,10 +2182,10 @@ def batch_feature_view(
     mode: str,
     sources: Sequence[Union[framework_data_source.BatchSource, FilteredSource]],
     entities: Sequence[framework_entity.Entity],
-    timestamp_field: str,
     features: Union[
         Sequence[feature.Aggregate], Sequence[Union[feature.Attribute, feature.Embedding, feature.Inference]]
     ],
+    timestamp_field: str,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner: Optional[str] = None,
@@ -2273,8 +2203,16 @@ def batch_feature_view(
     batch_schedule: Optional[datetime.timedelta] = None,
     online_serving_index: Optional[Sequence[str]] = None,
     batch_compute: Optional[configs.ComputeConfigTypes] = None,
-    offline_store: Optional[Union[configs.OfflineStoreConfig, configs.ParquetConfig, configs.DeltaConfig]] = None,
+    offline_store: Optional[
+        Union[
+            configs.OfflineStoreConfig,
+            configs.ParquetConfig,
+            configs.DeltaConfig,
+            vnext.IcebergConfig,
+        ]
+    ] = None,
     online_store: Optional[configs.OnlineStoreTypes] = None,
+    publish_features_config: Optional[vnext.PublishFeaturesConfig] = None,
     monitor_freshness: bool = False,
     data_quality_enabled: Optional[bool] = None,
     skip_default_expectations: Optional[bool] = None,
@@ -2307,13 +2245,18 @@ def batch_feature_view(
     :param online: Whether the feature view should be materialized to the online feature store.
     :param offline: Whether the feature view should be materialized to the offline feature store.
     :param ttl: The TTL (or "look back window") for features defined by this feature view. This parameter determines how long features will live in the online store and how far to  "look back" relative to a training example's timestamp when generating offline training sets. Shorter TTLs improve performance and reduce costs.
-    :param feature_start_time: When materialization for this feature view should start from. (Required if `offline=true` or `online=true`)
+    :param feature_start_time: When materialization for this feature view should start from. (Required if `offline=True` or `online=True`)
     :param lifetime_start_time: The start time for what data should be included in a lifetime aggregate. (Required if using lifetime windows)
     :param batch_schedule: The interval at which batch materialization should be scheduled.
     :param online_serving_index: (Advanced) Defines the set of join keys that will be indexed and queryable during online serving.
-    :param batch_trigger: `BatchTriggerType.SCHEDULED` (default) or `BatchTriggerType.MANUAL`
+    :param batch_trigger: Defines the mechanism for initiating batch materialization jobs.
+        One of `BatchTriggerType.SCHEDULED` or `BatchTriggerType.MANUAL`.
+        The default value is `BatchTriggerType.SCHEDULED`, where Tecton will run materialization jobs based on the
+        schedule defined by the `batch_schedule` parameter. If set to `BatchTriggerType.MANUAL`, then batch
+        materialization jobs must be explicitly initiated by the user through either the Tecton SDK or Airflow operator.
     :param batch_compute: Configuration for the batch materialization cluster.
     :param offline_store: Configuration for how data is written to the offline feature store.
+    :param publish_features_config: Configuration for how full features are published post-offline materialization.
     :param online_store: Configuration for how data is written to the online feature store.
     :param monitor_freshness: If true, enables monitoring when feature data is materialized to the online feature store.
     :param data_quality_enabled: If false, disables data quality metric computation and data quality dashboard.
@@ -2344,7 +2287,7 @@ def batch_feature_view(
         backfill queries to fill the historical feature data.
     :param manual_trigger_backfill_end_time: If set, Tecton will schedule backfill materialization jobs for this feature
         view up to this time. Materialization jobs after this point must be triggered manually. (This param is only valid
-        to set if BatchTriggerType is MANUAL.)
+        to set if batch_trigger is MANUAL.)
     :param options: Additional options to configure the Feature View. Used for advanced use cases and beta features.
     :param run_transformation_validation: If `True`, Tecton will execute the Feature View transformations during tecton plan/apply
         validation. If `False`, then Tecton will not execute the transformations during validation. Skipping query validation can be useful to speed up tecton plan/apply or for Feature Views that have issues
@@ -2363,7 +2306,6 @@ def batch_feature_view(
     :param context_parameter_name: Name of the function parameter that Tecton injects MaterializationContext object to.
     :param secrets: A dictionary of Secret references that will be resolved and provided to the transformation function at runtime. During local development and testing, strings may be used instead Secret references.
     :param resource_providers: A dictionary of Resource providers that will be evaluated and resources will be provided to transformation function at runtime.
-
 
     :return: An object of type `BatchFeatureView`
     """
@@ -2402,6 +2344,7 @@ def batch_feature_view(
             online_serving_index=online_serving_index,
             batch_compute=batch_compute,
             offline_store=offline_store,
+            publish_features_config=publish_features_config,
             online_store=online_store,
             monitor_freshness=monitor_freshness,
             data_quality_enabled=data_quality_enabled,
@@ -2457,6 +2400,7 @@ class StreamFeatureView(MaterializedFeatureView):
         aggregation_secondary_key: Optional[str] = None,
         aggregation_leading_edge: AggregationLeadingEdge = AggregationLeadingEdge.UNSPECIFIED,
         features: Sequence[feature.Feature],
+        timestamp_field: str,
         stream_processing_mode: Optional[StreamProcessingMode] = None,
         online: bool = False,
         offline: bool = False,
@@ -2469,14 +2413,21 @@ class StreamFeatureView(MaterializedFeatureView):
         online_serving_index: Optional[Sequence[str]] = None,
         batch_compute: Optional[configs.ComputeConfigTypes] = None,
         stream_compute: Optional[configs.ComputeConfigTypes] = None,
-        offline_store: Optional[Union[configs.OfflineStoreConfig, configs.ParquetConfig, configs.DeltaConfig]] = None,
+        offline_store: Optional[
+            Union[
+                configs.OfflineStoreConfig,
+                configs.ParquetConfig,
+                configs.DeltaConfig,
+                vnext.IcebergConfig,
+            ]
+        ] = None,
+        publish_features_config: Optional[vnext.PublishFeaturesConfig] = None,
         online_store: Optional[configs.OnlineStoreTypes] = None,
         monitor_freshness: bool = False,
         data_quality_enabled: Optional[bool] = None,
         skip_default_expectations: Optional[bool] = None,
         expected_feature_freshness: Optional[datetime.timedelta] = None,
         alert_email: Optional[str] = None,
-        timestamp_field: Optional[str] = None,
         max_backfill_interval: Optional[datetime.timedelta] = None,
         output_stream: Optional[configs.OutputStream] = None,
         run_transformation_validation: Optional[bool] = None,
@@ -2486,15 +2437,17 @@ class StreamFeatureView(MaterializedFeatureView):
         compaction_enabled: bool = False,
         stream_tiling_enabled: bool = False,
         environment: Optional[str] = None,
-        transform_server_group: Optional[server_group.TransformServerGroup] = None,
+        transform_server_group: Optional[str] = None,
         context_parameter_name: Optional[str] = None,
         secrets: Optional[Dict[str, Union[Secret, str]]] = None,
+        resource_providers: Optional[Dict[str, resource_provider.ResourceProvider]] = None,
     ):
         """Construct a StreamFeatureView.
 
         `init` should not be used directly, and instead `@stream_feature_view` decorator is recommended.
 
         :param transform_server_group: The server group to use for running the transformation function.
+        :param resource_providers: A dictionary mapping string names to ResourceProviders that will be available during feature transformation.
         """
         _validate_features(features, name)
 
@@ -2503,8 +2456,11 @@ class StreamFeatureView(MaterializedFeatureView):
 
         if offline_store is None:
             offline_store = repo_config.get_stream_feature_view_defaults().offline_store_config
-        elif isinstance(offline_store, (configs.DeltaConfig, configs.ParquetConfig)):
+        elif isinstance(offline_store, (configs.DeltaConfig, configs.ParquetConfig, vnext.IcebergConfig)):
             offline_store = configs.OfflineStoreConfig(staging_table_format=offline_store)
+            assert not (offline_store.publish_full_features and publish_features_config), (
+                "Publish Features cannot be enabled via `OfflineStoreConfig` and `PublishFeaturesConfig` at once, please use `PublishFeaturesConfig`."
+            )
 
         if batch_compute is None:
             batch_compute = repo_config.get_stream_feature_view_defaults().batch_compute
@@ -2574,13 +2530,28 @@ class StreamFeatureView(MaterializedFeatureView):
 
         batch_trigger_ = batch_trigger or default_batch_trigger
 
+        # Use stream source's transform_server_group as default if not specified
+        if transform_server_group is None:
+            stream_source = source.source if isinstance(source, FilteredSource) else source
+            if (
+                hasattr(stream_source, "_args")
+                and hasattr(stream_source._args, "push_config")
+                and hasattr(stream_source._args.push_config, "transform_server_group")
+                and stream_source._args.push_config.transform_server_group
+            ):
+                # For push sources, transform_server_group is in PushSourceArgs
+                transform_server_group = stream_source._args.push_config.transform_server_group
+
         if (
-            environment is None
-            and infer_batch_compute_mode(
+            infer_batch_compute_mode(
                 pipeline_root=pipeline_root, batch_compute_config=batch_compute, stream_compute_config=stream_compute
             )
             == BatchComputeMode.RIFT
         ):
+            # TODO(Rt-Data): Remove support for top-level `environment` parameter for Stream Feature Views once TSGs are GA
+            msg = "The `environment` parameter is deprecated for Stream Feature Views. Please use the `transform_server_group` parameter instead to configure the Transform Server Group from which the environment will be inferred."
+            if environment is not None:
+                raise TectonValidationError(msg)
             environment = repo_config.get_stream_feature_view_defaults().environment
 
         args = _build_materialized_feature_view_args(
@@ -2592,6 +2563,7 @@ class StreamFeatureView(MaterializedFeatureView):
             online=online,
             offline=offline,
             offline_store=offline_store,
+            publish_features_config=publish_features_config,
             online_store=online_store,
             aggregation_interval=aggregation_interval,
             stream_processing_mode=stream_processing_mode_,
@@ -2614,7 +2586,6 @@ class StreamFeatureView(MaterializedFeatureView):
             description=description,
             owner=owner,
             tags=tags,
-            timestamp_field=timestamp_field,
             data_source_type=data_source_type,
             max_backfill_interval=max_backfill_interval,
             output_stream=output_stream,
@@ -2631,6 +2602,8 @@ class StreamFeatureView(MaterializedFeatureView):
             aggregation_leading_edge=aggregation_leading_edge,
             framework_version=self._framework_version,
             secrets=secrets,
+            resource_providers=resource_providers,
+            timestamp_field=timestamp_field,
         )
 
         info = base_tecton_object.TectonObjectInfo.from_args_proto(args.info, args.feature_view_id)
@@ -2646,7 +2619,7 @@ class StreamFeatureView(MaterializedFeatureView):
             sources=data_sources,
             entities=tuple(entities),
             transformations=tuple(pipeline_root.transformations),
-            resource_providers=(),
+            resource_providers=tuple(resource_providers.values() if resource_providers else []),
             args_supplement=None,
         )
         schemas = self._get_schemas()
@@ -2696,8 +2669,8 @@ def stream_feature_view(
     mode: str,
     source: Union[framework_data_source.StreamSource, FilteredSource],
     entities: Sequence[framework_entity.Entity],
-    timestamp_field: str,
     features: Union[Sequence[feature.Aggregate], Sequence[feature.Attribute]],
+    timestamp_field: str,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner: Optional[str] = None,
@@ -2717,8 +2690,16 @@ def stream_feature_view(
     online_serving_index: Optional[Sequence[str]] = None,
     batch_compute: Optional[configs.ComputeConfigTypes] = None,
     stream_compute: Optional[configs.ComputeConfigTypes] = None,
-    offline_store: Optional[Union[configs.OfflineStoreConfig, configs.ParquetConfig, configs.DeltaConfig]] = None,
+    offline_store: Optional[
+        Union[
+            configs.OfflineStoreConfig,
+            configs.ParquetConfig,
+            configs.DeltaConfig,
+            vnext.IcebergConfig,
+        ]
+    ] = None,
     online_store: Optional[configs.OnlineStoreTypes] = None,
+    publish_features_config: Optional[vnext.PublishFeaturesConfig] = None,
     monitor_freshness: bool = False,
     data_quality_enabled: Optional[bool] = None,
     skip_default_expectations: Optional[bool] = None,
@@ -2740,6 +2721,7 @@ def stream_feature_view(
     context_parameter_name: Optional[str] = None,
     aggregation_leading_edge: Optional[AggregationLeadingEdge] = None,
     secrets: Optional[Dict[str, Union[Secret, str]]] = None,
+    resource_providers: Optional[Dict[str, resource_provider.ResourceProvider]] = None,
 ):
     """Declare a Stream Feature View.
 
@@ -2757,7 +2739,7 @@ def stream_feature_view(
     :param online: Whether the feature view should be materialized to the online feature store.
     :param offline: Whether the feature view should be materialized to the offline feature store.
     :param ttl: The TTL (or "look back window") for features defined by this feature view. This parameter determines how long features will live in the online store and how far to  "look back" relative to a training example's timestamp when generating offline training sets. Shorter TTLs improve performance and reduce costs.
-    :param feature_start_time: When materialization for this feature view should start from. (Required if `offline=true` or `online=true`)
+    :param feature_start_time: When materialization for this feature view should start from. (Required if `offline=True` or `online=True`)
     :param lifetime_start_time: The start time for what data should be included in a lifetime aggregate. (Required if using lifetime windows)
     :param batch_trigger: Defines the mechanism for initiating batch materialization jobs.
         One of `BatchTriggerType.SCHEDULED` or `BatchTriggerType.MANUAL`.
@@ -2769,6 +2751,7 @@ def stream_feature_view(
     :param batch_compute: Batch materialization cluster configuration.
     :param stream_compute: Streaming materialization cluster configuration.
     :param offline_store: Configuration for how data is written to the offline feature store.
+    :param publish_features_config: Configuration for how full features are published post-offline materialization.
     :param online_store: Configuration for how data is written to the online feature store.
     :param monitor_freshness: If true, enables monitoring when feature data is materialized to the online feature store.
     :param data_quality_enabled: If false, disables data quality metric computation and data quality dashboard.
@@ -2794,7 +2777,7 @@ def stream_feature_view(
         Configuring the `max_backfill_interval` parameter appropriately will help to optimize large backfill jobs.
         If this parameter is not specified, then 10 backfill jobs will run (the default).
     :param output_stream: Configuration for a stream to write feature outputs to, specified as a `tecton.framework.configs.KinesisOutputStream` or `tecton.framework.configs.KafkaOutputStream`.
-    :param manual_trigger_backfill_end_time: If set, Tecton will schedule backfill materialization jobs for this feature view up to this time. Materialization jobs after this point must be triggered manually. (This param is only valid to set if BatchTriggerType is MANUAL.)
+    :param manual_trigger_backfill_end_time: If set, Tecton will schedule backfill materialization jobs for this feature view up to this time. Materialization jobs after this point must be triggered manually. (This param is only valid to set if batch_trigger is MANUAL.)
     :param options: Additional options to configure the Feature View. Used for advanced use cases and beta features.
     :param run_transformation_validation: If `True`, Tecton will execute the Feature View transformations during tecton plan/apply
         validation. If `False`, then Tecton will not execute the transformations during validation. Skipping query validation can be useful to speed up tecton plan/apply or for Feature Views that have issues
@@ -2815,8 +2798,9 @@ def stream_feature_view(
     :param transform_server_group: The server group to use for running the transformation job. Only one of `environment` and `transform_server_group` can be specified. If not specified, the default Tecton Environment will be used. This is only applicable for stream feature views with push config.
         Defaults to `None`.
     :param context_parameter_name: Name of the function parameter that Tecton injects MaterializationContext object to.
-    :param aggregation_leading_edge: (Advanced) Specifies the timestamp used for the leading edge of aggregation time windows. This parameter only affects online serving. See the AggregationLeadingEdge class documentation or the Tecton docs for more information. Defaults to AggregationLeadingEdge.WALL_CLOCK_TIME.
+    :param aggregation_leading_edge: (Advanced) Specifies the timestamp used for the leading edge of aggregation time windows. This parameter only affects online serving. See the AggregationLeadingEdge class documentation or the Tecton docs for more information. defaults to AggregationLeadingEdge.WALL_CLOCK_TIME.
     :param secrets: A dictionary of Secret references that will be resolved and provided to the transformation function at runtime. During local development and testing, strings may be used instead Secret references.
+    :param resource_providers: A dictionary mapping string names to ResourceProviders that will be available during feature transformation.
     :return: An object of type `StreamFeatureView`.
     """
     # TODO(deprecate_after=0.8): This warning can be completely removed in 0.9, so it can be deleted once the 0.8 branch is cut.
@@ -2863,6 +2847,7 @@ def stream_feature_view(
             batch_compute=batch_compute,
             stream_compute=stream_compute,
             offline_store=offline_store,
+            publish_features_config=publish_features_config,
             online_store=online_store,
             monitor_freshness=monitor_freshness,
             data_quality_enabled=data_quality_enabled,
@@ -2883,6 +2868,7 @@ def stream_feature_view(
             context_parameter_name=context_parameter_name,
             aggregation_leading_edge=aggregation_leading_edge or AggregationLeadingEdge.WALL_CLOCK_TIME,
             secrets=secrets,
+            resource_providers=resource_providers,
         )
 
     return decorator
@@ -2943,7 +2929,7 @@ class FeatureTable(FeatureView):
         ttl: Optional[datetime.timedelta] = None,
         online: bool = False,
         offline: bool = False,
-        offline_store: Optional[Union[configs.OfflineStoreConfig, configs.DeltaConfig]] = None,
+        offline_store: Optional[Union[configs.OfflineStoreConfig, configs.DeltaConfig, vnext.IcebergConfig]] = None,
         online_store: Optional[configs.OnlineStoreTypes] = None,
         batch_compute: Optional[configs.ComputeConfigTypes] = None,
         online_serving_index: Optional[List[str]] = None,
@@ -2973,8 +2959,7 @@ class FeatureTable(FeatureView):
         :param offline_store: Configuration for how data is written to the offline feature store.
         :param online_store: Configuration for how data is written to the online feature store.
         :param batch_compute: Configuration for batch materialization clusters. Should be one of:
-            [`EMRClusterConfig`, `DatabricksClusterConfig`, `EMRJsonClusterConfig`, `DatabricksJsonClusterConfig`,
-            `DataprocJsonClusterConfig`]
+            [`EMRClusterConfig`, `DatabricksClusterConfig`, `EMRJsonClusterConfig`, `DatabricksJsonClusterConfig`]
         :param online_serving_index: (Advanced) Defines the set of join keys that will be indexed and queryable during
             online serving. Defaults to the complete set of join keys. Up to one join key may be omitted. If one key is
             omitted, online requests to a Feature Service will return all feature vectors that match the specified join
@@ -2996,7 +2981,7 @@ class FeatureTable(FeatureView):
 
         if offline_store is None:
             offline_store = repo_config.get_feature_table_defaults().offline_store_config
-        elif isinstance(offline_store, configs.DeltaConfig):
+        elif isinstance(offline_store, (configs.DeltaConfig, vnext.IcebergConfig)):
             offline_store = configs.OfflineStoreConfig(staging_table_format=offline_store)
 
         if batch_compute is None:
@@ -3082,7 +3067,7 @@ class FeatureTable(FeatureView):
         class FeatureTableFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = FeatureTableFromSpec.__new__(FeatureTableFromSpec)
+        obj = FeatureTableFromSpec.__new__(FeatureTableFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             feature_definition=feature_definition,
@@ -3123,9 +3108,6 @@ class FeatureTable(FeatureView):
             materialization_schema=view_schema,
             online_batch_table_format=None,
         )
-
-    def _derive_schemas(self) -> _Schemas:
-        return self._get_schemas()
 
     def _check_can_query_from_source(self, from_source: Optional[bool]) -> QuerySources:
         fd = self._feature_definition
@@ -3188,7 +3170,7 @@ class FeatureTable(FeatureView):
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
 
-        if compute_mode == ComputeMode.ATHENA or compute_mode == ComputeMode.SNOWFLAKE:
+        if compute_mode == ComputeMode.ATHENA:
             raise errors.GET_FEATURES_FOR_EVENTS_UNSUPPORTED
 
         return querytree_api.get_features_for_events(
@@ -3497,13 +3479,17 @@ class FeatureTable(FeatureView):
         return self._spec.offline
 
     @property
-    def offline_store(self) -> Optional[Union[configs.DeltaConfig, configs.ParquetConfig]]:
+    def offline_store(
+        self,
+    ) -> Optional[Union[configs.DeltaConfig, configs.ParquetConfig, vnext.IcebergConfig]]:
         """Configuration for the Offline Store of this Feature Table."""
         offline_feature_store = self._spec.offline_store
         if offline_feature_store.HasField("delta"):
             staging_config = configs.DeltaConfig
         elif offline_feature_store.HasField("parquet"):
             staging_config = configs.ParquetConfig
+        elif offline_feature_store.HasField("iceberg"):
+            staging_config = vnext.IcebergConfig
         else:
             return None
 
@@ -3578,9 +3564,6 @@ class _RealtimeBase(FeatureView):
 
     def _get_dependent_feature_views(self) -> List[FeatureView]:
         return [source.feature_definition for source in self.sources if isinstance(source, FeatureReference)]
-
-    def _derive_schemas(self) -> _Schemas:
-        return self._get_schemas()
 
     def _check_can_query_from_source(self, from_source: Optional[bool]) -> QuerySources:
         all_sources = QuerySources(realtime_count=1)
@@ -3868,7 +3851,7 @@ class RealtimeFeatureView(_RealtimeBase):
         class RealtimeFeatureViewFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = RealtimeFeatureViewFromSpec.__new__(RealtimeFeatureViewFromSpec)
+        obj = RealtimeFeatureViewFromSpec.__new__(RealtimeFeatureViewFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             feature_definition=feature_definition,
@@ -4085,6 +4068,7 @@ class RealtimeFeatureView(_RealtimeBase):
         timestamp_key: Optional[str] = None,
         from_source: Optional[bool] = None,
         compute_mode: Optional[Union[ComputeMode, str]] = None,
+        **kwargs,
     ) -> TectonDataFrame:
         """Returns a `TectonDataFrame` of historical values for this feature view.
 
@@ -4095,19 +4079,16 @@ class RealtimeFeatureView(_RealtimeBase):
         :param events: A dataframe of possible join keys, request data keys, and timestamps that specify which feature values to fetch.
             The returned data frame will contain rollups for all (join key, request data key)
             combinations that are required to compute a full frame from the `events` dataframe.
-        :type events: Union[pyspark.sql.DataFrame, pandas.DataFrame, TectonDataFrame]
         :param timestamp_key: Name of the time column in spine.
             This method will fetch the latest features computed before the specified timestamps in this column.
             If unspecified and this feature view has feature view dependencies, `timestamp_key` will default to the time column of the spine if there is only one present.
-        :type timestamp_key: str
         :param from_source: Whether feature values should be recomputed from the original data source. If `None`,
             input feature values will be fetched from the Offline Store for Feature Views that have offline
             materialization enabled and otherwise computes feature values on the fly from raw data. Use
             `from_source=True` to force computing from raw data and `from_source=False` to error if any input
             Feature Views are not materialized. Defaults to None.
-        :type from_source: bool
         :param compute_mode: Compute mode to use to produce the data frame.
-        :type compute_mode: Optional[Union[ComputeMode, str]]
+
 
         :return: A `TectonDataFrame`.
         """
@@ -4116,17 +4097,19 @@ class RealtimeFeatureView(_RealtimeBase):
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
 
-        if compute_mode == ComputeMode.SNOWFLAKE or compute_mode == ComputeMode.ATHENA:
+        if compute_mode == ComputeMode.ATHENA:
             raise errors.GET_FEATURES_FOR_EVENTS_UNSUPPORTED
 
-        return querytree_api.get_features_for_events(
-            dialect=compute_mode.default_dialect(),
-            compute_mode=compute_mode,
-            feature_definition=self._feature_definition,
-            spine=events,
-            timestamp_key=timestamp_key,
-            from_source=from_source,
-            mock_data_sources={},
+        return querytree_api.get_features_from_params(
+            GetFeaturesForEventsParams(
+                fco=self._feature_definition,
+                events=events,
+                timestamp_key=timestamp_key,
+                from_source=from_source,
+                compute_mode=compute_mode,
+                mock_data_sources={},
+                skew_config=kwargs.get("skew_config"),
+            )
         )
 
     @deprecated(
@@ -4171,20 +4154,6 @@ class RealtimeFeatureView(_RealtimeBase):
         sources.display()
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
-
-        if compute_mode == ComputeMode.SNOWFLAKE and (
-            conf.get_bool("USE_DEPRECATED_SNOWFLAKE_RETRIEVAL")
-            or snowflake_api.has_snowpark_transformation([self._feature_definition])
-        ):
-            return snowflake_api.get_historical_features(
-                spine=spine,
-                timestamp_key=timestamp_key,
-                from_source=from_source,
-                feature_set_config=feature_set_config.FeatureSetConfig.from_feature_definition(
-                    self._feature_definition
-                ),
-                append_prefix=False,
-            )
 
         if compute_mode == ComputeMode.ATHENA and conf.get_bool("USE_DEPRECATED_ATHENA_RETRIEVAL"):
             if not self._feature_definition.materialization_enabled:
@@ -4437,7 +4406,7 @@ def _validate_fv_function_inputs(
         raise errors.INVALID_NUMBER_OF_FEATURE_VIEW_INPUTS(num_sources, num_fn_params)
 
 
-def _validate_features(features: Sequence[Feature], fv_name):
+def _validate_features(features: Sequence[Feature], fv_name: str):
     """Validates that there are no duplicate names in the list of features."""
     if features is None or len(features) == 0:
         raise errors.FeaturesRequired(fv_name)
@@ -4465,7 +4434,7 @@ def _get_mock_context_and_sources(
         v for v in mock_inputs.values() if isinstance(v, (MockContext, RealtimeContext, MaterializationContext))
     ]
     if len(context_inputs) > 1:
-        msg = "Only one MockContext can be provided in mock_inputs"
+        msg = "Only one MockContext can be provided in mock_inputs."
         raise ValueError(msg)
     elif len(context_inputs) == 1:
         mock_context = context_inputs[0]
@@ -4748,7 +4717,6 @@ def _is_spark_config(config: Optional[configs.ComputeConfigTypes]) -> bool:
             configs.DatabricksClusterConfig,
             configs.EMRClusterConfig,
             configs.DatabricksJsonClusterConfig,
-            configs.DataprocJsonClusterConfig,
             configs.EMRJsonClusterConfig,
         ),
     )
@@ -4797,10 +4765,11 @@ def _build_materialized_feature_view_args(
     owner: Optional[str],
     tags: Optional[Dict[str, str]],
     feature_view_type: feature_view__args_pb2.FeatureViewType.ValueType,
-    timestamp_field: Optional[str],
     data_source_type: data_source_type_pb2.DataSourceType.ValueType,
     incremental_backfills: bool,
     prevent_destroy: bool,
+    timestamp_field: str,
+    publish_features_config: Optional[vnext.PublishFeaturesConfig] = None,
     run_transformation_validation: Optional[bool] = None,
     stream_processing_mode: Optional[StreamProcessingMode] = None,
     max_backfill_interval: Optional[datetime.timedelta] = None,
@@ -4812,7 +4781,7 @@ def _build_materialized_feature_view_args(
     compaction_enabled: bool = False,
     stream_tiling_enabled: bool = False,
     environment: Optional[str] = None,
-    transform_server_group: Optional[server_group.TransformServerGroup] = None,
+    transform_server_group: Optional[str] = None,
     context_parameter_name: Optional[str] = None,
     aggregation_leading_edge: Optional[AggregationLeadingEdge] = None,
     framework_version: Optional[FrameworkVersion] = None,
@@ -4857,11 +4826,7 @@ def _build_materialized_feature_view_args(
     if secrets:
         for secret_name, secret in secrets.items():
             secret_references[secret_name] = convert_secret_to_sanitized_reference(secret)
-    transform_server_group_reference = None
-    if transform_server_group:
-        transform_server_group_reference = server_group__args_pb2.ServerGroupReference(
-            server_group_id=transform_server_group._id_proto, name=transform_server_group.info.name
-        )
+
     # TODO(TEC-17296): populate default value for tecton_materialization_runtime from repo config
     return feature_view__args_pb2.FeatureViewArgs(
         feature_view_id=id_helper.IdHelper.generate_id(),
@@ -4885,7 +4850,6 @@ def _build_materialized_feature_view_args(
             pipeline_root=pipeline_root, batch_compute_config=batch_compute, stream_compute_config=stream_compute
         ).value,
         materialized_feature_view_args=feature_view__args_pb2.MaterializedFeatureViewArgs(
-            timestamp_field=timestamp_field,
             feature_start_time=time_utils.datetime_to_proto(feature_start_time),
             lifetime_start_time=time_utils.datetime_to_proto(lifetime_start_time),
             manual_trigger_backfill_end_time=time_utils.datetime_to_proto(manual_trigger_backfill_end_time),
@@ -4913,12 +4877,15 @@ def _build_materialized_feature_view_args(
             stream_tile_size=_compute_compacted_fv_stream_tile_size(features) if stream_tiling_enabled else None,
             compaction_enabled=compaction_enabled,
             environment=environment,
-            transform_server_group=transform_server_group_reference,
+            transform_server_group=transform_server_group,
             attributes=attribute_protos,
             embeddings=embedding_protos,
             inferences=inference_protos,
             aggregation_leading_edge=aggregation_leading_edge.value if aggregation_leading_edge else None,
             feature_store_format_version=feature_store_format_version.value,
+            publish_features_configs=publish_features_config._to_proto() if publish_features_config else None,
+            batch_publish_timestamp=options.get("BATCH_PUBLISH_TIMESTAMP") if options else None,
+            timestamp_field=timestamp_field,
         ),
         secrets=secret_references,
         resource_providers={

@@ -2,7 +2,7 @@ from collections import defaultdict
 
 
 class MDSResponse:
-    def __init__(self, response_proto, metadata=defaultdict(str)):
+    def __init__(self, response_proto, headers=defaultdict(str)):
         """
         A wrapper of response protos from metadata server that adds a method to access response headers
         This class is needed since we cannot add an attribute to Python proto Message classes due to their designs which is documented here:
@@ -22,12 +22,9 @@ class MDSResponse:
                 so the returned value may change in the future
         """
         self.response_proto = response_proto
-        self.metadata = metadata
+        self._headers = headers
 
     def __getattr__(self, name):
         if isinstance(self.response_proto, dict):
             return self.response_proto[name]
         return getattr(self.response_proto, name)
-
-    def _headers(self):
-        return self.metadata

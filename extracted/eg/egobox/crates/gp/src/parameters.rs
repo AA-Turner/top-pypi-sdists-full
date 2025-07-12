@@ -41,7 +41,7 @@ impl<F: Float> Default for ThetaTuning<F> {
 
 impl<F: Float> ThetaTuning<F> {
     pub const DEFAULT_INIT: f64 = 1e-1;
-    pub const DEFAULT_BOUNDS: (f64, f64) = (1e-3, 2e1);
+    pub const DEFAULT_BOUNDS: (f64, f64) = (1e-2, 1e1);
 
     pub fn init(&self) -> &Array1<F> {
         match self {
@@ -246,8 +246,8 @@ impl<F: Float, Mean: RegressionModel<F>, Corr: CorrelationModel<F>> GpParams<F, 
     }
 
     /// Set the max number of internal likelihood evaluations during one optimization
-    /// Given max_eval has to be greater than [crate::GP_MIN_COBYLA_EVAL] otherwise
-    /// max_eval is set to crate::GP_MIN_COBYLA_EVAL.
+    /// Given max_eval has to be greater than [crate::GP_COBYLA_MIN_EVAL] otherwise
+    /// max_eval is set to [crate::GP_COBYLA_MAX_EVAL].
     pub fn max_eval(mut self, max_eval: usize) -> Self {
         self.0.max_eval = GP_COBYLA_MIN_EVAL.max(max_eval);
         self

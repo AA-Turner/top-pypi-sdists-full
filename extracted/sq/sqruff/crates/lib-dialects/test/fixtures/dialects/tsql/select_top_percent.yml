@@ -5,7 +5,8 @@ file:
       - keyword: SELECT
       - select_clause_modifier:
         - keyword: TOP
-        - numeric_literal: '50'
+        - expression:
+          - numeric_literal: '50'
         - keyword: PERCENT
       - select_clause_element:
         - wildcard_expression:

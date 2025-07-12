@@ -3,6 +3,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import Union
 
 import pypika
@@ -31,7 +32,6 @@ from pypika.utils import format_alias_sql
 
 from tecton_core.aggregation_utils import QueryWindowSpec
 from tecton_core.compute_mode import ComputeMode
-from tecton_core.compute_mode import offline_retrieval_compute_mode
 from tecton_core.data_types import DataType
 from tecton_core.query.dialect import Dialect
 from tecton_proto.data.feature_store__client_pb2 import FeatureStoreFormatVersion
@@ -108,7 +108,7 @@ class DuckDBQueryBuilder(pypika.dialects.PostgreSQLQueryBuilder):
     def _with_sql(self, **kwargs: Any) -> str:
         return "WITH " + ",".join(
             clause.name
-            + f" AS {'MATERIALIZED' if clause.materialized  else ''} ("
+            + f" AS {'MATERIALIZED' if clause.materialized else ''} ("
             + clause.get_sql(subquery=False, with_alias=False, **kwargs)
             + ") "
             for clause in self._with
@@ -120,12 +120,6 @@ class CaseInsensitiveSnowflakeQueryBuilder(pypika.dialects.SnowflakeQueryBuilder
     ALIAS_QUOTE_CHAR = None
     QUERY_ALIAS_QUOTE_CHAR = ""
     QUERY_CLS = SnowflakeQuery
-
-
-class CaseInsensitiveSnowflakeQuery(pypika.queries.Query):
-    @classmethod
-    def _builder(cls, **kwargs: Any) -> CaseInsensitiveSnowflakeQueryBuilder:
-        return CaseInsensitiveSnowflakeQueryBuilder(**kwargs)
 
 
 class CustomQuery(pypika.queries.QueryBuilder):
@@ -206,12 +200,11 @@ class LastValue(analytics.LastValue):
 
 
 class CompatFunctions:
-    def __init__(self, compute_mode: ComputeMode) -> None:
+    def __init__(self, compute_mode: Optional[ComputeMode] = None) -> None:
         self.compute_mode = compute_mode
 
     @staticmethod
     def for_dialect(d: Dialect, compute_mode: Optional[ComputeMode] = None) -> "CompatFunctions":
-        compute_mode = offline_retrieval_compute_mode(compute_mode)
         if d == Dialect.SPARK:
             return _Spark(compute_mode=compute_mode)
         elif d == Dialect.DUCKDB:
@@ -265,6 +258,10 @@ class CompatFunctions:
 
     @classmethod
     def to_timestamp(cls, time_str: str) -> Term:
+        raise NotImplementedError()
+
+    @classmethod
+    def to_timestamp_microseconds(cls, time_str: str) -> Term:
         raise NotImplementedError()
 
     @classmethod
@@ -337,11 +334,8 @@ class OverWindowAlias(Term):
 
 class _Snowflake(CompatFunctions):
     def query(self) -> typing.Type[Query]:
-        # Compute.SNOWFLAKE is "legacy" snowflake, executing snowflake queries in unified Tecton mode will have
-        # ComputeMode.DUCK_DB
-        return (
-            CaseInsensitiveSnowflakeQuery if self.compute_mode == ComputeMode.SNOWFLAKE else CaseSensitiveSnowflakeQuery
-        )
+        # executing snowflake queries in unified Tecton mode will have ComputeMode.DUCK_DB
+        return CaseSensitiveSnowflakeQuery
 
     @classmethod
     def struct(cls, field_names: List[str]) -> Term:
@@ -436,6 +430,27 @@ class DuckDBAny(Term):
         return format_alias_sql(query_sql, self.alias, **kwargs)
 
 
+class DuckDBListValue(Term):
+    def __init__(self, columns: List[Term]) -> None:
+        super().__init__()
+        self.columns = columns
+
+    def get_sql(self, **kwargs: Any) -> str:
+        cols_sql = ", ".join(col.get_sql(**kwargs) for col in self.columns)
+        query_sql = f"LIST_VALUE({cols_sql})"
+        return format_alias_sql(query_sql, self.alias, **kwargs)
+
+
+class DuckDBArrayValue(Term):
+    def __init__(self, columns: Term) -> None:
+        super().__init__()
+        self.columns = columns
+
+    def get_sql(self, **kwargs: Any) -> str:
+        query_sql = f"Array_VALUE({self.columns.get_sql(**kwargs)})"
+        return format_alias_sql(query_sql, self.alias, **kwargs)
+
+
 class DuckDBListFilterNulls(Term):
     def __init__(self, column: Term) -> None:
         super().__init__()
@@ -460,6 +475,27 @@ class DuckDBStructPack(Term):
         """
         query_sql = f"STRUCT_PACK({','.join(field.get_sql(**kwargs) for field in self.fields)})"
         return format_alias_sql(query_sql, self.alias, **kwargs)
+
+
+class DuckDBNamedStructPack(Term):
+    # NOTE: DuckDB requires named arguments inside struct_pack, e.g.:
+    #   struct_pack(sum_int_col := SUM("int_col"))
+    # However, PyPika does not natively support named arguments (:=) in function calls.
+    #
+    # This StructPackFunction class is a custom PyPika term that allows us to manually render
+    # the struct_pack expression with the required named arguments using string interpolation.
+    #
+    # Without this, calling struct_pack(SUM("int_col")) would result in the field name inside
+    # the struct being inferred from the expression (e.g., "sum(int_col)"), which leads to
+    # mismatches when comparing output against expected field names like "sum_int_col".
+
+    def __init__(self, fields: List[Tuple[str, Term]]) -> None:
+        super().__init__()
+        self.fields = fields
+
+    def get_sql(self, **kwargs: Any) -> str:
+        parts = [f"{name} := {str(expr)}" for name, expr in self.fields]
+        return f"struct_pack({', '.join(parts)})"
 
 
 class DuckDBListTransform(Term):
@@ -521,6 +557,10 @@ class _DuckDB(CompatFunctions):
         return DuckDBStructPack(*[Field(n) for n in field_names])
 
     @classmethod
+    def struct_by_name(cls, fields: List[Tuple[str, Term]]) -> Term:
+        return DuckDBNamedStructPack(fields)
+
+    @classmethod
     def list(cls, column: str) -> WindowFrameAnalyticFunction:
         return DuckDBList(Field(column))
 
@@ -531,6 +571,14 @@ class _DuckDB(CompatFunctions):
     @classmethod
     def list_filter_nulls(cls, column: str) -> Term:
         return DuckDBListFilterNulls(Field(column))
+
+    @classmethod
+    def list_value(cls, column_names: List[str]) -> Term:
+        return DuckDBListValue([Field(name) for name in column_names])
+
+    @classmethod
+    def array_value(cls, from_column: Term) -> Term:
+        return DuckDBArrayValue(from_column)
 
     @classmethod
     def ordered_filtered_list(
@@ -552,6 +600,10 @@ class _DuckDB(CompatFunctions):
     @classmethod
     def to_timestamp(cls, time_col: Union[Term, str]) -> Term:
         return Cast(time_col, as_type="timestamptz")
+
+    @classmethod
+    def to_timestamp_microseconds(cls, time_col: Union[Term, str]) -> Term:
+        return Cast(time_col, as_type="timestamp")
 
     @classmethod
     def date_add(cls, interval: str, amount: int, time_field: Term) -> Term:

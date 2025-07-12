@@ -40,6 +40,7 @@ setup(
     name="django-postgres-extra",
     version=__version__,
     packages=find_packages(exclude=["tests"]),
+    package_data={"psqlextra": ["py.typed"]},
     include_package_data=True,
     license="MIT License",
     description="Bringing all of PostgreSQL's awesomeness to Django.",
@@ -60,12 +61,14 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
     ],
     python_requires=">=3.6",
     install_requires=[
-        "Django>=2.0,<5.0",
+        "Django>=2.0,<6.0",
         "python-dateutil>=2.8.0,<=3.0.0",
     ],
     extras_require={
@@ -78,6 +81,8 @@ setup(
             "pytest-benchmark==3.4.1",
             "pytest-django==4.4.0",
             "pytest-cov==3.0.0",
+            "pytest-lazy-fixture==0.6.3",
+            "pytest-freezegun==0.4.2",
             "tox==3.24.4",
             "freezegun==1.1.0",
             "coveralls==3.3.0",
@@ -90,6 +95,15 @@ setup(
             "autopep8==1.6.0",
             "isort==5.10.0",
             "docformatter==1.4",
+            "mypy==1.2.0; python_version > '3.6'",
+            "mypy==0.971; python_version <= '3.6'",
+            "django-stubs==1.16.0; python_version > '3.6'",
+            "django-stubs==1.9.0; python_version <= '3.6'",
+            "typing-extensions==4.5.0; python_version > '3.6'",
+            "typing-extensions==4.1.0; python_version <= '3.6'",
+            "types-dj-database-url==1.3.0.0",
+            "types-psycopg2==2.9.21.9",
+            "types-python-dateutil==2.8.19.12",
         ],
         "publish": [
             "build==0.7.0",
@@ -122,6 +136,18 @@ setup(
                     "tests",
                 ],
                 ["autopep8", "-i", "-r", "setup.py", "psqlextra", "tests"],
+            ],
+        ),
+        "lint_types": create_command(
+            "Type-checks the code",
+            [
+                [
+                    "mypy",
+                    "--package",
+                    "psqlextra",
+                    "--pretty",
+                    "--show-error-codes",
+                ],
             ],
         ),
         "format": create_command(
@@ -162,6 +188,7 @@ setup(
                 ["python", "setup.py", "sort_imports"],
                 ["python", "setup.py", "lint_fix"],
                 ["python", "setup.py", "lint"],
+                ["python", "setup.py", "lint_types"],
             ],
         ),
         "verify": create_command(
@@ -171,6 +198,7 @@ setup(
                 ["python", "setup.py", "format_docstrings_verify"],
                 ["python", "setup.py", "sort_imports_verify"],
                 ["python", "setup.py", "lint"],
+                ["python", "setup.py", "lint_types"],
             ],
         ),
         "test": create_command(

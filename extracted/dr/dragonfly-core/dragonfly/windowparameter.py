@@ -1614,6 +1614,19 @@ class RectangularWindows(_AsymmetricBase):
                 'parent wall [{}].'.format(win_area, total_area)
         return ''
 
+    def remove_doors(self):
+        """Remove all doors from this object."""
+        new_origins, new_widths, new_heights = [], [], []
+        for o, w, h, isd in zip(self.origins, self.widths, self.heights, self.are_doors):
+            if not isd:
+                new_origins.append(o)
+                new_widths.append(w)
+                new_heights.append(h)
+        self._origins = tuple(new_origins)
+        self._widths = tuple(new_widths)
+        self._heights = tuple(new_heights)
+        self._are_doors = (False,) * len(new_origins)
+
     def shift_vertically(self, shift_distance):
         """Shift these WindowParameters up or down in the wall plane.
 
@@ -2330,6 +2343,15 @@ class DetailedWindows(_AsymmetricBase):
             new_w_par.user_data = clean_u
         return new_w_par
 
+    def remove_doors(self):
+        """Remove all door polygons from this object."""
+        new_polys = []
+        for poly, is_dr in zip(self.polygons, self.are_doors):
+            if not is_dr:
+                new_polys.append(poly)
+        self._polygons = tuple(new_polys)
+        self._are_doors = (False,) * len(new_polys)
+
     def shift_vertically(self, shift_distance):
         """Shift these WindowParameters up or down in the wall plane.
 
@@ -2511,6 +2533,36 @@ class DetailedWindows(_AsymmetricBase):
         new_w._user_data = None if self.user_data is None else self.user_data.copy()
         return new_w
 
+    def rectangularize(self, percent_area_change_threshold=None):
+        """Convert window polygons to rectangles.
+
+        Note that rectangular conversion is done simply by taking the bounding
+        rectangle around each polygon. If this bounding rectangle representation
+        changes the area by more than the percent_area_change_threshold, it will
+        not be converted to a rectangle.
+
+        Args:
+            percent_area_change_threshold: A positive number for the maximum permitted
+                change in area that is allowed by the operation. For example, setting
+                it to 100 will allow windows to double in size by this operation.
+                Set to None to have all windows rectangularized no matter the
+                change in area that this causes. (Default: None).
+        """
+        fract_change = percent_area_change_threshold / 100 \
+            if percent_area_change_threshold is not None else None
+        new_polygons = []
+        for poly in self.polygons:
+            min_pt, max_pt = poly.min, poly.max
+            pts = (min_pt, Point2D(max_pt.x, min_pt.y),
+                   max_pt, Point2D(min_pt.x, max_pt.y))
+            new_poly = Polygon2D(pts)
+            if fract_change is None or \
+                    new_poly.area - poly.area <= poly.area * fract_change:
+                new_polygons.append(new_poly)
+            else:
+                new_polygons.append(poly)
+        self._polygons = tuple(new_polygons)
+
     def offset(self, offset_distance, tolerance=0.01):
         """Offset the edges of all polygons by a certain distance.
 
@@ -2571,8 +2623,8 @@ class DetailedWindows(_AsymmetricBase):
         """
         # process the inputs used throughout the calculation
         touch_dist = 2 * frame_distance
-        min_distance = 0.5 * touch_dist
-        merge_distance = 3 * frame_distance
+        min_distance = 0.5 * frame_distance
+        merge_distance = 2.5 * frame_distance
         a_tol = math.radians(angle_tolerance)
         x_axis, y_axis = Vector2D(1, 0), Vector2D(0, 1)
 
@@ -2713,16 +2765,20 @@ class DetailedWindows(_AsymmetricBase):
                 considered distinct. (Default: 0.01, suitable for objects in meters).
         """
         # gather a clean version of the polygons with colinear vertices removed
-        clean_polys = []
-        for poly in self.polygons:
+        clean_polys, door_polys = [], []
+        for poly, is_dr in zip(self.polygons, self.are_doors):
             try:
-                clean_polys.append(poly.remove_colinear_vertices(tolerance))
+                c_poly = poly.remove_colinear_vertices(tolerance)
+                if is_dr:
+                    door_polys.append(c_poly)
+                else:
+                    clean_polys.append(c_poly)
             except AssertionError:  # degenerate geometry to ignore
                 pass
+
         # join the polygons together
         if max_separation <= tolerance:
-            new_polys = Polygon2D.joined_intersected_boundary(
-                clean_polys, tolerance)
+            new_polys = Polygon2D.joined_intersected_boundary(clean_polys, tolerance)
         else:
             new_polys = Polygon2D.gap_crossing_boundary(
                 clean_polys, max_separation, tolerance)
@@ -2744,6 +2800,9 @@ class DetailedWindows(_AsymmetricBase):
                         is_self_intersect = True
                 if is_self_intersect:
                     new_polys = clean_polys
+
+        # bring everything together and reassign the door property
+        new_polys = new_polys + door_polys
         self._reassign_are_doors(new_polys)
         self._polygons = tuple(new_polys)
 

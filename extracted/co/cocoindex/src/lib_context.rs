@@ -196,7 +196,7 @@ pub struct LibContext {
     pub persistence_ctx: Option<PersistenceContext>,
     pub flows: Mutex<BTreeMap<String, Arc<FlowContext>>>,
 
-    pub default_execution_options: settings::DefaultExecutionOptions,
+    pub global_concurrency_controller: Arc<concur_control::ConcurrencyController>,
 }
 
 impl LibContext {
@@ -212,6 +212,11 @@ impl LibContext {
             })?
             .clone();
         Ok(flow_ctx)
+    }
+
+    pub fn remove_flow_context(&self, flow_name: &str) {
+        let mut flows = self.flows.lock().unwrap();
+        flows.remove(flow_name);
     }
 
     pub fn require_persistence_ctx(&self) -> Result<&PersistenceContext> {
@@ -264,11 +269,16 @@ pub fn create_lib_context(settings: settings::Settings) -> Result<LibContext> {
         db_pools,
         persistence_ctx,
         flows: Mutex::new(BTreeMap::new()),
-        default_execution_options: settings.default_execution_options,
+        global_concurrency_controller: Arc::new(concur_control::ConcurrencyController::new(
+            &concur_control::Options {
+                max_inflight_rows: settings.global_execution_options.source_max_inflight_rows,
+                max_inflight_bytes: settings.global_execution_options.source_max_inflight_bytes,
+            },
+        )),
     })
 }
 
-static LIB_CONTEXT: RwLock<Option<Arc<LibContext>>> = RwLock::new(None);
+pub static LIB_CONTEXT: RwLock<Option<Arc<LibContext>>> = RwLock::new(None);
 
 pub(crate) fn init_lib_context(settings: settings::Settings) -> Result<()> {
     let mut lib_context_locked = LIB_CONTEXT.write().unwrap();

@@ -171,6 +171,34 @@ class ClustersGetResponse(_message.Message):
     termination_reason: TerminationReason
     def __init__(self, cluster_id: _Optional[str] = ..., state_message: _Optional[str] = ..., termination_reason: _Optional[_Union[TerminationReason, _Mapping]] = ..., state: _Optional[_Union[ClusterState, str]] = ...) -> None: ...
 
+class GetInstancePoolRequest(_message.Message):
+    __slots__ = ["instance_pool_id"]
+    INSTANCE_POOL_ID_FIELD_NUMBER: _ClassVar[int]
+    instance_pool_id: str
+    def __init__(self, instance_pool_id: _Optional[str] = ...) -> None: ...
+
+class InstancePool(_message.Message):
+    __slots__ = ["instance_pool_id", "instance_pool_name", "node_type_id", "state"]
+    INSTANCE_POOL_ID_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_POOL_NAME_FIELD_NUMBER: _ClassVar[int]
+    NODE_TYPE_ID_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    instance_pool_id: str
+    instance_pool_name: str
+    node_type_id: str
+    state: str
+    def __init__(self, instance_pool_name: _Optional[str] = ..., node_type_id: _Optional[str] = ..., state: _Optional[str] = ..., instance_pool_id: _Optional[str] = ...) -> None: ...
+
+class InstancePools(_message.Message):
+    __slots__ = ["instance_pools"]
+    INSTANCE_POOLS_FIELD_NUMBER: _ClassVar[int]
+    instance_pools: _containers.RepeatedCompositeFieldContainer[InstancePool]
+    def __init__(self, instance_pools: _Optional[_Iterable[_Union[InstancePool, _Mapping]]] = ...) -> None: ...
+
+class ListInstancePoolsRequest(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
 class TerminationReason(_message.Message):
     __slots__ = ["code", "type"]
     CODE_FIELD_NUMBER: _ClassVar[int]

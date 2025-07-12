@@ -1,10 +1,9 @@
 import functools
 import os
-import re
+import shutil
 import sys
 from datetime import datetime
 from datetime import timezone
-from difflib import unified_diff
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -12,13 +11,16 @@ from typing import Tuple
 
 import click
 from attr import asdict
-from colorama import Fore
-from colorama import Style
 from google.protobuf import empty_pb2
 from google.protobuf import timestamp_pb2
+from rich import box
+from rich.console import Console
+from rich.prompt import Confirm
+from rich.prompt import Prompt
+from rich.table import Table
+from rich.text import Text
 
 from tecton._internals import metadata_service
-from tecton._internals.display import Displayable
 from tecton.cli import printer
 from tecton_core.errors import FailedPreconditionError
 from tecton_core.errors import TectonAbortedError
@@ -72,21 +74,17 @@ def human_fco_type(fco_type: str, plural=False) -> str:
         return name_map[fco_type][0]
 
 
-def bold(x):
-    return Style.BRIGHT + x + Style.NORMAL
-
-
 def ask_user(message: str, options: List[str], default=None, let_fail=False) -> Optional[str]:
     options_idx = {o.lower(): i for i, o in enumerate(options)}
 
     while True:
         if len(options) > 1:
-            printer.safe_print(message, "[" + "/".join(options) + "]", end="> ")
+            prompt_text = f"{message} [{'/'.join(options)}]"
         else:
-            printer.safe_print(message, end="> ")
+            prompt_text = message
 
         try:
-            user_input = input().strip().lower()
+            user_input = Prompt.ask(prompt_text, default=default).strip().lower()
         except EOFError:
             return None
 
@@ -103,39 +101,23 @@ def ask_user(message: str, options: List[str], default=None, let_fail=False) -> 
                 return None
 
 
-def confirm_or_exit(message, expect=None):
+def confirm_or_exit(message: str, expect=None):
     try:
         if expect:
             if ask_user(message, options=[expect], let_fail=True) is not None:
                 return
             else:
-                printer.safe_print("Aborting")
+                printer.safe_print("[red]Aborting[/red]")
                 sys.exit(1)
         else:
-            if ask_user(message, options=["y", "N"], default="N") == "y":
+            if Confirm.ask(message, default=False):
                 return
             else:
-                printer.safe_print("Aborting")
+                printer.safe_print("[red]Aborting[/red]")
                 sys.exit(1)
     except KeyboardInterrupt:
-        printer.safe_print("Aborting")
+        printer.safe_print("[red]Aborting[/red]")
         sys.exit(1)
-
-
-def color_line(x):
-    if x.startswith("+"):
-        return Fore.GREEN + x + Fore.RESET
-    elif x.startswith("-"):
-        return Fore.RED + x + Fore.RESET
-    return x
-
-
-def color_diff(lines):
-    return map(color_line, lines)
-
-
-def indent_line(lines, indent):
-    return (" " * indent + x for x in lines)
 
 
 # TODO: Reuse this in other places that does the same (engine.py)
@@ -149,50 +131,125 @@ def pprint_attr_obj(key_map, obj, colwidth):
     pprint_dict({key_map[key]: o[key] for key in o}, colwidth)
 
 
-def code_diff(diff_item, indent):
-    return re.split(
-        "\n",
-        "".join(
-            indent_line(
-                color_diff(
-                    unified_diff(
-                        diff_item.val_existing.splitlines(keepends=True),
-                        diff_item.val_declared.splitlines(keepends=True),
-                    )
-                ),
-                indent,
-            )
-        ),
-        3,
-    )[-1]
-
-
 def print_version_msg(message, is_warning=False):
     if isinstance(message, list):
         message = message[-1] if len(message) > 0 else ""
-    color = Fore.YELLOW
+    style = "yellow"
     if is_warning:
         message = "⚠️  " + message
-    printer.safe_print(color + message + Fore.RESET, file=sys.stderr)
+    printer.rich_print(Text(message, style=style))
 
 
 def display_principal(principal, default="", width=0):
     principal_type = principal.WhichOneof("basic_info")
 
     if principal_type == "user":
-        return f"{principal.user.login_email : <{width}}(User Email)"
+        return f"{principal.user.login_email: <{width}}(User Email)"
     if principal_type == "service_account":
         identifier = (
-            f"{principal.service_account.name  : <{width}}(Service Account Name)"
+            f"{principal.service_account.name: <{width}}(Service Account Name)"
             if principal.service_account.name
-            else f"{principal.service_account.id  : <{width}}(" f"Service Account Id)"
+            else f"{principal.service_account.id: <{width}}(Service Account Id)"
         )
         return identifier
     return default
 
 
-def display_table(headings: List[str], display_rows: List[Tuple]):
-    table = Displayable.from_table(headings=headings, rows=display_rows, max_width=0, center_align=True)
+def get_terminal_width():
+    # Get terminal size, return 0 (no wrapping) if can't determine
+    return shutil.get_terminal_size(fallback=(0, 0)).columns
+
+
+def display_table(
+    headings: List[str],
+    display_rows: List[Tuple],
+    center_align=True,
+    title=None,
+    box=box.ROUNDED,
+    show_lines=False,
+    pretty_format=False,
+):
+    """
+    Display a formatted table using Rich with support for multi-line cells and colored text.
+
+    Args:
+        headings (List[str]): Column headers for the table
+        display_rows (List[Tuple]): Rows of data, each tuple should match the number of headings
+        center_align (bool): Whether to center-align content (default: True)
+        title (str): Title of the table (default: None)
+        box (Box): Box style for the table (default: box.ROUNDED)
+        show_lines (bool): Whether to show lines between rows (default: False)
+        pretty_format (bool): Whether to use Rich's automatic formatting for the table (default: False)
+
+    Multi-line Cell Configuration:
+        To create a multi-line cell, pass a dictionary with this structure:
+        {
+            "type": "multi_line",
+            "lines": [
+                {"text": "First line content", "style": ""},
+                {"text": "Second line content", "style": "bold yellow"},
+                {"text": "Third line content", "style": "red"}
+            ]
+        }
+
+    Raises:
+        ValueError: If display_rows contains tuples that don't match the number of headings
+    """
+    # Handle empty data case
+    if not display_rows:
+        printer.safe_print("No data to display", style="dim italic")
+        return
+
+    expected_columns = len(headings)
+    for i, row in enumerate(display_rows):
+        if len(row) != expected_columns:
+            msg = f"Row {i} has {len(row)} columns but expected {expected_columns} columns to match headings"
+            raise ValueError(msg)
+
+    console = Console()
+    table = Table(box=box, show_lines=show_lines)
+
+    if title:
+        table.title = Text(title, style="bold italic")
+
+    for i, heading in enumerate(headings):
+        justify = "center" if center_align else "left"
+
+        # Special handling for ID column (first column) to prevent truncation
+        if i == 0 and heading.upper() == "ID":
+            table.add_column(heading, justify=justify, no_wrap=True, min_width=20)
+        else:
+            table.add_column(heading, justify=justify)
+
+    for row in display_rows:
+        processed_row = []
+        for item in row:
+            if isinstance(item, dict) and item.get("type") == "multi_line":
+                # Handle multi-line cells with different formatting
+                lines = []
+                for line_item in item["lines"]:
+                    if isinstance(line_item, dict):
+                        text = Text(line_item["text"], style=line_item.get("style", ""))
+                    else:
+                        text = Text(str(line_item))
+                    lines.append(text)
+
+                combined_text = Text()
+                for i, line in enumerate(lines):
+                    if i > 0:
+                        combined_text.append("\n")
+                    combined_text.append_text(line)
+                processed_row.append(combined_text)
+            elif isinstance(item, Text):
+                processed_row.append(item)
+            else:
+                if pretty_format:
+                    processed_row.append(console.render_str(str(item)))
+                else:
+                    processed_row.append(str(item))
+
+        table.add_row(*processed_row)
+
     printer.safe_print(table)
 
 
@@ -218,8 +275,8 @@ def py_path_to_module(path: Path, repo_root: Path) -> str:
 def check_version():
     try:
         response = metadata_service.instance().Nop(request=empty_pb2.Empty())
-        client_version_msg_info = response._headers().get(_CLIENT_VERSION_INFO_RESPONSE_HEADER)
-        client_version_msg_warning = response._headers().get(_CLIENT_VERSION_WARNING_RESPONSE_HEADER)
+        client_version_msg_info = response._headers.get(_CLIENT_VERSION_INFO_RESPONSE_HEADER)
+        client_version_msg_warning = response._headers.get(_CLIENT_VERSION_WARNING_RESPONSE_HEADER)
 
         # Currently, only _CLIENT_VERSION_INFO_RESPONSE_HEADER and _CLIENT_VERSION_WARNING_RESPONSE_HEADER
         # metadata is used in the response, whose values have str type.
@@ -274,6 +331,6 @@ def click_exception_wrapper(func):
             TectonAlreadyExistsError,
             PermissionError,
         ) as e:
-            raise click.ClickException(e)
+            raise click.ClickException(str(e))
 
     return wrapper

@@ -17,7 +17,7 @@ JOIN_KEY_BINDING_TYPE_UNSPECIFIED: JoinKeyBindingType
 JOIN_KEY_BINDING_TYPE_WILDCARD: JoinKeyBindingType
 
 class FeatureService(_message.Message):
-    __slots__ = ["enable_online_caching", "fco_metadata", "feature_server_group", "feature_service_id", "feature_set_items", "logging", "online_serving_enabled", "options", "realtime_environment", "transform_server_group", "validation_args"]
+    __slots__ = ["enable_online_caching", "fco_metadata", "feature_server_group", "feature_service_id", "feature_set_items", "logging", "online_serving_enabled", "options", "realtime_environment", "transform_server_group", "transform_server_group_name", "validation_args"]
     class OptionsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -35,6 +35,7 @@ class FeatureService(_message.Message):
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     REALTIME_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     TRANSFORM_SERVER_GROUP_FIELD_NUMBER: _ClassVar[int]
+    TRANSFORM_SERVER_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
     VALIDATION_ARGS_FIELD_NUMBER: _ClassVar[int]
     enable_online_caching: bool
     fco_metadata: _fco_metadata__client_pb2.FcoMetadata
@@ -46,8 +47,9 @@ class FeatureService(_message.Message):
     options: _containers.ScalarMap[str, str]
     realtime_environment: _realtime_compute__client_pb2.OnlineComputeConfig
     transform_server_group: _server_group__client_pb2.ServerGroup
+    transform_server_group_name: str
     validation_args: _validator__client_pb2.FeatureServiceValidationArgs
-    def __init__(self, feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_set_items: _Optional[_Iterable[_Union[FeatureSetItem, _Mapping]]] = ..., fco_metadata: _Optional[_Union[_fco_metadata__client_pb2.FcoMetadata, _Mapping]] = ..., online_serving_enabled: bool = ..., logging: _Optional[_Union[_feature_service__client_pb2.LoggingConfigArgs, _Mapping]] = ..., validation_args: _Optional[_Union[_validator__client_pb2.FeatureServiceValidationArgs, _Mapping]] = ..., realtime_environment: _Optional[_Union[_realtime_compute__client_pb2.OnlineComputeConfig, _Mapping]] = ..., enable_online_caching: bool = ..., transform_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroup, _Mapping]] = ..., feature_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroup, _Mapping]] = ..., options: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, feature_service_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_set_items: _Optional[_Iterable[_Union[FeatureSetItem, _Mapping]]] = ..., fco_metadata: _Optional[_Union[_fco_metadata__client_pb2.FcoMetadata, _Mapping]] = ..., online_serving_enabled: bool = ..., logging: _Optional[_Union[_feature_service__client_pb2.LoggingConfigArgs, _Mapping]] = ..., validation_args: _Optional[_Union[_validator__client_pb2.FeatureServiceValidationArgs, _Mapping]] = ..., realtime_environment: _Optional[_Union[_realtime_compute__client_pb2.OnlineComputeConfig, _Mapping]] = ..., enable_online_caching: bool = ..., transform_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroup, _Mapping]] = ..., feature_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroup, _Mapping]] = ..., transform_server_group_name: _Optional[str] = ..., options: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class FeatureSetItem(_message.Message):
     __slots__ = ["feature_columns", "feature_view_id", "join_configuration_items", "namespace"]

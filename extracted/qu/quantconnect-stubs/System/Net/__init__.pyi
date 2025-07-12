@@ -15,8 +15,8 @@ import System.Runtime.Serialization
 import System.Security
 import System.Security.Authentication.ExtendedProtection
 
-System_Net_IPAddress = typing.Any
 System_Net_IPNetwork = typing.Any
+System_Net_IPAddress = typing.Any
 
 
 class WebUtility(System.Object):
@@ -56,20 +56,6 @@ class WebUtility(System.Object):
 
     @staticmethod
     def url_encode_to_bytes(value: typing.List[int], offset: int, count: int) -> typing.List[int]:
-        ...
-
-
-class EndPoint(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
-        ...
-
-    def serialize(self) -> System.Net.SocketAddress:
         ...
 
 
@@ -267,105 +253,178 @@ class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[Sys
         ...
 
 
-class IPEndPoint(System.Net.EndPoint):
-    """Provides an IP address."""
-
-    MIN_PORT: int = ...
-    """Specifies the minimum acceptable value for the System.Net.IPEndPoint.Port property."""
-
-    MAX_PORT: int = ...
-    """Specifies the maximum acceptable value for the System.Net.IPEndPoint.Port property."""
+class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
+    """Represents an IP network with an IPAddress containing the network prefix and an int defining the prefix length."""
 
     @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
+    def base_address(self) -> System.Net.IPAddress:
+        """Gets the IPAddress that represents the prefix of the network."""
         ...
 
     @property
-    def address(self) -> System.Net.IPAddress:
-        """Gets or sets the IP address."""
+    def prefix_length(self) -> int:
+        """Gets the length of the network prefix in bits."""
         ...
 
-    @address.setter
-    def address(self, value: System.Net.IPAddress) -> None:
+    def __eq__(self, right: System.Net.IPNetwork) -> bool:
+        """
+        Determines whether the specified instances of IPNetwork are equal.
+        
+        :returns: true if the networks are equal; otherwise false.
+        """
         ...
 
-    @property
-    def port(self) -> int:
-        """Gets or sets the port."""
+    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
+        """
+        Initializes a new instance of the IPNetwork class with the specified IPAddress and prefix length.
+        
+        :param base_address: The IPAddress that represents the prefix of the network.
+        :param prefix_length: The length of the prefix in bits.
+        """
         ...
 
-    @port.setter
-    def port(self, value: int) -> None:
+    def __ne__(self, right: System.Net.IPNetwork) -> bool:
+        """
+        Determines whether the specified instances of IPNetwork are not equal.
+        
+        :returns: true if the networks are not equal; otherwise false.
+        """
+        ...
+
+    def contains(self, address: System.Net.IPAddress) -> bool:
+        """
+        Determines whether a given IPAddress is part of the network.
+        
+        :param address: The IPAddress to check.
+        :returns: true if the IPAddress is part of the network; otherwise, false.
+        """
         ...
 
     @overload
-    def __init__(self, address: int, port: int) -> None:
-        """Creates a new instance of the IPEndPoint class with the specified address and port."""
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether two IPNetwork instances are equal.
+        
+        :param obj: The IPNetwork instance to compare to this instance.
+        :returns: true if  is an IPNetwork instance and the networks are equal; otherwise false.
+        """
         ...
 
     @overload
-    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
-        """Creates a new instance of the IPEndPoint class with the specified address and port."""
-        ...
-
-    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
+    def equals(self, other: System.Net.IPNetwork) -> bool:
+        """
+        Determines whether two IPNetwork instances are equal.
+        
+        :param other: The IPNetwork instance to compare to this instance.
+        :returns: true if the networks are equal; otherwise false.
+        """
         ...
 
     def get_hash_code(self) -> int:
+        """
+        Returns the hash code for this instance.
+        
+        :returns: An integer hash value.
+        """
         ...
 
     @staticmethod
     @overload
-    def parse(s: str) -> System.Net.IPEndPoint:
+    def parse(s: str) -> System.Net.IPNetwork:
+        """
+        Converts a CIDR string to an IPNetwork instance.
+        
+        :param s: A string that defines an IP network in CIDR notation.
+        :returns: An IPNetwork instance.
+        """
         ...
 
     @staticmethod
     @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
+        """
+        Converts a CIDR character span to an IPNetwork instance.
+        
+        :param s: A character span that defines an IP network in CIDR notation.
+        :returns: An IPNetwork instance.
+        """
         ...
 
-    def serialize(self) -> System.Net.SocketAddress:
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
+        """
+        Converts a UTF-8 CIDR character span to an IPNetwork instance.
+        
+        :param utf_8_text: A UTF-8 character span that defines an IP network in CIDR notation.
+        :returns: An IPNetwork instance.
+        """
         ...
 
     def to_string(self) -> str:
+        """
+        Converts the instance to a string containing the IPNetwork's CIDR notation.
+        
+        :returns: The string containing the IPNetwork's CIDR notation.
+        """
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Attempts to write the IPNetwork's CIDR notation to the given  span and returns a value indicating whether the operation succeeded.
+        
+        :param destination: The destination span of characters.
+        :param chars_written: When this method returns, contains the number of characters that were written to .
+        :returns: true if the formatting was succesful; otherwise false.
+        """
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Attempts to write the IPNetwork's CIDR notation to the given  UTF-8 span and returns a value indicating whether the operation succeeded.
+        
+        :param utf_8_destination: The destination span of UTF-8 bytes.
+        :param bytes_written: When this method returns, contains the number of bytes that were written to .
+        :returns: true if the formatting was succesful; otherwise false.
+        """
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        """
+        Converts the specified CIDR string to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
+        
+        :param s: A string that defines an IP network in CIDR notation.
+        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
+        :returns: true if the conversion was succesful; otherwise, false.
+        """
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        """
+        Converts the specified CIDR character span to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
+        
+        :param s: A string that defines an IP network in CIDR notation.
+        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
+        :returns: true if the conversion was successful; otherwise, false.
+        """
         ...
 
-
-class AuthenticationSchemes(Enum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    DIGEST = ...
-
-    NEGOTIATE = ...
-
-    NTLM = ...
-
-    BASIC = ...
-
-    ANONYMOUS = ...
-
-    INTEGRATED_WINDOWS_AUTHENTICATION = ...
-
-
-class TransportContext(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        """
+        Converts the specified UTF-8 CIDR character span to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
+        
+        :param utf_8_text: A UTF-8 character span that defines an IP network in CIDR notation.
+        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
+        :returns: true if the conversion was successful; otherwise, false.
+        """
         ...
 
 
@@ -507,6 +566,122 @@ class HttpStatusCode(Enum):
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
 
+class ICredentials(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
+    """This class has no documentation."""
+
+    @property
+    def user_name(self) -> str:
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def password(self) -> str:
+        ...
+
+    @password.setter
+    def password(self, value: str) -> None:
+        ...
+
+    @property
+    def secure_password(self) -> System.Security.SecureString:
+        ...
+
+    @secure_password.setter
+    def secure_password(self, value: System.Security.SecureString) -> None:
+        ...
+
+    @property
+    def domain(self) -> str:
+        ...
+
+    @domain.setter
+    def domain(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: str, domain: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
+        ...
+
+    @overload
+    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
+        ...
+
+    @overload
+    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class ICredentialsByHost(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
+    """This class has no documentation."""
+
+    DEFAULT_CREDENTIALS: System.Net.ICredentials
+
+    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
+        ...
+
+    @overload
+    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
+        ...
+
+    @overload
+    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    @overload
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        ...
+
+    @overload
+    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
+        ...
+
+    @overload
+    def remove(self, host: str, port: int, authentication_type: str) -> None:
+        ...
+
+
 class DecompressionMethods(Enum):
     """This class has no documentation."""
 
@@ -521,23 +696,25 @@ class DecompressionMethods(Enum):
     ALL = ...
 
 
-class HttpVersion(System.Object):
+class TransportContext(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    UNKNOWN: System.Version = ...
-    """Defines a Version instance that indicates an unknown version of HTTP."""
+    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
+        ...
 
-    VERSION_10: System.Version = ...
-    """Defines a Version instance for HTTP 1.0."""
 
-    VERSION_11: System.Version = ...
-    """Defines a Version instance for HTTP 1.1."""
+class EndPoint(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
-    VERSION_20: System.Version = ...
-    """Defines a Version instance for HTTP 2.0."""
+    @property
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
+        ...
 
-    VERSION_30: System.Version = ...
-    """Defines a Version instance for HTTP 3.0."""
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
+        ...
+
+    def serialize(self) -> System.Net.SocketAddress:
+        ...
 
 
 class Cookie(System.Object):
@@ -739,215 +916,6 @@ class CookieCollection(System.Object, System.Collections.Generic.ICollection[Sys
         ...
 
 
-class ICredentials(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
-    """This class has no documentation."""
-
-    @property
-    def user_name(self) -> str:
-        ...
-
-    @user_name.setter
-    def user_name(self, value: str) -> None:
-        ...
-
-    @property
-    def password(self) -> str:
-        ...
-
-    @password.setter
-    def password(self, value: str) -> None:
-        ...
-
-    @property
-    def secure_password(self) -> System.Security.SecureString:
-        ...
-
-    @secure_password.setter
-    def secure_password(self, value: System.Security.SecureString) -> None:
-        ...
-
-    @property
-    def domain(self) -> str:
-        ...
-
-    @domain.setter
-    def domain(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: str, domain: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString) -> None:
-        ...
-
-    @overload
-    def __init__(self, user_name: str, password: System.Security.SecureString, domain: str) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri: System.Uri, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class ICredentialsByHost(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
-    """This class has no documentation."""
-
-    DEFAULT_CREDENTIALS: System.Net.ICredentials
-
-    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    @overload
-    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
-        ...
-
-    @overload
-    def remove(self, host: str, port: int, authentication_type: str) -> None:
-        ...
-
-
-class IWebProxy(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def credentials(self) -> System.Net.ICredentials:
-        ...
-
-    @credentials.setter
-    def credentials(self, value: System.Net.ICredentials) -> None:
-        ...
-
-    def get_proxy(self, destination: System.Uri) -> System.Uri:
-        ...
-
-    def is_bypassed(self, host: System.Uri) -> bool:
-        ...
-
-
-class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the CookieException class with the specified error message.
-        
-        :param message: A string that describes the error that occurred.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the CookieException class with the specified error message
-        and a reference to the inner exception that is the cause of this exception.
-        
-        :param message: A string that describes the error that occurred.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class DnsEndPoint(System.Net.EndPoint):
-    """This class has no documentation."""
-
-    @property
-    def host(self) -> str:
-        ...
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def port(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
-        ...
-
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
 class CookieContainer(System.Object):
     """This class has no documentation."""
 
@@ -1035,179 +1003,140 @@ class PathList(System.Object):
     """This class has no documentation."""
 
 
-class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
-    """Represents an IP network with an IPAddress containing the network prefix and an int defining the prefix length."""
+class AuthenticationSchemes(Enum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    DIGEST = ...
+
+    NEGOTIATE = ...
+
+    NTLM = ...
+
+    BASIC = ...
+
+    ANONYMOUS = ...
+
+    INTEGRATED_WINDOWS_AUTHENTICATION = ...
+
+
+class IPEndPoint(System.Net.EndPoint):
+    """Provides an IP address."""
+
+    MIN_PORT: int = ...
+    """Specifies the minimum acceptable value for the System.Net.IPEndPoint.Port property."""
+
+    MAX_PORT: int = ...
+    """Specifies the maximum acceptable value for the System.Net.IPEndPoint.Port property."""
 
     @property
-    def base_address(self) -> System.Net.IPAddress:
-        """Gets the IPAddress that represents the prefix of the network."""
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
         ...
 
     @property
-    def prefix_length(self) -> int:
-        """Gets the length of the network prefix in bits."""
+    def address(self) -> System.Net.IPAddress:
+        """Gets or sets the IP address."""
         ...
 
-    def __eq__(self, right: System.Net.IPNetwork) -> bool:
-        """
-        Determines whether the specified instances of IPNetwork are equal.
-        
-        :returns: true if the networks are equal; otherwise false.
-        """
+    @address.setter
+    def address(self, value: System.Net.IPAddress) -> None:
         ...
 
-    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
-        """
-        Initializes a new instance of the IPNetwork class with the specified IPAddress and prefix length.
-        
-        :param base_address: The IPAddress that represents the prefix of the network.
-        :param prefix_length: The length of the prefix in bits.
-        """
+    @property
+    def port(self) -> int:
+        """Gets or sets the port."""
         ...
 
-    def __ne__(self, right: System.Net.IPNetwork) -> bool:
-        """
-        Determines whether the specified instances of IPNetwork are not equal.
-        
-        :returns: true if the networks are not equal; otherwise false.
-        """
-        ...
-
-    def contains(self, address: System.Net.IPAddress) -> bool:
-        """
-        Determines whether a given IPAddress is part of the network.
-        
-        :param address: The IPAddress to check.
-        :returns: true if the IPAddress is part of the network; otherwise, false.
-        """
+    @port.setter
+    def port(self, value: int) -> None:
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether two IPNetwork instances are equal.
-        
-        :param obj: The IPNetwork instance to compare to this instance.
-        :returns: true if  is an IPNetwork instance and the networks are equal; otherwise false.
-        """
+    def __init__(self, address: int, port: int) -> None:
+        """Creates a new instance of the IPEndPoint class with the specified address and port."""
         ...
 
     @overload
-    def equals(self, other: System.Net.IPNetwork) -> bool:
-        """
-        Determines whether two IPNetwork instances are equal.
-        
-        :param other: The IPNetwork instance to compare to this instance.
-        :returns: true if the networks are equal; otherwise false.
-        """
+    def __init__(self, address: System.Net.IPAddress, port: int) -> None:
+        """Creates a new instance of the IPEndPoint class with the specified address and port."""
+        ...
+
+    def create(self, socket_address: System.Net.SocketAddress) -> System.Net.EndPoint:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
-        """
-        Returns the hash code for this instance.
-        
-        :returns: An integer hash value.
-        """
         ...
 
     @staticmethod
     @overload
-    def parse(s: str) -> System.Net.IPNetwork:
-        """
-        Converts a CIDR string to an IPNetwork instance.
-        
-        :param s: A string that defines an IP network in CIDR notation.
-        :returns: An IPNetwork instance.
-        """
+    def parse(s: str) -> System.Net.IPEndPoint:
         ...
 
     @staticmethod
     @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
-        """
-        Converts a CIDR character span to an IPNetwork instance.
-        
-        :param s: A character span that defines an IP network in CIDR notation.
-        :returns: An IPNetwork instance.
-        """
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPEndPoint:
         ...
 
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
-        """
-        Converts a UTF-8 CIDR character span to an IPNetwork instance.
-        
-        :param utf_8_text: A UTF-8 character span that defines an IP network in CIDR notation.
-        :returns: An IPNetwork instance.
-        """
+    def serialize(self) -> System.Net.SocketAddress:
         ...
 
     def to_string(self) -> str:
-        """
-        Converts the instance to a string containing the IPNetwork's CIDR notation.
-        
-        :returns: The string containing the IPNetwork's CIDR notation.
-        """
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Attempts to write the IPNetwork's CIDR notation to the given  span and returns a value indicating whether the operation succeeded.
-        
-        :param destination: The destination span of characters.
-        :param chars_written: When this method returns, contains the number of characters that were written to .
-        :returns: true if the formatting was succesful; otherwise false.
-        """
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        """
-        Attempts to write the IPNetwork's CIDR notation to the given  UTF-8 span and returns a value indicating whether the operation succeeded.
-        
-        :param utf_8_destination: The destination span of UTF-8 bytes.
-        :param bytes_written: When this method returns, contains the number of bytes that were written to .
-        :returns: true if the formatting was succesful; otherwise false.
-        """
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
-        """
-        Converts the specified CIDR string to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
-        
-        :param s: A string that defines an IP network in CIDR notation.
-        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
-        :returns: true if the conversion was succesful; otherwise, false.
-        """
+    def try_parse(s: str, result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
         ...
 
     @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+        ...
+
+
+class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
         """
-        Converts the specified CIDR character span to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
+        Initializes a new instance of the CookieException class with the specified error message.
         
-        :param s: A string that defines an IP network in CIDR notation.
-        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
-        :returns: true if the conversion was successful; otherwise, false.
+        :param message: A string that describes the error that occurred.
         """
         ...
 
-    @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         """
-        Converts the specified UTF-8 CIDR character span to an IPNetwork instance and returns a value indicating whether the conversion succeeded.
+        Initializes a new instance of the CookieException class with the specified error message
+        and a reference to the inner exception that is the cause of this exception.
         
-        :param utf_8_text: A UTF-8 character span that defines an IP network in CIDR notation.
-        :param result: When the method returns, contains an IPNetwork instance if the conversion succeeds.
-        :returns: true if the conversion was successful; otherwise, false.
+        :param message: A string that describes the error that occurred.
+        :param inner_exception: The exception that is the cause of the current exception.
         """
         ...
+
+    @overload
+    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class CookieVariant(Enum):
@@ -1222,5 +1151,76 @@ class CookieVariant(Enum):
     RFC_2965 = 3
 
     DEFAULT = ...
+
+
+class IWebProxy(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def credentials(self) -> System.Net.ICredentials:
+        ...
+
+    @credentials.setter
+    def credentials(self, value: System.Net.ICredentials) -> None:
+        ...
+
+    def get_proxy(self, destination: System.Uri) -> System.Uri:
+        ...
+
+    def is_bypassed(self, host: System.Uri) -> bool:
+        ...
+
+
+class DnsEndPoint(System.Net.EndPoint):
+    """This class has no documentation."""
+
+    @property
+    def host(self) -> str:
+        ...
+
+    @property
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
+        ...
+
+    @property
+    def port(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, host: str, port: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, host: str, port: int, address_family: System.Net.Sockets.AddressFamily) -> None:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class HttpVersion(System.Object):
+    """This class has no documentation."""
+
+    UNKNOWN: System.Version = ...
+    """Defines a Version instance that indicates an unknown version of HTTP."""
+
+    VERSION_10: System.Version = ...
+    """Defines a Version instance for HTTP 1.0."""
+
+    VERSION_11: System.Version = ...
+    """Defines a Version instance for HTTP 1.1."""
+
+    VERSION_20: System.Version = ...
+    """Defines a Version instance for HTTP 2.0."""
+
+    VERSION_30: System.Version = ...
+    """Defines a Version instance for HTTP 3.0."""
 
 

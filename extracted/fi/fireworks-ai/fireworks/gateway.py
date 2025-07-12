@@ -581,9 +581,12 @@ class Gateway:
     def create_deployment_sync(
         self,
         deployment: SyncDeployment,
+        deployment_id: Optional[str] = None,
     ):
         account_id = self.account_id()
-        request = SyncCreateDeploymentRequest(parent=f"accounts/{account_id}", deployment=deployment)
+        request = SyncCreateDeploymentRequest(
+            parent=f"accounts/{account_id}", deployment=deployment, deployment_id=deployment_id
+        )
         created_deployment = self._sync_stub.CreateDeployment(request, metadata=[("x-api-key", self._api_key)])
         return created_deployment
 
@@ -593,10 +596,12 @@ class Gateway:
     def scale_deployment_sync(self, name: str, replicas: int):
         self._sync_stub.ScaleDeployment(SyncScaleDeploymentRequest(name=name, replica_count=replicas))
 
-    def delete_deployment_sync(self, name: str, ignore_checks: bool = False):
+    def delete_deployment_sync(self, name: str, ignore_checks: bool = False, hard: bool = False):
         if not name.startswith("accounts/"):
             name = f"accounts/{self.account_id()}/deployments/{name}"
-        self._sync_stub.DeleteDeployment(SyncDeleteDeploymentRequest(name=name, ignore_checks=ignore_checks))
+        self._sync_stub.DeleteDeployment(
+            SyncDeleteDeploymentRequest(name=name, ignore_checks=ignore_checks, hard=hard)
+        )
 
     def preview_evaluator_sync(self, request: SyncPreviewEvaluatorRequest) -> SyncPreviewEvaluatorResponse:
         account_id = self.account_id()
@@ -663,8 +668,13 @@ class Gateway:
     async def get_deployment(self, name: str) -> Deployment:
         return await self._stub.get_deployment(GetDeploymentRequest(name=name))
 
-    def get_deployment_sync(self, name: str) -> SyncDeployment:
-        return self._sync_stub.GetDeployment(SyncGetDeploymentRequest(name=name))
+    def get_deployment_sync(self, name: str) -> Optional[SyncDeployment]:
+        try:
+            return self._sync_stub.GetDeployment(SyncGetDeploymentRequest(name=name))
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
 
     def get_model_sync(self, name: str) -> SyncModel:
         return self._sync_stub.GetModel(SyncGetModelRequest(name=name))

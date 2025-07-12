@@ -6,11 +6,15 @@ import ray
 from google.protobuf import timestamp_pb2
 
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
+from tecton_core.offline_store import PartitionType
+from tecton_core.offline_store import partition_type_for_delta
 from tecton_core.secret_management import SecretResolver
 from tecton_materialization.common.task_params import feature_definition_from_task_params
 from tecton_materialization.mds_secrets import MDSSecretResolver
 from tecton_materialization.ray.delta import DeltaWriter
 from tecton_materialization.ray.delta import OfflineStoreParams
+from tecton_materialization.ray.iceberg import IcebergWriter
+from tecton_materialization.ray.offline_store_writer import OfflineStoreWriter
 from tecton_proto.data.feature_view__client_pb2 import FeatureView
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
 from tecton_proto.materialization.params__client_pb2 import SecretServiceParams
@@ -110,26 +114,41 @@ def update_status_table(
     run_online_store_copier(status_request)
 
 
-def get_delta_writer_for_fd(
+def get_writer_for_fd(
     params: MaterializationTaskParams,
-) -> DeltaWriter:
+) -> OfflineStoreWriter:
     role = params.dynamodb_cross_account_role if params.HasField("dynamodb_cross_account_role") else None
     kms_key_arn = params.kms_key_arn if params.HasField("kms_key_arn") else None
     fd = feature_definition_from_task_params(params)
-
-    return DeltaWriter(
-        store_params=OfflineStoreParams.for_feature_definition(fd),
-        table_uri=params.offline_store_path,
-        join_keys=fd.join_keys,
-        dynamodb_log_table_name=params.delta_log_table,
-        dynamodb_log_table_region=params.dynamodb_table_region,
-        dynamodb_cross_account_role=role,
-        kms_key_arn=kms_key_arn,
-    )
+    if fd.has_delta_offline_store:
+        return DeltaWriter(
+            store_params=OfflineStoreParams.for_feature_definition(fd),
+            table_uri=params.offline_store_path,
+            join_keys=fd.join_keys,
+            dynamodb_log_table_name=params.delta_log_table,
+            dynamodb_log_table_region=params.dynamodb_table_region,
+            dynamodb_cross_account_role=role,
+            kms_key_arn=kms_key_arn,
+            partition_type=partition_type_for_delta(fd.offline_store_params),
+        )
+    elif fd.has_iceberg_offline_store:
+        return IcebergWriter(
+            store_params=OfflineStoreParams.for_feature_definition(fd),
+            table_uri=params.offline_store_path,
+            join_keys=fd.join_keys,
+        )
+    else:
+        offline_store_type = fd.offline_store_config.WhichOneof("store_type")
+        msg = f"{offline_store_type} is not supported."
+        raise ValueError(msg)
 
 
 def get_delta_writer(
-    params: MaterializationTaskParams, store_params: OfflineStoreParams, table_uri: str, join_keys: List[str]
+    params: MaterializationTaskParams,
+    store_params: OfflineStoreParams,
+    table_uri: str,
+    join_keys: List[str],
+    partition_type: PartitionType,
 ) -> DeltaWriter:
     role = params.dynamodb_cross_account_role if params.HasField("dynamodb_cross_account_role") else None
     kms_key_arn = params.kms_key_arn if params.HasField("kms_key_arn") else None
@@ -142,6 +161,7 @@ def get_delta_writer(
         dynamodb_log_table_region=params.dynamodb_table_region,
         dynamodb_cross_account_role=role,
         kms_key_arn=kms_key_arn,
+        partition_type=partition_type,
     )
 
 

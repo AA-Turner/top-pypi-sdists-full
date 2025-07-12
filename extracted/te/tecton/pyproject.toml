@@ -22,6 +22,8 @@ classifiers = [
 dependencies = [
     "attrs>=21.3.0",
     "boto3",
+    # serialization.load_pem_private_key throws an error with cryptography < 45.0
+    "cryptography>=45.0",
     'deltalake==0.18.2; python_version > "3.7"',
     "jinja2~=3.0",
     "numpy~=1.16",
@@ -44,13 +46,15 @@ dependencies = [
     "typeguard~=2.0",
     "sqlparse",
     "semantic_version",
-    "pyarrow<16,>=8",
+    "pyarrow>=8",
     "pydantic<3,>=1.10.13",
     "pyyaml",
     "setuptools",
     "pip",
     "pex~=2.1",
     'uv~=0.4.1; python_version > "3.7"',
+    "rich",
+    "rich-click>=1.0",
 ]
 
 # NOTE: `version` is dynamic but set in the setup.py since we read from
@@ -85,11 +89,19 @@ rift = [
     "duckdb==1.1.2",
     "pyarrow>=11.0.0",
     "pandas>=1.5",
+    "ray~=2.10",
+    "pyiceberg[glue]>=0.7,<0.10",
+    "snowflake-connector-python[pandas]~=3.10",
+    "snowflake-snowpark-python[pandas]~=1.0",
+    # DuckDB extension
+    "tecton-rift-extensions==1.2.0",
 ]
 rift-materialization = [
     "duckdb==1.1.2",
+    # TODO(BAT-15586): PyArrow v16 breaks LIT test_odfv
     "pyarrow~=15.0.0",
     "pandas>=1.5",
+    "pyiceberg[glue]>=0.7,<0.10",
     "snowflake-connector-python[pandas]~=3.10",
     "snowflake-snowpark-python[pandas]~=1.0",
     "google-cloud-bigquery[pandas]~=3.16",
@@ -100,12 +112,23 @@ rift-materialization = [
     # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html#use-a-supported-sdk-version-for-imdsv2
     "boto3>=1.12.6",
     # Extra data source libraries
-    "pyiceberg[glue]~=0.7",
     "psycopg[binary]~=3.2",
+    # DuckDB extension
+    "tecton-rift-extensions==1.2.0",
 ]
-snowflake = ["snowflake-snowpark-python[pandas]~=1.0"]
+snowflake = [
+    # legacy, keeping empty target around for break backwards compatibility
+    # These packages are not needed to connect to snowflake from Spark, and are already included in Rift deps.
+    "snowflake-connector-python[pandas]~=3.10",
+    "snowflake-snowpark-python[pandas]~=1.0",
+]
 athena = ["awswrangler~=3.0"]
-materialization = ["statsd==3.3.0", "urllib3<2.0.0"]
+materialization = [
+    "statsd==3.3.0",
+    "urllib3<2.0.0",
+    'mmh3==3.1.0 ; python_version < "3.8"',      # Pin to older version for Python 3.7 since mmh3 4.0.0+ dropped support for Python 3.7 but doesn't declare it properly
+    'mmh3>=3.1.0,<6.0 ; python_version >= "3.8"',
+]
 ml-extras = ["torch>=2.0.0", "transformers>=4.40.0"]
 
 

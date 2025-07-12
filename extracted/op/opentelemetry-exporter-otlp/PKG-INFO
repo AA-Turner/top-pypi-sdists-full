@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: opentelemetry-exporter-otlp
-Version: 1.34.1
+Version: 1.35.0
 Summary: OpenTelemetry Collector Exporters
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/exporter/opentelemetry-exporter-otlp
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python
 Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
-License: Apache-2.0
+License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: OpenTelemetry
 Classifier: Framework :: OpenTelemetry :: Exporters
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -21,8 +20,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.34.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.34.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.35.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.35.0
 Description-Content-Type: text/x-rst
 
 OpenTelemetry Collector Exporters

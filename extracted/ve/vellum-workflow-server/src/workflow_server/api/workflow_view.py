@@ -243,8 +243,7 @@ def stream_workflow_route() -> Response:
 
             try:
                 if ENABLE_PROCESS_WRAPPER:
-                    item = queue.get(timeout=0.1)
-                    event = item
+                    event = queue.get(timeout=0.1)
                 else:
                     event = next(stream_iterator)
             except Empty:

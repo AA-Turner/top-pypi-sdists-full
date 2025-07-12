@@ -1,5 +1,6 @@
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+from tecton_proto.common import id__client_pb2 as _id__client_pb2
 from tecton_proto.spark_common import clusters__client_pb2 as _clusters__client_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -143,7 +144,7 @@ class TectonManagedInfo(_message.Message):
     def __init__(self, stages: _Optional[_Iterable[_Union[TectonManagedStage, _Mapping]]] = ..., state: _Optional[_Union[TectonManagedStage.State, str]] = ...) -> None: ...
 
 class TectonManagedStage(_message.Message):
-    __slots__ = ["compiled_sql_query", "description", "duration", "error_detail", "error_type", "external_link", "progress", "stage_type", "start_time", "state"]
+    __slots__ = ["compiled_sql_query", "description", "duration", "error_detail", "error_type", "external_link", "pid", "progress", "stage_id", "stage_type", "start_time", "state"]
     class ErrorType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = []
     class StageType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
@@ -165,10 +166,12 @@ class TectonManagedStage(_message.Message):
     OFFLINE_STORE: TectonManagedStage.StageType
     ONLINE_STORE: TectonManagedStage.StageType
     PENDING: TectonManagedStage.State
+    PID_FIELD_NUMBER: _ClassVar[int]
     PROGRESS_FIELD_NUMBER: _ClassVar[int]
     PYTHON: TectonManagedStage.StageType
     RUNNING: TectonManagedStage.State
     SNOWFLAKE: TectonManagedStage.StageType
+    STAGE_ID_FIELD_NUMBER: _ClassVar[int]
     STAGE_TYPE_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
@@ -182,11 +185,13 @@ class TectonManagedStage(_message.Message):
     error_detail: str
     error_type: TectonManagedStage.ErrorType
     external_link: str
+    pid: int
     progress: float
+    stage_id: _id__client_pb2.Id
     stage_type: TectonManagedStage.StageType
     start_time: _timestamp_pb2.Timestamp
     state: TectonManagedStage.State
-    def __init__(self, stage_type: _Optional[_Union[TectonManagedStage.StageType, str]] = ..., state: _Optional[_Union[TectonManagedStage.State, str]] = ..., external_link: _Optional[str] = ..., progress: _Optional[float] = ..., description: _Optional[str] = ..., error_type: _Optional[_Union[TectonManagedStage.ErrorType, str]] = ..., error_detail: _Optional[str] = ..., compiled_sql_query: _Optional[str] = ..., duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, stage_type: _Optional[_Union[TectonManagedStage.StageType, str]] = ..., state: _Optional[_Union[TectonManagedStage.State, str]] = ..., external_link: _Optional[str] = ..., progress: _Optional[float] = ..., description: _Optional[str] = ..., error_type: _Optional[_Union[TectonManagedStage.ErrorType, str]] = ..., error_detail: _Optional[str] = ..., compiled_sql_query: _Optional[str] = ..., duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., stage_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., pid: _Optional[int] = ...) -> None: ...
 
 class OnlineStoreType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []

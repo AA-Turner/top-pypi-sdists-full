@@ -1,4 +1,4 @@
-"""Compatability layer."""
+"""Compatibility layer."""
 
 from __future__ import annotations
 
@@ -34,17 +34,17 @@ __all__ = (
     "aio_spawn",
     "aio_stream_file",
     "aio_wait",
+    "aiofile_installed",
     "create_task",
+    "curio_installed",
     "json_dumps",
     "json_loads",
-    "aiofile_installed",
     "trio_installed",
-    "curio_installed",
 )
 
 try:
     from asyncio import timeout as asyncio_timeout  # type: ignore[attr-defined]
-except ImportError:  # python 39, 310
+except ImportError:  # python 310
     from async_timeout import timeout as asyncio_timeout  # type: ignore[no-redef]
 
 
@@ -103,7 +103,7 @@ async def aio_spawn(fn: Callable[..., Awaitable], *args, **kwargs):
         await task.join()  # type: ignore [union-attr]
 
     else:
-        coro = cast(Coroutine, fn(*args, **kwargs))
+        coro = cast("Coroutine", fn(*args, **kwargs))
         task = create_task(coro)
         yield task
         await task
@@ -138,7 +138,7 @@ async def aio_timeout(timeout: float):  # noqa: ASYNC109
 
 
 async def aio_wait(*aws: Awaitable, strategy: str = ALL_COMPLETED) -> Any:
-    """Run the coros concurently, wait for all completed or cancel others.
+    """Run the coros concurrently, wait for all completed or cancel others.
 
     Only ALL_COMPLETED, FIRST_COMPLETED are supported.
     """
@@ -198,7 +198,7 @@ async def aio_stream_file(
     if trio_installed and current_async_library() == "trio":
         async with await trio_open_file(filepath, "rb") as fp:
             while True:
-                chunk = cast(bytes, await fp.read(chunk_size))
+                chunk = cast("bytes", await fp.read(chunk_size))
                 if not chunk:
                     break
                 yield chunk
@@ -206,14 +206,14 @@ async def aio_stream_file(
     elif curio_installed and current_async_library() == "curio":
         async with curio_open(filepath, "rb") as fp:
             while True:
-                chunk = cast(bytes, await fp.read(chunk_size))
+                chunk = cast("bytes", await fp.read(chunk_size))
                 if not chunk:
                     break
                 yield chunk
 
     else:
         if not aiofile_installed:
-            raise RuntimeError(  # noqa: TRY003
+            raise RuntimeError(
                 "`aiofile` is required to return files with asyncio",
             )
 
@@ -221,7 +221,7 @@ async def aio_stream_file(
             async for chunk in aiofile.Reader(  # type: ignore [assignment]
                 fp, chunk_size=chunk_size
             ):
-                yield cast(bytes, chunk)
+                yield cast("bytes", chunk)
 
 
 async def trio_jockey(coro: Awaitable, channel):
@@ -257,6 +257,3 @@ with suppress(ImportError):
 with suppress(ImportError):
     from orjson import dumps as json_dumps  # type: ignore[assignment,no-redef]
     from orjson import loads as json_loads  # type: ignore[assignment,no-redef]
-
-
-# ruff: noqa: PGH003, F811

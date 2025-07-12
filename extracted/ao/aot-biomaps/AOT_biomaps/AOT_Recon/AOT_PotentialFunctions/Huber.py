@@ -1,15 +1,6 @@
-from AOT_biomaps.Config import config
-
 import numpy as np
 import torch
 from numba import njit
-if config.get_process()  == 'gpu':
-    import torch
-    try:
-        from torch_scatter import scatter
-    except ImportError:
-        raise ImportError("torch_scatter and torch_sparse are required for GPU processing. Please install them using 'pip install torch-scatter torch-sparse' with correct link (follow instructions https://github.com/LucasDuclos/AcoustoOpticTomography/edit/main/README.md).")
-
 
 @njit
 def _Omega_HUBER_PIECEWISE_CPU(theta_flat, index, values, delta):
@@ -71,33 +62,35 @@ def _Omega_HUBER_PIECEWISE_GPU(theta_flat, index, values, delta):
         hess_U (torch.Tensor): Hessian of the penalty function.
         U_value (float): Value of the penalty function.
     """
-    
     j_idx, k_idx = index
     diff = theta_flat[j_idx] - theta_flat[k_idx]
     abs_diff = torch.abs(diff)
 
-    # Huber penalty (potential function) 
-    psi_pair = torch.where(abs_diff > delta,
-                        delta * abs_diff - 0.5 * delta ** 2,
-                        0.5 * diff ** 2)
-    psi_pair = values * psi_pair  
+    # Huber penalty (potential function)
+    psi_pair = torch.where(abs_diff > delta, delta * abs_diff - 0.5 * delta ** 2, 0.5 * diff ** 2)
+    psi_pair = values * psi_pair
 
     # Huber gradient
-    grad_pair = torch.where(abs_diff > delta,
-                            delta * torch.sign(diff),
-                            diff)
+    grad_pair = torch.where(abs_diff > delta, delta * torch.sign(diff), diff)
     grad_pair = values * grad_pair
 
     # Huber Hessian
-    hess_pair = torch.where(abs_diff > delta,
-                            torch.zeros_like(diff),
-                            torch.ones_like(diff))
+    hess_pair = torch.where(abs_diff > delta, torch.zeros_like(diff), torch.ones_like(diff))
     hess_pair = values * hess_pair
 
-    grad_U = scatter(grad_pair, j_idx, dim=0, dim_size=theta_flat.shape[0], reduce='sum')
-    hess_U = scatter(hess_pair, j_idx, dim=0, dim_size=theta_flat.shape[0], reduce='sum')
+    # Initialize gradient and Hessian
+    grad_U = torch.zeros_like(theta_flat)
+    hess_U = torch.zeros_like(theta_flat)
+
+    # Accumulate gradient contributions
+    grad_U.index_add_(0, j_idx, grad_pair)
+    grad_U.index_add_(0, k_idx, -grad_pair)
+
+    # Accumulate Hessian contributions
+    hess_U.index_add_(0, j_idx, hess_pair)
+    hess_U.index_add_(0, k_idx, hess_pair)
 
     # Total penalty energy
-    U_value = 0.5 * psi_pair.sum()  
+    U_value = 0.5 * psi_pair.sum()
 
     return grad_U, hess_U, U_value

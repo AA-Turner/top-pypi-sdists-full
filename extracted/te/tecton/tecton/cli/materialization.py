@@ -1,16 +1,19 @@
 import sys
+from datetime import datetime
 
 import click
 
 from tecton import tecton_context
 from tecton._internals import metadata_service
-from tecton._internals.display import Displayable
-from tecton._internals.utils import format_freshness_table
+from tecton._internals.utils import can_be_stale
 from tecton._internals.utils import format_materialization_attempts
+from tecton._internals.utils import format_seconds_into_highest_unit
 from tecton._internals.utils import get_all_freshness
 from tecton.cli import printer
 from tecton.cli import workspace_utils
+from tecton.cli.cli_utils import display_table
 from tecton.cli.command import TectonCommand
+from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
 from tecton.cli.workspace_utils import WorkspaceType
 from tecton_core.fco_container import FcoContainer
@@ -18,7 +21,7 @@ from tecton_core.id_helper import IdHelper
 from tecton_proto.metadataservice import metadata_service__client_pb2 as metadata_service_pb2
 
 
-@click.group(cls=TectonGroup)
+@click.group(cls=TectonGroup, command_category=TectonCommandCategory.INFRA)
 def materialization():
     """View Feature View materialization information."""
 
@@ -63,11 +66,7 @@ def status(feature_view_name, limit, errors_only, workspace, all_columns):
         errors_only=errors_only,
     )
 
-    # Setting `max_width=0` creates a table with an unlimited width.
-    table = Displayable.from_table(headings=column_names, rows=materialization_status_rows, max_width=0)
-    # Align columns in the middle horizontally
-    table._text_table.set_cols_align(["c" for _ in range(len(column_names))])
-    printer.safe_print(table)
+    display_table(column_names, materialization_status_rows)
 
 
 @materialization.command(cls=TectonCommand)
@@ -88,4 +87,33 @@ def freshness(workspace):
         printer.safe_print("No Feature Views found in this workspace.")
         return
 
-    printer.safe_print(format_freshness_table(freshness_statuses))
+    # Format freshness data for display_table
+    timestamp_format = "%x %H:%M"
+    headers = [
+        "Feature View",
+        "Materialized?",
+        "Stale?",
+        "Freshness",
+        "Expected Freshness",
+        "Created",
+        "Stream?",
+    ]
+
+    freshness_data = [
+        (
+            ff_proto.feature_view_name,
+            str(ff_proto.materialization_enabled),
+            str(ff_proto.is_stale) if can_be_stale(ff_proto) else "-",
+            format_seconds_into_highest_unit(ff_proto.freshness.seconds) if can_be_stale(ff_proto) else "-",
+            format_seconds_into_highest_unit(ff_proto.expected_freshness.seconds) if can_be_stale(ff_proto) else "-",
+            datetime.fromtimestamp(ff_proto.created_at.seconds).strftime(timestamp_format),
+            str(ff_proto.is_stream),
+        )
+        for ff_proto in freshness_statuses
+    ]
+
+    # Sort data by stale status
+    sort_order = {"True": 0, "False": 1, "-": 2}
+    freshness_data = sorted(freshness_data, key=lambda row: sort_order[row[2]])
+
+    display_table(headers, freshness_data)

@@ -1,23 +1,26 @@
 import logging
-import threading
+import warnings
 from typing import Any
 from typing import Callable
 from typing import List
 from typing import Optional
-from typing import Tuple
 from typing import Union
 from urllib.parse import urlparse
 
 import attrs
 import pandas
 import pyarrow
-import snowflake.connector
-import snowflake.snowpark
 import sqlparse
-from snowflake.connector import pandas_tools
-from snowflake.connector.constants import FIELD_TYPES
 
-from tecton_core import compute_mode
+
+try:
+    import snowflake.connector
+    from snowflake.connector import pandas_tools
+    from snowflake.connector.constants import FIELD_TYPES
+except ModuleNotFoundError:
+    msg = "Snowflake dependencies not found. To install required packages for Snowflake integration, run: pip install 'tecton[snowflake]'"
+    raise ModuleNotFoundError(msg)
+
 from tecton_core import conf
 from tecton_core.errors import TectonInternalError
 from tecton_core.errors import TectonValidationError
@@ -34,6 +37,7 @@ from tecton_core.schema_validation import cast
 from tecton_core.schema_validation import tecton_schema_to_arrow_schema
 from tecton_core.secret_management import SecretResolver
 from tecton_core.snowflake_context import SnowflakeContext
+from tecton_core.snowflake_context import decrypt_private_key
 from tecton_core.specs import SnowflakeSourceSpec
 from tecton_core.time_utils import convert_pandas_df_for_snowflake_upload
 
@@ -68,32 +72,86 @@ def _get_single_field(sources: List[SnowflakeSourceSpec], field_name: str) -> st
     return values.pop()
 
 
-def _get_user_and_password(
+@attrs.define
+class SnowflakeAuthConfig:
+    user: Optional[str] = None
+    private_key: Optional[str] = None
+    private_key_passphrase: Optional[str] = None
+    password: Optional[str] = None
+
+    def __attrs_post_init__(self):
+        if not self.user:
+            msg = "Snowflake user not configured. Instructions at https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-spark/connecting-to-snowflake-using-spark"
+            raise TectonValidationError(msg, can_drop_traceback=True)
+
+        if self.private_key and self.password:
+            msg = (
+                "Both private_key and password provided, only one authentication method can be used. "
+                + "Private key is recommended as password-based authentication is deprecated."
+            )
+            raise TectonValidationError(msg)
+
+        if not self.private_key and not self.password:
+            msg = (
+                "An authentication method must be provided for Snowflake source configuration. "
+                + "See https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-rift/connect-to-snowflake"
+            )
+            raise TectonValidationError(msg, can_drop_traceback=True)
+
+        if self.password and not self.private_key:
+            warnings.warn(
+                "Password-based authentication is deprecated. Please migrate to private key authentication. "
+                + "https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-rift/connect-to-snowflake"
+            )
+
+
+def _get_snowflake_auth_config(
     sources: List[SnowflakeSourceSpec], secret_resolver: Optional[SecretResolver]
-) -> Tuple[Optional[str], Optional[str]]:
+) -> SnowflakeAuthConfig:
+    user = None
+    private_key = None
+    private_key_passphrase = None
+    password = None
+
     for source in sources:
-        if source.user and source.password:
+        if source.user:
             if secret_resolver is None:
                 msg = "Missing a secret resolver."
                 raise TectonInternalError(msg)
             user = secret_resolver.resolve(source.user)
-            password = secret_resolver.resolve(source.password)
-            return user, password
-    return conf.get_or_none("SNOWFLAKE_USER"), conf.get_or_none("SNOWFLAKE_PASSWORD")
+            if source.private_key:
+                private_key = secret_resolver.resolve(source.private_key)
+            if source.private_key_passphrase:
+                private_key_passphrase = secret_resolver.resolve(source.private_key_passphrase)
+            if source.password:
+                password = secret_resolver.resolve(source.password)
+            break
+
+    if user is None:
+        user = conf.get_or_none("SNOWFLAKE_USER")
+    # Only try to get auth method from environment if neither was provided in source config
+    if private_key is None and password is None:
+        private_key = conf.get_or_none("SNOWFLAKE_PRIVATE_KEY")
+        if private_key is None:
+            password = conf.get_or_none("SNOWFLAKE_PASSWORD")
+    if private_key_passphrase is None:
+        private_key_passphrase = conf.get_or_none("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+
+    return SnowflakeAuthConfig(
+        user=user, password=password, private_key=private_key, private_key_passphrase=private_key_passphrase
+    )
 
 
 def create_snowflake_connection(
     root: NodeRef, secret_resolver: Optional[SecretResolver]
 ) -> snowflake.connector.SnowflakeConnection:
-    """Initializes a connection based on the warehouse/url specified in the batch sources in the tree, and the
-    user/password from tecton.conf.
-    """
     snowflake_sources: List[SnowflakeSourceSpec] = get_batch_data_sources(root, SnowflakeSourceSpec)
 
     # TODO: Only one Snowflake connection is currently supported, but eventually we should support multiple.
-    user, password = _get_user_and_password(snowflake_sources, secret_resolver)
-    if not user or not password:
-        msg = "Snowflake user and password not configured. Instructions at https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-spark/connecting-to-snowflake-using-spark"
+    auth_config = _get_snowflake_auth_config(snowflake_sources, secret_resolver)
+
+    if not auth_config.user:
+        msg = "Snowflake user not configured. Instructions at https://docs.tecton.ai/docs/setting-up-tecton/connecting-data-sources/connect-data-sources-to-spark/connecting-to-snowflake-using-spark"
         raise TectonValidationError(msg, can_drop_traceback=True)
 
     url = _get_single_field(snowflake_sources, "url")
@@ -113,20 +171,27 @@ def create_snowflake_connection(
     # Needed for register temp tables
     schema = _get_single_field(snowflake_sources, "schema")
 
-    return snowflake.connector.connect(
-        user=user,
-        password=password,
-        account=account,
-        warehouse=warehouse,
-        schema=schema,
-        database=database,
-    )
+    # Build connection parameters based on authentication method
+    connection_params = {
+        "user": auth_config.user,
+        "account": account,
+        "warehouse": warehouse,
+        "schema": schema,
+        "database": database,
+    }
+
+    if auth_config.private_key:
+        decrypted_private_key = decrypt_private_key(auth_config.private_key, auth_config.private_key_passphrase)
+        connection_params["private_key"] = decrypted_private_key
+    elif auth_config.password:
+        connection_params["password"] = auth_config.password
+
+    return snowflake.connector.connect(**connection_params)
 
 
 @attrs.define
 class SnowflakeCompute(SQLCompute):
     connection: snowflake.connector.SnowflakeConnection
-    lock: threading.RLock = threading.RLock()
     is_debug: bool = attrs.field(init=False)
 
     def __attrs_post_init__(self):
@@ -205,7 +270,8 @@ class SnowflakeCompute(SQLCompute):
                 for batch in table.to_batches(1_000_000):
                     yield batch
 
-        return pyarrow.RecordBatchReader.from_batches(output_schema, batch_iterator())
+        res = pyarrow.RecordBatchReader.from_batches(output_schema, batch_iterator())
+        return monitor.monitored_arrow_reader(res) if monitor else res
 
     @staticmethod
     def _post_process(table: pyarrow.Table) -> pyarrow.Table:
@@ -256,7 +322,7 @@ class SnowflakeCompute(SQLCompute):
             table_name=table_name,
             auto_create_table=True,
             table_type="temporary",
-            quote_identifiers=compute_mode.offline_retrieval_compute_mode(None) != compute_mode.ComputeMode.SNOWFLAKE,
+            quote_identifiers=True,  # TODO: Remove as part of Snowflake removal
             overwrite=False,
             use_logical_type=True,
         )

@@ -82,8 +82,8 @@ def parse_args() -> Args:
     parser.add_argument(
         "--ram-disk-size",
         type=str,
-        default="0",
-        help="Set the size of the ramdisk for the docker container. Use suffixes like '25mb' or '1gb'.",
+        default="1gb",
+        help="Size of the RAM disk for compilation (e.g., '1gb', '512mb')",
     )
     parser.add_argument(
         "--web",
@@ -113,12 +113,17 @@ def parse_args() -> Args:
     parser.add_argument(
         "--no-auto-updates",
         action="store_true",
-        help="Disable automatic updates of the wasm compiler image when using docker.",
+        help="Disable automatic updates of the wasm compiler image when using docker. (Default: False)",
     )
     parser.add_argument(
         "--no-platformio",
         action="store_true",
         help="Bypass PlatformIO constraints by using local Docker compilation with custom build environment",
+    )
+    parser.add_argument(
+        "--no-playwright",
+        action="store_true",
+        help="Disable Playwright browser and use default system browser instead",
     )
     parser.add_argument(
         "-u",

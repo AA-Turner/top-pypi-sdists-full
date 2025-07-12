@@ -121,9 +121,9 @@ class PipelineNodeWrapper:
     def add_transformation_input(
         self, input: "PipelineNodeWrapper", arg_index: Optional[int] = None, arg_name: Optional[str] = None
     ):
-        assert self.node_proto.HasField(
-            "transformation_node"
-        ), "add_transformation_input should only be used with Transformation Nodes."
+        assert self.node_proto.HasField("transformation_node"), (
+            "add_transformation_input should only be used with Transformation Nodes."
+        )
         assert (arg_index is None) != (arg_name is None), "Exactly one of arg_index or arg_name should be set."
         input_proto = pipeline_pb2.Input(
             arg_index=arg_index,
@@ -174,7 +174,7 @@ class Transformation(base_tecton_object.BaseTectonObject):
         :param owner: Owner name (typically the email of the primary maintainer).
         :param prevent_destroy: If True, this Tecton object will be blocked from being deleted or re-created (i.e. a
             destructive update) during tecton plan/apply.
-        :param mode: The transformation mode. Valid values are "spark_sql", "pyspark", "snowflake_sql", "snowpark",
+        :param mode: The transformation mode. Valid values are "spark_sql", "pyspark", "snowflake_sql",
             "python", or "pandas".
         :param user_function: The user function for this transformation.
         :param options: Additional options to configure the Transformation. Used for advanced use cases and beta features.
@@ -220,7 +220,7 @@ class Transformation(base_tecton_object.BaseTectonObject):
         class TransformationFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = TransformationFromSpec.__new__(TransformationFromSpec)
+        obj = TransformationFromSpec.__new__(TransformationFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(info=info, spec=spec, args=None, source_info=None)
         return obj
 
@@ -388,7 +388,7 @@ def transformation(
 ):
     """Declares a Transformation that wraps a user function. Transformations are assembled in a pipeline function of a Feature View.
 
-    :param mode: The mode for this transformation must be one of "spark_sql", "pyspark", "snowflake_sql", "snowpark", "pandas" or "python".
+    :param mode: The mode for this transformation must be one of "spark_sql", "pyspark", "snowflake_sql", "pandas" or "python".
     :param name: Unique, human friendly name that identifies the Transformation. Defaults to the function name.
     :param description: A human readable description.
     :param owner: Owner name (typically the email of the primary maintainer).

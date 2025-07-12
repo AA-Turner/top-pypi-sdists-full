@@ -96,7 +96,8 @@ class BigqueryCompute(SQLCompute):
             for batch in query_row_iterator.to_arrow_iterable(bqstorage_client=storage_client):
                 yield cast_batch(batch, output_schema)
 
-        return pyarrow.RecordBatchReader.from_batches(output_schema, batch_iterator())
+        res = pyarrow.RecordBatchReader.from_batches(output_schema, batch_iterator())
+        return monitor.monitored_arrow_reader(res) if monitor else res
 
     def register_temp_table(
         self, table_name: str, table_or_reader: Union[pyarrow.Table, pyarrow.RecordBatchReader]

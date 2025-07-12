@@ -10,6 +10,16 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
+class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
+    """This class has no documentation."""
+
+    def __init__(self, size_in_megabytes: int) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+
 class GCLargeObjectHeapCompactionMode(Enum):
     """This class has no documentation."""
 
@@ -40,6 +50,18 @@ class GCSettings(System.Object):
     large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
 
     IS_SERVER_GC: bool
+
+
+class ProfileOptimization(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def set_profile_root(directory_path: str) -> None:
+        ...
+
+    @staticmethod
+    def start_profile(profile: str) -> None:
+        ...
 
 
 class JitInfo(System.Object):
@@ -79,15 +101,19 @@ class JitInfo(System.Object):
         ...
 
 
-class ProfileOptimization(System.Object):
+class AmbiguousImplementationException(System.Exception):
     """This class has no documentation."""
 
-    @staticmethod
-    def set_profile_root(directory_path: str) -> None:
+    @overload
+    def __init__(self) -> None:
         ...
 
-    @staticmethod
-    def start_profile(profile: str) -> None:
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 
@@ -110,32 +136,6 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
     def __init__(self, reason: str) -> None:
-        ...
-
-
-class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
-    """This class has no documentation."""
-
-    def __init__(self, size_in_megabytes: int) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 

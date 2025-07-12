@@ -3,7 +3,6 @@ from google.protobuf import descriptor as _descriptor
 from typing import ClassVar as _ClassVar
 
 BATCH_COMPUTE_MODE_RIFT: BatchComputeMode
-BATCH_COMPUTE_MODE_SNOWFLAKE: BatchComputeMode
 BATCH_COMPUTE_MODE_SPARK: BatchComputeMode
 BATCH_COMPUTE_MODE_UNSPECIFIED: BatchComputeMode
 DESCRIPTOR: _descriptor.FileDescriptor

@@ -12,140 +12,6 @@ import System.Security
 import System.Security.Permissions
 
 
-class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecurityElement(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def tag(self) -> str:
-        ...
-
-    @tag.setter
-    def tag(self, value: str) -> None:
-        ...
-
-    @property
-    def attributes(self) -> System.Collections.Hashtable:
-        ...
-
-    @attributes.setter
-    def attributes(self, value: System.Collections.Hashtable) -> None:
-        ...
-
-    @property
-    def text(self) -> str:
-        ...
-
-    @text.setter
-    def text(self, value: str) -> None:
-        ...
-
-    @property
-    def children(self) -> System.Collections.ArrayList:
-        ...
-
-    @children.setter
-    def children(self, value: System.Collections.ArrayList) -> None:
-        ...
-
-    @overload
-    def __init__(self, tag: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, tag: str, text: str) -> None:
-        ...
-
-    def add_attribute(self, name: str, value: str) -> None:
-        ...
-
-    def add_child(self, child: System.Security.SecurityElement) -> None:
-        ...
-
-    def attribute(self, name: str) -> str:
-        ...
-
-    def copy(self) -> System.Security.SecurityElement:
-        ...
-
-    def equal(self, other: System.Security.SecurityElement) -> bool:
-        ...
-
-    @staticmethod
-    def escape(str: str) -> str:
-        ...
-
-    @staticmethod
-    def from_string(xml: str) -> System.Security.SecurityElement:
-        ...
-
-    @staticmethod
-    def is_valid_attribute_name(name: str) -> bool:
-        ...
-
-    @staticmethod
-    def is_valid_attribute_value(value: str) -> bool:
-        ...
-
-    @staticmethod
-    def is_valid_tag(tag: str) -> bool:
-        ...
-
-    @staticmethod
-    def is_valid_text(text: str) -> bool:
-        ...
-
-    def search_for_child_by_tag(self, tag: str) -> System.Security.SecurityElement:
-        ...
-
-    def search_for_text_of_tag(self, tag: str) -> str:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class ISecurityEncodable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def from_xml(self, e: System.Security.SecurityElement) -> None:
-        ...
-
-    def to_xml(self) -> System.Security.SecurityElement:
-        ...
-
-
-class VerificationException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
 class SecurityException(System.SystemException):
     """This class has no documentation."""
 
@@ -266,6 +132,158 @@ class SecurityException(System.SystemException):
         ...
 
 
+class UnverifiableCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class SecurityElement(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def tag(self) -> str:
+        ...
+
+    @tag.setter
+    def tag(self, value: str) -> None:
+        ...
+
+    @property
+    def attributes(self) -> System.Collections.Hashtable:
+        ...
+
+    @attributes.setter
+    def attributes(self, value: System.Collections.Hashtable) -> None:
+        ...
+
+    @property
+    def text(self) -> str:
+        ...
+
+    @text.setter
+    def text(self, value: str) -> None:
+        ...
+
+    @property
+    def children(self) -> System.Collections.ArrayList:
+        ...
+
+    @children.setter
+    def children(self, value: System.Collections.ArrayList) -> None:
+        ...
+
+    @overload
+    def __init__(self, tag: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, tag: str, text: str) -> None:
+        ...
+
+    def add_attribute(self, name: str, value: str) -> None:
+        ...
+
+    def add_child(self, child: System.Security.SecurityElement) -> None:
+        ...
+
+    def attribute(self, name: str) -> str:
+        ...
+
+    def copy(self) -> System.Security.SecurityElement:
+        ...
+
+    def equal(self, other: System.Security.SecurityElement) -> bool:
+        ...
+
+    @staticmethod
+    def escape(str: str) -> str:
+        ...
+
+    @staticmethod
+    def from_string(xml: str) -> System.Security.SecurityElement:
+        ...
+
+    @staticmethod
+    def is_valid_attribute_name(name: str) -> bool:
+        ...
+
+    @staticmethod
+    def is_valid_attribute_value(value: str) -> bool:
+        ...
+
+    @staticmethod
+    def is_valid_tag(tag: str) -> bool:
+        ...
+
+    @staticmethod
+    def is_valid_text(text: str) -> bool:
+        ...
+
+    def search_for_child_by_tag(self, tag: str) -> System.Security.SecurityElement:
+        ...
+
+    def search_for_text_of_tag(self, tag: str) -> str:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class ISecurityEncodable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def from_xml(self, e: System.Security.SecurityElement) -> None:
+        ...
+
+    def to_xml(self) -> System.Security.SecurityElement:
+        ...
+
+
+class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
+    """Obsoletions.CodeAccessSecurityMessage"""
+
+    def copy(self) -> System.Security.IPermission:
+        ...
+
+    def demand(self) -> None:
+        ...
+
+    def intersect(self, target: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def is_subset_of(self, target: System.Security.IPermission) -> bool:
+        ...
+
+    def union(self, target: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+
+class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class SecurityRuleSet(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    LEVEL_1 = 1
+
+    LEVEL_2 = 2
+
+
+class SecurityTreatAsSafeAttribute(System.Attribute):
+    """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class SecureString(System.Object, System.IDisposable):
     """This class has no documentation."""
 
@@ -309,21 +327,26 @@ class SecureString(System.Object, System.IDisposable):
         ...
 
 
-class SecuritySafeCriticalAttribute(System.Attribute):
+class SecurityTransparentAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class SecurityRuleSet(Enum):
+class SecurityCriticalScope(Enum):
+    """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
+
+    EXPLICIT = 0
+
+    EVERYTHING = ...
+
+
+class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
-    NONE = 0
-
-    LEVEL_1 = 1
-
-    LEVEL_2 = 2
+    def __init__(self) -> None:
+        ...
 
 
 class SecurityRulesAttribute(System.Attribute):
@@ -342,22 +365,6 @@ class SecurityRulesAttribute(System.Attribute):
         ...
 
     def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
-        ...
-
-
-class IStackWalk(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def Assert(self) -> None:
-        ...
-
-    def demand(self) -> None:
-        ...
-
-    def deny(self) -> None:
-        ...
-
-    def permit_only(self) -> None:
         ...
 
 
@@ -384,61 +391,19 @@ class AllowPartiallyTrustedCallersAttribute(System.Attribute):
         ...
 
 
-class SecurityCriticalScope(Enum):
-    """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
-
-    EXPLICIT = 0
-
-    EVERYTHING = ...
-
-
-class SecurityCriticalAttribute(System.Attribute):
+class IStackWalk(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def scope(self) -> System.Security.SecurityCriticalScope:
-        """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
-        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
-        ...
-
-
-class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    def copy(self) -> System.Security.IPermission:
+    def Assert(self) -> None:
         ...
 
     def demand(self) -> None:
         ...
 
-    def intersect(self, target: System.Security.IPermission) -> System.Security.IPermission:
+    def deny(self) -> None:
         ...
 
-    def is_subset_of(self, target: System.Security.IPermission) -> bool:
-        ...
-
-    def union(self, target: System.Security.IPermission) -> System.Security.IPermission:
-        ...
-
-
-class SecurityTransparentAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecurityTreatAsSafeAttribute(System.Attribute):
-    """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
-
-    def __init__(self) -> None:
+    def permit_only(self) -> None:
         ...
 
 
@@ -566,10 +531,45 @@ class PermissionSet(System.Object, System.Collections.ICollection, System.Runtim
         ...
 
 
-class UnverifiableCodeAttribute(System.Attribute):
+class SecurityCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
+    @property
+    def scope(self) -> System.Security.SecurityCriticalScope:
+        """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
+        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
+
+    @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
+        ...
+
+
+class VerificationException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
         ...
 
 

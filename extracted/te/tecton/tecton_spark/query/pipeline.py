@@ -11,11 +11,11 @@ from pyspark.sql.column import Column
 
 import tecton_core.tecton_pendulum as pendulum
 from tecton_core import query_consts
-from tecton_core.compute_mode import ComputeMode
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
 from tecton_core.mock_context import MockContext
 from tecton_core.query.compaction_utils import AggregationGroup
 from tecton_core.query.executor_params import QueryTreeStep
+from tecton_core.query.nodes import Repartition
 from tecton_core.query_consts import udf_internal
 from tecton_core.schema import Schema
 from tecton_spark import data_observability
@@ -65,7 +65,7 @@ class MultiOdfvPipelineSparkNode(SparkExecNode):
         # corresponding to this particular rtfv
         udf_args = []
         for input_col in input_df.schema:
-            if udf_internal(ComputeMode.SPARK) not in input_col.name or fdw.id in input_col.name:
+            if udf_internal() not in input_col.name or fdw.id in input_col.name:
                 udf_args.append(input_col.name)
         udf_arg_idx_map = {}
         for arg_idx in range(len(udf_args)):
@@ -212,7 +212,7 @@ class OnlinePartialAggSparkNodeV2(SparkExecNode):
         df = partial_aggregations.construct_online_partial_agg_v2_df(
             self.input_node.to_dataframe(spark),
             [
-                *self.fdw.partial_aggregate_group_by_columns,
+                *self.fdw.base_partial_aggregate_group_by_columns,
                 query_consts.aggregation_tile_id(),
                 query_consts.aggregation_group_id(),
             ],
@@ -233,7 +233,7 @@ class OnlineListAggSparkNode(SparkExecNode):
     def _to_dataframe(self, spark: pyspark.sql.SparkSession) -> pyspark.sql.DataFrame:
         df = partial_aggregations.construct_partial_agg_lists_for_online_df(
             self.input_node.to_dataframe(spark),
-            [*self.fdw.partial_aggregate_group_by_columns, query_consts.aggregation_group_id()],
+            [*self.fdw.base_partial_aggregate_group_by_columns, query_consts.aggregation_group_id()],
             self.aggregation_groups,
         )
         return df
@@ -255,6 +255,7 @@ class StagingSparkNode(SparkExecNode):
     input_node: SparkExecNode
     staging_table_name: str
     checkpoint: bool = False
+    repartition: Optional[Repartition] = None
     query_tree_step: Optional[QueryTreeStep] = None
     stage_description: Optional[str] = None
 

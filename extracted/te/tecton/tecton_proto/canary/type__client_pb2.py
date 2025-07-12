@@ -13,14 +13,14 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&tecton_proto/canary/type__client.proto\x12\x13tecton_proto.canary*T\n\nCanaryType\x12\x1b\n\x17\x43\x41NARY_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10\x43\x41NARY_TYPE_BASE\x10\x01\x12\x13\n\x0f\x43\x41NARY_TYPE_NEW\x10\x02\x42\x15\n\x11\x63om.tecton.canaryP\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&tecton_proto/canary/type__client.proto\x12\x13tecton_proto.canary*T\n\nCanaryType\x12\x1b\n\x17\x43\x41NARY_TYPE_UNSPECIFIED\x10\x00\x12\x14\n\x10\x43\x41NARY_TYPE_BASE\x10\x01\x12\x13\n\x0f\x43\x41NARY_TYPE_NEW\x10\x02\x42?\n\x11\x63om.tecton.canaryP\x01Z(github.com/tecton-ai/tecton_proto/canary')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.canary.type__client_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  DESCRIPTOR._serialized_options = b'\n\021com.tecton.canaryP\001'
+  DESCRIPTOR._serialized_options = b'\n\021com.tecton.canaryP\001Z(github.com/tecton-ai/tecton_proto/canary'
   _CANARYTYPE._serialized_start=63
   _CANARYTYPE._serialized_end=147
 # @@protoc_insertion_point(module_scope)

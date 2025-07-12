@@ -19,6 +19,29 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+from typing import TYPE_CHECKING, Literal, Union, overload
+import warnings
+
+from pyedb.generic.grpc_warnings import GRPC_GENERAL_WARNING
+
+if TYPE_CHECKING:
+    from pyedb.dotnet.edb import Edb as EdbDotnet
+    from pyedb.grpc.edb import Edb as EdbGrpc
+
+
+@overload
+def Edb(*, grpc: Literal[True], **kwargs) -> "EdbGrpc":
+    ...
+
+
+@overload
+def Edb(*, grpc: Literal[False] = False, **kwargs) -> "EdbDotnet":
+    ...
+
+
+@overload
+def Edb(*, grpc: bool, **kwargs) -> Union["EdbGrpc", "EdbDotnet"]:
+    ...
 
 
 # lazy imports
@@ -235,6 +258,12 @@ def Edb(
     """
 
     # Use EDB legacy (default choice)
+    if float(edbversion) >= 2025.2:
+        if not grpc:
+            warnings.warn(GRPC_GENERAL_WARNING, UserWarning)
+    else:
+        if grpc:
+            raise ValueError(f"gRPC flag was enabled however your ANSYS AEDT version {edbversion} is not compatible")
     if grpc:
         from pyedb.grpc.edb import Edb as app
     else:

@@ -3,6 +3,8 @@
 #   pre-commit run --all-files
 # Update this file:
 #   pre-commit autoupdate
+default_language_version:
+  python: python3
 exclude: ^(.*/versioneer\.py|.*/_version\.py|.*/.*\.svg)
 
 ci:
@@ -64,7 +66,7 @@ repos:
         exclude: ^tests
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.33.0
+    rev: 0.33.2
     hooks:
       - id: check-github-workflows
 
@@ -90,7 +92,7 @@ repos:
           - --ignore-init-module-imports
 
   - repo: https://github.com/pycqa/flake8
-    rev: 7.2.0
+    rev: 7.3.0
     hooks:
     -   id: flake8
         additional_dependencies:
@@ -108,14 +110,14 @@ repos:
           - --exit-zero
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
+    rev: v3.20.0
     hooks:
       - id: pyupgrade
-        args: [--py39-plus, --keep-runtime-typing]
+        args: [--py310-plus, --keep-runtime-typing]
 
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
-    rev: v0.11.8
+    rev: v0.12.2
     hooks:
       # Run the linter.
       - id: ruff
@@ -123,28 +125,35 @@ repos:
       # Run the formatter.
       - id: ruff-format
 
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        args: [--select=D200,D213,D400,D415]
+        additional_dependencies: [tomli]
+
   -   repo: https://github.com/dosisod/refurb
-      rev: v2.0.0
+      rev: v2.1.0
       hooks:
       -   id: refurb
+          args: [--ignore, FURB184]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    rev: v1.16.1
     hooks:
     -   id: mypy
-        args:
-          [
-            --config-file=./pyproject.toml,
-          ]
+        args: [--config-file=./pyproject.toml]
+        additional_dependencies:
+          - types-requests
         exclude: ^samples/
 
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.400
+    rev: v1.1.403
     hooks:
     - id: pyright
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
+    rev: 1.8.6
     hooks:
       - id: bandit
         args: ["-c", "pyproject.toml", "-r", "."]

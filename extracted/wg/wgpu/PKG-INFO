@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wgpu
-Version: 0.22.2
+Version: 0.23.0
 Summary: WebGPU for Python
 Project-URL: Homepage, https://github.com/pygfx/wgpu-py
 Project-URL: Documentation, https://wgpu-py.readthedocs.io
@@ -56,6 +56,7 @@ Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: psutil; extra == 'dev'
 Requires-Dist: pypng; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: rendercanvas<=2.1.2; extra == 'dev'
 Requires-Dist: requests; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme; extra == 'dev'
@@ -67,6 +68,7 @@ Requires-Dist: sphinx-rtd-theme; extra == 'docs'
 Requires-Dist: sphinx>7.2; extra == 'docs'
 Provides-Extra: examples
 Requires-Dist: pypng; extra == 'examples'
+Requires-Dist: rendercanvas<=2.1.2; extra == 'examples'
 Provides-Extra: glfw
 Requires-Dist: glfw>=1.9; extra == 'glfw'
 Provides-Extra: imgui

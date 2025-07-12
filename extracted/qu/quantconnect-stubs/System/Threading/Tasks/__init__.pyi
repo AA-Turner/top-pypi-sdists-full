@@ -15,111 +15,12 @@ import System.Threading.Tasks.Sources
 System_Threading_Tasks_Task = typing.Any
 System_Threading_Tasks_ValueTask = typing.Any
 
-System_Threading_Tasks_Task_TResult = typing.TypeVar("System_Threading_Tasks_Task_TResult")
-System_Threading_Tasks_ValueTask_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_TResult")
 System_Threading_Tasks_TaskFactory_TResult = typing.TypeVar("System_Threading_Tasks_TaskFactory_TResult")
 System_Threading_Tasks_TaskCompletionSource_TResult = typing.TypeVar("System_Threading_Tasks_TaskCompletionSource_TResult")
+System_Threading_Tasks_Task_TResult = typing.TypeVar("System_Threading_Tasks_Task_TResult")
+System_Threading_Tasks_ValueTask_TResult = typing.TypeVar("System_Threading_Tasks_ValueTask_TResult")
 System_Threading_Tasks__EventContainer_Callable = typing.TypeVar("System_Threading_Tasks__EventContainer_Callable")
 System_Threading_Tasks__EventContainer_ReturnType = typing.TypeVar("System_Threading_Tasks__EventContainer_ReturnType")
-
-
-class TaskStatus(Enum):
-    """Represents the current stage in the lifecycle of a Task."""
-
-    CREATED = 0
-    """The task has been initialized but has not yet been scheduled."""
-
-    WAITING_FOR_ACTIVATION = 1
-    """The task is waiting to be activated and scheduled internally by the .NET Framework infrastructure."""
-
-    WAITING_TO_RUN = 2
-    """The task has been scheduled for execution but has not yet begun executing."""
-
-    RUNNING = 3
-    """The task is running but has not yet completed."""
-
-    WAITING_FOR_CHILDREN_TO_COMPLETE = 4
-    """
-    The task has finished executing and is implicitly waiting for
-    attached child tasks to complete.
-    """
-
-    RAN_TO_COMPLETION = 5
-    """The task completed execution successfully."""
-
-    CANCELED = 6
-    """
-    The task acknowledged cancellation by throwing an OperationCanceledException with its own CancellationToken
-    while the token was in signaled state, or the task's CancellationToken was already signaled before the
-    task started executing.
-    """
-
-    FAULTED = 7
-    """The task completed due to an unhandled exception."""
-
-
-class TaskCreationOptions(Enum):
-    """Specifies flags that control optional behavior for the creation and execution of tasks."""
-
-    NONE = ...
-    """Specifies that the default behavior should be used."""
-
-    PREFER_FAIRNESS = ...
-    """
-    A hint to a TaskScheduler to schedule a
-    task in as fair a manner as possible, meaning that tasks scheduled sooner will be more likely to
-    be run sooner, and tasks scheduled later will be more likely to be run later.
-    """
-
-    LONG_RUNNING = ...
-    """
-    Specifies that a task will be a long-running, course-grained operation. It provides a hint to the
-    TaskScheduler that oversubscription may be
-    warranted.
-    """
-
-    ATTACHED_TO_PARENT = ...
-    """Specifies that a task is attached to a parent in the task hierarchy."""
-
-    DENY_CHILD_ATTACH = ...
-    """Specifies that an InvalidOperationException will be thrown if an attempt is made to attach a child task to the created task."""
-
-    HIDE_SCHEDULER = ...
-    """
-    Prevents the ambient scheduler from being seen as the current scheduler in the created task.  This means that operations
-    like StartNew or ContinueWith that are performed in the created task will see TaskScheduler.Default as the current scheduler.
-    """
-
-    RUN_CONTINUATIONS_ASYNCHRONOUSLY = ...
-    """
-    Forces continuations added to the current task to be executed asynchronously.
-    This option has precedence over TaskContinuationOptions.ExecuteSynchronously
-    """
-
-
-class ConfigureAwaitOptions(Enum):
-    """Options to control behavior when awaiting."""
-
-    NONE = ...
-    """No options specified."""
-
-    CONTINUE_ON_CAPTURED_CONTEXT = ...
-    """
-    Attempt to marshal the continuation back to the original SynchronizationContext or
-    TaskScheduler present on the originating thread at the time of the await.
-    """
-
-    SUPPRESS_THROWING = ...
-    """
-    Avoids throwing an exception at the completion of awaiting a Task that ends
-    in the TaskStatus.Faulted or TaskStatus.Canceled state.
-    """
-
-    FORCE_YIELDING = ...
-    """
-    Forces an await on an already completed Task to behave as if the Task
-    wasn't yet completed, such that the current asynchronous method will be forced to yield its execution.
-    """
 
 
 class UnobservedTaskExceptionEventArgs(System.EventArgs):
@@ -241,6 +142,45 @@ class TaskScheduler(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class TaskCreationOptions(Enum):
+    """Specifies flags that control optional behavior for the creation and execution of tasks."""
+
+    NONE = ...
+    """Specifies that the default behavior should be used."""
+
+    PREFER_FAIRNESS = ...
+    """
+    A hint to a TaskScheduler to schedule a
+    task in as fair a manner as possible, meaning that tasks scheduled sooner will be more likely to
+    be run sooner, and tasks scheduled later will be more likely to be run later.
+    """
+
+    LONG_RUNNING = ...
+    """
+    Specifies that a task will be a long-running, course-grained operation. It provides a hint to the
+    TaskScheduler that oversubscription may be
+    warranted.
+    """
+
+    ATTACHED_TO_PARENT = ...
+    """Specifies that a task is attached to a parent in the task hierarchy."""
+
+    DENY_CHILD_ATTACH = ...
+    """Specifies that an InvalidOperationException will be thrown if an attempt is made to attach a child task to the created task."""
+
+    HIDE_SCHEDULER = ...
+    """
+    Prevents the ambient scheduler from being seen as the current scheduler in the created task.  This means that operations
+    like StartNew or ContinueWith that are performed in the created task will see TaskScheduler.Default as the current scheduler.
+    """
+
+    RUN_CONTINUATIONS_ASYNCHRONOUSLY = ...
+    """
+    Forces continuations added to the current task to be executed asynchronously.
+    This option has precedence over TaskContinuationOptions.ExecuteSynchronously
+    """
+
+
 class TaskContinuationOptions(Enum):
     """Specifies flags that control optional behavior for the creation and execution of continuation tasks."""
 
@@ -325,6 +265,1007 @@ class TaskContinuationOptions(Enum):
     transition into its final state. If the antecedent is already complete when the continuation is
     created, the continuation will run on the thread creating the continuation.  Only very
     short-running continuations should be executed synchronously.
+    """
+
+
+class TaskFactory(typing.Generic[System_Threading_Tasks_TaskFactory_TResult], System.Object):
+    """
+    Provides support for creating and scheduling
+    Task{TResult} objects.
+    """
+
+    @property
+    def cancellation_token(self) -> System.Threading.CancellationToken:
+        """
+        Gets the default Threading.CancellationToken of this
+        TaskFactory.
+        """
+        ...
+
+    @property
+    def scheduler(self) -> System.Threading.Tasks.TaskScheduler:
+        """
+        Gets the TaskScheduler of this
+        TaskFactory{TResult}.
+        """
+        ...
+
+    @property
+    def creation_options(self) -> System.Threading.Tasks.TaskCreationOptions:
+        """Gets the TaskCreationOptions value of this TaskFactory{TResult}."""
+        ...
+
+    @property
+    def continuation_options(self) -> System.Threading.Tasks.TaskContinuationOptions:
+        """Gets the TaskCreationOptions value of this TaskFactory{TResult}."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a TaskFactory{TResult} instance with the default configuration."""
+        ...
+
+    @overload
+    def __init__(self, cancellation_token: System.Threading.CancellationToken) -> None:
+        """
+        Initializes a TaskFactory{TResult} instance with the default configuration.
+        
+        :param cancellation_token: The default CancellationToken that will be assigned to tasks created by this TaskFactory unless another CancellationToken is explicitly specified while calling the factory methods.
+        """
+        ...
+
+    @overload
+    def __init__(self, scheduler: System.Threading.Tasks.TaskScheduler) -> None:
+        """
+        Initializes a TaskFactory{TResult} instance with the specified configuration.
+        
+        :param scheduler: The TaskScheduler to use to schedule any tasks created with this TaskFactory{TResult}. A null value indicates that the current TaskScheduler should be used.
+        """
+        ...
+
+    @overload
+    def __init__(self, creation_options: System.Threading.Tasks.TaskCreationOptions, continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> None:
+        """
+        Initializes a TaskFactory{TResult} instance with the specified configuration.
+        
+        :param creation_options: The default TaskCreationOptions to use when creating tasks with this TaskFactory{TResult}.
+        :param continuation_options: The default TaskContinuationOptions to use when creating continuation tasks with this TaskFactory{TResult}.
+        """
+        ...
+
+    @overload
+    def __init__(self, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> None:
+        """
+        Initializes a TaskFactory{TResult} instance with the specified configuration.
+        
+        :param cancellation_token: The default CancellationToken that will be assigned to tasks created by this TaskFactory unless another CancellationToken is explicitly specified while calling the factory methods.
+        :param creation_options: The default TaskCreationOptions to use when creating tasks with this TaskFactory{TResult}.
+        :param continuation_options: The default TaskContinuationOptions to use when creating continuation tasks with this TaskFactory{TResult}.
+        :param scheduler: The default TaskScheduler to use to schedule any Tasks created with this TaskFactory{TResult}. A null value indicates that TaskScheduler.Current should be used.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
+        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None]) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of a set of provided Tasks.
+        
+        :param tasks: The array of tasks from which to continue.
+        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
+        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_function: The function delegate to execute when one task in the  array completes.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_function: The function delegate to execute when one task in the  array completes.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_function: The function delegate to execute when one task in the  array completes.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a continuation Task{TResult}
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_function: The function delegate to execute when one task in the  array completes.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
+        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
+        :returns: The new continuation Task{TResult}.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None]) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_action: The action delegate to execute when one task in the  array completes.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_action: The action delegate to execute when one task in the  array completes.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_action: The action delegate to execute when one task in the  array completes.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
+        """
+        Creates a continuation Task
+        that will be started upon the completion of any Task in the provided set.
+        
+        :param tasks: The array of tasks from which to continue when one task completes.
+        :param continuation_action: The action delegate to execute when one task in the  array completes.
+        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
+        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
+        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
+        :returns: The new continuation Task.
+        """
+        ...
+
+    @overload
+    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a Task{TResult} that represents a pair of
+        begin and end methods that conform to the Asynchronous Programming Model pattern.
+        
+        :param begin_method: The delegate that begins the asynchronous operation.
+        :param end_method: The delegate that ends the asynchronous operation.
+        :param state: An object containing data to be used by the  delegate.
+        :returns: The created Task{TResult} that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a Task{TResult} that represents a pair of
+        begin and end methods that conform to the Asynchronous Programming Model pattern.
+        
+        :param begin_method: The delegate that begins the asynchronous operation.
+        :param end_method: The delegate that ends the asynchronous operation.
+        :param state: An object containing data to be used by the  delegate.
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :returns: The created Task{TResult} that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.Threading.Tasks.Task:
+        """
+        Creates a Task that represents a pair of begin
+        and end methods that conform to the Asynchronous Programming Model pattern.
+        
+        :param begin_method: The delegate that begins the asynchronous operation.
+        :param end_method: The delegate that ends the asynchronous operation.
+        :param state: An object containing data to be used by the  delegate.
+        :returns: The created Task that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], None], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates a Task that represents a pair of begin
+        and end methods that conform to the Asynchronous Programming Model pattern.
+        
+        :param begin_method: The delegate that begins the asynchronous operation.
+        :param end_method: The delegate that ends the asynchronous operation.
+        :param state: An object containing data to be used by the  delegate.
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
+        :returns: The created Task that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a Task{TResult} that executes an end
+        method function when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The function delegate that processes the completed .
+        :returns: A Task{TResult} that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a Task{TResult} that executes an end
+        method function when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The function delegate that processes the completed .
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :returns: A Task{TResult} that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates a Task{TResult} that executes an end
+        method function when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The function delegate that processes the completed .
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :param scheduler: The TaskScheduler that is used to schedule the task that executes the end method.
+        :returns: A Task{TResult} that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None]) -> System.Threading.Tasks.Task:
+        """
+        Creates a Task that executes an end method action
+        when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The action delegate that processes the completed .
+        :returns: A Task that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates a Task that executes an end method action
+        when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The action delegate that processes the completed .
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
+        :returns: A Task that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None], creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
+        """
+        Creates a Task that executes an end method action
+        when a specified IAsyncResult completes.
+        
+        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
+        :param end_method: The action delegate that processes the completed .
+        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
+        :param scheduler: The TaskScheduler that is used to schedule the task that executes the end method.
+        :returns: A Task that represents the asynchronous operation.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param state: An object containing data to be used by the  delegate.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param state: An object containing data to be used by the  delegate.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param state: An object containing data to be used by the  delegate.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param state: An object containing data to be used by the  delegate.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :param scheduler: The TaskScheduler that is used to schedule the created Task{TResult}.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param state: An object containing data to be used by the  delegate.
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param state: An object containing data to be used by the  delegate.
+        :param cancellation_token: The CancellationToken that will be assigned to the new Task
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param state: An object containing data to be used by the  delegate.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param state: An object containing data to be used by the  delegate.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
+        :param scheduler: The TaskScheduler that is used to schedule the created Task.
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
+        """
+        Creates and starts a Task{TResult}.
+        
+        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
+        :param scheduler: The TaskScheduler that is used to schedule the created Task{TResult}.
+        :returns: The started Task{TResult}.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[], None]) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param cancellation_token: The CancellationToken that will be assigned to the new task.
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[], None], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
+        :returns: The started Task.
+        """
+        ...
+
+    @overload
+    def start_new(self, action: typing.Callable[[], None], cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
+        """
+        Creates and starts a Task.
+        
+        :param action: The action delegate to execute asynchronously.
+        :param cancellation_token: The CancellationToken that will be assigned to the new Task
+        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
+        :param scheduler: The TaskScheduler that is used to schedule the created Task.
+        :returns: The started Task.
+        """
+        ...
+
+
+class TaskSchedulerException(System.Exception):
+    """
+    Represents an exception used to communicate an invalid operation by a
+    TaskScheduler.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the TaskSchedulerException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with a specified error message.
+        
+        :param message: The error message that explains the reason for the exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class using the default error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with a specified error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        
+        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
+        :param context: The StreamingContext that contains contextual information about the source or destination.
+        """
+        ...
+
+
+class ConcurrentExclusiveSchedulerPair(System.Object):
+    """
+    Provides concurrent and exclusive task schedulers that coordinate to execute
+    tasks while ensuring that concurrent tasks may run concurrently and exclusive tasks never do.
+    """
+
+    @property
+    def completion(self) -> System.Threading.Tasks.Task:
+        """Gets a Task that will complete when the scheduler has completed processing."""
+        ...
+
+    @property
+    def concurrent_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
+        """
+        Gets a TaskScheduler that can be used to schedule tasks to this pair
+        that may run concurrently with other tasks on this pair.
+        """
+        ...
+
+    @property
+    def exclusive_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
+        """
+        Gets a TaskScheduler that can be used to schedule tasks to this pair
+        that must run exclusively with regards to other tasks on this pair.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes the ConcurrentExclusiveSchedulerPair."""
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        """
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum concurrency level.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        :param max_concurrency_level: The maximum number of tasks to run concurrently.
+        """
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int, max_items_per_task: int) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum
+        concurrency level and a maximum number of scheduled tasks that may be processed as a unit.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        :param max_concurrency_level: The maximum number of tasks to run concurrently.
+        :param max_items_per_task: The maximum number of tasks to process for each underlying scheduled task used by the pair.
+        """
+        ...
+
+    def complete(self) -> None:
+        """Informs the scheduler pair that it should not accept any more tasks."""
+        ...
+
+
+class TaskCompletionSource(typing.Generic[System_Threading_Tasks_TaskCompletionSource_TResult], System.Object):
+    """
+    Represents the producer side of a Task{TResult} unbound to a
+    delegate, providing access to the consumer side through the Task property.
+    """
+
+    @property
+    def task(self) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]:
+        """Gets the Task{TResult} created by this TaskCompletionSource{TResult}."""
+        ...
+
+    @overload
+    def __init__(self, state: typing.Any) -> None:
+        """
+        Creates a TaskCompletionSource{TResult} with the specified state.
+        
+        :param state: The state to use as the underlying Task{TResult}'s AsyncState.
+        """
+        ...
+
+    @overload
+    def __init__(self, state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> None:
+        """
+        Creates a TaskCompletionSource{TResult} with the specified state and options.
+        
+        :param state: The state to use as the underlying Task{TResult}'s AsyncState.
+        :param creation_options: The options to use when creating the underlying Task{TResult}.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a TaskCompletionSource{TResult}."""
+        ...
+
+    @overload
+    def __init__(self, creation_options: System.Threading.Tasks.TaskCreationOptions) -> None:
+        """
+        Creates a TaskCompletionSource{TResult} with the specified options.
+        
+        :param creation_options: The options to use when creating the underlying Task{TResult}.
+        """
+        ...
+
+    @overload
+    def set_canceled(self) -> None:
+        """Transitions the underlying Task{TResult} into the TaskStatus.Canceled state."""
+        ...
+
+    @overload
+    def set_canceled(self, cancellation_token: System.Threading.CancellationToken) -> None:
+        """
+        Transitions the underlying Task{TResult} into the TaskStatus.Canceled state
+        using the specified token.
+        
+        :param cancellation_token: The cancellation token with which to cancel the Task{TResult}.
+        """
+        ...
+
+    @overload
+    def set_exception(self, exception: System.Exception) -> None:
+        """
+        Transitions the underlying Task{TResult} into the TaskStatus.Faulted state.
+        
+        :param exception: The exception to bind to this Task{TResult}.
+        """
+        ...
+
+    @overload
+    def set_exception(self, exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
+        """
+        Transitions the underlying Task{TResult} into the TaskStatus.Faulted state.
+        
+        :param exceptions: The collection of exceptions to bind to this Task{TResult}.
+        """
+        ...
+
+    @overload
+    def set_from_task(self, completed_task: System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]) -> None:
+        """
+        Transition the underlying Task{TResult} into the same completion state as the specified .
+        
+        :param completed_task: The completed task whose completion status (including result, exception, or cancellation information) should be copied to the underlying task.
+        """
+        ...
+
+    @overload
+    def set_from_task(self, completed_task: System.Threading.Tasks.Task) -> None:
+        """
+        Transition the underlying Task{TResult} into the same completion state as the specified .
+        
+        :param completed_task: The completed task whose completion status (including exception or cancellation information) should be copied to the underlying task.
+        """
+        ...
+
+    @overload
+    def set_result(self, result: System_Threading_Tasks_TaskCompletionSource_TResult) -> None:
+        """
+        Transitions the underlying Task{TResult} into the TaskStatus.RanToCompletion state.
+        
+        :param result: The result value to bind to this Task{TResult}.
+        """
+        ...
+
+    @overload
+    def set_result(self) -> None:
+        """Transitions the underlying Tasks.Task into the TaskStatus.RanToCompletion state."""
+        ...
+
+    @overload
+    def try_set_canceled(self) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the TaskStatus.Canceled state.
+        
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_canceled(self, cancellation_token: System.Threading.CancellationToken) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the TaskStatus.Canceled state.
+        
+        :param cancellation_token: The cancellation token with which to cancel the Task{TResult}.
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_exception(self, exception: System.Exception) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the TaskStatus.Faulted state.
+        
+        :param exception: The exception to bind to this Task{TResult}.
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_exception(self, exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the TaskStatus.Faulted state.
+        
+        :param exceptions: The collection of exceptions to bind to this Task{TResult}.
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_from_task(self, completed_task: System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the same completion state as the specified .
+        
+        :param completed_task: The completed task whose completion status (including result, exception, or cancellation information) should be copied to the underlying task.
+        :returns: true if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_from_task(self, completed_task: System.Threading.Tasks.Task) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the same completion state as the specified .
+        
+        :param completed_task: The completed task whose completion status (including exception or cancellation information) should be copied to the underlying task.
+        :returns: true if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_result(self, result: System_Threading_Tasks_TaskCompletionSource_TResult) -> bool:
+        """
+        Attempts to transition the underlying Task{TResult} into the TaskStatus.RanToCompletion state.
+        
+        :param result: The result value to bind to this Task{TResult}.
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_set_result(self) -> bool:
+        """
+        Attempts to transition the underlying Tasks.Task into the TaskStatus.RanToCompletion state.
+        
+        :returns: True if the operation was successful; otherwise, false.
+        """
+        ...
+
+
+class TaskAsyncEnumerableExtensions(System.Object):
+    """Provides a set of static methods for configuring Task-related behaviors on asynchronous enumerables and disposables."""
+
+    @staticmethod
+    def configure_await(source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
+        """
+        Configures how awaits on the tasks returned from an async disposable will be performed.
+        
+        :param source: The source async disposable.
+        :param continue_on_captured_context: true to capture and marshal back to the current context; otherwise, false.
+        :returns: The configured async disposable.
+        """
+        ...
+
+
+class TaskStatus(Enum):
+    """Represents the current stage in the lifecycle of a Task."""
+
+    CREATED = 0
+    """The task has been initialized but has not yet been scheduled."""
+
+    WAITING_FOR_ACTIVATION = 1
+    """The task is waiting to be activated and scheduled internally by the .NET Framework infrastructure."""
+
+    WAITING_TO_RUN = 2
+    """The task has been scheduled for execution but has not yet begun executing."""
+
+    RUNNING = 3
+    """The task is running but has not yet completed."""
+
+    WAITING_FOR_CHILDREN_TO_COMPLETE = 4
+    """
+    The task has finished executing and is implicitly waiting for
+    attached child tasks to complete.
+    """
+
+    RAN_TO_COMPLETION = 5
+    """The task completed execution successfully."""
+
+    CANCELED = 6
+    """
+    The task acknowledged cancellation by throwing an OperationCanceledException with its own CancellationToken
+    while the token was in signaled state, or the task's CancellationToken was already signaled before the
+    task started executing.
+    """
+
+    FAULTED = 7
+    """The task completed due to an unhandled exception."""
+
+
+class ConfigureAwaitOptions(Enum):
+    """Options to control behavior when awaiting."""
+
+    NONE = ...
+    """No options specified."""
+
+    CONTINUE_ON_CAPTURED_CONTEXT = ...
+    """
+    Attempt to marshal the continuation back to the original SynchronizationContext or
+    TaskScheduler present on the originating thread at the time of the await.
+    """
+
+    SUPPRESS_THROWING = ...
+    """
+    Avoids throwing an exception at the completion of awaiting a Task that ends
+    in the TaskStatus.Faulted or TaskStatus.Canceled state.
+    """
+
+    FORCE_YIELDING = ...
+    """
+    Forces an await on an already completed Task to behave as if the Task
+    wasn't yet completed, such that the current asynchronous method will be forced to yield its execution.
     """
 
 
@@ -1306,80 +2247,6 @@ class Task(typing.Generic[System_Threading_Tasks_Task_TResult], System_Threading
         ...
 
 
-class TaskCanceledException(System.OperationCanceledException):
-    """Represents an exception used to communicate task cancellation."""
-
-    @property
-    def task(self) -> System.Threading.Tasks.Task:
-        """Gets the task associated with this exception."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the TaskCanceledException class."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message.
-        
-        :param message: The error message that explains the reason for the exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message, a reference to the inner exception that is the cause of
-        this exception, and the CancellationToken that triggered the cancellation.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        :param token: The CancellationToken that triggered the cancellation.
-        """
-        ...
-
-    @overload
-    def __init__(self, task: System.Threading.Tasks.Task) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException class
-        with a reference to the Tasks.Task that has been canceled.
-        
-        :param task: A task that has been canceled.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        
-        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
-        :param context: The StreamingContext that contains contextual information about the source or destination.
-        """
-        ...
-
-
 class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System.IEquatable[System_Threading_Tasks_ValueTask]):
     """Provides a value type that can represent a synchronously available value or a task object."""
 
@@ -1542,804 +2409,6 @@ class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System
         ...
 
 
-class TaskFactory(typing.Generic[System_Threading_Tasks_TaskFactory_TResult], System.Object):
-    """
-    Provides support for creating and scheduling
-    Task{TResult} objects.
-    """
-
-    @property
-    def cancellation_token(self) -> System.Threading.CancellationToken:
-        """
-        Gets the default Threading.CancellationToken of this
-        TaskFactory.
-        """
-        ...
-
-    @property
-    def scheduler(self) -> System.Threading.Tasks.TaskScheduler:
-        """
-        Gets the TaskScheduler of this
-        TaskFactory.
-        """
-        ...
-
-    @property
-    def creation_options(self) -> System.Threading.Tasks.TaskCreationOptions:
-        """Gets the TaskCreationOptions value of this TaskFactory."""
-        ...
-
-    @property
-    def continuation_options(self) -> System.Threading.Tasks.TaskContinuationOptions:
-        """Gets the TaskCreationOptions value of this TaskFactory."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a TaskFactory instance with the default configuration."""
-        ...
-
-    @overload
-    def __init__(self, cancellation_token: System.Threading.CancellationToken) -> None:
-        """
-        Initializes a TaskFactory instance with the specified configuration.
-        
-        :param cancellation_token: The default CancellationToken that will be assigned to tasks created by this TaskFactory unless another CancellationToken is explicitly specified while calling the factory methods.
-        """
-        ...
-
-    @overload
-    def __init__(self, scheduler: System.Threading.Tasks.TaskScheduler) -> None:
-        """
-        Initializes a TaskFactory instance with the specified configuration.
-        
-        :param scheduler: The TaskScheduler to use to schedule any tasks created with this TaskFactory. A null value indicates that the current TaskScheduler should be used.
-        """
-        ...
-
-    @overload
-    def __init__(self, creation_options: System.Threading.Tasks.TaskCreationOptions, continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> None:
-        """
-        Initializes a TaskFactory instance with the specified configuration.
-        
-        :param creation_options: The default TaskCreationOptions to use when creating tasks with this TaskFactory.
-        :param continuation_options: The default TaskContinuationOptions to use when creating continuation tasks with this TaskFactory.
-        """
-        ...
-
-    @overload
-    def __init__(self, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> None:
-        """
-        Initializes a TaskFactory instance with the specified configuration.
-        
-        :param cancellation_token: The default CancellationToken that will be assigned to tasks created by this TaskFactory unless another CancellationToken is explicitly specified while calling the factory methods.
-        :param creation_options: The default TaskCreationOptions to use when creating tasks with this TaskFactory.
-        :param continuation_options: The default TaskContinuationOptions to use when creating continuation tasks with this TaskFactory.
-        :param scheduler: The default TaskScheduler to use to schedule any Tasks created with this TaskFactory. A null value indicates that TaskScheduler.Current should be used.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None]) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[typing.List[System.Threading.Tasks.Task]], None], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_action: The action delegate to execute when all tasks in the  array have completed.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
-        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_all(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[typing.List[System.Threading.Tasks.Task]], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of a set of provided Tasks.
-        
-        :param tasks: The array of tasks from which to continue.
-        :param continuation_function: The function delegate to execute when all tasks in the  array have completed.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
-        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None]) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_action: The action delegate to execute when one task in the  array completes.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_action: The action delegate to execute when one task in the  array completes.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_action: The action delegate to execute when one task in the  array completes.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_action: typing.Callable[[System.Threading.Tasks.Task], None], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
-        """
-        Creates a continuation Task
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_action: The action delegate to execute when one task in the  array completes.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task.
-        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
-        :returns: The new continuation Task.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_function: The function delegate to execute when one task in the  array completes.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_function: The function delegate to execute when one task in the  array completes.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], continuation_options: System.Threading.Tasks.TaskContinuationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_function: The function delegate to execute when one task in the  array completes.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def continue_when_any(self, tasks: typing.List[System.Threading.Tasks.Task], continuation_function: typing.Callable[[System.Threading.Tasks.Task], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, continuation_options: System.Threading.Tasks.TaskContinuationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a continuation Task{TResult}
-        that will be started upon the completion of any Task in the provided set.
-        
-        :param tasks: The array of tasks from which to continue when one task completes.
-        :param continuation_function: The function delegate to execute when one task in the  array completes.
-        :param cancellation_token: The Threading.CancellationToken that will be assigned to the new continuation task.
-        :param continuation_options: The TaskContinuationOptions value that controls the behavior of the created continuation Task{TResult}.
-        :param scheduler: The TaskScheduler that is used to schedule the created continuation Task.
-        :returns: The new continuation Task{TResult}.
-        """
-        ...
-
-    @overload
-    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.Threading.Tasks.Task:
-        """
-        Creates a Task that represents a pair of begin
-        and end methods that conform to the Asynchronous Programming Model pattern.
-        
-        :param begin_method: The delegate that begins the asynchronous operation.
-        :param end_method: The delegate that ends the asynchronous operation.
-        :param state: An object containing data to be used by the  delegate.
-        :returns: The created Task that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], None], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates a Task that represents a pair of begin
-        and end methods that conform to the Asynchronous Programming Model pattern.
-        
-        :param begin_method: The delegate that begins the asynchronous operation.
-        :param end_method: The delegate that ends the asynchronous operation.
-        :param state: An object containing data to be used by the  delegate.
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
-        :returns: The created Task that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a Task{TResult} that represents a pair of
-        begin and end methods that conform to the Asynchronous Programming Model pattern.
-        
-        :param begin_method: The delegate that begins the asynchronous operation.
-        :param end_method: The delegate that ends the asynchronous operation.
-        :param state: An object containing data to be used by the  delegate.
-        :returns: The created Task{TResult} that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, begin_method: typing.Callable[[typing.Callable[[System.IAsyncResult], None], System.Object], System.IAsyncResult], end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a Task{TResult} that represents a pair of
-        begin and end methods that conform to the Asynchronous Programming Model pattern.
-        
-        :param begin_method: The delegate that begins the asynchronous operation.
-        :param end_method: The delegate that ends the asynchronous operation.
-        :param state: An object containing data to be used by the  delegate.
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :returns: The created Task{TResult} that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None]) -> System.Threading.Tasks.Task:
-        """
-        Creates a Task that executes an end method action
-        when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The action delegate that processes the completed .
-        :returns: A Task that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates a Task that executes an end method action
-        when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The action delegate that processes the completed .
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
-        :returns: A Task that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], None], creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
-        """
-        Creates a Task that executes an end method action
-        when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The action delegate that processes the completed .
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task.
-        :param scheduler: The TaskScheduler that is used to schedule the task that executes the end method.
-        :returns: A Task that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a Task{TResult} that executes an end
-        method function when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The function delegate that processes the completed .
-        :returns: A Task{TResult} that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a Task{TResult} that executes an end
-        method function when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The function delegate that processes the completed .
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :returns: A Task{TResult} that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def from_async(self, async_result: System.IAsyncResult, end_method: typing.Callable[[System.IAsyncResult], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates a Task{TResult} that executes an end
-        method function when a specified IAsyncResult completes.
-        
-        :param async_result: The IAsyncResult whose completion should trigger the processing of the .
-        :param end_method: The function delegate that processes the completed .
-        :param creation_options: The TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :param scheduler: The TaskScheduler that is used to schedule the task that executes the end method.
-        :returns: A Task{TResult} that represents the asynchronous operation.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param state: An object containing data to be used by the  delegate.
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param state: An object containing data to be used by the  delegate.
-        :param cancellation_token: The CancellationToken that will be assigned to the new Task
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param state: An object containing data to be used by the  delegate.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[System.Object], None], state: typing.Any, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param state: An object containing data to be used by the  delegate.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
-        :param scheduler: The TaskScheduler that is used to schedule the created Task.
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param state: An object containing data to be used by the  delegate.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param state: An object containing data to be used by the  delegate.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param state: An object containing data to be used by the  delegate.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[System.Object], System_Threading_Tasks_TaskFactory_TResult], state: typing.Any, cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param state: An object containing data to be used by the  delegate.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :param scheduler: The TaskScheduler that is used to schedule the created Task{TResult}.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[], None]) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[], None], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[], None], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, action: typing.Callable[[], None], cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task:
-        """
-        Creates and starts a Task.
-        
-        :param action: The action delegate to execute asynchronously.
-        :param cancellation_token: The CancellationToken that will be assigned to the new Task
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task
-        :param scheduler: The TaskScheduler that is used to schedule the created Task.
-        :returns: The started Task.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult]) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], creation_options: System.Threading.Tasks.TaskCreationOptions) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-    @overload
-    def start_new(self, function: typing.Callable[[], System_Threading_Tasks_TaskFactory_TResult], cancellation_token: System.Threading.CancellationToken, creation_options: System.Threading.Tasks.TaskCreationOptions, scheduler: System.Threading.Tasks.TaskScheduler) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskFactory_TResult]:
-        """
-        Creates and starts a Task{TResult}.
-        
-        :param function: A function delegate that returns the future result to be available through the Task{TResult}.
-        :param cancellation_token: The CancellationToken that will be assigned to the new task.
-        :param creation_options: A TaskCreationOptions value that controls the behavior of the created Task{TResult}.
-        :param scheduler: The TaskScheduler that is used to schedule the created Task{TResult}.
-        :returns: The started Task{TResult}.
-        """
-        ...
-
-
-class TaskCompletionSource(typing.Generic[System_Threading_Tasks_TaskCompletionSource_TResult], System.Object):
-    """
-    Represents the producer side of a Task{TResult} unbound to a
-    delegate, providing access to the consumer side through the Task property.
-    """
-
-    @property
-    def task(self) -> System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]:
-        """Gets the Task{TResult} created by this TaskCompletionSource{TResult}."""
-        ...
-
-    @overload
-    def __init__(self, state: typing.Any) -> None:
-        """
-        Creates a TaskCompletionSource{TResult} with the specified state.
-        
-        :param state: The state to use as the underlying Task{TResult}'s AsyncState.
-        """
-        ...
-
-    @overload
-    def __init__(self, state: typing.Any, creation_options: System.Threading.Tasks.TaskCreationOptions) -> None:
-        """
-        Creates a TaskCompletionSource{TResult} with the specified state and options.
-        
-        :param state: The state to use as the underlying Task{TResult}'s AsyncState.
-        :param creation_options: The options to use when creating the underlying Task{TResult}.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a TaskCompletionSource{TResult}."""
-        ...
-
-    @overload
-    def __init__(self, creation_options: System.Threading.Tasks.TaskCreationOptions) -> None:
-        """
-        Creates a TaskCompletionSource{TResult} with the specified options.
-        
-        :param creation_options: The options to use when creating the underlying Task{TResult}.
-        """
-        ...
-
-    @overload
-    def set_canceled(self) -> None:
-        """Transitions the underlying Task{TResult} into the TaskStatus.Canceled state."""
-        ...
-
-    @overload
-    def set_canceled(self, cancellation_token: System.Threading.CancellationToken) -> None:
-        """
-        Transitions the underlying Task{TResult} into the TaskStatus.Canceled state
-        using the specified token.
-        
-        :param cancellation_token: The cancellation token with which to cancel the Task{TResult}.
-        """
-        ...
-
-    @overload
-    def set_exception(self, exception: System.Exception) -> None:
-        """
-        Transitions the underlying Task{TResult} into the TaskStatus.Faulted state.
-        
-        :param exception: The exception to bind to this Task{TResult}.
-        """
-        ...
-
-    @overload
-    def set_exception(self, exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> None:
-        """
-        Transitions the underlying Task{TResult} into the TaskStatus.Faulted state.
-        
-        :param exceptions: The collection of exceptions to bind to this Task{TResult}.
-        """
-        ...
-
-    @overload
-    def set_from_task(self, completed_task: System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]) -> None:
-        """
-        Transition the underlying Task{TResult} into the same completion state as the specified .
-        
-        :param completed_task: The completed task whose completion status (including result, exception, or cancellation information) should be copied to the underlying task.
-        """
-        ...
-
-    @overload
-    def set_from_task(self, completed_task: System.Threading.Tasks.Task) -> None:
-        """
-        Transition the underlying Task{TResult} into the same completion state as the specified .
-        
-        :param completed_task: The completed task whose completion status (including exception or cancellation information) should be copied to the underlying task.
-        """
-        ...
-
-    @overload
-    def set_result(self, result: System_Threading_Tasks_TaskCompletionSource_TResult) -> None:
-        """
-        Transitions the underlying Task{TResult} into the TaskStatus.RanToCompletion state.
-        
-        :param result: The result value to bind to this Task{TResult}.
-        """
-        ...
-
-    @overload
-    def set_result(self) -> None:
-        """Transitions the underlying Tasks.Task into the TaskStatus.RanToCompletion state."""
-        ...
-
-    @overload
-    def try_set_canceled(self) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the TaskStatus.Canceled state.
-        
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_canceled(self, cancellation_token: System.Threading.CancellationToken) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the TaskStatus.Canceled state.
-        
-        :param cancellation_token: The cancellation token with which to cancel the Task{TResult}.
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_exception(self, exception: System.Exception) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the TaskStatus.Faulted state.
-        
-        :param exception: The exception to bind to this Task{TResult}.
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_exception(self, exceptions: System.Collections.Generic.IEnumerable[System.Exception]) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the TaskStatus.Faulted state.
-        
-        :param exceptions: The collection of exceptions to bind to this Task{TResult}.
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_from_task(self, completed_task: System.Threading.Tasks.Task[System_Threading_Tasks_TaskCompletionSource_TResult]) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the same completion state as the specified .
-        
-        :param completed_task: The completed task whose completion status (including result, exception, or cancellation information) should be copied to the underlying task.
-        :returns: true if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_from_task(self, completed_task: System.Threading.Tasks.Task) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the same completion state as the specified .
-        
-        :param completed_task: The completed task whose completion status (including exception or cancellation information) should be copied to the underlying task.
-        :returns: true if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_result(self, result: System_Threading_Tasks_TaskCompletionSource_TResult) -> bool:
-        """
-        Attempts to transition the underlying Task{TResult} into the TaskStatus.RanToCompletion state.
-        
-        :param result: The result value to bind to this Task{TResult}.
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_set_result(self) -> bool:
-        """
-        Attempts to transition the underlying Tasks.Task into the TaskStatus.RanToCompletion state.
-        
-        :returns: True if the operation was successful; otherwise, false.
-        """
-        ...
-
-
 class TaskExtensions(System.Object):
     """Provides a set of static methods for working with specific kinds of Task instances."""
 
@@ -2354,89 +2423,23 @@ class TaskExtensions(System.Object):
         ...
 
 
-class ConcurrentExclusiveSchedulerPair(System.Object):
-    """
-    Provides concurrent and exclusive task schedulers that coordinate to execute
-    tasks while ensuring that concurrent tasks may run concurrently and exclusive tasks never do.
-    """
+class TaskCanceledException(System.OperationCanceledException):
+    """Represents an exception used to communicate task cancellation."""
 
     @property
-    def completion(self) -> System.Threading.Tasks.Task:
-        """Gets a Task that will complete when the scheduler has completed processing."""
-        ...
-
-    @property
-    def concurrent_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
-        """
-        Gets a TaskScheduler that can be used to schedule tasks to this pair
-        that may run concurrently with other tasks on this pair.
-        """
-        ...
-
-    @property
-    def exclusive_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
-        """
-        Gets a TaskScheduler that can be used to schedule tasks to this pair
-        that must run exclusively with regards to other tasks on this pair.
-        """
+    def task(self) -> System.Threading.Tasks.Task:
+        """Gets the task associated with this exception."""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Initializes the ConcurrentExclusiveSchedulerPair."""
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        """
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum concurrency level.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        :param max_concurrency_level: The maximum number of tasks to run concurrently.
-        """
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int, max_items_per_task: int) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum
-        concurrency level and a maximum number of scheduled tasks that may be processed as a unit.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        :param max_concurrency_level: The maximum number of tasks to run concurrently.
-        :param max_items_per_task: The maximum number of tasks to process for each underlying scheduled task used by the pair.
-        """
-        ...
-
-    def complete(self) -> None:
-        """Informs the scheduler pair that it should not accept any more tasks."""
-        ...
-
-
-class TaskSchedulerException(System.Exception):
-    """
-    Represents an exception used to communicate an invalid operation by a
-    TaskScheduler.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the TaskSchedulerException class."""
+        """Initializes a new instance of the TaskCanceledException class."""
         ...
 
     @overload
     def __init__(self, message: str) -> None:
         """
-        Initializes a new instance of the TaskSchedulerException
+        Initializes a new instance of the TaskCanceledException
         class with a specified error message.
         
         :param message: The error message that explains the reason for the exception.
@@ -2444,20 +2447,9 @@ class TaskSchedulerException(System.Exception):
         ...
 
     @overload
-    def __init__(self, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the TaskSchedulerException
-        class using the default error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
     def __init__(self, message: str, inner_exception: System.Exception) -> None:
         """
-        Initializes a new instance of the TaskSchedulerException
+        Initializes a new instance of the TaskCanceledException
         class with a specified error message and a reference to the inner exception that is the cause of
         this exception.
         
@@ -2467,9 +2459,32 @@ class TaskSchedulerException(System.Exception):
         ...
 
     @overload
+    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException
+        class with a specified error message, a reference to the inner exception that is the cause of
+        this exception, and the CancellationToken that triggered the cancellation.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        :param token: The CancellationToken that triggered the cancellation.
+        """
+        ...
+
+    @overload
+    def __init__(self, task: System.Threading.Tasks.Task) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException class
+        with a reference to the Tasks.Task that has been canceled.
+        
+        :param task: A task that has been canceled.
+        """
+        ...
+
+    @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
         """
-        Initializes a new instance of the TaskSchedulerException
+        Initializes a new instance of the TaskCanceledException
         class with serialized data.
         
         This method is protected.
@@ -2478,21 +2493,6 @@ class TaskSchedulerException(System.Exception):
         
         :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
         :param context: The StreamingContext that contains contextual information about the source or destination.
-        """
-        ...
-
-
-class TaskAsyncEnumerableExtensions(System.Object):
-    """Provides a set of static methods for configuring Task-related behaviors on asynchronous enumerables and disposables."""
-
-    @staticmethod
-    def configure_await(source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
-        """
-        Configures how awaits on the tasks returned from an async disposable will be performed.
-        
-        :param source: The source async disposable.
-        :param continue_on_captured_context: true to capture and marshal back to the current context; otherwise, false.
-        :returns: The configured async disposable.
         """
         ...
 

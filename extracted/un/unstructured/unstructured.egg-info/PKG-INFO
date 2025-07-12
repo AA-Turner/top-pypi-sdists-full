@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: unstructured
-Version: 0.18.3
+Version: 0.18.5
 Summary: A library that prepares raw documents for downstream ML tasks.
 Home-page: https://github.com/Unstructured-IO/unstructured
 Author: Unstructured Technologies
@@ -15,12 +15,11 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 Provides-Extra: all-docs
 Provides-Extra: csv

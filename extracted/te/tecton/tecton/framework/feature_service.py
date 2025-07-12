@@ -26,7 +26,6 @@ from tecton._internals import metadata_service
 from tecton._internals import query_helper
 from tecton._internals import querytree_api
 from tecton._internals import sdk_decorators
-from tecton._internals import snowflake_api
 from tecton._internals import utils as internal_utils
 from tecton._internals import validations_api
 from tecton._internals.sdk_decorators import deprecated
@@ -111,12 +110,10 @@ class FeatureService(base_tecton_object.BaseTectonObject):
             List[Union[framework_feature_view.FeatureReference, framework_feature_view.FeatureView]]
         ] = None,
         logging: Optional[configs.LoggingConfig] = None,
-        # TODO (realtime-compute): Remove in the future
-        on_demand_environment: Optional[str] = None,
         realtime_environment: Optional[str] = None,
         options: Optional[Dict[str, str]] = None,
         enable_online_caching: bool = False,
-        transform_server_group: Optional[server_group.TransformServerGroup] = None,
+        transform_server_group: Optional[str] = None,
         feature_server_group: server_group.FeatureServerGroup = None,
     ):
         """
@@ -139,7 +136,6 @@ class FeatureService(base_tecton_object.BaseTectonObject):
             to this FeatureService.
         :param features: The list of FeatureView or FeatureReference that this FeatureService will serve.
         :param logging: A configuration for logging feature requests sent to this Feature Service.
-        :param on_demand_environment: (Deprecated) Renamed to realtime_environment
         :param realtime_environment: The environment in which all the Realtime Feature Views for this feature service should be executed.
             Defaults to `None`, which means the Realtime Feature Views are executed in the same environment as the
             feature service, without any resource isolation. This may be preferred for low-latency feature services
@@ -148,29 +144,13 @@ class FeatureService(base_tecton_object.BaseTectonObject):
         :param options: Additional options to configure the Feature Service. Used for advanced use cases and beta features.
         :param enable_online_caching: If True, the feature server will read and write feature values to the online
             serving cache for feature views and tables that have caching enabled (have cache_config set).
-        :param transform_server_group: Optional, the Transform Server Group used for executing all Realtime Feature Views in the Feature Service. Defaults to `None`, which means the Realtime Feature Views are executed in the same environment as the
+        :param transform_server_group: Optional, the name of the Transform Server Group used for executing all Realtime Feature Views in the Feature Service. Defaults to `None`, which means the Realtime Feature Views are executed in the same environment as the
             feature service, without any resource isolation.
         :param feature_server_group: Optional, the Feature Server Group used for online feature serving.
         """
-        if realtime_environment is not None and on_demand_environment is not None:
-            raise errors.ON_DEMAND_ENVIRONMENT_DEPRECATED()
-
-        if on_demand_environment is not None:
-            logger.warning(errors.ON_DEMAND_ENVIRONMENT_RENAMED)
-            realtime_environment = on_demand_environment
-
         if realtime_environment is None:
-            if (
-                repo_config.get_feature_service_defaults().realtime_environment is not None
-                and repo_config.get_feature_service_defaults().on_demand_environment is not None
-            ):
-                raise errors.ON_DEMAND_ENVIRONMENT_DEPRECATED_REPO()
-
             if repo_config.get_feature_service_defaults().realtime_environment is not None:
                 realtime_environment = repo_config.get_feature_service_defaults().realtime_environment
-            if repo_config.get_feature_service_defaults().on_demand_environment is not None:
-                logger.warning(errors.ON_DEMAND_ENVIRONMENT_RENAMED + " in your repo config (repo.yaml).")
-                realtime_environment = repo_config.get_feature_service_defaults().on_demand_environment
 
         feature_references = []
         for feature in features:
@@ -195,17 +175,15 @@ class FeatureService(base_tecton_object.BaseTectonObject):
             realtime_environment=realtime_environment,
             options=options,
             enable_online_caching=enable_online_caching,
-            transform_server_group=server_group__args_pb2.ServerGroupReference(
-                server_group_id=transform_server_group._id_proto, name=transform_server_group.info.name
-            )
-            if transform_server_group
-            else None,
             feature_server_group=server_group__args_pb2.ServerGroupReference(
                 server_group_id=feature_server_group._id_proto, name=feature_server_group.info.name
             )
             if feature_server_group
             else None,
         )
+
+        if transform_server_group:
+            args.transform_server_group_name = transform_server_group
         info = base_tecton_object.TectonObjectInfo.from_args_proto(args.info, args.feature_service_id)
         source_info = construct_fco_source_info(args.feature_service_id)
         self.__attrs_init__(
@@ -230,7 +208,7 @@ class FeatureService(base_tecton_object.BaseTectonObject):
         info = base_tecton_object.TectonObjectInfo.from_spec(spec)
 
         feature_references = []
-        for feature_set_item in spec.feature_set_items:
+        for feature_set_item in spec.feature_view_selection_specs:
             fv_spec = fco_container.get_by_id(feature_set_item.feature_view_id)
             fv = framework_feature_view.feature_view_from_spec(fv_spec, fco_container)
             join_key_mapping = {
@@ -248,7 +226,7 @@ class FeatureService(base_tecton_object.BaseTectonObject):
         class FeatureServiceFromSpec(cls):
             _framework_version = spec.metadata.framework_version
 
-        obj = FeatureServiceFromSpec.__new__(FeatureServiceFromSpec)
+        obj = FeatureServiceFromSpec.__new__(FeatureServiceFromSpec)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             spec=spec,
@@ -262,13 +240,9 @@ class FeatureService(base_tecton_object.BaseTectonObject):
 
     @sdk_decorators.assert_local_object
     def _build_and_resolve_args(self, objects) -> fco_args_pb2.FcoArgs:
-        transform_server_group, feature_server_group = self._resolve_server_group_defaults(objects)
-        if transform_server_group:
-            self._args.transform_server_group.CopyFrom(
-                server_group__args_pb2.ServerGroupReference(
-                    server_group_id=transform_server_group._id_proto, name=transform_server_group.name
-                )
-            )
+        transform_server_group_name, feature_server_group = self._resolve_server_group_defaults(objects)
+        if transform_server_group_name:
+            self._args.transform_server_group_name = transform_server_group_name
 
         if feature_server_group:
             self._args.feature_server_group_id.CopyFrom(
@@ -281,28 +255,16 @@ class FeatureService(base_tecton_object.BaseTectonObject):
 
     def _resolve_server_group_defaults(
         self, objects
-    ) -> Tuple[Optional[server_group.TransformServerGroup], Optional[server_group.FeatureServerGroup]]:
+    ) -> Tuple[Optional[str], Optional[server_group.FeatureServerGroup]]:
         defaults = repo_config.get_feature_service_defaults()
         transform_server_group_name = defaults.transform_server_group
         feature_server_group_name = defaults.feature_server_group
 
         use_transform_server_group_default = transform_server_group_name and not self._args.HasField(
-            "transform_server_group"
+            "transform_server_group_name"
         )
-        use_feature_server_group_default = feature_server_group_name and not self._args.HasField(
-            "transform_server_group"
-        )
+        use_feature_server_group_default = feature_server_group_name and not self._args.HasField("feature_server_group")
 
-        transform_server_group = next(
-            (
-                fco
-                for fco in objects
-                if isinstance(fco, server_group.TransformServerGroup)
-                and use_transform_server_group_default
-                and fco.name == transform_server_group_name
-            ),
-            None,
-        )
         feature_server_group = next(
             (
                 fco
@@ -314,12 +276,14 @@ class FeatureService(base_tecton_object.BaseTectonObject):
             None,
         )
 
-        if use_transform_server_group_default and not transform_server_group:
-            raise errors.SERVER_GROUP_NOT_FOUND(transform_server_group_name, self.name)
         if use_feature_server_group_default and not feature_server_group:
             raise errors.SERVER_GROUP_NOT_FOUND(feature_server_group_name, self.name)
 
-        return transform_server_group, feature_server_group
+        resolved_transform_server_group_name = (
+            transform_server_group_name if use_transform_server_group_default else None
+        )
+
+        return resolved_transform_server_group_name, feature_server_group
 
     def _build_fco_validation_args(self) -> validator_pb2.FcoValidationArgs:
         if self.info._is_local_object:
@@ -468,29 +432,27 @@ class FeatureService(base_tecton_object.BaseTectonObject):
         timestamp_key: Optional[str] = None,
         from_source: Optional[bool] = None,
         compute_mode: Optional[Union[ComputeMode, str]] = None,
+        **kwargs,
     ) -> tecton_dataframe.TectonDataFrame:
         """Fetch a `TectonDataFrame` of feature values from this FeatureService.
 
         This method will return feature values for each row provided in the spine DataFrame. The feature values
         returned by this method will respect the timestamp provided in the timestamp column of the spine Data Frame.
 
-        By default (i.e. ``from_source=None``), this method fetches feature values from the Offline Store for Feature
+        By default (i.e. `from_source=None`), this method fetches feature values from the Offline Store for Feature
         Views that have offline materialization enabled and otherwise computes feature values on the fly from raw data.
 
         :param events: A dataframe of possible join keys, request data keys, and timestamps that specify which feature values to fetch.To distinguish
             between the event dataframe columns and feature columns, feature columns are labeled as `feature_view_name__feature_name`
             in the returned DataFrame.
-        :type events: Union[pyspark.sql.DataFrame, pandas.DataFrame, TectonDataFrame]
         :param timestamp_key: Name of the time column in the spine DataFrame.
             This method will fetch the latest features computed before the specified timestamps in this column.
             Not applicable if the FeatureService strictly contains RealtimeFeatureViews with no feature view dependencies.
-        :type timestamp_key: str
         :param from_source: Whether feature values should be recomputed from the original data source. If ``None``,
             feature values will be fetched from the Offline Store for Feature Views that have offline materialization
             enabled and otherwise computes feature values on the fly from raw data. Use ``from_source=True`` to force
             computing from raw data and ``from_source=False`` to error if any Feature Views are not materialized.
             Defaults to None.
-        :type from_source: bool
         :param compute_mode: Compute mode to use to produce the data frame.
 
         :return: `TectonDataFrame`
@@ -503,17 +465,18 @@ class FeatureService(base_tecton_object.BaseTectonObject):
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
 
-        if compute_mode == ComputeMode.SNOWFLAKE or compute_mode == ComputeMode.ATHENA:
+        if compute_mode == ComputeMode.ATHENA:
             raise errors.GET_FEATURES_FOR_EVENTS_UNSUPPORTED
 
         return querytree_api.get_features_from_params(
             GetFeaturesForEventsParams(
-                self._spec,
-                events,
-                compute_mode,
-                timestamp_key,
-                from_source,
+                fco=self._spec,
+                events=events,
+                compute_mode=compute_mode,
+                timestamp_key=timestamp_key,
+                from_source=from_source,
                 feature_set_config=self._feature_set_config,
+                skew_config=kwargs.get("skew_config"),
             )
         )
 
@@ -566,26 +529,6 @@ class FeatureService(base_tecton_object.BaseTectonObject):
 
         compute_mode = offline_retrieval_compute_mode(compute_mode)
 
-        has_snowpark_transformation = snowflake_api.has_snowpark_transformation(
-            [feature_view._feature_definition for feature_view in self._feature_definitions]
-        )
-
-        if compute_mode == ComputeMode.SNOWFLAKE and (
-            conf.get_bool("USE_DEPRECATED_SNOWFLAKE_RETRIEVAL") or has_snowpark_transformation
-        ):
-            # Snowflake retrieval is now migrated to QT and this code path is deprecated.
-            if has_snowpark_transformation:
-                logger.warning(
-                    "At least one Feature View in this Feature Service uses a snowpark transformation. Snowpark transformations are deprecated in versions >=0.8. Consider using snowflake_sql transformations instead."
-                )
-            return snowflake_api.get_historical_features(
-                spine=spine,
-                timestamp_key=timestamp_key,
-                include_feature_view_timestamp_columns=include_feature_view_timestamp_columns,
-                from_source=from_source,
-                feature_set_config=self._feature_set_config,
-            )
-
         if compute_mode == ComputeMode.ATHENA and conf.get_bool("USE_DEPRECATED_ATHENA_RETRIEVAL"):
             if not internal_utils.is_live_workspace(self.workspace):
                 raise errors.ATHENA_COMPUTE_ONLY_SUPPORTED_IN_LIVE_WORKSPACE
@@ -606,6 +549,7 @@ class FeatureService(base_tecton_object.BaseTectonObject):
             spine=spine,
             timestamp_key=timestamp_key,
             from_source=from_source,
+            skew_config=None,  # do not support skew_config in deprecated GHF (see BAT-15306 for deprecation status)
         )
 
     @sdk_decorators.sdk_public_method

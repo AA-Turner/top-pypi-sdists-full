@@ -17,6 +17,7 @@ __all__ = [
     'ingest_api',
     'ingest_workflow_api',
     'module',
+    'module_internal',
     'modules_api',
     'persistent_compute_api',
     'scout',
@@ -77,5 +78,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.759.0"
+__version__ = "0.760.0"
 

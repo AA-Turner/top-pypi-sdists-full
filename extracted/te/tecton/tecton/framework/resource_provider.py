@@ -106,8 +106,8 @@ class ResourceProvider(base_tecton_object.BaseTectonObject):
     def _from_spec(cls, spec: specs.ResourceProviderSpec) -> "ResourceProvider":
         """Create an ResourceProvider directly from a spec. Specs are assumed valid and will not be re-validated."""
         info = base_tecton_object.TectonObjectInfo.from_spec(spec)
-
-        obj = cls.__new__(cls)  # Instantiate the object. Does not call init.
+        # Instantiate the object. Does not call init.
+        obj = cls.__new__(cls)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(info=info, spec=spec, args=None, source_info=None)
         return obj
 

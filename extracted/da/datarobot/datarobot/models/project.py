@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2023 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -241,6 +241,8 @@ class Project(APIObject, BrowserMixin):
         (New in version v3.0) The object ID of the ``catalog_version`` which the project's dataset belongs to.
     use_gpu: bool
         (New in version v3.2) Whether project allows usage of GPUs
+    use_case_id : Optional[str]
+        (New in version v3.8) The object ID of the use case which the project belongs to.
     """
 
     _path = "projects/"
@@ -333,6 +335,8 @@ class Project(APIObject, BrowserMixin):
         }
     ).allow_extra("*")
 
+    _use_case_converter = t.Dict({"name": String(), "id": String()}) & (lambda x: str(x["id"]))
+
     _converter = t.Dict(
         {
             t.Key("_id", optional=True) >> "id": String(allow_blank=True),
@@ -365,6 +369,7 @@ class Project(APIObject, BrowserMixin):
             ),
             t.Key("catalog_id", optional=True): String(),
             t.Key("catalog_version_id", optional=True): String(),
+            t.Key("use_case", optional=True) >> "use_case_id": _use_case_converter,
         }
     ).allow_extra("*")
 
@@ -397,6 +402,7 @@ class Project(APIObject, BrowserMixin):
         catalog_id: Optional[str] = None,
         catalog_version_id: Optional[str] = None,
         use_gpu: Optional[bool] = None,
+        use_case_id: Optional[str] = None,
     ) -> None:
         self.id = id
         self.project_name = project_name
@@ -428,6 +434,7 @@ class Project(APIObject, BrowserMixin):
         self.catalog_id = catalog_id
         self.catalog_version_id = catalog_version_id
         self.use_gpu = use_gpu
+        self.use_case_id = use_case_id
         self.__options = None
 
     @property
@@ -1562,14 +1569,9 @@ OR individual keyword arguments. You cannot pass both."
             The name of the target column in the uploaded file. Should not be provided if
             ``unsupervised_mode`` is ``True``.
         mode : Optional[str]
-            You can use ``AUTOPILOT_MODE`` enum to choose between
-
-            * ``AUTOPILOT_MODE.FULL_AUTO``
-            * ``AUTOPILOT_MODE.MANUAL``
-            * ``AUTOPILOT_MODE.QUICK``
-            * ``AUTOPILOT_MODE.COMPREHENSIVE``: Runs all blueprints in the repository (warning:
-              this may be extremely slow).
-
+            You can use ``AUTOPILOT_MODE`` enum to choose between ``AUTOPILOT_MODE.FULL_AUTO``,
+            ``AUTOPILOT_MODE.MANUAL``, ``AUTOPILOT_MODE.QUICK``, and ``AUTOPILOT_MODE.COMPREHENSIVE``.
+            ``COMPREHENSIVE` runs all blueprints in the repository (this may be extremely slow).
             If unspecified, ``QUICK`` is used. If the ``MANUAL`` value is used, the model
             creation process will need to be started by executing the ``start_autopilot``
             function with the desired featurelist. It will start immediately otherwise.
@@ -4508,6 +4510,8 @@ OR individual keyword arguments. You cannot pass both."
         url : str
             Permanent static hyperlink to a project leaderboard.
         """
+        if self.use_case_id:
+            return f"{self._client.domain}/usecases/{self.use_case_id}/experiment/{self.id}/leaderboard"
         return f"{self._client.domain}/{self._path}{self.id}/models"
 
     def get_rating_table_models(self) -> List[RatingTableModel]:

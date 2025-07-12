@@ -23,10 +23,13 @@ from tecton_core.query.errors import SQLCompilationError
 from tecton_core.query.errors import UserCodeError
 from tecton_core.query.executor_params import ExecutionContext
 from tecton_core.query.node_interface import NodeRef
+from tecton_core.query.node_interface import PartitionSelector
+from tecton_core.query.node_interface import SinglePartition
 from tecton_core.query.nodes import DataSourceScanNode
 from tecton_core.query.pandas.node import ArrowExecNode
 from tecton_core.schema import Schema
 from tecton_core.schema_validation import tecton_schema_to_arrow_schema
+from tecton_core.skew_config import SkewConfig
 from tecton_core.specs import DatetimePartitionColumnSpec
 from tecton_core.time_utils import get_timezone_aware_datetime
 from tecton_proto.args.pipeline__client_pb2 import DataSourceNode
@@ -40,6 +43,7 @@ class RedshiftDataSourceScanNode(ArrowExecNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime.datetime] = None
     end_time: Optional[datetime.datetime] = None
+    skew_config: Optional[SkewConfig] = None
 
     @classmethod
     def from_node_input(cls, query_node: DataSourceScanNode) -> "RedshiftDataSourceScanNode":
@@ -49,7 +53,13 @@ class RedshiftDataSourceScanNode(ArrowExecNode):
     def as_str(self):
         return f"RedshiftDataSourceScanNode for {self.ds.name}"
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         try:
             import redshift_connector
         except ImportError:
@@ -136,6 +146,7 @@ class FileDataSourceScanNode(ArrowExecNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime.datetime] = None
     end_time: Optional[datetime.datetime] = None
+    skew_config: Optional[SkewConfig] = None
 
     @classmethod
     def from_node_input(cls, query_node: DataSourceScanNode) -> "FileDataSourceScanNode":
@@ -146,7 +157,13 @@ class FileDataSourceScanNode(ArrowExecNode):
     def spec(self) -> specs.FileSourceSpec:
         return self.ds.batch_source
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         import duckdb
 
         file_uri = self.spec.uri
@@ -256,7 +273,7 @@ class FileDataSourceScanNode(ArrowExecNode):
                 try:
                     return self.spec.post_processor(input_df)
                 except Exception as exc:
-                    msg = "Post processor function of data source " f"('{self.spec.name}') " f"failed with exception"
+                    msg = f"Post processor function of data source ('{self.spec.name}') failed with exception"
                     raise UserCodeError(msg) from exc
 
             reader = map_batches(reader, _map)
@@ -299,6 +316,7 @@ class PushTableSourceScanNode(ArrowExecNode):
     is_stream: bool = attrs.field()
     start_time: Optional[datetime.datetime] = None
     end_time: Optional[datetime.datetime] = None
+    skew_config: Optional[SkewConfig] = None
 
     @classmethod
     def from_node_input(cls, query_node: DataSourceScanNode) -> "PushTableSourceScanNode":
@@ -309,7 +327,13 @@ class PushTableSourceScanNode(ArrowExecNode):
     def spec(self) -> specs.PushTableSourceSpec:
         return self.ds.batch_source
 
-    def to_arrow_reader(self, context: ExecutionContext) -> pyarrow.RecordBatchReader:
+    @property
+    def output_partitioning(self):
+        return SinglePartition()
+
+    def to_arrow_reader(
+        self, context: ExecutionContext, partition_selector: Optional["PartitionSelector"] = None
+    ) -> pyarrow.RecordBatchReader:
         from deltalake import DeltaTable
 
         ds_id = id_helper.IdHelper.from_string(self.ds.id)

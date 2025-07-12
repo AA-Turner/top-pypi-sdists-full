@@ -37,7 +37,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
-    Iterator,
     List,
     Optional,
     Tuple,
@@ -89,7 +88,7 @@ from zenml.integrations.gcp.vertex_custom_job_parameters import (
 from zenml.io import fileio
 from zenml.logger import get_logger
 from zenml.metadata.metadata_types import MetadataType, Uri
-from zenml.orchestrators import ContainerizedOrchestrator
+from zenml.orchestrators import ContainerizedOrchestrator, SubmissionResult
 from zenml.orchestrators.utils import get_orchestrator_run_name
 from zenml.stack.stack_validator import StackValidator
 from zenml.utils.io_utils import get_global_config_directory
@@ -402,57 +401,29 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
 
         return custom_job_component
 
-    def prepare_or_run_pipeline(
+    def submit_pipeline(
         self,
         deployment: "PipelineDeploymentResponse",
         stack: "Stack",
         environment: Dict[str, str],
         placeholder_run: Optional["PipelineRunResponse"] = None,
-    ) -> Iterator[Dict[str, MetadataType]]:
-        """Creates a KFP JSON pipeline.
+    ) -> Optional[SubmissionResult]:
+        """Submits a pipeline to the orchestrator.
 
-        # noqa: DAR402
-
-        This is an intermediary representation of the pipeline which is then
-        deployed to Vertex AI Pipelines service.
-
-        How it works:
-        -------------
-        Before this method is called the `prepare_pipeline_deployment()` method
-        builds a Docker image that contains the code for the pipeline, all steps
-        the context around these files.
-
-        Based on this Docker image a callable is created which builds
-        container_ops for each step (`_construct_kfp_pipeline`). The function
-        `kfp.components.load_component_from_text` is used to create the
-        `ContainerOp`, because using the `dsl.ContainerOp` class directly is
-        deprecated when using the Kubeflow SDK v2. The step entrypoint command
-        with the entrypoint arguments is the command that will be executed by
-        the container created using the previously created Docker image.
-
-        This callable is then compiled into a JSON file that is used as the
-        intermediary representation of the Kubeflow pipeline.
-
-        This file then is submitted to the Vertex AI Pipelines service for
-        execution.
+        This method should only submit the pipeline and not wait for it to
+        complete. If the orchestrator is configured to wait for the pipeline run
+        to complete, a function that waits for the pipeline run to complete can
+        be passed as part of the submission result.
 
         Args:
-            deployment: The pipeline deployment to prepare or run.
+            deployment: The pipeline deployment to submit.
             stack: The stack the pipeline will run on.
             environment: Environment variables to set in the orchestration
-                environment.
+                environment. These don't need to be set if running locally.
             placeholder_run: An optional placeholder run for the deployment.
 
-        Raises:
-            ValueError: If the attribute `pipeline_root` is not set, and it
-                can be not generated using the path of the artifact store in the
-                stack because it is not a
-                `zenml.integrations.gcp.artifact_store.GCPArtifactStore`. Also gets
-                raised if attempting to schedule pipeline run without using the
-                `zenml.integrations.gcp.artifact_store.GCPArtifactStore`.
-
-        Yields:
-            A dictionary of metadata related to the pipeline run.
+        Returns:
+            Optional submission result.
         """
         orchestrator_run_name = get_orchestrator_run_name(
             pipeline_name=deployment.pipeline_configuration.name
@@ -651,16 +622,13 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
             VertexOrchestratorSettings, self.get_settings(deployment)
         )
 
-        # Using the Google Cloud AIPlatform client, upload and execute the
-        # pipeline on the Vertex AI Pipelines service.
-        if metadata := self._upload_and_run_pipeline(
+        return self._upload_and_run_pipeline(
             pipeline_name=deployment.pipeline_configuration.name,
             pipeline_file_path=pipeline_file_path,
             run_name=orchestrator_run_name,
             settings=settings,
             schedule=deployment.schedule,
-        ):
-            yield from metadata
+        )
 
     def _upload_and_run_pipeline(
         self,
@@ -669,7 +637,7 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
         run_name: str,
         settings: VertexOrchestratorSettings,
         schedule: Optional["ScheduleResponse"] = None,
-    ) -> Iterator[Dict[str, MetadataType]]:
+    ) -> Optional[SubmissionResult]:
         """Uploads and run the pipeline on the Vertex AI Pipelines service.
 
         Args:
@@ -684,8 +652,8 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
             RuntimeError: If the Vertex Orchestrator fails to provision or any
                 other Runtime errors.
 
-        Yields:
-            A dictionary of metadata related to the pipeline run.
+        Returns:
+            Optional submission result.
         """
         # We have to replace the hyphens in the run name with underscores
         # and lower case the string, because the Vertex AI Pipelines service
@@ -772,6 +740,7 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
                     service_account=self.config.workload_service_account,
                     network=self.config.network,
                 )
+                return None
 
             else:
                 logger.info(
@@ -793,17 +762,23 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
                     run._dashboard_uri(),
                 )
 
-                # Yield metadata based on the generated job object
-                yield from self.compute_metadata(run)
+                _wait_for_completion = None
 
                 if settings.synchronous:
-                    logger.info(
-                        "Waiting for the Vertex AI Pipelines job to finish..."
-                    )
-                    run.wait()
-                    logger.info(
-                        "Vertex AI Pipelines job completed successfully."
-                    )
+
+                    def _wait_for_completion() -> None:
+                        logger.info(
+                            "Waiting for the Vertex AI Pipelines job to finish..."
+                        )
+                        run.wait()
+                        logger.info(
+                            "Vertex AI Pipelines job completed successfully."
+                        )
+
+                return SubmissionResult(
+                    metadata=self.compute_metadata(run),
+                    wait_for_completion=_wait_for_completion,
+                )
 
         except google_exceptions.ClientError as e:
             logger.error("Failed to create the Vertex AI Pipelines job: %s", e)
@@ -918,14 +893,20 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
 
         return dynamic_component
 
-    def fetch_status(self, run: "PipelineRunResponse") -> ExecutionStatus:
+    def fetch_status(
+        self, run: "PipelineRunResponse", include_steps: bool = False
+    ) -> Tuple[
+        Optional[ExecutionStatus], Optional[Dict[str, ExecutionStatus]]
+    ]:
         """Refreshes the status of a specific pipeline run.
 
         Args:
             run: The run that was executed by this orchestrator.
+            include_steps: Whether to fetch steps.
 
         Returns:
-            the actual status of the pipeline job.
+            A tuple of (pipeline_status, step_statuses_dict).
+            Step statuses are not supported for Vertex, so step_statuses_dict will always be None.
 
         Raises:
             AssertionError: If the run was not executed by to this orchestrator.
@@ -967,39 +948,41 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
 
         # Map the potential outputs to ZenML ExecutionStatus. Potential values:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_pipeline_execution.html#
-        if status in [PipelineState.PIPELINE_STATE_UNSPECIFIED]:
-            return run.status
+        if status == PipelineState.PIPELINE_STATE_UNSPECIFIED:
+            pipeline_status = run.status
         elif status in [
             PipelineState.PIPELINE_STATE_QUEUED,
             PipelineState.PIPELINE_STATE_PENDING,
         ]:
-            return ExecutionStatus.INITIALIZING
+            pipeline_status = ExecutionStatus.INITIALIZING
         elif status in [
             PipelineState.PIPELINE_STATE_RUNNING,
             PipelineState.PIPELINE_STATE_PAUSED,
         ]:
-            return ExecutionStatus.RUNNING
-        elif status in [PipelineState.PIPELINE_STATE_SUCCEEDED]:
-            return ExecutionStatus.COMPLETED
-
-        elif status in [
-            PipelineState.PIPELINE_STATE_FAILED,
-            PipelineState.PIPELINE_STATE_CANCELLING,
-            PipelineState.PIPELINE_STATE_CANCELLED,
-        ]:
-            return ExecutionStatus.FAILED
+            pipeline_status = ExecutionStatus.RUNNING
+        elif status == PipelineState.PIPELINE_STATE_SUCCEEDED:
+            pipeline_status = ExecutionStatus.COMPLETED
+        elif status == PipelineState.PIPELINE_STATE_CANCELLING:
+            pipeline_status = ExecutionStatus.STOPPING
+        elif status == PipelineState.PIPELINE_STATE_CANCELLED:
+            pipeline_status = ExecutionStatus.STOPPED
+        elif status == PipelineState.PIPELINE_STATE_FAILED:
+            pipeline_status = ExecutionStatus.FAILED
         else:
             raise ValueError("Unknown status for the pipeline job.")
 
+        # Vertex doesn't support step-level status fetching yet
+        return pipeline_status, None
+
     def compute_metadata(
         self, job: aiplatform.PipelineJob
-    ) -> Iterator[Dict[str, MetadataType]]:
+    ) -> Dict[str, MetadataType]:
         """Generate run metadata based on the corresponding Vertex PipelineJob.
 
         Args:
             job: The corresponding PipelineJob object.
 
-        Yields:
+        Returns:
             A dictionary of metadata related to the pipeline run.
         """
         metadata: Dict[str, MetadataType] = {}
@@ -1016,7 +999,7 @@ class VertexOrchestrator(ContainerizedOrchestrator, GoogleCredentialsMixin):
         if logs_url := self._compute_orchestrator_logs_url(job):
             metadata[METADATA_ORCHESTRATOR_LOGS_URL] = Uri(logs_url)
 
-        yield metadata
+        return metadata
 
     @staticmethod
     def _compute_orchestrator_url(

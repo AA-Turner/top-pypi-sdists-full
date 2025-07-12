@@ -1,4 +1,5 @@
 import datetime
+import inspect
 import logging
 
 from pyspark.sql import DataFrame
@@ -6,16 +7,22 @@ from pyspark.sql import SparkSession
 from pyspark.sql.utils import AnalysisException
 
 import tecton_core.tecton_pendulum as pendulum
+from tecton_core import function_deserialization
 from tecton_core import specs
+from tecton_core.errors import TectonValidationError
 from tecton_core.fco_container import FcoContainer
 from tecton_core.fco_container import create_fco_container
 from tecton_core.feature_definition_wrapper import FeatureDefinitionWrapper
 from tecton_core.id_helper import IdHelper
 from tecton_core.offline_store import PartitionType
+from tecton_core.query.errors import UserCodeError
 from tecton_core.query_consts import valid_from
+from tecton_core.sink_context import SinkContext
 from tecton_core.time_utils import convert_to_effective_timestamp
 from tecton_materialization.batch_materialization import DEFAULT_COALESCE_FOR_S3
+from tecton_materialization.materialization_utils import get_secret_resolver
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
+from tecton_proto.materialization.params__client_pb2 import SecretMaterializationTaskParams
 from tecton_spark.offline_store import DeltaWriter
 from tecton_spark.offline_store import OfflineStoreWriterParams
 
@@ -23,7 +30,9 @@ from tecton_spark.offline_store import OfflineStoreWriterParams
 logger = logging.getLogger(__name__)
 
 
-def feature_export_from_params(spark: SparkSession, task_params: MaterializationTaskParams):
+def feature_export_from_params(
+    spark: SparkSession, task_params: MaterializationTaskParams, secret_params: SecretMaterializationTaskParams
+):
     export_params = task_params.feature_export_info.feature_export_parameters
     start_time = export_params.feature_start_time.ToDatetime()
     end_time = export_params.feature_end_time.ToDatetime()
@@ -56,22 +65,55 @@ def feature_export_from_params(spark: SparkSession, task_params: Materialization
     df_to_write = spark_df if is_write_optimized else spark_df.coalesce(DEFAULT_COALESCE_FOR_S3)
 
     table_location = export_params.export_store_path
-    partition_size = datetime.timedelta(days=1)
-    version = fd.get_feature_store_format_version
-    logging.info(
-        f"Writing features to {table_location} for materialization time range {start_time} to {end_time} and effective time range {effective_tile.start} to {effective_tile.end} with partition size={partition_size}"
-    )
 
-    export_store_params = OfflineStoreWriterParams(
-        s3_path=table_location,
-        always_store_anchor_column=True,
-        time_column=valid_from(),
-        join_key_columns=fd.join_keys,
-        is_continuous=fd.is_continuous,
-    )
+    if table_location:
+        partition_size = datetime.timedelta(days=1)
+        version = fd.get_feature_store_format_version
+        logging.info(
+            f"Writing features to {table_location} for materialization time range {start_time} to {end_time} and effective time range {effective_tile.start} to {effective_tile.end} with partition size={partition_size}"
+        )
 
-    writer = DeltaWriter(export_store_params, spark, version, partition_size, PartitionType.DATE_STR)
-    writer.overwrite_dataframe_in_tile(df_to_write, effective_tile)
+        export_store_params = OfflineStoreWriterParams(
+            s3_path=table_location,
+            always_store_anchor_column=True,
+            time_column=valid_from(),
+            join_key_columns=fd.join_keys,
+            is_continuous=fd.is_continuous,
+            upsert_by_batch_publish_timestamp=False,
+        )
+
+        writer = DeltaWriter(export_store_params, spark, version, partition_size, PartitionType.DATE_STR)
+        writer.overwrite_dataframe_in_tile(df_to_write, effective_tile)
+
+    # Write to Sink
+    if fd.sink_config:
+        sink_config = fd.sink_config
+        secrets = {}
+        secret_resolver = get_secret_resolver(secret_params.secret_service_params) if secret_params else None
+        if sink_config.secrets:
+            if not secret_resolver:
+                msg = "No secret resolver was provided, but sink_config contains secrets!"
+                raise TectonValidationError(msg)
+            secrets = secret_resolver.resolve_map(sink_config.secrets)
+
+        function = function_deserialization.from_proto(sink_config.function)
+        function_args = {"df": df_to_write}
+        params = list(inspect.signature(function).parameters)
+        if "context" in params:
+            function_args["context"] = SinkContext(
+                feature_view_name=fd.name,
+                feature_view_id=fd.id,
+                workspace=fd.workspace,
+                start_time=start_time,
+                end_time=end_time,
+                secrets=secrets,
+            )
+
+        try:
+            function(**function_args)
+        except Exception as exc:
+            msg = f"Invoking Sink Config: '{sink_config.name}' failed with exception."
+            raise UserCodeError(msg) from exc
 
 
 def _get_features_in_range(

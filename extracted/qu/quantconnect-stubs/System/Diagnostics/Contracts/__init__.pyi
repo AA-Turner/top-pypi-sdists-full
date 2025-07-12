@@ -64,6 +64,33 @@ class ContractFailedEventArgs(System.EventArgs):
         ...
 
 
+class ContractException(System.Exception):
+    """This class has no documentation."""
+
+    @property
+    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
+        ...
+
+    @property
+    def failure(self) -> str:
+        ...
+
+    @property
+    def user_message(self) -> str:
+        ...
+
+    @property
+    def condition(self) -> str:
+        ...
+
+    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
 class PureAttribute(System.Attribute):
     """Methods and classes marked with this attribute can be used within calls to Contract methods. Such methods not make any visible state changes."""
 
@@ -327,33 +354,6 @@ class Contract(System.Object):
         :param user_message: If it is not a constant string literal, then the contract may not be understood by tools.
         """
         ...
-
-
-class ContractException(System.Exception):
-    """This class has no documentation."""
-
-    @property
-    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
-        ...
-
-    @property
-    def failure(self) -> str:
-        ...
-
-    @property
-    def user_message(self) -> str:
-        ...
-
-    @property
-    def condition(self) -> str:
-        ...
-
-    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class _EventContainer(typing.Generic[System_Diagnostics_Contracts__EventContainer_Callable, System_Diagnostics_Contracts__EventContainer_ReturnType]):

@@ -1598,6 +1598,10 @@ impl TypeCheckDiagnostics {
         self.diagnostics.shrink_to_fit();
     }
 
+    pub(crate) fn into_vec(self) -> Vec<Diagnostic> {
+        self.diagnostics
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, Diagnostic> {
         self.diagnostics.iter()
     }
@@ -2426,7 +2430,7 @@ fn report_invalid_base<'ctx, 'db>(
 
 /// This function receives an unresolved `from foo import bar` import,
 /// where `foo` can be resolved to a module but that module does not
-/// have a `bar` member or submdoule.
+/// have a `bar` member or submodule.
 ///
 /// If the `foo` module originates from the standard library and `foo.bar`
 /// *does* exist as a submodule in the standard library on *other* Python

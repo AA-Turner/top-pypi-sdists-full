@@ -158,6 +158,12 @@ def calcular_vencimento_333(data_emissao):
         vencimento -= timedelta(days=1)
     elif vencimento.weekday() == 6:
         vencimento -= timedelta(days=2)
+
+    # Ajuste para vencimentos com data anterior ao dia atual
+    hoje = datetime.now()
+    if vencimento.date() < hoje.date():
+        vencimento = hoje + timedelta(days=1)
+
     return vencimento.strftime("%d/%m/%Y")
 
 
@@ -178,6 +184,11 @@ def calcular_vencimento_1353(data_emissao):
             mes_vencimento = 1
             ano_vencimento += 1
         vencimento = datetime(ano_vencimento, mes_vencimento, 16)
+
+    # Ajuste para vencimentos com data anterior ao dia atual
+    hoje = datetime.now()
+    if vencimento.date() < hoje.date():
+        vencimento = hoje + timedelta(days=1)
 
     return vencimento.strftime("%d/%m/%Y")
 

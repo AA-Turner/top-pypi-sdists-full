@@ -1,5 +1,5 @@
 #
-# Copyright 2023 DataRobot, Inc. and its affiliates.
+# Copyright 2023-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -15,7 +15,10 @@ from typing import Any, Dict, List, Optional, Union
 
 import trafaret as t
 
+from datarobot.enums import enum_to_list, PineconeCloud, VectorDatabaseMetadataCombinationStrategy
 from datarobot.models.api_object import APIObject
+from datarobot.models.custom_model_version import CustomModelVersion
+from datarobot.models.deployment import Deployment
 from datarobot.models.genai.custom_model_embedding_validation import CustomModelEmbeddingValidation
 from datarobot.models.genai.custom_model_validation import (
     get_entity_id,
@@ -25,6 +28,7 @@ from datarobot.models.genai.playground import Playground
 from datarobot.models.use_cases.use_case import UseCase
 from datarobot.models.use_cases.utils import get_use_case_id, resolve_use_cases, UseCaseLike
 from datarobot.utils.pagination import unpaginate
+from datarobot.utils.waiters import wait_for_async_resolution
 
 chunking_parameters_trafaret = t.Dict(
     {
@@ -144,6 +148,32 @@ vector_database_dataset_export_job_trafaret = t.Dict(
     }
 ).ignore_extra("*")
 
+PineconeConnection = t.Dict(
+    {
+        t.Key("type"): t.Atom("pinecone"),
+        t.Key("cloud"): t.Enum(*enum_to_list(PineconeCloud)),
+        t.Key("region"): t.String,
+        t.Key("credential_id"): t.String,
+    }
+).allow_extra("*")
+
+ElasticsearchConnection = t.Dict(
+    {
+        t.Key("type"): t.Atom("elasticsearch"),
+        t.Key("url", optional=True, default=None): t.Or(t.Null, t.String),
+        t.Key("cloud_id", optional=True, default=None): t.Or(t.Null, t.String),
+        t.Key("credential_id"): t.String(),
+    }
+).allow_extra("*")
+
+AnyExternalVectorDatabaseConnection = t.Dict({t.Key("type"): t.String}).allow_extra("*")
+
+ExternalVectorDatabaseConnection = t.Or(
+    PineconeConnection,
+    ElasticsearchConnection,
+    AnyExternalVectorDatabaseConnection,
+)
+
 vector_database_trafaret = t.Dict(
     {
         t.Key("id"): t.String,
@@ -180,6 +210,27 @@ vector_database_trafaret = t.Dict(
         t.Key("added_dataset_ids", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
         t.Key("added_dataset_names", optional=True, default=None): t.Or(t.Null, t.List(t.String)),
         t.Key("version", optional=True, default=None): t.Or(t.Null, t.Int),
+        t.Key("external_vector_database_connection", optional=True, default=None): t.Or(
+            t.Null, ExternalVectorDatabaseConnection
+        ),
+        t.Key("metadata_dataset_id", optional=True, default=None): t.Or(t.Null, t.String),
+        t.Key("metadata_dataset_name", optional=True, default=None): t.Or(t.Null, t.String),
+        t.Key("metadata_combination_strategy", optional=True, default=None): t.Or(
+            t.Null, t.Enum(*enum_to_list(VectorDatabaseMetadataCombinationStrategy))
+        ),
+        t.Key("added_metadata_dataset_pairs", optional=True, default=None): t.Or(
+            t.Null,
+            t.List(
+                t.Dict(
+                    {
+                        t.Key("dataset_id"): t.String,
+                        t.Key("dataset_name"): t.String,
+                        t.Key("metadata_dataset_id"): t.String,
+                        t.Key("metadata_dataset_name"): t.String,
+                    }
+                )
+            ),
+        ),
     }
 ).ignore_extra("*")
 
@@ -639,6 +690,17 @@ class VectorDatabase(APIObject):
         ID of the custom embedding validation, if any.
     is_separator_regex : bool
         Whether the separators should be treated as regular expressions.
+    external_vector_database_connection : Optional[dict]
+        Parameters defining the external vector database connection to use.
+    metadata_dataset_id: Optional[str]
+        The ID of the dataset used to add additional metadata to the vector database.
+    metadata_dataset_name: Optional[str]
+        The name of the dataset used to add additional metadata to the vector database.
+    metadata_combination_strategy: Optional[VectorDatabaseMetadataCombinationStrategy]
+        The strategy used to combine metadata when there is duplication between the dataset and
+        the metadata dataset.
+    added_metadata_dataset_pairs: Optional[List[Dict[str, str]]
+        Pairs of dataset_id and metadata_dataset_id that have been added to the vector database.
     """
 
     _path = "api/v2/genai/vectorDatabases"
@@ -680,6 +742,11 @@ class VectorDatabase(APIObject):
         added_dataset_ids: Optional[List[str]],
         added_dataset_names: Optional[List[str]],
         version: int,
+        external_vector_database_connection: Optional[Dict[str, Any]],
+        metadata_dataset_id: Optional[str],
+        metadata_dataset_name: Optional[str],
+        metadata_combination_strategy: Optional[VectorDatabaseMetadataCombinationStrategy],
+        added_metadata_dataset_pairs: Optional[List[Dict[str, str]]],
     ):
         self.id = id
         self.name = name
@@ -713,6 +780,11 @@ class VectorDatabase(APIObject):
         self.added_dataset_ids = added_dataset_ids
         self.added_dataset_names = added_dataset_names
         self.version = version
+        self.external_vector_database_connection = external_vector_database_connection
+        self.metadata_dataset_id = metadata_dataset_id
+        self.metadata_dataset_name = metadata_dataset_name
+        self.metadata_combination_strategy = metadata_combination_strategy
+        self.added_metadata_dataset_pairs = added_metadata_dataset_pairs
 
     def __repr__(self) -> str:
         return (
@@ -786,6 +858,9 @@ class VectorDatabase(APIObject):
         parent_vector_database_id: Optional[str] = None,
         update_llm_blueprints: Optional[bool] = None,
         update_deployments: Optional[bool] = None,
+        external_vector_database_connection: Optional[Dict[str, Any]] = None,
+        metadata_dataset_id: Optional[str] = None,
+        metadata_combination_strategy: Optional[VectorDatabaseMetadataCombinationStrategy] = None,
     ) -> VectorDatabase:
         """
         Create a new vector database.
@@ -807,6 +882,13 @@ class VectorDatabase(APIObject):
             Whether to update LLM blueprints related to the parent vector database.
         update_deployments : Optional[bool]
             Whether to update deployments related to the parent vector database.
+        external_vector_database_connection: Optional[dict]
+            Parameters defining the external vector database connection to use.
+        metadata_dataset_id : Optional[str]
+            The ID of the dataset used to provide additional metadata.
+        metadata_combination_strategy : Optional[VectorDatabaseMetadataCombinationStrategy]
+            Strategy used to combine the metadata columns if there are duplicates between the
+            dataset and the metadata dataset.
 
         Returns
         -------
@@ -821,7 +903,13 @@ class VectorDatabase(APIObject):
             "parent_vector_database_id": parent_vector_database_id,
             "update_llm_blueprints": update_llm_blueprints,
             "update_deployments": update_deployments,
+            "metadata_dataset_id": metadata_dataset_id,
+            "metadata_combination_strategy": metadata_combination_strategy,
         }
+        if external_vector_database_connection:
+            payload["external_vector_database_connection"] = ExternalVectorDatabaseConnection(
+                external_vector_database_connection
+            )
         url = f"{cls._client.domain}/{cls._path}/"
         r_data = cls._client.post(url, data=payload)
         return cls.from_server_data(r_data.json())
@@ -961,22 +1049,59 @@ class VectorDatabase(APIObject):
         r_data = unpaginate(url, params, cls._client)
         return [cls.from_server_data(data) for data in r_data]
 
-    def update(self, name: str) -> VectorDatabase:
+    def update(
+        self, name: Optional[str] = None, credential_id: Optional[str] = None
+    ) -> VectorDatabase:
         """
         Update the vector database.
 
         Parameters
         ----------
-        name : str
+        name : Optional[str]
             The new name for the vector database.
+        credential_id : Optional[str]
+            The new credential id to access the connected vector database.
 
         Returns
         -------
         vector database : VectorDatabase
             The updated vector database.
         """
-        payload = {"name": name}
+        payload = {"name": name, "credential_id": credential_id}
         url = f"{self._client.domain}/{self._path}/{self.id}/"
+        r_data = self._client.patch(url, data=payload)
+        return self.from_server_data(r_data.json())
+
+    def update_connected(
+        self,
+        dataset_id: str,
+        metadata_dataset_id: Optional[str] = None,
+        metadata_combination_strategy: Optional[str] = None,
+    ) -> VectorDatabase:
+        """
+        Update a connected vector database.
+
+        Parameters
+        ----------
+        dataset_id : str
+            The ID of the dataset to add to the vector database.
+        metadata_dataset_id : Optional[str]
+            The ID of the dataset used to provide additional metadata.
+        metadata_combination_strategy : Optional[VectorDatabaseMetadataCombinationStrategy]
+            The strategy used to combine the metadata columns if there are duplicates between the
+            dataset and the metadata dataset.
+
+        Returns
+        -------
+        vector database : VectorDatabase
+            The updated vector database.
+        """
+        payload = {
+            "dataset_id": dataset_id,
+            "metadata_dataset_id": metadata_dataset_id,
+            "metadata_combination_strategy": metadata_combination_strategy,
+        }
+        url = f"{self._client.domain}/{self._path}/{self.id}/externalVectorDatabaseDocuments/"
         r_data = self._client.patch(url, data=payload)
         return self.from_server_data(r_data.json())
 
@@ -1001,7 +1126,9 @@ class VectorDatabase(APIObject):
         r_data = cls._client.get(url)
         return SupportedTextChunkings.from_server_data(r_data.json())
 
-    def download_text_and_embeddings_asset(self, file_path: Optional[str] = None) -> None:
+    def download_text_and_embeddings_asset(
+        self, file_path: Optional[str] = None, part: Optional[int] = None
+    ) -> None:
         """Download a parquet file with text chunks and corresponding embeddings created
         by a vector database.
 
@@ -1010,14 +1137,129 @@ class VectorDatabase(APIObject):
         file_path : Optional[str]
             File path to save the asset. By default, it saves in the current directory
             autogenerated by server name.
+        part : Optional[int]
+            Part of the text chunks to download. Connected vector databases have a
+            part for each dataset that is added.
         """
         url = f"{self._client.domain}/{self._path}/{self.id}/textAndEmbeddings/"
-        response = self._client.get(url, stream=True)
+        query_params = {}
+        if part:
+            query_params["part"] = part
+        response = self._client.get(url, stream=True, params=query_params)
         if not file_path:
             file_path = response.headers["Content-Disposition"].split("=")[-1].strip('"')
         with open(str(file_path), mode="wb") as f:
             for chunk in response.iter_content(chunk_size=65536):
                 f.write(chunk)
+
+    def send_to_custom_model_workshop(
+        self,
+        maximum_memory: Optional[int] = None,
+        resource_bundle_id: Optional[str] = None,
+        replicas: Optional[int] = None,
+        network_egress_policy: Optional[str] = None,
+    ) -> CustomModelVersion:
+        """
+        Create a new CustomModelVersion for this vector database.
+
+        Parameters
+        ----------
+        maximum_memory: Optional[int]
+            The maximum memory that will be allocated to this custom model.
+        resource_bundle_id: Optional[str]
+            The ID of a datarobot.models.resource_bundle.ResourceBundle that will be used by this
+            custom model.
+        replicas: Optional[int]
+            A fixed number of replicas that will be deployed for this custom model.
+        network_egress_policy: Optional[str]
+            Determines whether the given custom model is isolated, or can access the public network.
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`,
+            `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
+        """
+
+        requested_resources: dict[str, Any] = {}
+        if maximum_memory is not None:
+            requested_resources["maximum_memory"] = maximum_memory
+        if resource_bundle_id is not None:
+            requested_resources["resource_bundle_id"] = resource_bundle_id
+        if replicas is not None:
+            requested_resources["replicas"] = replicas
+        if network_egress_policy is not None:
+            requested_resources["network_egress_policy"] = network_egress_policy
+
+        payload_data: dict[str, Any] = (
+            {"resources": requested_resources} if requested_resources else {}
+        )
+
+        url = f"{self._client.domain}/{self._path}/{self.id}/customModelVersions/"
+
+        response_data = self._client.post(url, data=payload_data)
+        location = wait_for_async_resolution(self._client, response_data.headers["Location"])
+        return CustomModelVersion.from_location(location)
+
+    def deploy(
+        self,
+        default_prediction_server_id: Optional[str] = None,
+        prediction_environment_id: Optional[str] = None,
+        credential_id: Optional[str] = None,
+        maximum_memory: Optional[int] = None,
+        resource_bundle_id: Optional[str] = None,
+        replicas: Optional[int] = None,
+        network_egress_policy: Optional[str] = None,
+    ) -> Deployment:
+        """
+        Create a new Custom Model for this vector database and deploy it on a new Deployment.
+
+        Parameters
+        ----------
+        default_prediction_server_id: Optional[str]
+            An identifier of a prediction server to be used as the default prediction server.
+            When working with prediction environments, the default prediction server ID should not
+            be provided.
+        prediction_environment_id: Optional[str]
+            An identifier of a prediction environment to be used for model deployment.
+        credential_id: Optional[str]:
+            The ID of credentials to access a connected vector database. This is only needed for vector
+            databases with an external source when the user does not have access to the credentials
+            associated with this vector database.
+        maximum_memory: Optional[int]
+            The maximum memory that will be allocated to the new custom model.
+        resource_bundle_id: Optional[str]
+            The ID of a datarobot.models.resource_bundle.ResourceBundle that will be used by the new
+            custom model.
+        replicas: Optional[int]
+            A fixed number of replicas that will be deployed for this custom model.
+        network_egress_policy: Optional[str]
+            Determines whether the given custom model is isolated, or can access the public network.
+            Values: [`datarobot.NETWORK_EGRESS_POLICY.NONE`,
+            `datarobot.NETWORK_EGRESS_POLICY.PUBLIC`].
+        """
+        url = f"{self._client.domain}/{self._path}/{self.id}/deployments/"
+
+        requested_resources: dict[str, Any] = {}
+        if maximum_memory is not None:
+            requested_resources["maximum_memory"] = maximum_memory
+        if resource_bundle_id is not None:
+            requested_resources["resource_bundle_id"] = resource_bundle_id
+        if replicas is not None:
+            requested_resources["replicas"] = replicas
+        if network_egress_policy is not None:
+            requested_resources["network_egress_policy"] = network_egress_policy
+
+        payload_data: dict[str, Any] = (
+            {"resources": requested_resources} if requested_resources else {}
+        )
+
+        if default_prediction_server_id:
+            payload_data["default_prediction_server_id"] = default_prediction_server_id
+        if prediction_environment_id:
+            payload_data["prediction_environment_id"] = prediction_environment_id
+        if credential_id:
+            payload_data["credential_id"] = credential_id
+
+        response_data = self._client.post(url, data={})
+        location = wait_for_async_resolution(self._client, response_data.headers["Location"])
+        return Deployment.from_location(location)
 
 
 class CustomModelVectorDatabaseValidation(NonChatAwareCustomModelValidation):

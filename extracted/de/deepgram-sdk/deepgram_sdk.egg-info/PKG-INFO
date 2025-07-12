@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepgram-sdk
-Version: 4.5.0
+Version: 4.6.0
 Summary: The official Python SDK for the Deepgram automated speech recognition platform.
 Home-page: https://github.com/deepgram/deepgram-python-sdk
 Author: Deepgram
@@ -269,7 +269,8 @@ Configure a Voice Agent.
 
 ```python
 from deepgram import (
-    SettingsOptions
+    SettingsOptions,
+    Speak
 )
 
 # Create websocket connection
@@ -283,9 +284,18 @@ options.agent.think.provider.model = "gpt-4o-mini"
 options.agent.think.prompt = "You are a helpful AI assistant."
 options.agent.listen.provider.type = "deepgram"
 options.agent.listen.provider.model = "nova-3"
-options.agent.speak.provider.type = "deepgram"
-options.agent.speak.provider.model ="aura-2-thalia-en"
 
+# Configure multiple TTS providers for automatic fallback.
+primary = Speak()
+primary.provider.type = "deepgram"
+primary.provider.model = "aura-2-zeus-en"
+
+fallback = Speak()
+fallback.provider.type = "cartesia"
+fallback.provider.model = "sonic-english"
+
+options.agent.speak = [primary, fallback]
+# Set Agent greeting
 options.greeting = "Hello, I'm your AI assistant."
 
 # Start the connection

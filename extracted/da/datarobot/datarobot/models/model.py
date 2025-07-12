@@ -1,5 +1,5 @@
 #
-# Copyright 2021-2022 DataRobot, Inc. and its affiliates.
+# Copyright 2021-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -795,6 +795,7 @@ class GenericModel(APIObject, BrowserMixin):
         self,
         early_stopping_rounds: Optional[int] = None,
         first_iteration_only: bool = False,
+        chunk_definition_id: Optional[str] = None,
     ) -> ModelJob:
         """Submit a job to the queue to perform the first incremental learning iteration training on an existing
         sample model. This functionality requires the SAMPLE_DATA_TO_START_PROJECT feature flag to be enabled.
@@ -808,6 +809,8 @@ class GenericModel(APIObject, BrowserMixin):
             iteration. If set to True, the training process will be performed only for the first
             iteration. If set to False, training will continue until early stopping conditions
             are met or the maximum number of iterations is reached. The default value is False.
+        chunk_definition_id: str
+            The id of the chunk definition to be use for incremental training.
 
         Returns
         -------
@@ -824,6 +827,38 @@ class GenericModel(APIObject, BrowserMixin):
             payload["earlyStoppingRounds"] = early_stopping_rounds
         if first_iteration_only:
             payload["firstIterationOnly"] = first_iteration_only
+        if chunk_definition_id:
+            payload["chunkDefinitionId"] = chunk_definition_id
+        response = self._client.post(url, data=payload)
+        return ModelJob.from_id(self.project_id, get_id_from_response(response))
+
+    def continue_incremental_learning_from_incremental_model(
+        self, chunk_definition_id: str, early_stopping_rounds: Optional[int] = None
+    ):
+        """Submit a job to the queue to perform the first incremental learning iteration training on an existing
+        sample model. This functionality requires the SAMPLE_DATA_TO_START_PROJECT feature flag to be enabled.
+
+        Parameters
+        ----------
+        chunk_definition_id: str
+            The Mongo ID for the chunking service.
+        early_stopping_rounds: Optional[int]
+            The number of chunks that, when no improvement has been shown, triggers the early stopping mechanism.
+
+        Returns
+        -------
+        job : ModelJob
+            The model retraining job that is created.
+        """
+        from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
+
+        url = f"projects/{self.project_id}/incrementalLearningModels/fromIncrementalModel/"
+        payload = {
+            "modelId": self.id,
+            "chunkDefinitionId": chunk_definition_id,
+        }
+        if early_stopping_rounds:
+            payload["earlyStoppingRounds"] = early_stopping_rounds
         response = self._client.post(url, data=payload)
         return ModelJob.from_id(self.project_id, get_id_from_response(response))
 

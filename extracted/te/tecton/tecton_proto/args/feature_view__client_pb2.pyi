@@ -5,9 +5,11 @@ from tecton_proto.args import basic_info__client_pb2 as _basic_info__client_pb2
 from tecton_proto.args import data_source__client_pb2 as _data_source__client_pb2
 from tecton_proto.args import diff_options__client_pb2 as _diff_options__client_pb2
 from tecton_proto.args import pipeline__client_pb2 as _pipeline__client_pb2
-from tecton_proto.args import server_group__client_pb2 as _server_group__client_pb2
+from tecton_proto.args import transformation__client_pb2 as _transformation__client_pb2
+from tecton_proto.args import user_defined_function__client_pb2 as _user_defined_function__client_pb2
 from tecton_proto.common import analytics_options__client_pb2 as _analytics_options__client_pb2
 from tecton_proto.common import calculation_node__client_pb2 as _calculation_node__client_pb2
+from tecton_proto.common import compute_identity__client_pb2 as _compute_identity__client_pb2
 from tecton_proto.common import compute_mode__client_pb2 as _compute_mode__client_pb2
 from tecton_proto.common import data_source_type__client_pb2 as _data_source_type__client_pb2
 from tecton_proto.common import data_type__client_pb2 as _data_type__client_pb2
@@ -114,7 +116,8 @@ class Calculation(_message.Message):
     def __init__(self, name: _Optional[str] = ..., expr: _Optional[str] = ..., column_dtype: _Optional[_Union[_data_type__client_pb2.DataType, _Mapping]] = ..., description: _Optional[str] = ..., tags: _Optional[_Mapping[str, str]] = ..., abstract_syntax_tree_root: _Optional[_Union[_calculation_node__client_pb2.AbstractSyntaxTreeNode, _Mapping]] = ...) -> None: ...
 
 class ClusterConfig(_message.Message):
-    __slots__ = ["existing_cluster", "implicit_config", "json_databricks", "json_dataproc", "json_emr", "new_databricks", "new_emr", "rift"]
+    __slots__ = ["compute_identity", "existing_cluster", "implicit_config", "json_databricks", "json_dataproc", "json_emr", "new_databricks", "new_emr", "rift"]
+    COMPUTE_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     EXISTING_CLUSTER_FIELD_NUMBER: _ClassVar[int]
     IMPLICIT_CONFIG_FIELD_NUMBER: _ClassVar[int]
     JSON_DATABRICKS_FIELD_NUMBER: _ClassVar[int]
@@ -123,6 +126,7 @@ class ClusterConfig(_message.Message):
     NEW_DATABRICKS_FIELD_NUMBER: _ClassVar[int]
     NEW_EMR_FIELD_NUMBER: _ClassVar[int]
     RIFT_FIELD_NUMBER: _ClassVar[int]
+    compute_identity: _compute_identity__client_pb2.ComputeIdentity
     existing_cluster: ExistingClusterConfig
     implicit_config: DefaultClusterConfig
     json_databricks: JsonClusterConfig
@@ -131,7 +135,13 @@ class ClusterConfig(_message.Message):
     new_databricks: NewClusterConfig
     new_emr: NewClusterConfig
     rift: RiftClusterConfig
-    def __init__(self, existing_cluster: _Optional[_Union[ExistingClusterConfig, _Mapping]] = ..., new_databricks: _Optional[_Union[NewClusterConfig, _Mapping]] = ..., new_emr: _Optional[_Union[NewClusterConfig, _Mapping]] = ..., implicit_config: _Optional[_Union[DefaultClusterConfig, _Mapping]] = ..., json_databricks: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., json_emr: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., json_dataproc: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., rift: _Optional[_Union[RiftClusterConfig, _Mapping]] = ...) -> None: ...
+    def __init__(self, existing_cluster: _Optional[_Union[ExistingClusterConfig, _Mapping]] = ..., new_databricks: _Optional[_Union[NewClusterConfig, _Mapping]] = ..., new_emr: _Optional[_Union[NewClusterConfig, _Mapping]] = ..., implicit_config: _Optional[_Union[DefaultClusterConfig, _Mapping]] = ..., json_databricks: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., json_emr: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., json_dataproc: _Optional[_Union[JsonClusterConfig, _Mapping]] = ..., rift: _Optional[_Union[RiftClusterConfig, _Mapping]] = ..., compute_identity: _Optional[_Union[_compute_identity__client_pb2.ComputeIdentity, _Mapping]] = ...) -> None: ...
+
+class DataLakeConfig(_message.Message):
+    __slots__ = ["delta"]
+    DELTA_FIELD_NUMBER: _ClassVar[int]
+    delta: DeltaConfig
+    def __init__(self, delta: _Optional[_Union[DeltaConfig, _Mapping]] = ...) -> None: ...
 
 class DataQualityConfig(_message.Message):
     __slots__ = ["data_quality_enabled", "skip_default_expectations"]
@@ -142,14 +152,16 @@ class DataQualityConfig(_message.Message):
     def __init__(self, data_quality_enabled: bool = ..., skip_default_expectations: bool = ...) -> None: ...
 
 class DefaultClusterConfig(_message.Message):
-    __slots__ = ["databricks_spark_version", "emr_spark_version", "tecton_compute_instance_type"]
+    __slots__ = ["databricks_spark_version", "emr_python_version", "emr_spark_version", "tecton_compute_instance_type"]
     DATABRICKS_SPARK_VERSION_FIELD_NUMBER: _ClassVar[int]
+    EMR_PYTHON_VERSION_FIELD_NUMBER: _ClassVar[int]
     EMR_SPARK_VERSION_FIELD_NUMBER: _ClassVar[int]
     TECTON_COMPUTE_INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     databricks_spark_version: str
+    emr_python_version: _python_version__client_pb2.PythonVersion
     emr_spark_version: str
     tecton_compute_instance_type: str
-    def __init__(self, databricks_spark_version: _Optional[str] = ..., emr_spark_version: _Optional[str] = ..., tecton_compute_instance_type: _Optional[str] = ...) -> None: ...
+    def __init__(self, databricks_spark_version: _Optional[str] = ..., emr_spark_version: _Optional[str] = ..., tecton_compute_instance_type: _Optional[str] = ..., emr_python_version: _Optional[_Union[_python_version__client_pb2.PythonVersion, str]] = ...) -> None: ...
 
 class DeltaConfig(_message.Message):
     __slots__ = ["time_partition_size"]
@@ -339,6 +351,12 @@ class FeatureViewArgs(_message.Message):
     version: _framework_version__client_pb2.FrameworkVersion
     def __init__(self, feature_view_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_view_type: _Optional[_Union[FeatureViewType, str]] = ..., info: _Optional[_Union[_basic_info__client_pb2.BasicInfo, _Mapping]] = ..., version: _Optional[_Union[_framework_version__client_pb2.FrameworkVersion, str]] = ..., prevent_destroy: bool = ..., options: _Optional[_Mapping[str, str]] = ..., cache_config: _Optional[_Union[CacheConfig, _Mapping]] = ..., entities: _Optional[_Iterable[_Union[EntityKeyOverride, _Mapping]]] = ..., resource_providers: _Optional[_Mapping[str, _id__client_pb2.Id]] = ..., materialized_feature_view_args: _Optional[_Union[MaterializedFeatureViewArgs, _Mapping]] = ..., realtime_args: _Optional[_Union[RealtimeArgs, _Mapping]] = ..., feature_table_args: _Optional[_Union[FeatureTableArgs, _Mapping]] = ..., prompt_args: _Optional[_Union[PromptArgs, _Mapping]] = ..., context_parameter_name: _Optional[str] = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ..., online_serving_index: _Optional[_Iterable[str]] = ..., online_enabled: bool = ..., offline_enabled: bool = ..., batch_compute_mode: _Optional[_Union[_compute_mode__client_pb2.BatchComputeMode, str]] = ..., pipeline: _Optional[_Union[_pipeline__client_pb2.Pipeline, _Mapping]] = ..., data_quality_config: _Optional[_Union[DataQualityConfig, _Mapping]] = ..., forced_view_schema: _Optional[_Union[_spark_schema__client_pb2.SparkSchema, _Mapping]] = ..., forced_materialized_schema: _Optional[_Union[_spark_schema__client_pb2.SparkSchema, _Mapping]] = ...) -> None: ...
 
+class IcebergConfig(_message.Message):
+    __slots__ = ["num_entity_buckets"]
+    NUM_ENTITY_BUCKETS_FIELD_NUMBER: _ClassVar[int]
+    num_entity_buckets: int
+    def __init__(self, num_entity_buckets: _Optional[int] = ...) -> None: ...
+
 class Inference(_message.Message):
     __slots__ = ["description", "input_columns", "model", "name", "tags"]
     class TagsEntry(_message.Message):
@@ -367,7 +385,7 @@ class JsonClusterConfig(_message.Message):
     def __init__(self, json: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...) -> None: ...
 
 class MaterializedFeatureViewArgs(_message.Message):
-    __slots__ = ["aggregation_interval", "aggregation_leading_edge", "aggregation_secondary_key", "aggregations", "attributes", "batch_compute", "batch_schedule", "batch_trigger", "compaction_enabled", "data_source_type", "embeddings", "environment", "feature_start_time", "feature_store_format_version", "incremental_backfills", "inferences", "lifetime_start_time", "manual_trigger_backfill_end_time", "max_backfill_interval", "monitoring", "offline_store", "offline_store_legacy", "online_store", "output_stream", "run_transformation_validation", "schema", "secondary_key_output_columns", "secrets", "serving_ttl", "stream_compute", "stream_processing_mode", "stream_tile_size", "stream_tiling_enabled", "tecton_materialization_runtime", "timestamp_field", "transform_server_group"]
+    __slots__ = ["aggregation_interval", "aggregation_leading_edge", "aggregation_secondary_key", "aggregations", "attributes", "batch_compute", "batch_publish_timestamp", "batch_schedule", "batch_trigger", "compaction_enabled", "data_source_type", "embeddings", "environment", "feature_start_time", "feature_store_format_version", "incremental_backfills", "inferences", "lifetime_start_time", "manual_trigger_backfill_end_time", "max_backfill_interval", "monitoring", "offline_store", "offline_store_legacy", "online_store", "output_stream", "publish_features_configs", "run_transformation_validation", "schema", "secondary_key_output_columns", "secrets", "serving_ttl", "stream_compute", "stream_processing_mode", "stream_tile_size", "stream_tiling_enabled", "tecton_materialization_runtime", "timestamp_field", "transform_server_group"]
     class SecretsEntry(_message.Message):
         __slots__ = ["key", "value"]
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -381,6 +399,7 @@ class MaterializedFeatureViewArgs(_message.Message):
     AGGREGATION_SECONDARY_KEY_FIELD_NUMBER: _ClassVar[int]
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     BATCH_COMPUTE_FIELD_NUMBER: _ClassVar[int]
+    BATCH_PUBLISH_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     BATCH_SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     BATCH_TRIGGER_FIELD_NUMBER: _ClassVar[int]
     COMPACTION_ENABLED_FIELD_NUMBER: _ClassVar[int]
@@ -399,6 +418,7 @@ class MaterializedFeatureViewArgs(_message.Message):
     OFFLINE_STORE_LEGACY_FIELD_NUMBER: _ClassVar[int]
     ONLINE_STORE_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_STREAM_FIELD_NUMBER: _ClassVar[int]
+    PUBLISH_FEATURES_CONFIGS_FIELD_NUMBER: _ClassVar[int]
     RUN_TRANSFORMATION_VALIDATION_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_FIELD_NUMBER: _ClassVar[int]
     SECONDARY_KEY_OUTPUT_COLUMNS_FIELD_NUMBER: _ClassVar[int]
@@ -417,6 +437,7 @@ class MaterializedFeatureViewArgs(_message.Message):
     aggregations: _containers.RepeatedCompositeFieldContainer[FeatureAggregation]
     attributes: _containers.RepeatedCompositeFieldContainer[Attribute]
     batch_compute: ClusterConfig
+    batch_publish_timestamp: str
     batch_schedule: _duration_pb2.Duration
     batch_trigger: BatchTriggerType
     compaction_enabled: bool
@@ -435,6 +456,7 @@ class MaterializedFeatureViewArgs(_message.Message):
     offline_store_legacy: OfflineFeatureStoreConfig
     online_store: OnlineStoreConfig
     output_stream: OutputStream
+    publish_features_configs: _containers.RepeatedCompositeFieldContainer[PublishFeaturesConfig]
     run_transformation_validation: bool
     schema: _schema__client_pb2.Schema
     secondary_key_output_columns: _containers.RepeatedCompositeFieldContainer[SecondaryKeyOutputColumn]
@@ -446,8 +468,8 @@ class MaterializedFeatureViewArgs(_message.Message):
     stream_tiling_enabled: bool
     tecton_materialization_runtime: str
     timestamp_field: str
-    transform_server_group: _server_group__client_pb2.ServerGroupReference
-    def __init__(self, timestamp_field: _Optional[str] = ..., batch_schedule: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., manual_trigger_backfill_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_backfill_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., serving_ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., offline_store_legacy: _Optional[_Union[OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store: _Optional[_Union[OfflineStoreConfig, _Mapping]] = ..., batch_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., stream_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., monitoring: _Optional[_Union[MonitoringConfig, _Mapping]] = ..., data_source_type: _Optional[_Union[_data_source_type__client_pb2.DataSourceType, str]] = ..., online_store: _Optional[_Union[OnlineStoreConfig, _Mapping]] = ..., incremental_backfills: bool = ..., aggregation_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., stream_processing_mode: _Optional[_Union[StreamProcessingMode, str]] = ..., aggregations: _Optional[_Iterable[_Union[FeatureAggregation, _Mapping]]] = ..., output_stream: _Optional[_Union[OutputStream, _Mapping]] = ..., batch_trigger: _Optional[_Union[BatchTriggerType, str]] = ..., schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., aggregation_secondary_key: _Optional[str] = ..., secondary_key_output_columns: _Optional[_Iterable[_Union[SecondaryKeyOutputColumn, _Mapping]]] = ..., run_transformation_validation: bool = ..., tecton_materialization_runtime: _Optional[str] = ..., lifetime_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., compaction_enabled: bool = ..., stream_tiling_enabled: bool = ..., stream_tile_size: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., environment: _Optional[str] = ..., transform_server_group: _Optional[_Union[_server_group__client_pb2.ServerGroupReference, _Mapping]] = ..., attributes: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ..., embeddings: _Optional[_Iterable[_Union[Embedding, _Mapping]]] = ..., inferences: _Optional[_Iterable[_Union[Inference, _Mapping]]] = ..., aggregation_leading_edge: _Optional[_Union[AggregationLeadingEdge, str]] = ..., feature_store_format_version: _Optional[_Union[FeatureStoreFormatVersion, str]] = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ...) -> None: ...
+    transform_server_group: str
+    def __init__(self, timestamp_field: _Optional[str] = ..., batch_schedule: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., manual_trigger_backfill_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_backfill_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., serving_ttl: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., offline_store_legacy: _Optional[_Union[OfflineFeatureStoreConfig, _Mapping]] = ..., offline_store: _Optional[_Union[OfflineStoreConfig, _Mapping]] = ..., publish_features_configs: _Optional[_Iterable[_Union[PublishFeaturesConfig, _Mapping]]] = ..., batch_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., stream_compute: _Optional[_Union[ClusterConfig, _Mapping]] = ..., monitoring: _Optional[_Union[MonitoringConfig, _Mapping]] = ..., data_source_type: _Optional[_Union[_data_source_type__client_pb2.DataSourceType, str]] = ..., online_store: _Optional[_Union[OnlineStoreConfig, _Mapping]] = ..., incremental_backfills: bool = ..., aggregation_interval: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., stream_processing_mode: _Optional[_Union[StreamProcessingMode, str]] = ..., aggregations: _Optional[_Iterable[_Union[FeatureAggregation, _Mapping]]] = ..., output_stream: _Optional[_Union[OutputStream, _Mapping]] = ..., batch_trigger: _Optional[_Union[BatchTriggerType, str]] = ..., schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., aggregation_secondary_key: _Optional[str] = ..., secondary_key_output_columns: _Optional[_Iterable[_Union[SecondaryKeyOutputColumn, _Mapping]]] = ..., run_transformation_validation: bool = ..., tecton_materialization_runtime: _Optional[str] = ..., lifetime_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., compaction_enabled: bool = ..., stream_tiling_enabled: bool = ..., stream_tile_size: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., environment: _Optional[str] = ..., transform_server_group: _Optional[str] = ..., attributes: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ..., embeddings: _Optional[_Iterable[_Union[Embedding, _Mapping]]] = ..., inferences: _Optional[_Iterable[_Union[Inference, _Mapping]]] = ..., aggregation_leading_edge: _Optional[_Union[AggregationLeadingEdge, str]] = ..., feature_store_format_version: _Optional[_Union[FeatureStoreFormatVersion, str]] = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ..., batch_publish_timestamp: _Optional[str] = ...) -> None: ...
 
 class MonitoringConfig(_message.Message):
     __slots__ = ["alert_email", "expected_freshness", "monitor_freshness"]
@@ -488,14 +510,16 @@ class NullableStringList(_message.Message):
     def __init__(self, values: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class OfflineFeatureStoreConfig(_message.Message):
-    __slots__ = ["delta", "parquet", "subdirectory_override"]
+    __slots__ = ["delta", "iceberg", "parquet", "subdirectory_override"]
     DELTA_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_FIELD_NUMBER: _ClassVar[int]
     PARQUET_FIELD_NUMBER: _ClassVar[int]
     SUBDIRECTORY_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     delta: DeltaConfig
+    iceberg: IcebergConfig
     parquet: ParquetConfig
     subdirectory_override: str
-    def __init__(self, parquet: _Optional[_Union[ParquetConfig, _Mapping]] = ..., delta: _Optional[_Union[DeltaConfig, _Mapping]] = ..., subdirectory_override: _Optional[str] = ...) -> None: ...
+    def __init__(self, parquet: _Optional[_Union[ParquetConfig, _Mapping]] = ..., delta: _Optional[_Union[DeltaConfig, _Mapping]] = ..., iceberg: _Optional[_Union[IcebergConfig, _Mapping]] = ..., subdirectory_override: _Optional[str] = ...) -> None: ...
 
 class OfflineStoreConfig(_message.Message):
     __slots__ = ["publish_full_features", "publish_start_time", "staging_table_format"]
@@ -547,6 +571,16 @@ class PromptArgs(_message.Message):
     environment: str
     def __init__(self, environment: _Optional[str] = ..., attributes: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
 
+class PublishFeaturesConfig(_message.Message):
+    __slots__ = ["data_lake_config", "publish_start_time", "sink_config"]
+    DATA_LAKE_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    PUBLISH_START_TIME_FIELD_NUMBER: _ClassVar[int]
+    SINK_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    data_lake_config: DataLakeConfig
+    publish_start_time: _timestamp_pb2.Timestamp
+    sink_config: SinkConfig
+    def __init__(self, publish_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., sink_config: _Optional[_Union[SinkConfig, _Mapping]] = ..., data_lake_config: _Optional[_Union[DataLakeConfig, _Mapping]] = ...) -> None: ...
+
 class RealtimeArgs(_message.Message):
     __slots__ = ["attributes", "calculations", "environments", "required_packages", "schema"]
     ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
@@ -572,10 +606,12 @@ class RedisOnlineStore(_message.Message):
     def __init__(self, primary_endpoint: _Optional[str] = ..., authentication_token: _Optional[str] = ..., enabled: bool = ...) -> None: ...
 
 class RiftClusterConfig(_message.Message):
-    __slots__ = ["instance_type"]
+    __slots__ = ["instance_type", "root_volume_size_in_gb"]
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ROOT_VOLUME_SIZE_IN_GB_FIELD_NUMBER: _ClassVar[int]
     instance_type: str
-    def __init__(self, instance_type: _Optional[str] = ...) -> None: ...
+    root_volume_size_in_gb: int
+    def __init__(self, instance_type: _Optional[str] = ..., root_volume_size_in_gb: _Optional[int] = ...) -> None: ...
 
 class SecondaryKeyOutputColumn(_message.Message):
     __slots__ = ["lifetime_window", "name", "time_window", "time_window_series"]
@@ -588,6 +624,25 @@ class SecondaryKeyOutputColumn(_message.Message):
     time_window: TimeWindow
     time_window_series: TimeWindowSeries
     def __init__(self, time_window: _Optional[_Union[TimeWindow, _Mapping]] = ..., lifetime_window: _Optional[_Union[_time_window__client_pb2.LifetimeWindow, _Mapping]] = ..., time_window_series: _Optional[_Union[TimeWindowSeries, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class SinkConfig(_message.Message):
+    __slots__ = ["function", "mode", "name", "secrets"]
+    class SecretsEntry(_message.Message):
+        __slots__ = ["key", "value"]
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _secret__client_pb2.SecretReference
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[_secret__client_pb2.SecretReference, _Mapping]] = ...) -> None: ...
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRETS_FIELD_NUMBER: _ClassVar[int]
+    function: _user_defined_function__client_pb2.UserDefinedFunction
+    mode: _transformation__client_pb2.TransformationMode
+    name: str
+    secrets: _containers.MessageMap[str, _secret__client_pb2.SecretReference]
+    def __init__(self, name: _Optional[str] = ..., function: _Optional[_Union[_user_defined_function__client_pb2.UserDefinedFunction, _Mapping]] = ..., secrets: _Optional[_Mapping[str, _secret__client_pb2.SecretReference]] = ..., mode: _Optional[_Union[_transformation__client_pb2.TransformationMode, str]] = ...) -> None: ...
 
 class SparkConfig(_message.Message):
     __slots__ = ["spark_conf", "spark_driver_memory", "spark_driver_memory_overhead", "spark_executor_memory", "spark_executor_memory_overhead"]

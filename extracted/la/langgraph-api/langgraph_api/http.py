@@ -120,9 +120,9 @@ def is_retriable_error(exception: Exception) -> bool:
         return True
     # Seems to just apply to HttpStatusError but doesn't hurt to check all
     if isinstance(exception, httpx.HTTPError):
-        return (
-            getattr(exception, "response", None) is not None
-            and exception.response.status_code >= 500
+        return getattr(exception, "response", None) is not None and (
+            exception.response.status_code >= 500
+            or exception.response.status_code == 429
         )
     return False
 

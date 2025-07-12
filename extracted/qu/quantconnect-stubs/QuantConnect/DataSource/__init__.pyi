@@ -17,69 +17,261 @@ import System
 import System.Collections.Generic
 
 JsonConverter = typing.Any
-QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
-QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
 QuantConnect_DataSource_BrainStockRanking21Day = typing.Any
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll = typing.Any
-QuantConnect_DataSource_BrainSentimentIndicator30Day = typing.Any
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K = typing.Any
-QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
+QuantConnect_DataSource_BrainSentimentIndicator30Day = typing.Any
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K = typing.Any
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll = typing.Any
 QuantConnect_DataSource_BrainStockRanking10Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll = typing.Any
 QuantConnect_DataSource_BrainSentimentIndicator7Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
 
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T")
-QuantConnect_DataSource_BrainStockRankingBase_T = typing.TypeVar("QuantConnect_DataSource_BrainStockRankingBase_T")
 QuantConnect_DataSource_BrainSentimentIndicatorBase_T = typing.TypeVar("QuantConnect_DataSource_BrainSentimentIndicatorBase_T")
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
+QuantConnect_DataSource_BrainStockRankingBase_T = typing.TypeVar("QuantConnect_DataSource_BrainStockRankingBase_T")
 
 
-class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Crypto Coarse Fundamental object for crpyto universe selection"""
-
-    @property
-    def open(self) -> float:
-        """Daily Open Price (UTC 00:00)"""
-        ...
-
-    @open.setter
-    def open(self, value: float) -> None:
-        ...
+class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Twitter Followers dataset"""
 
     @property
-    def high(self) -> float:
-        """Daily High Price"""
+    def followers(self) -> int:
+        """Number of followers of the company's Twitter page on the given date"""
         ...
 
-    @high.setter
-    def high(self, value: float) -> None:
+    @followers.setter
+    def followers(self, value: int) -> None:
         ...
 
     @property
-    def low(self) -> float:
-        """Daily Low Price"""
+    def day_percent_change(self) -> typing.Optional[float]:
+        """Day-over-day change in company's follower count"""
         ...
 
-    @low.setter
-    def low(self, value: float) -> None:
+    @day_percent_change.setter
+    def day_percent_change(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def close(self) -> float:
-        """Daily Close Price"""
+    def week_percent_change(self) -> typing.Optional[float]:
+        """Week-over-week change in company's follower count"""
         ...
 
-    @close.setter
-    def close(self, value: float) -> None:
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """Month-over-month change in company's follower count"""
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverQuantTwitterFollowersUniverse(QuantConnect.DataSource.QuiverTwitterFollowersUniverse):
+    """Obsoleted QuiverQuantTwitterFollowersUniverse class"""
+
+    def __init__(self) -> None:
+        """Obsolete QuiverTwitterFollowersUniverse constructor"""
+        ...
+
+
+class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
+    """Example custom data type"""
+
+    @property
+    def followers(self) -> int:
+        """Number of followers of the company's Twitter page on the given date"""
+        ...
+
+    @followers.setter
+    def followers(self, value: int) -> None:
+        ...
+
+    @property
+    def day_percent_change(self) -> typing.Optional[float]:
+        """Day-over-day change in company's follower count"""
+        ...
+
+    @day_percent_change.setter
+    def day_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """Week-over-week change in company's follower count"""
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """Month-over-month change in company's follower count"""
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Current time marker of this data packet."""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverQuantTwitterFollowers(QuantConnect.DataSource.QuiverTwitterFollowers):
+    """Obsoleted QuiverQuantTwitterFollowers class"""
+
+    def __init__(self) -> None:
+        """Obsolete QuiverTwitterFollowers constructor"""
+        ...
+
+
+class CoinGecko(QuantConnect.Data.BaseData):
+    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+
+    @property
+    def coin(self) -> str:
+        """Coin Name"""
         ...
 
     @property
     def volume(self) -> float:
-        """
-        Daily Trade Volume
-        Note that this only includes the volume traded in the selected market
-        """
+        """Volume in USD of the coin for that day"""
         ...
 
     @volume.setter
@@ -87,1190 +279,17 @@ class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         ...
 
     @property
-    def volume_in_quote_currency(self) -> float:
-        """
-        Daily Volume in Quote Currency
-        Note that this only includes the volume traded in the selected market
-        """
+    def market_cap(self) -> float:
+        """Market Cap in USD of the coin for that day"""
         ...
 
-    @volume_in_quote_currency.setter
-    def volume_in_quote_currency(self, value: float) -> None:
-        ...
-
-    @property
-    def volume_in_usd(self) -> typing.Optional[float]:
-        """
-        Daily Volume in USD
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume_in_usd.setter
-    def volume_in_usd(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price(self) -> float:
-        """Alias of close price"""
+    @market_cap.setter
+    def market_cap(self, value: float) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
         """Time the data became available"""
-        ...
-
-    @staticmethod
-    @overload
-    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
-        """
-        Creates the universe symbol
-        
-        :returns: A crypto coarse universe symbol.
-        """
-        ...
-
-
-class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
-    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
-
-
-class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
-    """U.S. Treasury yield curve data"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def one_month(self) -> typing.Optional[float]:
-        """One month yield curve"""
-        ...
-
-    @one_month.setter
-    def one_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def two_month(self) -> typing.Optional[float]:
-        """Two month yield curve"""
-        ...
-
-    @two_month.setter
-    def two_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def three_month(self) -> typing.Optional[float]:
-        """Three month yield curve"""
-        ...
-
-    @three_month.setter
-    def three_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def six_month(self) -> typing.Optional[float]:
-        """Six month yield curve"""
-        ...
-
-    @six_month.setter
-    def six_month(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def one_year(self) -> typing.Optional[float]:
-        """One year yield curve"""
-        ...
-
-    @one_year.setter
-    def one_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def two_year(self) -> typing.Optional[float]:
-        """Two year yield curve"""
-        ...
-
-    @two_year.setter
-    def two_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def three_year(self) -> typing.Optional[float]:
-        """Three year yield curve"""
-        ...
-
-    @three_year.setter
-    def three_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def five_year(self) -> typing.Optional[float]:
-        """Five year yield curve"""
-        ...
-
-    @five_year.setter
-    def five_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def seven_year(self) -> typing.Optional[float]:
-        """Seven year yield curve"""
-        ...
-
-    @seven_year.setter
-    def seven_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ten_year(self) -> typing.Optional[float]:
-        """Ten year yield curve"""
-        ...
-
-    @ten_year.setter
-    def ten_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def twenty_year(self) -> typing.Optional[float]:
-        """Twenty year yield curve"""
-        ...
-
-    @twenty_year.setter
-    def twenty_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def thirty_year(self) -> typing.Optional[float]:
-        """Thirty year yield curve"""
-        ...
-
-    @thirty_year.setter
-    def thirty_year(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object. This method implementation is required
-        so that we don't have any null values for our properties
-        when the user attempts to use it in backtesting/live trading
-        
-        :returns: Cloned instance.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reads and parses yield curve data from a csv file
-        
-        :param config: Subscription configuration
-        :param line: CSV line containing yield curve data
-        :param date: Date request was made for
-        :param is_live_mode: Is live mode
-        :returns: YieldCurve instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class TiingoSymbolMapper(System.Object):
-    """Helper class to map a Lean format ticker to Tiingo format"""
-
-    @staticmethod
-    def get_lean_ticker(ticker: str) -> str:
-        """Maps a given Tiingo ticker to Lean equivalent"""
-        ...
-
-    @staticmethod
-    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
-        """Maps a given Symbol instance to it's Tiingo equivalent"""
-        ...
-
-
-class Tiingo(System.Object):
-    """Helper class for Tiingo configuration"""
-
-    auth_code: str
-    """Gets the Tiingo API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the Tiingo API token has been set."""
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Tiingo API token.
-        
-        :param auth_code: The Tiingo API token
-        """
-        ...
-
-
-class TiingoNews(QuantConnect.Data.IndexedBaseData):
-    """
-    Tiingo news data
-    https://api.tiingo.com/documentation/news
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def source(self) -> str:
-        """The domain the news source is from."""
-        ...
-
-    @source.setter
-    def source(self, value: str) -> None:
-        ...
-
-    @property
-    def crawl_date(self) -> datetime.datetime:
-        """
-        The datetime the news story was added to Tiingos database in UTC.
-        This is always recorded by Tiingo and the news source has no input on this date.
-        """
-        ...
-
-    @crawl_date.setter
-    def crawl_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def url(self) -> str:
-        """URL of the news article."""
-        ...
-
-    @url.setter
-    def url(self, value: str) -> None:
-        ...
-
-    @property
-    def published_date(self) -> datetime.datetime:
-        """
-        The datetime the news story was published in UTC. This is usually reported by the news source and not by Tiingo.
-        If the news source does not declare a published date, Tiingo will use the time the news story was discovered by our crawler farm.
-        """
-        ...
-
-    @published_date.setter
-    def published_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def tags(self) -> typing.List[str]:
-        """Tags that are mapped and discovered by Tiingo."""
-        ...
-
-    @tags.setter
-    def tags(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def description(self) -> str:
-        """Long-form description of the news story."""
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def title(self) -> str:
-        """Title of the news article."""
-        ...
-
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def article_id(self) -> str:
-        """Unique identifier specific to the news article."""
-        ...
-
-    @article_id.setter
-    def article_id(self, value: str) -> None:
-        ...
-
-    @property
-    def symbols(self) -> typing.List[QuantConnect.Symbol]:
-        """What symbols are mentioned in the news story."""
-        ...
-
-    @symbols.setter
-    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        For backtesting returns the index source for a date
-        For live trading will return the source url to use, not using the index mechanism
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
-        """
-        ...
-
-    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns the source for a given index value
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param index: The index value for which we want to fetch the source
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method,
-            and returns a new instance of the object
-            each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param content: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-
-class TiingoNewsJsonConverter(JsonConverter):
-    """
-    Helper json converter class used to convert a list of Tiingo news data
-    into List{TiingoNews}
-    """
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> None:
-        """
-        Creates a new instance of the json converter
-        
-        :param symbol: The Symbol instance associated with this news
-        """
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def deserialize_news(token: typing.Any) -> QuantConnect.DataSource.TiingoNews:
-        """
-        Helper method to deserialize a single json Tiingo news
-        
-        :param token: The json token containing the Tiingo news to deserialize
-        :returns: The deserialized TiingoNews instance.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
-    """Regalytics Regulatory articles"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def title(self) -> str:
-        ...
-
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def summary(self) -> str:
-        ...
-
-    @summary.setter
-    def summary(self, value: str) -> None:
-        ...
-
-    @property
-    def status(self) -> str:
-        ...
-
-    @status.setter
-    def status(self, value: str) -> None:
-        ...
-
-    @property
-    def classification(self) -> str:
-        ...
-
-    @classification.setter
-    def classification(self, value: str) -> None:
-        ...
-
-    @property
-    def filing_type(self) -> str:
-        ...
-
-    @filing_type.setter
-    def filing_type(self, value: str) -> None:
-        ...
-
-    @property
-    def in_federal_register(self) -> bool:
-        ...
-
-    @in_federal_register.setter
-    def in_federal_register(self, value: bool) -> None:
-        ...
-
-    @property
-    def federal_register_number(self) -> str:
-        ...
-
-    @federal_register_number.setter
-    def federal_register_number(self, value: str) -> None:
-        ...
-
-    @property
-    def docket_file_number(self) -> str:
-        ...
-
-    @docket_file_number.setter
-    def docket_file_number(self, value: str) -> None:
-        ...
-
-    @property
-    def sec_release_number(self) -> str:
-        ...
-
-    @sec_release_number.setter
-    def sec_release_number(self, value: str) -> None:
-        ...
-
-    @property
-    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @proposed_comments_due_date.setter
-    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @original_publication_date.setter
-    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @federal_register_publication_date.setter
-    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @rule_effective_date.setter
-    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def sourced_at(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @sourced_at.setter
-    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def latest_update(self) -> datetime.datetime:
-        ...
-
-    @latest_update.setter
-    def latest_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def alert_type(self) -> str:
-        ...
-
-    @alert_type.setter
-    def alert_type(self, value: str) -> None:
-        ...
-
-    @property
-    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
-        ...
-
-    @states.setter
-    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
-        ...
-
-    @property
-    def agencies(self) -> typing.List[str]:
-        ...
-
-    @agencies.setter
-    def agencies(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
-        ...
-
-    @sector.setter
-    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
-        ...
-
-    @property
-    def announcement_url(self) -> str:
-        ...
-
-    @announcement_url.setter
-    def announcement_url(self, value: str) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Regalytics Regulatory articles collection"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverCNBC data
-        
-        :returns: string containing QuiverCNBC information.
-        """
-        ...
-
-
-class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """A collection of Extra Alpha True Beats for a Symbol and date"""
-
-    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
-        """
-        Adds a new data point to this collection
-        
-        :param new_data_point: The new data point to add
-        """
-        ...
-
-    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
-        """
-        Adds a new data points to this collection
-        
-        :param new_data_points: The new data points to add
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with TrueBeat data
-        
-        :returns: string containing TrueBeat information.
-        """
-        ...
-
-
-class ExtractAlphaFiscalPeriod(System.Object):
-    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
-
-    @property
-    def fiscal_year(self) -> int:
-        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """
-        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
-        If this is null, then the fiscal period being reported is for the full year of the FiscalYear
-        """
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end(self) -> typing.Optional[datetime.datetime]:
-        """The date that the fiscal quarter ends"""
-        ...
-
-    @end.setter
-    def end(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date that the SEC report for the fiscal period is expected to be released publicly"""
-        ...
-
-    @expected_report_date.setter
-    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def annual(self) -> bool:
-        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
-        ...
-
-    @property
-    def quarterly(self) -> bool:
-        """Returns true if the fiscal period is for a single quarter only"""
-        ...
-
-
-class ExtractAlphaTrueBeatEarningsMetric(Enum):
-    """The earnings metric/type being forecasted"""
-
-    EPS = 0
-    """Earnings per share"""
-
-    REVENUE = 1
-    """Revenue"""
-
-
-class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
-    """
-    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
-    by regulatory agencies (e.g. United States SEC)
-    """
-
-    @property
-    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
-        """The fiscal period that is being forecasted"""
-        ...
-
-    @fiscal_period.setter
-    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
-        ...
-
-    @property
-    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
-        """The earnings metric being forecasted (e.g. EPS, revenue)"""
-        ...
-
-    @earnings_metric.setter
-    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
-        ...
-
-    @property
-    def analyst_estimates_count(self) -> int:
-        """The number of analyst estimates that the TrueBeat used in its calculation"""
-        ...
-
-    @analyst_estimates_count.setter
-    def analyst_estimates_count(self, value: int) -> None:
-        ...
-
-    @property
-    def true_beat(self) -> float:
-        """
-        The forecasted earnings surprise percentage, relative to consensus estimates.
-        TrueBeat is calculated as the total sum of the ExpertBeat, TrendBeat, and ManagementBeat metrics.
-        """
-        ...
-
-    @true_beat.setter
-    def true_beat(self, value: float) -> None:
-        ...
-
-    @property
-    def expert_beat(self) -> typing.Optional[float]:
-        """The component of TrueBeat that is derived from top analyst estimates"""
-        ...
-
-    @expert_beat.setter
-    def expert_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def trend_beat(self) -> typing.Optional[float]:
-        """The component of TrueBeat that is derived from trends in stock and peer surprises"""
-        ...
-
-    @trend_beat.setter
-    def trend_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def management_beat(self) -> typing.Optional[float]:
-        """The component of TrueBeat that is derived from management activity (e.g. guidance)"""
-        ...
-
-    @management_beat.setter
-    def management_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
         ...
 
     @end_time.setter
@@ -1279,910 +298,20 @@ class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with TrueBeat data
-        
-        :returns: string containing TrueBeat information.
-        """
-        ...
-
-
-class USEnergy(QuantConnect.Data.BaseData):
-    """United States Energy Information Administration (EIA). This loads U.S. Energy data from QuantConnect's cache."""
-
-    class Petroleum(System.Object):
-        """Petroleum"""
-
-        class UnitedStates(System.Object):
-            """United States"""
-
-            WEEKLY_REFINER_AND_BLENDER_ADJUSTED_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFRPUS2.W"
-            """U.S. Refiner and Blender Adjusted Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFSTUS1.W"
-            """U.S. Ending Stocks of Finished Motor Gasoline in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFUPUS2.W"
-            """U.S. Product Supplied of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL_IN_SPR: str = "PET.WCSSTUS1.W"
-            """U.S. Ending Stocks of Crude Oil in SPR in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.WDGRPUS2.W"
-            """U.S.  Refiner and Blender Net Production of Distillate Fuel Oil Greater than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.WDGSTUS1.W"
-            """U.S. Ending Stocks of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_EXPORTS_OF_TOTAL_DISTILLATE: str = "PET.WDIEXUS2.W"
-            """U.S. Exports of Total Distillate in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIIMUS2.W"
-            """U.S. Imports of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIRPUS2.W"
-            """U.S. Refiner and Blender Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJSTUS1.W"
-            """U.S. Ending Stocks of Kerosene-Type Jet Fuel in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJUPUS2.W"
-            """U.S. Product Supplied of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_TOTAL_GASOLINE: str = "PET.WGTIMUS2.W"
-            """U.S. Imports of Total Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_TOTAL_GASOLINE: str = "PET.WGTSTUS1.W"
-            """U.S. Ending Stocks of Total Gasoline in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_GROSS_INPUTS_INTO_REFINERIES: str = "PET.WGIRIUS2.W"
-            """U.S. Gross Inputs into Refineries in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRIMUS2.W"
-            """U.S. Imports of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRRPUS2.W"
-            """U.S. Refiner and Blender Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRSTUS1.W"
-            """U.S. Ending Stocks of Reformulated Motor Gasoline in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL: str = "PET.WDISTUS1.W"
-            """U.S. Ending Stocks of Distillate Fuel Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIUPUS2.W"
-            """U.S. Product Supplied of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_MILITARY_KEROSENE_TYPE_JET_FUEL: str = "PET.WKMRPUS2.W"
-            """U.S.  Refiner and Blender Net Production of Military Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_OPERABLE_CRUDE_OIL_DISTILLATION_CAPACITY: str = "PET.WOCLEUS2.W"
-            """U. S. Operable Crude Oil Distillation Capacity in Thousand Barrels per Calendar Day (Mbbl/d)"""
-
-            WEEKLY_PROPYLENE_NONFUEL_USE_STOCKS_AT_BULK_TERMINALS: str = "PET.WPLSTUS1.W"
-            """U.S. Propylene Nonfuel Use Stocks at Bulk Terminals in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRSTUS1.W"
-            """U.S. Ending Stocks of Propane and Propylene in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PERCENT_UTILIZATION_OF_REFINERY_OPERABLE_CAPACITY: str = "PET.WPULEUS3.W"
-            """U.S. Percent Utilization of Refinery Operable Capacity in Percent (%)"""
-
-            WEEKLY_EXPORTS_OF_RESIDUAL_FUEL_OIL: str = "PET.WREEXUS2.W"
-            """U.S. Exports of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_RESIDUAL_FUEL_OIL: str = "PET.WREIMUS2.W"
-            """U.S. Imports of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_COMMERCIAL_KEROSENE_TYPE_JET_FUEL: str = "PET.WKCRPUS2.W"
-            """U.S.  Refiner and Blender Net Production of Commercial Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_EXPORTS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJEXUS2.W"
-            """U.S. Exports of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJIMUS2.W"
-            """U.S. Imports of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJRPUS2.W"
-            """U.S. Refiner and Blender Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_OF_CRUDE_OIL: str = "PET.WCESTUS1.W"
-            """U.S. Ending Stocks excluding SPR of Crude Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_EXPORTS_OF_CRUDE_OIL: str = "PET.WCREXUS2.W"
-            """U.S. Exports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_FIELD_PRODUCTION_OF_CRUDE_OIL: str = "PET.WCRFPUS2.W"
-            """U.S. Field Production of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CRUDE_OIL: str = "PET.WCRIMUS2.W"
-            """U.S. Imports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_NET_IMPORTS_OF_CRUDE_OIL: str = "PET.WCRNTUS2.W"
-            """U.S. Net Imports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_INPUT_OF_CRUDE_OIL: str = "PET.WCRRIUS2.W"
-            """U.S. Refiner Net Input of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_RESIDUAL_FUEL_OIL: str = "PET.WRERPUS2.W"
-            """U.S. Refiner and Blender Net Production of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_RESIDUAL_FUEL_OIL: str = "PET.WRESTUS1.W"
-            """U.S. Ending Stocks of Residual Fuel Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_RESIDUAL_FUEL_OIL: str = "PET.WREUPUS2.W"
-            """U.S. Product Supplied of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_EXPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPEXUS2.W"
-            """U.S. Exports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPIMUS2.W"
-            """U.S. Imports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_NET_IMPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPNTUS2.W"
-            """U.S. Net Imports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_PETROLEUM_PRODUCTS: str = "PET.WRPUPUS2.W"
-            """U.S. Product Supplied of Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTESTUS1.W"
-            """U.S. Ending Stocks excluding SPR of Crude Oil and Petroleum Products in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_EXPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTEXUS2.W"
-            """U.S. Exports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTIMUS2.W"
-            """U.S. Imports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_NET_IMPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTNTUS2.W"
-            """U.S. Net Imports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTSTUS1.W"
-            """U.S. Ending Stocks of Crude Oil and Petroleum Products in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_UNFINISHED_OILS: str = "PET.WUOSTUS1.W"
-            """U.S. Ending Stocks of Unfinished Oils in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_OTHER_FINISHED_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6TP_NUS_2.W"
-            """U.S. Refiner and Blender Net Production of Other Finished Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0TP_NUS_2.W"
-            """U.S. Refiner and Blender Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1ST_NUS_1.W"
-            """U.S. Ending Stocks of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1TP_NUS_2.W"
-            """U.S. Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.WG1ST_NUS_1.W"
-            """U.S. Ending Stocks of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL: str = "PET.WCRSTUS1.W"
-            """U.S. Ending Stocks of Crude Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_CRUDE_OIL_IMPORTS_BY_SPR: str = "PET.WCSIMUS2.W"
-            """U.S. Crude Oil Imports by SPR in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCIMUS2.W"
-            """U.S. Imports of Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCSTUS1.W"
-            """U.S. Ending Stocks of Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_COMMERCIAL_CRUDE_OIL_IMPORTS_EXCLUDING_SPR: str = "PET.WCEIMUS2.W"
-            """U.S. Commercial Crude Oil Imports Excluding SPR in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_BLENDER_AND_GAS_PLANT_NET_PRODUCTION_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRTP_NUS_2.W"
-            """U.S. Refiner, Blender, and Gas Plant Net Production of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_REFORMULATED_MOTOR_GASOLINE_WITH_ETHANOL: str = "PET.WG1TP_NUS_2.W"
-            """U.S. Refiner and Blender Net Production of Finished Reformulated Motor Gasoline with Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE_NON_OXYGENTATED: str = "PET.WG3ST_NUS_1.W"
-            """U.S. Ending Stocks of Reformulated Motor Gasoline, Non-Oxygentated in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4ST_NUS_1.W"
-            """U.S. Ending Stocks of Conventional Motor Gasoline in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4TP_NUS_2.W"
-            """U.S. Refiner and Blender Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.WG5ST_NUS_1.W"
-            """U.S. Ending Stocks of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_WITH_ETHANOL: str = "PET.WG5TP_NUS_2.W"
-            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline with Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6ST_NUS_1.W"
-            """U.S. Ending Stocks of Other Conventional Motor Gasoline in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6RI_NUS_2.W"
-            """U.S. Refiner and Blender Net Input of Conventional CBOB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6ST_NUS_1.W"
-            """U.S. Ending Stocks of Conventional CBOB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7RI_NUS_2.W"
-            """U.S. Refiner and Blender Net Input of Conventional GTAB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7ST_NUS_1.W"
-            """U.S. Ending Stocks of Conventional GTAB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9RI_NUS_2.W"
-            """U.S. Refiner and Blender Net Input of Conventional Other Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9ST_NUS_1.W"
-            """U.S. Ending Stocks of Conventional Other Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_NO_2_HEATING_OIL_WHOLESALE_RESALE_PRICE: str = "PET.W_EPD2F_PWR_NUS_DPG.W"
-            """U.S. No. 2 Heating Oil Wholesale/Resale Price in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_CRUDE_OIL_STOCKS_IN_TRANSIT_ON_SHIPS_FROM_ALASKA: str = "PET.W_EPC0_SKA_NUS_MBBL.W"
-            """U.S. Crude Oil Stocks in Transit (on Ships) from Alaska in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_DAYS_OF_SUPPLY_OF_CRUDE_OIL_EXCLUDING_SPR: str = "PET.W_EPC0_VSD_NUS_DAYS.W"
-            """U.S. Days of Supply of Crude Oil excluding SPR in Number of Days (Days)"""
-
-            WEEKLY_DAYS_OF_SUPPLY_OF_TOTAL_DISTILLATE: str = "PET.W_EPD0_VSD_NUS_DAYS.W"
-            """U.S. Days of Supply of Total Distillate in Number of Days (Days)"""
-
-            WEEKLY_WEEKLY_NO_2_HEATING_OIL_RESIDENTIAL_PRICE: str = "PET.W_EPD2F_PRS_NUS_DPG.W"
-            """U.S. Weekly No. 2 Heating Oil Residential Price in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRUP_NUS_2.W"
-            """U.S. Product Supplied of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_PRODUCT_SUPPLIED_OF_OTHER_OILS: str = "PET.WWOUP_NUS_2.W"
-            """U.S. Product Supplied of Other Oils in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCRI_NUS_2.W"
-            """U.S. Refiner and Blender Net Input of Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0ST_NUS_1.W"
-            """U.S. Ending Stocks of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_DAYS_OF_SUPPLY_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_VSD_NUS_DAYS.W"
-            """U.S. Days of Supply of Kerosene-Type Jet Fuel in Number of Days (Days)"""
-
-            WEEKLY_DAYS_OF_SUPPLY_OF_TOTAL_GASOLINE: str = "PET.W_EPM0_VSD_NUS_DAYS.W"
-            """U.S. Days of Supply of Total Gasoline in Number of Days (Days)"""
-
-            WEEKLY_ENDING_STOCKS_OF_ASPHALT_AND_ROAD_OIL: str = "PET.W_EPPA_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Asphalt and Road Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_KEROSENE: str = "PET.W_EPPK_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Kerosene in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_SUPPLY_ADJUSTMENT_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_VUA_NUS_2.W"
-            """U.S. Supply Adjustment of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.WG5IM_NUS-Z00_2.W"
-            """U.S. Imports of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6IM_NUS-Z00_2.W"
-            """U.S. Imports of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0IM_NUS-Z00_2.W"
-            """U.S. Imports of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1IM_NUS-Z00_2.W"
-            """U.S. Imports of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_TO_2000_PPM_SULFUR: str = "PET.WD2IM_NUS-Z00_2.W"
-            """U.S. Imports of Distillate Fuel Oil, Greater than 500 to 2000 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRIM_NUS-Z00_2.W"
-            """U.S. Imports of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7IM_NUS-Z00_2.W"
-            """U.S. Imports of Conventional GTAB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_2000_PPM_SULFUR: str = "PET.WD3IM_NUS-Z00_2.W"
-            """U.S. Imports of Distillate Fuel Oil, Greater than 2000 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.WG1IM_NUS-Z00_2.W"
-            """U.S. Imports of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4IM_NUS-Z00_2.W"
-            """U.S. Imports of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9IM_NUS-Z00_2.W"
-            """U.S. Imports of Conventional Other Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6IM_NUS-Z00_2.W"
-            """U.S. Imports of Conventional CBOB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_KEROSENE: str = "PET.W_EPPK_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_KEROSENE: str = "PET.W_EPPK_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_OTHER_OILS_EXCLUDING_FUEL_ETHANOL: str = "PET.W_EPPO6_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Other Oils (Excluding Fuel Ethanol) in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_RESIDUAL_FUEL_OIL: str = "PET.W_EPPR_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0R_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0R_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Fuel Ethanol in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.W_EPD0_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.W_EPD0_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_PROPANE_RESIDENTIAL_PRICE: str = "PET.W_EPLLPA_PRS_NUS_DPG.W"
-            """U.S. Propane Residential Price in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_PROPANE_WHOLESALE_RESALE_PRICE: str = "PET.W_EPLLPA_PWR_NUS_DPG.W"
-            """U.S. Propane Wholesale/Resale Price in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_YIR_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Input of Motor Gasoline Blending Components, RBOB in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_NGPLS_LRGS_EXCLUDING_PROPANE_PROPYLENE: str = "PET.W_EPL0XP_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of NGPLs/LRGs (Excluding Propane/Propylene) in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_DAYS_OF_SUPPLY_OF_PROPANE_PROPYLENE: str = "PET.W_EPLLPZ_VSD_NUS_DAYS.W"
-            """U.S. Days of Supply of Propane/Propylene in Number of Days (Days)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0C_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0C_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_SUPPLY_ADJUSTMENT_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_VUA_NUS_MBBLD.W"
-            """U.S. Supply Adjustment of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPR_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.W_EPD00H_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.W_EPD00H_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.W_EPDXL0_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.W_EPDXL0_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.W_EPM0CA_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.W_EPM0CA_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0CO_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0CO_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.W_EPM0RA_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.W_EPM0RA_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_OXYGENATE_PLANT_PRODUCTION_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_YOP_NUS_MBBLD.W"
-            """U.S. Oxygenate Plant Production of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPT_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline, Ed 55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_EXPORTS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_EEX_NUS-Z00_MBBLD.W"
-            """U.S. Exports of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_OTHER_FINISHED_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPT_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Production of Other Finished Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Motor Gasoline Blending Components, RBOB in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_YIR_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Input of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Motor Gasoline, Finished, Conventional, Greater than Ed55 in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_CRUDE_OIL_IMPORTS_FOR_SPR_BY_OTHERS: str = "PET.W_EPC0_IMU_NUS-Z00_MBBLD.W"
-            """U.S. Crude Oil Imports for SPR by Others in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Conventional Motor Gasoline, Greater than Ed55 in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_IMPORTS_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_LIQUEFIED_PETROLEUM_GASSES_LESS_PROPANE_PROPYLENE: str = "PET.W_EPL0XP_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Liquefied Petroleum Gasses Less Propane/Propylene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_EXPORTS_OF_PROPANE_AND_PROPYLENE: str = "PET.W_EPLLPZ_EEX_NUS-Z00_MBBLD.W"
-            """U.S. Exports of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_BLENDER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPB_NUS_MBBLD.W"
-            """U.S. Blender Net Production of Motor Gasoline, Finished, Conventional, Greater Than Ed55 in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPT_NUS_MBBLD.W"
-            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline, Greater than Ed 55 in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REFINER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPY_NUS_MBBLD.W"
-            """U.S. Refiner Net Production of Finished Conventional Motor Gasoline, Greater than Ed 55 in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_SAE_NUS_MBBL.W"
-            """U.S. Ending Stocks of Conventional Motor Gasoline, Ed55 and Lower in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_IMPORTS_OF_KEROSENE: str = "PET.W_EPPK_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_EXPORTS_OF_OTHER_OILS: str = "PET.W_EPPO4_EEX_NUS-Z00_MBBLD.W"
-            """U.S. Exports of Other Oils in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_OTHER_OILS_EXCLUDING_FUEL_ETHANOL: str = "PET.W_EPPO6_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports of Other Oils (Excluding Fuel Ethanol) in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_FROM_ALL_COUNTRIES_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_IM0_NUS-Z00_MBBLD.W"
-            """U.S. Imports from  All Countries of Motor Gasoline Blending Components, RBOB in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_REGULAR_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMR_PTE_NUS_DPG.W"
-            """U.S. Regular All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_MIDGRADE_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMM_PTE_NUS_DPG.W"
-            """U.S. Midgrade All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_PREMIUM_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMP_PTE_NUS_DPG.W"
-            """U.S. Premium All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_ALL_GRADES_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0_PTE_NUS_DPG.W"
-            """U.S. All Grades All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_ALL_GRADES_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0R_PTE_NUS_DPG.W"
-            """U.S. All Grades Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_MIDGRADE_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMMR_PTE_NUS_DPG.W"
-            """U.S. Midgrade Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_PREMIUM_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMPR_PTE_NUS_DPG.W"
-            """U.S. Premium Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_REGULAR_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMRU_PTE_NUS_DPG.W"
-            """U.S. Regular Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_REGULAR_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMRR_PTE_NUS_DPG.W"
-            """U.S. Regular Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_NO_2_DIESEL_RETAIL_PRICES: str = "PET.EMD_EPD2D_PTE_NUS_DPG.W"
-            """U.S. No 2 Diesel Retail Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_PREMIUM_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMPU_PTE_NUS_DPG.W"
-            """U.S. Premium Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_MIDGRADE_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMMU_PTE_NUS_DPG.W"
-            """U.S. Midgrade Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_ALL_GRADES_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0U_PTE_NUS_DPG.W"
-            """U.S. All Grades Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_NO_2_DIESEL_ULTRA_LOW_SULFUR_015_PPM_RETAIL_PRICES: str = "PET.EMD_EPD2DXL0_PTE_NUS_DPG.W"
-            """U.S. No 2 Diesel Ultra Low Sulfur (0-15 ppm) Retail Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_AND_INCLUDING_LEASE_STOCK_OF_CRUDE_OIL: str = "PET.W_EPC0_SAX_NUS_MBBL.W"
-            """U.S. Ending Stocks excluding SPR and including Lease Stock of Crude Oil in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_NO_2_DIESEL_LOW_SULFUR_15500_PPM_RETAIL_PRICES: str = "PET.EMD_EPD2DM10_PTE_NUS_DPG.W"
-            """U.S. No 2 Diesel Low Sulfur (15-500 ppm) Retail Prices in Dollars per Gallon ($/gal)"""
-
-            WEEKLY_IMPORTS_OF_REFORMULATED_RBOB_WITH_ALCOHOL_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO3IM_NUS-Z00_2.W"
-            """U.S. Imports of Reformulated RBOB with Alcohol Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_IMPORTS_OF_REFORMULATED_RBOB_WITH_ETHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO4IM_NUS-Z00_2.W"
-            """U.S. Imports of Reformulated RBOB with Ether Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO2ST_NUS_1.W"
-            """U.S. Ending Stocks of Reformulated GTAB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_RBOB_WITH_ALCOHOL_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO3ST_NUS_1.W"
-            """U.S. Ending Stocks of Reformulated RBOB with Alcohol Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_RBOB_WITH_ETHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO4ST_NUS_1.W"
-            """U.S. Ending Stocks of Reformulated RBOB with Ether Gasoline Blending Components in Thousand Barrels (Mbbl)"""
-
-        class EquatorialGuinea(System.Object):
-            """Equatorial Guinea"""
-
-            WEEKLY_IMPORTS_FROM_EQUATORIAL_GUINEA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NEK_MBBLD.W"
-            """U.S. Imports from Equatorial Guinea of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Iraq(System.Object):
-            """Iraq"""
-
-            WEEKLY_IMPORTS_FROM_IRAQ_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NIZ_MBBLD.W"
-            """U.S. Imports from Iraq of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Kuwait(System.Object):
-            """Kuwait"""
-
-            WEEKLY_IMPORTS_FROM_KUWAIT_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NKU_MBBLD.W"
-            """U.S. Imports from Kuwait of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Mexico(System.Object):
-            """Mexico"""
-
-            WEEKLY_IMPORTS_FROM_MEXICO_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NMX_MBBLD.W"
-            """U.S. Imports from Mexico of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Nigeria(System.Object):
-            """Nigeria"""
-
-            WEEKLY_IMPORTS_FROM_NIGERIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NNI_MBBLD.W"
-            """U.S. Imports from Nigeria of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Norway(System.Object):
-            """Norway"""
-
-            WEEKLY_IMPORTS_FROM_NORWAY_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NNO_MBBLD.W"
-            """U.S. Imports from Norway of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Russia(System.Object):
-            """Russia"""
-
-            WEEKLY_IMPORTS_FROM_RUSSIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NRS_MBBLD.W"
-            """U.S. Imports from Russia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class SaudiArabia(System.Object):
-            """Saudi Arabia"""
-
-            WEEKLY_IMPORTS_FROM_SAUDI_ARABIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NSA_MBBLD.W"
-            """U.S. Imports from Saudi Arabia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class UnitedKingdom(System.Object):
-            """United Kingdom"""
-
-            WEEKLY_IMPORTS_FROM_UNITED_KINGDOM_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NUK_MBBLD.W"
-            """U.S. Imports from United Kingdom of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Venezuela(System.Object):
-            """Venezuela"""
-
-            WEEKLY_IMPORTS_FROM_VENEZUELA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NVE_MBBLD.W"
-            """U.S. Imports from Venezuela of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Algeria(System.Object):
-            """Algeria"""
-
-            WEEKLY_IMPORTS_FROM_ALGERIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NAG_MBBLD.W"
-            """U.S. Imports from Algeria of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Angola(System.Object):
-            """Angola"""
-
-            WEEKLY_IMPORTS_FROM_ANGOLA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NAO_MBBLD.W"
-            """U.S. Imports from Angola of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Brazil(System.Object):
-            """Brazil"""
-
-            WEEKLY_IMPORTS_FROM_BRAZIL_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NBR_MBBLD.W"
-            """U.S. Imports from Brazil of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Canada(System.Object):
-            """Canada"""
-
-            WEEKLY_IMPORTS_FROM_CANADA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCA_MBBLD.W"
-            """U.S. Imports from Canada of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Congo(System.Object):
-            """Congo"""
-
-            WEEKLY_IMPORTS_FROM_CONGO_BRAZZAVILLE_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCF_MBBLD.W"
-            """U.S. Imports from Congo (Brazzaville) of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Colombia(System.Object):
-            """Colombia"""
-
-            WEEKLY_IMPORTS_FROM_COLOMBIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCO_MBBLD.W"
-            """U.S. Imports from Colombia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-        class Ecuador(System.Object):
-            """Ecuador"""
-
-            WEEKLY_IMPORTS_FROM_ECUADOR_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NEC_MBBLD.W"
-            """U.S. Imports from Ecuador of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
         Clones the data
         
         :returns: A clone of the object.
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
         """
-        Determines the location of the data
+        Creates a Symbol object for a given market and quote currency
         
-        :param config: Subscription configuration
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: Location of the data as a SubscriptionDataSource.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance of USEnergy.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied
-        to an underlying symbol and requires that corporate
-        events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class CBOE(QuantConnect.Data.Market.TradeBar):
-    """CBOE data source"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    def __init__(self) -> None:
-        """Creates a new instance of the object"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """Gets the source location of the CBOE file"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Determines if data source is sparse
-        
-        :returns: false.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reads the data from the source and creates a BaseData instance
-        
-        :param config: Configuration
-        :param line: Line of data
-        :param date: Date we're requesting data for
-        :param is_live_mode: Is live mode
-        :returns: New BaseData instance to be used in the algorithm.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Determines whether the data source requires mapping
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the instance to a string
-        
-        :returns: String containing open, high, low, close.
-        """
-        ...
-
-
-class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
-    """
-    Kavout signals are machine-learning enhanced scores that capture the returns
-    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
-    There are many different anomalies discovered by researchers and practitioners across
-    these factor categories, and there is no good common definition of each style
-    across the literature.
-    
-    Kavout creates an ensemble score for each style that gauges the different factors
-    considered in the literature and industry practice.
-    
-    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
-    """
-
-    @property
-    def growth(self) -> float:
-        """Growth factor score"""
-        ...
-
-    @growth.setter
-    def growth(self, value: float) -> None:
-        ...
-
-    @property
-    def value_factor(self) -> float:
-        """Value factor score"""
-        ...
-
-    @value_factor.setter
-    def value_factor(self, value: float) -> None:
-        ...
-
-    @property
-    def quality(self) -> float:
-        """Quality factor score"""
-        ...
-
-    @quality.setter
-    def quality(self, value: float) -> None:
-        ...
-
-    @property
-    def momentum(self) -> float:
-        """Momentum factor score"""
-        ...
-
-    @momentum.setter
-    def momentum(self, value: float) -> None:
-        ...
-
-    @property
-    def low_volatility(self) -> float:
-        """Low volatility factor score"""
-        ...
-
-    @low_volatility.setter
-    def low_volatility(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
+        :param market: The market the ticker resides in
+        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
+        :param security_type: The security type of the ticker resides in
+        :returns: A new Symbol object for the specified ticker.
         """
         ...
 
@@ -2192,6 +321,10 @@ class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
         
         :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -2203,99 +336,6 @@ class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
         :param is_live_mode: true if we're in live mode, false for backtesting mode
         :returns: String URL of source file.
         """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with Cross-asset model data
-        
-        :returns: string containing Cross-asset model information.
-        """
-        ...
-
-
-class QuiverCNBC(QuantConnect.Data.BaseData):
-    """Personal stock advice by CNBC"""
-
-    @property
-    def notes(self) -> str:
-        """Contract description"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
         ...
 
     def is_sparse_data(self) -> bool:
@@ -2336,8 +376,60 @@ class QuiverCNBC(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of personal stock advices by CNBC"""
+class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
+
+    @overload
+    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @overload
+    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @overload
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates a new fundamental universe using this class's selection functions
+        
+        :param algorithm: The algorithm instance to create universes for
+        :returns: The universe defined by this model.
+        """
+        ...
+
+    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Defines the CoinGecko selection function.
+        
+        :param algorithm: The algorithm instance
+        :param data: The CoinGecko Universe data used to perform filtering
+        :returns: An enumerable of symbols passing the filter.
+        """
+        ...
+
+
+class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
@@ -2355,10 +447,6 @@ class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
         Return the URL string source of the file. This will be converted to a stream
@@ -2367,143 +455,6 @@ class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         :param date: Date of this source file
         :param is_live_mode: true if we're in live mode, false for backtesting mode
         :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverCNBC data
-        
-        :returns: string containing QuiverCNBC information.
-        """
-        ...
-
-
-class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
-    """Converts Quiver Quantitative TransactionDirection to OrderDirection"""
-
-    @overload
-    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
-        """
-        Convert OrderDirection to string
-        
-        This method is protected.
-        
-        :param value: OrderDirection to convert
-        :returns: Resulting string.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
-        """
-        Convert string to OrderDirection
-        
-        This method is protected.
-        
-        :param value: string to convert
-        :returns: Resulting OrderDirection.
-        """
-        ...
-
-
-class QuiverCNBCsUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
-
-    @property
-    def notes(self) -> str:
-        """Extra Information"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
         """
         ...
 
@@ -2517,14 +468,6 @@ class QuiverCNBCsUniverse(QuantConnect.Data.BaseData):
         :param is_live_mode: Is live mode
         :returns: New instance.
         """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
         ...
 
 
@@ -2749,64 +692,303 @@ class VIXCentralContango(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
-    """Example custom data type"""
+class BenzingaNews(QuantConnect.Data.IndexedBaseData):
+    """News data powered by Benzinga - https://docs.benzinga.io/benzinga/newsfeed-v2.html"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def followers(self) -> int:
-        """Number of followers of the company's Twitter page on the given date"""
+    def id(self) -> int:
+        """Unique ID assigned to the article by Benzinga"""
         ...
 
-    @followers.setter
-    def followers(self, value: int) -> None:
-        ...
-
-    @property
-    def day_percent_change(self) -> typing.Optional[float]:
-        """Day-over-day change in company's follower count"""
-        ...
-
-    @day_percent_change.setter
-    def day_percent_change(self, value: typing.Optional[float]) -> None:
+    @id.setter
+    def id(self, value: int) -> None:
         ...
 
     @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """Week-over-week change in company's follower count"""
+    def author(self) -> str:
+        """Author of the article"""
         ...
 
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """Month-over-month change in company's follower count"""
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
+    @author.setter
+    def author(self, value: str) -> None:
         ...
 
     @property
-    def time(self) -> datetime.datetime:
-        """Current time marker of this data packet."""
+    def created_at(self) -> datetime.datetime:
+        """Date the article was published"""
         ...
 
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """Date that the article was revised on"""
+        ...
+
+    @updated_at.setter
+    def updated_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def title(self) -> str:
+        """Title of the article published"""
+        ...
+
+    @title.setter
+    def title(self, value: str) -> None:
+        ...
+
+    @property
+    def teaser(self) -> str:
+        """Summary of the article's contents"""
+        ...
+
+    @teaser.setter
+    def teaser(self, value: str) -> None:
+        ...
+
+    @property
+    def contents(self) -> str:
+        """Contents of the article"""
+        ...
+
+    @contents.setter
+    def contents(self, value: str) -> None:
+        ...
+
+    @property
+    def categories(self) -> typing.List[str]:
+        """Categories that relate to the article"""
+        ...
+
+    @categories.setter
+    def categories(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def symbols(self) -> typing.List[QuantConnect.Symbol]:
+        """Symbols that this news article mentions"""
+        ...
+
+    @symbols.setter
+    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
+        ...
+
+    @property
+    def tags(self) -> typing.List[str]:
+        """
+        Additional tags that are not channels/categories, but are reoccuring
+        themes including, but not limited to; analyst names, bills being talked
+        about in Congress (Dodd-Frank), specific products (iPhone), politicians,
+        celebrities, stock movements (i.e. 'Mid-day Losers' & 'Mid-day Gainers').
+        """
+        ...
+
+    @tags.setter
+    def tags(self, value: typing.List[str]) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+        """Date that the article was revised on"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the data
+        Creates a clone of the instance
         
-        :returns: A clone of the object.
+        :returns: A clone of the instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Set the data time zone to UTC
+        
+        :returns: Time zone as UTC.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Sets the default resolution to Second
+        
+        :returns: Resolution.Second.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Gets the source of the index file
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: Is live mode
+        :returns: SubscriptionDataSource indicating where data is located and how it's stored.
+        """
+        ...
+
+    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Determines the actual source from an index contained within a ticker folder
+        
+        :param config: Subscription configuration
+        :param date: Date
+        :param index: File to load data from
+        :param is_live_mode: Is live mode
+        :returns: SubscriptionDataSource pointing to the article.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data source is sparse.
+        If false, it will disable missing file logging.
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Creates an instance from a line of JSON containing article information read from the `content` directory
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance of BenzingaNews.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source can undergo
+        rename events/is tied to equities.
+        
+        :returns: true.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets a list of all the supported Resolutions
+        
+        :returns: All resolutions.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to string
+        
+        :returns: Article title and contents.
+        """
+        ...
+
+
+class BenzingaNewsJsonConverter(JsonConverter):
+    """
+    Helper json converter class used to convert Benzinga news data
+    into BenzingaNews
+    
+    An example schema of the data in a serialized format is provided
+    to help you better understand this converter.
+    """
+
+    SHARE_CLASS_MAPPED_TICKERS: System.Collections.Generic.Dictionary[str, System.Collections.Generic.HashSet[str]] = ...
+    """
+    Sometimes "Berkshire Hathaway" is mentioned as "BRK" in the raw data, although it is
+    separated into class A and B shares and should appear as BRK.A and BRK.B. Because our
+    map file system does not perform the conversion from BRK -> { BRK.A, BRK.B }, we must
+    provide them manually. Note that we don't dynamically try to locate class A and B shares
+    because there can exist companies with the same base ticker that class A and B shares have.
+    For example, CBS trades under "CBS" and "CBS.A", which means that if "CBS" appears, it will
+    be automatically mapped to CBS. However, if we dynamically selected "CBS.A" - we might select
+    a different company not associated with the ticker being referenced.
+    """
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, live_mode: bool = False) -> None:
+        """
+        Creates a new instance of the json converter
+        
+        :param symbol: The Symbol instance associated with this news
+        :param live_mode: True if live mode, false for backtesting
+        """
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def deserialize_news(item: typing.Any, enable_logging: bool = False) -> QuantConnect.DataSource.BenzingaNews:
+        """
+        Helper method to deserialize a single json Benzinga news
+        
+        :param item: The json token containing the Benzinga news to deserialize
+        :param enable_logging: true to enable logging (for debug purposes)
+        :returns: The deserialized BenzingaNews instance.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """A collection of Extra Alpha True Beats for a Symbol and date"""
+
+    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds a new data point to this collection
+        
+        :param new_data_point: The new data point to add
+        """
+        ...
+
+    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
+        """
+        Adds a new data points to this collection
+        
+        :param new_data_points: The new data points to add
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
         """
         ...
 
@@ -2816,10 +998,6 @@ class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
         
         :returns: The NodaTime.DateTimeZone of this data type.
         """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -2835,92 +1013,192 @@ class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
 
     def is_sparse_data(self) -> bool:
         """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
+        Indicates that the data set is expected to be sparse
         
-        :returns: true.
+        :returns: True if the data set represented by this type is expected to be sparse.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        Indicates if there is support for mapping
         
-        :returns: false.
+        :returns: True indicates mapping should be used.
         """
         ...
 
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
     def to_string(self) -> str:
-        """Converts the instance to string"""
+        """
+        Formats a string with TrueBeat data
+        
+        :returns: string containing TrueBeat information.
+        """
         ...
 
 
-class QuiverQuantTwitterFollowers(QuantConnect.DataSource.QuiverTwitterFollowers):
-    """Obsoleted QuiverQuantTwitterFollowers class"""
+class ExtractAlphaTrueBeatEarningsMetric(Enum):
+    """The earnings metric/type being forecasted"""
 
-    def __init__(self) -> None:
-        """Obsolete QuiverTwitterFollowers constructor"""
-        ...
+    EPS = 0
+    """Earnings per share"""
+
+    REVENUE = 1
+    """Revenue"""
 
 
-class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Twitter Followers dataset"""
+class ExtractAlphaFiscalPeriod(System.Object):
+    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
 
     @property
-    def followers(self) -> int:
-        """Number of followers of the company's Twitter page on the given date"""
+    def fiscal_year(self) -> int:
+        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
         ...
 
-    @followers.setter
-    def followers(self, value: int) -> None:
-        ...
-
-    @property
-    def day_percent_change(self) -> typing.Optional[float]:
-        """Day-over-day change in company's follower count"""
-        ...
-
-    @day_percent_change.setter
-    def day_percent_change(self, value: typing.Optional[float]) -> None:
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
         ...
 
     @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """Week-over-week change in company's follower count"""
+    def fiscal_quarter(self) -> typing.Optional[int]:
+        """
+        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
+        If this is null, then the fiscal period being reported is for the full year of the FiscalYear
+        """
         ...
 
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """Month-over-month change in company's follower count"""
+    def end(self) -> typing.Optional[datetime.datetime]:
+        """The date that the fiscal quarter ends"""
         ...
 
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
+    @end.setter
+    def end(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date that the SEC report for the fiscal period is expected to be released publicly"""
+        ...
+
+    @expected_report_date.setter
+    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def annual(self) -> bool:
+        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
+        ...
+
+    @property
+    def quarterly(self) -> bool:
+        """Returns true if the fiscal period is for a single quarter only"""
+        ...
+
+
+class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
+    """
+    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
+    by regulatory agencies (e.g. United States SEC)
+    """
+
+    @property
+    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
+        """The fiscal period that is being forecasted"""
+        ...
+
+    @fiscal_period.setter
+    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
+        ...
+
+    @property
+    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
+        """The earnings metric being forecasted (e.g. EPS, revenue)"""
+        ...
+
+    @earnings_metric.setter
+    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
+        ...
+
+    @property
+    def analyst_estimates_count(self) -> int:
+        """The number of analyst estimates that the TrueBeat used in its calculation"""
+        ...
+
+    @analyst_estimates_count.setter
+    def analyst_estimates_count(self, value: int) -> None:
+        ...
+
+    @property
+    def true_beat(self) -> float:
+        """
+        The forecasted earnings surprise percentage, relative to consensus estimates.
+        TrueBeat is calculated as the total sum of the ExpertBeat, TrendBeat, and ManagementBeat metrics.
+        """
+        ...
+
+    @true_beat.setter
+    def true_beat(self, value: float) -> None:
+        ...
+
+    @property
+    def expert_beat(self) -> typing.Optional[float]:
+        """The component of TrueBeat that is derived from top analyst estimates"""
+        ...
+
+    @expert_beat.setter
+    def expert_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trend_beat(self) -> typing.Optional[float]:
+        """The component of TrueBeat that is derived from trends in stock and peer surprises"""
+        ...
+
+    @trend_beat.setter
+    def trend_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def management_beat(self) -> typing.Optional[float]:
+        """The component of TrueBeat that is derived from management activity (e.g. guidance)"""
+        ...
+
+    @management_beat.setter
+    def management_beat(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
         ...
 
     def data_time_zone(self) -> typing.Any:
@@ -2931,8 +1209,104 @@ class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
         """
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with TrueBeat data
+        
+        :returns: string containing TrueBeat information.
+        """
+        ...
+
+
+class QuiverWikipediaUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverWikipedia dataset"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """The date of the Page View count"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def page_views(self) -> typing.Optional[float]:
+        """The company's Wikipedia Page Views on the given date"""
+        ...
+
+    @page_views.setter
+    def page_views(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the week prior to the date.
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the month prior to the date
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -2956,22 +1330,6 @@ class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
         :param is_live_mode: Is live mode
         :returns: New instance.
         """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverQuantTwitterFollowersUniverse(QuantConnect.DataSource.QuiverTwitterFollowersUniverse):
-    """Obsoleted QuiverQuantTwitterFollowersUniverse class"""
-
-    def __init__(self) -> None:
-        """Obsolete QuiverTwitterFollowersUniverse constructor"""
         ...
 
 
@@ -3086,912 +1444,80 @@ class QuiverWikipedia(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverWikipediaUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverWikipedia dataset"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """The date of the Page View count"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def page_views(self) -> typing.Optional[float]:
-        """The company's Wikipedia Page Views on the given date"""
-        ...
-
-    @page_views.setter
-    def page_views(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the week prior to the date.
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the month prior to the date
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-
-class NasdaqDataLink(QuantConnect.Data.DynamicData):
-    """Nasdaq Data Link dataset"""
-
-    @property
-    def value_column_name(self) -> str:
-        """
-        Name of the column is going to be used for the field Value
-        
-        This property is protected.
-        """
-        ...
-
-    @value_column_name.setter
-    def value_column_name(self, value: str) -> None:
-        ...
-
-    is_auth_code_set: bool
-    """Flag indicating whether or not the Nasdaq Data Link auth code has been set yet"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """
-        The end time of this data. Some data covers spans (trade bars) and as such we want
-        to know the entire time span covered
-        """
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """Gets a time span of one day"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default NasdaqDataLink constructor uses Close as its value column"""
-        ...
-
-    @overload
-    def __init__(self, value_column_name: str) -> None:
-        """
-        Constructor for creating customized NasdaqDataLink instance which doesn't use close, price, settle or value as its value item.
-        
-        This method is protected.
-        
-        :param value_column_name: The name of the column we want to use as reference, the Value property
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Using the Nasdaq Data Link V3 API automatically set the URL for the dataset.
-        
-        :param config: Subscription configuration object
-        :param date: Date of the data file we're looking for
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: STRING API Url for Nasdaq Data Link.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: CSV line of data from the souce
-        :param date: Date of the requested line
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """Set the auth code for the Nasdaq Data Link set to the QuantConnect auth code."""
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
-    """Nasdaq Bitfinex Data Downloader class"""
-
-    @property
-    def _api_key(self) -> str:
-        """This field is protected."""
-        ...
-
-    @_api_key.setter
-    def _api_key(self, value: str) -> None:
-        ...
-
-    def __init__(self, api_key: str) -> None:
-        """
-        Initializes a new instance of the NasdaqBitfinexDownloader class
-        
-        :param api_key: The nasdaq api key
-        """
-        ...
-
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Get historical data enumerable for Bitfinex from Nasdaq
-        
-        :param data_downloader_get_parameters: model class for passing in parameters for historical data
-        :returns: Enumerable of base data for this symbol.
-        """
-        ...
-
-
-class QuandlBitfinexDownloader(QuantConnect.DataSource.NasdaqBitfinexDownloader):
-    """Quandl Bitfinex Data Downloader class"""
-
-    def __init__(self, api_key: str) -> None:
-        """
-        Initializes a new instance of the QuandlBitfinexDownloader class
-        
-        :param api_key: The quandl api key
-        """
-        ...
-
-
-class QuandlBitfinexDownloaderProgram(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def quandl_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
-        """Quandl Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
-        ...
-
-
-class NasdaqBitfinexDownloaderProgram(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def nasdaq_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
-        """Nasdaq Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
-        ...
-
-
-class CryptoSlamNFTSales(QuantConnect.Data.BaseData):
-    """CryptoSlam NFT Sales dataset"""
-
-    @property
-    def total_transactions(self) -> int:
-        """The number of NFT transaction made within this blockchain"""
-        ...
-
-    @total_transactions.setter
-    def total_transactions(self, value: int) -> None:
-        ...
-
-    @property
-    def unique_buyers(self) -> int:
-        """The number of unique buyers of NFT within this blockchain"""
-        ...
-
-    @unique_buyers.setter
-    def unique_buyers(self, value: int) -> None:
-        ...
-
-    @property
-    def unique_sellers(self) -> int:
-        """The number of unique sellers of NFT within this blockchain"""
-        ...
-
-    @unique_sellers.setter
-    def unique_sellers(self, value: int) -> None:
-        ...
-
-    @property
-    def total_price_usd(self) -> float:
-        """The total transaction value (in USD) of NFT within this blockchain"""
-        ...
-
-    @total_price_usd.setter
-    def total_price_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """Time passed between the date of the data and the time the data became available to us"""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class FredApi(QuantConnect.Data.BaseData):
-    """This class has no documentation."""
-
-    class Observation(System.Object):
-        """This class has no documentation."""
-
-        @property
-        def realtime_start(self) -> str:
-            ...
-
-        @realtime_start.setter
-        def realtime_start(self, value: str) -> None:
-            ...
-
-        @property
-        def realtime_end(self) -> str:
-            ...
-
-        @realtime_end.setter
-        def realtime_end(self, value: str) -> None:
-            ...
-
-        @property
-        def date(self) -> datetime.datetime:
-            ...
-
-        @date.setter
-        def date(self, value: datetime.datetime) -> None:
-            ...
-
-        @property
-        def value(self) -> str:
-            ...
-
-        @value.setter
-        def value(self, value: str) -> None:
-            ...
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def realtime_start(self) -> str:
-        ...
-
-    @realtime_start.setter
-    def realtime_start(self, value: str) -> None:
-        ...
-
-    @property
-    def realtime_end(self) -> str:
-        ...
-
-    @realtime_end.setter
-    def realtime_end(self, value: str) -> None:
-        ...
-
-    @property
-    def observation_start(self) -> str:
-        ...
-
-    @observation_start.setter
-    def observation_start(self, value: str) -> None:
-        ...
-
-    @property
-    def observation_end(self) -> str:
-        ...
-
-    @observation_end.setter
-    def observation_end(self, value: str) -> None:
-        ...
-
-    @property
-    def units(self) -> str:
-        ...
-
-    @units.setter
-    def units(self, value: str) -> None:
-        ...
-
-    @property
-    def output_type(self) -> int:
-        ...
-
-    @output_type.setter
-    def output_type(self, value: int) -> None:
-        ...
-
-    @property
-    def file_type(self) -> str:
-        ...
-
-    @file_type.setter
-    def file_type(self, value: str) -> None:
-        ...
-
-    @property
-    def order_by(self) -> str:
-        ...
-
-    @order_by.setter
-    def order_by(self, value: str) -> None:
-        ...
-
-    @property
-    def sort_order(self) -> str:
-        ...
-
-    @sort_order.setter
-    def sort_order(self, value: str) -> None:
-        ...
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @count.setter
-    def count(self, value: int) -> None:
-        ...
-
-    @property
-    def offset(self) -> int:
-        ...
-
-    @offset.setter
-    def offset(self, value: int) -> None:
-        ...
-
-    @property
-    def limit(self) -> int:
-        ...
-
-    @limit.setter
-    def limit(self, value: int) -> None:
-        ...
-
-    @property
-    def observations(self) -> typing.List[QuantConnect.DataSource.FredApi.Observation]:
-        ...
-
-    @observations.setter
-    def observations(self, value: typing.List[QuantConnect.DataSource.FredApi.Observation]) -> None:
-        ...
-
-    auth_code: str
-    """Gets the FRED API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the FRED API token has been set."""
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Readers the specified configuration.
-        
-        :param config: The configuration.
-        :param content: The content.
-        :param date: The date.
-        :param is_live_mode: if set to true [is live mode].
-        """
-        ...
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the EIA API token.
-        
-        :param auth_code: The EIA API token
-        """
-        ...
-
-
 class Fred(QuantConnect.Data.BaseData):
     """Federal Reserve Economic Data"""
 
-    class CBOE(System.Object):
-        """Chicago Board Options Exchange"""
+    class TradeWeightedIndexes(System.Object):
+        """Trade Weight Indexes"""
 
-        VIX_ON_GOOGLE: str = "VXGOGCLS"
-        """CBOE Equity VIX on Google (in Index)"""
+        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
+        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
 
-        VXD: str = "VXDCLS"
-        """CBOE DJIA Volatility Index (in Index)"""
+        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
+        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
 
-        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
-        """CBOE Equity VIX on Goldman Sachs (in Index)"""
+        BROAD_GOODS: str = "DTWEXB"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
 
-        VIX_ON_IBM: str = "VXIBMCLS"
-        """CBOE Equity VIX on IBM (in Index)"""
+        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
+        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
 
-        VIX_ON_AMAZON: str = "VXAZNCLS"
-        """CBOE Equity VIX on Amazon (in Index)"""
+        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
 
-        VXO: str = "VXOCLS"
-        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
+        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
+        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
 
-        VXN: str = "VXNCLS"
-        """CBOE NASDAQ 100 Volatility Index (in Index)"""
+    class CentralBankInterventions(System.Object):
+        """Central Bank Interventions"""
 
-        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
-        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
+        JAPANESE_BANK_PURCHASES_OF_DM_EURO_AGAINST_JPY: str = "JPINTDDMEJPY"
+        """Japan Intervention: Japanese Bank purchases of DM/Euro against JPY (in 100 Million Yen)"""
 
-        RVX: str = "RVXCLS"
-        """CBOE Russell 2000 Volatility Index (in Index)"""
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_DM: str = "JPINTDEXR"
+        """Japan Intervention: Japanese Bank purchases of USD against DM (in 100 Million Yen)"""
 
-        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
-        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_RUPIAH: str = "JPINTDUSDRP"
+        """Japan Intervention: Japanese Bank purchases of USD against Rupiah (in 100 Million Yen)"""
 
-        VIX_ON_APPLE: str = "VXAPLCLS"
-        """CBOE Equity VIX on Apple (in Index)"""
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDMRKTJPY"
+        """U.S. Intervention: in Market Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
 
-        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
-        """CBOE Gold Miners ETF Volatility Index (in Index)"""
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDCSOTH"
+        """U.S. Intervention: With-Customer Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
 
-        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
-        """CBOE China ETF Volatility Index (in Index)"""
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDCSJPY"
+        """U.S. Intervention: With-Customer Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
 
-        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
-        """CBOE Brazil ETF Volatility Index (in Index)"""
+        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDCSDM"
+        """U.S. Intervention: With-Customer Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
 
-        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
-        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDMRKTOTH"
+        """U.S. Intervention: in Market Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
 
-        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
-        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
+        CENTRAL_BANK_OF_TURKEY_PURCHASES_OF_USD: str = "TRINTDEXR"
+        """Turkish Intervention: Central Bank of Turkey Purchases of USD (Millions of USD) (in Millions of USD)"""
 
-        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
-        """CBOE Gold ETF Volatility Index (in Index)"""
+        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "JPINTDUSDJPY"
+        """Japan Intervention: Japanese Bank purchases of USD against JPY (in 100 Million Yen)"""
 
-        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
-        """CBOE Crude Oil ETF Volatility Index (in Index)"""
+        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDMRKTDM"
+        """U.S. Intervention: in Market Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
 
-        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
-        """CBOE Silver ETF Volatility Index (in Index)"""
+        SWISS_NATIONAL_BANK_PURCHASES_OF_DEM_AGAINST_CHF_MILLIONS_OF_DEM: str = "CHINTDCHFDM"
+        """Swiss Intervention: Swiss National Bank Purchases of DEM against CHF (Millions of DEM) (in Millions of DEM)"""
 
-        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
-        """CBOE Energy Sector ETF Volatility Index (in Index)"""
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_DEM: str = "CHINTDUSDDM"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against DEM (Millions of USD) (in Millions of USD)"""
 
-        VIX: str = "VIXCLS"
-        """CBOE Volatility Index: VIX (in Index)"""
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "CHINTDUSDJPY"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against JPY (Millions of USD) (in Millions of USD)"""
 
-    class CommercialPaper(System.Object):
-        """
-        Commercial paper (CP) consists of short-term, promissory notes issued primarily by corporations. Maturities range up to 270 days but average about 30 days. Many companies use CP to raise cash needed for current transactions, and many find it to be a lower-cost alternative to bank loans.
-        The Federal Reserve Board disseminates information on CP primarily through its World Wide Web site. In addition, the Board publishes one-, two-, and three-month rates on AA nonfinancial and AA financial CP weekly in its H.15 Statistical Release.
-        The Federal Reserve Board's CP release is derived from data supplied by The Depository Trust & Clearing Corporation (DTCC), a national clearinghouse for the settlement of securities trades and a custodian for securities. DTCC performs these functions for almost all activity in the domestic CP market. The Federal Reserve Board only considers maturities of 270 days or less. CP is exempt from SEC registration if its maturity does not exceed 270 days.
-        Data on CP issuance rates and volumes typically are updated daily and typically posted with a one-day lag. Data on CP outstanding usually are available as of the close of business each Wednesday and as of the last business day of the month; these data are also posted with a one-day lag. The daily CP release will usually be available at 9:45 a.m. EST. However, the Federal Reserve Board makes no guarantee regarding the timing of the daily CP release. This policy is subject to change at any time without notice.
-        """
+        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_CHF: str = "CHINTDCHFUSD"
+        """Swiss Intervention: Swiss National Bank Purchases of USD against CHF (Millions of USD) (in Millions of USD)"""
 
-        THREE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN3M"
-        """3-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        ONE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN30"
-        """1-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        TWO_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN2M"
-        """2-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
-
-        THREE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF3M"
-        """3-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        TWO_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF2M"
-        """2-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        ONE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF1M"
-        """1-Month AA Financial Commercial Paper Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2VOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2VOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2VOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2VOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2VOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTAMT"
-        """Total Value of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2AMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTAMT"
-        """Total Value of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAAMT"
-        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 21 and 40 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 21 and 40 Days (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 41 and 80 Days (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 41 and 80 Days (in Number)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Between 5 and 9 Days (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Greater Than 80 Days (in Millions of Dollars)"""
-
-        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTVOL"
-        """Number of Commercial Paper Issues with a Maturity Greater Than 80 Days (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAAMT"
-        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAVOL"
-        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTAMT"
-        """Total Value of Issuers of Commercial Paper with a Maturity Between 5 and 9 Days (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        FIFTEEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD15NB"
-        """15-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAAMT"
-        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAVOL"
-        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        FIFTEEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D15NB"
-        """15-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D07NB"
-        """7-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D01NB"
-        """Overnight A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD90NB"
-        """90-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD01NB"
-        """Overnight AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D30NB"
-        """30-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD60NB"
-        """60-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD30NB"
-        """30-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2AMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        THREE_0_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD30NB"
-        """30-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD60NB"
-        """60-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD90NB"
-        """90-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        FIFTEEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD15NB"
-        """15-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD07NB"
-        """7-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SEVEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD07NB"
-        """7-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
-
-        OVERNIGHT_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD01NB"
-        """Overnight AA Financial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D60NB"
-        """60-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAVOL"
-        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAVOL"
-        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2VOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAAMT"
-        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        NINETY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D90NB"
-        """90-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAVOL"
-        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAAMT"
-        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
-
-        OVERNIGHT_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD01NB"
-        """Overnight AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAAMT"
-        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
-
-        SEVEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD07NB"
-        """7-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NINETY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD90NB"
-        """90-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        FIFTEEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD15NB"
-        """15-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        THREE_0_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD30NB"
-        """30-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        SIXTY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD60NB"
-        """60-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
-
-        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAVOL"
-        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
-
-        THREE_MONTH_COMMERCIAL_PAPER_MINUS_FEDERAL_FUNDS_RATE: str = "CPFF"
-        """3-Month Commercial Paper Minus Federal Funds Rate (in Percent)"""
+        BANCO_DE_MEXICO_PURCHASE_ON_THE_USD: str = "MEXINTDUSD"
+        """Mexican Intervention: Banco de Mexico Purchase on the USD (in Millions of USD)"""
 
     class LIBOR(System.Object):
         """London InterBank Offered Rate"""
@@ -4101,188 +1627,71 @@ class Fred(QuantConnect.Data.BaseData):
         OVERNIGHT_BASED_ON_BRITISH_POUND: str = "GBPONTD156N"
         """Overnight London Interbank Offered Rate (LIBOR), based on British Pound (in Percent)"""
 
-    class CentralBankInterventions(System.Object):
-        """Central Bank Interventions"""
+    class CBOE(System.Object):
+        """Chicago Board Options Exchange"""
 
-        JAPANESE_BANK_PURCHASES_OF_DM_EURO_AGAINST_JPY: str = "JPINTDDMEJPY"
-        """Japan Intervention: Japanese Bank purchases of DM/Euro against JPY (in 100 Million Yen)"""
+        VIX_ON_GOOGLE: str = "VXGOGCLS"
+        """CBOE Equity VIX on Google (in Index)"""
 
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_DM: str = "JPINTDEXR"
-        """Japan Intervention: Japanese Bank purchases of USD against DM (in 100 Million Yen)"""
+        VXD: str = "VXDCLS"
+        """CBOE DJIA Volatility Index (in Index)"""
 
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_RUPIAH: str = "JPINTDUSDRP"
-        """Japan Intervention: Japanese Bank purchases of USD against Rupiah (in 100 Million Yen)"""
+        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
+        """CBOE Equity VIX on Goldman Sachs (in Index)"""
 
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDMRKTJPY"
-        """U.S. Intervention: in Market Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
+        VIX_ON_IBM: str = "VXIBMCLS"
+        """CBOE Equity VIX on IBM (in Index)"""
 
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDCSOTH"
-        """U.S. Intervention: With-Customer Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
+        VIX_ON_AMAZON: str = "VXAZNCLS"
+        """CBOE Equity VIX on Amazon (in Index)"""
 
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_JPY_USD: str = "USINTDCSJPY"
-        """U.S. Intervention: With-Customer Transactions in the JPY/USD (Millions of USD) (in Millions of USD)"""
+        VXO: str = "VXOCLS"
+        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
 
-        US_INTERVENTION_WITH_CUSTOMER_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDCSDM"
-        """U.S. Intervention: With-Customer Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
+        VXN: str = "VXNCLS"
+        """CBOE NASDAQ 100 Volatility Index (in Index)"""
 
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_OTHER_CURRENCIES: str = "USINTDMRKTOTH"
-        """U.S. Intervention: in Market Transactions in Other Currencies (Millions of USD) (in Millions of USD)"""
+        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
+        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
 
-        CENTRAL_BANK_OF_TURKEY_PURCHASES_OF_USD: str = "TRINTDEXR"
-        """Turkish Intervention: Central Bank of Turkey Purchases of USD (Millions of USD) (in Millions of USD)"""
+        RVX: str = "RVXCLS"
+        """CBOE Russell 2000 Volatility Index (in Index)"""
 
-        JAPANESE_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "JPINTDUSDJPY"
-        """Japan Intervention: Japanese Bank purchases of USD against JPY (in 100 Million Yen)"""
+        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
+        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
 
-        US_INTERVENTION_IN_MARKET_TRANSACTIONS_IN_THE_DEM_USD_EURO: str = "USINTDMRKTDM"
-        """U.S. Intervention: in Market Transactions in the DEM/USD (Euro since 1999) (Millions of USD) (in Millions of USD)"""
+        VIX_ON_APPLE: str = "VXAPLCLS"
+        """CBOE Equity VIX on Apple (in Index)"""
 
-        SWISS_NATIONAL_BANK_PURCHASES_OF_DEM_AGAINST_CHF_MILLIONS_OF_DEM: str = "CHINTDCHFDM"
-        """Swiss Intervention: Swiss National Bank Purchases of DEM against CHF (Millions of DEM) (in Millions of DEM)"""
+        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
+        """CBOE Gold Miners ETF Volatility Index (in Index)"""
 
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_DEM: str = "CHINTDUSDDM"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against DEM (Millions of USD) (in Millions of USD)"""
+        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
+        """CBOE China ETF Volatility Index (in Index)"""
 
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_JPY: str = "CHINTDUSDJPY"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against JPY (Millions of USD) (in Millions of USD)"""
+        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
+        """CBOE Brazil ETF Volatility Index (in Index)"""
 
-        SWISS_NATIONAL_BANK_PURCHASES_OF_USD_AGAINST_CHF: str = "CHINTDCHFUSD"
-        """Swiss Intervention: Swiss National Bank Purchases of USD against CHF (Millions of USD) (in Millions of USD)"""
+        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
+        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
 
-        BANCO_DE_MEXICO_PURCHASE_ON_THE_USD: str = "MEXINTDUSD"
-        """Mexican Intervention: Banco de Mexico Purchase on the USD (in Millions of USD)"""
+        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
+        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
 
-    class TradeWeightedIndexes(System.Object):
-        """Trade Weight Indexes"""
+        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
+        """CBOE Gold ETF Volatility Index (in Index)"""
 
-        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
-        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
+        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
+        """CBOE Crude Oil ETF Volatility Index (in Index)"""
 
-        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
-        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
+        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
+        """CBOE Silver ETF Volatility Index (in Index)"""
 
-        BROAD_GOODS: str = "DTWEXB"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
+        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
+        """CBOE Energy Sector ETF Volatility Index (in Index)"""
 
-        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
-        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
-
-        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
-
-        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
-        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
-
-    class Wilshire(System.Object):
-        """Wilshire Indexes help clients, investment professionals and researchers accurately measure and better understand the market. The Wilshire Index family leverages more than 40 years of Wilshire performance measurement expertise and employs unbiased construction rules."""
-
-        US_SMALL_CAP_VALUE_PRICE: str = "WILLSMLCAPVALPR"
-        """Wilshire US Small-Cap Value Price Index (in Index)"""
-
-        PRICE_2500: str = "WILL2500PR"
-        """Wilshire 2500 Price Index (in Index)"""
-
-        PRICE_4500: str = "WILL4500PR"
-        """Wilshire 4500 Price Index (in Index)"""
-
-        VALUE_PRICE_2500: str = "WILL2500PRVAL"
-        """Wilshire 2500 Value Price Index (in Index)"""
-
-        GROWTH_PRICE_2500: str = "WILL2500PRGR"
-        """Wilshire 2500 Growth Price Index (in Index)"""
-
-        US_SMALL_CAP_PRICE: str = "WILLSMLCAPPR"
-        """Wilshire US Small-Cap Price Index (in Index)"""
-
-        PRICE_5000: str = "WILL5000PR"
-        """Wilshire 5000 Price Index (in Index)"""
-
-        US_SMALL_CAP_GROWTH_PRICE: str = "WILLSMLCAPGRPR"
-        """Wilshire US Small-Cap Growth Price Index (in Index)"""
-
-        US_MID_CAP_VALUE_PRICE: str = "WILLMIDCAPVALPR"
-        """Wilshire US Mid-Cap Value Price Index (in Index)"""
-
-        US_REAL_ESTATE_SECURITIES_PRICE: str = "WILLRESIPR"
-        """Wilshire US Real Estate Securities Price Index (Wilshire US RESI) (in Index)"""
-
-        US_LARGE_CAP_PRICE: str = "WILLLRGCAPPR"
-        """Wilshire US Large-Cap Price Index (in Index)"""
-
-        US_MID_CAP_PRICE: str = "WILLMIDCAPPR"
-        """Wilshire US Mid-Cap Price Index (in Index)"""
-
-        US_MID_CAP_GROWTH_PRICE: str = "WILLMIDCAPGRPR"
-        """Wilshire US Mid-Cap Growth Price Index (in Index)"""
-
-        US_MICRO_CAP_PRICE: str = "WILLMICROCAPPR"
-        """Wilshire US Micro-Cap Price Index (in Index)"""
-
-        US_REAL_ESTATE_INVESTMENT_TRUST_PRICE: str = "WILLREITPR"
-        """Wilshire US Real Estate Investment Trust Price Index (Wilshire US REIT) (in Index)"""
-
-        US_LARGE_CAP_VALUE_PRICE: str = "WILLLRGCAPVALPR"
-        """Wilshire US Large-Cap Value Price Index (in Index)"""
-
-        US_LARGE_CAP_GROWTH_PRICE: str = "WILLLRGCAPGRPR"
-        """Wilshire US Large-Cap Growth Price Index (in Index)"""
-
-        FULL_CAP_PRICE_5000: str = "WILL5000PRFC"
-        """Wilshire 5000 Full Cap Price Index (in Index)"""
-
-        US_MID_CAP_VALUE: str = "WILLMIDCAPVAL"
-        """Wilshire US Mid-Cap Value Total Market Index (in Index)"""
-
-        US_MID_CAP_GROWTH: str = "WILLMIDCAPGR"
-        """Wilshire US Mid-Cap Growth Total Market Index (in Index)"""
-
-        US_MID_CAP: str = "WILLMIDCAP"
-        """Wilshire US Mid-Cap Total Market Index (in Index)"""
-
-        US_REAL_ESTATE_SECURITIES: str = "WILLRESIND"
-        """Wilshire US Real Estate Securities Total Market Index (Wilshire US RESI) (in Index)"""
-
-        INDEX_4500: str = "WILL4500IND"
-        """Wilshire 4500 Total Market Index (in Index)"""
-
-        INDEX_5000: str = "WILL5000IND"
-        """Wilshire 5000 Total Market Index (in Index)"""
-
-        US_LARGE_CAP_GROWTH: str = "WILLLRGCAPGR"
-        """Wilshire US Large-Cap Growth Total Market Index (in Index)"""
-
-        US_MICRO_CAP: str = "WILLMICROCAP"
-        """Wilshire US Micro-Cap Total Market Index (in Index)"""
-
-        VALUE_2500: str = "WILL2500INDVAL"
-        """Wilshire 2500 Value Total Market Index (in Index)"""
-
-        US_SMALL_CAP_GROWTH: str = "WILLSMLCAPGR"
-        """Wilshire US Small-Cap Growth Total Market Index (in Index)"""
-
-        US_SMALL_CAP_VALUE: str = "WILLSMLCAPVAL"
-        """Wilshire US Small-Cap Value Total Market Index (in Index)"""
-
-        US_LARGE_CAP_VALUE: str = "WILLLRGCAPVAL"
-        """Wilshire US Large-Cap Value Total Market Index (in Index)"""
-
-        US_REAL_ESTATE_INVESTMENT_TRUST: str = "WILLREITIND"
-        """Wilshire US Real Estate Investment Trust Total Market Index (Wilshire US REIT) (in Index)"""
-
-        INDEX_2500: str = "WILL2500IND"
-        """Wilshire 2500 Total Market Index (in Index)"""
-
-        US_SMALL_CAP: str = "WILLSMLCAP"
-        """Wilshire US Small-Cap Total Market Index (in Index)"""
-
-        US_LARGE_CAP: str = "WILLLRGCAP"
-        """Wilshire US Large-Cap Total Market Index (in Index)"""
-
-        GROWTH_2500: str = "WILL2500INDGR"
-        """Wilshire 2500 Growth Total Market Index (in Index)"""
-
-        TOTAL_MARKET_FULL_CAP_5000: str = "WILL5000INDFC"
-        """Wilshire 5000 Total Market Full Cap Index (in Index)"""
+        VIX: str = "VIXCLS"
+        """CBOE Volatility Index: VIX (in Index)"""
 
     class OECDRecessionIndicators(System.Object):
         """
@@ -5273,6 +2682,398 @@ class Fred(QuantConnect.Data.BaseData):
         US_HIGH_YIELD_MASTER_II_SEMI_ANNUAL_YIELDTO_WORST: str = "BAMLH0A0HYM2SYTW"
         """ICE BofAML US High Yield Master II Semi-Annual Yield to Worst (in Percent)"""
 
+    class CommercialPaper(System.Object):
+        """
+        Commercial paper (CP) consists of short-term, promissory notes issued primarily by corporations. Maturities range up to 270 days but average about 30 days. Many companies use CP to raise cash needed for current transactions, and many find it to be a lower-cost alternative to bank loans.
+        The Federal Reserve Board disseminates information on CP primarily through its World Wide Web site. In addition, the Board publishes one-, two-, and three-month rates on AA nonfinancial and AA financial CP weekly in its H.15 Statistical Release.
+        The Federal Reserve Board's CP release is derived from data supplied by The Depository Trust & Clearing Corporation (DTCC), a national clearinghouse for the settlement of securities trades and a custodian for securities. DTCC performs these functions for almost all activity in the domestic CP market. The Federal Reserve Board only considers maturities of 270 days or less. CP is exempt from SEC registration if its maturity does not exceed 270 days.
+        Data on CP issuance rates and volumes typically are updated daily and typically posted with a one-day lag. Data on CP outstanding usually are available as of the close of business each Wednesday and as of the last business day of the month; these data are also posted with a one-day lag. The daily CP release will usually be available at 9:45 a.m. EST. However, the Federal Reserve Board makes no guarantee regarding the timing of the daily CP release. This policy is subject to change at any time without notice.
+        """
+
+        THREE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN3M"
+        """3-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        ONE_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN30"
+        """1-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        TWO_MONTH_AA_NONFINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPN2M"
+        """2-Month AA Nonfinancial Commercial Paper Rate (in Percent)"""
+
+        THREE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF3M"
+        """3-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        TWO_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF2M"
+        """2-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        ONE_MONTH_AA_FINANCIAL_COMMERCIAL_PAPER_RATE: str = "DCPF1M"
+        """1-Month AA Financial Commercial Paper Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2VOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2VOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN59A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2VOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN4180A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2VOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN2140A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2VOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN14A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTAMT"
+        """Total Value of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFIN1020A2P2AMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTAMT"
+        """Total Value of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_10_AND_20_DAYS: str = "MKT1020MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 10 and 20 Days (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAAMT"
+        """Total Value of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_1_AND_4_DAYS: str = "MKT14MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 1 and 4 Days (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 21 and 40 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_21_AND_40_DAYS: str = "MKT2140MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 21 and 40 Days (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 41 and 80 Days (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_41_AND_80_DAYS: str = "MKT4180MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 41 and 80 Days (in Number)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Between 5 and 9 Days (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Greater Than 80 Days (in Millions of Dollars)"""
+
+        NUMBEROF_COMMERCIAL_PAPER_ISSUESWITHA_MATURITY_GREATER_THAN_80_DAYS: str = "MKTGT80MKTVOL"
+        """Number of Commercial Paper Issues with a Maturity Greater Than 80 Days (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAAMT"
+        """Total Value of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_FINANCIAL: str = "FINGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_FINANCIAL: str = "FIN1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Financial Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_21_AND_40_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB2140AAVOL"
+        """Number of Issues, with a Maturity Between 21 and 40 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUEOF_ISSUERSOF_COMMERCIAL_PAPERWITHA_MATURITY_BETWEEN_5_AND_9_DAYS: str = "MKT59MKTAMT"
+        """Total Value of Issuers of Commercial Paper with a Maturity Between 5 and 9 Days (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "ABGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFIN59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        FIFTEEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD15NB"
+        """15-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAAMT"
+        """Total Value of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_41_AND_80_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB4180AAVOL"
+        """Number of Issues, with a Maturity Between 41 and 80 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        FIFTEEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D15NB"
+        """15-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D07NB"
+        """7-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D01NB"
+        """Overnight A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD90NB"
+        """90-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD01NB"
+        """Overnight AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D30NB"
+        """30-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD60NB"
+        """60-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD30NB"
+        """30-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2AMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        THREE_0_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD30NB"
+        """30-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD60NB"
+        """60-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD90NB"
+        """90-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        FIFTEEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD15NB"
+        """15-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD07NB"
+        """7-Day AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SEVEN_DAY_AA_ASSETBACKED_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPAAAD07NB"
+        """7-Day AA Asset-backed Commercial Paper Interest Rate (in Percent)"""
+
+        OVERNIGHT_AA_FINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPFAAD01NB"
+        """Overnight AA Financial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D60NB"
+        """60-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_5_AND_9_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB59AAVOL"
+        """Number of Issues, with a Maturity Between 5 and 9 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAVOL"
+        """Number of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_A_2_P_2_NONFINANCIAL: str = "NONFINGT80A2P2VOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the A2/P2 Nonfinancial Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_1_AND_4_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB14AAAMT"
+        """Total Value of Issues, with a Maturity Between 1 and 4 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        NINETY_DAY_A_2_P_2_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNA2P2D90NB"
+        """90-Day A2/P2 Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAVOL"
+        """Number of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Number)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAAMT"
+        """Total Value of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Millions of Dollars)"""
+
+        OVERNIGHT_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD01NB"
+        """Overnight AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        TOTAL_VALUE_OF_ISSUES_WITH_MATURITY_BETWEEN_10_AND_20_DAYS_USED_FOR_AA_ASSET_BACKED: str = "AB1020AAAMT"
+        """Total Value of Issues, with a Maturity Between 10 and 20 Days, Used in Calculating the AA Asset-Backed Commercial Paper Rates (in Millions of Dollars)"""
+
+        SEVEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD07NB"
+        """7-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NINETY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD90NB"
+        """90-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        FIFTEEN_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD15NB"
+        """15-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        THREE_0_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD30NB"
+        """30-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        SIXTY_DAY_AA_NONFINANCIAL_COMMERCIAL_PAPER_INTEREST_RATE: str = "RIFSPPNAAD60NB"
+        """60-Day AA Nonfinancial Commercial Paper Interest Rate (in Percent)"""
+
+        NUMBER_OF_ISSUES_WITH_MATURITY_GREATER_THAN_80_DAYS_USED_FOR_AA_NONFINANCIAL: str = "NONFINGT80AAVOL"
+        """Number of Issues, with a Maturity Greater Than 80 Days, Used in Calculating the AA Nonfinancial Commercial Paper Rates (in Number)"""
+
+        THREE_MONTH_COMMERCIAL_PAPER_MINUS_FEDERAL_FUNDS_RATE: str = "CPFF"
+        """3-Month Commercial Paper Minus Federal Funds Rate (in Percent)"""
+
+    class Wilshire(System.Object):
+        """Wilshire Indexes help clients, investment professionals and researchers accurately measure and better understand the market. The Wilshire Index family leverages more than 40 years of Wilshire performance measurement expertise and employs unbiased construction rules."""
+
+        US_SMALL_CAP_VALUE_PRICE: str = "WILLSMLCAPVALPR"
+        """Wilshire US Small-Cap Value Price Index (in Index)"""
+
+        PRICE_2500: str = "WILL2500PR"
+        """Wilshire 2500 Price Index (in Index)"""
+
+        PRICE_4500: str = "WILL4500PR"
+        """Wilshire 4500 Price Index (in Index)"""
+
+        VALUE_PRICE_2500: str = "WILL2500PRVAL"
+        """Wilshire 2500 Value Price Index (in Index)"""
+
+        GROWTH_PRICE_2500: str = "WILL2500PRGR"
+        """Wilshire 2500 Growth Price Index (in Index)"""
+
+        US_SMALL_CAP_PRICE: str = "WILLSMLCAPPR"
+        """Wilshire US Small-Cap Price Index (in Index)"""
+
+        PRICE_5000: str = "WILL5000PR"
+        """Wilshire 5000 Price Index (in Index)"""
+
+        US_SMALL_CAP_GROWTH_PRICE: str = "WILLSMLCAPGRPR"
+        """Wilshire US Small-Cap Growth Price Index (in Index)"""
+
+        US_MID_CAP_VALUE_PRICE: str = "WILLMIDCAPVALPR"
+        """Wilshire US Mid-Cap Value Price Index (in Index)"""
+
+        US_REAL_ESTATE_SECURITIES_PRICE: str = "WILLRESIPR"
+        """Wilshire US Real Estate Securities Price Index (Wilshire US RESI) (in Index)"""
+
+        US_LARGE_CAP_PRICE: str = "WILLLRGCAPPR"
+        """Wilshire US Large-Cap Price Index (in Index)"""
+
+        US_MID_CAP_PRICE: str = "WILLMIDCAPPR"
+        """Wilshire US Mid-Cap Price Index (in Index)"""
+
+        US_MID_CAP_GROWTH_PRICE: str = "WILLMIDCAPGRPR"
+        """Wilshire US Mid-Cap Growth Price Index (in Index)"""
+
+        US_MICRO_CAP_PRICE: str = "WILLMICROCAPPR"
+        """Wilshire US Micro-Cap Price Index (in Index)"""
+
+        US_REAL_ESTATE_INVESTMENT_TRUST_PRICE: str = "WILLREITPR"
+        """Wilshire US Real Estate Investment Trust Price Index (Wilshire US REIT) (in Index)"""
+
+        US_LARGE_CAP_VALUE_PRICE: str = "WILLLRGCAPVALPR"
+        """Wilshire US Large-Cap Value Price Index (in Index)"""
+
+        US_LARGE_CAP_GROWTH_PRICE: str = "WILLLRGCAPGRPR"
+        """Wilshire US Large-Cap Growth Price Index (in Index)"""
+
+        FULL_CAP_PRICE_5000: str = "WILL5000PRFC"
+        """Wilshire 5000 Full Cap Price Index (in Index)"""
+
+        US_MID_CAP_VALUE: str = "WILLMIDCAPVAL"
+        """Wilshire US Mid-Cap Value Total Market Index (in Index)"""
+
+        US_MID_CAP_GROWTH: str = "WILLMIDCAPGR"
+        """Wilshire US Mid-Cap Growth Total Market Index (in Index)"""
+
+        US_MID_CAP: str = "WILLMIDCAP"
+        """Wilshire US Mid-Cap Total Market Index (in Index)"""
+
+        US_REAL_ESTATE_SECURITIES: str = "WILLRESIND"
+        """Wilshire US Real Estate Securities Total Market Index (Wilshire US RESI) (in Index)"""
+
+        INDEX_4500: str = "WILL4500IND"
+        """Wilshire 4500 Total Market Index (in Index)"""
+
+        INDEX_5000: str = "WILL5000IND"
+        """Wilshire 5000 Total Market Index (in Index)"""
+
+        US_LARGE_CAP_GROWTH: str = "WILLLRGCAPGR"
+        """Wilshire US Large-Cap Growth Total Market Index (in Index)"""
+
+        US_MICRO_CAP: str = "WILLMICROCAP"
+        """Wilshire US Micro-Cap Total Market Index (in Index)"""
+
+        VALUE_2500: str = "WILL2500INDVAL"
+        """Wilshire 2500 Value Total Market Index (in Index)"""
+
+        US_SMALL_CAP_GROWTH: str = "WILLSMLCAPGR"
+        """Wilshire US Small-Cap Growth Total Market Index (in Index)"""
+
+        US_SMALL_CAP_VALUE: str = "WILLSMLCAPVAL"
+        """Wilshire US Small-Cap Value Total Market Index (in Index)"""
+
+        US_LARGE_CAP_VALUE: str = "WILLLRGCAPVAL"
+        """Wilshire US Large-Cap Value Total Market Index (in Index)"""
+
+        US_REAL_ESTATE_INVESTMENT_TRUST: str = "WILLREITIND"
+        """Wilshire US Real Estate Investment Trust Total Market Index (Wilshire US REIT) (in Index)"""
+
+        INDEX_2500: str = "WILL2500IND"
+        """Wilshire 2500 Total Market Index (in Index)"""
+
+        US_SMALL_CAP: str = "WILLSMLCAP"
+        """Wilshire US Small-Cap Total Market Index (in Index)"""
+
+        US_LARGE_CAP: str = "WILLLRGCAP"
+        """Wilshire US Large-Cap Total Market Index (in Index)"""
+
+        GROWTH_2500: str = "WILL2500INDGR"
+        """Wilshire 2500 Growth Total Market Index (in Index)"""
+
+        TOTAL_MARKET_FULL_CAP_5000: str = "WILL5000INDFC"
+        """Wilshire 5000 Total Market Full Cap Index (in Index)"""
+
     DATA_SOURCE_ID: int
     """Data source ID"""
 
@@ -5351,23 +3152,229 @@ class Fred(QuantConnect.Data.BaseData):
         ...
 
 
-class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+class FredApi(QuantConnect.Data.BaseData):
+    """This class has no documentation."""
 
-    def clone(self) -> QuantConnect.Data.BaseData:
+    class Observation(System.Object):
+        """This class has no documentation."""
+
+        @property
+        def realtime_start(self) -> str:
+            ...
+
+        @realtime_start.setter
+        def realtime_start(self, value: str) -> None:
+            ...
+
+        @property
+        def realtime_end(self) -> str:
+            ...
+
+        @realtime_end.setter
+        def realtime_end(self, value: str) -> None:
+            ...
+
+        @property
+        def date(self) -> datetime.datetime:
+            ...
+
+        @date.setter
+        def date(self, value: datetime.datetime) -> None:
+            ...
+
+        @property
+        def value(self) -> str:
+            ...
+
+        @value.setter
+        def value(self, value: str) -> None:
+            ...
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def realtime_start(self) -> str:
+        ...
+
+    @realtime_start.setter
+    def realtime_start(self, value: str) -> None:
+        ...
+
+    @property
+    def realtime_end(self) -> str:
+        ...
+
+    @realtime_end.setter
+    def realtime_end(self, value: str) -> None:
+        ...
+
+    @property
+    def observation_start(self) -> str:
+        ...
+
+    @observation_start.setter
+    def observation_start(self, value: str) -> None:
+        ...
+
+    @property
+    def observation_end(self) -> str:
+        ...
+
+    @observation_end.setter
+    def observation_end(self, value: str) -> None:
+        ...
+
+    @property
+    def units(self) -> str:
+        ...
+
+    @units.setter
+    def units(self, value: str) -> None:
+        ...
+
+    @property
+    def output_type(self) -> int:
+        ...
+
+    @output_type.setter
+    def output_type(self, value: int) -> None:
+        ...
+
+    @property
+    def file_type(self) -> str:
+        ...
+
+    @file_type.setter
+    def file_type(self, value: str) -> None:
+        ...
+
+    @property
+    def order_by(self) -> str:
+        ...
+
+    @order_by.setter
+    def order_by(self, value: str) -> None:
+        ...
+
+    @property
+    def sort_order(self) -> str:
+        ...
+
+    @sort_order.setter
+    def sort_order(self, value: str) -> None:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @count.setter
+    def count(self, value: int) -> None:
+        ...
+
+    @property
+    def offset(self) -> int:
+        ...
+
+    @offset.setter
+    def offset(self, value: int) -> None:
+        ...
+
+    @property
+    def limit(self) -> int:
+        ...
+
+    @limit.setter
+    def limit(self, value: int) -> None:
+        ...
+
+    @property
+    def observations(self) -> typing.List[QuantConnect.DataSource.FredApi.Observation]:
+        ...
+
+    @observations.setter
+    def observations(self, value: typing.List[QuantConnect.DataSource.FredApi.Observation]) -> None:
+        ...
+
+    auth_code: str
+    """Gets the FRED API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the FRED API token has been set."""
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Clones the data
+        Return the URL string source of the file. This will be converted to a stream
         
-        :returns: A clone of the object.
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
         """
         ...
 
-    def data_time_zone(self) -> typing.Any:
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Specifies the data time zone for this data type. This is useful for custom data types
+        Readers the specified configuration.
         
-        :returns: The NodaTime.DateTimeZone of this data type.
+        :param config: The configuration.
+        :param content: The content.
+        :param date: The date.
+        :param is_live_mode: if set to true [is live mode].
         """
+        ...
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the EIA API token.
+        
+        :param auth_code: The EIA API token
+        """
+        ...
+
+
+class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverWallStreetBets dataset"""
+
+    @property
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
+        ...
+
+    @mentions.setter
+    def mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
+        ...
+
+    @rank.setter
+    def rank(self, value: int) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -5394,39 +3401,147 @@ class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
         ...
 
 
-class CoinGecko(QuantConnect.Data.BaseData):
-    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+class QuiverWallStreetBets(QuantConnect.Data.BaseData):
+    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def coin(self) -> str:
-        """Coin Name"""
+    def date(self) -> datetime.datetime:
+        """Date of the daily discussion thread"""
         ...
 
-    @property
-    def volume(self) -> float:
-        """Volume in USD of the coin for that day"""
-        ...
-
-    @volume.setter
-    def volume(self, value: float) -> None:
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def market_cap(self) -> float:
-        """Market Cap in USD of the coin for that day"""
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
         ...
 
-    @market_cap.setter
-    def market_cap(self, value: float) -> None:
+    @mentions.setter
+    def mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
+        ...
+
+    @rank.setter
+    def rank(self, value: int) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of QuiverWallStreetBets from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Quiver WallStreetBets object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Quiver WallStreetBets information."""
+        ...
+
+
+class QuiverCNBC(QuantConnect.Data.BaseData):
+    """Personal stock advice by CNBC"""
+
+    @property
+    def notes(self) -> str:
+        """Contract description"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
         """Time the data became available"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -5437,15 +3552,117 @@ class CoinGecko(QuantConnect.Data.BaseData):
         """
         ...
 
-    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
+    def data_time_zone(self) -> typing.Any:
         """
-        Creates a Symbol object for a given market and quote currency
+        Specifies the data time zone for this data type. This is useful for custom data types
         
-        :param market: The market the ticker resides in
-        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
-        :param security_type: The security type of the ticker resides in
-        :returns: A new Symbol object for the specified ticker.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
+    """Converts Quiver Quantitative TransactionDirection to OrderDirection"""
+
+    @overload
+    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
+        """
+        Convert OrderDirection to string
+        
+        This method is protected.
+        
+        :param value: OrderDirection to convert
+        :returns: Resulting string.
+        """
+        ...
+
+    @overload
+    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
+        """
+        Convert string to OrderDirection
+        
+        This method is protected.
+        
+        :param value: string to convert
+        :returns: Resulting OrderDirection.
+        """
+        ...
+
+
+class QuiverCNBCsUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    @property
+    def notes(self) -> str:
+        """Extra Information"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
         ...
 
     def data_time_zone(self) -> typing.Any:
@@ -5492,6 +3709,360 @@ class CoinGecko(QuantConnect.Data.BaseData):
         """
         ...
 
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of personal stock advices by CNBC"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverCNBC data
+        
+        :returns: string containing QuiverCNBC information.
+        """
+        ...
+
+
+class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Crypto Coarse Fundamental object for crpyto universe selection"""
+
+    @property
+    def open(self) -> float:
+        """Daily Open Price (UTC 00:00)"""
+        ...
+
+    @open.setter
+    def open(self, value: float) -> None:
+        ...
+
+    @property
+    def high(self) -> float:
+        """Daily High Price"""
+        ...
+
+    @high.setter
+    def high(self, value: float) -> None:
+        ...
+
+    @property
+    def low(self) -> float:
+        """Daily Low Price"""
+        ...
+
+    @low.setter
+    def low(self, value: float) -> None:
+        ...
+
+    @property
+    def close(self) -> float:
+        """Daily Close Price"""
+        ...
+
+    @close.setter
+    def close(self, value: float) -> None:
+        ...
+
+    @property
+    def volume(self) -> float:
+        """
+        Daily Trade Volume
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_quote_currency(self) -> float:
+        """
+        Daily Volume in Quote Currency
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_quote_currency.setter
+    def volume_in_quote_currency(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_usd(self) -> typing.Optional[float]:
+        """
+        Daily Volume in USD
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_usd.setter
+    def volume_in_usd(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price(self) -> float:
+        """Alias of close price"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
     def requires_mapping(self) -> bool:
         """
         Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
@@ -5508,340 +4079,17 @@ class CoinGecko(QuantConnect.Data.BaseData):
         """Converts the instance to string"""
         ...
 
-
-class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
-
-    @overload
-    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
         """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        Creates the universe symbol
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @overload
-    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates a new fundamental universe using this class's selection functions
-        
-        :param algorithm: The algorithm instance to create universes for
-        :returns: The universe defined by this model.
-        """
-        ...
-
-    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Defines the CoinGecko selection function.
-        
-        :param algorithm: The algorithm instance
-        :param data: The CoinGecko Universe data used to perform filtering
-        :returns: An enumerable of symbols passing the filter.
+        :returns: A crypto coarse universe symbol.
         """
         ...
 
 
-class BenzingaNews(QuantConnect.Data.IndexedBaseData):
-    """News data powered by Benzinga - https://docs.benzinga.io/benzinga/newsfeed-v2.html"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> int:
-        """Unique ID assigned to the article by Benzinga"""
-        ...
-
-    @id.setter
-    def id(self, value: int) -> None:
-        ...
-
-    @property
-    def author(self) -> str:
-        """Author of the article"""
-        ...
-
-    @author.setter
-    def author(self, value: str) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        """Date the article was published"""
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """Date that the article was revised on"""
-        ...
-
-    @updated_at.setter
-    def updated_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def title(self) -> str:
-        """Title of the article published"""
-        ...
-
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def teaser(self) -> str:
-        """Summary of the article's contents"""
-        ...
-
-    @teaser.setter
-    def teaser(self, value: str) -> None:
-        ...
-
-    @property
-    def contents(self) -> str:
-        """Contents of the article"""
-        ...
-
-    @contents.setter
-    def contents(self, value: str) -> None:
-        ...
-
-    @property
-    def categories(self) -> typing.List[str]:
-        """Categories that relate to the article"""
-        ...
-
-    @categories.setter
-    def categories(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def symbols(self) -> typing.List[QuantConnect.Symbol]:
-        """Symbols that this news article mentions"""
-        ...
-
-    @symbols.setter
-    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
-        ...
-
-    @property
-    def tags(self) -> typing.List[str]:
-        """
-        Additional tags that are not channels/categories, but are reoccuring
-        themes including, but not limited to; analyst names, bills being talked
-        about in Congress (Dodd-Frank), specific products (iPhone), politicians,
-        celebrities, stock movements (i.e. 'Mid-day Losers' & 'Mid-day Gainers').
-        """
-        ...
-
-    @tags.setter
-    def tags(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Date that the article was revised on"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Creates a clone of the instance
-        
-        :returns: A clone of the instance.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Set the data time zone to UTC
-        
-        :returns: Time zone as UTC.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """
-        Sets the default resolution to Second
-        
-        :returns: Resolution.Second.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Gets the source of the index file
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: Is live mode
-        :returns: SubscriptionDataSource indicating where data is located and how it's stored.
-        """
-        ...
-
-    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Determines the actual source from an index contained within a ticker folder
-        
-        :param config: Subscription configuration
-        :param date: Date
-        :param index: File to load data from
-        :param is_live_mode: Is live mode
-        :returns: SubscriptionDataSource pointing to the article.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data source is sparse.
-        If false, it will disable missing file logging.
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Creates an instance from a line of JSON containing article information read from the `content` directory
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance of BenzingaNews.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source can undergo
-        rename events/is tied to equities.
-        
-        :returns: true.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """
-        Gets a list of all the supported Resolutions
-        
-        :returns: All resolutions.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the instance to string
-        
-        :returns: Article title and contents.
-        """
-        ...
-
-
-class BenzingaNewsJsonConverter(JsonConverter):
-    """
-    Helper json converter class used to convert Benzinga news data
-    into BenzingaNews
-    
-    An example schema of the data in a serialized format is provided
-    to help you better understand this converter.
-    """
-
-    SHARE_CLASS_MAPPED_TICKERS: System.Collections.Generic.Dictionary[str, System.Collections.Generic.HashSet[str]] = ...
-    """
-    Sometimes "Berkshire Hathaway" is mentioned as "BRK" in the raw data, although it is
-    separated into class A and B shares and should appear as BRK.A and BRK.B. Because our
-    map file system does not perform the conversion from BRK -> { BRK.A, BRK.B }, we must
-    provide them manually. Note that we don't dynamically try to locate class A and B shares
-    because there can exist companies with the same base ticker that class A and B shares have.
-    For example, CBS trades under "CBS" and "CBS.A", which means that if "CBS" appears, it will
-    be automatically mapped to CBS. However, if we dynamically selected "CBS.A" - we might select
-    a different company not associated with the ticker being referenced.
-    """
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, live_mode: bool = False) -> None:
-        """
-        Creates a new instance of the json converter
-        
-        :param symbol: The Symbol instance associated with this news
-        :param live_mode: True if live mode, false for backtesting
-        """
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def deserialize_news(item: typing.Any, enable_logging: bool = False) -> QuantConnect.DataSource.BenzingaNews:
-        """
-        Helper method to deserialize a single json Benzinga news
-        
-        :param item: The json token containing the Benzinga news to deserialize
-        :param enable_logging: true to enable logging (for debug purposes)
-        :returns: The deserialized BenzingaNews instance.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class Congress(Enum):
-    """United States of America Legislative Branch House of Congress"""
-
-    SENATE = 0
-    """The United States Senate"""
-
-    REPRESENTATIVES = 1
-    """The United States House of Representatives"""
+class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
+    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
 
 
 class Party(Enum):
@@ -5855,6 +4103,139 @@ class Party(Enum):
 
     DEMOCRATIC = 2
     """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
+
+
+class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Personal stock transactions by U.S. Representatives"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with the Quiver Congress information.
+        
+        :returns: string containing Quiver Congress information.
+        """
+        ...
+
+
+class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
+    """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class Congress(Enum):
+    """United States of America Legislative Branch House of Congress"""
+
+    SENATE = 0
+    """The United States Senate"""
+
+    REPRESENTATIVES = 1
+    """The United States House of Representatives"""
 
 
 class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
@@ -6035,8 +4416,96 @@ class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Personal stock transactions by U.S. Representatives"""
+class QuiverGovernmentContractUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
+
+    @property
+    def description(self) -> str:
+        """Contract description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def agency(self) -> str:
+        """Awarding Agency Name"""
+        ...
+
+    @agency.setter
+    def agency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Total dollars obligated under the given contract"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverGovernmentContracts(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of Government Contracts by Agencies"""
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
@@ -6060,12 +4529,12 @@ class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the Subscription Data Source gained from the URL
+        Return the URL string source of the file. This will be converted to a stream
         
         :param config: Configuration object
         :param date: Date of this source file
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
+        :returns: String URL of source file.
         """
         ...
 
@@ -6104,15 +4573,47 @@ class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
 
     def to_string(self) -> str:
         """
-        Formats a string with the Quiver Congress information.
+        Formats a string with QuiverGovernmentContract data
         
-        :returns: string containing Quiver Congress information.
+        :returns: string containing QuiverGovernmentContract information.
         """
         ...
 
 
-class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
+class QuiverGovernmentContract(QuantConnect.Data.BaseData):
+    """Government Contract by Agencies"""
+
+    @property
+    def description(self) -> str:
+        """Contract description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def agency(self) -> str:
+        """Awarding Agency Name"""
+        ...
+
+    @agency.setter
+    def agency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> float:
+        """Total dollars obligated under the given contract"""
+        ...
+
+    @amount.setter
+    def amount(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
@@ -6122,290 +4623,6 @@ class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
         """
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
-    """Brain universe stock rankings on expected returns in the next 2 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
-    """Brain universe stock rankings on expected returns in the next 3 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def all(self) -> typing.Optional[float]:
-        ...
-
-    @all.setter
-    def all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def positive(self) -> typing.Optional[float]:
-        ...
-
-    @positive.setter
-    def positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def negative(self) -> typing.Optional[float]:
-        ...
-
-    @negative.setter
-    def negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @staticmethod
-    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-
-class BrainCompanyFilingLanguageMetrics(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def sentence_count(self) -> typing.Optional[int]:
-        ...
-
-    @sentence_count.setter
-    def sentence_count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def mean_sentence_length(self) -> typing.Optional[float]:
-        ...
-
-    @mean_sentence_length.setter
-    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def readability(self) -> typing.Optional[float]:
-        ...
-
-    @readability.setter
-    def readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_richness.setter
-    def lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_density.setter
-    def lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @specific_density.setter
-    def specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-    @similarity.setter
-    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
-        ...
-
-    @staticmethod
-    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
-
-    @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by report part"""
-        ...
-
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by risk factor statement part"""
-        ...
-
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
-        ...
-
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def report_type(self) -> str:
-        """
-        Report Type of which the language metric came from
-        
-        This property is protected.
-        """
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
     def data_time_zone(self) -> typing.Any:
         """
         Specifies the data time zone for this data type. This is useful for custom data types
@@ -6416,356 +4633,6 @@ class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_Data
 
     def default_resolution(self) -> QuantConnect.Resolution:
         """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
-    """Brain universe stock rankings on expected returns in the next 30 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
-
-    @property
-    def rank_2_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 2 days"""
-        ...
-
-    @rank_2_days.setter
-    def rank_2_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_3_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 3 days"""
-        ...
-
-    @rank_3_days.setter
-    def rank_3_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_5_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 5 days"""
-        ...
-
-    @rank_5_days.setter
-    def rank_5_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_10_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 10 days"""
-        ...
-
-    @rank_10_days.setter
-    def rank_10_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_21_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 21 days"""
-        ...
-
-    @rank_21_days.setter
-    def rank_21_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report_type(self) -> str:
-        """This property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-
-class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
-    """Brain sentiment indicator on 30 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
-    """Brain sentiment on only 10-K SEC reports"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report_type(self) -> str:
-        """This property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-
-class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
-    """Brain universe stock rankings on expected returns in the next 5 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
-    """Brain sentiment universe on only 10-K SEC reports"""
-
-    @property
-    def report_type(self) -> str:
-        """This property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_date(self) -> datetime.datetime:
-        ...
-
-    @report_date.setter
-    def report_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def report_category(self) -> str:
-        ...
-
-    @report_category.setter
-    def report_category(self, value: str) -> None:
-        ...
-
-    @property
-    def report_period(self) -> typing.Optional[int]:
-        ...
-
-    @report_period.setter
-    def report_period(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @previous_report_date.setter
-    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def previous_report_category(self) -> str:
-        ...
-
-    @previous_report_category.setter
-    def previous_report_category(self, value: str) -> None:
-        ...
-
-    @property
-    def previous_report_period(self) -> typing.Optional[int]:
-        ...
-
-    @previous_report_period.setter
-    def previous_report_period(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def report_type(self) -> str:
-        """This property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
-        """
-        Clones the data
-        
-        This method is protected.
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
         ...
 
     def is_sparse_data(self) -> bool:
@@ -6803,1021 +4670,4466 @@ class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSour
 
     def to_string(self) -> str:
         """Converts the instance to string"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
-    """Brain sentiment universe on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_type(self) -> str:
-        """This property is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain Sentiment dataset"""
-
-    @property
-    def total_article_mentions_7_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 7 days"""
-        ...
-
-    @total_article_mentions_7_days.setter
-    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 7 days"""
-        ...
-
-    @sentimental_article_mentions_7_days.setter
-    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_7_days(self) -> typing.Optional[float]:
-        """Setiment Score in 7 days"""
-        ...
-
-    @sentiment_7_days.setter
-    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 7 days"""
-        ...
-
-    @total_buzz_volume_7_days.setter
-    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 7 days"""
-        ...
-
-    @sentimental_buzz_volume_7_days.setter
-    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_article_mentions_30_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 30 days"""
-        ...
-
-    @total_article_mentions_30_days.setter
-    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 30 days"""
-        ...
-
-    @sentimental_article_mentions_30_days.setter
-    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_30_days(self) -> typing.Optional[float]:
-        """Setiment Score in 30 days"""
-        ...
-
-    @sentiment_30_days.setter
-    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 30 days"""
-        ...
-
-    @total_buzz_volume_30_days.setter
-    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 30 days"""
-        ...
-
-    @sentimental_buzz_volume_30_days.setter
-    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def rank(self) -> float:
-        ...
-
-    @rank.setter
-    def rank(self, value: float) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
-        """This method is protected."""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
-    """Brain universe stock rankings on expected returns in the next 10 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on news"""
-
-    @property
-    def total_article_mentions(self) -> int:
-        ...
-
-    @total_article_mentions.setter
-    def total_article_mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions(self) -> float:
-        ...
-
-    @sentimental_article_mentions.setter
-    def sentimental_article_mentions(self, value: float) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
-        ...
-
-    @property
-    def total_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @total_buzz_volume.setter
-    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @sentimental_buzz_volume.setter
-    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
-        """
-        Clones the data
-        
-        This method is protected.
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
-    """Brain sentiment indicator on 7 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This property is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BitcoinMetadata(QuantConnect.Data.BaseData):
-    """Blockchain Bitcoin Metadata dataset"""
-
-    @property
-    def difficulty(self) -> float:
-        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
-        ...
-
-    @difficulty.setter
-    def difficulty(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_numberof_users(self) -> float:
-        """Number of wallets hosts using our My Wallet Service."""
-        ...
-
-    @my_wallet_numberof_users.setter
-    def my_wallet_numberof_users(self, value: float) -> None:
-        ...
-
-    @property
-    def average_block_size(self) -> float:
-        """The average block size in MB."""
-        ...
-
-    @average_block_size.setter
-    def average_block_size(self, value: float) -> None:
-        ...
-
-    @property
-    def blockchain_size(self) -> float:
-        """The total size of all block headers and transactions. Not including database indexes."""
-        ...
-
-    @blockchain_size.setter
-    def blockchain_size(self, value: float) -> None:
-        ...
-
-    @property
-    def median_transaction_confirmation_time(self) -> float:
-        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
-        ...
-
-    @median_transaction_confirmation_time.setter
-    def median_transaction_confirmation_time(self, value: float) -> None:
-        ...
-
-    @property
-    def miners_revenue(self) -> float:
-        """Total value of coinbase block rewards and transaction fees paid to miners."""
-        ...
-
-    @miners_revenue.setter
-    def miners_revenue(self, value: float) -> None:
-        ...
-
-    @property
-    def hash_rate(self) -> float:
-        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
-        ...
-
-    @hash_rate.setter
-    def hash_rate(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_per_transaction(self) -> float:
-        """The miners revenue divided by the number of transactions."""
-        ...
-
-    @cost_per_transaction.setter
-    def cost_per_transaction(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_percentof_transaction_volume(self) -> float:
-        """The miners revenue as percentage of the transaction volume."""
-        ...
-
-    @cost_percentof_transaction_volume.setter
-    def cost_percentof_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume_usd(self) -> float:
-        """The Estimated Transaction Value in USD value."""
-        ...
-
-    @estimated_transaction_volume_usd.setter
-    def estimated_transaction_volume_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume(self) -> float:
-        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
-        ...
-
-    @estimated_transaction_volume.setter
-    def estimated_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def total_output_volume(self) -> float:
-        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
-        ...
-
-    @total_output_volume.setter
-    def total_output_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactionper_block(self) -> float:
-        """The average number of transactions per block."""
-        ...
-
-    @numberof_transactionper_block.setter
-    def numberof_transactionper_block(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_unique_bitcoin_addresses_used(self) -> float:
-        """The total number of unique addresses used on the Bitcoin blockchain."""
-        ...
-
-    @numberof_unique_bitcoin_addresses_used.setter
-    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions_excluding_popular_addresses(self) -> float:
-        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
-        ...
-
-    @numberof_transactions_excluding_popular_addresses.setter
-    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
-        ...
-
-    @property
-    def total_numberof_transactions(self) -> float:
-        """The Total Number of transactions."""
-        ...
-
-    @total_numberof_transactions.setter
-    def total_numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions(self) -> float:
-        """The number of daily confirmed Bitcoin transactions."""
-        ...
-
-    @numberof_transactions.setter
-    def numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees_usd(self) -> float:
-        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees_usd.setter
-    def total_transaction_fees_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees(self) -> float:
-        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees.setter
-    def total_transaction_fees(self, value: float) -> None:
-        ...
-
-    @property
-    def market_capitalization(self) -> float:
-        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
-        ...
-
-    @market_capitalization.setter
-    def market_capitalization(self, value: float) -> None:
-        ...
-
-    @property
-    def total_bitcoins(self) -> float:
-        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
-        ...
-
-    @total_bitcoins.setter
-    def total_bitcoins(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_numberof_transaction_per_day(self) -> float:
-        """Number of transactions made by My Wallet Users per day."""
-        ...
-
-    @my_wallet_numberof_transaction_per_day.setter
-    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_transaction_volume(self) -> float:
-        """24hr Transaction Volume of our web wallet service."""
-        ...
-
-    @my_wallet_transaction_volume.setter
-    def my_wallet_transaction_volume(self, value: float) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class TradingEconomicsDateTimeConverter(JsonConverter):
-    """DateTime JSON Converter that handles null value"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Indicate if we can convert this object."""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Parse Trading Economics DateTime to C# DateTime"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write DateTime objects to JSON"""
-        ...
-
-
-class TradingEconomicsImportance(Enum):
-    """Importance of a TradingEconomics information"""
-
-    LOW = 0
-    """Low importance"""
-
-    MEDIUM = 1
-    """Medium importance"""
-
-    HIGH = 2
-    """High importance"""
-
-
-class TradingEconomicsCalendar(QuantConnect.Data.BaseData):
-    """
-    Represents the Trading Economics Calendar information:
-    The economic calendar covers around 1600 events for more than 150 countries a month.
-    https://docs.tradingeconomics.com/#events
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    is_auth_code_set: bool
-    """Determines if the API key has been set"""
-
-    auth_code: str
-    """API key for Trading Economics"""
-
-    @property
-    def calendar_id(self) -> str:
-        """Unique calendar ID used by Trading Economics"""
-        ...
-
-    @calendar_id.setter
-    def calendar_id(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Release time and date in UTC"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def country(self) -> str:
-        """Country name"""
-        ...
-
-    @country.setter
-    def country(self, value: str) -> None:
-        ...
-
-    @property
-    def category(self) -> str:
-        """Indicator category name"""
-        ...
-
-    @category.setter
-    def category(self, value: str) -> None:
-        ...
-
-    @property
-    def event(self) -> str:
-        """Specific event name in the calendar"""
-        ...
-
-    @event.setter
-    def event(self, value: str) -> None:
-        ...
-
-    @property
-    def event_raw(self) -> str:
-        """Raw event name as provided by Trading Economics"""
-        ...
-
-    @event_raw.setter
-    def event_raw(self, value: str) -> None:
-        ...
-
-    @property
-    def reference(self) -> str:
-        """The period for which released data refers to"""
-        ...
-
-    @reference.setter
-    def reference(self, value: str) -> None:
-        ...
-
-    @property
-    def source(self) -> str:
-        """Source of data"""
-        ...
-
-    @source.setter
-    def source(self, value: str) -> None:
-        ...
-
-    @property
-    def actual(self) -> typing.Optional[float]:
-        """Latest released value"""
-        ...
-
-    @actual.setter
-    def actual(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def previous(self) -> typing.Optional[float]:
-        """Value for the previous period after the revision (if revision is applicable)"""
-        ...
-
-    @previous.setter
-    def previous(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def forecast(self) -> typing.Optional[float]:
-        """Average forecast among a representative group of economists"""
-        ...
-
-    @forecast.setter
-    def forecast(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def trading_economics_forecast(self) -> typing.Optional[float]:
-        """TradingEconomics own projections"""
-        ...
-
-    @trading_economics_forecast.setter
-    def trading_economics_forecast(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def date_span(self) -> str:
-        """
-        0 indicates that the time of the event is known,
-        1 indicates that we only know the date of event, the exact time of event is unknown
-        """
-        ...
-
-    @date_span.setter
-    def date_span(self, value: str) -> None:
-        ...
-
-    @property
-    def importance(self) -> QuantConnect.DataSource.TradingEconomicsImportance:
-        """Importance of a TradingEconomics information"""
-        ...
-
-    @importance.setter
-    def importance(self, value: QuantConnect.DataSource.TradingEconomicsImportance) -> None:
-        ...
-
-    @property
-    def last_update(self) -> datetime.datetime:
-        """Time when new data was inserted or changed"""
-        ...
-
-    @last_update.setter
-    def last_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def revised(self) -> typing.Optional[float]:
-        """Value reported in the previous period after revision"""
-        ...
-
-    @revised.setter
-    def revised(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def o_country(self) -> str:
-        """Country's original name"""
-        ...
-
-    @o_country.setter
-    def o_country(self, value: str) -> None:
-        ...
-
-    @property
-    def o_category(self) -> str:
-        """Category's original name"""
-        ...
-
-    @o_category.setter
-    def o_category(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker(self) -> str:
-        """Unique ticker used by Trading Economics"""
-        ...
-
-    @ticker.setter
-    def ticker(self, value: str) -> None:
-        ...
-
-    @property
-    def is_percentage(self) -> bool:
-        """Indicates whether the Actual, Previous, Forecast, TradingEconomicsForecast fields are reported as percent values"""
-        ...
-
-    @is_percentage.setter
-    def is_percentage(self, value: bool) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data. This is required for some custom data
-        
-        :returns: A new cloned instance.
-        """
-        ...
-
-    @staticmethod
-    def country_to_currency_code(country: str) -> str:
-        """
-        Converts country name to currency code (ISO 4217)
-        
-        :param country: Country name
-        :returns: ISO 4217 currency code.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    @staticmethod
-    def parse_decimal(value: str, in_percent: bool) -> typing.Optional[float]:
-        """
-        Parse decimal from calendar data
-        
-        :param value: Value to parse
-        :param in_percent: Is the value a percentage
-        :returns: Nullable decimal.
-        """
-        ...
-
-    @staticmethod
-    def process_api_response(content: str) -> typing.List[QuantConnect.DataSource.TradingEconomicsCalendar]:
-        """
-        Parses the raw Trading Economics calendar API result
-        
-        :param content: Contents of returned data
-        :returns: List of instances of the current class.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Line from the data source
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: TradingEconomicsCalendar or BaseDataCollection object containing TradingEconomicsCalendar as its Data.
-        """
-        ...
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Trading Economics API key.
-        
-        :param auth_code: The Trading Economics API key
-        """
-        ...
-
-    def to_csv(self) -> str:
-        """
-        Convert this instance to a CSV file
-        
-        :returns: string as CSV.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Trading Economics Calendar information."""
         ...
 
 
 class TradingEconomics(System.Object):
-    """TradingEconomics static class contains shortcut definitions of major Trading Economics Indicators available");"""
+    """TradingEconomics static class contains shortcut definitions of major Trading Economics Indicators available"""
+
+    class Indicator(System.Object):
+        """Indicator group"""
+
+        class Afghanistan(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDAFN"
+            """Afghanistan Currency"""
+
+        class Albania(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDALL"
+            """Albania Currency"""
+
+        class Algeria(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDDZD"
+            """Algeria Currency"""
+
+        class Angola(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDAOA"
+            """Angola Currency"""
+
+        class Argentina(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "APDR1T"
+            """Argentina Interest Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "ARGFRINRDPST"
+            """Argentina Deposit Interest Rate"""
+
+            STOCK_MARKET: str = "MERVAL"
+            """Argentina Stock Market"""
+
+            CURRENCY: str = "USDARS"
+            """Argentina Currency"""
+
+        class Armenia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDAMD"
+            """Armenia Currency"""
+
+        class Australia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "AS51"
+            """Australia Stock Market"""
+
+            CURRENCY: str = "AUDUSD"
+            """Australia Currency"""
+
+            TWO_YEAR_NOTE_YIELD: str = "AUSTRALIA2YNY"
+            """Australia 2 Year Note Yield"""
+
+            CENTRAL_BANK_BALANCE_SHEET: str = "AUSTRALIACENBANBALSH"
+            """Australia Central Bank Balance Sheet"""
+
+            INFLATION_EXPECTATIONS: str = "AUSTRALIAINFEXP"
+            """Australia Inflation Expectations"""
+
+            GOVERNMENT_BOND_10Y: str = "GACGB10"
+            """Australia Government Bond 10Y"""
+
+            CONSUMER_CONFIDENCE: str = "WMCCCONPCT"
+            """Australia Consumer Confidence"""
+
+        class Austria(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "ATX"
+            """Austria Stock Market"""
+
+            CURRENCY: str = "EURUSD"
+            """Austria Currency"""
+
+            GOVERNMENT_BOND_10Y: str = "GAGB10YR"
+            """Austria Government Bond 10Y"""
+
+        class Bahamas(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDBSD"
+            """Bahamas Currency"""
+
+        class Bahrain(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "BAHRAININTRAT"
+            """Bahrain Interbank Rate"""
+
+            STOCK_MARKET: str = "BHSEEI"
+            """Bahrain Stock Market"""
+
+            CURRENCY: str = "USDBHD"
+            """Bahrain Currency"""
+
+        class Bangladesh(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "BANGLADESHINTRATE"
+            """Bangladesh Interest Rate"""
+
+            STOCK_MARKET: str = "DHAKA"
+            """Bangladesh Stock Market"""
+
+            CURRENCY: str = "USDBDT"
+            """Bangladesh Currency"""
+
+        class Belarus(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDBYR"
+            """Belarus Currency"""
+
+        class Belgium(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BEL20"
+            """Belgium Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GBGB10YR"
+            """Belgium Government Bond 10Y"""
+
+        class Bermuda(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BSX"
+            """Bermuda Stock Market"""
+
+        class Bolivia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDBOB"
+            """Bolivia Currency"""
+
+        class BosniaAndHerzegovina(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "SASX10"
+            """BosniaAndHerzegovina Stock Market"""
+
+            CURRENCY: str = "USDBIH"
+            """BosniaAndHerzegovina Currency"""
+
+        class Botswana(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BGSMDC"
+            """Botswana Stock Market"""
+
+            CURRENCY: str = "USDBWP"
+            """Botswana Currency"""
+
+        class Brazil(System.Object):
+            """This class has no documentation."""
+
+            CASH_RESERVE_RATIO: str = "BRAZILCASRESRAT"
+            """Brazil Cash Reserve Ratio"""
+
+            INTERBANK_RATE: str = "BRAZILINTRAT"
+            """Brazil Interbank Rate"""
+
+            MINIMUM_WAGES: str = "BRAZILMINWAG"
+            """Brazil Minimum Wages"""
+
+            GOVERNMENT_BOND_10Y: str = "GEBU10Y"
+            """Brazil Government Bond 10Y"""
+
+            STOCK_MARKET: str = "IBOV"
+            """Brazil Stock Market"""
+
+            CURRENCY: str = "USDBRL"
+            """Brazil Currency"""
+
+        class Brunei(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDBND"
+            """Brunei Currency"""
+
+        class Bulgaria(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "BULGARIAGOVBON10Y"
+            """Bulgaria Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "BULGARIAINTRAT"
+            """Bulgaria Interbank Rate"""
+
+            STOCK_MARKET: str = "SOFIX"
+            """Bulgaria Stock Market"""
+
+            CURRENCY: str = "USDBGN"
+            """Bulgaria Currency"""
+
+        class Burundi(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDBIF"
+            """Burundi Currency"""
+
+        class Cambodia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDKHR"
+            """Cambodia Currency"""
+
+        class Canada(System.Object):
+            """This class has no documentation."""
+
+            BANK_LENDING_RATE: str = "CANADABANLENRAT"
+            """Canada Bank Lending Rate"""
+
+            INTERBANK_RATE: str = "CANADAINTRAT"
+            """Canada Interbank Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "CANFRINRDPST"
+            """Canada Deposit Interest Rate"""
+
+            INTEREST_RATE: str = "CCLR"
+            """Canada Interest Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "GCAN10YR"
+            """Canada Government Bond 10Y"""
+
+            CONSUMER_CONFIDENCE: str = "OECAI001"
+            """Canada Consumer Confidence"""
+
+            STOCK_MARKET: str = "SPTSX"
+            """Canada Stock Market"""
+
+            CURRENCY: str = "USDCAD"
+            """Canada Currency"""
+
+        class CapeVerde(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDCVE"
+            """CapeVerde Currency"""
+
+        class CaymanIslands(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDKYD"
+            """CaymanIslands Currency"""
+
+        class Chile(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "CHILEGOVBON10Y"
+            """Chile Government Bond 10y"""
+
+            INTERBANK_RATE: str = "CHILEINTRAT"
+            """Chile Interbank Rate"""
+
+            STOCK_MARKET: str = "IGPA"
+            """Chile Stock Market"""
+
+            CURRENCY: str = "USDCLP"
+            """Chile Currency"""
+
+        class China(System.Object):
+            """This class has no documentation."""
+
+            CASH_RESERVE_RATIO: str = "CHINACASRESRAT"
+            """China Cash Reserve Ratio"""
+
+            INTERBANK_RATE: str = "CHINAINTRAT"
+            """China Interbank Rate"""
+
+            REVERSE_REPO_RATE: str = "CHINAREVREPRAT"
+            """China Reverse Repo Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "GCNY10YR"
+            """China Government Bond 10Y"""
+
+            STOCK_MARKET: str = "SHCOMP"
+            """China Stock Market"""
+
+            CURRENCY: str = "USDCNY"
+            """China Currency"""
+
+        class Colombia(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "COGR10Y"
+            """Colombia Government Bond 10Y"""
+
+            STOCK_MARKET: str = "COLCAP"
+            """Colombia Stock Market"""
+
+            INTERBANK_RATE: str = "COLOMBIAINTRAT"
+            """Colombia Interbank Rate"""
+
+            CURRENCY: str = "USDCOP"
+            """Colombia Currency"""
+
+        class Commodity(System.Object):
+            """This class has no documentation."""
+
+            BALTIC_EXCHANGE_DRY_INDEX: str = "BALTIC"
+            """Commodity Baltic Exchange Dry Index"""
+
+            BEEF: str = "BEEF"
+            """Commodity Beef"""
+
+            BITUMEN: str = "BIT"
+            """Commodity Bitumen"""
+
+            CORN: str = "C-1"
+            """Commodity Corn"""
+
+            COCOA: str = "CC1"
+            """Commodity Cocoa"""
+
+            CHEESE: str = "CHEESE1"
+            """Commodity Cheese"""
+
+            CRUDE_OIL: str = "CL1"
+            """Commodity Crude oil"""
+
+            BRENT_CRUDE_OIL: str = "CO1"
+            """Commodity Brent crude oil"""
+
+            COAL: str = "COAL"
+            """Commodity Coal"""
+
+            COBALT: str = "COBALT"
+            """Commodity Cobalt"""
+
+            CRB_COMMODITY_INDEX: str = "CRB"
+            """Commodity CRB Commodity Index"""
+
+            COTTON: str = "CT1"
+            """Commodity Cotton"""
+
+            ETHANOL: str = "DL1"
+            """Commodity Ethanol"""
+
+            FEEDER_CATTLE: str = "FC1"
+            """Commodity Feeder Cattle"""
+
+            GSCI_COMMODITY_INDEX: str = "GSCI"
+            """Commodity GSCI Commodity Index"""
+
+            COPPER: str = "HG1"
+            """Commodity Copper"""
+
+            HEATING_OIL: str = "HO1"
+            """Commodity Heating oil"""
+
+            MANGANESE_ORE: str = "IMR"
+            """Commodity Manganese Ore"""
+
+            IRON_ORE: str = "IRONORE"
+            """Commodity Iron Ore"""
+
+            RUBBER: str = "JN1"
+            """Commodity Rubber"""
+
+            ORANGE_JUICE: str = "JO1"
+            """Commodity Orange Juice"""
+
+            COFFEE: str = "KC1"
+            """Commodity Coffee"""
+
+            LUMBER: str = "LB1"
+            """Commodity Lumber"""
+
+            LIVE_CATTLE: str = "LC1"
+            """Commodity Live Cattle"""
+
+            LEAN_HOGS: str = "LH1"
+            """Commodity Lean Hogs"""
+
+            LITHIUM: str = "LITHIUM"
+            """Commodity Lithium"""
+
+            ALUMINUM: str = "LMAHDS03"
+            """Commodity Aluminum"""
+
+            LME_INDEX: str = "LME"
+            """Commodity LME Index"""
+
+            MOLYBDENUM: str = "LMMLDS03"
+            """Commodity Molybdenum"""
+
+            NICKEL: str = "LMNIDS03"
+            """Commodity Nickel"""
+
+            LEAD: str = "LMPBDS03"
+            """Commodity Lead"""
+
+            TIN: str = "LMSNDS03"
+            """Commodity Tin"""
+
+            ZINC: str = "LMZSDS03"
+            """Commodity Zinc"""
+
+            MILK: str = "MILK"
+            """Commodity Milk"""
+
+            NAPHTHA: str = "NAPHTHA"
+            """Commodity Naphtha"""
+
+            NATURAL_GAS: str = "NG1"
+            """Commodity Natural gas"""
+
+            OAT: str = "O-1"
+            """Commodity Oat"""
+
+            WOOL: str = "OL1"
+            """Commodity Wool"""
+
+            PALM_OIL: str = "PALMOIL"
+            """Commodity Palm Oil"""
+
+            PROPANE: str = "PROPANE"
+            """Commodity Propane"""
+
+            RHODIUM: str = "RHODIUM"
+            """Commodity RHODIUM"""
+
+            RICE: str = "RR1"
+            """Commodity Rice"""
+
+            CANOLA: str = "RS1"
+            """Commodity Canola"""
+
+            SOYBEANS: str = "S-1"
+            """Commodity Soybeans"""
+
+            SUGAR: str = "SB1"
+            """Commodity Sugar"""
+
+            SODA_ASH: str = "SODASH"
+            """Commodity Soda Ash"""
+
+            NEODYMIUM: str = "SREMNDM"
+            """Commodity Neodymium"""
+
+            STEEL: str = "STEEL"
+            """Commodity Steel"""
+
+            IRON_ORE_62_PERCENT_FE: str = "TIOC"
+            """Commodity Iron Ore 62% FE"""
+
+            URANIUM: str = "URANIUM"
+            """Commodity Uranium"""
+
+            WHEAT: str = "W-1"
+            """Commodity Wheat"""
+
+            SILVER: str = "XAGUSD"
+            """Commodity Silver"""
+
+            GOLD: str = "XAUUSD"
+            """Commodity Gold"""
+
+            GASOLINE: str = "XB1"
+            """Commodity Gasoline"""
+
+            PALLADIUM: str = "XPDUSD"
+            """Commodity Palladium"""
+
+            PLATINUM: str = "XPTUSD"
+            """Commodity Platinum"""
+
+        class Comoros(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDKMF"
+            """Comoros Currency"""
+
+        class Congo(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDCDF"
+            """Congo Currency"""
+
+        class CostaRica(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CRSMBCT"
+            """CostaRica Stock Market"""
+
+            CURRENCY: str = "USDCRC"
+            """CostaRica Currency"""
+
+        class Croatia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CRO"
+            """Croatia Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "CROATIAGOVD10Y"
+            """Croatia Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "CROATIAINTRAT"
+            """Croatia Interbank Rate"""
+
+            CURRENCY: str = "USDHRV"
+            """Croatia Currency"""
+
+        class Cuba(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDCUC"
+            """Cuba Currency"""
+
+        class Cyprus(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CYSMMAPA"
+            """Cyprus Stock Market"""
+
+        class CzechRepublic(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "CZECHREPUINTRAT"
+            """CzechRepublic Interbank Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "CZGB10YR"
+            """CzechRepublic Government Bond 10Y"""
+
+            STOCK_MARKET: str = "PX"
+            """CzechRepublic Stock Market"""
+
+            CURRENCY: str = "USDCZK"
+            """CzechRepublic Currency"""
+
+        class Denmark(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "DENMARKINTRAT"
+            """Denmark Interbank Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "GDGB10YR"
+            """Denmark Government Bond 10Y"""
+
+            STOCK_MARKET: str = "KFX"
+            """Denmark Stock Market"""
+
+            CURRENCY: str = "USDDKK"
+            """Denmark Currency"""
+
+        class Djibouti(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDDJF"
+            """Djibouti Currency"""
+
+        class DominicanRepublic(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDDOP"
+            """DominicanRepublic Currency"""
+
+        class Ecuador(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "ECU"
+            """Ecuador Stock Market"""
+
+            INTERBANK_RATE: str = "ECUADORINTRATI"
+            """Ecuador Interbank Rate"""
+
+        class Egypt(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CASE"
+            """Egypt Stock Market"""
+
+            INTERBANK_RATE: str = "EGYPTINTRAT"
+            """Egypt Interbank Rate"""
+
+            INTEREST_RATE: str = "EGYPTINTRATE"
+            """Egypt Interest Rate"""
+
+            LENDING_RATE: str = "EGYPTLENRAT"
+            """Egypt Lending Rate"""
+
+            CURRENCY: str = "USDEGP"
+            """Egypt Currency"""
+
+        class Eritrea(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDERN"
+            """Eritrea Currency"""
+
+        class Estonia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "TALSE"
+            """Estonia Stock Market"""
+
+        class Ethiopia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDETB"
+            """Ethiopia Currency"""
+
+        class EuroArea(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "EMUEVOLVINTRAT"
+            """EuroArea Interbank Rate"""
+
+            LENDING_RATE: str = "EUROAREALENRAT"
+            """EuroArea Lending Rate"""
+
+            ZEW_ECONOMIC_SENTIMENT_INDEX: str = "EUROAREAZEWECOSENIND"
+            """EuroArea Zew Economic Sentiment Index"""
+
+            STOCK_MARKET: str = "SX5E"
+            """EuroArea Stock Market"""
+
+        class Fiji(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDFJD"
+            """Fiji Currency"""
+
+        class Finland(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "FINLANDINTRAT"
+            """Finland Interbank Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "GFIN10YR"
+            """Finland Government Bond 10Y"""
+
+            STOCK_MARKET: str = "HEX25"
+            """Finland Stock Market"""
+
+        class France(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CAC"
+            """France Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GFRN10"
+            """France Government Bond 10Y"""
+
+        class Gambia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDGMD"
+            """Gambia Currency"""
+
+        class Georgia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDGEL"
+            """Georgia Currency"""
+
+        class Germany(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "DAX"
+            """Germany Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GDBR10"
+            """Germany Government Bond 10Y"""
+
+            TWO_YEAR_NOTE_YIELD: str = "GERMANY2YNY"
+            """Germany 2 Year Note Yield"""
+
+            ZEW_ECONOMIC_SENTIMENT_INDEX: str = "GERMANYZEWECOSENIND"
+            """Germany Zew Economic Sentiment Index"""
+
+            CONSUMER_CONFIDENCE: str = "GRCCI"
+            """Germany Consumer Confidence"""
+
+        class Ghana(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "GGSECI"
+            """Ghana Stock Market"""
+
+            CURRENCY: str = "USDGHS"
+            """Ghana Currency"""
+
+        class Greece(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "ASE"
+            """Greece Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GGGB10YR"
+            """Greece Government Bond 10Y"""
+
+            TWO_YEAR_NOTE_YIELD: str = "GREECE2YNY"
+            """Greece 2 Year Note Yield"""
+
+        class Guatemala(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDGTQ"
+            """Guatemala Currency"""
+
+        class Guinea(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDGNF"
+            """Guinea Currency"""
+
+        class Guyana(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDGYD"
+            """Guyana Currency"""
+
+        class Haiti(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDHTG"
+            """Haiti Currency"""
+
+        class Honduras(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "HONURASINTTRATE"
+            """Honduras Interest Rate"""
+
+            CURRENCY: str = "USDHNL"
+            """Honduras Currency"""
+
+        class HongKong(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GHKGB10Y"
+            """HongKong Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "HONGKONGINTRAT"
+            """HongKong Interbank Rate"""
+
+            STOCK_MARKET: str = "HSI"
+            """HongKong Stock Market"""
+
+            CURRENCY: str = "USDHKD"
+            """HongKong Currency"""
+
+        class Hungary(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BUX"
+            """Hungary Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GHGB10YR"
+            """Hungary Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "HUNGARYINTRAT"
+            """Hungary Interbank Rate"""
+
+            CURRENCY: str = "USDHUF"
+            """Hungary Currency"""
+
+        class Iceland(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "ICELANDGOVBON10Y"
+            """Iceland Government Bond 10y"""
+
+            INTERBANK_RATE: str = "ICELANDINTRAT"
+            """Iceland Interbank Rate"""
+
+            STOCK_MARKET: str = "ICEXI"
+            """Iceland Stock Market"""
+
+            CURRENCY: str = "USDISK"
+            """Iceland Currency"""
+
+        class India(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GIND10YR"
+            """India Government Bond 10Y"""
+
+            CASH_RESERVE_RATIO: str = "INDIACASRESRAT"
+            """India Cash Reserve Ratio"""
+
+            INTEREST_RATE: str = "RSPOYLD"
+            """India Interest Rate"""
+
+            STOCK_MARKET: str = "SENSEX"
+            """India Stock Market"""
+
+            CURRENCY: str = "USDINR"
+            """India Currency"""
+
+        class Indonesia(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GIDN10YR"
+            """Indonesia Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "INDONESIAINTRAT"
+            """Indonesia Interbank Rate"""
+
+            STOCK_MARKET: str = "JCI"
+            """Indonesia Stock Market"""
+
+            CURRENCY: str = "USDIDR"
+            """Indonesia Currency"""
+
+        class Iraq(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDIQD"
+            """Iraq Currency"""
+
+        class Ireland(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GIGB10YR"
+            """Ireland Government Bond 10Y"""
+
+            STOCK_MARKET: str = "ISEQ"
+            """Ireland Stock Market"""
+
+        class Israel(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GISR10YR"
+            """Israel Government Bond 10Y"""
+
+            INTEREST_RATE: str = "ISBRATE"
+            """Israel Interest Rate"""
+
+            INTERBANK_RATE: str = "ISRAELINTRAT"
+            """Israel Interbank Rate"""
+
+            STOCK_MARKET: str = "TA-100"
+            """Israel Stock Market"""
+
+            CURRENCY: str = "USDILS"
+            """Israel Currency"""
+
+        class Italy(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "FTSEMIB"
+            """Italy Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GBTPGR10"
+            """Italy Government Bond 10Y"""
+
+            TWO_YEAR_NOTE_YIELD: str = "ITALY2YNY"
+            """Italy 2 Year Note Yield"""
+
+        class IvoryCoast(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDXOF"
+            """IvoryCoast Currency"""
+
+        class Jamaica(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "JAMAICAINTTRATE"
+            """Jamaica Interest Rate"""
+
+            STOCK_MARKET: str = "JMSMX"
+            """Jamaica Stock Market"""
+
+            CURRENCY: str = "USDJMD"
+            """Jamaica Currency"""
+
+        class Japan(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GJGB10"
+            """Japan Government Bond 10Y"""
+
+            TWO_YEAR_NOTE_YIELD: str = "JAPAN2YNY"
+            """Japan 2 Year Note Yield"""
+
+            INTERBANK_RATE: str = "JAPANINTRAT"
+            """Japan Interbank Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "JPNFRINRDPST"
+            """Japan Deposit Interest Rate"""
+
+            STOCK_MARKET: str = "NKY"
+            """Japan Stock Market"""
+
+            CURRENCY: str = "USDJPY"
+            """Japan Currency"""
+
+        class Jordan(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "JOSMGNFF"
+            """Jordan Stock Market"""
+
+            CURRENCY: str = "USDJOR"
+            """Jordan Currency"""
+
+        class Kazakhstan(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "KAZAKHSTANINTRAT"
+            """Kazakhstan Interbank Rate"""
+
+            INTEREST_RATE: str = "KAZAKHSTANINTRATE"
+            """Kazakhstan Interest Rate"""
+
+            STOCK_MARKET: str = "KZKAK"
+            """Kazakhstan Stock Market"""
+
+            CURRENCY: str = "USDKZT"
+            """Kazakhstan Currency"""
+
+        class Kenya(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "KENYAGOVBON10Y"
+            """Kenya Government Bond 10y"""
+
+            STOCK_MARKET: str = "KNSMIDX"
+            """Kenya Stock Market"""
+
+            CURRENCY: str = "USDKES"
+            """Kenya Currency"""
+
+        class Kuwait(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "KUWAITINTRAT"
+            """Kuwait Interbank Rate"""
+
+            CURRENCY: str = "USDKWD"
+            """Kuwait Currency"""
+
+        class Kyrgyzstan(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "KYRSTANINTTRATE"
+            """Kyrgyzstan Interest Rate"""
+
+            CURRENCY: str = "USDKGS"
+            """Kyrgyzstan Currency"""
+
+        class Laos(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "LSXC"
+            """Laos Stock Market"""
+
+            CURRENCY: str = "USDLAK"
+            """Laos Currency"""
+
+        class Latvia(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "LATVIAGOVBON10Y"
+            """Latvia Government Bond 10y"""
+
+            INTERBANK_RATE: str = "LATVIAINTRAT"
+            """Latvia Interbank Rate"""
+
+            STOCK_MARKET: str = "RIGSE"
+            """Latvia Stock Market"""
+
+        class Lebanon(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BLOM"
+            """Lebanon Stock Market"""
+
+            CURRENCY: str = "USDLBP"
+            """Lebanon Currency"""
+
+        class Lesotho(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDLSL"
+            """Lesotho Currency"""
+
+        class Liberia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDLRD"
+            """Liberia Currency"""
+
+        class Libya(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDLYD"
+            """Libya Currency"""
+
+        class Lithuania(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "LITHUANIAGOVBON10Y"
+            """Lithuania Government Bond 10y"""
+
+            STOCK_MARKET: str = "VILSE"
+            """Lithuania Stock Market"""
+
+        class Luxembourg(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "LUXXX"
+            """Luxembourg Stock Market"""
+
+        class Macau(System.Object):
+            """This class has no documentation."""
+
+            INTERBANK_RATE: str = "MACAOINTRAT"
+            """Macau Interbank Rate"""
+
+            CURRENCY: str = "USDMOP"
+            """Macau Currency"""
+
+        class Macedonia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "MBI"
+            """Macedonia Stock Market"""
+
+            CURRENCY: str = "USDMKD"
+            """Macedonia Currency"""
+
+        class Madagascar(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMGA"
+            """Madagascar Currency"""
+
+        class Malawi(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMWK"
+            """Malawi Currency"""
+
+        class Malaysia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "FBMKLCI"
+            """Malaysia Stock Market"""
+
+            INTERBANK_RATE: str = "MALAYSIAINTRAT"
+            """Malaysia Interbank Rate"""
+
+            INTEREST_RATE: str = "MAOPRATE"
+            """Malaysia Interest Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "MGIY10Y"
+            """Malaysia Government Bond 10Y"""
+
+            CURRENCY: str = "USDMYR"
+            """Malaysia Currency"""
+
+        class Maldives(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMVR"
+            """Maldives Currency"""
+
+        class Malta(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "MALTEX"
+            """Malta Stock Market"""
+
+        class Mauritius(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "SEMDEX"
+            """Mauritius Stock Market"""
+
+            CURRENCY: str = "USDMUR"
+            """Mauritius Currency"""
+
+        class Mexico(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GMXN10YR"
+            """Mexico Government Bond 10Y"""
+
+            STOCK_MARKET: str = "MEXBOL"
+            """Mexico Stock Market"""
+
+            INTEREST_RATE: str = "MXONBR"
+            """Mexico Interest Rate"""
+
+            CURRENCY: str = "USDMXN"
+            """Mexico Currency"""
+
+        class Moldova(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMDL"
+            """Moldova Currency"""
+
+        class Mongolia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "MSETOP"
+            """Mongolia Stock Market"""
+
+            CURRENCY: str = "USDMNT"
+            """Mongolia Currency"""
+
+        class Morocco(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "MOSENEW"
+            """Morocco Stock Market"""
+
+            CURRENCY: str = "USDMAD"
+            """Morocco Currency"""
+
+        class Mozambique(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMZN"
+            """Mozambique Currency"""
+
+        class Myanmar(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDMMK"
+            """Myanmar Currency"""
+
+        class Namibia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "FTN098"
+            """Namibia Stock Market"""
+
+            CURRENCY: str = "USDNAD"
+            """Namibia Currency"""
+
+        class Nepal(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDNPR"
+            """Nepal Currency"""
+
+        class Netherlands(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "AEX"
+            """Netherlands Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "GNTH10YR"
+            """Netherlands Government Bond 10Y"""
+
+        class NewCaledonia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDXPF"
+            """NewCaledonia Currency"""
+
+        class NewZealand(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GNZGB10"
+            """NewZealand Government Bond 10Y"""
+
+            GLOBAL_DAIRY_TRADE_PRICE_INDEX: str = "NEWZEALANGDTPI"
+            """NewZealand Global Dairy Trade Price Index"""
+
+            CURRENCY: str = "NZDUSD"
+            """NewZealand Currency"""
+
+            DEPOSIT_INTEREST_RATE: str = "NZLFRINRDPST"
+            """NewZealand Deposit Interest Rate"""
+
+            INTEREST_RATE: str = "NZOCRS"
+            """NewZealand Interest Rate"""
+
+            STOCK_MARKET: str = "NZSE50FG"
+            """NewZealand Stock Market"""
+
+        class Nicaragua(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDNIO"
+            """Nicaragua Currency"""
+
+        class Nigeria(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "NGSEINDX"
+            """Nigeria Stock Market"""
+
+            CASH_RESERVE_RATIO: str = "NIGERIACASRESRAT"
+            """Nigeria Cash Reserve Ratio"""
+
+            GOVERNMENT_BOND_10Y: str = "NIGERIAGOVBON10Y"
+            """Nigeria Government Bond 10y"""
+
+            INTERBANK_RATE: str = "NIGERIAINTRAT"
+            """Nigeria Interbank Rate"""
+
+            CURRENCY: str = "USDNGN"
+            """Nigeria Currency"""
+
+        class NorthKorea(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "NORTHKORECUR"
+            """NorthKorea Currency"""
+
+        class Norway(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GNOR10YR"
+            """Norway Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "NORWAYINTRAT"
+            """Norway Interbank Rate"""
+
+            STOCK_MARKET: str = "OSEAX"
+            """Norway Stock Market"""
+
+            CURRENCY: str = "USDNOK"
+            """Norway Currency"""
+
+        class Oman(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "MSM30"
+            """Oman Stock Market"""
+
+            CURRENCY: str = "USDOMR"
+            """Oman Currency"""
+
+        class Pakistan(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "KSE100"
+            """Pakistan Stock Market"""
+
+            INTEREST_RATE: str = "PAPRSBP"
+            """Pakistan Interest Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "PKIB10YR"
+            """Pakistan Government Bond 10Y"""
+
+            CURRENCY: str = "USDPKR"
+            """Pakistan Currency"""
+
+        class Panama(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BVPSBVPS"
+            """Panama Stock Market"""
+
+            CURRENCY: str = "USDPAB"
+            """Panama Currency"""
+
+        class PapuaNewGuinea(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDPGK"
+            """PapuaNewGuinea Currency"""
+
+        class Paraguay(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDPYG"
+            """Paraguay Currency"""
+
+        class Peru(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GRPE10Y"
+            """Peru Government Bond 10Y"""
+
+            STOCK_MARKET: str = "IGBVL"
+            """Peru Stock Market"""
+
+            INTERBANK_RATE: str = "PERUINTRAT"
+            """Peru Interbank Rate"""
+
+            INTEREST_RATE: str = "PRRRONUS"
+            """Peru Interest Rate"""
+
+            CURRENCY: str = "USDPEN"
+            """Peru Currency"""
+
+        class Philippines(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "PCOMP"
+            """Philippines Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "PHILIPPINEGOVBON10Y"
+            """Philippines Government Bond 10y"""
+
+            INTERBANK_RATE: str = "PHILIPPINEINTRAT"
+            """Philippines Interbank Rate"""
+
+            INTEREST_RATE: str = "PHILIPPINESINTRATE"
+            """Philippines Interest Rate"""
+
+            CURRENCY: str = "USDPHP"
+            """Philippines Currency"""
+
+        class Poland(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "POGB10YR"
+            """Poland Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "POLANDINTRAT"
+            """Poland Interbank Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "POLFRINRDPST"
+            """Poland Deposit Interest Rate"""
+
+            CURRENCY: str = "USDPLN"
+            """Poland Currency"""
+
+            STOCK_MARKET: str = "WIG"
+            """Poland Stock Market"""
+
+        class Portugal(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GSPT10YR"
+            """Portugal Government Bond 10Y"""
+
+            TWO_YEAR_NOTE_YIELD: str = "PORTUGAL2YNY"
+            """Portugal 2 Year Note Yield"""
+
+            STOCK_MARKET: str = "PSI20"
+            """Portugal Stock Market"""
+
+        class Qatar(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "DSM"
+            """Qatar Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "QATARGOVBON10Y"
+            """Qatar Government Bond 10y"""
+
+            REVERSE_REPO_RATE: str = "QATARREVREPRAT"
+            """Qatar Reverse Repo Rate"""
+
+            CURRENCY: str = "USDQAR"
+            """Qatar Currency"""
+
+        class Romania(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BET"
+            """Romania Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "ROMANIAGOVBON10Y"
+            """Romania Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "ROMANIAINTRAT"
+            """Romania Interbank Rate"""
+
+            CURRENCY: str = "USDRON"
+            """Romania Currency"""
+
+        class Russia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "INDEXCF"
+            """Russia Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "RUGE10Y"
+            """Russia Government Bond 10Y"""
+
+            CENTRAL_BANK_BALANCE_SHEET: str = "RUSSIACENBANBALSHE"
+            """Russia Central Bank Balance Sheet"""
+
+            CURRENCY: str = "USDRUB"
+            """Russia Currency"""
+
+        class Rwanda(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDRWF"
+            """Rwanda Currency"""
+
+        class SaoTomeAndPrincipe(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSTD"
+            """SaoTomeAndPrincipe Currency"""
+
+        class SaudiArabia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "SASEIDX"
+            """SaudiArabia Stock Market"""
+
+            REVERSE_REPO_RATE: str = "SAUDIARABREVREPRAT"
+            """SaudiArabia Reverse Repo Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "SAUFRINRDPST"
+            """SaudiArabia Deposit Interest Rate"""
+
+            CURRENCY: str = "USDSAR"
+            """SaudiArabia Currency"""
+
+        class Serbia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "BELEX15"
+            """Serbia Stock Market"""
+
+            INTERBANK_RATE: str = "SERBIAINTRAT"
+            """Serbia Interbank Rate"""
+
+            INTEREST_RATE: str = "SERRBIAINTTRATE"
+            """Serbia Interest Rate"""
+
+            DEPOSIT_INTEREST_RATE: str = "SRBFRINRDPST"
+            """Serbia Deposit Interest Rate"""
+
+            CURRENCY: str = "USDSRB"
+            """Serbia Currency"""
+
+        class Seychelles(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSCR"
+            """Seychelles Currency"""
+
+        class SierraLeone(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSLL"
+            """SierraLeone Currency"""
+
+        class Singapore(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "FSSTI"
+            """Singapore Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "MASB10Y"
+            """Singapore Government Bond 10Y"""
+
+            INTERBANK_RATE: str = "SINGAPOREINTRAT"
+            """Singapore Interbank Rate"""
+
+            CURRENCY: str = "USDSGD"
+            """Singapore Currency"""
+
+        class Slovakia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "SKSM"
+            """Slovakia Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "SLOVAKIAGOVBON10Y"
+            """Slovakia Government Bond 10y"""
+
+        class Slovenia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "SBITOP"
+            """Slovenia Stock Market"""
+
+            GOVERNMENT_BOND_10Y: str = "SLOVENIAGOVBON10Y"
+            """Slovenia Government Bond 10y"""
+
+        class Somalia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSOS"
+            """Somalia Currency"""
+
+        class SouthAfrica(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GSAB10YR"
+            """SouthAfrica Government Bond 10Y"""
+
+            STOCK_MARKET: str = "JALSH"
+            """SouthAfrica Stock Market"""
+
+            INTERBANK_RATE: str = "SOUTHAFRIINTRAT"
+            """SouthAfrica Interbank Rate"""
+
+            CURRENCY: str = "USDZAR"
+            """SouthAfrica Currency"""
+
+        class SouthKorea(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GVSK10YR"
+            """SouthKorea Government Bond 10Y"""
+
+            STOCK_MARKET: str = "KOSPI"
+            """SouthKorea Stock Market"""
+
+            INTERBANK_RATE: str = "SOUTHKOREINTRAT"
+            """SouthKorea Interbank Rate"""
+
+            CURRENCY: str = "USDKRW"
+            """SouthKorea Currency"""
+
+        class Spain(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GSPG10YR"
+            """Spain Government Bond 10Y"""
+
+            STOCK_MARKET: str = "IBEX"
+            """Spain Stock Market"""
+
+            INTERBANK_RATE: str = "SPAININTRAT"
+            """Spain Interbank Rate"""
+
+        class SriLanka(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "CSEALL"
+            """SriLanka Stock Market"""
+
+            INTEREST_RATE: str = "SRI-LANKAINTRATE"
+            """SriLanka Interest Rate"""
+
+            CASH_RESERVE_RATIO: str = "SRILANKACASRESRAT"
+            """SriLanka Cash Reserve Ratio"""
+
+            INTERBANK_RATE: str = "SRILANKAINTRAT"
+            """SriLanka Interbank Rate"""
+
+            LENDING_RATE: str = "SRILANKALENRAT"
+            """SriLanka Lending Rate"""
+
+            CURRENCY: str = "USDLKR"
+            """SriLanka Currency"""
+
+        class Sudan(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSDG"
+            """Sudan Currency"""
+
+        class Suriname(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSRD"
+            """Suriname Currency"""
+
+        class Swaziland(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSZL"
+            """Swaziland Currency"""
+
+        class Sweden(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GSGB10YR"
+            """Sweden Government Bond 10Y"""
+
+            STOCK_MARKET: str = "OMX"
+            """Sweden Stock Market"""
+
+            INTERBANK_RATE: str = "SWEDENINTRAT"
+            """Sweden Interbank Rate"""
+
+            CURRENCY: str = "USDSEK"
+            """Sweden Currency"""
+
+        class Switzerland(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "GSWISS10"
+            """Switzerland Government Bond 10Y"""
+
+            STOCK_MARKET: str = "SMI"
+            """Switzerland Stock Market"""
+
+            INTERBANK_RATE: str = "SWITZERLANINTRAT"
+            """Switzerland Interbank Rate"""
+
+            CURRENCY: str = "USDCHF"
+            """Switzerland Currency"""
+
+        class Syria(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDSYP"
+            """Syria Currency"""
+
+        class Taiwan(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "TAIWANGOVBON10Y"
+            """Taiwan Government Bond 10y"""
+
+            INTERBANK_RATE: str = "TAIWANINTRAT"
+            """Taiwan Interbank Rate"""
+
+            INTEREST_RATE: str = "TAIWANIR"
+            """Taiwan Interest Rate"""
+
+            STOCK_MARKET: str = "TWSE"
+            """Taiwan Stock Market"""
+
+            CURRENCY: str = "USDTWD"
+            """Taiwan Currency"""
+
+        class Tajikistan(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDTJS"
+            """Tajikistan Currency"""
+
+        class Tanzania(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "DARSDSEI"
+            """Tanzania Stock Market"""
+
+            CURRENCY: str = "USDTZS"
+            """Tanzania Currency"""
+
+        class Thailand(System.Object):
+            """This class has no documentation."""
+
+            INTEREST_RATE: str = "BTRR1DAY"
+            """Thailand Interest Rate"""
+
+            GOVERNMENT_BOND_10Y: str = "GVTL10YR"
+            """Thailand Government Bond 10Y"""
+
+            STOCK_MARKET: str = "SET50"
+            """Thailand Stock Market"""
+
+            INTERBANK_RATE: str = "THAILANDINTRAT"
+            """Thailand Interbank Rate"""
+
+            CURRENCY: str = "USDTHB"
+            """Thailand Currency"""
+
+        class TrinidadAndTobago(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDTTD"
+            """TrinidadAndTobago Currency"""
+
+        class Tunisia(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "TUSISE"
+            """Tunisia Stock Market"""
+
+            CURRENCY: str = "USDTND"
+            """Tunisia Currency"""
+
+        class Turkey(System.Object):
+            """This class has no documentation."""
+
+            GOVERNMENT_BOND_10Y: str = "TURKEYGOVBON10Y"
+            """Turkey Government Bond 10y"""
+
+            INTERBANK_RATE: str = "TURKEYINTRAT"
+            """Turkey Interbank Rate"""
+
+            CURRENCY: str = "USDTRY"
+            """Turkey Currency"""
+
+            STOCK_MARKET: str = "XU100"
+            """Turkey Stock Market"""
+
+        class Turkmenistan(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDTMT"
+            """Turkmenistan Currency"""
+
+        class Uganda(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDUGX"
+            """Uganda Currency"""
+
+        class Ukraine(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "PFTS"
+            """Ukraine Stock Market"""
+
+            INTERBANK_RATE: str = "UKRAINEINTRAT"
+            """Ukraine Interbank Rate"""
+
+            CURRENCY: str = "USDUAH"
+            """Ukraine Currency"""
+
+        class UnitedArabEmirates(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "ADSMI"
+            """UnitedArabEmirates Stock Market"""
+
+            INTERBANK_RATE: str = "UNITEDARAINTRAT"
+            """UnitedArabEmirates Interbank Rate"""
+
+            CURRENCY: str = "USDAED"
+            """UnitedArabEmirates Currency"""
+
+        class UnitedKingdom(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "GBPUSD"
+            """UnitedKingdom Currency"""
+
+            GOVERNMENT_BOND_10Y: str = "GUKG10"
+            """UnitedKingdom Government Bond 10Y"""
+
+            STOCK_MARKET: str = "UKX"
+            """UnitedKingdom Stock Market"""
+
+            TWO_YEAR_NOTE_YIELD: str = "UNITEDKIN2YNY"
+            """UnitedKingdom 2 Year Note Yield"""
+
+            INTERBANK_RATE: str = "UNITEDKININTRAT"
+            """UnitedKingdom Interbank Rate"""
+
+        class UnitedStates(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "DXY"
+            """UnitedStates Currency"""
+
+            INTEREST_RATE: str = "FDTR"
+            """UnitedStates Interest Rate"""
+
+            STOCK_MARKET: str = "INDU"
+            """UnitedStates Stock Market"""
+
+            TWO_YEAR_NOTE_YIELD: str = "UNITEDSTA2YEANOTYIE"
+            """UnitedStates 2 Year Note Yield"""
+
+            ECONOMIC_OPTIMISM_INDEX: str = "UNITEDSTAECOOPTIND"
+            """UnitedStates Economic Optimism Index"""
+
+            FOREIGN_DIRECT_INVESTMENT: str = "UNITEDSTAFORDIRINV"
+            """UnitedStates Foreign Direct Investment"""
+
+            INTERBANK_RATE: str = "UNITEDSTAINTRAT"
+            """UnitedStates Interbank Rate"""
+
+            NAHB_HOUSING_MARKET_INDEX: str = "UNITEDSTANAHHOUMARIN"
+            """UnitedStates Nahb Housing Market Index"""
+
+            NY_EMPIRE_STATE_MANUFACTURING_INDEX: str = "UNITEDSTANYEMPSTAMAN"
+            """UnitedStates NY Empire State Manufacturing Index"""
+
+            REDBOOK_INDEX: str = "UNITEDSTAREDIND"
+            """UnitedStates Redbook Index"""
+
+            GOVERNMENT_BOND_10Y: str = "USGG10YR"
+            """UnitedStates Government Bond 10Y"""
+
+            CRUDE_OIL_RIGS: str = "USOILRIGS"
+            """UnitedStates Crude Oil Rigs"""
+
+        class Uruguay(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDURY"
+            """Uruguay Currency"""
+
+        class Uzbekistan(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDUZS"
+            """Uzbekistan Currency"""
+
+        class Venezuela(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "IBVC"
+            """Venezuela Stock Market"""
+
+            CURRENCY: str = "USDVES"
+            """Venezuela Currency"""
+
+            GOVERNMENT_BOND_10Y: str = "VENEZUELAGOVBON10Y"
+            """Venezuela Government Bond 10y"""
+
+            DEPOSIT_INTEREST_RATE: str = "VENFRINRDPST"
+            """Venezuela Deposit Interest Rate"""
+
+        class Vietnam(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDVND"
+            """Vietnam Currency"""
+
+            GOVERNMENT_BOND_10Y: str = "VIETNAMGOVBON10Y"
+            """Vietnam Government Bond 10y"""
+
+            INTERBANK_RATE: str = "VIETNAMINTRAT"
+            """Vietnam Interbank Rate"""
+
+            STOCK_MARKET: str = "VNINDEX"
+            """Vietnam Stock Market"""
+
+        class Yemen(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDYER"
+            """Yemen Currency"""
+
+        class Zambia(System.Object):
+            """This class has no documentation."""
+
+            CURRENCY: str = "USDZMK"
+            """Zambia Currency"""
+
+            GOVERNMENT_BOND_10Y: str = "ZAMBIAGOVBON10Y"
+            """Zambia Government Bond 10y"""
+
+            INTEREST_RATE: str = "ZAMMBIAINTTRATE"
+            """Zambia Interest Rate"""
+
+        class Zimbabwe(System.Object):
+            """This class has no documentation."""
+
+            STOCK_MARKET: str = "INDZI"
+            """Zimbabwe Stock Market"""
+
+    class Calendar(System.Object):
+        """Calendar group"""
+
+        class Australia(System.Object):
+            """Australia"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUILDING_PERMITS: str = ...
+            """Building Permits"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            BUSINESS_INVENTORIES: str = ...
+            """Business Inventories"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAR_REGISTRATIONS: str = ...
+            """Car Registrations"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSTRUCTION_PMI: str = ...
+            """Construction Pmi"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CONSUMER_PRICE_INDEX_CPI: str = ...
+            """Consumer Price Index (CPI)"""
+
+            CONSUMER_SPENDING: str = ...
+            """Consumer Spending"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CORPORATE_PROFITS: str = ...
+            """Corporate Profits"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EMPLOYMENT_CHANGE: str = ...
+            """Employment Change"""
+
+            EXPORT_PRICES: str = ...
+            """Export Prices"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FULL_TIME_EMPLOYMENT: str = ...
+            """Full Time Employment"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_DEFLATOR: str = ...
+            """GDP Deflator"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GROSS_FIXED_CAPITAL_FORMATION: str = ...
+            """Gross Fixed Capital Formation"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOME_LOANS: str = ...
+            """Home Loans"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            IMPORT_PRICES: str = ...
+            """Import Prices"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_SENTIMENT: str = ...
+            """Industrial Sentiment"""
+
+            INFLATION_EXPECTATIONS: str = ...
+            """Inflation Expectations"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            JOB_ADVERTISEMENTS: str = ...
+            """Job Advertisements"""
+
+            LABOR_FORCE_PARTICIPATION_RATE: str = ...
+            """Labor Force Participation Rate"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            NEW_HOME_SALES: str = ...
+            """New Home Sales"""
+
+            PART_TIME_EMPLOYMENT: str = ...
+            """Part Time Employment"""
+
+            PRIVATE_INVESTMENT: str = ...
+            """Private Investment"""
+
+            PRIVATE_SECTOR_CREDIT: str = ...
+            """Private Sector Credit"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SERVICES_SENTIMENT: str = ...
+            """Services Sentiment"""
+
+            TOTAL_VEHICLE_SALES: str = ...
+            """Total Vehicle Sales"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Austria(System.Object):
+            """Austria"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYED_PERSONS: str = ...
+            """Unemployed Persons"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WHOLESALE_PRICES: str = ...
+            """Wholesale Prices"""
+
+        class Belgium(System.Object):
+            """Belgium"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Canada(System.Object):
+            """Canada"""
+
+            ADP_EMPLOYMENT_CHANGE: str = ...
+            """Adp Employment Change"""
+
+            AVERAGE_HOURLY_EARNINGS: str = ...
+            """Average Hourly Earnings"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUILDING_PERMITS: str = ...
+            """Building Permits"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            CAR_REGISTRATIONS: str = ...
+            """Car Registrations"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EMPLOYMENT_CHANGE: str = ...
+            """Employment Change"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FOREIGN_STOCK_INVESTMENT: str = ...
+            """Foreign Stock Investment"""
+
+            FULL_TIME_EMPLOYMENT: str = ...
+            """Full Time Employment"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_DEFLATOR: str = ...
+            """GDP Deflator"""
+
+            GDP_GROWTH_ANNUALIZED: str = ...
+            """Gdp Growth Annualized"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BUDGET_VALUE: str = ...
+            """Government Budget Value"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            HOUSING_STARTS: str = ...
+            """Housing Starts"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            JOB_VACANCIES: str = ...
+            """Job Vacancies"""
+
+            LABOR_FORCE_PARTICIPATION_RATE: str = ...
+            """Labor Force Participation Rate"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing PMI"""
+
+            MANUFACTURING_SALES: str = ...
+            """Manufacturing Sales"""
+
+            PART_TIME_EMPLOYMENT: str = ...
+            """Part Time Employment"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            PRODUCTIVITY: str = ...
+            """Productivity"""
+
+            RETAIL_SALES_EX_AUTOS: str = ...
+            """Retail Sales Ex Autos"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+            WHOLESALE_PRICES: str = ...
+            """Wholesale Prices"""
+
+            WHOLESALE_SALES: str = ...
+            """Wholesale Sales"""
+
+        class China(System.Object):
+            """China"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BANKS_BALANCE_SHEET: str = ...
+            """Banks Balance Sheet"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            CAPITAL_FLOWS: str = ...
+            """Capital Flows"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CORPORATE_PROFITS: str = ...
+            """Corporate Profits"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FIXED_ASSET_INVESTMENT: str = ...
+            """Fixed Asset Investment"""
+
+            FOREIGN_DIRECT_INVESTMENT: str = ...
+            """Foreign Direct Investment"""
+
+            FOREIGN_EXCHANGE_RESERVES: str = ...
+            """Foreign Exchange Reserves"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LOAN_GROWTH: str = ...
+            """Loan Growth"""
+
+            LOANS_TO_PRIVATE_SECTOR: str = ...
+            """Loans to Private Sector"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            MNI_BUSINESS_SENTIMENT: str = ...
+            """Mni Business Sentiment"""
+
+            MNI_CONSUMER_SENTIMENT: str = ...
+            """Mni Consumer Sentiment"""
+
+            MONEY_SUPPLY_M_TWO: str = ...
+            """Money Supply M2"""
+
+            NON_MANUFACTURING_PMI: str = ...
+            """Non Manufacturing Pmi"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            TOTAL_VEHICLE_SALES: str = ...
+            """Total Vehicle Sales"""
+
+        class Cyprus(System.Object):
+            """Cyprus"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Estonia(System.Object):
+            """Estonia"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Finland(System.Object):
+            """Finland"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EXPORT_PRICES: str = ...
+            """Export Prices"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            IMPORT_PRICES: str = ...
+            """Import Prices"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales Mom"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales Yoy"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class France(System.Object):
+            """France"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
+            """52 Week Bill Yield"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GOVERNMENT_BUDGET_VALUE: str = ...
+            """Government Budget Value"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INITIAL_JOBLESS_CLAIMS: str = ...
+            """Initial Jobless Claims"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            NON_FARM_PAYROLLS: str = ...
+            """Non Farm Payrolls"""
+
+            NONFARM_PAYROLLS_PRIVATE: str = ...
+            """Nonfarm Payrolls Private"""
+
+            PERSONAL_SPENDING: str = ...
+            """Personal Spending"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THREE_MONTH_BILL_YIELD: str = ...
+            """3 Month Bill Yield"""
+
+            THREE_YEAR_NOTE_YIELD: str = ...
+            """3 Year Note Yield"""
+
+            UNEMPLOYED_PERSONS: str = ...
+            """Unemployed Persons"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Germany(System.Object):
+            """Germany"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSTRUCTION_PMI: str = ...
+            """Construction Pmi"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EMPLOYED_PERSONS: str = ...
+            """Employed Persons"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
+            """52 Week Bill Yield"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GOVERNMENT_BUDGET: str = ...
+            """Government Budget"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            IMPORT_PRICES: str = ...
+            """Import Prices"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            JOB_VACANCIES: str = ...
+            """Job Vacancies"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            THIRTY_YEAR_BOND_YIELD: str = ...
+            """30 Year Bond Yield"""
+
+            TWO_YEAR_NOTE_YIELD: str = ...
+            """2 Year Note Yield"""
+
+            UNEMPLOYED_PERSONS: str = ...
+            """Unemployed Persons"""
+
+            UNEMPLOYMENT_CHANGE: str = ...
+            """Unemployment Change"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WHOLESALE_PRICES: str = ...
+            """Wholesale Prices"""
+
+            ZEW_ECONOMIC_SENTIMENT_INDEX: str = ...
+            """Zew Economic Sentiment Index"""
+
+        class Greece(System.Object):
+            """Greece"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            LOAN_GROWTH: str = ...
+            """Loan Growth"""
+
+            LOANS_TO_PRIVATE_SECTOR: str = ...
+            """Loans to Private Sector"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PRIVATE_SECTOR_CREDIT: str = ...
+            """Private Sector Credit"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THREE_MONTH_BILL_YIELD: str = ...
+            """3 Month Bill Yield"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Ireland(System.Object):
+            """Ireland"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSTRUCTION_PMI: str = ...
+            """Construction Pmi"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GROSS_NATIONAL_PRODUCT: str = ...
+            """Gross National Product"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PERSONAL_SAVINGS: str = ...
+            """Personal Savings"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Italy(System.Object):
+            """Italy"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
+            """52 Week Bill Yield"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GOVERNMENT_BUDGET: str = ...
+            """Government Budget"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            MANUFACTURING_SALES: str = ...
+            """Manufacturing Sales"""
+
+            NEW_ORDERS: str = ...
+            """New Orders"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SEVEN_YEAR_NOTE_YIELD: str = ...
+            """7 Year Note Yield"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THIRTY_YEAR_BOND_YIELD: str = ...
+            """30 Year Bond Yield"""
+
+            THREE_YEAR_NOTE_YIELD: str = ...
+            """3 Year Note Yield"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Japan(System.Object):
+            """Japan"""
+
+            ALL_INDUSTRY_ACTIVITY_INDEX: str = ...
+            """All Industry Activity Index"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            COINCIDENT_INDEX: str = ...
+            """Coincident Index"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSTRUCTION_ORDERS: str = ...
+            """Construction Orders"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CONSUMER_SPENDING: str = ...
+            """Consumer Spending"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            ECONOMY_WATCHERS_SURVEY: str = ...
+            """Economy Watchers Survey"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FOREIGN_BOND_INVESTMENT: str = ...
+            """Foreign Bond Investment"""
+
+            FOREIGN_EXCHANGE_RESERVES: str = ...
+            """Foreign Exchange Reserves"""
+
+            FOREIGN_STOCK_INVESTMENT: str = ...
+            """Foreign Stock Investment"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_DEFLATOR: str = ...
+            """GDP Deflator"""
+
+            GDP_GROWTH_ANNUALIZED: str = ...
+            """Gdp Growth Annualized"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GROSS_FIXED_CAPITAL_FORMATION: str = ...
+            """Gross Fixed Capital Formation"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSEHOLD_SPENDING: str = ...
+            """Household Spending"""
+
+            HOUSING_STARTS: str = ...
+            """Housing Starts"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            JOBS_TO_APPLICATIONS_RATIO: str = ...
+            """Jobs To Applications Ratio"""
+
+            LEADING_COMPOSITE_INDEX: str = ...
+            """Leading Composite Index"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            LOAN_GROWTH: str = ...
+            """Loan Growth"""
+
+            MACHINERY_ORDERS: str = ...
+            """Machinery Orders"""
+
+            MACHINE_TOOL_ORDERS: str = ...
+            """Machine Tool Orders"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            NON_MANUFACTURING_PMI: str = ...
+            """Non Manufacturing Pmi"""
+
+            PRIVATE_INVESTMENT: str = ...
+            """Private Investment"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            REUTERS_TANKAN_INDEX: str = ...
+            """Reuters Tankan Index"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SMALL_BUSINESS_SENTIMENT: str = ...
+            """Small Business Sentiment"""
+
+            TERTIARY_INDUSTRY_INDEX: str = ...
+            """Tertiary Industry Index"""
+
+            THIRTY_YEAR_BOND_YIELD: str = ...
+            """30 Year Bond Yield"""
+
+            TOKYO_CPI: str = ...
+            """Tokyo Cpi"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Latvia(System.Object):
+            """Latvia"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Lithuania(System.Object):
+            """Lithuania"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Luxembourg(System.Object):
+            """Luxembourg"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales Mom"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Malta(System.Object):
+            """Malta"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Netherlands(System.Object):
+            """Netherlands"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            MANUFACTURING_PRODUCTION: str = ...
+            """Manufacturing Production"""
+
+            PERSONAL_SPENDING: str = ...
+            """Personal Spending"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THREE_MONTH_BILL_YIELD: str = ...
+            """3 Month Bill Yield"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class NewZealand(System.Object):
+            """New Zealand"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUILDING_PERMITS: str = ...
+            """Building Permits"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CREDIT_CARD_SPENDING: str = ...
+            """Credit Card Spending"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EMPLOYMENT_CHANGE: str = ...
+            """Employment Change"""
+
+            EXPORT_PRICES: str = ...
+            """Export Prices"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FOOD_INFLATION: str = ...
+            """Food Inflation"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GLOBAL_DAIRY_TRADE_PRICE_INDEX: str = ...
+            """Global Dairy Trade Price Index"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            IMPORT_PRICES: str = ...
+            """Import Prices"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_EXPECTATIONS: str = ...
+            """Inflation Expectations"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LABOR_FORCE_PARTICIPATION_RATE: str = ...
+            """Labor Force Participation Rate"""
+
+            LABOUR_COSTS: str = ...
+            """Labour Costs"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            TERMS_OF_TRADE: str = ...
+            """Terms of Trade"""
+
+            TOURIST_ARRIVALS: str = ...
+            """Tourist Arrivals"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Portugal(System.Object):
+            """Portugal"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BUDGET_VALUE: str = ...
+            """Government Budget Value"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            PERSONAL_SPENDING: str = ...
+            """Personal Spending"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Slovakia(System.Object):
+            """Slovakia"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CORE_CONSUMER_PRICES: str = ...
+            """Core Consumer Prices"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class Slovenia(System.Object):
+            """Slovenia"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            TOURIST_ARRIVALS: str = ...
+            """Tourist Arrivals"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Spain(System.Object):
+            """Spain"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
+            """52 Week Bill Yield"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            HARMONISED_CONSUMER_PRICES: str = ...
+            """Harmonised Consumer Prices"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THREE_MONTH_BILL_YIELD: str = ...
+            """3 Month Bill Yield"""
+
+            THREE_YEAR_NOTE_YIELD: str = ...
+            """3 Year Note Yield"""
+
+            TOTAL_VEHICLE_SALES: str = ...
+            """Total Vehicle Sales"""
+
+            TOURIST_ARRIVALS: str = ...
+            """Tourist Arrivals"""
+
+            UNEMPLOYMENT_CHANGE: str = ...
+            """Unemployment Change"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Sweden(System.Object):
+            """Sweden"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            BUSINESS_INVENTORIES: str = ...
+            """Business Inventories"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CORE_CONSUMER_PRICES: str = ...
+            """Core Consumer Prices"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSEHOLD_SPENDING: str = ...
+            """Household Spending"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_EXPECTATIONS: str = ...
+            """Inflation Expectations"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LOAN_GROWTH: str = ...
+            """Loan Growth"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            NEW_ORDERS: str = ...
+            """New Orders"""
+
+            PRIVATE_SECTOR_CREDIT: str = ...
+            """Private Sector Credit"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+        class Switzerland(System.Object):
+            """Switzerland"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FOREIGN_EXCHANGE_RESERVES: str = ...
+            """Foreign Exchange Reserves"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            NON_FARM_PAYROLLS: str = ...
+            """Non Farm Payrolls"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            ZEW_ECONOMIC_SENTIMENT_INDEX: str = ...
+            """Zew Economic Sentiment Index"""
+
+        class UnitedKingdom(System.Object):
+            """United Kingdom"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAR_REGISTRATIONS: str = ...
+            """Car Registrations"""
+
+            CBI_DISTRIBUTIVE_TRADES: str = ...
+            """CBI Distributive Trades"""
+
+            CLAIMANT_COUNT_CHANGE: str = ...
+            """Claimant Count Change"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSTRUCTION_ORDERS: str = ...
+            """Construction Orders"""
+
+            CONSTRUCTION_OUTPUT: str = ...
+            """Construction Output"""
+
+            CONSTRUCTION_PMI: str = ...
+            """Construction Pmi"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CONSUMER_CREDIT: str = ...
+            """Consumer Credit"""
+
+            CORE_CONSUMER_PRICES: str = ...
+            """Core Consumer Prices"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CORE_PRODUCER_PRICES: str = ...
+            """Core Producer Prices"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            ECONOMIC_ACTIVITY_INDEX: str = ...
+            """Economic Activity Index"""
+
+            EMPLOYMENT_CHANGE: str = ...
+            """Employment Change"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOODS_TRADE_BALANCE: str = ...
+            """Goods Trade Balance"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GOVERNMENT_DEBT: str = ...
+            """Government Debt"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOME_LOANS: str = ...
+            """Home Loans"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_EXPECTATIONS: str = ...
+            """Inflation Expectations"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            LABOUR_COSTS: str = ...
+            """Labour Costs"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            MANUFACTURING_PRODUCTION: str = ...
+            """Manufacturing Production"""
+
+            MORTGAGE_APPLICATIONS: str = ...
+            """Mortgage Applications"""
+
+            MORTGAGE_APPROVALS: str = ...
+            """Mortgage Approvals"""
+
+            NATIONWIDE_HOUSING_PRICES: str = ...
+            """Nationwide Housing Prices"""
+
+            PRIVATE_INVESTMENT: str = ...
+            """Private Investment"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            PRODUCTIVITY: str = ...
+            """Productivity"""
+
+            RETAIL_PRICE_INDEX: str = ...
+            """Retail Price Index"""
+
+            RETAIL_SALES_EX_FUEL: str = ...
+            """Retail Sales Ex Fuel"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            THIRTY_YEAR_BOND_YIELD: str = ...
+            """30 Year Bond Yield"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WAGE_GROWTH: str = ...
+            """Wage Growth"""
+
+        class UnitedStates(System.Object):
+            """United States"""
+
+            ADP_EMPLOYMENT_CHANGE: str = ...
+            """Adp Employment Change"""
+
+            API_CRUDE_OIL_STOCK_CHANGE: str = ...
+            """API Crude Oil Stock Change"""
+
+            AVERAGE_HOURLY_EARNINGS: str = ...
+            """Average Hourly Earnings"""
+
+            AVERAGE_WEEKLY_HOURS: str = ...
+            """Average Weekly Hours"""
+
+            BALANCE_OF_TRADE: str = ...
+            """Balance of Trade"""
+
+            BUILDING_PERMITS: str = ...
+            """Building Permits"""
+
+            BUSINESS_CONFIDENCE: str = ...
+            """Business Confidence"""
+
+            BUSINESS_INVENTORIES: str = ...
+            """Business Inventories"""
+
+            CALENDAR: str = ...
+            """Calendar"""
+
+            CAPACITY_UTILIZATION: str = ...
+            """Capacity Utilization"""
+
+            CAPITAL_FLOWS: str = ...
+            """Capital Flows"""
+
+            CASE_SHILLER_HOME_PRICE_INDEX: str = ...
+            """Case Shiller Home Price Index"""
+
+            CHAIN_STORE_SALES: str = ...
+            """Chain Store Sales"""
+
+            CHALLENGER_JOB_CUTS: str = ...
+            """Challenger Job Cuts"""
+
+            CHICAGO_FED_NATIONAL_ACTIVITY_INDEX: str = ...
+            """Chicago Fed National Activity Index"""
+
+            CHICAGO_PMI: str = ...
+            """Chicago Pmi"""
+
+            COMPOSITE_PMI: str = ...
+            """Composite Pmi"""
+
+            CONSTRUCTION_SPENDING: str = ...
+            """Construction Spending"""
+
+            CONSUMER_CONFIDENCE: str = ...
+            """Consumer Confidence"""
+
+            CONSUMER_CREDIT: str = ...
+            """Consumer Credit"""
+
+            CONSUMER_PRICE_INDEX_CPI: str = ...
+            """Consumer Price Index (CPI)"""
+
+            CONSUMER_SPENDING: str = ...
+            """Consumer Spending"""
+
+            CONTINUING_JOBLESS_CLAIMS: str = ...
+            """Continuing Jobless Claims"""
+
+            CORE_CONSUMER_PRICES: str = ...
+            """Core Consumer Prices"""
+
+            CORE_INFLATION_RATE: str = ...
+            """Core Inflation Rate"""
+
+            CORE_PCE_PRICE_INDEX: str = ...
+            """Core Pce Price Index"""
+
+            CORE_PRODUCER_PRICES: str = ...
+            """Core Producer Prices"""
+
+            CORPORATE_PROFITS: str = ...
+            """Corporate Profits"""
+
+            CRUDE_OIL_IMPORTS: str = ...
+            """Crude Oil Imports"""
+
+            CRUDE_OIL_RIGS: str = ...
+            """Crude Oil Rigs"""
+
+            CRUDE_OIL_STOCKS_CHANGE: str = ...
+            """Crude Oil Stocks Change"""
+
+            CURRENT_ACCOUNT: str = ...
+            """Current Account"""
+
+            CUSHING_CRUDE_OIL_STOCKS: str = ...
+            """Cushing Crude Oil Stocks"""
+
+            DALLAS_FED_MANUFACTURING_INDEX: str = ...
+            """Dallas Fed Manufacturing Index"""
+
+            DISTILLATE_FUEL_PRODUCTION: str = ...
+            """Distillate Fuel Production"""
+
+            DISTILLATE_STOCKS: str = ...
+            """Distillate Stocks"""
+
+            DURABLE_GOODS_ORDERS: str = ...
+            """Durable Goods Orders"""
+
+            DURABLE_GOODS_ORDERS_EX_DEFENSE: str = ...
+            """Durable Goods Orders Ex Defense"""
+
+            DURABLE_GOODS_ORDERS_EX_TRANSPORTATION: str = ...
+            """Durable Goods Orders Ex Transportation"""
+
+            ECONOMIC_OPTIMISM_INDEX: str = ...
+            """Economic Optimism Index"""
+
+            EMPLOYMENT_COST_INDEX: str = ...
+            """Employment Cost Index"""
+
+            EXISTING_HOME_SALES: str = ...
+            """Existing Home Sales"""
+
+            EXPORT_PRICES: str = ...
+            """Export Prices"""
+
+            EXPORTS: str = ...
+            """Exports"""
+
+            FACTORY_ORDERS: str = ...
+            """Factory Orders"""
+
+            FACTORY_ORDERS_EX_TRANSPORTATION: str = ...
+            """Factory Orders Ex Transportation"""
+
+            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
+            """52 Week Bill Yield"""
+
+            FIVE_YEAR_NOTE_YIELD: str = ...
+            """5 Year Note Yield"""
+
+            FOREIGN_BOND_INVESTMENT: str = ...
+            """Foreign Bond Investment"""
+
+            FOUR_WEEK_BILL_YIELD: str = ...
+            """4 Week Bill Yield"""
+
+            GASOLINE_PRODUCTION: str = ...
+            """Gasoline Production"""
+
+            GASOLINE_STOCKS_CHANGE: str = ...
+            """Gasoline Stocks Change"""
+
+            GDP_ANNUAL_GROWTH_RATE: str = ...
+            """GDP Annual Growth Rate"""
+
+            GDP_DEFLATOR: str = ...
+            """Gdp Deflator"""
+
+            GDP_GROWTH_RATE: str = ...
+            """GDP Growth Rate"""
+
+            GOODS_TRADE_BALANCE: str = ...
+            """Goods Trade Balance"""
+
+            GOVERNMENT_BOND_TEN_Y: str = ...
+            """Government Bond 10Y"""
+
+            GOVERNMENT_BUDGET_VALUE: str = ...
+            """Government Budget Value"""
+
+            GOVERNMENT_PAYROLLS: str = ...
+            """Government Payrolls"""
+
+            HOLIDAYS: str = ...
+            """Holidays"""
+
+            HOUSING_INDEX: str = ...
+            """Housing Index"""
+
+            HOUSING_STARTS: str = ...
+            """Housing Starts"""
+
+            IMPORT_PRICES: str = ...
+            """Import Prices"""
+
+            IMPORTS: str = ...
+            """Imports"""
+
+            INDUSTRIAL_PRODUCTION: str = ...
+            """Industrial Production"""
+
+            INDUSTRIAL_PRODUCTION_MOM: str = ...
+            """Industrial Production Mom"""
+
+            INFLATION_EXPECTATIONS: str = ...
+            """Inflation Expectations"""
+
+            INFLATION_RATE: str = ...
+            """Inflation Rate"""
+
+            INFLATION_RATE_MOM: str = ...
+            """Inflation Rate Mom"""
+
+            INITIAL_JOBLESS_CLAIMS: str = ...
+            """Initial Jobless Claims"""
+
+            INTEREST_RATE: str = ...
+            """Interest Rate"""
+
+            ISM_NEW_YORK_INDEX: str = ...
+            """Ism New York Index"""
+
+            JOB_OFFERS: str = ...
+            """Job Offers"""
+
+            KANSAS_FED_MANUFACTURING_INDEX: str = ...
+            """Kansas Fed Manufacturing Index"""
+
+            LABOR_FORCE_PARTICIPATION_RATE: str = ...
+            """Labor Force Participation Rate"""
+
+            LABOR_MARKET_CONDITIONS_INDEX: str = ...
+            """Labor Market Conditions Index"""
+
+            LABOUR_COSTS: str = ...
+            """Labour Costs"""
+
+            LEADING_ECONOMIC_INDEX: str = ...
+            """Leading Economic Index"""
+
+            MANUFACTURING_PAYROLLS: str = ...
+            """Manufacturing Payrolls"""
+
+            MANUFACTURING_PMI: str = ...
+            """Manufacturing Pmi"""
+
+            MANUFACTURING_PRODUCTION: str = ...
+            """Manufacturing Production"""
+
+            MORTGAGE_APPLICATIONS: str = ...
+            """Mortgage Applications"""
+
+            MORTGAGE_RATE: str = ...
+            """Mortgage Rate"""
+
+            NAHB_HOUSING_MARKET_INDEX: str = ...
+            """Nahb Housing Market Index"""
+
+            NATURAL_GAS_STOCKS_CHANGE: str = ...
+            """Natural Gas Stocks Change"""
+
+            NET_LONG_TERM_TIC_FLOWS: str = ...
+            """Net Long-term Tic Flows"""
+
+            NEW_HOME_SALES: str = ...
+            """New Home Sales"""
+
+            NFIB_BUSINESS_OPTIMISM_INDEX: str = ...
+            """Nfib Business Optimism Index"""
+
+            NON_FARM_PAYROLLS: str = ...
+            """Non Farm Payrolls"""
+
+            NONFARM_PAYROLLS_PRIVATE: str = ...
+            """Nonfarm Payrolls - Private"""
+
+            NON_MANUFACTURING_PMI: str = ...
+            """Non Manufacturing Pmi"""
+
+            NY_EMPIRE_STATE_MANUFACTURING_INDEX: str = ...
+            """Ny Empire State Manufacturing Index"""
+
+            PCE_PRICE_INDEX: str = ...
+            """Pce Price Index"""
+
+            PENDING_HOME_SALES: str = ...
+            """Pending Home Sales"""
+
+            PERSONAL_INCOME: str = ...
+            """Personal Income"""
+
+            PERSONAL_SPENDING: str = ...
+            """Personal Spending"""
+
+            PHILADELPHIA_FED_MANUFACTURING_INDEX: str = ...
+            """Philadelphia Fed Manufacturing Index"""
+
+            PRODUCER_PRICES: str = ...
+            """Producer Prices"""
+
+            PRODUCER_PRICES_CHANGE: str = ...
+            """Producer Prices Change"""
+
+            PRODUCTIVITY: str = ...
+            """Productivity"""
+
+            REDBOOK_INDEX: str = ...
+            """Redbook Index"""
+
+            REFINERY_CRUDE_RUNS: str = ...
+            """Refinery Crude Runs"""
+
+            RETAIL_SALES_EX_AUTOS: str = ...
+            """Retail Sales Ex Autos"""
+
+            RETAIL_SALES_MOM: str = ...
+            """Retail Sales MoM"""
+
+            RETAIL_SALES_YOY: str = ...
+            """Retail Sales YoY"""
+
+            RICHMOND_FED_MANUFACTURING_INDEX: str = ...
+            """Richmond Fed Manufacturing Index"""
+
+            SERVICES_PMI: str = ...
+            """Services Pmi"""
+
+            SEVEN_YEAR_NOTE_YIELD: str = ...
+            """7 Year Note Yield"""
+
+            SIX_MONTH_BILL_YIELD: str = ...
+            """6 Month Bill Yield"""
+
+            THIRTY_YEAR_BOND_YIELD: str = ...
+            """30 Year Bond Yield"""
+
+            THREE_MONTH_BILL_YIELD: str = ...
+            """3 Month Bill Yield"""
+
+            THREE_YEAR_NOTE_YIELD: str = ...
+            """3 Year Note Yield"""
+
+            TOTAL_VEHICLE_SALES: str = ...
+            """Total Vehicle Sales"""
+
+            TWO_YEAR_NOTE_YIELD: str = ...
+            """2 Year Note Yield"""
+
+            UNEMPLOYMENT_RATE: str = ...
+            """Unemployment Rate"""
+
+            WHOLESALE_INVENTORIES: str = ...
+            """Wholesale Inventories"""
+
+        DELIMITER: str = "//"
+        """Delimiter used to separate country from ticker in TradingEconomics.Calendar entries"""
 
     class Event(System.Object):
         """The Event class contains all events normalized for your convenience"""
@@ -14860,4475 +16172,6 @@ class TradingEconomics(System.Object):
             WHOLESALE_INVENTORIES_MO_M_ADV: str = "wholesale inventories mom adv"
             """Wholesale Inventories MoM Adv"""
 
-    class Indicator(System.Object):
-        """Indicator group"""
-
-        class Afghanistan(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDAFN"
-            """Afghanistan Currency"""
-
-        class Albania(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDALL"
-            """Albania Currency"""
-
-        class Algeria(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDDZD"
-            """Algeria Currency"""
-
-        class Angola(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDAOA"
-            """Angola Currency"""
-
-        class Argentina(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "APDR1T"
-            """Argentina Interest Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "ARGFRINRDPST"
-            """Argentina Deposit Interest Rate"""
-
-            STOCK_MARKET: str = "MERVAL"
-            """Argentina Stock Market"""
-
-            CURRENCY: str = "USDARS"
-            """Argentina Currency"""
-
-        class Armenia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDAMD"
-            """Armenia Currency"""
-
-        class Australia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "AS51"
-            """Australia Stock Market"""
-
-            CURRENCY: str = "AUDUSD"
-            """Australia Currency"""
-
-            TWO_YEAR_NOTE_YIELD: str = "AUSTRALIA2YNY"
-            """Australia 2 Year Note Yield"""
-
-            CENTRAL_BANK_BALANCE_SHEET: str = "AUSTRALIACENBANBALSH"
-            """Australia Central Bank Balance Sheet"""
-
-            INFLATION_EXPECTATIONS: str = "AUSTRALIAINFEXP"
-            """Australia Inflation Expectations"""
-
-            GOVERNMENT_BOND_10Y: str = "GACGB10"
-            """Australia Government Bond 10Y"""
-
-            CONSUMER_CONFIDENCE: str = "WMCCCONPCT"
-            """Australia Consumer Confidence"""
-
-        class Austria(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "ATX"
-            """Austria Stock Market"""
-
-            CURRENCY: str = "EURUSD"
-            """Austria Currency"""
-
-            GOVERNMENT_BOND_10Y: str = "GAGB10YR"
-            """Austria Government Bond 10Y"""
-
-        class Bahamas(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDBSD"
-            """Bahamas Currency"""
-
-        class Bahrain(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "BAHRAININTRAT"
-            """Bahrain Interbank Rate"""
-
-            STOCK_MARKET: str = "BHSEEI"
-            """Bahrain Stock Market"""
-
-            CURRENCY: str = "USDBHD"
-            """Bahrain Currency"""
-
-        class Bangladesh(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "BANGLADESHINTRATE"
-            """Bangladesh Interest Rate"""
-
-            STOCK_MARKET: str = "DHAKA"
-            """Bangladesh Stock Market"""
-
-            CURRENCY: str = "USDBDT"
-            """Bangladesh Currency"""
-
-        class Belarus(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDBYR"
-            """Belarus Currency"""
-
-        class Belgium(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BEL20"
-            """Belgium Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GBGB10YR"
-            """Belgium Government Bond 10Y"""
-
-        class Bermuda(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BSX"
-            """Bermuda Stock Market"""
-
-        class Bolivia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDBOB"
-            """Bolivia Currency"""
-
-        class BosniaAndHerzegovina(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "SASX10"
-            """BosniaAndHerzegovina Stock Market"""
-
-            CURRENCY: str = "USDBIH"
-            """BosniaAndHerzegovina Currency"""
-
-        class Botswana(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BGSMDC"
-            """Botswana Stock Market"""
-
-            CURRENCY: str = "USDBWP"
-            """Botswana Currency"""
-
-        class Brazil(System.Object):
-            """This class has no documentation."""
-
-            CASH_RESERVE_RATIO: str = "BRAZILCASRESRAT"
-            """Brazil Cash Reserve Ratio"""
-
-            INTERBANK_RATE: str = "BRAZILINTRAT"
-            """Brazil Interbank Rate"""
-
-            MINIMUM_WAGES: str = "BRAZILMINWAG"
-            """Brazil Minimum Wages"""
-
-            GOVERNMENT_BOND_10Y: str = "GEBU10Y"
-            """Brazil Government Bond 10Y"""
-
-            STOCK_MARKET: str = "IBOV"
-            """Brazil Stock Market"""
-
-            CURRENCY: str = "USDBRL"
-            """Brazil Currency"""
-
-        class Brunei(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDBND"
-            """Brunei Currency"""
-
-        class Bulgaria(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "BULGARIAGOVBON10Y"
-            """Bulgaria Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "BULGARIAINTRAT"
-            """Bulgaria Interbank Rate"""
-
-            STOCK_MARKET: str = "SOFIX"
-            """Bulgaria Stock Market"""
-
-            CURRENCY: str = "USDBGN"
-            """Bulgaria Currency"""
-
-        class Burundi(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDBIF"
-            """Burundi Currency"""
-
-        class Cambodia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDKHR"
-            """Cambodia Currency"""
-
-        class Canada(System.Object):
-            """This class has no documentation."""
-
-            BANK_LENDING_RATE: str = "CANADABANLENRAT"
-            """Canada Bank Lending Rate"""
-
-            INTERBANK_RATE: str = "CANADAINTRAT"
-            """Canada Interbank Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "CANFRINRDPST"
-            """Canada Deposit Interest Rate"""
-
-            INTEREST_RATE: str = "CCLR"
-            """Canada Interest Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "GCAN10YR"
-            """Canada Government Bond 10Y"""
-
-            CONSUMER_CONFIDENCE: str = "OECAI001"
-            """Canada Consumer Confidence"""
-
-            STOCK_MARKET: str = "SPTSX"
-            """Canada Stock Market"""
-
-            CURRENCY: str = "USDCAD"
-            """Canada Currency"""
-
-        class CapeVerde(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDCVE"
-            """CapeVerde Currency"""
-
-        class CaymanIslands(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDKYD"
-            """CaymanIslands Currency"""
-
-        class Chile(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "CHILEGOVBON10Y"
-            """Chile Government Bond 10y"""
-
-            INTERBANK_RATE: str = "CHILEINTRAT"
-            """Chile Interbank Rate"""
-
-            STOCK_MARKET: str = "IGPA"
-            """Chile Stock Market"""
-
-            CURRENCY: str = "USDCLP"
-            """Chile Currency"""
-
-        class China(System.Object):
-            """This class has no documentation."""
-
-            CASH_RESERVE_RATIO: str = "CHINACASRESRAT"
-            """China Cash Reserve Ratio"""
-
-            INTERBANK_RATE: str = "CHINAINTRAT"
-            """China Interbank Rate"""
-
-            REVERSE_REPO_RATE: str = "CHINAREVREPRAT"
-            """China Reverse Repo Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "GCNY10YR"
-            """China Government Bond 10Y"""
-
-            STOCK_MARKET: str = "SHCOMP"
-            """China Stock Market"""
-
-            CURRENCY: str = "USDCNY"
-            """China Currency"""
-
-        class Colombia(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "COGR10Y"
-            """Colombia Government Bond 10Y"""
-
-            STOCK_MARKET: str = "COLCAP"
-            """Colombia Stock Market"""
-
-            INTERBANK_RATE: str = "COLOMBIAINTRAT"
-            """Colombia Interbank Rate"""
-
-            CURRENCY: str = "USDCOP"
-            """Colombia Currency"""
-
-        class Commodity(System.Object):
-            """This class has no documentation."""
-
-            BALTIC_EXCHANGE_DRY_INDEX: str = "BALTIC"
-            """Commodity Baltic Exchange Dry Index"""
-
-            BEEF: str = "BEEF"
-            """Commodity Beef"""
-
-            BITUMEN: str = "BIT"
-            """Commodity Bitumen"""
-
-            CORN: str = "C-1"
-            """Commodity Corn"""
-
-            COCOA: str = "CC1"
-            """Commodity Cocoa"""
-
-            CHEESE: str = "CHEESE1"
-            """Commodity Cheese"""
-
-            CRUDE_OIL: str = "CL1"
-            """Commodity Crude oil"""
-
-            BRENT_CRUDE_OIL: str = "CO1"
-            """Commodity Brent crude oil"""
-
-            COAL: str = "COAL"
-            """Commodity Coal"""
-
-            COBALT: str = "COBALT"
-            """Commodity Cobalt"""
-
-            CRB_COMMODITY_INDEX: str = "CRB"
-            """Commodity CRB Commodity Index"""
-
-            COTTON: str = "CT1"
-            """Commodity Cotton"""
-
-            ETHANOL: str = "DL1"
-            """Commodity Ethanol"""
-
-            FEEDER_CATTLE: str = "FC1"
-            """Commodity Feeder Cattle"""
-
-            GSCI_COMMODITY_INDEX: str = "GSCI"
-            """Commodity GSCI Commodity Index"""
-
-            COPPER: str = "HG1"
-            """Commodity Copper"""
-
-            HEATING_OIL: str = "HO1"
-            """Commodity Heating oil"""
-
-            MANGANESE_ORE: str = "IMR"
-            """Commodity Manganese Ore"""
-
-            IRON_ORE: str = "IRONORE"
-            """Commodity Iron Ore"""
-
-            RUBBER: str = "JN1"
-            """Commodity Rubber"""
-
-            ORANGE_JUICE: str = "JO1"
-            """Commodity Orange Juice"""
-
-            COFFEE: str = "KC1"
-            """Commodity Coffee"""
-
-            LUMBER: str = "LB1"
-            """Commodity Lumber"""
-
-            LIVE_CATTLE: str = "LC1"
-            """Commodity Live Cattle"""
-
-            LEAN_HOGS: str = "LH1"
-            """Commodity Lean Hogs"""
-
-            LITHIUM: str = "LITHIUM"
-            """Commodity Lithium"""
-
-            ALUMINUM: str = "LMAHDS03"
-            """Commodity Aluminum"""
-
-            LME_INDEX: str = "LME"
-            """Commodity LME Index"""
-
-            MOLYBDENUM: str = "LMMLDS03"
-            """Commodity Molybdenum"""
-
-            NICKEL: str = "LMNIDS03"
-            """Commodity Nickel"""
-
-            LEAD: str = "LMPBDS03"
-            """Commodity Lead"""
-
-            TIN: str = "LMSNDS03"
-            """Commodity Tin"""
-
-            ZINC: str = "LMZSDS03"
-            """Commodity Zinc"""
-
-            MILK: str = "MILK"
-            """Commodity Milk"""
-
-            NAPHTHA: str = "NAPHTHA"
-            """Commodity Naphtha"""
-
-            NATURAL_GAS: str = "NG1"
-            """Commodity Natural gas"""
-
-            OAT: str = "O-1"
-            """Commodity Oat"""
-
-            WOOL: str = "OL1"
-            """Commodity Wool"""
-
-            PALM_OIL: str = "PALMOIL"
-            """Commodity Palm Oil"""
-
-            PROPANE: str = "PROPANE"
-            """Commodity Propane"""
-
-            RHODIUM: str = "RHODIUM"
-            """Commodity RHODIUM"""
-
-            RICE: str = "RR1"
-            """Commodity Rice"""
-
-            CANOLA: str = "RS1"
-            """Commodity Canola"""
-
-            SOYBEANS: str = "S-1"
-            """Commodity Soybeans"""
-
-            SUGAR: str = "SB1"
-            """Commodity Sugar"""
-
-            SODA_ASH: str = "SODASH"
-            """Commodity Soda Ash"""
-
-            NEODYMIUM: str = "SREMNDM"
-            """Commodity Neodymium"""
-
-            STEEL: str = "STEEL"
-            """Commodity Steel"""
-
-            IRON_ORE_62_PERCENT_FE: str = "TIOC"
-            """Commodity Iron Ore 62% FE"""
-
-            URANIUM: str = "URANIUM"
-            """Commodity Uranium"""
-
-            WHEAT: str = "W-1"
-            """Commodity Wheat"""
-
-            SILVER: str = "XAGUSD"
-            """Commodity Silver"""
-
-            GOLD: str = "XAUUSD"
-            """Commodity Gold"""
-
-            GASOLINE: str = "XB1"
-            """Commodity Gasoline"""
-
-            PALLADIUM: str = "XPDUSD"
-            """Commodity Palladium"""
-
-            PLATINUM: str = "XPTUSD"
-            """Commodity Platinum"""
-
-        class Comoros(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDKMF"
-            """Comoros Currency"""
-
-        class Congo(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDCDF"
-            """Congo Currency"""
-
-        class CostaRica(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CRSMBCT"
-            """CostaRica Stock Market"""
-
-            CURRENCY: str = "USDCRC"
-            """CostaRica Currency"""
-
-        class Croatia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CRO"
-            """Croatia Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "CROATIAGOVD10Y"
-            """Croatia Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "CROATIAINTRAT"
-            """Croatia Interbank Rate"""
-
-            CURRENCY: str = "USDHRV"
-            """Croatia Currency"""
-
-        class Cuba(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDCUC"
-            """Cuba Currency"""
-
-        class Cyprus(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CYSMMAPA"
-            """Cyprus Stock Market"""
-
-        class CzechRepublic(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "CZECHREPUINTRAT"
-            """CzechRepublic Interbank Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "CZGB10YR"
-            """CzechRepublic Government Bond 10Y"""
-
-            STOCK_MARKET: str = "PX"
-            """CzechRepublic Stock Market"""
-
-            CURRENCY: str = "USDCZK"
-            """CzechRepublic Currency"""
-
-        class Denmark(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "DENMARKINTRAT"
-            """Denmark Interbank Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "GDGB10YR"
-            """Denmark Government Bond 10Y"""
-
-            STOCK_MARKET: str = "KFX"
-            """Denmark Stock Market"""
-
-            CURRENCY: str = "USDDKK"
-            """Denmark Currency"""
-
-        class Djibouti(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDDJF"
-            """Djibouti Currency"""
-
-        class DominicanRepublic(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDDOP"
-            """DominicanRepublic Currency"""
-
-        class Ecuador(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "ECU"
-            """Ecuador Stock Market"""
-
-            INTERBANK_RATE: str = "ECUADORINTRATI"
-            """Ecuador Interbank Rate"""
-
-        class Egypt(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CASE"
-            """Egypt Stock Market"""
-
-            INTERBANK_RATE: str = "EGYPTINTRAT"
-            """Egypt Interbank Rate"""
-
-            INTEREST_RATE: str = "EGYPTINTRATE"
-            """Egypt Interest Rate"""
-
-            LENDING_RATE: str = "EGYPTLENRAT"
-            """Egypt Lending Rate"""
-
-            CURRENCY: str = "USDEGP"
-            """Egypt Currency"""
-
-        class Eritrea(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDERN"
-            """Eritrea Currency"""
-
-        class Estonia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "TALSE"
-            """Estonia Stock Market"""
-
-        class Ethiopia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDETB"
-            """Ethiopia Currency"""
-
-        class EuroArea(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "EMUEVOLVINTRAT"
-            """EuroArea Interbank Rate"""
-
-            LENDING_RATE: str = "EUROAREALENRAT"
-            """EuroArea Lending Rate"""
-
-            ZEW_ECONOMIC_SENTIMENT_INDEX: str = "EUROAREAZEWECOSENIND"
-            """EuroArea Zew Economic Sentiment Index"""
-
-            STOCK_MARKET: str = "SX5E"
-            """EuroArea Stock Market"""
-
-        class Fiji(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDFJD"
-            """Fiji Currency"""
-
-        class Finland(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "FINLANDINTRAT"
-            """Finland Interbank Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "GFIN10YR"
-            """Finland Government Bond 10Y"""
-
-            STOCK_MARKET: str = "HEX25"
-            """Finland Stock Market"""
-
-        class France(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CAC"
-            """France Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GFRN10"
-            """France Government Bond 10Y"""
-
-        class Gambia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDGMD"
-            """Gambia Currency"""
-
-        class Georgia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDGEL"
-            """Georgia Currency"""
-
-        class Germany(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "DAX"
-            """Germany Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GDBR10"
-            """Germany Government Bond 10Y"""
-
-            TWO_YEAR_NOTE_YIELD: str = "GERMANY2YNY"
-            """Germany 2 Year Note Yield"""
-
-            ZEW_ECONOMIC_SENTIMENT_INDEX: str = "GERMANYZEWECOSENIND"
-            """Germany Zew Economic Sentiment Index"""
-
-            CONSUMER_CONFIDENCE: str = "GRCCI"
-            """Germany Consumer Confidence"""
-
-        class Ghana(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "GGSECI"
-            """Ghana Stock Market"""
-
-            CURRENCY: str = "USDGHS"
-            """Ghana Currency"""
-
-        class Greece(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "ASE"
-            """Greece Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GGGB10YR"
-            """Greece Government Bond 10Y"""
-
-            TWO_YEAR_NOTE_YIELD: str = "GREECE2YNY"
-            """Greece 2 Year Note Yield"""
-
-        class Guatemala(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDGTQ"
-            """Guatemala Currency"""
-
-        class Guinea(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDGNF"
-            """Guinea Currency"""
-
-        class Guyana(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDGYD"
-            """Guyana Currency"""
-
-        class Haiti(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDHTG"
-            """Haiti Currency"""
-
-        class Honduras(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "HONURASINTTRATE"
-            """Honduras Interest Rate"""
-
-            CURRENCY: str = "USDHNL"
-            """Honduras Currency"""
-
-        class HongKong(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GHKGB10Y"
-            """HongKong Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "HONGKONGINTRAT"
-            """HongKong Interbank Rate"""
-
-            STOCK_MARKET: str = "HSI"
-            """HongKong Stock Market"""
-
-            CURRENCY: str = "USDHKD"
-            """HongKong Currency"""
-
-        class Hungary(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BUX"
-            """Hungary Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GHGB10YR"
-            """Hungary Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "HUNGARYINTRAT"
-            """Hungary Interbank Rate"""
-
-            CURRENCY: str = "USDHUF"
-            """Hungary Currency"""
-
-        class Iceland(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "ICELANDGOVBON10Y"
-            """Iceland Government Bond 10y"""
-
-            INTERBANK_RATE: str = "ICELANDINTRAT"
-            """Iceland Interbank Rate"""
-
-            STOCK_MARKET: str = "ICEXI"
-            """Iceland Stock Market"""
-
-            CURRENCY: str = "USDISK"
-            """Iceland Currency"""
-
-        class India(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GIND10YR"
-            """India Government Bond 10Y"""
-
-            CASH_RESERVE_RATIO: str = "INDIACASRESRAT"
-            """India Cash Reserve Ratio"""
-
-            INTEREST_RATE: str = "RSPOYLD"
-            """India Interest Rate"""
-
-            STOCK_MARKET: str = "SENSEX"
-            """India Stock Market"""
-
-            CURRENCY: str = "USDINR"
-            """India Currency"""
-
-        class Indonesia(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GIDN10YR"
-            """Indonesia Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "INDONESIAINTRAT"
-            """Indonesia Interbank Rate"""
-
-            STOCK_MARKET: str = "JCI"
-            """Indonesia Stock Market"""
-
-            CURRENCY: str = "USDIDR"
-            """Indonesia Currency"""
-
-        class Iraq(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDIQD"
-            """Iraq Currency"""
-
-        class Ireland(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GIGB10YR"
-            """Ireland Government Bond 10Y"""
-
-            STOCK_MARKET: str = "ISEQ"
-            """Ireland Stock Market"""
-
-        class Israel(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GISR10YR"
-            """Israel Government Bond 10Y"""
-
-            INTEREST_RATE: str = "ISBRATE"
-            """Israel Interest Rate"""
-
-            INTERBANK_RATE: str = "ISRAELINTRAT"
-            """Israel Interbank Rate"""
-
-            STOCK_MARKET: str = "TA-100"
-            """Israel Stock Market"""
-
-            CURRENCY: str = "USDILS"
-            """Israel Currency"""
-
-        class Italy(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "FTSEMIB"
-            """Italy Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GBTPGR10"
-            """Italy Government Bond 10Y"""
-
-            TWO_YEAR_NOTE_YIELD: str = "ITALY2YNY"
-            """Italy 2 Year Note Yield"""
-
-        class IvoryCoast(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDXOF"
-            """IvoryCoast Currency"""
-
-        class Jamaica(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "JAMAICAINTTRATE"
-            """Jamaica Interest Rate"""
-
-            STOCK_MARKET: str = "JMSMX"
-            """Jamaica Stock Market"""
-
-            CURRENCY: str = "USDJMD"
-            """Jamaica Currency"""
-
-        class Japan(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GJGB10"
-            """Japan Government Bond 10Y"""
-
-            TWO_YEAR_NOTE_YIELD: str = "JAPAN2YNY"
-            """Japan 2 Year Note Yield"""
-
-            INTERBANK_RATE: str = "JAPANINTRAT"
-            """Japan Interbank Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "JPNFRINRDPST"
-            """Japan Deposit Interest Rate"""
-
-            STOCK_MARKET: str = "NKY"
-            """Japan Stock Market"""
-
-            CURRENCY: str = "USDJPY"
-            """Japan Currency"""
-
-        class Jordan(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "JOSMGNFF"
-            """Jordan Stock Market"""
-
-            CURRENCY: str = "USDJOR"
-            """Jordan Currency"""
-
-        class Kazakhstan(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "KAZAKHSTANINTRAT"
-            """Kazakhstan Interbank Rate"""
-
-            INTEREST_RATE: str = "KAZAKHSTANINTRATE"
-            """Kazakhstan Interest Rate"""
-
-            STOCK_MARKET: str = "KZKAK"
-            """Kazakhstan Stock Market"""
-
-            CURRENCY: str = "USDKZT"
-            """Kazakhstan Currency"""
-
-        class Kenya(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "KENYAGOVBON10Y"
-            """Kenya Government Bond 10y"""
-
-            STOCK_MARKET: str = "KNSMIDX"
-            """Kenya Stock Market"""
-
-            CURRENCY: str = "USDKES"
-            """Kenya Currency"""
-
-        class Kuwait(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "KUWAITINTRAT"
-            """Kuwait Interbank Rate"""
-
-            CURRENCY: str = "USDKWD"
-            """Kuwait Currency"""
-
-        class Kyrgyzstan(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "KYRSTANINTTRATE"
-            """Kyrgyzstan Interest Rate"""
-
-            CURRENCY: str = "USDKGS"
-            """Kyrgyzstan Currency"""
-
-        class Laos(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "LSXC"
-            """Laos Stock Market"""
-
-            CURRENCY: str = "USDLAK"
-            """Laos Currency"""
-
-        class Latvia(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "LATVIAGOVBON10Y"
-            """Latvia Government Bond 10y"""
-
-            INTERBANK_RATE: str = "LATVIAINTRAT"
-            """Latvia Interbank Rate"""
-
-            STOCK_MARKET: str = "RIGSE"
-            """Latvia Stock Market"""
-
-        class Lebanon(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BLOM"
-            """Lebanon Stock Market"""
-
-            CURRENCY: str = "USDLBP"
-            """Lebanon Currency"""
-
-        class Lesotho(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDLSL"
-            """Lesotho Currency"""
-
-        class Liberia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDLRD"
-            """Liberia Currency"""
-
-        class Libya(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDLYD"
-            """Libya Currency"""
-
-        class Lithuania(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "LITHUANIAGOVBON10Y"
-            """Lithuania Government Bond 10y"""
-
-            STOCK_MARKET: str = "VILSE"
-            """Lithuania Stock Market"""
-
-        class Luxembourg(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "LUXXX"
-            """Luxembourg Stock Market"""
-
-        class Macau(System.Object):
-            """This class has no documentation."""
-
-            INTERBANK_RATE: str = "MACAOINTRAT"
-            """Macau Interbank Rate"""
-
-            CURRENCY: str = "USDMOP"
-            """Macau Currency"""
-
-        class Macedonia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "MBI"
-            """Macedonia Stock Market"""
-
-            CURRENCY: str = "USDMKD"
-            """Macedonia Currency"""
-
-        class Madagascar(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMGA"
-            """Madagascar Currency"""
-
-        class Malawi(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMWK"
-            """Malawi Currency"""
-
-        class Malaysia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "FBMKLCI"
-            """Malaysia Stock Market"""
-
-            INTERBANK_RATE: str = "MALAYSIAINTRAT"
-            """Malaysia Interbank Rate"""
-
-            INTEREST_RATE: str = "MAOPRATE"
-            """Malaysia Interest Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "MGIY10Y"
-            """Malaysia Government Bond 10Y"""
-
-            CURRENCY: str = "USDMYR"
-            """Malaysia Currency"""
-
-        class Maldives(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMVR"
-            """Maldives Currency"""
-
-        class Malta(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "MALTEX"
-            """Malta Stock Market"""
-
-        class Mauritius(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "SEMDEX"
-            """Mauritius Stock Market"""
-
-            CURRENCY: str = "USDMUR"
-            """Mauritius Currency"""
-
-        class Mexico(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GMXN10YR"
-            """Mexico Government Bond 10Y"""
-
-            STOCK_MARKET: str = "MEXBOL"
-            """Mexico Stock Market"""
-
-            INTEREST_RATE: str = "MXONBR"
-            """Mexico Interest Rate"""
-
-            CURRENCY: str = "USDMXN"
-            """Mexico Currency"""
-
-        class Moldova(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMDL"
-            """Moldova Currency"""
-
-        class Mongolia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "MSETOP"
-            """Mongolia Stock Market"""
-
-            CURRENCY: str = "USDMNT"
-            """Mongolia Currency"""
-
-        class Morocco(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "MOSENEW"
-            """Morocco Stock Market"""
-
-            CURRENCY: str = "USDMAD"
-            """Morocco Currency"""
-
-        class Mozambique(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMZN"
-            """Mozambique Currency"""
-
-        class Myanmar(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDMMK"
-            """Myanmar Currency"""
-
-        class Namibia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "FTN098"
-            """Namibia Stock Market"""
-
-            CURRENCY: str = "USDNAD"
-            """Namibia Currency"""
-
-        class Nepal(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDNPR"
-            """Nepal Currency"""
-
-        class Netherlands(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "AEX"
-            """Netherlands Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "GNTH10YR"
-            """Netherlands Government Bond 10Y"""
-
-        class NewCaledonia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDXPF"
-            """NewCaledonia Currency"""
-
-        class NewZealand(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GNZGB10"
-            """NewZealand Government Bond 10Y"""
-
-            GLOBAL_DAIRY_TRADE_PRICE_INDEX: str = "NEWZEALANGDTPI"
-            """NewZealand Global Dairy Trade Price Index"""
-
-            CURRENCY: str = "NZDUSD"
-            """NewZealand Currency"""
-
-            DEPOSIT_INTEREST_RATE: str = "NZLFRINRDPST"
-            """NewZealand Deposit Interest Rate"""
-
-            INTEREST_RATE: str = "NZOCRS"
-            """NewZealand Interest Rate"""
-
-            STOCK_MARKET: str = "NZSE50FG"
-            """NewZealand Stock Market"""
-
-        class Nicaragua(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDNIO"
-            """Nicaragua Currency"""
-
-        class Nigeria(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "NGSEINDX"
-            """Nigeria Stock Market"""
-
-            CASH_RESERVE_RATIO: str = "NIGERIACASRESRAT"
-            """Nigeria Cash Reserve Ratio"""
-
-            GOVERNMENT_BOND_10Y: str = "NIGERIAGOVBON10Y"
-            """Nigeria Government Bond 10y"""
-
-            INTERBANK_RATE: str = "NIGERIAINTRAT"
-            """Nigeria Interbank Rate"""
-
-            CURRENCY: str = "USDNGN"
-            """Nigeria Currency"""
-
-        class NorthKorea(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "NORTHKORECUR"
-            """NorthKorea Currency"""
-
-        class Norway(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GNOR10YR"
-            """Norway Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "NORWAYINTRAT"
-            """Norway Interbank Rate"""
-
-            STOCK_MARKET: str = "OSEAX"
-            """Norway Stock Market"""
-
-            CURRENCY: str = "USDNOK"
-            """Norway Currency"""
-
-        class Oman(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "MSM30"
-            """Oman Stock Market"""
-
-            CURRENCY: str = "USDOMR"
-            """Oman Currency"""
-
-        class Pakistan(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "KSE100"
-            """Pakistan Stock Market"""
-
-            INTEREST_RATE: str = "PAPRSBP"
-            """Pakistan Interest Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "PKIB10YR"
-            """Pakistan Government Bond 10Y"""
-
-            CURRENCY: str = "USDPKR"
-            """Pakistan Currency"""
-
-        class Panama(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BVPSBVPS"
-            """Panama Stock Market"""
-
-            CURRENCY: str = "USDPAB"
-            """Panama Currency"""
-
-        class PapuaNewGuinea(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDPGK"
-            """PapuaNewGuinea Currency"""
-
-        class Paraguay(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDPYG"
-            """Paraguay Currency"""
-
-        class Peru(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GRPE10Y"
-            """Peru Government Bond 10Y"""
-
-            STOCK_MARKET: str = "IGBVL"
-            """Peru Stock Market"""
-
-            INTERBANK_RATE: str = "PERUINTRAT"
-            """Peru Interbank Rate"""
-
-            INTEREST_RATE: str = "PRRRONUS"
-            """Peru Interest Rate"""
-
-            CURRENCY: str = "USDPEN"
-            """Peru Currency"""
-
-        class Philippines(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "PCOMP"
-            """Philippines Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "PHILIPPINEGOVBON10Y"
-            """Philippines Government Bond 10y"""
-
-            INTERBANK_RATE: str = "PHILIPPINEINTRAT"
-            """Philippines Interbank Rate"""
-
-            INTEREST_RATE: str = "PHILIPPINESINTRATE"
-            """Philippines Interest Rate"""
-
-            CURRENCY: str = "USDPHP"
-            """Philippines Currency"""
-
-        class Poland(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "POGB10YR"
-            """Poland Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "POLANDINTRAT"
-            """Poland Interbank Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "POLFRINRDPST"
-            """Poland Deposit Interest Rate"""
-
-            CURRENCY: str = "USDPLN"
-            """Poland Currency"""
-
-            STOCK_MARKET: str = "WIG"
-            """Poland Stock Market"""
-
-        class Portugal(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GSPT10YR"
-            """Portugal Government Bond 10Y"""
-
-            TWO_YEAR_NOTE_YIELD: str = "PORTUGAL2YNY"
-            """Portugal 2 Year Note Yield"""
-
-            STOCK_MARKET: str = "PSI20"
-            """Portugal Stock Market"""
-
-        class Qatar(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "DSM"
-            """Qatar Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "QATARGOVBON10Y"
-            """Qatar Government Bond 10y"""
-
-            REVERSE_REPO_RATE: str = "QATARREVREPRAT"
-            """Qatar Reverse Repo Rate"""
-
-            CURRENCY: str = "USDQAR"
-            """Qatar Currency"""
-
-        class Romania(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BET"
-            """Romania Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "ROMANIAGOVBON10Y"
-            """Romania Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "ROMANIAINTRAT"
-            """Romania Interbank Rate"""
-
-            CURRENCY: str = "USDRON"
-            """Romania Currency"""
-
-        class Russia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "INDEXCF"
-            """Russia Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "RUGE10Y"
-            """Russia Government Bond 10Y"""
-
-            CENTRAL_BANK_BALANCE_SHEET: str = "RUSSIACENBANBALSHE"
-            """Russia Central Bank Balance Sheet"""
-
-            CURRENCY: str = "USDRUB"
-            """Russia Currency"""
-
-        class Rwanda(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDRWF"
-            """Rwanda Currency"""
-
-        class SaoTomeAndPrincipe(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSTD"
-            """SaoTomeAndPrincipe Currency"""
-
-        class SaudiArabia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "SASEIDX"
-            """SaudiArabia Stock Market"""
-
-            REVERSE_REPO_RATE: str = "SAUDIARABREVREPRAT"
-            """SaudiArabia Reverse Repo Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "SAUFRINRDPST"
-            """SaudiArabia Deposit Interest Rate"""
-
-            CURRENCY: str = "USDSAR"
-            """SaudiArabia Currency"""
-
-        class Serbia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "BELEX15"
-            """Serbia Stock Market"""
-
-            INTERBANK_RATE: str = "SERBIAINTRAT"
-            """Serbia Interbank Rate"""
-
-            INTEREST_RATE: str = "SERRBIAINTTRATE"
-            """Serbia Interest Rate"""
-
-            DEPOSIT_INTEREST_RATE: str = "SRBFRINRDPST"
-            """Serbia Deposit Interest Rate"""
-
-            CURRENCY: str = "USDSRB"
-            """Serbia Currency"""
-
-        class Seychelles(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSCR"
-            """Seychelles Currency"""
-
-        class SierraLeone(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSLL"
-            """SierraLeone Currency"""
-
-        class Singapore(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "FSSTI"
-            """Singapore Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "MASB10Y"
-            """Singapore Government Bond 10Y"""
-
-            INTERBANK_RATE: str = "SINGAPOREINTRAT"
-            """Singapore Interbank Rate"""
-
-            CURRENCY: str = "USDSGD"
-            """Singapore Currency"""
-
-        class Slovakia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "SKSM"
-            """Slovakia Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "SLOVAKIAGOVBON10Y"
-            """Slovakia Government Bond 10y"""
-
-        class Slovenia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "SBITOP"
-            """Slovenia Stock Market"""
-
-            GOVERNMENT_BOND_10Y: str = "SLOVENIAGOVBON10Y"
-            """Slovenia Government Bond 10y"""
-
-        class Somalia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSOS"
-            """Somalia Currency"""
-
-        class SouthAfrica(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GSAB10YR"
-            """SouthAfrica Government Bond 10Y"""
-
-            STOCK_MARKET: str = "JALSH"
-            """SouthAfrica Stock Market"""
-
-            INTERBANK_RATE: str = "SOUTHAFRIINTRAT"
-            """SouthAfrica Interbank Rate"""
-
-            CURRENCY: str = "USDZAR"
-            """SouthAfrica Currency"""
-
-        class SouthKorea(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GVSK10YR"
-            """SouthKorea Government Bond 10Y"""
-
-            STOCK_MARKET: str = "KOSPI"
-            """SouthKorea Stock Market"""
-
-            INTERBANK_RATE: str = "SOUTHKOREINTRAT"
-            """SouthKorea Interbank Rate"""
-
-            CURRENCY: str = "USDKRW"
-            """SouthKorea Currency"""
-
-        class Spain(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GSPG10YR"
-            """Spain Government Bond 10Y"""
-
-            STOCK_MARKET: str = "IBEX"
-            """Spain Stock Market"""
-
-            INTERBANK_RATE: str = "SPAININTRAT"
-            """Spain Interbank Rate"""
-
-        class SriLanka(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "CSEALL"
-            """SriLanka Stock Market"""
-
-            INTEREST_RATE: str = "SRI-LANKAINTRATE"
-            """SriLanka Interest Rate"""
-
-            CASH_RESERVE_RATIO: str = "SRILANKACASRESRAT"
-            """SriLanka Cash Reserve Ratio"""
-
-            INTERBANK_RATE: str = "SRILANKAINTRAT"
-            """SriLanka Interbank Rate"""
-
-            LENDING_RATE: str = "SRILANKALENRAT"
-            """SriLanka Lending Rate"""
-
-            CURRENCY: str = "USDLKR"
-            """SriLanka Currency"""
-
-        class Sudan(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSDG"
-            """Sudan Currency"""
-
-        class Suriname(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSRD"
-            """Suriname Currency"""
-
-        class Swaziland(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSZL"
-            """Swaziland Currency"""
-
-        class Sweden(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GSGB10YR"
-            """Sweden Government Bond 10Y"""
-
-            STOCK_MARKET: str = "OMX"
-            """Sweden Stock Market"""
-
-            INTERBANK_RATE: str = "SWEDENINTRAT"
-            """Sweden Interbank Rate"""
-
-            CURRENCY: str = "USDSEK"
-            """Sweden Currency"""
-
-        class Switzerland(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "GSWISS10"
-            """Switzerland Government Bond 10Y"""
-
-            STOCK_MARKET: str = "SMI"
-            """Switzerland Stock Market"""
-
-            INTERBANK_RATE: str = "SWITZERLANINTRAT"
-            """Switzerland Interbank Rate"""
-
-            CURRENCY: str = "USDCHF"
-            """Switzerland Currency"""
-
-        class Syria(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDSYP"
-            """Syria Currency"""
-
-        class Taiwan(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "TAIWANGOVBON10Y"
-            """Taiwan Government Bond 10y"""
-
-            INTERBANK_RATE: str = "TAIWANINTRAT"
-            """Taiwan Interbank Rate"""
-
-            INTEREST_RATE: str = "TAIWANIR"
-            """Taiwan Interest Rate"""
-
-            STOCK_MARKET: str = "TWSE"
-            """Taiwan Stock Market"""
-
-            CURRENCY: str = "USDTWD"
-            """Taiwan Currency"""
-
-        class Tajikistan(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDTJS"
-            """Tajikistan Currency"""
-
-        class Tanzania(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "DARSDSEI"
-            """Tanzania Stock Market"""
-
-            CURRENCY: str = "USDTZS"
-            """Tanzania Currency"""
-
-        class Thailand(System.Object):
-            """This class has no documentation."""
-
-            INTEREST_RATE: str = "BTRR1DAY"
-            """Thailand Interest Rate"""
-
-            GOVERNMENT_BOND_10Y: str = "GVTL10YR"
-            """Thailand Government Bond 10Y"""
-
-            STOCK_MARKET: str = "SET50"
-            """Thailand Stock Market"""
-
-            INTERBANK_RATE: str = "THAILANDINTRAT"
-            """Thailand Interbank Rate"""
-
-            CURRENCY: str = "USDTHB"
-            """Thailand Currency"""
-
-        class TrinidadAndTobago(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDTTD"
-            """TrinidadAndTobago Currency"""
-
-        class Tunisia(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "TUSISE"
-            """Tunisia Stock Market"""
-
-            CURRENCY: str = "USDTND"
-            """Tunisia Currency"""
-
-        class Turkey(System.Object):
-            """This class has no documentation."""
-
-            GOVERNMENT_BOND_10Y: str = "TURKEYGOVBON10Y"
-            """Turkey Government Bond 10y"""
-
-            INTERBANK_RATE: str = "TURKEYINTRAT"
-            """Turkey Interbank Rate"""
-
-            CURRENCY: str = "USDTRY"
-            """Turkey Currency"""
-
-            STOCK_MARKET: str = "XU100"
-            """Turkey Stock Market"""
-
-        class Turkmenistan(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDTMT"
-            """Turkmenistan Currency"""
-
-        class Uganda(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDUGX"
-            """Uganda Currency"""
-
-        class Ukraine(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "PFTS"
-            """Ukraine Stock Market"""
-
-            INTERBANK_RATE: str = "UKRAINEINTRAT"
-            """Ukraine Interbank Rate"""
-
-            CURRENCY: str = "USDUAH"
-            """Ukraine Currency"""
-
-        class UnitedArabEmirates(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "ADSMI"
-            """UnitedArabEmirates Stock Market"""
-
-            INTERBANK_RATE: str = "UNITEDARAINTRAT"
-            """UnitedArabEmirates Interbank Rate"""
-
-            CURRENCY: str = "USDAED"
-            """UnitedArabEmirates Currency"""
-
-        class UnitedKingdom(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "GBPUSD"
-            """UnitedKingdom Currency"""
-
-            GOVERNMENT_BOND_10Y: str = "GUKG10"
-            """UnitedKingdom Government Bond 10Y"""
-
-            STOCK_MARKET: str = "UKX"
-            """UnitedKingdom Stock Market"""
-
-            TWO_YEAR_NOTE_YIELD: str = "UNITEDKIN2YNY"
-            """UnitedKingdom 2 Year Note Yield"""
-
-            INTERBANK_RATE: str = "UNITEDKININTRAT"
-            """UnitedKingdom Interbank Rate"""
-
-        class UnitedStates(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "DXY"
-            """UnitedStates Currency"""
-
-            INTEREST_RATE: str = "FDTR"
-            """UnitedStates Interest Rate"""
-
-            STOCK_MARKET: str = "INDU"
-            """UnitedStates Stock Market"""
-
-            TWO_YEAR_NOTE_YIELD: str = "UNITEDSTA2YEANOTYIE"
-            """UnitedStates 2 Year Note Yield"""
-
-            ECONOMIC_OPTIMISM_INDEX: str = "UNITEDSTAECOOPTIND"
-            """UnitedStates Economic Optimism Index"""
-
-            FOREIGN_DIRECT_INVESTMENT: str = "UNITEDSTAFORDIRINV"
-            """UnitedStates Foreign Direct Investment"""
-
-            INTERBANK_RATE: str = "UNITEDSTAINTRAT"
-            """UnitedStates Interbank Rate"""
-
-            NAHB_HOUSING_MARKET_INDEX: str = "UNITEDSTANAHHOUMARIN"
-            """UnitedStates Nahb Housing Market Index"""
-
-            NY_EMPIRE_STATE_MANUFACTURING_INDEX: str = "UNITEDSTANYEMPSTAMAN"
-            """UnitedStates NY Empire State Manufacturing Index"""
-
-            REDBOOK_INDEX: str = "UNITEDSTAREDIND"
-            """UnitedStates Redbook Index"""
-
-            GOVERNMENT_BOND_10Y: str = "USGG10YR"
-            """UnitedStates Government Bond 10Y"""
-
-            CRUDE_OIL_RIGS: str = "USOILRIGS"
-            """UnitedStates Crude Oil Rigs"""
-
-        class Uruguay(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDURY"
-            """Uruguay Currency"""
-
-        class Uzbekistan(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDUZS"
-            """Uzbekistan Currency"""
-
-        class Venezuela(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "IBVC"
-            """Venezuela Stock Market"""
-
-            CURRENCY: str = "USDVES"
-            """Venezuela Currency"""
-
-            GOVERNMENT_BOND_10Y: str = "VENEZUELAGOVBON10Y"
-            """Venezuela Government Bond 10y"""
-
-            DEPOSIT_INTEREST_RATE: str = "VENFRINRDPST"
-            """Venezuela Deposit Interest Rate"""
-
-        class Vietnam(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDVND"
-            """Vietnam Currency"""
-
-            GOVERNMENT_BOND_10Y: str = "VIETNAMGOVBON10Y"
-            """Vietnam Government Bond 10y"""
-
-            INTERBANK_RATE: str = "VIETNAMINTRAT"
-            """Vietnam Interbank Rate"""
-
-            STOCK_MARKET: str = "VNINDEX"
-            """Vietnam Stock Market"""
-
-        class Yemen(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDYER"
-            """Yemen Currency"""
-
-        class Zambia(System.Object):
-            """This class has no documentation."""
-
-            CURRENCY: str = "USDZMK"
-            """Zambia Currency"""
-
-            GOVERNMENT_BOND_10Y: str = "ZAMBIAGOVBON10Y"
-            """Zambia Government Bond 10y"""
-
-            INTEREST_RATE: str = "ZAMMBIAINTTRATE"
-            """Zambia Interest Rate"""
-
-        class Zimbabwe(System.Object):
-            """This class has no documentation."""
-
-            STOCK_MARKET: str = "INDZI"
-            """Zimbabwe Stock Market"""
-
-    class Calendar(System.Object):
-        """Calendar group"""
-
-        class Australia(System.Object):
-            """Australia"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUILDING_PERMITS: str = ...
-            """Building Permits"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            BUSINESS_INVENTORIES: str = ...
-            """Business Inventories"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAR_REGISTRATIONS: str = ...
-            """Car Registrations"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSTRUCTION_PMI: str = ...
-            """Construction Pmi"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CONSUMER_PRICE_INDEX_CPI: str = ...
-            """Consumer Price Index (CPI)"""
-
-            CONSUMER_SPENDING: str = ...
-            """Consumer Spending"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CORPORATE_PROFITS: str = ...
-            """Corporate Profits"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EMPLOYMENT_CHANGE: str = ...
-            """Employment Change"""
-
-            EXPORT_PRICES: str = ...
-            """Export Prices"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FULL_TIME_EMPLOYMENT: str = ...
-            """Full Time Employment"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_DEFLATOR: str = ...
-            """GDP Deflator"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GROSS_FIXED_CAPITAL_FORMATION: str = ...
-            """Gross Fixed Capital Formation"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOME_LOANS: str = ...
-            """Home Loans"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            IMPORT_PRICES: str = ...
-            """Import Prices"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_SENTIMENT: str = ...
-            """Industrial Sentiment"""
-
-            INFLATION_EXPECTATIONS: str = ...
-            """Inflation Expectations"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            JOB_ADVERTISEMENTS: str = ...
-            """Job Advertisements"""
-
-            LABOR_FORCE_PARTICIPATION_RATE: str = ...
-            """Labor Force Participation Rate"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            NEW_HOME_SALES: str = ...
-            """New Home Sales"""
-
-            PART_TIME_EMPLOYMENT: str = ...
-            """Part Time Employment"""
-
-            PRIVATE_INVESTMENT: str = ...
-            """Private Investment"""
-
-            PRIVATE_SECTOR_CREDIT: str = ...
-            """Private Sector Credit"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SERVICES_SENTIMENT: str = ...
-            """Services Sentiment"""
-
-            TOTAL_VEHICLE_SALES: str = ...
-            """Total Vehicle Sales"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Austria(System.Object):
-            """Austria"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYED_PERSONS: str = ...
-            """Unemployed Persons"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WHOLESALE_PRICES: str = ...
-            """Wholesale Prices"""
-
-        class Belgium(System.Object):
-            """Belgium"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Canada(System.Object):
-            """Canada"""
-
-            ADP_EMPLOYMENT_CHANGE: str = ...
-            """Adp Employment Change"""
-
-            AVERAGE_HOURLY_EARNINGS: str = ...
-            """Average Hourly Earnings"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUILDING_PERMITS: str = ...
-            """Building Permits"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            CAR_REGISTRATIONS: str = ...
-            """Car Registrations"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EMPLOYMENT_CHANGE: str = ...
-            """Employment Change"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FOREIGN_STOCK_INVESTMENT: str = ...
-            """Foreign Stock Investment"""
-
-            FULL_TIME_EMPLOYMENT: str = ...
-            """Full Time Employment"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_DEFLATOR: str = ...
-            """GDP Deflator"""
-
-            GDP_GROWTH_ANNUALIZED: str = ...
-            """Gdp Growth Annualized"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BUDGET_VALUE: str = ...
-            """Government Budget Value"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            HOUSING_STARTS: str = ...
-            """Housing Starts"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            JOB_VACANCIES: str = ...
-            """Job Vacancies"""
-
-            LABOR_FORCE_PARTICIPATION_RATE: str = ...
-            """Labor Force Participation Rate"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing PMI"""
-
-            MANUFACTURING_SALES: str = ...
-            """Manufacturing Sales"""
-
-            PART_TIME_EMPLOYMENT: str = ...
-            """Part Time Employment"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            PRODUCTIVITY: str = ...
-            """Productivity"""
-
-            RETAIL_SALES_EX_AUTOS: str = ...
-            """Retail Sales Ex Autos"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-            WHOLESALE_PRICES: str = ...
-            """Wholesale Prices"""
-
-            WHOLESALE_SALES: str = ...
-            """Wholesale Sales"""
-
-        class China(System.Object):
-            """China"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BANKS_BALANCE_SHEET: str = ...
-            """Banks Balance Sheet"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            CAPITAL_FLOWS: str = ...
-            """Capital Flows"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CORPORATE_PROFITS: str = ...
-            """Corporate Profits"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FIXED_ASSET_INVESTMENT: str = ...
-            """Fixed Asset Investment"""
-
-            FOREIGN_DIRECT_INVESTMENT: str = ...
-            """Foreign Direct Investment"""
-
-            FOREIGN_EXCHANGE_RESERVES: str = ...
-            """Foreign Exchange Reserves"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LOAN_GROWTH: str = ...
-            """Loan Growth"""
-
-            LOANS_TO_PRIVATE_SECTOR: str = ...
-            """Loans to Private Sector"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            MNI_BUSINESS_SENTIMENT: str = ...
-            """Mni Business Sentiment"""
-
-            MNI_CONSUMER_SENTIMENT: str = ...
-            """Mni Consumer Sentiment"""
-
-            MONEY_SUPPLY_M_TWO: str = ...
-            """Money Supply M2"""
-
-            NON_MANUFACTURING_PMI: str = ...
-            """Non Manufacturing Pmi"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            TOTAL_VEHICLE_SALES: str = ...
-            """Total Vehicle Sales"""
-
-        class Cyprus(System.Object):
-            """Cyprus"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Estonia(System.Object):
-            """Estonia"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Finland(System.Object):
-            """Finland"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EXPORT_PRICES: str = ...
-            """Export Prices"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            IMPORT_PRICES: str = ...
-            """Import Prices"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales Mom"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales Yoy"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class France(System.Object):
-            """France"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
-            """52 Week Bill Yield"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GOVERNMENT_BUDGET_VALUE: str = ...
-            """Government Budget Value"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INITIAL_JOBLESS_CLAIMS: str = ...
-            """Initial Jobless Claims"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            NON_FARM_PAYROLLS: str = ...
-            """Non Farm Payrolls"""
-
-            NONFARM_PAYROLLS_PRIVATE: str = ...
-            """Nonfarm Payrolls Private"""
-
-            PERSONAL_SPENDING: str = ...
-            """Personal Spending"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THREE_MONTH_BILL_YIELD: str = ...
-            """3 Month Bill Yield"""
-
-            THREE_YEAR_NOTE_YIELD: str = ...
-            """3 Year Note Yield"""
-
-            UNEMPLOYED_PERSONS: str = ...
-            """Unemployed Persons"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Germany(System.Object):
-            """Germany"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSTRUCTION_PMI: str = ...
-            """Construction Pmi"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EMPLOYED_PERSONS: str = ...
-            """Employed Persons"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
-            """52 Week Bill Yield"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GOVERNMENT_BUDGET: str = ...
-            """Government Budget"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            IMPORT_PRICES: str = ...
-            """Import Prices"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            JOB_VACANCIES: str = ...
-            """Job Vacancies"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            THIRTY_YEAR_BOND_YIELD: str = ...
-            """30 Year Bond Yield"""
-
-            TWO_YEAR_NOTE_YIELD: str = ...
-            """2 Year Note Yield"""
-
-            UNEMPLOYED_PERSONS: str = ...
-            """Unemployed Persons"""
-
-            UNEMPLOYMENT_CHANGE: str = ...
-            """Unemployment Change"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WHOLESALE_PRICES: str = ...
-            """Wholesale Prices"""
-
-            ZEW_ECONOMIC_SENTIMENT_INDEX: str = ...
-            """Zew Economic Sentiment Index"""
-
-        class Greece(System.Object):
-            """Greece"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            LOAN_GROWTH: str = ...
-            """Loan Growth"""
-
-            LOANS_TO_PRIVATE_SECTOR: str = ...
-            """Loans to Private Sector"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PRIVATE_SECTOR_CREDIT: str = ...
-            """Private Sector Credit"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THREE_MONTH_BILL_YIELD: str = ...
-            """3 Month Bill Yield"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Ireland(System.Object):
-            """Ireland"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSTRUCTION_PMI: str = ...
-            """Construction Pmi"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GROSS_NATIONAL_PRODUCT: str = ...
-            """Gross National Product"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PERSONAL_SAVINGS: str = ...
-            """Personal Savings"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Italy(System.Object):
-            """Italy"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
-            """52 Week Bill Yield"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GOVERNMENT_BUDGET: str = ...
-            """Government Budget"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            MANUFACTURING_SALES: str = ...
-            """Manufacturing Sales"""
-
-            NEW_ORDERS: str = ...
-            """New Orders"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SEVEN_YEAR_NOTE_YIELD: str = ...
-            """7 Year Note Yield"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THIRTY_YEAR_BOND_YIELD: str = ...
-            """30 Year Bond Yield"""
-
-            THREE_YEAR_NOTE_YIELD: str = ...
-            """3 Year Note Yield"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Japan(System.Object):
-            """Japan"""
-
-            ALL_INDUSTRY_ACTIVITY_INDEX: str = ...
-            """All Industry Activity Index"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            COINCIDENT_INDEX: str = ...
-            """Coincident Index"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSTRUCTION_ORDERS: str = ...
-            """Construction Orders"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CONSUMER_SPENDING: str = ...
-            """Consumer Spending"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            ECONOMY_WATCHERS_SURVEY: str = ...
-            """Economy Watchers Survey"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FOREIGN_BOND_INVESTMENT: str = ...
-            """Foreign Bond Investment"""
-
-            FOREIGN_EXCHANGE_RESERVES: str = ...
-            """Foreign Exchange Reserves"""
-
-            FOREIGN_STOCK_INVESTMENT: str = ...
-            """Foreign Stock Investment"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_DEFLATOR: str = ...
-            """GDP Deflator"""
-
-            GDP_GROWTH_ANNUALIZED: str = ...
-            """Gdp Growth Annualized"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GROSS_FIXED_CAPITAL_FORMATION: str = ...
-            """Gross Fixed Capital Formation"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSEHOLD_SPENDING: str = ...
-            """Household Spending"""
-
-            HOUSING_STARTS: str = ...
-            """Housing Starts"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            JOBS_TO_APPLICATIONS_RATIO: str = ...
-            """Jobs To Applications Ratio"""
-
-            LEADING_COMPOSITE_INDEX: str = ...
-            """Leading Composite Index"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            LOAN_GROWTH: str = ...
-            """Loan Growth"""
-
-            MACHINERY_ORDERS: str = ...
-            """Machinery Orders"""
-
-            MACHINE_TOOL_ORDERS: str = ...
-            """Machine Tool Orders"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            NON_MANUFACTURING_PMI: str = ...
-            """Non Manufacturing Pmi"""
-
-            PRIVATE_INVESTMENT: str = ...
-            """Private Investment"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            REUTERS_TANKAN_INDEX: str = ...
-            """Reuters Tankan Index"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SMALL_BUSINESS_SENTIMENT: str = ...
-            """Small Business Sentiment"""
-
-            TERTIARY_INDUSTRY_INDEX: str = ...
-            """Tertiary Industry Index"""
-
-            THIRTY_YEAR_BOND_YIELD: str = ...
-            """30 Year Bond Yield"""
-
-            TOKYO_CPI: str = ...
-            """Tokyo Cpi"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Latvia(System.Object):
-            """Latvia"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Lithuania(System.Object):
-            """Lithuania"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Luxembourg(System.Object):
-            """Luxembourg"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales Mom"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Malta(System.Object):
-            """Malta"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Netherlands(System.Object):
-            """Netherlands"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            MANUFACTURING_PRODUCTION: str = ...
-            """Manufacturing Production"""
-
-            PERSONAL_SPENDING: str = ...
-            """Personal Spending"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THREE_MONTH_BILL_YIELD: str = ...
-            """3 Month Bill Yield"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class NewZealand(System.Object):
-            """New Zealand"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUILDING_PERMITS: str = ...
-            """Building Permits"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CREDIT_CARD_SPENDING: str = ...
-            """Credit Card Spending"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EMPLOYMENT_CHANGE: str = ...
-            """Employment Change"""
-
-            EXPORT_PRICES: str = ...
-            """Export Prices"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FOOD_INFLATION: str = ...
-            """Food Inflation"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GLOBAL_DAIRY_TRADE_PRICE_INDEX: str = ...
-            """Global Dairy Trade Price Index"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            IMPORT_PRICES: str = ...
-            """Import Prices"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_EXPECTATIONS: str = ...
-            """Inflation Expectations"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LABOR_FORCE_PARTICIPATION_RATE: str = ...
-            """Labor Force Participation Rate"""
-
-            LABOUR_COSTS: str = ...
-            """Labour Costs"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            TERMS_OF_TRADE: str = ...
-            """Terms of Trade"""
-
-            TOURIST_ARRIVALS: str = ...
-            """Tourist Arrivals"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Portugal(System.Object):
-            """Portugal"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BUDGET_VALUE: str = ...
-            """Government Budget Value"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            PERSONAL_SPENDING: str = ...
-            """Personal Spending"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Slovakia(System.Object):
-            """Slovakia"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CORE_CONSUMER_PRICES: str = ...
-            """Core Consumer Prices"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class Slovenia(System.Object):
-            """Slovenia"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            TOURIST_ARRIVALS: str = ...
-            """Tourist Arrivals"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Spain(System.Object):
-            """Spain"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
-            """52 Week Bill Yield"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            HARMONISED_CONSUMER_PRICES: str = ...
-            """Harmonised Consumer Prices"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THREE_MONTH_BILL_YIELD: str = ...
-            """3 Month Bill Yield"""
-
-            THREE_YEAR_NOTE_YIELD: str = ...
-            """3 Year Note Yield"""
-
-            TOTAL_VEHICLE_SALES: str = ...
-            """Total Vehicle Sales"""
-
-            TOURIST_ARRIVALS: str = ...
-            """Tourist Arrivals"""
-
-            UNEMPLOYMENT_CHANGE: str = ...
-            """Unemployment Change"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Sweden(System.Object):
-            """Sweden"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            BUSINESS_INVENTORIES: str = ...
-            """Business Inventories"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CORE_CONSUMER_PRICES: str = ...
-            """Core Consumer Prices"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSEHOLD_SPENDING: str = ...
-            """Household Spending"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_EXPECTATIONS: str = ...
-            """Inflation Expectations"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LOAN_GROWTH: str = ...
-            """Loan Growth"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            NEW_ORDERS: str = ...
-            """New Orders"""
-
-            PRIVATE_SECTOR_CREDIT: str = ...
-            """Private Sector Credit"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-        class Switzerland(System.Object):
-            """Switzerland"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FOREIGN_EXCHANGE_RESERVES: str = ...
-            """Foreign Exchange Reserves"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            NON_FARM_PAYROLLS: str = ...
-            """Non Farm Payrolls"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            ZEW_ECONOMIC_SENTIMENT_INDEX: str = ...
-            """Zew Economic Sentiment Index"""
-
-        class UnitedKingdom(System.Object):
-            """United Kingdom"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAR_REGISTRATIONS: str = ...
-            """Car Registrations"""
-
-            CBI_DISTRIBUTIVE_TRADES: str = ...
-            """CBI Distributive Trades"""
-
-            CLAIMANT_COUNT_CHANGE: str = ...
-            """Claimant Count Change"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSTRUCTION_ORDERS: str = ...
-            """Construction Orders"""
-
-            CONSTRUCTION_OUTPUT: str = ...
-            """Construction Output"""
-
-            CONSTRUCTION_PMI: str = ...
-            """Construction Pmi"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CONSUMER_CREDIT: str = ...
-            """Consumer Credit"""
-
-            CORE_CONSUMER_PRICES: str = ...
-            """Core Consumer Prices"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CORE_PRODUCER_PRICES: str = ...
-            """Core Producer Prices"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            ECONOMIC_ACTIVITY_INDEX: str = ...
-            """Economic Activity Index"""
-
-            EMPLOYMENT_CHANGE: str = ...
-            """Employment Change"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOODS_TRADE_BALANCE: str = ...
-            """Goods Trade Balance"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GOVERNMENT_DEBT: str = ...
-            """Government Debt"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOME_LOANS: str = ...
-            """Home Loans"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_EXPECTATIONS: str = ...
-            """Inflation Expectations"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            LABOUR_COSTS: str = ...
-            """Labour Costs"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            MANUFACTURING_PRODUCTION: str = ...
-            """Manufacturing Production"""
-
-            MORTGAGE_APPLICATIONS: str = ...
-            """Mortgage Applications"""
-
-            MORTGAGE_APPROVALS: str = ...
-            """Mortgage Approvals"""
-
-            NATIONWIDE_HOUSING_PRICES: str = ...
-            """Nationwide Housing Prices"""
-
-            PRIVATE_INVESTMENT: str = ...
-            """Private Investment"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            PRODUCTIVITY: str = ...
-            """Productivity"""
-
-            RETAIL_PRICE_INDEX: str = ...
-            """Retail Price Index"""
-
-            RETAIL_SALES_EX_FUEL: str = ...
-            """Retail Sales Ex Fuel"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            THIRTY_YEAR_BOND_YIELD: str = ...
-            """30 Year Bond Yield"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WAGE_GROWTH: str = ...
-            """Wage Growth"""
-
-        class UnitedStates(System.Object):
-            """United States"""
-
-            ADP_EMPLOYMENT_CHANGE: str = ...
-            """Adp Employment Change"""
-
-            API_CRUDE_OIL_STOCK_CHANGE: str = ...
-            """API Crude Oil Stock Change"""
-
-            AVERAGE_HOURLY_EARNINGS: str = ...
-            """Average Hourly Earnings"""
-
-            AVERAGE_WEEKLY_HOURS: str = ...
-            """Average Weekly Hours"""
-
-            BALANCE_OF_TRADE: str = ...
-            """Balance of Trade"""
-
-            BUILDING_PERMITS: str = ...
-            """Building Permits"""
-
-            BUSINESS_CONFIDENCE: str = ...
-            """Business Confidence"""
-
-            BUSINESS_INVENTORIES: str = ...
-            """Business Inventories"""
-
-            CALENDAR: str = ...
-            """Calendar"""
-
-            CAPACITY_UTILIZATION: str = ...
-            """Capacity Utilization"""
-
-            CAPITAL_FLOWS: str = ...
-            """Capital Flows"""
-
-            CASE_SHILLER_HOME_PRICE_INDEX: str = ...
-            """Case Shiller Home Price Index"""
-
-            CHAIN_STORE_SALES: str = ...
-            """Chain Store Sales"""
-
-            CHALLENGER_JOB_CUTS: str = ...
-            """Challenger Job Cuts"""
-
-            CHICAGO_FED_NATIONAL_ACTIVITY_INDEX: str = ...
-            """Chicago Fed National Activity Index"""
-
-            CHICAGO_PMI: str = ...
-            """Chicago Pmi"""
-
-            COMPOSITE_PMI: str = ...
-            """Composite Pmi"""
-
-            CONSTRUCTION_SPENDING: str = ...
-            """Construction Spending"""
-
-            CONSUMER_CONFIDENCE: str = ...
-            """Consumer Confidence"""
-
-            CONSUMER_CREDIT: str = ...
-            """Consumer Credit"""
-
-            CONSUMER_PRICE_INDEX_CPI: str = ...
-            """Consumer Price Index (CPI)"""
-
-            CONSUMER_SPENDING: str = ...
-            """Consumer Spending"""
-
-            CONTINUING_JOBLESS_CLAIMS: str = ...
-            """Continuing Jobless Claims"""
-
-            CORE_CONSUMER_PRICES: str = ...
-            """Core Consumer Prices"""
-
-            CORE_INFLATION_RATE: str = ...
-            """Core Inflation Rate"""
-
-            CORE_PCE_PRICE_INDEX: str = ...
-            """Core Pce Price Index"""
-
-            CORE_PRODUCER_PRICES: str = ...
-            """Core Producer Prices"""
-
-            CORPORATE_PROFITS: str = ...
-            """Corporate Profits"""
-
-            CRUDE_OIL_IMPORTS: str = ...
-            """Crude Oil Imports"""
-
-            CRUDE_OIL_RIGS: str = ...
-            """Crude Oil Rigs"""
-
-            CRUDE_OIL_STOCKS_CHANGE: str = ...
-            """Crude Oil Stocks Change"""
-
-            CURRENT_ACCOUNT: str = ...
-            """Current Account"""
-
-            CUSHING_CRUDE_OIL_STOCKS: str = ...
-            """Cushing Crude Oil Stocks"""
-
-            DALLAS_FED_MANUFACTURING_INDEX: str = ...
-            """Dallas Fed Manufacturing Index"""
-
-            DISTILLATE_FUEL_PRODUCTION: str = ...
-            """Distillate Fuel Production"""
-
-            DISTILLATE_STOCKS: str = ...
-            """Distillate Stocks"""
-
-            DURABLE_GOODS_ORDERS: str = ...
-            """Durable Goods Orders"""
-
-            DURABLE_GOODS_ORDERS_EX_DEFENSE: str = ...
-            """Durable Goods Orders Ex Defense"""
-
-            DURABLE_GOODS_ORDERS_EX_TRANSPORTATION: str = ...
-            """Durable Goods Orders Ex Transportation"""
-
-            ECONOMIC_OPTIMISM_INDEX: str = ...
-            """Economic Optimism Index"""
-
-            EMPLOYMENT_COST_INDEX: str = ...
-            """Employment Cost Index"""
-
-            EXISTING_HOME_SALES: str = ...
-            """Existing Home Sales"""
-
-            EXPORT_PRICES: str = ...
-            """Export Prices"""
-
-            EXPORTS: str = ...
-            """Exports"""
-
-            FACTORY_ORDERS: str = ...
-            """Factory Orders"""
-
-            FACTORY_ORDERS_EX_TRANSPORTATION: str = ...
-            """Factory Orders Ex Transportation"""
-
-            FIFTY_TWO_WEEK_BILL_YIELD: str = ...
-            """52 Week Bill Yield"""
-
-            FIVE_YEAR_NOTE_YIELD: str = ...
-            """5 Year Note Yield"""
-
-            FOREIGN_BOND_INVESTMENT: str = ...
-            """Foreign Bond Investment"""
-
-            FOUR_WEEK_BILL_YIELD: str = ...
-            """4 Week Bill Yield"""
-
-            GASOLINE_PRODUCTION: str = ...
-            """Gasoline Production"""
-
-            GASOLINE_STOCKS_CHANGE: str = ...
-            """Gasoline Stocks Change"""
-
-            GDP_ANNUAL_GROWTH_RATE: str = ...
-            """GDP Annual Growth Rate"""
-
-            GDP_DEFLATOR: str = ...
-            """Gdp Deflator"""
-
-            GDP_GROWTH_RATE: str = ...
-            """GDP Growth Rate"""
-
-            GOODS_TRADE_BALANCE: str = ...
-            """Goods Trade Balance"""
-
-            GOVERNMENT_BOND_TEN_Y: str = ...
-            """Government Bond 10Y"""
-
-            GOVERNMENT_BUDGET_VALUE: str = ...
-            """Government Budget Value"""
-
-            GOVERNMENT_PAYROLLS: str = ...
-            """Government Payrolls"""
-
-            HOLIDAYS: str = ...
-            """Holidays"""
-
-            HOUSING_INDEX: str = ...
-            """Housing Index"""
-
-            HOUSING_STARTS: str = ...
-            """Housing Starts"""
-
-            IMPORT_PRICES: str = ...
-            """Import Prices"""
-
-            IMPORTS: str = ...
-            """Imports"""
-
-            INDUSTRIAL_PRODUCTION: str = ...
-            """Industrial Production"""
-
-            INDUSTRIAL_PRODUCTION_MOM: str = ...
-            """Industrial Production Mom"""
-
-            INFLATION_EXPECTATIONS: str = ...
-            """Inflation Expectations"""
-
-            INFLATION_RATE: str = ...
-            """Inflation Rate"""
-
-            INFLATION_RATE_MOM: str = ...
-            """Inflation Rate Mom"""
-
-            INITIAL_JOBLESS_CLAIMS: str = ...
-            """Initial Jobless Claims"""
-
-            INTEREST_RATE: str = ...
-            """Interest Rate"""
-
-            ISM_NEW_YORK_INDEX: str = ...
-            """Ism New York Index"""
-
-            JOB_OFFERS: str = ...
-            """Job Offers"""
-
-            KANSAS_FED_MANUFACTURING_INDEX: str = ...
-            """Kansas Fed Manufacturing Index"""
-
-            LABOR_FORCE_PARTICIPATION_RATE: str = ...
-            """Labor Force Participation Rate"""
-
-            LABOR_MARKET_CONDITIONS_INDEX: str = ...
-            """Labor Market Conditions Index"""
-
-            LABOUR_COSTS: str = ...
-            """Labour Costs"""
-
-            LEADING_ECONOMIC_INDEX: str = ...
-            """Leading Economic Index"""
-
-            MANUFACTURING_PAYROLLS: str = ...
-            """Manufacturing Payrolls"""
-
-            MANUFACTURING_PMI: str = ...
-            """Manufacturing Pmi"""
-
-            MANUFACTURING_PRODUCTION: str = ...
-            """Manufacturing Production"""
-
-            MORTGAGE_APPLICATIONS: str = ...
-            """Mortgage Applications"""
-
-            MORTGAGE_RATE: str = ...
-            """Mortgage Rate"""
-
-            NAHB_HOUSING_MARKET_INDEX: str = ...
-            """Nahb Housing Market Index"""
-
-            NATURAL_GAS_STOCKS_CHANGE: str = ...
-            """Natural Gas Stocks Change"""
-
-            NET_LONG_TERM_TIC_FLOWS: str = ...
-            """Net Long-term Tic Flows"""
-
-            NEW_HOME_SALES: str = ...
-            """New Home Sales"""
-
-            NFIB_BUSINESS_OPTIMISM_INDEX: str = ...
-            """Nfib Business Optimism Index"""
-
-            NON_FARM_PAYROLLS: str = ...
-            """Non Farm Payrolls"""
-
-            NONFARM_PAYROLLS_PRIVATE: str = ...
-            """Nonfarm Payrolls - Private"""
-
-            NON_MANUFACTURING_PMI: str = ...
-            """Non Manufacturing Pmi"""
-
-            NY_EMPIRE_STATE_MANUFACTURING_INDEX: str = ...
-            """Ny Empire State Manufacturing Index"""
-
-            PCE_PRICE_INDEX: str = ...
-            """Pce Price Index"""
-
-            PENDING_HOME_SALES: str = ...
-            """Pending Home Sales"""
-
-            PERSONAL_INCOME: str = ...
-            """Personal Income"""
-
-            PERSONAL_SPENDING: str = ...
-            """Personal Spending"""
-
-            PHILADELPHIA_FED_MANUFACTURING_INDEX: str = ...
-            """Philadelphia Fed Manufacturing Index"""
-
-            PRODUCER_PRICES: str = ...
-            """Producer Prices"""
-
-            PRODUCER_PRICES_CHANGE: str = ...
-            """Producer Prices Change"""
-
-            PRODUCTIVITY: str = ...
-            """Productivity"""
-
-            REDBOOK_INDEX: str = ...
-            """Redbook Index"""
-
-            REFINERY_CRUDE_RUNS: str = ...
-            """Refinery Crude Runs"""
-
-            RETAIL_SALES_EX_AUTOS: str = ...
-            """Retail Sales Ex Autos"""
-
-            RETAIL_SALES_MOM: str = ...
-            """Retail Sales MoM"""
-
-            RETAIL_SALES_YOY: str = ...
-            """Retail Sales YoY"""
-
-            RICHMOND_FED_MANUFACTURING_INDEX: str = ...
-            """Richmond Fed Manufacturing Index"""
-
-            SERVICES_PMI: str = ...
-            """Services Pmi"""
-
-            SEVEN_YEAR_NOTE_YIELD: str = ...
-            """7 Year Note Yield"""
-
-            SIX_MONTH_BILL_YIELD: str = ...
-            """6 Month Bill Yield"""
-
-            THIRTY_YEAR_BOND_YIELD: str = ...
-            """30 Year Bond Yield"""
-
-            THREE_MONTH_BILL_YIELD: str = ...
-            """3 Month Bill Yield"""
-
-            THREE_YEAR_NOTE_YIELD: str = ...
-            """3 Year Note Yield"""
-
-            TOTAL_VEHICLE_SALES: str = ...
-            """Total Vehicle Sales"""
-
-            TWO_YEAR_NOTE_YIELD: str = ...
-            """2 Year Note Yield"""
-
-            UNEMPLOYMENT_RATE: str = ...
-            """Unemployment Rate"""
-
-            WHOLESALE_INVENTORIES: str = ...
-            """Wholesale Inventories"""
-
-        DELIMITER: str = "//"
-        """Delimiter used to separate country from ticker in TradingEconomics.Calendar entries"""
-
-
-class TradingEconomicsEventFilter(System.Object):
-    """Provides methods to filter and standardize Trading Economics calendar event names."""
-
-    @staticmethod
-    def filter_event(event_name: str) -> str:
-        """
-        Convert and normalizes the Trading Economics calendar "Event" field.
-        
-        :param event_name: Raw event name
-        :returns: Event name normalized.
-        """
-        ...
-
 
 class EarningsType(Enum):
     """Earnings type: earnings, ipo, dividends"""
@@ -19593,48 +16436,1138 @@ class TradingEconomicsIndicator(QuantConnect.Data.BaseData):
         ...
 
 
-class SmartInsiderExecutionEntity(Enum):
-    """Entity that intends to or executed the transaction"""
+class TradingEconomicsDateTimeConverter(JsonConverter):
+    """DateTime JSON Converter that handles null value"""
 
-    ISSUER = 0
-    """Issuer of the stock"""
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Indicate if we can convert this object."""
+        ...
 
-    SUBSIDIARY = 1
-    """Subsidiary of the issuer"""
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Parse Trading Economics DateTime to C# DateTime"""
+        ...
 
-    BROKER = 2
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write DateTime objects to JSON"""
+        ...
+
+
+class TradingEconomicsEventFilter(System.Object):
+    """Provides methods to filter and standardize Trading Economics calendar event names."""
+
+    @staticmethod
+    def filter_event(event_name: str) -> str:
+        """
+        Convert and normalizes the Trading Economics calendar "Event" field.
+        
+        :param event_name: Raw event name
+        :returns: Event name normalized.
+        """
+        ...
+
+
+class TradingEconomicsImportance(Enum):
+    """Importance of a TradingEconomics information"""
+
+    LOW = 0
+    """Low importance"""
+
+    MEDIUM = 1
+    """Medium importance"""
+
+    HIGH = 2
+    """High importance"""
+
+
+class TradingEconomicsCalendar(QuantConnect.Data.BaseData):
     """
-    Brokers are commonly used to repurchase shares under mandate to avoid insider
-    information rules and to allow repurchases to carry on through close periods
+    Represents the Trading Economics Calendar information:
+    The economic calendar covers around 1600 events for more than 150 countries a month.
+    https://docs.tradingeconomics.com/#events
     """
 
-    EMPLOYER_BENEFIT_TRUST = 3
-    """Unknown - Transaction"""
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
-    EMPLOYEE_BENEFIT_TRUST = 4
-    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
+    is_auth_code_set: bool
+    """Determines if the API key has been set"""
 
-    THIRD_PARTY = 5
-    """Undisclosed independent third party. Likely to be a broker."""
+    auth_code: str
+    """API key for Trading Economics"""
 
-    ERROR = 6
-    """The field was not found in this enum"""
+    @property
+    def calendar_id(self) -> str:
+        """Unique calendar ID used by Trading Economics"""
+        ...
+
+    @calendar_id.setter
+    def calendar_id(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Release time and date in UTC"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def country(self) -> str:
+        """Country name"""
+        ...
+
+    @country.setter
+    def country(self, value: str) -> None:
+        ...
+
+    @property
+    def category(self) -> str:
+        """Indicator category name"""
+        ...
+
+    @category.setter
+    def category(self, value: str) -> None:
+        ...
+
+    @property
+    def event(self) -> str:
+        """Specific event name in the calendar"""
+        ...
+
+    @event.setter
+    def event(self, value: str) -> None:
+        ...
+
+    @property
+    def event_raw(self) -> str:
+        """Raw event name as provided by Trading Economics"""
+        ...
+
+    @event_raw.setter
+    def event_raw(self, value: str) -> None:
+        ...
+
+    @property
+    def reference(self) -> str:
+        """The period for which released data refers to"""
+        ...
+
+    @reference.setter
+    def reference(self, value: str) -> None:
+        ...
+
+    @property
+    def source(self) -> str:
+        """Source of data"""
+        ...
+
+    @source.setter
+    def source(self, value: str) -> None:
+        ...
+
+    @property
+    def actual(self) -> typing.Optional[float]:
+        """Latest released value"""
+        ...
+
+    @actual.setter
+    def actual(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def previous(self) -> typing.Optional[float]:
+        """Value for the previous period after the revision (if revision is applicable)"""
+        ...
+
+    @previous.setter
+    def previous(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def forecast(self) -> typing.Optional[float]:
+        """Average forecast among a representative group of economists"""
+        ...
+
+    @forecast.setter
+    def forecast(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trading_economics_forecast(self) -> typing.Optional[float]:
+        """TradingEconomics own projections"""
+        ...
+
+    @trading_economics_forecast.setter
+    def trading_economics_forecast(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def date_span(self) -> str:
+        """
+        0 indicates that the time of the event is known,
+        1 indicates that we only know the date of event, the exact time of event is unknown
+        """
+        ...
+
+    @date_span.setter
+    def date_span(self, value: str) -> None:
+        ...
+
+    @property
+    def importance(self) -> QuantConnect.DataSource.TradingEconomicsImportance:
+        """Importance of a TradingEconomics information"""
+        ...
+
+    @importance.setter
+    def importance(self, value: QuantConnect.DataSource.TradingEconomicsImportance) -> None:
+        ...
+
+    @property
+    def last_update(self) -> datetime.datetime:
+        """Time when new data was inserted or changed"""
+        ...
+
+    @last_update.setter
+    def last_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def revised(self) -> typing.Optional[float]:
+        """Value reported in the previous period after revision"""
+        ...
+
+    @revised.setter
+    def revised(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def o_country(self) -> str:
+        """Country's original name"""
+        ...
+
+    @o_country.setter
+    def o_country(self, value: str) -> None:
+        ...
+
+    @property
+    def o_category(self) -> str:
+        """Category's original name"""
+        ...
+
+    @o_category.setter
+    def o_category(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker(self) -> str:
+        """Unique ticker used by Trading Economics"""
+        ...
+
+    @ticker.setter
+    def ticker(self, value: str) -> None:
+        ...
+
+    @property
+    def is_percentage(self) -> bool:
+        """Indicates whether the Actual, Previous, Forecast, TradingEconomicsForecast fields are reported as percent values"""
+        ...
+
+    @is_percentage.setter
+    def is_percentage(self, value: bool) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data. This is required for some custom data
+        
+        :returns: A new cloned instance.
+        """
+        ...
+
+    @staticmethod
+    def country_to_currency_code(country: str) -> str:
+        """
+        Converts country name to currency code (ISO 4217)
+        
+        :param country: Country name
+        :returns: ISO 4217 currency code.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    @staticmethod
+    def parse_decimal(value: str, in_percent: bool) -> typing.Optional[float]:
+        """
+        Parse decimal from calendar data
+        
+        :param value: Value to parse
+        :param in_percent: Is the value a percentage
+        :returns: Nullable decimal.
+        """
+        ...
+
+    @staticmethod
+    def process_api_response(content: str) -> typing.List[QuantConnect.DataSource.TradingEconomicsCalendar]:
+        """
+        Parses the raw Trading Economics calendar API result
+        
+        :param content: Contents of returned data
+        :returns: List of instances of the current class.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Line from the data source
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: TradingEconomicsCalendar or BaseDataCollection object containing TradingEconomicsCalendar as its Data.
+        """
+        ...
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the Trading Economics API key.
+        
+        :param auth_code: The Trading Economics API key
+        """
+        ...
+
+    def to_csv(self) -> str:
+        """
+        Convert this instance to a CSV file
+        
+        :returns: string as CSV.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Trading Economics Calendar information."""
+        ...
 
 
-class SmartInsiderExecution(Enum):
-    """Describes how the transaction was executed"""
+class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Insider Trading by private businesses"""
 
-    MARKET = 0
-    """Took place via the open market"""
+    @property
+    def name(self) -> str:
+        """Name"""
+        ...
 
-    TENDER_OFFER = 1
-    """Via a companywide tender offer to all shareholders"""
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
 
-    OFF_MARKET = 2
-    """Under a specific agreement between the issuer and shareholder"""
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Shares amount in transaction"""
+        ...
 
-    ERROR = 3
-    """Field is not in this enum"""
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """PricePerShare of transaction"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Shares Owned after transcation"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
+
+    @property
+    def name(self) -> str:
+        """Name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Shares amount in transaction"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """PricePerShare of transaction"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Shares Owned after transcation"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Regalytics Regulatory articles collection"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverCNBC data
+        
+        :returns: string containing QuiverCNBC information.
+        """
+        ...
+
+
+class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
+    """Regalytics Regulatory articles"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def title(self) -> str:
+        ...
+
+    @title.setter
+    def title(self, value: str) -> None:
+        ...
+
+    @property
+    def summary(self) -> str:
+        ...
+
+    @summary.setter
+    def summary(self, value: str) -> None:
+        ...
+
+    @property
+    def status(self) -> str:
+        ...
+
+    @status.setter
+    def status(self, value: str) -> None:
+        ...
+
+    @property
+    def classification(self) -> str:
+        ...
+
+    @classification.setter
+    def classification(self, value: str) -> None:
+        ...
+
+    @property
+    def filing_type(self) -> str:
+        ...
+
+    @filing_type.setter
+    def filing_type(self, value: str) -> None:
+        ...
+
+    @property
+    def in_federal_register(self) -> bool:
+        ...
+
+    @in_federal_register.setter
+    def in_federal_register(self, value: bool) -> None:
+        ...
+
+    @property
+    def federal_register_number(self) -> str:
+        ...
+
+    @federal_register_number.setter
+    def federal_register_number(self, value: str) -> None:
+        ...
+
+    @property
+    def docket_file_number(self) -> str:
+        ...
+
+    @docket_file_number.setter
+    def docket_file_number(self, value: str) -> None:
+        ...
+
+    @property
+    def sec_release_number(self) -> str:
+        ...
+
+    @sec_release_number.setter
+    def sec_release_number(self, value: str) -> None:
+        ...
+
+    @property
+    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @proposed_comments_due_date.setter
+    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @original_publication_date.setter
+    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @federal_register_publication_date.setter
+    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @rule_effective_date.setter
+    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def sourced_at(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @sourced_at.setter
+    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def latest_update(self) -> datetime.datetime:
+        ...
+
+    @latest_update.setter
+    def latest_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def alert_type(self) -> str:
+        ...
+
+    @alert_type.setter
+    def alert_type(self, value: str) -> None:
+        ...
+
+    @property
+    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
+        ...
+
+    @states.setter
+    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
+        ...
+
+    @property
+    def agencies(self) -> typing.List[str]:
+        ...
+
+    @agencies.setter
+    def agencies(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
+        ...
+
+    @sector.setter
+    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
+        ...
+
+    @property
+    def announcement_url(self) -> str:
+        ...
+
+    @announcement_url.setter
+    def announcement_url(self, value: str) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BitcoinMetadata(QuantConnect.Data.BaseData):
+    """Blockchain Bitcoin Metadata dataset"""
+
+    @property
+    def difficulty(self) -> float:
+        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
+        ...
+
+    @difficulty.setter
+    def difficulty(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_numberof_users(self) -> float:
+        """Number of wallets hosts using our My Wallet Service."""
+        ...
+
+    @my_wallet_numberof_users.setter
+    def my_wallet_numberof_users(self, value: float) -> None:
+        ...
+
+    @property
+    def average_block_size(self) -> float:
+        """The average block size in MB."""
+        ...
+
+    @average_block_size.setter
+    def average_block_size(self, value: float) -> None:
+        ...
+
+    @property
+    def blockchain_size(self) -> float:
+        """The total size of all block headers and transactions. Not including database indexes."""
+        ...
+
+    @blockchain_size.setter
+    def blockchain_size(self, value: float) -> None:
+        ...
+
+    @property
+    def median_transaction_confirmation_time(self) -> float:
+        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
+        ...
+
+    @median_transaction_confirmation_time.setter
+    def median_transaction_confirmation_time(self, value: float) -> None:
+        ...
+
+    @property
+    def miners_revenue(self) -> float:
+        """Total value of coinbase block rewards and transaction fees paid to miners."""
+        ...
+
+    @miners_revenue.setter
+    def miners_revenue(self, value: float) -> None:
+        ...
+
+    @property
+    def hash_rate(self) -> float:
+        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
+        ...
+
+    @hash_rate.setter
+    def hash_rate(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_per_transaction(self) -> float:
+        """The miners revenue divided by the number of transactions."""
+        ...
+
+    @cost_per_transaction.setter
+    def cost_per_transaction(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_percentof_transaction_volume(self) -> float:
+        """The miners revenue as percentage of the transaction volume."""
+        ...
+
+    @cost_percentof_transaction_volume.setter
+    def cost_percentof_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume_usd(self) -> float:
+        """The Estimated Transaction Value in USD value."""
+        ...
+
+    @estimated_transaction_volume_usd.setter
+    def estimated_transaction_volume_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume(self) -> float:
+        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
+        ...
+
+    @estimated_transaction_volume.setter
+    def estimated_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def total_output_volume(self) -> float:
+        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
+        ...
+
+    @total_output_volume.setter
+    def total_output_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactionper_block(self) -> float:
+        """The average number of transactions per block."""
+        ...
+
+    @numberof_transactionper_block.setter
+    def numberof_transactionper_block(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_unique_bitcoin_addresses_used(self) -> float:
+        """The total number of unique addresses used on the Bitcoin blockchain."""
+        ...
+
+    @numberof_unique_bitcoin_addresses_used.setter
+    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions_excluding_popular_addresses(self) -> float:
+        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
+        ...
+
+    @numberof_transactions_excluding_popular_addresses.setter
+    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
+        ...
+
+    @property
+    def total_numberof_transactions(self) -> float:
+        """The Total Number of transactions."""
+        ...
+
+    @total_numberof_transactions.setter
+    def total_numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions(self) -> float:
+        """The number of daily confirmed Bitcoin transactions."""
+        ...
+
+    @numberof_transactions.setter
+    def numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees_usd(self) -> float:
+        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees_usd.setter
+    def total_transaction_fees_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees(self) -> float:
+        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees.setter
+    def total_transaction_fees(self, value: float) -> None:
+        ...
+
+    @property
+    def market_capitalization(self) -> float:
+        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
+        ...
+
+    @market_capitalization.setter
+    def market_capitalization(self, value: float) -> None:
+        ...
+
+    @property
+    def total_bitcoins(self) -> float:
+        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
+        ...
+
+    @total_bitcoins.setter
+    def total_bitcoins(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_numberof_transaction_per_day(self) -> float:
+        """Number of transactions made by My Wallet Users per day."""
+        ...
+
+    @my_wallet_numberof_transaction_per_day.setter
+    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_transaction_volume(self) -> float:
+        """24hr Transaction Volume of our web wallet service."""
+        ...
+
+    @my_wallet_transaction_volume.setter
+    def my_wallet_transaction_volume(self, value: float) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
 
 
 class SmartInsiderTransactionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
@@ -20078,6 +18011,50 @@ class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
         ...
 
 
+class SmartInsiderExecution(Enum):
+    """Describes how the transaction was executed"""
+
+    MARKET = 0
+    """Took place via the open market"""
+
+    TENDER_OFFER = 1
+    """Via a companywide tender offer to all shareholders"""
+
+    OFF_MARKET = 2
+    """Under a specific agreement between the issuer and shareholder"""
+
+    ERROR = 3
+    """Field is not in this enum"""
+
+
+class SmartInsiderExecutionEntity(Enum):
+    """Entity that intends to or executed the transaction"""
+
+    ISSUER = 0
+    """Issuer of the stock"""
+
+    SUBSIDIARY = 1
+    """Subsidiary of the issuer"""
+
+    BROKER = 2
+    """
+    Brokers are commonly used to repurchase shares under mandate to avoid insider
+    information rules and to allow repurchases to carry on through close periods
+    """
+
+    EMPLOYER_BENEFIT_TRUST = 3
+    """Unknown - Transaction"""
+
+    EMPLOYEE_BENEFIT_TRUST = 4
+    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
+
+    THIRD_PARTY = 5
+    """Undisclosed independent third party. Likely to be a broker."""
+
+    ERROR = 6
+    """The field was not found in this enum"""
+
+
 class SmartInsiderExecutionHolding(Enum):
     """Details regarding the way holdings will be or were processed in a buyback execution"""
 
@@ -20101,6 +18078,196 @@ class SmartInsiderExecutionHolding(Enum):
 
     ERROR = 6
     """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
+
+
+class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
+    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
+        """Describes how the transaction was executed"""
+        ...
+
+    @execution.setter
+    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
+        ...
+
+    @property
+    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
+        """Describes which entity intends to execute the transaction"""
+        ...
+
+    @execution_entity.setter
+    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+        ...
+
+    @property
+    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
+        """Describes what will be done with those shares following repurchase"""
+        ...
+
+    @execution_holding.setter
+    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[int]:
+        """Number of shares to be or authorised to be traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def value_currency(self) -> str:
+        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
+        ...
+
+    @value_currency.setter
+    def value_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount_value(self) -> typing.Optional[int]:
+        """Value of shares to be authorised to be traded"""
+        ...
+
+    @amount_value.setter
+    def amount_value(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def percentage(self) -> typing.Optional[float]:
+        """Percentage of oustanding shares to be authorised to be traded"""
+        ...
+
+    @percentage.setter
+    def percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
+        """start of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_start_date.setter
+    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
+        """End of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_end_date.setter
+    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def price_currency(self) -> str:
+        """Currency of min/max prices (ISO Code)"""
+        ...
+
+    @price_currency.setter
+    def price_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def minimum_price(self) -> typing.Optional[float]:
+        """Minimum price shares will or may be purchased at"""
+        ...
+
+    @minimum_price.setter
+    def minimum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_price(self) -> typing.Optional[float]:
+        """Maximum price shares will or may be purchased at"""
+        ...
+
+    @maximum_price.setter
+    def maximum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def note_text(self) -> str:
+        """Free text which explains further details about the trade"""
+        ...
+
+    @note_text.setter
+    def note_text(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructs instance of this via a *formatted* TSV line (tab delimited)
+        
+        :param line: Line of formatted TSV data
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the object to a new instance. This method
+        is required for custom data sources that make use
+        of properties with more complex types since otherwise
+        the values will default to null using the default clone method
+        
+        :returns: A new cloned instance of this object.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Constructs a new instance from unformatted TSV data
+        
+        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Loads and reads the data to be used in LEAN
+        
+        :param config: Subscription configuration
+        :param line: TSV line
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts the data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
 
 
 class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
@@ -20431,162 +18598,1260 @@ class SmartInsiderIntentionUniverse(QuantConnect.Data.UniverseSelection.BaseData
         ...
 
 
-class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
-    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
+class USEnergy(QuantConnect.Data.BaseData):
+    """United States Energy Information Administration (EIA). This loads U.S. Energy data from QuantConnect's cache."""
+
+    class Petroleum(System.Object):
+        """Petroleum"""
+
+        class UnitedStates(System.Object):
+            """United States"""
+
+            WEEKLY_REFINER_AND_BLENDER_ADJUSTED_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFRPUS2.W"
+            """U.S. Refiner and Blender Adjusted Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFSTUS1.W"
+            """U.S. Ending Stocks of Finished Motor Gasoline in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_FINISHED_MOTOR_GASOLINE: str = "PET.WGFUPUS2.W"
+            """U.S. Product Supplied of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL_IN_SPR: str = "PET.WCSSTUS1.W"
+            """U.S. Ending Stocks of Crude Oil in SPR in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.WDGRPUS2.W"
+            """U.S.  Refiner and Blender Net Production of Distillate Fuel Oil Greater than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.WDGSTUS1.W"
+            """U.S. Ending Stocks of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_EXPORTS_OF_TOTAL_DISTILLATE: str = "PET.WDIEXUS2.W"
+            """U.S. Exports of Total Distillate in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIIMUS2.W"
+            """U.S. Imports of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIRPUS2.W"
+            """U.S. Refiner and Blender Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJSTUS1.W"
+            """U.S. Ending Stocks of Kerosene-Type Jet Fuel in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJUPUS2.W"
+            """U.S. Product Supplied of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_TOTAL_GASOLINE: str = "PET.WGTIMUS2.W"
+            """U.S. Imports of Total Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_TOTAL_GASOLINE: str = "PET.WGTSTUS1.W"
+            """U.S. Ending Stocks of Total Gasoline in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_GROSS_INPUTS_INTO_REFINERIES: str = "PET.WGIRIUS2.W"
+            """U.S. Gross Inputs into Refineries in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRIMUS2.W"
+            """U.S. Imports of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRRPUS2.W"
+            """U.S. Refiner and Blender Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.WGRSTUS1.W"
+            """U.S. Ending Stocks of Reformulated Motor Gasoline in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL: str = "PET.WDISTUS1.W"
+            """U.S. Ending Stocks of Distillate Fuel Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_DISTILLATE_FUEL_OIL: str = "PET.WDIUPUS2.W"
+            """U.S. Product Supplied of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_MILITARY_KEROSENE_TYPE_JET_FUEL: str = "PET.WKMRPUS2.W"
+            """U.S.  Refiner and Blender Net Production of Military Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_OPERABLE_CRUDE_OIL_DISTILLATION_CAPACITY: str = "PET.WOCLEUS2.W"
+            """U. S. Operable Crude Oil Distillation Capacity in Thousand Barrels per Calendar Day (Mbbl/d)"""
+
+            WEEKLY_PROPYLENE_NONFUEL_USE_STOCKS_AT_BULK_TERMINALS: str = "PET.WPLSTUS1.W"
+            """U.S. Propylene Nonfuel Use Stocks at Bulk Terminals in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRSTUS1.W"
+            """U.S. Ending Stocks of Propane and Propylene in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PERCENT_UTILIZATION_OF_REFINERY_OPERABLE_CAPACITY: str = "PET.WPULEUS3.W"
+            """U.S. Percent Utilization of Refinery Operable Capacity in Percent (%)"""
+
+            WEEKLY_EXPORTS_OF_RESIDUAL_FUEL_OIL: str = "PET.WREEXUS2.W"
+            """U.S. Exports of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_RESIDUAL_FUEL_OIL: str = "PET.WREIMUS2.W"
+            """U.S. Imports of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_COMMERCIAL_KEROSENE_TYPE_JET_FUEL: str = "PET.WKCRPUS2.W"
+            """U.S.  Refiner and Blender Net Production of Commercial Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_EXPORTS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJEXUS2.W"
+            """U.S. Exports of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJIMUS2.W"
+            """U.S. Imports of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.WKJRPUS2.W"
+            """U.S. Refiner and Blender Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_OF_CRUDE_OIL: str = "PET.WCESTUS1.W"
+            """U.S. Ending Stocks excluding SPR of Crude Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_EXPORTS_OF_CRUDE_OIL: str = "PET.WCREXUS2.W"
+            """U.S. Exports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_FIELD_PRODUCTION_OF_CRUDE_OIL: str = "PET.WCRFPUS2.W"
+            """U.S. Field Production of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CRUDE_OIL: str = "PET.WCRIMUS2.W"
+            """U.S. Imports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_NET_IMPORTS_OF_CRUDE_OIL: str = "PET.WCRNTUS2.W"
+            """U.S. Net Imports of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_INPUT_OF_CRUDE_OIL: str = "PET.WCRRIUS2.W"
+            """U.S. Refiner Net Input of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_RESIDUAL_FUEL_OIL: str = "PET.WRERPUS2.W"
+            """U.S. Refiner and Blender Net Production of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_RESIDUAL_FUEL_OIL: str = "PET.WRESTUS1.W"
+            """U.S. Ending Stocks of Residual Fuel Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_RESIDUAL_FUEL_OIL: str = "PET.WREUPUS2.W"
+            """U.S. Product Supplied of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_EXPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPEXUS2.W"
+            """U.S. Exports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPIMUS2.W"
+            """U.S. Imports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_NET_IMPORTS_OF_TOTAL_PETROLEUM_PRODUCTS: str = "PET.WRPNTUS2.W"
+            """U.S. Net Imports of Total Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_PETROLEUM_PRODUCTS: str = "PET.WRPUPUS2.W"
+            """U.S. Product Supplied of Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTESTUS1.W"
+            """U.S. Ending Stocks excluding SPR of Crude Oil and Petroleum Products in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_EXPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTEXUS2.W"
+            """U.S. Exports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTIMUS2.W"
+            """U.S. Imports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_NET_IMPORTS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTNTUS2.W"
+            """U.S. Net Imports of Crude Oil and Petroleum Products in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL_AND_PETROLEUM_PRODUCTS: str = "PET.WTTSTUS1.W"
+            """U.S. Ending Stocks of Crude Oil and Petroleum Products in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_UNFINISHED_OILS: str = "PET.WUOSTUS1.W"
+            """U.S. Ending Stocks of Unfinished Oils in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_OTHER_FINISHED_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6TP_NUS_2.W"
+            """U.S. Refiner and Blender Net Production of Other Finished Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0TP_NUS_2.W"
+            """U.S. Refiner and Blender Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1ST_NUS_1.W"
+            """U.S. Ending Stocks of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1TP_NUS_2.W"
+            """U.S. Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.WG1ST_NUS_1.W"
+            """U.S. Ending Stocks of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CRUDE_OIL: str = "PET.WCRSTUS1.W"
+            """U.S. Ending Stocks of Crude Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_CRUDE_OIL_IMPORTS_BY_SPR: str = "PET.WCSIMUS2.W"
+            """U.S. Crude Oil Imports by SPR in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCIMUS2.W"
+            """U.S. Imports of Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCSTUS1.W"
+            """U.S. Ending Stocks of Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_COMMERCIAL_CRUDE_OIL_IMPORTS_EXCLUDING_SPR: str = "PET.WCEIMUS2.W"
+            """U.S. Commercial Crude Oil Imports Excluding SPR in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_BLENDER_AND_GAS_PLANT_NET_PRODUCTION_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRTP_NUS_2.W"
+            """U.S. Refiner, Blender, and Gas Plant Net Production of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_REFORMULATED_MOTOR_GASOLINE_WITH_ETHANOL: str = "PET.WG1TP_NUS_2.W"
+            """U.S. Refiner and Blender Net Production of Finished Reformulated Motor Gasoline with Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_MOTOR_GASOLINE_NON_OXYGENTATED: str = "PET.WG3ST_NUS_1.W"
+            """U.S. Ending Stocks of Reformulated Motor Gasoline, Non-Oxygentated in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4ST_NUS_1.W"
+            """U.S. Ending Stocks of Conventional Motor Gasoline in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4TP_NUS_2.W"
+            """U.S. Refiner and Blender Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.WG5ST_NUS_1.W"
+            """U.S. Ending Stocks of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_WITH_ETHANOL: str = "PET.WG5TP_NUS_2.W"
+            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline with Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6ST_NUS_1.W"
+            """U.S. Ending Stocks of Other Conventional Motor Gasoline in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6RI_NUS_2.W"
+            """U.S. Refiner and Blender Net Input of Conventional CBOB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6ST_NUS_1.W"
+            """U.S. Ending Stocks of Conventional CBOB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7RI_NUS_2.W"
+            """U.S. Refiner and Blender Net Input of Conventional GTAB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7ST_NUS_1.W"
+            """U.S. Ending Stocks of Conventional GTAB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9RI_NUS_2.W"
+            """U.S. Refiner and Blender Net Input of Conventional Other Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9ST_NUS_1.W"
+            """U.S. Ending Stocks of Conventional Other Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_NO_2_HEATING_OIL_WHOLESALE_RESALE_PRICE: str = "PET.W_EPD2F_PWR_NUS_DPG.W"
+            """U.S. No. 2 Heating Oil Wholesale/Resale Price in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_CRUDE_OIL_STOCKS_IN_TRANSIT_ON_SHIPS_FROM_ALASKA: str = "PET.W_EPC0_SKA_NUS_MBBL.W"
+            """U.S. Crude Oil Stocks in Transit (on Ships) from Alaska in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_DAYS_OF_SUPPLY_OF_CRUDE_OIL_EXCLUDING_SPR: str = "PET.W_EPC0_VSD_NUS_DAYS.W"
+            """U.S. Days of Supply of Crude Oil excluding SPR in Number of Days (Days)"""
+
+            WEEKLY_DAYS_OF_SUPPLY_OF_TOTAL_DISTILLATE: str = "PET.W_EPD0_VSD_NUS_DAYS.W"
+            """U.S. Days of Supply of Total Distillate in Number of Days (Days)"""
+
+            WEEKLY_WEEKLY_NO_2_HEATING_OIL_RESIDENTIAL_PRICE: str = "PET.W_EPD2F_PRS_NUS_DPG.W"
+            """U.S. Weekly No. 2 Heating Oil Residential Price in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRUP_NUS_2.W"
+            """U.S. Product Supplied of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_PRODUCT_SUPPLIED_OF_OTHER_OILS: str = "PET.WWOUP_NUS_2.W"
+            """U.S. Product Supplied of Other Oils in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_GASOLINE_BLENDING_COMPONENTS: str = "PET.WBCRI_NUS_2.W"
+            """U.S. Refiner and Blender Net Input of Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0ST_NUS_1.W"
+            """U.S. Ending Stocks of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_DAYS_OF_SUPPLY_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_VSD_NUS_DAYS.W"
+            """U.S. Days of Supply of Kerosene-Type Jet Fuel in Number of Days (Days)"""
+
+            WEEKLY_DAYS_OF_SUPPLY_OF_TOTAL_GASOLINE: str = "PET.W_EPM0_VSD_NUS_DAYS.W"
+            """U.S. Days of Supply of Total Gasoline in Number of Days (Days)"""
+
+            WEEKLY_ENDING_STOCKS_OF_ASPHALT_AND_ROAD_OIL: str = "PET.W_EPPA_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Asphalt and Road Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_KEROSENE: str = "PET.W_EPPK_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Kerosene in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_SUPPLY_ADJUSTMENT_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_VUA_NUS_2.W"
+            """U.S. Supply Adjustment of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.WG5IM_NUS-Z00_2.W"
+            """U.S. Imports of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG6IM_NUS-Z00_2.W"
+            """U.S. Imports of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.WD0IM_NUS-Z00_2.W"
+            """U.S. Imports of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.WD1IM_NUS-Z00_2.W"
+            """U.S. Imports of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_TO_2000_PPM_SULFUR: str = "PET.WD2IM_NUS-Z00_2.W"
+            """U.S. Imports of Distillate Fuel Oil, Greater than 500 to 2000 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_PROPANE_AND_PROPYLENE: str = "PET.WPRIM_NUS-Z00_2.W"
+            """U.S. Imports of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CONVENTIONAL_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO7IM_NUS-Z00_2.W"
+            """U.S. Imports of Conventional GTAB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_2000_PPM_SULFUR: str = "PET.WD3IM_NUS-Z00_2.W"
+            """U.S. Imports of Distillate Fuel Oil, Greater than 2000 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.WG1IM_NUS-Z00_2.W"
+            """U.S. Imports of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.WG4IM_NUS-Z00_2.W"
+            """U.S. Imports of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CONVENTIONAL_OTHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO9IM_NUS-Z00_2.W"
+            """U.S. Imports of Conventional Other Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_CONVENTIONAL_CBOB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO6IM_NUS-Z00_2.W"
+            """U.S. Imports of Conventional CBOB Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_KEROSENE: str = "PET.W_EPPK_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_KEROSENE: str = "PET.W_EPPK_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_OTHER_OILS_EXCLUDING_FUEL_ETHANOL: str = "PET.W_EPPO6_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Other Oils (Excluding Fuel Ethanol) in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_RESIDUAL_FUEL_OIL: str = "PET.W_EPPR_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Residual Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0R_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0R_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Fuel Ethanol in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.W_EPD0_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL: str = "PET.W_EPD0_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Distillate Fuel Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_KEROSENE_TYPE_JET_FUEL: str = "PET.W_EPJK_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Kerosene-Type Jet Fuel in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_PROPANE_RESIDENTIAL_PRICE: str = "PET.W_EPLLPA_PRS_NUS_DPG.W"
+            """U.S. Propane Residential Price in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_PROPANE_WHOLESALE_RESALE_PRICE: str = "PET.W_EPLLPA_PWR_NUS_DPG.W"
+            """U.S. Propane Wholesale/Resale Price in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_YIR_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Input of Motor Gasoline Blending Components, RBOB in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_NGPLS_LRGS_EXCLUDING_PROPANE_PROPYLENE: str = "PET.W_EPL0XP_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of NGPLs/LRGs (Excluding Propane/Propylene) in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_DAYS_OF_SUPPLY_OF_PROPANE_PROPYLENE: str = "PET.W_EPLLPZ_VSD_NUS_DAYS.W"
+            """U.S. Days of Supply of Propane/Propylene in Number of Days (Days)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0C_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0C_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_SUPPLY_ADJUSTMENT_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_VUA_NUS_MBBLD.W"
+            """U.S. Supply Adjustment of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPR_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.W_EPD00H_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_500_PPM_SULFUR: str = "PET.W_EPD00H_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Distillate Fuel Oil, Greater Than 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_GREATER_THAN_15_TO_500_PPM_SULFUR: str = "PET.W_EPDM10_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Distillate Fuel Oil, Greater than 15 to 500 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.W_EPDXL0_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_DISTILLATE_FUEL_OIL_0_TO_15_PPM_SULFUR: str = "PET.W_EPDXL0_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Distillate Fuel Oil, 0 to 15 ppm Sulfur in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.W_EPM0CA_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_CONVENTIONAL_MOTOR_GASOLINE_WITH_FUEL_ETHANOL: str = "PET.W_EPM0CA_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Conventional Motor Gasoline with Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0CO_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_OTHER_CONVENTIONAL_MOTOR_GASOLINE: str = "PET.W_EPM0CO_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Other Conventional Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.W_EPM0RA_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_REFORMULATED_MOTOR_GASOLINE_WITH_FUEL_ALCOHOL: str = "PET.W_EPM0RA_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Reformulated Motor Gasoline with Fuel ALcohol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_OXYGENATE_PLANT_PRODUCTION_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_YOP_NUS_MBBLD.W"
+            """U.S. Oxygenate Plant Production of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPT_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline, Ed 55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_EXPORTS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_EEX_NUS-Z00_MBBLD.W"
+            """U.S. Exports of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_FINISHED_MOTOR_GASOLINE: str = "PET.W_EPM0F_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Finished Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_OTHER_FINISHED_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPT_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Production of Other Finished Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Motor Gasoline Blending Components, RBOB in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_INPUT_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_YIR_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Input of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Motor Gasoline, Finished, Conventional, Greater than Ed55 in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Motor Gasoline, Finished, Conventional, Ed55 and Lower in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_CRUDE_OIL_IMPORTS_FOR_SPR_BY_OTHERS: str = "PET.W_EPC0_IMU_NUS-Z00_MBBLD.W"
+            """U.S. Crude Oil Imports for SPR by Others in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Conventional Motor Gasoline, Greater than Ed55 in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_IMPORTS_OF_FUEL_ETHANOL: str = "PET.W_EPOOXE_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Fuel Ethanol in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_LIQUEFIED_PETROLEUM_GASSES_LESS_PROPANE_PROPYLENE: str = "PET.W_EPL0XP_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Liquefied Petroleum Gasses Less Propane/Propylene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_EXPORTS_OF_PROPANE_AND_PROPYLENE: str = "PET.W_EPLLPZ_EEX_NUS-Z00_MBBLD.W"
+            """U.S. Exports of Propane and Propylene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_OTHER_REFORMULATED_MOTOR_GASOLINE: str = "PET.W_EPM0RO_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Other Reformulated Motor Gasoline in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_BLENDER_NET_PRODUCTION_OF_MOTOR_GASOLINE_FINISHED_CONVENTIONAL_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPB_NUS_MBBLD.W"
+            """U.S. Blender Net Production of Motor Gasoline, Finished, Conventional, Greater Than Ed55 in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_AND_BLENDER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPT_NUS_MBBLD.W"
+            """U.S. Refiner and Blender Net Production of Finished Conventional Motor Gasoline, Greater than Ed 55 in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REFINER_NET_PRODUCTION_OF_FINISHED_CONVENTIONAL_MOTOR_GASOLINE_GREATER_THAN_ED_55: str = "PET.W_EPM0CAG55_YPY_NUS_MBBLD.W"
+            """U.S. Refiner Net Production of Finished Conventional Motor Gasoline, Greater than Ed 55 in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_CONVENTIONAL_MOTOR_GASOLINE_ED_55_AND_LOWER: str = "PET.W_EPM0CAL55_SAE_NUS_MBBL.W"
+            """U.S. Ending Stocks of Conventional Motor Gasoline, Ed55 and Lower in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_IMPORTS_OF_KEROSENE: str = "PET.W_EPPK_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Kerosene in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_EXPORTS_OF_OTHER_OILS: str = "PET.W_EPPO4_EEX_NUS-Z00_MBBLD.W"
+            """U.S. Exports of Other Oils in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_OTHER_OILS_EXCLUDING_FUEL_ETHANOL: str = "PET.W_EPPO6_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports of Other Oils (Excluding Fuel Ethanol) in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_FROM_ALL_COUNTRIES_OF_MOTOR_GASOLINE_BLENDING_COMPONENTS_RBOB: str = "PET.W_EPOBGRR_IM0_NUS-Z00_MBBLD.W"
+            """U.S. Imports from  All Countries of Motor Gasoline Blending Components, RBOB in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_REGULAR_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMR_PTE_NUS_DPG.W"
+            """U.S. Regular All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_MIDGRADE_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMM_PTE_NUS_DPG.W"
+            """U.S. Midgrade All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_PREMIUM_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMP_PTE_NUS_DPG.W"
+            """U.S. Premium All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_ALL_GRADES_ALL_FORMULATIONS_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0_PTE_NUS_DPG.W"
+            """U.S. All Grades All Formulations Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_ALL_GRADES_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0R_PTE_NUS_DPG.W"
+            """U.S. All Grades Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_MIDGRADE_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMMR_PTE_NUS_DPG.W"
+            """U.S. Midgrade Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_PREMIUM_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMPR_PTE_NUS_DPG.W"
+            """U.S. Premium Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_REGULAR_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMRU_PTE_NUS_DPG.W"
+            """U.S. Regular Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_REGULAR_REFORMULATED_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMRR_PTE_NUS_DPG.W"
+            """U.S. Regular Reformulated Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_NO_2_DIESEL_RETAIL_PRICES: str = "PET.EMD_EPD2D_PTE_NUS_DPG.W"
+            """U.S. No 2 Diesel Retail Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_PREMIUM_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMPU_PTE_NUS_DPG.W"
+            """U.S. Premium Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_MIDGRADE_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPMMU_PTE_NUS_DPG.W"
+            """U.S. Midgrade Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_ALL_GRADES_CONVENTIONAL_RETAIL_GASOLINE_PRICES: str = "PET.EMM_EPM0U_PTE_NUS_DPG.W"
+            """U.S. All Grades Conventional Retail Gasoline Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_NO_2_DIESEL_ULTRA_LOW_SULFUR_015_PPM_RETAIL_PRICES: str = "PET.EMD_EPD2DXL0_PTE_NUS_DPG.W"
+            """U.S. No 2 Diesel Ultra Low Sulfur (0-15 ppm) Retail Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_ENDING_STOCKS_EXCLUDING_SPR_AND_INCLUDING_LEASE_STOCK_OF_CRUDE_OIL: str = "PET.W_EPC0_SAX_NUS_MBBL.W"
+            """U.S. Ending Stocks excluding SPR and including Lease Stock of Crude Oil in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_NO_2_DIESEL_LOW_SULFUR_15500_PPM_RETAIL_PRICES: str = "PET.EMD_EPD2DM10_PTE_NUS_DPG.W"
+            """U.S. No 2 Diesel Low Sulfur (15-500 ppm) Retail Prices in Dollars per Gallon ($/gal)"""
+
+            WEEKLY_IMPORTS_OF_REFORMULATED_RBOB_WITH_ALCOHOL_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO3IM_NUS-Z00_2.W"
+            """U.S. Imports of Reformulated RBOB with Alcohol Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_IMPORTS_OF_REFORMULATED_RBOB_WITH_ETHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO4IM_NUS-Z00_2.W"
+            """U.S. Imports of Reformulated RBOB with Ether Gasoline Blending Components in Thousand Barrels per Day (Mbbl/d)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_GTAB_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO2ST_NUS_1.W"
+            """U.S. Ending Stocks of Reformulated GTAB Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_RBOB_WITH_ALCOHOL_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO3ST_NUS_1.W"
+            """U.S. Ending Stocks of Reformulated RBOB with Alcohol Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+            WEEKLY_ENDING_STOCKS_OF_REFORMULATED_RBOB_WITH_ETHER_GASOLINE_BLENDING_COMPONENTS: str = "PET.WO4ST_NUS_1.W"
+            """U.S. Ending Stocks of Reformulated RBOB with Ether Gasoline Blending Components in Thousand Barrels (Mbbl)"""
+
+        class EquatorialGuinea(System.Object):
+            """Equatorial Guinea"""
+
+            WEEKLY_IMPORTS_FROM_EQUATORIAL_GUINEA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NEK_MBBLD.W"
+            """U.S. Imports from Equatorial Guinea of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Iraq(System.Object):
+            """Iraq"""
+
+            WEEKLY_IMPORTS_FROM_IRAQ_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NIZ_MBBLD.W"
+            """U.S. Imports from Iraq of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Kuwait(System.Object):
+            """Kuwait"""
+
+            WEEKLY_IMPORTS_FROM_KUWAIT_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NKU_MBBLD.W"
+            """U.S. Imports from Kuwait of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Mexico(System.Object):
+            """Mexico"""
+
+            WEEKLY_IMPORTS_FROM_MEXICO_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NMX_MBBLD.W"
+            """U.S. Imports from Mexico of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Nigeria(System.Object):
+            """Nigeria"""
+
+            WEEKLY_IMPORTS_FROM_NIGERIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NNI_MBBLD.W"
+            """U.S. Imports from Nigeria of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Norway(System.Object):
+            """Norway"""
+
+            WEEKLY_IMPORTS_FROM_NORWAY_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NNO_MBBLD.W"
+            """U.S. Imports from Norway of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Russia(System.Object):
+            """Russia"""
+
+            WEEKLY_IMPORTS_FROM_RUSSIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NRS_MBBLD.W"
+            """U.S. Imports from Russia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class SaudiArabia(System.Object):
+            """Saudi Arabia"""
+
+            WEEKLY_IMPORTS_FROM_SAUDI_ARABIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NSA_MBBLD.W"
+            """U.S. Imports from Saudi Arabia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class UnitedKingdom(System.Object):
+            """United Kingdom"""
+
+            WEEKLY_IMPORTS_FROM_UNITED_KINGDOM_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NUK_MBBLD.W"
+            """U.S. Imports from United Kingdom of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Venezuela(System.Object):
+            """Venezuela"""
+
+            WEEKLY_IMPORTS_FROM_VENEZUELA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NVE_MBBLD.W"
+            """U.S. Imports from Venezuela of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Algeria(System.Object):
+            """Algeria"""
+
+            WEEKLY_IMPORTS_FROM_ALGERIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NAG_MBBLD.W"
+            """U.S. Imports from Algeria of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Angola(System.Object):
+            """Angola"""
+
+            WEEKLY_IMPORTS_FROM_ANGOLA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NAO_MBBLD.W"
+            """U.S. Imports from Angola of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Brazil(System.Object):
+            """Brazil"""
+
+            WEEKLY_IMPORTS_FROM_BRAZIL_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NBR_MBBLD.W"
+            """U.S. Imports from Brazil of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Canada(System.Object):
+            """Canada"""
+
+            WEEKLY_IMPORTS_FROM_CANADA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCA_MBBLD.W"
+            """U.S. Imports from Canada of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Congo(System.Object):
+            """Congo"""
+
+            WEEKLY_IMPORTS_FROM_CONGO_BRAZZAVILLE_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCF_MBBLD.W"
+            """U.S. Imports from Congo (Brazzaville) of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Colombia(System.Object):
+            """Colombia"""
+
+            WEEKLY_IMPORTS_FROM_COLOMBIA_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NCO_MBBLD.W"
+            """U.S. Imports from Colombia of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+        class Ecuador(System.Object):
+            """Ecuador"""
+
+            WEEKLY_IMPORTS_FROM_ECUADOR_OF_CRUDE_OIL: str = "PET.W_EPC0_IM0_NUS-NEC_MBBLD.W"
+            """U.S. Imports from Ecuador of Crude Oil in Thousand Barrels per Day (Mbbl/d)"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Determines the location of the data
+        
+        :param config: Subscription configuration
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: Location of the data as a SubscriptionDataSource.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance of USEnergy.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied
+        to an underlying symbol and requires that corporate
+        events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of Quiver Lobbying data"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverLobbying data
+        
+        :returns: string containing QuiverLobbying information.
+        """
+        ...
+
+
+class QuiverLobbying(QuantConnect.Data.BaseData):
+    """Quiver Lobbying data"""
+
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
+
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverLobbyingUniverse(QuantConnect.Data.BaseData):
+    """Example custom data type"""
+
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
+
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
+    """
+    Kavout signals are machine-learning enhanced scores that capture the returns
+    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
+    There are many different anomalies discovered by researchers and practitioners across
+    these factor categories, and there is no good common definition of each style
+    across the literature.
+    
+    Kavout creates an ensemble score for each style that gauges the different factors
+    considered in the literature and industry practice.
+    
+    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
+    """
+
+    @property
+    def growth(self) -> float:
+        """Growth factor score"""
+        ...
+
+    @growth.setter
+    def growth(self, value: float) -> None:
+        ...
+
+    @property
+    def value_factor(self) -> float:
+        """Value factor score"""
+        ...
+
+    @value_factor.setter
+    def value_factor(self, value: float) -> None:
+        ...
+
+    @property
+    def quality(self) -> float:
+        """Quality factor score"""
+        ...
+
+    @quality.setter
+    def quality(self, value: float) -> None:
+        ...
+
+    @property
+    def momentum(self) -> float:
+        """Momentum factor score"""
+        ...
+
+    @momentum.setter
+    def momentum(self, value: float) -> None:
+        ...
+
+    @property
+    def low_volatility(self) -> float:
+        """Low volatility factor score"""
+        ...
+
+    @low_volatility.setter
+    def low_volatility(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with Cross-asset model data
+        
+        :returns: string containing Cross-asset model information.
+        """
+        ...
+
+
+class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
+    """U.S. Treasury yield curve data"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
-        """Describes how the transaction was executed"""
+    def one_month(self) -> typing.Optional[float]:
+        """One month yield curve"""
         ...
 
-    @execution.setter
-    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
-        ...
-
-    @property
-    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
-        """Describes which entity intends to execute the transaction"""
-        ...
-
-    @execution_entity.setter
-    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+    @one_month.setter
+    def one_month(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
-        """Describes what will be done with those shares following repurchase"""
+    def two_month(self) -> typing.Optional[float]:
+        """Two month yield curve"""
         ...
 
-    @execution_holding.setter
-    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[int]:
-        """Number of shares to be or authorised to be traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[int]) -> None:
+    @two_month.setter
+    def two_month(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def value_currency(self) -> str:
-        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
+    def three_month(self) -> typing.Optional[float]:
+        """Three month yield curve"""
         ...
 
-    @value_currency.setter
-    def value_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount_value(self) -> typing.Optional[int]:
-        """Value of shares to be authorised to be traded"""
-        ...
-
-    @amount_value.setter
-    def amount_value(self, value: typing.Optional[int]) -> None:
+    @three_month.setter
+    def three_month(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def percentage(self) -> typing.Optional[float]:
-        """Percentage of oustanding shares to be authorised to be traded"""
+    def six_month(self) -> typing.Optional[float]:
+        """Six month yield curve"""
         ...
 
-    @percentage.setter
-    def percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
-        """start of the period the intention/authorisation applies to"""
-        ...
-
-    @authorization_start_date.setter
-    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    @six_month.setter
+    def six_month(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
-        """End of the period the intention/authorisation applies to"""
+    def one_year(self) -> typing.Optional[float]:
+        """One year yield curve"""
         ...
 
-    @authorization_end_date.setter
-    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def price_currency(self) -> str:
-        """Currency of min/max prices (ISO Code)"""
-        ...
-
-    @price_currency.setter
-    def price_currency(self, value: str) -> None:
+    @one_year.setter
+    def one_year(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def minimum_price(self) -> typing.Optional[float]:
-        """Minimum price shares will or may be purchased at"""
+    def two_year(self) -> typing.Optional[float]:
+        """Two year yield curve"""
         ...
 
-    @minimum_price.setter
-    def minimum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_price(self) -> typing.Optional[float]:
-        """Maximum price shares will or may be purchased at"""
-        ...
-
-    @maximum_price.setter
-    def maximum_price(self, value: typing.Optional[float]) -> None:
+    @two_year.setter
+    def two_year(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def note_text(self) -> str:
-        """Free text which explains further details about the trade"""
+    def three_year(self) -> typing.Optional[float]:
+        """Three year yield curve"""
         ...
 
-    @note_text.setter
-    def note_text(self, value: str) -> None:
+    @three_year.setter
+    def three_year(self, value: typing.Optional[float]) -> None:
         ...
 
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
+    @property
+    def five_year(self) -> typing.Optional[float]:
+        """Five year yield curve"""
         ...
 
-    @overload
-    def __init__(self, line: str) -> None:
-        """
-        Constructs instance of this via a *formatted* TSV line (tab delimited)
-        
-        :param line: Line of formatted TSV data
-        """
+    @five_year.setter
+    def five_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def seven_year(self) -> typing.Optional[float]:
+        """Seven year yield curve"""
+        ...
+
+    @seven_year.setter
+    def seven_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ten_year(self) -> typing.Optional[float]:
+        """Ten year yield curve"""
+        ...
+
+    @ten_year.setter
+    def ten_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def twenty_year(self) -> typing.Optional[float]:
+        """Twenty year yield curve"""
+        ...
+
+    @twenty_year.setter
+    def twenty_year(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def thirty_year(self) -> typing.Optional[float]:
+        """Thirty year yield curve"""
+        ...
+
+    @thirty_year.setter
+    def thirty_year(self, value: typing.Optional[float]) -> None:
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the object to a new instance. This method
-        is required for custom data sources that make use
-        of properties with more complex types since otherwise
-        the values will default to null using the default clone method
+        Clones the object. This method implementation is required
+        so that we don't have any null values for our properties
+        when the user attempts to use it in backtesting/live trading
         
-        :returns: A new cloned instance of this object.
+        :returns: Cloned instance.
         """
         ...
 
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Constructs a new instance from unformatted TSV data
-        
-        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -20602,22 +19867,252 @@ class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Loads and reads the data to be used in LEAN
+        Reads and parses yield curve data from a csv file
         
         :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
+        :param line: CSV line containing yield curve data
+        :param date: Date request was made for
         :param is_live_mode: Is live mode
-        :returns: Instance of the object.
+        :returns: YieldCurve instance.
         """
         ...
 
-    def to_line(self) -> str:
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class CBOE(QuantConnect.Data.Market.TradeBar):
+    """CBOE data source"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    def __init__(self) -> None:
+        """Creates a new instance of the object"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Gets the source location of the CBOE file"""
+        ...
+
+    def is_sparse_data(self) -> bool:
         """
-        Converts the data to TSV
+        Determines if data source is sparse
         
-        :returns: String of TSV.
+        :returns: false.
         """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data from the source and creates a BaseData instance
+        
+        :param config: Configuration
+        :param line: Line of data
+        :param date: Date we're requesting data for
+        :param is_live_mode: Is live mode
+        :returns: New BaseData instance to be used in the algorithm.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Determines whether the data source requires mapping
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string
+        
+        :returns: String containing open, high, low, close.
+        """
+        ...
+
+
+class EstimizeRelease(QuantConnect.Data.BaseData):
+    """Financial releases for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the release"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year for the release"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter for the release"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def release_date(self) -> datetime.datetime:
+        """The date of the release"""
+        ...
+
+    @release_date.setter
+    def release_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The earnings per share for the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The revenue for the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_eps_estimate(self) -> typing.Optional[float]:
+        """The estimated EPS from Wall Street"""
+        ...
+
+    @wall_street_eps_estimate.setter
+    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
+        """The estimated revenue from Wall Street"""
+        ...
+
+    @wall_street_revenue_estimate.setter
+    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_eps_estimate(self) -> typing.Optional[float]:
+        """The mean EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_eps_estimate.setter
+    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_revenue_estimate(self) -> typing.Optional[float]:
+        """The mean revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_revenue_estimate.setter
+    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
+        """The weighted EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_eps_estimate.setter
+    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
+        """The weighted revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_revenue_estimate.setter
+    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Without a default constructor, Json.NET will call the
+        other constructor with `null` for the string parameter
+        """
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates EstimizeRelease instance from a line of CSV
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Release object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Release information."""
         ...
 
 
@@ -20818,181 +20313,6 @@ class EstimizeConsensus(QuantConnect.Data.BaseData):
         ...
 
 
-class EstimizeRelease(QuantConnect.Data.BaseData):
-    """Financial releases for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the release"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> int:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter for the release"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
-        ...
-
-    @property
-    def release_date(self) -> datetime.datetime:
-        """The date of the release"""
-        ...
-
-    @release_date.setter
-    def release_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def eps(self) -> typing.Optional[float]:
-        """The earnings per share for the specified fiscal quarter"""
-        ...
-
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The revenue for the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def wall_street_eps_estimate(self) -> typing.Optional[float]:
-        """The estimated EPS from Wall Street"""
-        ...
-
-    @wall_street_eps_estimate.setter
-    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
-        """The estimated revenue from Wall Street"""
-        ...
-
-    @wall_street_revenue_estimate.setter
-    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_eps_estimate(self) -> typing.Optional[float]:
-        """The mean EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_eps_estimate.setter
-    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_revenue_estimate(self) -> typing.Optional[float]:
-        """The mean revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_revenue_estimate.setter
-    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
-        """The weighted EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_eps_estimate.setter
-    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
-        """The weighted revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_revenue_estimate.setter
-    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Without a default constructor, Json.NET will call the
-        other constructor with `null` for the string parameter
-        """
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates EstimizeRelease instance from a line of CSV
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Release object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Estimize Release information."""
-        ...
-
-
 class EstimizeEstimate(QuantConnect.Data.BaseData):
     """Financial estimates for the specified company"""
 
@@ -21150,488 +20470,69 @@ class EstimizeEstimate(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverLobbyingUniverse(QuantConnect.Data.BaseData):
-    """Example custom data type"""
+class TiingoNews(QuantConnect.Data.IndexedBaseData):
+    """
+    Tiingo news data
+    https://api.tiingo.com/documentation/news
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
+    def source(self) -> str:
+        """The domain the news source is from."""
         ...
 
-    @client.setter
-    def client(self, value: str) -> None:
-        ...
-
-    @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
-        ...
-
-    @issue.setter
-    def issue(self, value: str) -> None:
+    @source.setter
+    def source(self, value: str) -> None:
         ...
 
     @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
+    def crawl_date(self) -> datetime.datetime:
+        """
+        The datetime the news story was added to Tiingos database in UTC.
+        This is always recorded by Tiingo and the news source has no input on this date.
+        """
         ...
 
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
+    @crawl_date.setter
+    def crawl_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
+    def url(self) -> str:
+        """URL of the news article."""
         ...
 
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of Quiver Lobbying data"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverLobbying data
-        
-        :returns: string containing QuiverLobbying information.
-        """
-        ...
-
-
-class QuiverLobbying(QuantConnect.Data.BaseData):
-    """Quiver Lobbying data"""
-
-    @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
-        ...
-
-    @client.setter
-    def client(self, value: str) -> None:
+    @url.setter
+    def url(self, value: str) -> None:
         ...
 
     @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
+    def published_date(self) -> datetime.datetime:
+        """
+        The datetime the news story was published in UTC. This is usually reported by the news source and not by Tiingo.
+        If the news source does not declare a published date, Tiingo will use the time the news story was discovered by our crawler farm.
+        """
         ...
 
-    @issue.setter
-    def issue(self, value: str) -> None:
+    @published_date.setter
+    def published_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
+    def tags(self) -> typing.List[str]:
+        """Tags that are mapped and discovered by Tiingo."""
         ...
 
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
+    @tags.setter
+    def tags(self, value: typing.List[str]) -> None:
         ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
-
-    @property
-    def name(self) -> str:
-        """Name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
-        ...
-
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
-        ...
-
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Insider Trading by private businesses"""
-
-    @property
-    def name(self) -> str:
-        """Name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
-        ...
-
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
-        ...
-
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverGovernmentContractUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
 
     @property
     def description(self) -> str:
-        """Contract description"""
+        """Long-form description of the news story."""
         ...
 
     @description.setter
@@ -21639,130 +20540,72 @@ class QuiverGovernmentContractUniverse(QuantConnect.Data.BaseData):
         ...
 
     @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
+    def title(self) -> str:
+        """Title of the news article."""
         ...
 
-    @agency.setter
-    def agency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Total dollars obligated under the given contract"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
+    @title.setter
+    def title(self, value: str) -> None:
         ...
 
     @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+    def article_id(self) -> str:
+        """Unique identifier specific to the news article."""
+        ...
+
+    @article_id.setter
+    def article_id(self, value: str) -> None:
+        ...
+
+    @property
+    def symbols(self) -> typing.List[QuantConnect.Symbol]:
+        """What symbols are mentioned in the news story."""
+        ...
+
+    @symbols.setter
+    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
         Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The NodaTime.DateTimeZone of this data type.
+        :returns: The DateTimeZone of this data type.
         """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the URL string source of the file. This will be converted to a stream
+        For backtesting returns the index source for a date
+        For live trading will return the source url to use, not using the index mechanism
         
         :param config: Configuration object
         :param date: Date of this source file
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
+        :returns: The SubscriptionDataSource instance to use.
         """
         ...
 
-    def is_sparse_data(self) -> bool:
+    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverGovernmentContracts(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of Government Contracts by Agencies"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
+        Returns the source for a given index value
         
         :param config: Configuration object
         :param date: Date of this source file
+        :param index: The index value for which we want to fetch the source
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
+        :returns: The SubscriptionDataSource instance to use.
         """
         ...
 
-    def is_sparse_data(self) -> bool:
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method,
+            and returns a new instance of the object
+            each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
         :param config: Subscription data config setup object
-        :param line: Line of the source document
+        :param content: Content of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
         :returns: Instance of the T:BaseData object generated by this line of the CSV.
@@ -21777,52 +20620,147 @@ class QuiverGovernmentContracts(QuantConnect.Data.UniverseSelection.BaseDataColl
         """
         ...
 
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
+
+class TiingoSymbolMapper(System.Object):
+    """Helper class to map a Lean format ticker to Tiingo format"""
+
+    @staticmethod
+    def get_lean_ticker(ticker: str) -> str:
+        """Maps a given Tiingo ticker to Lean equivalent"""
         ...
 
-    def to_string(self) -> str:
+    @staticmethod
+    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+        """Maps a given Symbol instance to it's Tiingo equivalent"""
+        ...
+
+
+class Tiingo(System.Object):
+    """Helper class for Tiingo configuration"""
+
+    auth_code: str
+    """Gets the Tiingo API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the Tiingo API token has been set."""
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
         """
-        Formats a string with QuiverGovernmentContract data
+        Sets the Tiingo API token.
         
-        :returns: string containing QuiverGovernmentContract information.
+        :param auth_code: The Tiingo API token
         """
         ...
 
 
-class QuiverGovernmentContract(QuantConnect.Data.BaseData):
-    """Government Contract by Agencies"""
+class TiingoNewsJsonConverter(JsonConverter):
+    """
+    Helper json converter class used to convert a list of Tiingo news data
+    into List{TiingoNews}
+    """
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> None:
+        """
+        Creates a new instance of the json converter
+        
+        :param symbol: The Symbol instance associated with this news
+        """
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def deserialize_news(token: typing.Any) -> QuantConnect.DataSource.TiingoNews:
+        """
+        Helper method to deserialize a single json Tiingo news
+        
+        :param token: The json token containing the Tiingo news to deserialize
+        :returns: The deserialized TiingoNews instance.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class CryptoSlamNFTSales(QuantConnect.Data.BaseData):
+    """CryptoSlam NFT Sales dataset"""
 
     @property
-    def description(self) -> str:
-        """Contract description"""
+    def total_transactions(self) -> int:
+        """The number of NFT transaction made within this blockchain"""
         ...
 
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
-        ...
-
-    @agency.setter
-    def agency(self, value: str) -> None:
+    @total_transactions.setter
+    def total_transactions(self, value: int) -> None:
         ...
 
     @property
-    def amount(self) -> float:
-        """Total dollars obligated under the given contract"""
+    def unique_buyers(self) -> int:
+        """The number of unique buyers of NFT within this blockchain"""
         ...
 
-    @amount.setter
-    def amount(self, value: float) -> None:
+    @unique_buyers.setter
+    def unique_buyers(self, value: int) -> None:
+        ...
+
+    @property
+    def unique_sellers(self) -> int:
+        """The number of unique sellers of NFT within this blockchain"""
+        ...
+
+    @unique_sellers.setter
+    def unique_sellers(self, value: int) -> None:
+        ...
+
+    @property
+    def total_price_usd(self) -> float:
+        """The total transaction value (in USD) of NFT within this blockchain"""
+        ...
+
+    @total_price_usd.setter
+    def total_price_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Time passed between the date of the data and the time the data became available to us"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
+        """Time the data became available"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
@@ -21843,6 +20781,17 @@ class QuiverGovernmentContract(QuantConnect.Data.BaseData):
 
     def default_resolution(self) -> QuantConnect.Resolution:
         """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
         ...
 
     def is_sparse_data(self) -> bool:
@@ -21883,67 +20832,106 @@ class QuiverGovernmentContract(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverWallStreetBets(QuantConnect.Data.BaseData):
-    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
+class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
+    """Nasdaq Bitfinex Data Downloader class"""
 
     @property
-    def date(self) -> datetime.datetime:
-        """Date of the daily discussion thread"""
+    def _api_key(self) -> str:
+        """This field is protected."""
         ...
 
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
+    @_api_key.setter
+    def _api_key(self, value: str) -> None:
         ...
 
-    @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
-        ...
-
-    @mentions.setter
-    def mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
-        ...
-
-    @rank.setter
-    def rank(self, value: int) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
+    def __init__(self, api_key: str) -> None:
         """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        Initializes a new instance of the NasdaqBitfinexDownloader class
+        
+        :param api_key: The nasdaq api key
         """
         ...
 
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Get historical data enumerable for Bitfinex from Nasdaq
+        
+        :param data_downloader_get_parameters: model class for passing in parameters for historical data
+        :returns: Enumerable of base data for this symbol.
+        """
         ...
+
+
+class QuandlBitfinexDownloader(QuantConnect.DataSource.NasdaqBitfinexDownloader):
+    """Quandl Bitfinex Data Downloader class"""
+
+    def __init__(self, api_key: str) -> None:
+        """
+        Initializes a new instance of the QuandlBitfinexDownloader class
+        
+        :param api_key: The quandl api key
+        """
+        ...
+
+
+class NasdaqBitfinexDownloaderProgram(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def nasdaq_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Nasdaq Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class NasdaqDataLink(QuantConnect.Data.DynamicData):
+    """Nasdaq Data Link dataset"""
+
+    @property
+    def value_column_name(self) -> str:
+        """
+        Name of the column is going to be used for the field Value
+        
+        This property is protected.
+        """
+        ...
+
+    @value_column_name.setter
+    def value_column_name(self, value: str) -> None:
+        ...
+
+    is_auth_code_set: bool
+    """Flag indicating whether or not the Nasdaq Data Link auth code has been set yet"""
 
     @property
     def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
+        """
+        The end time of this data. Some data covers spans (trade bars) and as such we want
+        to know the entire time span covered
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Gets a time span of one day"""
         ...
 
     @overload
     def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
+        """Default NasdaqDataLink constructor uses Close as its value column"""
         ...
 
     @overload
-    def __init__(self, csv_line: str) -> None:
+    def __init__(self, value_column_name: str) -> None:
         """
-        Creates a new instance of QuiverWallStreetBets from a CSV line
+        Constructor for creating customized NasdaqDataLink instance which doesn't use close, price, settle or value as its value item.
         
-        :param csv_line: CSV line
+        This method is protected.
+        
+        :param value_column_name: The name of the column we want to use as reference, the Value property
         """
         ...
 
@@ -21951,86 +20939,209 @@ class QuiverWallStreetBets(QuantConnect.Data.BaseData):
         """
         Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The DateTimeZone of this data type.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Return the Subscription Data Source gained from the URL
+        Using the Nasdaq Data Link V3 API automatically set the URL for the dataset.
         
-        :param config: Configuration object
-        :param date: Date of this source file
+        :param config: Subscription configuration object
+        :param date: Date of the data file we're looking for
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
+        :returns: STRING API Url for Nasdaq Data Link.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reader converts each line of the data source into BaseData objects.
+        Parses the data from the line provided and loads it into LEAN
         
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver WallStreetBets object.
+        :param config: Subscription configuration
+        :param line: CSV line of data from the souce
+        :param date: Date of the requested line
+        :param is_live_mode: Is live mode
+        :returns: New instance.
         """
         ...
 
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """Set the auth code for the Nasdaq Data Link set to the QuantConnect auth code."""
         ...
 
-    def to_string(self) -> str:
-        """Formats a string with the Quiver WallStreetBets information."""
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
         ...
 
 
-class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverWallStreetBets dataset"""
+class QuandlBitfinexDownloaderProgram(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def quandl_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Quandl Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
+    """Brain universe stock rankings on expected returns in the next 30 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
+    def lookback_days(self) -> int:
+        """This property is protected."""
         ...
 
-    @mentions.setter
-    def mentions(self, value: int) -> None:
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
+    """Brain sentiment on only 10-K SEC reports"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report_type(self) -> str:
+        """This property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+
+class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain Sentiment dataset"""
+
+    @property
+    def total_article_mentions_7_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 7 days"""
+        ...
+
+    @total_article_mentions_7_days.setter
+    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
         ...
 
     @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
+    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 7 days"""
         ...
 
-    @rank.setter
-    def rank(self, value: int) -> None:
+    @sentimental_article_mentions_7_days.setter
+    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def sentiment(self) -> float:
-        """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
-        """
+    def sentiment_7_days(self) -> typing.Optional[float]:
+        """Setiment Score in 7 days"""
         ...
 
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
+    @sentiment_7_days.setter
+    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 7 days"""
+        ...
+
+    @total_buzz_volume_7_days.setter
+    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 7 days"""
+        ...
+
+    @sentimental_buzz_volume_7_days.setter
+    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_article_mentions_30_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 30 days"""
+        ...
+
+    @total_article_mentions_30_days.setter
+    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 30 days"""
+        ...
+
+    @sentimental_article_mentions_30_days.setter
+    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment_30_days(self) -> typing.Optional[float]:
+        """Setiment Score in 30 days"""
+        ...
+
+    @sentiment_30_days.setter
+    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 30 days"""
+        ...
+
+    @total_buzz_volume_30_days.setter
+    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 30 days"""
+        ...
+
+    @sentimental_buzz_volume_30_days.setter
+    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
+        """Time the data became available"""
         ...
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -22054,6 +21165,895 @@ class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
         :param is_live_mode: Is live mode
         :returns: New instance.
         """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
+
+    @property
+    def rank_2_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 2 days"""
+        ...
+
+    @rank_2_days.setter
+    def rank_2_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_3_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 3 days"""
+        ...
+
+    @rank_3_days.setter
+    def rank_3_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_5_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 5 days"""
+        ...
+
+    @rank_5_days.setter
+    def rank_5_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_10_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 10 days"""
+        ...
+
+    @rank_10_days.setter
+    def rank_10_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_21_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 21 days"""
+        ...
+
+    @rank_21_days.setter
+    def rank_21_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def all(self) -> typing.Optional[float]:
+        ...
+
+    @all.setter
+    def all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def positive(self) -> typing.Optional[float]:
+        ...
+
+    @positive.setter
+    def positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def negative(self) -> typing.Optional[float]:
+        ...
+
+    @negative.setter
+    def negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def litigious(self) -> typing.Optional[float]:
+        ...
+
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def constraining(self) -> typing.Optional[float]:
+        ...
+
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interesting(self) -> typing.Optional[float]:
+        ...
+
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @staticmethod
+    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
+        ...
+
+
+class BrainCompanyFilingLanguageMetrics(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def sentence_count(self) -> typing.Optional[int]:
+        ...
+
+    @sentence_count.setter
+    def sentence_count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def mean_sentence_length(self) -> typing.Optional[float]:
+        ...
+
+    @mean_sentence_length.setter
+    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def litigious(self) -> typing.Optional[float]:
+        ...
+
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def constraining(self) -> typing.Optional[float]:
+        ...
+
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interesting(self) -> typing.Optional[float]:
+        ...
+
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def readability(self) -> typing.Optional[float]:
+        ...
+
+    @readability.setter
+    def readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @lexical_richness.setter
+    def lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @lexical_density.setter
+    def lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @specific_density.setter
+    def specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
+        ...
+
+    @similarity.setter
+    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
+        ...
+
+    @staticmethod
+    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    @property
+    def report_date(self) -> datetime.datetime:
+        ...
+
+    @report_date.setter
+    def report_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def report_category(self) -> str:
+        ...
+
+    @report_category.setter
+    def report_category(self, value: str) -> None:
+        ...
+
+    @property
+    def report_period(self) -> typing.Optional[int]:
+        ...
+
+    @report_period.setter
+    def report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @previous_report_date.setter
+    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def previous_report_category(self) -> str:
+        ...
+
+    @previous_report_category.setter
+    def previous_report_category(self, value: str) -> None:
+        ...
+
+    @property
+    def previous_report_period(self) -> typing.Optional[int]:
+        ...
+
+    @previous_report_period.setter
+    def previous_report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """This property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
+        """
+        Clones the data
+        
+        This method is protected.
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on news"""
+
+    @property
+    def total_article_mentions(self) -> int:
+        ...
+
+    @total_article_mentions.setter
+    def total_article_mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions(self) -> float:
+        ...
+
+    @sentimental_article_mentions.setter
+    def sentimental_article_mentions(self, value: float) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def total_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @total_buzz_volume.setter
+    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @sentimental_buzz_volume.setter
+    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
+        """
+        Clones the data
+        
+        This method is protected.
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
+    """Brain sentiment indicator on 30 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
+    """Brain sentiment universe on only 10-K SEC reports"""
+
+    @property
+    def report_type(self) -> str:
+        """This property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
+    """Brain sentiment universe on 10-K/10-Q SEC reports"""
+
+    @property
+    def report_type(self) -> str:
+        """This property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by report part"""
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by risk factor statement part"""
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """
+        Report Type of which the language metric came from
+        
+        This property is protected.
+        """
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    @property
+    def rank(self) -> float:
+        ...
+
+    @rank.setter
+    def rank(self, value: float) -> None:
+        ...
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
+        """This method is protected."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
+    """Brain universe stock rankings on expected returns in the next 10 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
+    """Brain universe stock rankings on expected returns in the next 2 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
+    """Brain universe stock rankings on expected returns in the next 5 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report_type(self) -> str:
+        """This property is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+
+class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
+    """Brain sentiment indicator on 7 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
+    """Brain universe stock rankings on expected returns in the next 3 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This property is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
         ...
 
 

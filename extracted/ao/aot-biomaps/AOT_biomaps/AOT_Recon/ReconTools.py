@@ -1,16 +1,8 @@
-from AOT_biomaps.Config import config
-
 import os
 import torch
 import numpy as np
 from numba import njit, prange
 import torch.nn.functional as F
-if config.get_process()  == 'gpu':
-    try:
-        from torch_sparse import coalesce
-    except ImportError:
-        raise ImportError("torch_scatter and torch_sparse are required for GPU processing. Please install them using 'pip install torch-scatter torch-sparse' with correct link (follow instructions https://github.com/LucasDuclos/AcoustoOpticTomography/edit/main/README.md).")
-
 
 def load_recon(hdr_path):
     """
@@ -135,10 +127,8 @@ def _build_adjacency_sparse_CPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face
     values = np.array(weights, dtype=np.float32)
     return index, values 
 
-def _build_adjacency_sparse_GPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face = 0.5-np.sqrt(2)/4):
-    rows = []
-    cols = []
-    weights = []
+def _build_adjacency_sparse_GPU(Z, X, corner=(0.5 - np.sqrt(2) / 4) / np.sqrt(2), face=0.5 - np.sqrt(2) / 4):
+    weight_dict = {}
 
     for z in range(Z):
         for x in range(X):
@@ -151,14 +141,24 @@ def _build_adjacency_sparse_GPU(Z, X,corner = (0.5-np.sqrt(2)/4)/np.sqrt(2),face
                     if 0 <= nz < Z and 0 <= nx < X:
                         k = nz * X + nx
                         weight = corner if abs(dz) + abs(dx) == 2 else face
-                        rows.append(j)
-                        cols.append(k)
-                        weights.append(weight)
+                        if (j, k) in weight_dict:
+                            weight_dict[(j, k)] += weight
+                        else:
+                            weight_dict[(j, k)] = weight
 
-    index = torch.tensor([rows, cols], device= config.select_best_gpu())
-    values = torch.tensor(weights, dtype=torch.float32, device= config.select_best_gpu())
-    index, values = coalesce(index, values, m=Z*X, n=Z*X)
-    return index, values 
+    rows = []
+    cols = []
+    weights = []
+    for (j, k), weight in weight_dict.items():
+        rows.append(j)
+        cols.append(k)
+        weights.append(weight)
+
+    index = torch.tensor([rows, cols], dtype=torch.long)
+    values = torch.tensor(weights, dtype=torch.float32)
+
+    return index, values
+
 
 
 def power_method(P, PT, data, Z, X, n_it=10, isGPU=False):

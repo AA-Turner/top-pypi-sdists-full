@@ -1,5 +1,5 @@
 #
-# Copyright 2024 DataRobot, Inc. and its affiliates.
+# Copyright 2024-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -149,10 +149,9 @@ class BaseInsight(APIObject, BrowserMixin, DatarobotUIMixin):
         raise NotImplementedError
 
     @classmethod
-    # type: ignore[override]
     def from_server_data(
         cls,
-        data: Dict[str, Any],
+        data: Dict[str, Any],  # type: ignore[override]
         keep_attrs: Optional[Iterable[str]] = None,
     ) -> Self:
         """Override from_server_data to handle paginated responses"""

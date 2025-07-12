@@ -52,6 +52,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> OpenAICompletion:
@@ -81,6 +82,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Generator[OpenAICompletion, None, None]:
@@ -110,6 +112,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> dict:
@@ -134,6 +137,7 @@ class Completion(BaseCompletion):
             response_format=response_format,
             context_length_exceeded_behavior=context_length_exceeded_behavior,
             user=user,
+            perf_metrics_in_response=perf_metrics_in_response,
             extra_headers=extra_headers,
             **kwargs,
         )
@@ -177,6 +181,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAICompletion, Generator[OpenAICompletion, None, None]]:
@@ -204,6 +209,7 @@ class Completion(BaseCompletion):
             response_format,
             context_length_exceeded_behavior,
             user,
+            perf_metrics_in_response,
             extra_headers,
             **kwargs,
         )
@@ -234,6 +240,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> OpenAICompletion: ...
@@ -262,6 +269,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> AsyncGenerator[OpenAICompletion, None]:
@@ -290,6 +298,7 @@ class Completion(BaseCompletion):
         response_format: Optional[ResponseFormat] = None,
         context_length_exceeded_behavior: Optional[str] = None,
         user: Optional[str] = None,
+        perf_metrics_in_response: Optional[bool] = None,
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAICompletion, AsyncGenerator[OpenAICompletion, None]]:
@@ -319,6 +328,7 @@ class Completion(BaseCompletion):
             response_format,
             context_length_exceeded_behavior,
             user,
+            perf_metrics_in_response,
             extra_headers,
             **kwargs,
         )

@@ -172,7 +172,7 @@ def _build_run_batch_querytree(
                     dialect,
                     compute_mode,
                     qt,
-                    {col: fd.get_feature_store_format_version for col in (anchor_time(), window_end_column_name())},
+                    dict.fromkeys((anchor_time(), window_end_column_name()), fd.get_feature_store_format_version),
                 ).as_ref()
                 renames = {
                     anchor_time(): DEFAULT_AGGREGATION_TILES_WINDOW_START_COLUMN_NAME,

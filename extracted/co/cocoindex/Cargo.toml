@@ -2,9 +2,9 @@
 name = "cocoindex"
 # Version used for local development is always higher than others to take precedence.
 # Will be overridden for specific release versions.
-version = "0.1.64"
+version = "0.1.65"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.88"
 
 [profile.release]
 codegen-units = 1

@@ -1,5 +1,5 @@
 #
-# Copyright 2023 DataRobot, Inc. and its affiliates.
+# Copyright 2023-2025 DataRobot, Inc. and its affiliates.
 #
 # All rights reserved.
 #
@@ -74,13 +74,13 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
                     t.Dict(
                         {
                             t.Key("label"): t.String(),
-                            t.Key("absolute_value"): t.Int(),
+                            t.Key("absolute_value"): t.Or(t.Int(), t.Float()),
                             t.Key("classes_count"): t.Int(),
                             t.Key("healthy_classes_count"): t.Int(),
                             t.Key("is_statistically_significant"): t.Bool(),
-                            t.Key("priviledged_class"): t.String(),
+                            t.Key("privileged_class", optional=True): t.String(),
                             t.Key("sample_size"): t.Int(),
-                            t.Key("value"): t.Int(),
+                            t.Key("value"): t.Or(t.Int(), t.Float()),
                         }
                     )
                 ),
@@ -90,11 +90,13 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     ).allow_extra("*")
     _converter = t.Dict(
         {
-            t.Key("protected_feature"): t.Or(String(), t.Null),
-            t.Key("fairness_threshold"): t.Or(Float(), t.Null),
+            t.Key("protected_feature", optional=True): t.Or(String(), t.Null),
+            t.Key("fairness_threshold", optional=True): t.Or(Float(), t.Null),
             t.Key("model_id"): t.Or(String(), t.Null),
             t.Key("model_package_id"): t.Or(String(), t.Null),
-            t.Key("favorable_target_outcome"): t.Or(Bool(), t.Null),
+            t.Key("favorable_target_outcome", optional=True): t.Or(
+                Bool(), String(), t.Int(), t.Null
+            ),
             t.Key("summary"): _bucket,
             t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
         }

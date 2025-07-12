@@ -33,17 +33,34 @@ def _start_stream_job_with_online_store_sink(
 
     stream_task_info = materialization_task_params.stream_task_info
 
-    if stream_task_info.HasField("streaming_trigger_interval_override"):
-        processing_time = stream_task_info.streaming_trigger_interval_override
-    elif fd.is_continuous:
-        processing_time = "0 seconds"
+    # Check if realtime mode is enabled
+    use_realtime_trigger = (
+        stream_task_info.HasField("streaming_trigger_realtime_mode")
+        and stream_task_info.streaming_trigger_realtime_mode
+    )
+
+    if use_realtime_trigger:
+        if stream_task_info.HasField("streaming_trigger_interval_override"):
+            processing_time = stream_task_info.streaming_trigger_interval_override
+        else:
+            processing_time = "5 minutes"
+
+        logger.info(f"Using RealTimeTrigger with interval {processing_time} for FV {fd.id}")
+        trigger = spark._jvm.org.apache.spark.sql.execution.streaming.RealTimeTrigger.apply(processing_time)
     else:
-        processing_time = "30 seconds"
+        if stream_task_info.HasField("streaming_trigger_interval_override"):
+            processing_time = stream_task_info.streaming_trigger_interval_override
+        elif fd.is_continuous:
+            processing_time = "0 seconds"
+        else:
+            processing_time = "30 seconds"
+
+        logger.info(f"Using ProcessingTimeTrigger with interval {processing_time} for FV {fd.id}")
+        trigger = spark._jvm.org.apache.spark.sql.streaming.Trigger.ProcessingTime(processing_time)
 
     write_df = df_to_online_store_msg(dataframe, fd.id, is_batch=False, is_status=False, canary_id=canary_id)
 
     logger.info(f"Starting stream write to Tecton Online Store for FV {fd.id}")
-    trigger = spark._jvm.org.apache.spark.sql.streaming.Trigger.ProcessingTime(processing_time)
     writer = (
         write_df._jdf.writeStream()
         .queryName(_get_query_name(materialization_task_params.HasField("plan_id")))

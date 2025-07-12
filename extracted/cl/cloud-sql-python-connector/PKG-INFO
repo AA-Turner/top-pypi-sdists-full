@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloud-sql-python-connector
-Version: 1.18.2
+Version: 1.18.3
 Summary: Google Cloud SQL Python Connector library
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0

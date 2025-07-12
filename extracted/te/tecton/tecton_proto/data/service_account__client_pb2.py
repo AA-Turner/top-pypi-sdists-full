@@ -11,10 +11,12 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from tecton_proto.auditlog import metadata__client_pb2 as tecton__proto_dot_auditlog_dot_metadata____client__pb2
+from tecton_proto.auth import principal__client_pb2 as tecton__proto_dot_auth_dot_principal____client__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n/tecton_proto/data/service_account__client.proto\x12\x11tecton_proto.data\x1a,tecton_proto/auditlog/metadata__client.proto\"\x98\x01\n\x0fNewClientSecret\x12$\n\tsecret_id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x08secretId\x12&\n\ncreated_at\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tcreatedAt\x12\x1f\n\x06status\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x06status\x12\x16\n\x06secret\x18\x04 \x01(\tR\x06secret\"\xd0\x01\n\x12MaskedClientSecret\x12$\n\tsecret_id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x08secretId\x12&\n\ncreated_at\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tcreatedAt\x12&\n\nupdated_at\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tupdatedAt\x12\x1f\n\x06status\x18\x04 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x06status\x12#\n\rmasked_secret\x18\x05 \x01(\tR\x0cmaskedSecret*\xbe\x01\n\x1dServiceAccountCredentialsType\x12\x30\n,SERVICE_ACCOUNT_CREDENTIALS_TYPE_UNSPECIFIED\x10\x00\x12,\n(SERVICE_ACCOUNT_CREDENTIALS_TYPE_API_KEY\x10\x01\x12=\n9SERVICE_ACCOUNT_CREDENTIALS_TYPE_OAUTH_CLIENT_CREDENTIALS\x10\x02\x42;\n\x0f\x63om.tecton.dataP\x01Z&github.com/tecton-ai/tecton_proto/data')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n/tecton_proto/data/service_account__client.proto\x12\x11tecton_proto.data\x1a\x1fgoogle/protobuf/timestamp.proto\x1a,tecton_proto/auditlog/metadata__client.proto\x1a)tecton_proto/auth/principal__client.proto\"\x98\x01\n\x0fNewClientSecret\x12$\n\tsecret_id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x08secretId\x12&\n\ncreated_at\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tcreatedAt\x12\x1f\n\x06status\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x06status\x12\x16\n\x06secret\x18\x04 \x01(\tR\x06secret\"\xd0\x01\n\x12MaskedClientSecret\x12$\n\tsecret_id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x08secretId\x12&\n\ncreated_at\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tcreatedAt\x12&\n\nupdated_at\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\tupdatedAt\x12\x1f\n\x06status\x18\x04 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x06status\x12#\n\rmasked_secret\x18\x05 \x01(\tR\x0cmaskedSecret\"\xcb\x01\n\x1b\x43reateServiceAccountRequest\x12\x1b\n\x04name\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x04name\x12)\n\x0b\x64\x65scription\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0b\x64\x65scription\x12\x64\n\x10\x63redentials_type\x18\x03 \x01(\x0e\x32\x30.tecton_proto.data.ServiceAccountCredentialsTypeB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0f\x63redentialsType\"\x84\x03\n\x1c\x43reateServiceAccountResponse\x12\x17\n\x02id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x02id\x12\x1b\n\x04name\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x04name\x12)\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0b\x64\x65scription\x12$\n\tis_active\x18\x04 \x01(\x08\x42\x07\xea\x99\xbd\x46\x02\x08\x02R\x08isActive\x12\x17\n\x07\x61pi_key\x18\x05 \x01(\tR\x06\x61piKey\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x64\n\x10\x63redentials_type\x18\x07 \x01(\x0e\x32\x30.tecton_proto.data.ServiceAccountCredentialsTypeB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0f\x63redentialsType\x12#\n\rclient_secret\x18\x08 \x01(\tR\x0c\x63lientSecret\"\xd3\x02\n\x0eServiceAccount\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12\x1b\n\tis_active\x18\x04 \x01(\x08R\x08isActive\x12@\n\ncreated_by\x18\x06 \x01(\x0b\x32!.tecton_proto.auth.PrincipalBasicR\tcreatedBy\x12\x39\n\ncreated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12[\n\x10\x63redentials_type\x18\x08 \x01(\x0e\x32\x30.tecton_proto.data.ServiceAccountCredentialsTypeR\x0f\x63redentialsTypeJ\x04\x08\x05\x10\x06\"E\n\x19GetServiceAccountsRequest\x12\x16\n\x06search\x18\x01 \x01(\tR\x06search\x12\x10\n\x03ids\x18\x02 \x03(\tR\x03ids\"j\n\x1aGetServiceAccountsResponse\x12L\n\x10service_accounts\x18\x01 \x03(\x0b\x32!.tecton_proto.data.ServiceAccountR\x0fserviceAccounts\"\xa4\x01\n\x1bUpdateServiceAccountRequest\x12\x17\n\x02id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x02id\x12\x1b\n\x04name\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x04name\x12)\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0b\x64\x65scription\x12$\n\tis_active\x18\x04 \x01(\x08\x42\x07\xea\x99\xbd\x46\x02\x08\x02R\x08isActive\"\xe0\x01\n\x1cUpdateServiceAccountResponse\x12\x17\n\x02id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x02id\x12\x1b\n\x04name\x18\x02 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x04name\x12)\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x0b\x64\x65scription\x12$\n\tis_active\x18\x04 \x01(\x08\x42\x07\xea\x99\xbd\x46\x02\x08\x02R\x08isActive\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\"6\n\x1b\x44\x65leteServiceAccountRequest\x12\x17\n\x02id\x18\x01 \x01(\tB\x07\xea\x99\xbd\x46\x02\x08\x02R\x02id\"\x1e\n\x1c\x44\x65leteServiceAccountResponse*\xbe\x01\n\x1dServiceAccountCredentialsType\x12\x30\n,SERVICE_ACCOUNT_CREDENTIALS_TYPE_UNSPECIFIED\x10\x00\x12,\n(SERVICE_ACCOUNT_CREDENTIALS_TYPE_API_KEY\x10\x01\x12=\n9SERVICE_ACCOUNT_CREDENTIALS_TYPE_OAUTH_CLIENT_CREDENTIALS\x10\x02\x42;\n\x0f\x63om.tecton.dataP\x01Z&github.com/tecton-ai/tecton_proto/data')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.data.service_account__client_pb2', globals())
@@ -36,10 +38,62 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _MASKEDCLIENTSECRET.fields_by_name['updated_at']._serialized_options = b'\352\231\275F\002\010\002'
   _MASKEDCLIENTSECRET.fields_by_name['status']._options = None
   _MASKEDCLIENTSECRET.fields_by_name['status']._serialized_options = b'\352\231\275F\002\010\002'
-  _SERVICEACCOUNTCREDENTIALSTYPE._serialized_start=483
-  _SERVICEACCOUNTCREDENTIALSTYPE._serialized_end=673
-  _NEWCLIENTSECRET._serialized_start=117
-  _NEWCLIENTSECRET._serialized_end=269
-  _MASKEDCLIENTSECRET._serialized_start=272
-  _MASKEDCLIENTSECRET._serialized_end=480
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['name']._options = None
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['name']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['description']._options = None
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['description']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['credentials_type']._options = None
+  _CREATESERVICEACCOUNTREQUEST.fields_by_name['credentials_type']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['id']._options = None
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['id']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['name']._options = None
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['name']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['description']._options = None
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['description']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['is_active']._options = None
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['is_active']._serialized_options = b'\352\231\275F\002\010\002'
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['credentials_type']._options = None
+  _CREATESERVICEACCOUNTRESPONSE.fields_by_name['credentials_type']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['id']._options = None
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['id']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['name']._options = None
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['name']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['description']._options = None
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['description']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['is_active']._options = None
+  _UPDATESERVICEACCOUNTREQUEST.fields_by_name['is_active']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['id']._options = None
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['id']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['name']._options = None
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['name']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['description']._options = None
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['description']._serialized_options = b'\352\231\275F\002\010\002'
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['is_active']._options = None
+  _UPDATESERVICEACCOUNTRESPONSE.fields_by_name['is_active']._serialized_options = b'\352\231\275F\002\010\002'
+  _DELETESERVICEACCOUNTREQUEST.fields_by_name['id']._options = None
+  _DELETESERVICEACCOUNTREQUEST.fields_by_name['id']._serialized_options = b'\352\231\275F\002\010\002'
+  _SERVICEACCOUNTCREDENTIALSTYPE._serialized_start=2159
+  _SERVICEACCOUNTCREDENTIALSTYPE._serialized_end=2349
+  _NEWCLIENTSECRET._serialized_start=193
+  _NEWCLIENTSECRET._serialized_end=345
+  _MASKEDCLIENTSECRET._serialized_start=348
+  _MASKEDCLIENTSECRET._serialized_end=556
+  _CREATESERVICEACCOUNTREQUEST._serialized_start=559
+  _CREATESERVICEACCOUNTREQUEST._serialized_end=762
+  _CREATESERVICEACCOUNTRESPONSE._serialized_start=765
+  _CREATESERVICEACCOUNTRESPONSE._serialized_end=1153
+  _SERVICEACCOUNT._serialized_start=1156
+  _SERVICEACCOUNT._serialized_end=1495
+  _GETSERVICEACCOUNTSREQUEST._serialized_start=1497
+  _GETSERVICEACCOUNTSREQUEST._serialized_end=1566
+  _GETSERVICEACCOUNTSRESPONSE._serialized_start=1568
+  _GETSERVICEACCOUNTSRESPONSE._serialized_end=1674
+  _UPDATESERVICEACCOUNTREQUEST._serialized_start=1677
+  _UPDATESERVICEACCOUNTREQUEST._serialized_end=1841
+  _UPDATESERVICEACCOUNTRESPONSE._serialized_start=1844
+  _UPDATESERVICEACCOUNTRESPONSE._serialized_end=2068
+  _DELETESERVICEACCOUNTREQUEST._serialized_start=2070
+  _DELETESERVICEACCOUNTREQUEST._serialized_end=2124
+  _DELETESERVICEACCOUNTRESPONSE._serialized_start=2126
+  _DELETESERVICEACCOUNTRESPONSE._serialized_end=2156
 # @@protoc_insertion_point(module_scope)

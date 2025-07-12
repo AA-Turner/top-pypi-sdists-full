@@ -84,7 +84,7 @@ class CreateOnlineTableParameters(_message.Message):
     def __init__(self, import_path_prefix: _Optional[str] = ...) -> None: ...
 
 class DatasetGenerationParameters(_message.Message):
-    __slots__ = ["batch_config", "cluster_config", "dataset", "dataset_name", "datetime_range", "expected_schema", "extra_config", "feature_service", "feature_view", "from_source", "result_path", "spine"]
+    __slots__ = ["batch_config", "cluster_config", "dataset", "dataset_name", "datetime_range", "expected_schema", "extra_config", "feature_service", "feature_view", "from_source", "job_retry_times", "result_path", "spine"]
     class BatchConfigInput(_message.Message):
         __slots__ = ["batch_source", "end", "start"]
         BATCH_SOURCE_FIELD_NUMBER: _ClassVar[int]
@@ -129,6 +129,7 @@ class DatasetGenerationParameters(_message.Message):
     FEATURE_SERVICE_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VIEW_FIELD_NUMBER: _ClassVar[int]
     FROM_SOURCE_FIELD_NUMBER: _ClassVar[int]
+    JOB_RETRY_TIMES_FIELD_NUMBER: _ClassVar[int]
     RESULT_PATH_FIELD_NUMBER: _ClassVar[int]
     SPINE_FIELD_NUMBER: _ClassVar[int]
     batch_config: DatasetGenerationParameters.BatchConfigInput
@@ -141,9 +142,10 @@ class DatasetGenerationParameters(_message.Message):
     feature_service: _fco_locator__client_pb2.IdFcoLocator
     feature_view: _fco_locator__client_pb2.IdFcoLocator
     from_source: bool
+    job_retry_times: int
     result_path: str
     spine: DatasetGenerationParameters.SpineInput
-    def __init__(self, from_source: bool = ..., feature_service: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., feature_view: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., dataset: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., dataset_name: _Optional[str] = ..., spine: _Optional[_Union[DatasetGenerationParameters.SpineInput, _Mapping]] = ..., datetime_range: _Optional[_Union[DatasetGenerationParameters.DateTimeRangeInput, _Mapping]] = ..., batch_config: _Optional[_Union[DatasetGenerationParameters.BatchConfigInput, _Mapping]] = ..., result_path: _Optional[str] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., extra_config: _Optional[_Mapping[str, str]] = ..., expected_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ...) -> None: ...
+    def __init__(self, from_source: bool = ..., feature_service: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., feature_view: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., dataset: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., dataset_name: _Optional[str] = ..., spine: _Optional[_Union[DatasetGenerationParameters.SpineInput, _Mapping]] = ..., datetime_range: _Optional[_Union[DatasetGenerationParameters.DateTimeRangeInput, _Mapping]] = ..., batch_config: _Optional[_Union[DatasetGenerationParameters.BatchConfigInput, _Mapping]] = ..., result_path: _Optional[str] = ..., cluster_config: _Optional[_Union[_feature_view__client_pb2.ClusterConfig, _Mapping]] = ..., extra_config: _Optional[_Mapping[str, str]] = ..., expected_schema: _Optional[_Union[_schema__client_pb2.Schema, _Mapping]] = ..., job_retry_times: _Optional[int] = ...) -> None: ...
 
 class DeletionParameters(_message.Message):
     __slots__ = ["offline", "offline_join_keys_path", "online", "online_join_keys_full_path", "online_join_keys_path"]
@@ -189,6 +191,14 @@ class FeatureExportParameters(_message.Message):
     parent_materialization_task_id: _id__client_pb2.Id
     def __init__(self, parent_materialization_task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., feature_start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., feature_end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., export_store_path: _Optional[str] = ...) -> None: ...
 
+class IcebergMaintenanceParameters(_message.Message):
+    __slots__ = ["execute_compaction", "period_end"]
+    EXECUTE_COMPACTION_FIELD_NUMBER: _ClassVar[int]
+    PERIOD_END_FIELD_NUMBER: _ClassVar[int]
+    execute_compaction: bool
+    period_end: _timestamp_pb2.Timestamp
+    def __init__(self, execute_compaction: bool = ..., period_end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
 class IngestMaterializationParameters(_message.Message):
     __slots__ = ["ingest_path", "write_to_offline_feature_store", "write_to_online_feature_store"]
     INGEST_PATH_FIELD_NUMBER: _ClassVar[int]
@@ -200,7 +210,7 @@ class IngestMaterializationParameters(_message.Message):
     def __init__(self, write_to_online_feature_store: bool = ..., write_to_offline_feature_store: bool = ..., ingest_path: _Optional[str] = ...) -> None: ...
 
 class MaterializationTask(_message.Message):
-    __slots__ = ["attempt_status_message", "attempts", "batch_parameters", "canary_params", "compute_mode", "created_at", "dataset_generation_parameters", "deletion_parameters", "delta_maintenance_parameters", "error_message", "feature_export_parameters", "id_feature_service_locator", "id_feature_view_locator", "ingest_parameters", "managed_retries", "manually_triggered", "materialization_serial_version", "materialization_task_id", "number_of_attempts_from_old_executions", "plan_id", "spark_cluster_environment_version", "state_transitions", "stream_parameters", "tecton_environment", "tecton_runtime_version", "updated_at"]
+    __slots__ = ["attempt_status_message", "attempts", "batch_parameters", "canary_params", "compute_mode", "created_at", "dataset_generation_parameters", "deletion_parameters", "delta_maintenance_parameters", "error_message", "feature_export_parameters", "iceberg_maintenance_parameters", "id_feature_service_locator", "id_feature_view_locator", "ingest_parameters", "managed_retries", "manually_triggered", "materialization_serial_version", "materialization_task_id", "number_of_attempts_from_old_executions", "plan_id", "spark_cluster_environment_version", "state_transitions", "stream_parameters", "tecton_environment", "tecton_runtime_version", "updated_at"]
     ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
     ATTEMPT_STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     BATCH_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
@@ -212,6 +222,7 @@ class MaterializationTask(_message.Message):
     DELTA_MAINTENANCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     FEATURE_EXPORT_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    ICEBERG_MAINTENANCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     ID_FEATURE_SERVICE_LOCATOR_FIELD_NUMBER: _ClassVar[int]
     ID_FEATURE_VIEW_LOCATOR_FIELD_NUMBER: _ClassVar[int]
     INGEST_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
@@ -238,6 +249,7 @@ class MaterializationTask(_message.Message):
     delta_maintenance_parameters: DeltaMaintenanceParameters
     error_message: str
     feature_export_parameters: FeatureExportParameters
+    iceberg_maintenance_parameters: IcebergMaintenanceParameters
     id_feature_service_locator: _fco_locator__client_pb2.IdFcoLocator
     id_feature_view_locator: _fco_locator__client_pb2.IdFcoLocator
     ingest_parameters: IngestMaterializationParameters
@@ -253,7 +265,7 @@ class MaterializationTask(_message.Message):
     tecton_environment: str
     tecton_runtime_version: str
     updated_at: _timestamp_pb2.Timestamp
-    def __init__(self, materialization_task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., plan_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., id_feature_view_locator: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., id_feature_service_locator: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., materialization_serial_version: _Optional[int] = ..., tecton_runtime_version: _Optional[str] = ..., tecton_environment: _Optional[str] = ..., compute_mode: _Optional[_Union[_compute_mode__client_pb2.BatchComputeMode, str]] = ..., batch_parameters: _Optional[_Union[BatchMaterializationParameters, _Mapping]] = ..., stream_parameters: _Optional[_Union[StreamMaterializationParameters, _Mapping]] = ..., ingest_parameters: _Optional[_Union[IngestMaterializationParameters, _Mapping]] = ..., deletion_parameters: _Optional[_Union[DeletionParameters, _Mapping]] = ..., delta_maintenance_parameters: _Optional[_Union[DeltaMaintenanceParameters, _Mapping]] = ..., feature_export_parameters: _Optional[_Union[FeatureExportParameters, _Mapping]] = ..., dataset_generation_parameters: _Optional[_Union[DatasetGenerationParameters, _Mapping]] = ..., spark_cluster_environment_version: _Optional[int] = ..., state_transitions: _Optional[_Iterable[_Union[MaterializationTaskStateTransition, _Mapping]]] = ..., number_of_attempts_from_old_executions: _Optional[int] = ..., error_message: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., attempts: _Optional[_Iterable[_Union[Attempt, _Mapping]]] = ..., canary_params: _Optional[_Union[CanaryParams, _Mapping]] = ..., manually_triggered: bool = ..., managed_retries: bool = ..., attempt_status_message: _Optional[str] = ...) -> None: ...
+    def __init__(self, materialization_task_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., plan_id: _Optional[_Union[_id__client_pb2.Id, _Mapping]] = ..., id_feature_view_locator: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., id_feature_service_locator: _Optional[_Union[_fco_locator__client_pb2.IdFcoLocator, _Mapping]] = ..., materialization_serial_version: _Optional[int] = ..., tecton_runtime_version: _Optional[str] = ..., tecton_environment: _Optional[str] = ..., compute_mode: _Optional[_Union[_compute_mode__client_pb2.BatchComputeMode, str]] = ..., batch_parameters: _Optional[_Union[BatchMaterializationParameters, _Mapping]] = ..., stream_parameters: _Optional[_Union[StreamMaterializationParameters, _Mapping]] = ..., ingest_parameters: _Optional[_Union[IngestMaterializationParameters, _Mapping]] = ..., deletion_parameters: _Optional[_Union[DeletionParameters, _Mapping]] = ..., delta_maintenance_parameters: _Optional[_Union[DeltaMaintenanceParameters, _Mapping]] = ..., feature_export_parameters: _Optional[_Union[FeatureExportParameters, _Mapping]] = ..., dataset_generation_parameters: _Optional[_Union[DatasetGenerationParameters, _Mapping]] = ..., iceberg_maintenance_parameters: _Optional[_Union[IcebergMaintenanceParameters, _Mapping]] = ..., spark_cluster_environment_version: _Optional[int] = ..., state_transitions: _Optional[_Iterable[_Union[MaterializationTaskStateTransition, _Mapping]]] = ..., number_of_attempts_from_old_executions: _Optional[int] = ..., error_message: _Optional[str] = ..., created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., attempts: _Optional[_Iterable[_Union[Attempt, _Mapping]]] = ..., canary_params: _Optional[_Union[CanaryParams, _Mapping]] = ..., manually_triggered: bool = ..., managed_retries: bool = ..., attempt_status_message: _Optional[str] = ...) -> None: ...
 
 class MaterializationTaskAttempt(_message.Message):
     __slots__ = ["attempt_number", "cluster_config", "created_at", "execution_environment", "materialization_task_attempt_id", "materialization_task_id", "online_store_copier_tasks", "run_id", "run_page_url", "snowflake_data", "state_transitions", "updated_at"]

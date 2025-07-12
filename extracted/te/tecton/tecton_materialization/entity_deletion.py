@@ -76,6 +76,7 @@ def run_offline_store_deleter(spark: SparkSession, materialization_task_params: 
         time_column=time_column,
         join_key_columns=fd.join_keys,
         is_continuous=False,
+        upsert_by_batch_publish_timestamp=False,
     )
     store_writer = get_offline_store_writer(offline_store_params, fd, fd.get_feature_store_format_version, spark)
     keys = spark.read.parquet(deletion_params.offline_join_keys_path)

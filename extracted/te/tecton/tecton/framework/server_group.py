@@ -1,3 +1,4 @@
+import logging
 from typing import Dict
 from typing import Optional
 from typing import Union
@@ -20,6 +21,9 @@ from tecton_proto.common import server_group_type__client_pb2 as server_group_ty
 from tecton_proto.validation import validator__client_pb2 as validator_pb2
 
 
+logger = logging.getLogger(__name__)
+
+
 @attrs.define(eq=False)
 class BaseServerGroup(base_tecton_object.BaseTectonObject):
     """Base class for server groups."""
@@ -39,7 +43,7 @@ class BaseServerGroup(base_tecton_object.BaseTectonObject):
     def _from_spec(cls, spec: specs.FeatureServerGroupSpec) -> "FeatureServerGroup":
         """Create a Feature Service from directly from a spec. Specs are assumed valid and will not be re-validated."""
         info = base_tecton_object.TectonObjectInfo.from_spec(spec)
-        obj = cls.__new__(cls)
+        obj = cls.__new__(cls)  # pylint: disable=no-value-for-parameter
         obj.__attrs_init__(
             info=info,
             spec=spec,
@@ -172,6 +176,10 @@ class TransformServerGroup(BaseServerGroup):
         :param environment: The name of the Python environment.
         :param options: Additional options to configure the Transform Server Group. Used for advanced use cases and beta features.
         """
+        # TODO(RT-Data) Add a link to the Server Group API Documentation once its available here
+        logger.warning(
+            "Deprecation Warning: `TransformServerGroup` FCO is deprecated and will be removed in upcoming Tecton SDK releases. Please use the Resource Management API to provision Transform Server Groups instead."
+        )
         args = server_group_pb2.ServerGroupArgs(
             server_group_id=id_helper.IdHelper.generate_id(),
             info=basic_info_pb2.BasicInfo(name=name, description=description, tags=tags, owner=owner),

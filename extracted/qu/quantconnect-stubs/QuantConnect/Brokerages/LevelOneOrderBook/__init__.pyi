@@ -13,6 +13,23 @@ QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_Callable = typing.Type
 QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Brokerages_LevelOneOrderBook__EventContainer_ReturnType")
 
 
+class BaseDataEventArgs(System.EventArgs):
+    """Provides data for an event that is triggered when a new BaseData is received."""
+
+    @property
+    def base_data(self) -> QuantConnect.Data.BaseData:
+        """Gets the BaseData data associated with the event."""
+        ...
+
+    def __init__(self, tick: QuantConnect.Data.BaseData) -> None:
+        """
+        Initializes a new instance of the BaseDataEventArgs class with the specified BaseData.
+        
+        :param tick: The BaseData data associated with the event.
+        """
+        ...
+
+
 class LevelOneServiceManager(System.Object, System.IDisposable):
     """
     Manages subscriptions and real-time updates for multiple LevelOneMarketData instances.
@@ -113,23 +130,6 @@ class LevelOneServiceManager(System.Object, System.IDisposable):
         Unsubscribes from the specified symbol and removes its associated service instance.
         
         :param data_config: The subscription configuration used for unsubscription.
-        """
-        ...
-
-
-class BaseDataEventArgs(System.EventArgs):
-    """Provides data for an event that is triggered when a new BaseData is received."""
-
-    @property
-    def base_data(self) -> QuantConnect.Data.BaseData:
-        """Gets the BaseData data associated with the event."""
-        ...
-
-    def __init__(self, tick: QuantConnect.Data.BaseData) -> None:
-        """
-        Initializes a new instance of the BaseDataEventArgs class with the specified BaseData.
-        
-        :param tick: The BaseData data associated with the event.
         """
         ...
 

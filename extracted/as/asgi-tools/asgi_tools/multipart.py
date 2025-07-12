@@ -256,18 +256,18 @@ class MultipartParser(BaseParser):
     """
 
     __slots__ = (
+        "boundary",
+        "boundary_chars",
         "callbacks",
         "cursize",
-        "max_size",
-        "state",
-        "index",
         "flags",
         "header_field_pos",
         "header_value_pos",
-        "part_data_pos",
-        "boundary",
-        "boundary_chars",
+        "index",
         "lookbehind",
+        "max_size",
+        "part_data_pos",
+        "state",
     )
 
     def __init__(self, boundary, callbacks: dict, max_size: int = 0):
@@ -587,6 +587,3 @@ def prune_data(data_len: int, cursize: int, max_size: int) -> int:
         return max_size - cursize
 
     return data_len
-
-
-# ruff: noqa: TRY003

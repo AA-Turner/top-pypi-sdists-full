@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 from django.db import connections
 
@@ -39,7 +39,7 @@ class PostgresPartitioningManager:
                 for deletion, regardless of the configuration.
 
             using:
-                Name of the database connection to use.
+                Optional name of the database connection to use.
 
         Returns:
             A plan describing what partitions would be created
@@ -111,7 +111,9 @@ class PostgresPartitioningManager:
         return model_plan
 
     @staticmethod
-    def _get_partitioned_table(connection, model: PostgresPartitionedModel):
+    def _get_partitioned_table(
+        connection, model: Type[PostgresPartitionedModel]
+    ):
         with connection.cursor() as cursor:
             table = connection.introspection.get_partitioned_table(
                 cursor, model._meta.db_table
