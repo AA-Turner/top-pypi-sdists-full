@@ -91,6 +91,7 @@ class ArgoWorkflows(object):
         name,
         graph: FlowGraph,
         flow,
+        code_package_metadata,
         code_package_sha,
         code_package_url,
         production_token,
@@ -143,6 +144,7 @@ class ArgoWorkflows(object):
         self.name = name
         self.graph = graph
         self.flow = flow
+        self.code_package_metadata = code_package_metadata
         self.code_package_sha = code_package_sha
         self.code_package_url = code_package_url
         self.production_token = production_token
@@ -551,7 +553,7 @@ class ArgoWorkflows(object):
                 type=param_type,
                 description=param.kwargs.get("help"),
                 is_required=is_required,
-                **extra_attrs
+                **extra_attrs,
             )
         return parameters
 
@@ -1495,7 +1497,9 @@ class ArgoWorkflows(object):
                     mflog_expr,
                 ]
                 + self.environment.get_package_commands(
-                    self.code_package_url, self.flow_datastore.TYPE
+                    self.code_package_url,
+                    self.flow_datastore.TYPE,
+                    self.code_package_metadata,
                 )
             )
             step_cmds = self.environment.bootstrap_commands(
@@ -1507,6 +1511,7 @@ class ArgoWorkflows(object):
                     decorator.make_decorator_spec()
                     for decorator in node.decorators
                     if not decorator.statically_defined
+                    and decorator.inserted_by is None
                 ]
             }
             # FlowDecorators can define their own top-level options. They are
@@ -1673,6 +1678,7 @@ class ArgoWorkflows(object):
                     **{
                         # These values are needed by Metaflow to set it's internal
                         # state appropriately.
+                        "METAFLOW_CODE_METADATA": self.code_package_metadata,
                         "METAFLOW_CODE_URL": self.code_package_url,
                         "METAFLOW_CODE_SHA": self.code_package_sha,
                         "METAFLOW_CODE_DS": self.flow_datastore.TYPE,
@@ -2476,7 +2482,9 @@ class ArgoWorkflows(object):
                 mflog_expr,
             ]
             + self.environment.get_package_commands(
-                self.code_package_url, self.flow_datastore.TYPE
+                self.code_package_url,
+                self.flow_datastore.TYPE,
+                self.code_package_metadata,
             )[:-1]
             # Replace the line 'Task in starting'
             # FIXME: this can be brittle.
@@ -2496,6 +2504,7 @@ class ArgoWorkflows(object):
         env = {
             # These values are needed by Metaflow to set it's internal
             # state appropriately.
+            "METAFLOW_CODE_METADATA": self.code_package_metadata,
             "METAFLOW_CODE_URL": self.code_package_url,
             "METAFLOW_CODE_SHA": self.code_package_sha,
             "METAFLOW_CODE_DS": self.flow_datastore.TYPE,
@@ -2952,7 +2961,8 @@ class ArgoWorkflows(object):
                 mflog_expr,
             ]
             + self.environment.get_package_commands(
-                self.code_package_url, self.flow_datastore.TYPE
+                self.code_package_url,
+                self.flow_datastore.TYPE,
             )[:-1]
             # Replace the line 'Task in starting'
             # FIXME: this can be brittle.
@@ -2967,6 +2977,7 @@ class ArgoWorkflows(object):
         env = {
             # These values are needed by Metaflow to set it's internal
             # state appropriately.
+            "METAFLOW_CODE_METADATA": self.code_package_metadata,
             "METAFLOW_CODE_URL": self.code_package_url,
             "METAFLOW_CODE_SHA": self.code_package_sha,
             "METAFLOW_CODE_DS": self.flow_datastore.TYPE,

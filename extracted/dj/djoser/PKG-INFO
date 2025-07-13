@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: djoser
-Version: 2.3.1
+Version: 2.3.2
 Summary: REST implementation of Django authentication system.
 Home-page: https://github.com/sunscrapers/djoser
 License: MIT
@@ -8,7 +8,7 @@ Author: Sunscrapers
 Author-email: info@sunscrapers.com
 Maintainer: Tomasz Wojcik
 Maintainer-email: djoser@tomwojcik.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 3.1
@@ -17,22 +17,22 @@ Classifier: Framework :: Django :: 4.0
 Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: djet
 Provides-Extra: webauthn
-Requires-Dist: django (>=3.0.0)
+Requires-Dist: django (>=3.2,<4.0)
+Requires-Dist: djangorestframework (>=3.14,<4.0)
 Requires-Dist: djangorestframework-simplejwt (>=5.0,<6.0)
 Requires-Dist: djet (>=0.3.0,<0.4.0) ; extra == "djet"
 Requires-Dist: social-auth-app-django (>=5.0.0,<6.0.0)
@@ -48,8 +48,8 @@ djoser
 .. image:: https://img.shields.io/pypi/v/djoser.svg
    :target: https://pypi.org/project/djoser
 
-.. image:: https://github.com/sunscrapers/djoser/workflows/Tests/badge.svg
-    :target: https://github.com/sunscrapers/djoser/actions?query=branch%3Amaster+workflow%Tests++
+.. image:: https://github.com/sunscrapers/djoser/actions/workflows/test-suite.yml/badge.svg?branch=master
+    :target: https://github.com/sunscrapers/djoser/actions?query=branch%3Amaster
     :alt: Build Status
 
 .. image:: https://codecov.io/gh/sunscrapers/djoser/branch/master/graph/badge.svg
@@ -68,6 +68,13 @@ views to handle basic actions such as registration, login, logout, password
 reset and account activation. It works with
 `custom user model <https://docs.djangoproject.com/en/dev/topics/auth/customizing/>`_.
 
+Supported features include:
+
+- Token-based authentication
+- JWT authentication
+- Social authentication
+- WebAuthn support
+
 Instead of reusing Django code (e.g. ``PasswordResetForm``), we reimplemented
 few things to fit better into `Single Page App <https://en.wikipedia.org/wiki/Single-page_application>`_
 architecture.
@@ -82,8 +89,8 @@ Requirements
 
 To be able to run **djoser** you have to meet the following requirements:
 
-- Python>=3.8
-- Django>=3.0.0
+- Python>=3.9,<4.0 (including 3.10, 3.11, and 3.12)
+- Django>=3.0.0 (supporting Django 3.2 through 5.1)
 - Django REST Framework>=3.12
 
 Installation
@@ -128,7 +135,7 @@ To run the test just type:
 
 .. code-block:: bash
 
-    $ poetry run py.test testproject
+    $ poetry run pytest
 
 We also prepared a convenient ``Makefile`` to automate commands above:
 
@@ -174,9 +181,14 @@ Before sending patches please make sure you have `pre-commit <https://pre-commit
 
 .. code-block:: bash
 
-    $ pre-commit install
+    $ poetry run pre-commit install
 
-This will ensure that your code is cleaned before you commit it.
+This will ensure that your code is cleaned before you commit it. The pre-commit hooks will run:
+
+- Black (code formatting)
+- Ruff (linting)
+- Docformatter (docstring formatting)
+- Other quality checks
 
 Similar projects
 ================

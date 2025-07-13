@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiceypy
-Version: 6.0.1
+Version: 6.0.2
 Summary: A Python Wrapper for the NAIF CSPICE Toolkit
 Home-page: https://github.com/AndrewAnnex/SpiceyPy
 Author: Andrew Annex
@@ -33,13 +33,13 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: <4,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy<3,>=2.0
+Requires-Dist: numpy>=1.23.5
 Provides-Extra: tests
-Requires-Dist: numpy<3,>=2.0; extra == "tests"
+Requires-Dist: numpy>=1.23.5; extra == "tests"
 Requires-Dist: pytest>=7.0.0; extra == "tests"
 Requires-Dist: pandas>=2.2.2; extra == "tests"
 Provides-Extra: dev
-Requires-Dist: numpy<3,>=2.0; extra == "dev"
+Requires-Dist: numpy>=1.23.5; extra == "dev"
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pandas>=2.2.2; extra == "dev"
 Requires-Dist: coverage>=7.0.0; extra == "dev"

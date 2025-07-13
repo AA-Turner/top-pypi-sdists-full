@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qbittorrent-api
-Version: 2025.5.0
+Version: 2025.7.0
 Summary: Python client for qBittorrent v4.1+ Web API.
 Author: Russell Martin
 Maintainer: Russell Martin
@@ -33,13 +33,13 @@ Requires-Dist: requests>=2.16.0
 Requires-Dist: urllib3>=1.24.2
 Provides-Extra: dev
 Requires-Dist: build==1.2.2.post1; extra == "dev"
-Requires-Dist: coverage[toml]==7.8.0; extra == "dev"
-Requires-Dist: mypy==1.15.0; extra == "dev"
+Requires-Dist: coverage[toml]==7.9.1; extra == "dev"
+Requires-Dist: mypy==1.16.1; extra == "dev"
 Requires-Dist: pre-commit==4.2.0; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
-Requires-Dist: tox==4.25.0; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
+Requires-Dist: tox==4.27.0; extra == "dev"
 Requires-Dist: twine==6.1.0; extra == "dev"
-Requires-Dist: types-requests==2.32.0.20250328; extra == "dev"
+Requires-Dist: types-requests==2.32.4.20250611; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: furo==2024.8.6; extra == "docs"
 Requires-Dist: sphinx==8.2.1; extra == "docs"
@@ -60,7 +60,7 @@ Python client implementation for qBittorrent Web API
 
 </div>
 
-Currently supports qBittorrent [v5.1.0](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.1.0) (Web API v2.11.4) released on Apr 27, 2025.
+Currently supports qBittorrent [v5.1.2](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.1.2) (Web API v2.11.4) released on Jul 2, 2025.
 
 User Guide and API Reference available on [Read the Docs](https://qbittorrent-api.readthedocs.io/).
 
@@ -124,6 +124,10 @@ qbt_client.torrents.stop.all()
 
 Change Log
 ==========
+### v2025.7.0 (12 jul 2025)
+- Advertise support for qBittorrent v5.1.1
+- Advertise support for qBittorrent v5.1.2
+
 ### v2025.5.0 (02 may 2025)
 - Advertise support for qBittorrent v5.1.0
 - Existing changes that are now supported in qBittorrent:

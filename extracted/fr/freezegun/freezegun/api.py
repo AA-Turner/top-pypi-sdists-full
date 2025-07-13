@@ -632,6 +632,13 @@ class _freeze_time:
         self.as_kwarg = as_kwarg
         self.real_asyncio = real_asyncio
 
+    # mypy objects to this because Type is Callable, but Pytype needs it because
+    # (unlike mypy's) its inference does not assume class decorators always leave
+    # the type unchanged.
+    @overload
+    def __call__(self, func: Type[T2]) -> Type[T2]:  # type: ignore[overload-overlap]
+        ...
+
     @overload
     def __call__(self, func: "Callable[P, Awaitable[Any]]") -> "Callable[P, Awaitable[Any]]":
         ...
@@ -693,7 +700,6 @@ class _freeze_time:
             klass.tearDown = tearDown  # type: ignore[method-assign]
 
         else:
-
             seen = set()
 
             klasses = klass.mro()
@@ -707,7 +713,20 @@ class _freeze_time:
                         continue
 
                     try:
-                        setattr(klass, attr, self(attr_value))
+                        if attr_value.__dict__.get("_pytestfixturefunction") and hasattr(attr_value, "__pytest_wrapped__"):
+                            # PYTEST==8.2.x (and maybe others)
+                            # attr_value is a pytest fixture
+                            # In other words: attr_value == fixture(original_method)
+                            # We need to keep the fixture itself intact to ensure pytest still treats it as a fixture
+                            # We still want to freeze time inside the original_method though
+                            attr_value.__pytest_wrapped__.obj = self(attr_value.__pytest_wrapped__.obj)
+                        elif attr_value.__dict__.get("_fixture_function"):
+                            # PYTEST==8.4.x
+                            # Same
+                            attr_value._fixture_function = self(attr_value._fixture_function)
+                        else:
+                            # Wrap the entire method inside 'freeze_time'
+                            setattr(klass, attr, self(attr_value))
                     except (AttributeError, TypeError):
                         # Sometimes we can't set this for built-in types and custom callables
                         continue

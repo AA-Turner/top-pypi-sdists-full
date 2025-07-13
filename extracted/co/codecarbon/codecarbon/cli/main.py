@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -23,7 +24,7 @@ from codecarbon.cli.cli_utils import (
 )
 from codecarbon.core.api_client import ApiClient, get_datetime_with_timezone
 from codecarbon.core.schemas import ExperimentCreate, OrganizationCreate, ProjectCreate
-from codecarbon.emissions_tracker import EmissionsTracker
+from codecarbon.emissions_tracker import EmissionsTracker, OfflineEmissionsTracker
 
 AUTH_CLIENT_ID = os.environ.get(
     "AUTH_CLIENT_ID",
@@ -40,6 +41,19 @@ DEFAULT_ORGANIzATION_ID = "e60afa92-17b7-4720-91a0-1ae91e409ba1"
 codecarbon = typer.Typer(no_args_is_help=True)
 
 
+def main():
+    """
+    Main entry point for the CodeCarbon CLI application.
+    This function catches any exceptions raised during the execution of the CLI commands
+    and prints an error message in red using Rich's print function.
+    """
+    try:
+        codecarbon()
+    except Exception as e:
+        print(f"[bold red]Error:[/bold red] {e}")
+        raise sys.exit(1)
+
+
 def _version_callback(value: bool) -> None:
     if value:
         print(f"{__app_name__} v{__version__}")
@@ -47,7 +61,7 @@ def _version_callback(value: bool) -> None:
 
 
 @codecarbon.callback()
-def main(
+def version(
     version: Optional[bool] = typer.Option(
         None,
         "--version",
@@ -139,8 +153,8 @@ def api_get():
 def login():
     get_fief_auth().authorize()
     api = ApiClient(endpoint_url=API_URL)  # TODO: get endpoint from config
-    id_token = _get_id_token()
-    api.set_access_token(id_token)
+    access_token = _get_access_token()
+    api.set_access_token(access_token)
     api.check_auth()
 
 
@@ -336,28 +350,55 @@ def monitor(
     api: Annotated[
         bool, typer.Option(help="Choose to call Code Carbon API or not")
     ] = True,
+    offline: Annotated[bool, typer.Option(help="Run in offline mode")] = False,
+    country_iso_code: Annotated[
+        str, typer.Option(help="3-letter country ISO code for offline mode")
+    ] = None,
+    region: Annotated[
+        str, typer.Option(help="Region/province for offline mode")
+    ] = None,
 ):
-    """Monitor your machine's carbon emissions.
+    """Monitor your machine's carbon emissions."""
+    if offline:
+        if not country_iso_code:
+            print(
+                "ERROR: country_iso_code is required for offline mode", file=sys.stderr
+            )
+            raise typer.Exit(1)
 
-    Args:
-        measure_power_secs (Annotated[int, typer.Argument, optional): Interval between two measures. Defaults to 10.
-        api_call_interval (Annotated[int, typer.Argument, optional): Number of measures before calling API. Defaults to 30.
-        api (Annotated[bool, typer.Option, optional): Choose to call Code Carbon API or not. Defaults to True.
-    """
-    experiment_id = get_existing_local_exp_id()
-    if api:
-        if experiment_id is None:
+        tracker = OfflineEmissionsTracker(
+            measure_power_secs=measure_power_secs,
+            country_iso_code=country_iso_code,
+            region=region,
+        )
+    else:
+        experiment_id = get_existing_local_exp_id()
+        if api and experiment_id is None:
             print(
                 "ERROR: No experiment id, call 'codecarbon config' first.",
                 file=sys.stderr,
             )
+            raise typer.Exit(1)
+
+        tracker = EmissionsTracker(
+            measure_power_secs=measure_power_secs,
+            api_call_interval=api_call_interval,
+            save_to_api=api,
+        )
+
+    def signal_handler(signum, frame):
+        print("\nReceived signal to stop. Saving emissions data...")
+        tracker.stop()
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     print("CodeCarbon is going in an infinite loop to monitor this machine.")
-    with EmissionsTracker(
-        measure_power_secs=measure_power_secs,
-        api_call_interval=api_call_interval,
-        save_to_api=api,
-    ) as tracker:
-        # Infinite loop
+    print("Press Ctrl+C to stop and save emissions data.")
+
+    tracker.start()
+    try:
         while True:
             if (
                 hasattr(tracker, "_another_instance_already_running")
@@ -366,6 +407,10 @@ def monitor(
                 print("Another instance of CodeCarbon is already running. Exiting.")
                 break
             time.sleep(300)
+    except Exception as e:
+        print(f"\nError occurred: {e}")
+        tracker.stop()
+        raise e
 
 
 def questionary_prompt(prompt, list_options, default):
@@ -378,4 +423,4 @@ def questionary_prompt(prompt, list_options, default):
 
 
 if __name__ == "__main__":
-    codecarbon()
+    main()

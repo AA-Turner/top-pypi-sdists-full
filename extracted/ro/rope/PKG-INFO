@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: rope
-Version: 1.13.0
+Version: 1.14.0
 Summary: a python refactoring library...
 Author-email: Ali Gholami Rudi <aligrudi@users.sourceforge.net>
 Maintainer-email: Lie Ryan <lieryan.24@proton.me>
@@ -42,14 +42,14 @@ Provides-Extra: release
 Requires-Dist: toml>=0.10.2; extra == "release"
 Requires-Dist: twine>=4.0.2; extra == "release"
 Requires-Dist: pip-tools>=6.12.1; extra == "release"
+Dynamic: license-file
 
 
 .. _GitHub python-rope / rope: https://github.com/python-rope/rope
 
 
-=========================================================================
- rope -- the world's most advanced open source Python refactoring library
-=========================================================================
+rope -- the world's most advanced open source Python refactoring library
+========================================================================
 
 |Build status badge| |Latest version badge| |Download count badge| |ReadTheDocs status badge| |Codecov badge|
 

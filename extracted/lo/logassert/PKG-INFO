@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logassert
-Version: 8.4
+Version: 8.5
 Summary: Simple but powerful assertion and verification of logged lines
 Author-email: Facundo Batista <facundo@taniquetil.com.ar>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -194,6 +194,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9

@@ -7,7 +7,7 @@ __author__ = "Arijit Basu"
 __email__ = "sayanarijit@gmail.com"
 __homepage__ = "https://github.com/sayanarijit/expandvars"
 __description__ = "Expand system variables Unix style"
-__version__ = "v1.0.0"
+__version__ = "v1.1.1"
 __license__ = "MIT"
 __all__ = [
     "BadSubstitution",
@@ -24,6 +24,7 @@ __all__ = [
 
 
 ESCAPE_CHAR = "\\"
+VAR_SYMBOL = "$"
 
 
 class ExpandvarsException(Exception):
@@ -76,7 +77,7 @@ class InvalidIndirectExpansion(ExpandvarsException, KeyError):
         super().__init__("{0}: invalid indirect expansion".format(param))
 
 
-def getenv(var, indirect, environ, var_symbol="$"):
+def getenv(var, indirect, environ, var_symbol=VAR_SYMBOL):
     """Get value from environment variable.
 
     When indirect is True, it will use the value of the resolved variable as
@@ -102,7 +103,14 @@ def getenv(var, indirect, environ, var_symbol="$"):
     return val
 
 
-def expand(vars_, nounset=False, environ=os.environ, var_symbol="$"):
+def expand(
+    vars_,
+    nounset=False,
+    environ=os.environ,
+    var_symbol=VAR_SYMBOL,
+    surrounded_vars_only=False,
+    escape_char=ESCAPE_CHAR,
+):
     """Expand variables Unix style.
 
     Params:
@@ -137,9 +145,9 @@ def expand(vars_, nounset=False, environ=os.environ, var_symbol="$"):
     vars_iter = _PeekableIterator(vars_)
     try:
         for c in vars_iter:
-            if c == ESCAPE_CHAR:
+            if escape_char and c == escape_char:
                 next_ = vars_iter.peek()
-                if next_ == var_symbol or next_ == ESCAPE_CHAR:
+                if next_ == var_symbol or next_ == escape_char:
                     buff.append(next(vars_iter))
                 elif next_ == _PeekableIterator.NOTHING:
                     raise MissingEscapedChar(c)
@@ -149,6 +157,8 @@ def expand(vars_, nounset=False, environ=os.environ, var_symbol="$"):
             elif c == var_symbol:
                 next_ = vars_iter.peek()
                 if next_ == _PeekableIterator.NOTHING:
+                    buff.append(c)
+                elif surrounded_vars_only and next_ != "{":
                     buff.append(c)
                 elif _valid_char(next_) or next_ == "{" or next_ == var_symbol:
                     val = _expand_var(
@@ -220,7 +230,6 @@ def _read_var(buff, var_symbol):
     indirect = False
 
     while state != State.FINISHED_READING:
-
         next_ = buff.peek()
 
         if next_ == _PeekableIterator.NOTHING:

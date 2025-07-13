@@ -22,7 +22,7 @@ concurrency:
 
 env:
   LATEST_PYTHON_VER: 3.13
-  LATEST_QBT_VER: v5.1.0
+  LATEST_QBT_VER: v5.1.2
   QBITTORRENTAPI_HOST: localhost:8080
   QBITTORRENTAPI_USERNAME: admin
   QBITTORRENTAPI_PASSWORD: adminadmin
@@ -84,7 +84,7 @@ jobs:
           fetch-depth: 0  # Fetch all refs so setuptools_scm can generate the correct version number
 
       - name: Build & Upload Package
-        uses: hynek/build-and-inspect-python-package@v2.12.0
+        uses: hynek/build-and-inspect-python-package@v2.13.0
         with:
           attest-build-provenance-github: ${{ inputs.attest }}
 
@@ -186,7 +186,7 @@ jobs:
 
       - name: Upload Coverage to Codecov
         if: contains(fromJson('["push", "pull_request"]'), github.event_name)
-        uses: codecov/codecov-action@v5.4.2
+        uses: codecov/codecov-action@v5.4.3
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

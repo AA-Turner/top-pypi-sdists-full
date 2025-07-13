@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ale-py
-Version: 0.11.1
+Version: 0.11.2
 Summary: The Arcade Learning Environment (ALE) - a platform for AI research.
 Author: Marc G. Bellemare, Yavar Naddaf, Joel Veness, Michael Bowling
 Maintainer-email: Farama Foundation <contact@farama.org>, Jesse Farebrother <jfarebro@cs.mcgill.ca>

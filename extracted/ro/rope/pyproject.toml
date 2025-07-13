@@ -21,7 +21,7 @@ classifiers = [
     'Programming Language :: Python :: 3.12',
     'Topic :: Software Development',
 ]
-version = '1.13.0'
+version = '1.14.0'
 dependencies = ['pytoolconfig[global] >= 1.2.2']
 
 [[project.authors]]
@@ -75,13 +75,20 @@ packages = [
 
 [tool.black]
 target-version = [
-    'py36',
-    'py37',
     'py38',
     'py39',
+    'py310',
+    'py311',
+    'py312',
 ]
 include = 'rope/.*\.pyi?$'
 force-exclude = 'ropetest|rope/base/prefs.py'
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError()",
+]
 
 [tool.isort]
 profile = "black"

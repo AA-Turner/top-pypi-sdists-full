@@ -604,10 +604,9 @@ class BeakerTaskSpec(_BeakerSpecBase):
     def with_env_var(
         self, name: str, value: str | None = None, secret: str | None = None
     ) -> BeakerTaskSpec:
-        return dataclasses.replace(
-            self,
-            env_vars=(self.env_vars or []) + [BeakerEnvVar(name=name, value=value, secret=secret)],
-        )
+        env_vars = [e for e in (self.env_vars or []) if e.name != name]
+        env_vars.append(BeakerEnvVar(name=name, value=value, secret=secret))
+        return dataclasses.replace(self, env_vars=env_vars)
 
     def with_constraint(self, **kwargs: list[str]) -> BeakerTaskSpec:
         constraints = (

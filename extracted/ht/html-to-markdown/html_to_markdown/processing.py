@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
-    # Use the imported PageElement instead of re-importing
+
 import re
 from contextvars import ContextVar
 from io import StringIO
@@ -14,7 +14,13 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 from bs4 import BeautifulSoup, Comment, Doctype, Tag
 from bs4.element import NavigableString, PageElement
 
-# Check if lxml is available for better performance
+try:
+    from html_to_markdown.preprocessor import create_preprocessor
+    from html_to_markdown.preprocessor import preprocess_html as preprocess_fn
+except ImportError:
+    create_preprocessor = None  # type: ignore[assignment]
+    preprocess_fn = None  # type: ignore[assignment]
+
 try:
     import importlib.util
 
@@ -212,8 +218,7 @@ def _process_tag(
         rendered = converters_map[tag_name](  # type: ignore[call-arg]
             tag=tag, text=text, convert_as_inline=convert_as_inline
         )
-        # For headings, ensure two newlines before if not already present
-        # Edge case where the document starts with a \n and then a heading
+
         if is_heading and context_before not in {"", "\n"}:
             n_eol_to_add = 2 - (len(context_before) - len(context_before.rstrip("\n")))
             if n_eol_to_add > 0:
@@ -233,27 +238,37 @@ def _process_text(
 ) -> str:
     text = str(el) or ""
 
-    # Cache parent lookups to avoid repeated traversal
     parent = el.parent
     parent_name = parent.name if parent else None
 
-    # Build set of ancestor tag names for efficient lookup
-    # Only traverse once instead of multiple find_parent calls
     ancestor_names = set()
     current = parent
     while current and hasattr(current, "name"):
         if current.name:
             ancestor_names.add(current.name)
         current = getattr(current, "parent", None)
-        # Limit traversal depth for performance
+
         if len(ancestor_names) > 10:
             break
 
-    # Check for pre ancestor (whitespace handling)
     if "pre" not in ancestor_names:
-        text = whitespace_re.sub(" ", text)
+        has_leading_space = text.startswith((" ", "\t"))
 
-    # Check for code-like ancestors (escaping)
+        has_trailing_space = text.endswith((" ", "\t"))
+
+        middle_content = (
+            text[1:-1]
+            if has_leading_space and has_trailing_space
+            else text[1:]
+            if has_leading_space
+            else text[:-1]
+            if has_trailing_space
+            else text
+        )
+
+        middle_content = whitespace_re.sub(" ", middle_content.strip())
+        text = (" " if has_leading_space else "") + middle_content + (" " if has_trailing_space else "")
+
     if not ancestor_names.intersection({"pre", "code", "kbd", "samp"}):
         text = escape(
             text=text,
@@ -262,14 +277,12 @@ def _process_text(
             escape_underscores=escape_underscores,
         )
 
-    # List item text processing
     if parent_name == "li" and (not el.next_sibling or getattr(el.next_sibling, "name", None) in {"ul", "ol"}):
         text = text.rstrip()
 
     return text
 
 
-# Context variable for ancestor cache - automatically isolated per conversion
 _ancestor_cache: ContextVar[dict[int, set[str]] | None] = ContextVar("ancestor_cache", default=None)
 
 
@@ -281,7 +294,6 @@ def _get_ancestor_names(element: PageElement, max_depth: int = 10) -> set[str]:
         cache = {}
         _ancestor_cache.set(cache)
 
-    # Check cache first
     if elem_id in cache:
         return cache[elem_id]
 
@@ -293,17 +305,14 @@ def _get_ancestor_names(element: PageElement, max_depth: int = 10) -> set[str]:
         if hasattr(current, "name") and current.name:
             ancestor_names.add(current.name)
 
-        # Check if we've already cached this parent's ancestors
         parent_id = id(current)
         if parent_id in cache:
-            # Reuse cached ancestors
             ancestor_names.update(cache[parent_id])
             break
 
         current = getattr(current, "parent", None)
         depth += 1
 
-    # Cache the result
     cache[elem_id] = ancestor_names
     return ancestor_names
 
@@ -345,33 +354,29 @@ def _extract_metadata(soup: BeautifulSoup) -> dict[str, str]:
     """
     metadata = {}
 
-    # Extract title
     title_tag = soup.find("title")
     if title_tag and isinstance(title_tag, Tag) and title_tag.string:
         metadata["title"] = title_tag.string.strip()
 
-    # Extract base href
     base_tag = soup.find("base", href=True)
     if base_tag and isinstance(base_tag, Tag) and isinstance(base_tag["href"], str):
         metadata["base-href"] = base_tag["href"]
 
-    # Extract meta tags
     for meta in soup.find_all("meta"):
-        # Handle name-based meta tags
         if meta.get("name") and meta.get("content") is not None:
             name = meta["name"]
             content = meta["content"]
             if isinstance(name, str) and isinstance(content, str):
                 key = f"meta-{name.lower()}"
                 metadata[key] = content
-        # Handle property-based meta tags (Open Graph, etc.)
+
         elif meta.get("property") and meta.get("content") is not None:
             prop = meta["property"]
             content = meta["content"]
             if isinstance(prop, str) and isinstance(content, str):
                 key = f"meta-{prop.lower().replace(':', '-')}"
                 metadata[key] = content
-        # Handle http-equiv meta tags
+
         elif meta.get("http-equiv") and meta.get("content") is not None:
             equiv = meta["http-equiv"]
             content = meta["content"]
@@ -379,12 +384,10 @@ def _extract_metadata(soup: BeautifulSoup) -> dict[str, str]:
                 key = f"meta-{equiv.lower()}"
                 metadata[key] = content
 
-    # Extract canonical link
     canonical = soup.find("link", rel="canonical", href=True)
     if canonical and isinstance(canonical, Tag) and isinstance(canonical["href"], str):
         metadata["canonical"] = canonical["href"]
 
-    # Extract other important link relations
     for rel_type in ["author", "license", "alternate"]:
         link = soup.find("link", rel=rel_type, href=True)
         if link and isinstance(link, Tag) and isinstance(link["href"], str):
@@ -407,7 +410,6 @@ def _format_metadata_comment(metadata: dict[str, str]) -> str:
 
     lines = ["<!--"]
     for key, value in sorted(metadata.items()):
-        # Escape any potential comment closers in the value
         safe_value = value.replace("-->", "--&gt;")
         lines.append(f"{key}: {safe_value}")
     lines.append("-->")
@@ -446,6 +448,10 @@ def convert_to_markdown(
     sup_symbol: str = "",
     wrap: bool = False,
     wrap_width: int = 80,
+    preprocess_html: bool = False,
+    preprocessing_preset: Literal["minimal", "standard", "aggressive"] = "standard",
+    remove_navigation: bool = True,
+    remove_forms: bool = True,
 ) -> str:
     """Convert HTML to Markdown.
 
@@ -480,6 +486,10 @@ def convert_to_markdown(
         sup_symbol: Custom symbol for superscript text. Defaults to an empty string.
         wrap: Wrap text to the specified width. Defaults to False.
         wrap_width: The number of characters at which to wrap text. Defaults to 80.
+        preprocess_html: Apply HTML preprocessing to improve quality. Defaults to False.
+        preprocessing_preset: Preset configuration for preprocessing. Defaults to "standard".
+        remove_navigation: Remove navigation elements during preprocessing. Defaults to True.
+        remove_forms: Remove form elements during preprocessing. Defaults to True.
 
     Raises:
         ConflictingOptionsError: If both 'strip' and 'convert' are specified.
@@ -499,27 +509,63 @@ def convert_to_markdown(
             return source
 
         if strip_newlines:
-            # Replace all newlines with spaces before parsing
             source = source.replace("\n", " ").replace("\r", " ")
 
+        # Fix lxml parsing of void elements like <wbr>
+        # lxml incorrectly treats them as container tags
+        source = re.sub(r"<wbr\s*>", "<wbr />", source, flags=re.IGNORECASE)
+
+        if preprocess_html and create_preprocessor is not None and preprocess_fn is not None:
+            config = create_preprocessor(
+                preset=preprocessing_preset,
+                remove_navigation=remove_navigation,
+                remove_forms=remove_forms,
+            )
+            source = preprocess_fn(source, **config)
+
         if "".join(source.split("\n")):
-            # Determine parser to use
             if parser is None:
-                # Auto-detect best available parser
                 parser = "lxml" if LXML_AVAILABLE else "html.parser"
 
-            # Validate parser choice
             if parser == "lxml" and not LXML_AVAILABLE:
                 raise MissingDependencyError("lxml", "pip install html-to-markdown[lxml]")
 
+            original_source = source if isinstance(source, str) else str(source)
+            needs_leading_whitespace_fix = (
+                parser == "lxml" and isinstance(source, str) and original_source.startswith((" ", "\t", "\n", "\r"))
+            )
+
             source = BeautifulSoup(source, parser)
+
+            if parser == "lxml":
+                body = source.find("body")
+                if body and isinstance(body, Tag):
+                    children = list(body.children)
+
+                    if (
+                        len(children) == 1
+                        and isinstance(children[0], NavigableString)
+                        and original_source.startswith((" ", "\t", "\n", "\r"))
+                        and not str(children[0]).startswith((" ", "\t", "\n", "\r"))
+                    ):
+                        first_child = children[0]
+
+                        leading_ws = ""
+                        for char in original_source:
+                            if char in " \t":
+                                leading_ws += char
+                            else:
+                                break
+
+                        new_text = NavigableString(leading_ws + str(first_child))
+                        first_child.replace_with(new_text)
+                        needs_leading_space_fix = False
         else:
             raise EmptyHtmlError
 
     if strip is not None and convert is not None:
         raise ConflictingOptionsError("strip", "convert")
 
-    # Use streaming processing if requested
     if stream_processing:
         result_chunks = []
         for chunk in convert_to_markdown_stream(
@@ -555,19 +601,15 @@ def convert_to_markdown(
                 chunk_callback(chunk)
             result_chunks.append(chunk)
 
-        # Apply same post-processing as regular path
         result = "".join(result_chunks)
 
-        # Normalize excessive newlines - max 2 consecutive newlines (one empty line)
         result = re.sub(r"\n{3,}", "\n\n", result)
 
-        # Strip all trailing newlines in inline mode
         if convert_as_inline:
             result = result.rstrip("\n")
 
         return result
 
-    # Use shared core with string sink for regular processing
     sink = StringSink()
 
     _process_html_core(
@@ -601,10 +643,42 @@ def convert_to_markdown(
 
     result = sink.get_result()
 
-    # Normalize excessive newlines - max 2 consecutive newlines (one empty line)
+    if (
+        "needs_leading_whitespace_fix" in locals()
+        and needs_leading_whitespace_fix
+        and not result.startswith((" ", "\t", "\n", "\r"))
+    ):
+        original_input = sink.original_source if hasattr(sink, "original_source") else original_source
+        leading_whitespace_match = re.match(r"^[\s]*", original_input)
+        if leading_whitespace_match:
+            leading_whitespace = leading_whitespace_match.group(0)
+
+            if any(tag in original_input for tag in ["<ol", "<ul", "<li", "<h1", "<h2", "<h3", "<h4", "<h5", "<h6"]):
+                leading_newlines = re.match(r"^[\n\r]*", leading_whitespace)
+                leading_whitespace = leading_newlines.group(0) if leading_newlines else ""
+
+            if leading_whitespace:
+                result = leading_whitespace + result
+
     result = re.sub(r"\n{3,}", "\n\n", result)
 
-    # Strip all trailing newlines in inline mode
+    def normalize_spaces_outside_code(text: str) -> str:
+        parts = text.split("```")
+        for i in range(0, len(parts), 2):
+            # Preserve definition list formatting (: followed by 3 spaces)
+            # Split by definition list patterns to preserve them
+            def_parts = re.split(r"(:\s{3})", parts[i])
+            for j in range(0, len(def_parts), 2):
+                # Only normalize non-definition-list parts
+                def_parts[j] = re.sub(r" {3,}", " ", def_parts[j])
+            parts[i] = "".join(def_parts)
+        return "```".join(parts)
+
+    result = normalize_spaces_outside_code(result)
+
+    result = re.sub(r"\*\* {2,}", "** ", result)
+    result = re.sub(r" {2,}\*\*", " **", result)
+
     if convert_as_inline:
         result = result.rstrip("\n")
 
@@ -654,25 +728,19 @@ class StreamingSink(OutputSink):
         if not text:
             return
 
-        # Use string concatenation instead of StringIO for better performance
         current_content = self.buffer.getvalue() if self.buffer_size > 0 else ""
         current_content += text
 
-        # Yield chunks when buffer is large enough
         while len(current_content) >= self.chunk_size:
-            # Find optimal split point (prefer after newlines)
             split_pos = self._find_split_position(current_content)
 
-            # Extract chunk and update remaining content
             chunk = current_content[:split_pos]
             current_content = current_content[split_pos:]
 
-            # Store chunk and update progress
             self.chunks.append(chunk)
             self.processed_bytes += len(chunk)
             self._update_progress()
 
-        # Update buffer with remaining content
         self.buffer = StringIO()
         if current_content:
             self.buffer.write(current_content)
@@ -692,7 +760,6 @@ class StreamingSink(OutputSink):
 
     def _find_split_position(self, content: str) -> int:
         """Find optimal position to split content for chunks."""
-        # Look for newline within reasonable distance of target size
         target = self.chunk_size
         lookahead = min(100, len(content) - target)
 
@@ -740,11 +807,9 @@ def _process_html_core(
     wrap_width: int,
 ) -> None:
     """Core HTML to Markdown processing logic shared by both regular and streaming."""
-    # Set up a fresh cache for this conversion
     token = _ancestor_cache.set({})
 
     try:
-        # Input validation and preprocessing
         if isinstance(source, str):
             if (
                 heading_style == UNDERLINED
@@ -759,12 +824,9 @@ def _process_html_core(
                 source = source.replace("\n", " ").replace("\r", " ")
 
             if "".join(source.split("\n")):
-                # Determine parser to use
                 if parser is None:
-                    # Auto-detect best available parser
                     parser = "lxml" if LXML_AVAILABLE else "html.parser"
 
-                # Validate parser choice
                 if parser == "lxml" and not LXML_AVAILABLE:
                     raise MissingDependencyError("lxml", "pip install html-to-markdown[lxml]")
 
@@ -775,7 +837,6 @@ def _process_html_core(
         if strip is not None and convert is not None:
             raise ConflictingOptionsError("strip", "convert")
 
-        # Create converters map
         converters_map = create_converters_map(
             autolinks=autolinks,
             bullets=bullets,
@@ -795,18 +856,15 @@ def _process_html_core(
         if custom_converters:
             converters_map.update(cast("ConvertersMap", custom_converters))
 
-        # Extract metadata if requested
         if extract_metadata and not convert_as_inline:
             metadata = _extract_metadata(source)
             metadata_comment = _format_metadata_comment(metadata)
             if metadata_comment:
                 sink.write(metadata_comment)
 
-        # Find the body tag to process only its content
         body = source.find("body")
         elements_to_process = body.children if body and isinstance(body, Tag) else source.children
 
-        # Process elements using shared logic
         context = ""
         for el in filter(lambda value: not isinstance(value, (Comment, Doctype)), elements_to_process):
             if isinstance(el, NavigableString):
@@ -833,10 +891,8 @@ def _process_html_core(
                 sink.write(text)
                 context += text
 
-        # Finalize output
         sink.finalize()
     finally:
-        # Reset context
         _ancestor_cache.reset(token)
 
 
@@ -909,16 +965,13 @@ def convert_to_markdown_stream(
     Yields:
         str: Chunks of Markdown-formatted text.
     """
-    # Use shared core with streaming sink
     sink = StreamingSink(chunk_size, progress_callback)
 
-    # Estimate total size for progress reporting
     if isinstance(source, str):
         sink.total_bytes = len(source)
     elif isinstance(source, BeautifulSoup):
         sink.total_bytes = len(str(source))
 
-    # Process using shared core
     _process_html_core(
         source,
         sink,
@@ -948,30 +1001,22 @@ def convert_to_markdown_stream(
         wrap_width=wrap_width,
     )
 
-    # Get all chunks from the sink and apply post-processing
     all_chunks = list(sink.get_chunks())
     combined_result = "".join(all_chunks)
 
-    # Apply same post-processing as regular conversion
-    # Normalize excessive newlines - max 2 consecutive newlines (one empty line)
     combined_result = re.sub(r"\n{3,}", "\n\n", combined_result)
 
-    # Strip all trailing newlines in inline mode
     if convert_as_inline:
         combined_result = combined_result.rstrip("\n")
 
-    # Now split the post-processed result back into chunks at good boundaries
     if not combined_result:
         return
 
     pos = 0
     while pos < len(combined_result):
-        # Calculate chunk end position
         end_pos = min(pos + chunk_size, len(combined_result))
 
-        # If not at the end, try to find a good split point
         if end_pos < len(combined_result):
-            # Look for newline within reasonable distance
             search_start = max(pos, end_pos - 50)
             search_end = min(len(combined_result), end_pos + 50)
             search_area = combined_result[search_start:search_end]
@@ -980,7 +1025,6 @@ def convert_to_markdown_stream(
             if newline_pos > 0:
                 end_pos = search_start + newline_pos + 1
 
-        # Yield the chunk
         chunk = combined_result[pos:end_pos]
         if chunk:
             yield chunk

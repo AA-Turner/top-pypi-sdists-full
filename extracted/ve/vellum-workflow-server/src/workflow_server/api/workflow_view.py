@@ -279,7 +279,7 @@ def stream_workflow_route() -> Response:
             yield "\n"
             yield vembda_initiated_event.model_dump_json()
             yield "\n"
-            for index, row in enumerate(workflow_events):
+            for row in workflow_events:
                 yield "\n"
                 if isinstance(row, dict):
                     dump = json.dumps(row)
@@ -386,7 +386,7 @@ def stream_node_route() -> Response:
     def generator() -> Generator[str, None, None]:
         yield json.dumps(vembda_initiated_event.model_dump(mode="json"))
 
-        for index, row in enumerate(node_events()):
+        for row in node_events():
             yield "\n"
             yield json.dumps(row)
 

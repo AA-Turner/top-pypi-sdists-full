@@ -1,45 +1,21 @@
 Metadata-Version: 2.4
 Name: policyengine-us
-Version: 1.341.0
-Summary: PolicyEngine tax and benefit system for the US
-Home-page: https://github.com/PolicyEngine/policyengine-us
-Author: PolicyEngine
-Author-email: hello@policyengine.org
-License: http://www.fsf.org/licensing/licenses/agpl-3.0.html
-Keywords: benefit microsimulation social tax
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
-Classifier: Operating System :: POSIX
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.10,<3.13
-Description-Content-Type: text/markdown
+Version: 1.341.1
+Summary: Add your description here.
+Author-email: PolicyEngine <hello@policyengine.org>
 License-File: LICENSE
-Requires-Dist: policyengine-core>=3.16.5
-Requires-Dist: policyengine-us-data>=1.13.0
-Requires-Dist: microdf-python>=0.4.3
-Requires-Dist: tqdm
+Requires-Python: <3.13,>=3.10
+Requires-Dist: microdf-python>=0.4.4
+Requires-Dist: policyengine-core>=3.17.1
+Requires-Dist: policyengine-us-data>=1.17.0
+Requires-Dist: tqdm>=4.67.1
 Provides-Extra: dev
-Requires-Dist: setuptools; extra == "dev"
-Requires-Dist: jupyter-book; extra == "dev"
-Requires-Dist: furo; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: build>=1.2.2.post1; extra == 'dev'
+Requires-Dist: coverage>=7.9.2; extra == 'dev'
+Requires-Dist: furo>=2024.8.6; extra == 'dev'
+Requires-Dist: jupyter-book>=1.0.4.post1; extra == 'dev'
+Requires-Dist: setuptools>=80.9.0; extra == 'dev'
+Description-Content-Type: text/markdown
 
 # PolicyEngine US
 

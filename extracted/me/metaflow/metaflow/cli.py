@@ -28,6 +28,7 @@ from .metaflow_config import (
 from .metaflow_current import current
 from metaflow.system import _system_monitor, _system_logger
 from .metaflow_environment import MetaflowEnvironment
+from .packaging_sys import MetaflowCodeContent
 from .plugins import (
     DATASTORES,
     ENVIRONMENTS,
@@ -152,8 +153,13 @@ def check(obj, warnings=False):
 def show(obj):
     echo_always("\n%s" % obj.graph.doc)
     for node_name in obj.graph.sorted_nodes:
+        echo_always("")
         node = obj.graph[node_name]
-        echo_always("\nStep *%s*" % node.name, err=False)
+        for deco in node.decorators:
+            echo_always("@%s" % deco.name, err=False)
+        for deco in node.wrappers:
+            echo_always("@%s" % deco.decorator_name, err=False)
+        echo_always("Step *%s*" % node.name, err=False)
         echo_always(node.doc if node.doc else "?", indent=True, err=False)
         if node.type != "end":
             echo_always(
@@ -336,6 +342,11 @@ def start(
     echo(" executing *%s*" % ctx.obj.flow.name, fg="magenta", nl=False)
     echo(" for *%s*" % resolve_identity(), fg="magenta")
 
+    # Check if we need to setup the distribution finder (if running )
+    dist_info = MetaflowCodeContent.get_distribution_finder()
+    if dist_info:
+        sys.meta_path.append(dist_info)
+
     # Setup the context
     cli_args._set_top_kwargs(ctx.params)
     ctx.obj.echo = echo
@@ -435,6 +446,10 @@ def start(
         # If we are not doing a resume, any exception we had parsing configs needs to
         # be raised. For resume, since we ignore those options, we ignore the error.
         raise ctx.obj.delayed_config_exception
+
+    # Init all values in the config decorators and then process them
+    for decorator in ctx.obj.flow._flow_state.get(_FlowState.CONFIG_DECORATORS, []):
+        decorator.external_init()
 
     new_cls = ctx.obj.flow._process_config_decorators(config_options)
     if new_cls:

@@ -449,6 +449,14 @@ l_refund_incorrect = {
     "zh": "👩🏽‍💻 <b>无效的</b> 操作 ID",
     "ar": "👩🏽‍💻 <b>معرف العملية</b> غير صالح",
 }
+l_refund_error = {
+    "ru": "👩🏽‍💻 <b>Ошибка</b> возврата (возврат не возможен после 21 дня)",
+    "en": "👩🏽‍💻 <b>Refund</b> error (refund not possible after 21 days)",
+    "es": "👩🏽‍💻 <b>Error</b> de reembolso (no es posible después de 21 días)",
+    "fr": "👩🏽‍💻 <b>Erreur</b> de remboursement (non possible après 21 jours)",
+    "zh": "👩🏽‍💻 <b>退款</b>错误（21天后无法退款）",
+    "ar": "👩🏽‍💻 <b>خطأ</b> في الاسترداد (غير ممكن بعد 21 يومًا)",
+}
 l_payment_6_months = {
     "ru": "6 месяцев",
     "en": "6 months",
@@ -1180,6 +1188,14 @@ l_channel = {
     'fr': "👩🏽‍💻 Chaîne",
     'zh': "👩🏽‍💻频道",
     'ar': "👩🏽‍💻 القناة",
+}
+l_chn = {
+    'ru': "канал",
+    'en': "сhannel",
+    'es': "сanal",
+    'fr': "сhaîne",
+    'zh': "频道",
+    'ar': "القناة",
 }
 l_group = {
     'ru': "👩🏽‍💻 Группа",
@@ -13496,6 +13512,63 @@ l_tonest_btn_stock2 = {
     'fr': "💨 Abonnement",
     'zh': "💨 订阅",
     'ar': "💨 الاشتراك",
+}
+
+l_tonest_nft_dialog = {
+    'ru': "💬 NFT-диалог",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_dialog_creating = {
+    'ru': "👩🏽‍💻 <b>Жми</b> на [💬 NFT-диалог], чтобы просмотреть и подтвердить создание NFT-диалога",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_dialog_online = {
+    'ru': "в сети",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_participants_of_dialog = {
+    'ru': "участников диалога",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_dialog_without_sub = {
+    'ru': "👩🏽‍💻 <b>Без подписки</b> можно отчеканить не более 10 реплик в NFT-диалог",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_dialog_limit_50 = {
+    'ru': "👩🏽‍💻 <b>Можно</b> отчеканить не более 50 реплик в NFT-диалог",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
+}
+l_tonest_dialog_need_correct_msgs = {
+    'ru': "👩🏽‍💻 <b>Необходимо</b> переслать корректные сообщения (аудио формат невозможно переслать)",
+    'en': "👩🏽‍💻 <b>Here</b> you can select the type of drop-down media notes (/add | /del)",
+    'es': "👩🏽‍💻 <b>Aquí</b> puedes seleccionar el tipo de notas multimedia desplegables (/add | /del)",
+    'fr': "👩🏽‍💻 <b>Ici</b>, vous pouvez sélectionner le type de notes média déroulantes (/add | /del)",
+    'zh': "👩🏽‍💻<b>在这里</b>您可以选择下拉媒体注释的类型（/add | /del）",
+    'ar': "👩🏽‍💻 <b>هنا</b> يمكنك تحديد نوع ملاحظات الوسائط المنسدلة (/add | /del)",
 }
 # endregion
 

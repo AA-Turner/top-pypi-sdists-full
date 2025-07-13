@@ -390,7 +390,7 @@ class CloudClusterDetails(_message.Message):
     def __init__(self, status: _Optional[_Union[CloudClusterStatus, str]] = ..., validated: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., status_message: _Optional[str] = ..., capacity: _Optional[int] = ..., node_cost: _Optional[float] = ..., preemptible_nodes: bool = ..., compute_source: _Optional[str] = ..., node_request: _Optional[_Union[NodeRequest, _Mapping]] = ...) -> None: ...
 
 class Cluster(_message.Message):
-    __slots__ = ("id", "created", "name", "organization_id", "on_premise_details", "cloud_details", "node_shape", "max_session_timeout", "user_restrictions", "allow_preemptible_restriction_exceptions", "organization_name", "require_preemptible_tasks", "cluster_occupancy", "node_count", "scheduling_policy", "max_task_timeout", "cluster_job_queue_size", "aliases")
+    __slots__ = ("id", "created", "name", "organization_id", "on_premise_details", "cloud_details", "node_shape", "max_session_timeout", "user_restrictions", "allow_preemptible_restriction_exceptions", "organization_name", "require_preemptible_tasks", "cluster_occupancy", "node_count", "scheduling_policy", "max_task_timeout", "cluster_job_queue_size", "aliases", "tags", "budget_restrictions")
     ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -409,6 +409,8 @@ class Cluster(_message.Message):
     MAX_TASK_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_JOB_QUEUE_SIZE_FIELD_NUMBER: _ClassVar[int]
     ALIASES_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_RESTRICTIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     created: _timestamp_pb2.Timestamp
     name: str
@@ -427,7 +429,9 @@ class Cluster(_message.Message):
     max_task_timeout: _duration_pb2.Duration
     cluster_job_queue_size: int
     aliases: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., organization_id: _Optional[str] = ..., on_premise_details: _Optional[_Union[OnPremiseClusterDetails, _Mapping]] = ..., cloud_details: _Optional[_Union[CloudClusterDetails, _Mapping]] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., user_restrictions: _Optional[_Iterable[str]] = ..., allow_preemptible_restriction_exceptions: bool = ..., organization_name: _Optional[str] = ..., require_preemptible_tasks: bool = ..., cluster_occupancy: _Optional[_Union[ClusterOccupancy, _Mapping]] = ..., node_count: _Optional[int] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., cluster_job_queue_size: _Optional[int] = ..., aliases: _Optional[_Iterable[str]] = ...) -> None: ...
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    budget_restrictions: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., organization_id: _Optional[str] = ..., on_premise_details: _Optional[_Union[OnPremiseClusterDetails, _Mapping]] = ..., cloud_details: _Optional[_Union[CloudClusterDetails, _Mapping]] = ..., node_shape: _Optional[_Union[NodeShape, _Mapping]] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., user_restrictions: _Optional[_Iterable[str]] = ..., allow_preemptible_restriction_exceptions: bool = ..., organization_name: _Optional[str] = ..., require_preemptible_tasks: bool = ..., cluster_occupancy: _Optional[_Union[ClusterOccupancy, _Mapping]] = ..., node_count: _Optional[int] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., cluster_job_queue_size: _Optional[int] = ..., aliases: _Optional[_Iterable[str]] = ..., tags: _Optional[_Iterable[str]] = ..., budget_restrictions: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class SlotCounts(_message.Message):
     __slots__ = ("total", "available", "occupied", "assigned", "cordoned")
@@ -1731,7 +1735,7 @@ class CreateClusterResponse(_message.Message):
 
 class UpdateClusterRequest(_message.Message):
     __slots__ = ("cluster_id", "max_session_timeout", "no_max_session_timeout", "max_task_timeout", "no_max_task_timeout", "allow_preemptible_restriction_exception", "require_preemptible_tasks", "restricted_user_ids", "clear_restricted_user_ids", "scheduling_policy")
-    class RestrictedUserIds(_message.Message):
+    class RestrictedUserIDs(_message.Message):
         __slots__ = ("restricted_user_ids",)
         RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
         restricted_user_ids: _containers.RepeatedScalarFieldContainer[str]
@@ -1753,12 +1757,42 @@ class UpdateClusterRequest(_message.Message):
     no_max_task_timeout: _empty_pb2.Empty
     allow_preemptible_restriction_exception: bool
     require_preemptible_tasks: bool
-    restricted_user_ids: UpdateClusterRequest.RestrictedUserIds
+    restricted_user_ids: UpdateClusterRequest.RestrictedUserIDs
     clear_restricted_user_ids: _empty_pb2.Empty
     scheduling_policy: ClusterSchedulingPolicy
-    def __init__(self, cluster_id: _Optional[str] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_session_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_task_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., allow_preemptible_restriction_exception: bool = ..., require_preemptible_tasks: bool = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRequest.RestrictedUserIds, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ...) -> None: ...
+    def __init__(self, cluster_id: _Optional[str] = ..., max_session_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_session_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., max_task_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., no_max_task_timeout: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., allow_preemptible_restriction_exception: bool = ..., require_preemptible_tasks: bool = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., scheduling_policy: _Optional[_Union[ClusterSchedulingPolicy, str]] = ...) -> None: ...
 
 class UpdateClusterResponse(_message.Message):
+    __slots__ = ("cluster",)
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    cluster: Cluster
+    def __init__(self, cluster: _Optional[_Union[Cluster, _Mapping]] = ...) -> None: ...
+
+class UpdateClusterRestrictionsRequest(_message.Message):
+    __slots__ = ("cluster_id", "restricted_user_ids", "clear_restricted_user_ids", "restricted_budget_ids", "clear_restricted_budget_ids")
+    class RestrictedUserIDs(_message.Message):
+        __slots__ = ("restricted_user_ids",)
+        RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
+        restricted_user_ids: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, restricted_user_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    class RestrictedBudgetIDs(_message.Message):
+        __slots__ = ("restricted_budget_ids",)
+        RESTRICTED_BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
+        restricted_budget_ids: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, restricted_budget_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
+    CLEAR_RESTRICTED_USER_IDS_FIELD_NUMBER: _ClassVar[int]
+    RESTRICTED_BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
+    CLEAR_RESTRICTED_BUDGET_IDS_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    restricted_user_ids: UpdateClusterRestrictionsRequest.RestrictedUserIDs
+    clear_restricted_user_ids: _empty_pb2.Empty
+    restricted_budget_ids: UpdateClusterRestrictionsRequest.RestrictedBudgetIDs
+    clear_restricted_budget_ids: _empty_pb2.Empty
+    def __init__(self, cluster_id: _Optional[str] = ..., restricted_user_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedUserIDs, _Mapping]] = ..., clear_restricted_user_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ..., restricted_budget_ids: _Optional[_Union[UpdateClusterRestrictionsRequest.RestrictedBudgetIDs, _Mapping]] = ..., clear_restricted_budget_ids: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...) -> None: ...
+
+class UpdateClusterRestrictionsResponse(_message.Message):
     __slots__ = ("cluster",)
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     cluster: Cluster
@@ -3093,3 +3127,31 @@ class ListQueueEntriesResponse(_message.Message):
     next_page_token: str
     entries: _containers.RepeatedCompositeFieldContainer[QueueEntry]
     def __init__(self, next_page_token: _Optional[str] = ..., entries: _Optional[_Iterable[_Union[QueueEntry, _Mapping]]] = ...) -> None: ...
+
+class CreateClusterTagRequest(_message.Message):
+    __slots__ = ("cluster_id", "tag_value", "tag_key")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    TAG_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TAG_KEY_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    tag_value: str
+    tag_key: str
+    def __init__(self, cluster_id: _Optional[str] = ..., tag_value: _Optional[str] = ..., tag_key: _Optional[str] = ...) -> None: ...
+
+class CreateClusterTagResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteClusterTagRequest(_message.Message):
+    __slots__ = ("cluster_id", "tag_value", "tag_key")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    TAG_VALUE_FIELD_NUMBER: _ClassVar[int]
+    TAG_KEY_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    tag_value: str
+    tag_key: str
+    def __init__(self, cluster_id: _Optional[str] = ..., tag_value: _Optional[str] = ..., tag_key: _Optional[str] = ...) -> None: ...
+
+class DeleteClusterTagResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

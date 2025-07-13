@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.4.29"  # We use git tags for versioning. This is just a placeholder.
+version = "0.4.30"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"

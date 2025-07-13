@@ -9,7 +9,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 # 0.0.0 is standard placeholder for poetry-dynamic-versioning
 # any changes to this should not be checked in
 #
-__version__ = "0.12"
+__version__ = "0.13"
 
 
 __all__ = ["EstimandType", "identify_effect_auto", "identify_effect_id", "identify_effect", "CausalModel"]

@@ -5,7 +5,7 @@ from typing import Optional
 import urllib.request
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'c200ac1be032766345130f931f8d92930d19c527'
+_SKYPILOT_COMMIT_SHA = '61fc313fd82ea4770be02f568f826e797abb0e58'
 
 
 def _get_git_commit():
@@ -35,7 +35,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.9.3'
+__version__ = '0.10.0'
 __root_dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -81,11 +81,11 @@ _set_http_proxy_env_vars()
 # Keep this order to avoid cyclic imports
 # pylint: disable=wrong-import-position
 from sky import backends
-from sky import benchmark
 from sky import clouds
 from sky.admin_policy import AdminPolicy
 from sky.admin_policy import MutatedUserRequest
 from sky.admin_policy import UserRequest
+from sky.catalog import list_accelerators
 from sky.client.sdk import api_cancel
 from sky.client.sdk import api_info
 from sky.client.sdk import api_server_logs
@@ -110,7 +110,6 @@ from sky.client.sdk import storage_delete
 from sky.client.sdk import storage_ls
 from sky.client.sdk import stream_and_get
 from sky.client.sdk import tail_logs
-from sky.clouds.service_catalog import list_accelerators
 from sky.dag import Dag
 from sky.data import Storage
 from sky.data import StorageMode
@@ -144,6 +143,7 @@ Vast = clouds.Vast
 Vsphere = clouds.Vsphere
 Fluidstack = clouds.Fluidstack
 Nebius = clouds.Nebius
+Hyperbolic = clouds.Hyperbolic
 
 __all__ = [
     '__version__',
@@ -163,10 +163,10 @@ __all__ = [
     'Vsphere',
     'Fluidstack',
     'Nebius',
+    'Hyperbolic',
     'Optimizer',
     'OptimizeTarget',
     'backends',
-    'benchmark',
     'list_accelerators',
     '__root_dir__',
     'Storage',

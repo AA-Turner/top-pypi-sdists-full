@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mapply
-Version: 0.1.28
+Version: 0.1.29
 Summary: Sensible multi-core apply function for Pandas
 Author-email: ddelange <ddelange@delange.dev>
 License-Expression: BSD-3-Clause

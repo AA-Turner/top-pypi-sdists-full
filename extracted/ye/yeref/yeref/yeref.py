@@ -18,6 +18,7 @@ import random
 import re
 import csv
 import subprocess
+from typing import Optional
 
 import aioboto3
 import asyncpg
@@ -30,9 +31,10 @@ import zipfile
 from html import unescape
 from calendar import monthrange
 from collections import defaultdict
-# import whisper
+# language=bash
 # pip install openai-whisper
 from datetime import datetime, timezone, timedelta
+# import whisper
 # from contextlib import closing
 from math import radians, cos, sin, asin, sqrt
 from operator import itemgetter
@@ -108,7 +110,7 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_post_datetime, l_off, l_post_new, l_post_delete, l_post_change, l_silence, l_grp_btn1, l_grp_btn2, \
     l_choose_direction, l_post_buttons, l_pin, l_preview, l_spoiler, l_broadcast_start, l_post_timer, l_post_date, \
     l_enter, l_subscribe_channel_for_post, l_chn_btn1, l_chn_btn2, l_post_publish, l_recipient, l_inline_sticker, \
-    l_inline_tonest, l_donate, l_post_sticker_toobig, \
+    l_inline_tonest, l_donate, l_chn, l_post_sticker_toobig, \
     l_payment_check_token, l_podcast_start, l_chn_no_rights_for_media, \
     l_refund_title, l_refund_already_done, l_refund_success, l_refund_incorrect, \
     l_tools_has_restricted, l_bot_need_start_add, l_chn_need_boost_for_story, l_bot_need_restart_extra_bot, \
@@ -2486,55 +2488,50 @@ def ignore_case_collation(value1_, value2_):
 async def db_select(sql, param=None, db=None):
     retry = 2
     result = []
-    try:
-        while retry > 0:
-            try:
-                async with aiosqlite.connect(db, timeout=15) as con:
-                    await con.execute('PRAGMA foreign_keys=ON;')
-                    await con.create_function("LOWER", 1, sqlite_lower)
-                    async with con.execute(sql, param or ()) as cur:
-                        result = await cur.fetchall()
-                    break
-            except Exception as e:
-                logger.info(log_ % str(e))
-                if 'no such column' in str(e) or 'unable to open database' in str(e) or 'no such table' in str(e):
-                    return result
-                await asyncio.sleep(round(random.uniform(1, 2), 2))
-                retry -= 1
-                if retry > 0:
-                    async with aiosqlite.connect(db) as con:
-                        await con.execute("VACUUM")
-    finally:
-        return result
+    while retry > 0:
+        try:
+            async with aiosqlite.connect(db, timeout=15) as con:
+                await con.execute('PRAGMA foreign_keys=ON;')
+                await con.create_function("LOWER", 1, sqlite_lower)
+                async with con.execute(sql, param or ()) as cur:
+                    result = await cur.fetchall()
+                break
+        except Exception as e:
+            logger.info(log_ % str(e))
+            if 'no such column' in str(e) or 'unable to open database' in str(e) or 'no such table' in str(e):
+                return result
+            await asyncio.sleep(round(random.uniform(1, 2), 2))
+            retry -= 1
+            if retry > 0:
+                async with aiosqlite.connect(db) as con:
+                    await con.execute("VACUUM")
+    return result
 
 
 async def db_change(sql, param=None, db=None):
     retry = 2
     result = -1
-    try:
-        while retry > 0:
-            try:
-                async with aiosqlite.connect(db, timeout=15) as con:
-                    await con.execute('PRAGMA foreign_keys=ON;')
-                    async with con.cursor() as cur:
-                        await cur.execute(sql, param or ())
-                        await con.commit()
-                        result = cur.lastrowid
-                    break
-            except Exception as e:
-                # logger.info(log_ % str(e))
-                logger.info(log_ % f"{os.path.basename(db)}: {str(e)} ({retry=})")
-                if 'no such column' in str(e) or 'binding' in str(e) or 'unable to open database' in str(
-                        e) or 'no such table' in str(e):
-                    return
-                await asyncio.sleep(round(random.uniform(1, 2), 2))
-                retry -= 1
-                if retry > 0:
-                    print(f'start VACUUM, {db=}, {sql=}, {param=}')
-                    async with aiosqlite.connect(db) as con:
-                        await con.execute("VACUUM")
-    finally:
-        return result
+    while retry > 0:
+        try:
+            async with aiosqlite.connect(db, timeout=15) as con:
+                await con.execute('PRAGMA foreign_keys=ON;')
+                async with con.cursor() as cur:
+                    await cur.execute(sql, param or ())
+                    await con.commit()
+                    result = cur.lastrowid
+                break
+        except Exception as e:
+            # logger.info(log_ % str(e))
+            logger.info(log_ % f"{os.path.basename(db)}: {str(e)} ({retry=})")
+            if 'no such column' in str(e) or 'binding' in str(e) or 'unable to open database' in str(e) or 'no such table' in str(e):
+                return result
+            await asyncio.sleep(round(random.uniform(1, 2), 2))
+            retry -= 1
+            if retry > 0:
+                print(f'start VACUUM, {db=}, {sql=}, {param=}')
+                async with aiosqlite.connect(db) as con:
+                    await con.execute("VACUUM")
+    return result
 
 
 async def db_bot_create(db):
@@ -3829,66 +3826,60 @@ async def db_select_columnames(TABLE_NAME=None, db=None):
         con.close()
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return data
+    return data
 
 
 async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
     retry = 1
     result = []
-    try:
-        while retry > 0:
-            try:
-                if db_pool:
-                    async with db_pool.acquire() as conn:
-                        result = await conn.fetch(sql, *(param or ()))
-                        logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
-                else:
-                    conn = await asyncpg.connect(**db_config)
-                    try:
-                        result = await conn.fetch(sql, *(param or ()))
-                        logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
-                    finally:
-                        await conn.close()
-                break
-            except Exception as e:
-                logger.info(log_ % f"{str(e) + str(param)} ({sql=})")
-                if 'does not exist' in str(e) or 'invalid input syntax' in str(e):
-                    return result
-                await asyncio.sleep(round(random.uniform(1, 2), 2))
-                retry -= 1
-    finally:
-        return result
+    while retry > 0:
+        try:
+            if db_pool:
+                async with db_pool.acquire() as conn:
+                    result = await conn.fetch(sql, *(param or ()))
+                    logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
+            else:
+                conn = await asyncpg.connect(**db_config)
+                try:
+                    result = await conn.fetch(sql, *(param or ()))
+                    logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
+                finally:
+                    await conn.close()
+            break
+        except Exception as e:
+            logger.info(log_ % f"{str(e) + str(param)} ({sql=})")
+            if 'does not exist' in str(e) or 'invalid input syntax' in str(e):
+                return result
+            await asyncio.sleep(round(random.uniform(1, 2), 2))
+            retry -= 1
+    return result
 
 
 async def db_change_pg(sql, param=None, db_pool=None, db_config=None):
     retry = 1
     result = -1
-    try:
-
-        while retry > 0:
-            try:
-                if db_pool:
-                    # print(f"{db_pool=}")
-                    async with db_pool.acquire() as conn:
-                        result = await conn.execute(sql, *(param or ()))
-                        logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
-                else:
-                    conn = await asyncpg.connect(**db_config)
-                    try:
-                        result = await conn.execute(sql, *(param or ()))
-                        logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
-                    finally:
-                        await conn.close()
-                break
-            except Exception as e:
-                logger.info(log_ % f"Error: {str(e) + str(param)} ({sql=})")
-                if 'does not exist' in str(e) or 'invalid input syntax' in str(e):
-                    return result
-                await asyncio.sleep(round(random.uniform(1, 2), 2))
-                retry -= 1
-    finally:
-        return result
+    while retry > 0:
+        try:
+            if db_pool:
+                # print(f"{db_pool=}")
+                async with db_pool.acquire() as conn:
+                    result = await conn.execute(sql, *(param or ()))
+                    logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
+            else:
+                conn = await asyncpg.connect(**db_config)
+                try:
+                    result = await conn.execute(sql, *(param or ()))
+                    logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
+                finally:
+                    await conn.close()
+            break
+        except Exception as e:
+            logger.info(log_ % f"Error: {str(e) + str(param)} ({sql=})")
+            if 'does not exist' in str(e) or 'invalid input syntax' in str(e):
+                return result
+            await asyncio.sleep(round(random.uniform(1, 2), 2))
+            retry -= 1
+    return result
 
 
 async def is_my_db_exists(PG_PASS_MAIN, BASE_D):
@@ -3910,7 +3901,7 @@ async def is_my_db_exists(PG_PASS_MAIN, BASE_D):
     finally:
         if conn: await conn.close()
         logger.info(log_ % f"is_my_db_exists = {result}")
-        return result
+    return result
 
 
 async def reset_database_and_role(PG_PASS_MAIN, BASE_D, is_all=False):
@@ -3992,7 +3983,9 @@ async def create_role_and_database(PG_PASS_MAIN, BASE_D):
 
         await conn.execute(f"CREATE DATABASE {BASE_D['database']} WITH OWNER {BASE_D['user']};")
         logger.info(log_ % str(f"DB: {BASE_D['database']} SUCCESS"))
+        # ```shell
         # psql -U bot_user -d bot_db -h localhost -p 5432
+        # ```
 
         # #!/bin/bash
         # sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'xxx';"
@@ -4036,8 +4029,7 @@ async def check_schema_exists(schema_name, db_pool):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def not_del_if_payments(chat_id, status, MEDIA_D, BASE_P):
@@ -4096,8 +4088,7 @@ async def get_openai_key(file_keys):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def del_openai_key(del_key, file_keys):
@@ -4144,8 +4135,7 @@ async def get_txt_wrapper(file_keys):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_time_time(is_bid=False):
@@ -4159,8 +4149,7 @@ async def get_time_time(is_bid=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_D, lz, prompt='', BOT_TOKEN_=None):
@@ -4283,8 +4272,7 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result_txt, result_img
+    return result_txt, result_img
 
 
 async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MEDIA, ENT_TID, PROJECT_TYPE, ENT_USERNAME,
@@ -4307,7 +4295,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
         if POST_TYPE == 'text':
             print(f"{prompt_txt=}")
             lst = await outsource_generate({'type': 'txt', 'prompt': prompt_txt}, KEYS_JSON)
-            if not len(lst): return
+            if not len(lst): return result
             if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
                 result = lst[0]['answer'].split(':')[-1]
             else:
@@ -4315,7 +4303,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             print(f"{result=}")
         elif POST_TYPE in ['photo', 'gif', 'animation', 'sticker', 'video', 'video_note', 'web']:
             lst = await outsource_generate({'type': 'img', 'prompt': prompt_img}, KEYS_JSON)
-            if not len(lst): return
+            if not len(lst): return result
 
             print(f"{str(lst)[:256]=}")
             dst = os.path.join(MEDIA_D, str(ENT_TID), f"{templ}.png")
@@ -4478,7 +4466,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             result = POST_MEDIA
         elif POST_TYPE in ['audio', 'voice']:
             lst = await outsource_generate({'type': 'txt', 'prompt': prompt_txt}, KEYS_JSON)
-            if not len(lst): return
+            if not len(lst): return result
             MSG_TEXT = lst[0]['answer']
 
             print(f"{prompt_txt=}, {lst=}")
@@ -4487,7 +4475,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             lst = await outsource_generate(
                 {'type': 'tts', 'prompt': MSG_TEXT, 'lc': lc, 'dir_name': os.path.join(MEDIA_D, str(ENT_TID))},
                 KEYS_JSON)
-            if not len(lst): return
+            if not len(lst): return result
 
             thumbnail = types.FSInputFile(os.path.join(EXTRA_D, 'img.jpg'))
             dst = lst[0]['answer']
@@ -4599,7 +4587,7 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             print(f"{POST_LNK=}")
         else:
             lst = await outsource_generate({'type': 'txt', 'prompt': prompt_txt}, KEYS_JSON)
-            if not len(lst): return
+            if not len(lst): return result
             if ':' not in prompt and ':' in lst[0]['answer'] and len(lst[0]['answer'].split(':')) == 2:
                 MSG_TEXT = lst[0]['answer'].split(':')[-1]
             else:
@@ -4680,11 +4668,12 @@ async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MED
             request_app.setdefault('user_data', {}).setdefault(chat_id, {})['gen_status'] = True
             request_app.setdefault('user_data', {}).setdefault(chat_id, {})['gen_type'] = POST_TYPE
             request_app.setdefault('user_data', {}).setdefault(chat_id, {})['gen_result'] = result
-        return result
+    return result
 
 
 async def recognize_speech(chat_id, lc, MEDIA_D, file_name, model='base'):
-    result = text = file_wav = None
+    result = file_wav = None
+    text = ''
     try:
         # try:
         #     model = whisper.load_model(model)
@@ -4730,7 +4719,7 @@ async def recognize_speech(chat_id, lc, MEDIA_D, file_name, model='base'):
     finally:
         if file_name and os.path.exists(file_name): os.remove(file_name)
         if file_wav and os.path.exists(file_wav): os.remove(file_wav)
-        return result
+    return result
 
 
 async def g4f_chat_completion(result_txt):
@@ -4828,8 +4817,7 @@ async def g4f_chat_completion(result_txt):
                 cnt -= 1
     except Exception as e:
         logger.info(log_ % f"{str(e)}")
-    finally:
-        return result
+    return result
 
 
 async def outsource_generate(lst, path='link_path'):
@@ -4947,7 +4935,7 @@ async def outsource_generate(lst, path='link_path'):
                     lc = 'en' if 'lc' not in item else item['lc']
 
                     if isinstance(prompt, str):
-                        # prompt = [{"role": "system", "content": 'You are a helpful translator'}, {"role": "user", "content": f"Translate the following text (to `{lc}`-ISO language code, send me only translations without quotes, colon, explanations. Only translation whithout prefix 'The translation of'), but do not remove tags: {prompt}"}]
+                        # prompt = [{"role": "system", "content": 'You are a helpful translator'}, {"role": "user", "content": f"Translate the following text (to `{lc}`-ISO language code, send me only translations without quotes, colon, explanations. Only translation without prefix 'The translation of'), but do not remove tags: {prompt}"}]
                         # prompt = [
                         #     {"role": "system", "content": "You are a helpful translator"},
                         #     {"role": "user",
@@ -5106,7 +5094,7 @@ async def outsource_generate(lst, path='link_path'):
                                                     status = res['status']
                                                     if status.lower() == 'succeeded':
                                                         result.append({'type': item['type'], 'answer': res['imageUrl']})
-                                                        return
+                                                        return result
                                                 attempts -= 1
                                                 await asyncio.sleep(3)
                                     elif provider_name == 'monster':
@@ -5132,7 +5120,7 @@ async def outsource_generate(lst, path='link_path'):
                                                     if status.lower() == 'completed':
                                                         result.append({'type': item['type'],
                                                                        'answer': res['result']['output'][0]})
-                                                        return
+                                                        return result
                                                 attempts -= 1
                                                 await asyncio.sleep(3)
                                     elif provider_name == 'stablehorde':
@@ -5157,7 +5145,7 @@ async def outsource_generate(lst, path='link_path'):
                                                 job_id = res.get("id")
                                                 if not job_id:
                                                     print("no job id")
-                                                    return
+                                                    return result
 
                                                 print(f"Job ID: {job_id}")
 
@@ -5181,7 +5169,7 @@ async def outsource_generate(lst, path='link_path'):
 
                                                         print(f"ready{r_img}")
                                                         result.append({'type': item['type'], 'answer': r_img})
-                                                        return
+                                                        return result
 
                                                 attempts -= 1
                                                 print(f"Try {7 - attempts} fail, waiit 4 sec...")
@@ -5225,7 +5213,7 @@ async def outsource_generate(lst, path='link_path'):
                                                 res = await response.json()
                                                 if 'uuid' not in res:
                                                     print("no'uuid'", res)
-                                                    return
+                                                    return result
                                                 job_id = res['uuid']
 
                                         attempts = 15
@@ -5239,7 +5227,7 @@ async def outsource_generate(lst, path='link_path'):
                                                     if res['status'].lower() == 'done':
                                                         base64_img = res['images'][0]
                                                         result.append({'type': item['type'], 'answer': base64_img})
-                                                        return
+                                                        return result
                                             attempts -= 1
                                             await asyncio.sleep(3)
                                     elif provider_name == 'huggingface':
@@ -5259,7 +5247,7 @@ async def outsource_generate(lst, path='link_path'):
                                                     encoded_image = base64.b64encode(buffer.read()).decode()
 
                                                     result.append({'type': item['type'], 'answer': encoded_image})
-                                                    return
+                                                    return result
                                     elif provider_name == 'proxyapi':
                                         base_url = "https://api.proxyapi.ru/openai/v1"
                                         client = AsyncOpenAI(api_key=api_key,
@@ -5286,7 +5274,7 @@ async def outsource_generate(lst, path='link_path'):
                                         # print(f"{res.data=}")
                                         for it in res.data:
                                             result.append({'type': item['type'], 'answer': it.b64_json})
-                                            return
+                                            return result
                                 except Exception as e:
                                     logger.info(log_ % f"{api_key} " + str(e))
                                     await asyncio.sleep(round(random.uniform(3, 4), 2))
@@ -5442,7 +5430,7 @@ async def outsource_generate(lst, path='link_path'):
 
                                     if os.path.exists(dst_mp3) and os.path.getsize(dst_mp3):
                                         result.append({'type': item['type'], 'answer': dst_mp3})
-                                        return
+                                        return result
                                 except Exception as e:
                                     logger.info(log_ % str(e))
                                     await asyncio.sleep(round(random.uniform(3, 4), 2))
@@ -5586,8 +5574,7 @@ async def outsource_generate(lst, path='link_path'):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_neuro_keys(file_path, type_="image"):
@@ -5600,8 +5587,7 @@ async def get_neuro_keys(file_path, type_="image"):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def outsource_handle_old(lst, path='link_path'):
@@ -5874,8 +5860,9 @@ async def outsource_handle_old(lst, path='link_path'):
                                 elif 'rate_limit_exceeded' in str(e).lower():
                                     model_num = 2
                                     print(f'change model = {model_num}')
-                                    await asyncio.sleep(round(random.uniform(3, 4),
-                                                              2))  # break  # await asyncio.sleep(round(random.uniform(61, 62), 2))
+                                    await asyncio.sleep(round(random.uniform(3, 4), 2))
+                                    # await asyncio.sleep(round(random.uniform(61, 62), 2))
+                                    # break
                                 else:
                                     await asyncio.sleep(round(random.uniform(3, 4), 2))
                             finally:
@@ -5896,7 +5883,7 @@ async def outsource_handle_old(lst, path='link_path'):
                                 # echo - stupid rus
                                 # fable - between alloy and echo
                                 # onyx - lowe voice (not bad)
-                                # nova - 32 years old girl
+                                # nova - 32-year-old girl
                                 # shimmer - between male and female
                                 input_ = str(item['prompt'].replace('```py\n', ''))
                                 print(f"{input_=}")
@@ -6082,8 +6069,7 @@ async def outsource_handle_old(lst, path='link_path'):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_grant_balance(key_):
@@ -6102,8 +6088,7 @@ async def get_grant_balance(key_):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_access_token_hume(API_KEY, SECRET_KEY):
@@ -6127,8 +6112,7 @@ async def get_access_token_hume(API_KEY, SECRET_KEY):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 # endregion
 
 
@@ -6162,8 +6146,7 @@ async def format_text_to_sticker(txt):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, MEDIA_D, mem_type):
@@ -6281,7 +6264,7 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-        return stickers
+    return stickers
 
 
 async def desc_to_sticker(bot, chat_id, name, stickers, username, title, desc, MEDIA_D, mem_type):
@@ -6337,7 +6320,7 @@ async def desc_to_sticker(bot, chat_id, name, stickers, username, title, desc, M
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-        return stickers
+    return stickers
 
 
 async def text_to_sticker(text, media_dir, img_width):
@@ -6369,8 +6352,7 @@ async def text_to_sticker(text, media_dir, img_width):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result, file_name_part
+    return result, file_name_part
 
 
 async def photo_to_circle(file_photo):
@@ -6450,8 +6432,7 @@ async def resize_to_max_side(input_image_path, target_max_side, mem_type='regula
     except Exception as e:
         print(e)
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result_width, result_height
+    return result_width, result_height
 
 
 async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
@@ -6580,7 +6561,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
             async with aiohttp.ClientSession() as session:
                 async with session.post('https://api.imgflip.com/caption_image', data=data) as response:
                     res = await response.json()
-                    if not res['success']: return
+                    if not res['success']: return result, mem_format
 
                     async with session.get(res['data']['url']) as img_response:
                         img_content = await img_response.read()
@@ -6648,7 +6629,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
             # region sticker_png
             try:
                 cap = cv2.VideoCapture(video_name)
-                if not cap.isOpened(): return
+                if not cap.isOpened(): return result, mem_format
                 ret, frame = cap.read()
                 img_ext = os.path.join(seq_dir, f"frame_{frame_index:04d}.png")
                 cv2.imwrite(img_ext, frame)
@@ -6686,7 +6667,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
             # region seq
             try:
                 cap = cv2.VideoCapture(video_name)
-                if not cap.isOpened(): return
+                if not cap.isOpened(): return result, mem_format
 
                 while True:
                     try:
@@ -6771,7 +6752,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-        return result, mem_format
+    return result, mem_format
 
 
 async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
@@ -6825,7 +6806,7 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
                     rnd_emoji = random.choices(animated_emoji, k=random.randint(2, 5))
                     rnd_words = random.choices(trg_utms, k=random.randint(2, 5))
 
-                    sticker = types.InputSticker(sticker=file_id, format=mem_format, emoji_list=rnd_emoji,
+                    sticker = types.InputSticker(sticker=file_id, format=str(mem_format), emoji_list=rnd_emoji,
                                                  keywords=rnd_words)
 
                     if len(stickers):
@@ -6848,7 +6829,7 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
                     if 'STICKERS_TOO_MUCH' in str(e):
                         result = f"https://t.me/{mem_type_str}/{username}_by_{PROJECT_USERNAME}"
-                        return
+                        return result
             finally:
                 i += 1
 
@@ -6860,8 +6841,7 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def handle_mem_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
@@ -6900,7 +6880,7 @@ async def get_address_state_init_by_boc(BOT_CRYPTOPAY_ADDRESS, chkCryptopay=True
     address_owner_raw = address_contract_friendly = state_init = None
 
     try:
-        if not BOT_CRYPTOPAY_ADDRESS or not chkCryptopay: return
+        if not BOT_CRYPTOPAY_ADDRESS or not chkCryptopay: return address_owner_raw, address_contract_friendly, state_init
         address_owner = Address(BOT_CRYPTOPAY_ADDRESS)
         address_owner_raw = address_owner.to_str(is_user_friendly=False)
 
@@ -6915,8 +6895,7 @@ async def get_address_state_init_by_boc(BOT_CRYPTOPAY_ADDRESS, chkCryptopay=True
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return address_owner_raw, address_contract_friendly, state_init
+    return address_owner_raw, address_contract_friendly, state_init
 
 
 async def get_nft_info(nft_address):
@@ -6949,7 +6928,7 @@ async def get_nft_info(nft_address):
                         collection_addr = data['nft_items'][0]['collection_address'].lower()
 
                     await asyncio.sleep(1)
-                    return
+                    return owner_addr, collection_addr
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -6957,8 +6936,7 @@ async def get_nft_info(nft_address):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return owner_addr, collection_addr
+    return owner_addr, collection_addr
 
 
 async def get_wallet_addres(address, currency):
@@ -6995,7 +6973,7 @@ async def get_wallet_addres(address, currency):
                         pass
 
                     await asyncio.sleep(1)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7003,8 +6981,7 @@ async def get_wallet_addres(address, currency):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def to_txt_cell(txt):
@@ -7014,8 +6991,7 @@ async def to_txt_cell(txt):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def uri_metadata(url, result):
@@ -7047,6 +7023,8 @@ async def uri_metadata(url, result):
                     result['social_links'] = data_json['websites']
                 if 'attributes' in data_json:
                     result['attributes'] = data_json['attributes']
+                if 'buttons' in data_json:
+                    result['buttons'] = data_json['buttons']
 
                 if 'symbol' in data_json:
                     result['symbol'] = data_json['symbol']
@@ -7075,8 +7053,7 @@ async def uri_metadata(url, result):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def onchain_metadata(cell, result):
@@ -7112,6 +7089,8 @@ async def onchain_metadata(cell, result):
                     result['social_links'] = string_value
                 elif k == int(hashlib.sha256('attributes'.encode()).hexdigest(), 16):
                     result['attributes'] = string_value
+                elif k == int(hashlib.sha256('buttons'.encode()).hexdigest(), 16):
+                    result['buttons'] = string_value
 
                 elif k == int(hashlib.sha256('symbol'.encode()).hexdigest(), 16):
                     result['symbol'] = string_value
@@ -7143,8 +7122,7 @@ async def onchain_metadata(cell, result):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_error(data):
@@ -7153,18 +7131,17 @@ async def check_error(data):
         print(f"check_error .. {data=}")
         if 'stack' in data and not len(data):
             result = True
-            return
+            return result
         if data.get('exit_code') in (-13, 9, 11):
             result = True
-            return
+            return result
         if 'stack' in data and data['stack'][0]['value'] in ('0x18fcf', '0x1905b'):
             result = True
-            return
+            return result
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_link_for_nft(bot, chat_id, file_path, gateway, pinata_headers, EXTRA_D):
@@ -7175,7 +7152,7 @@ async def get_link_for_nft(bot, chat_id, file_path, gateway, pinata_headers, EXT
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.mp4'] and os.path.getsize(file_path) < 5242880:
                 res = await Telegraph().upload_file(file_path)
                 result = f"https://telegra.ph{res[0]['src']}"
-                return
+                return result
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7208,7 +7185,7 @@ async def get_link_for_nft(bot, chat_id, file_path, gateway, pinata_headers, EXT
                     res = await response.json()
                     logger.info(log_ % str(res))
                     result = await check_image(res['fileUrl'])
-                    return
+                    return result
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7229,7 +7206,7 @@ async def get_link_for_nft(bot, chat_id, file_path, gateway, pinata_headers, EXT
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     finally:
         if os.path.exists(file_path): os.remove(file_path)
-        return result
+    return result
 
 
 async def generate_random_sequence():
@@ -7241,8 +7218,7 @@ async def generate_random_sequence():
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_image(url):
@@ -7257,14 +7233,13 @@ async def check_image(url):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
     result = None
     try:
-        if os.path.getsize(file_path) / (1024 * 1024) > 15: return
+        if os.path.getsize(file_path) / (1024 * 1024) > 15: return result
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
             data = json.loads(await f.read())
         # base_name = str(os.path.basename(file_path).replace(' ', '').replace('!', ''))
@@ -7342,7 +7317,7 @@ async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
                     response_json = await response.json()
                     if 'IpfsHash' in response_json:
                         result = f"{pinata_gateway}/ipfs/{response_json['IpfsHash']}?filename={base_name}"
-                        return
+                        return result
                     else:
                         print(f"{response_json=}")
         # endregion
@@ -7354,13 +7329,13 @@ async def get_link_for_media(bot, chat_id, file_path, KEYS_JSON, is_del=True):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     finally:
         if is_del and file_path and os.path.exists(file_path): os.remove(file_path)
-        return result
+    return result
 
 
 async def get_smc_info(address, KEYS_JSON, is_test_only=False):
     result = {}
     try:
-        if address == '': return
+        if address == '': return result
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -7426,7 +7401,7 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
                             async with session.post(url, headers=headers, json=payload) as response:
                                 response.raise_for_status()
                                 data = await response.json()
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
                         result['counter'] = int(data['stack'][0]['value'], 16)
                         print(f"1 toncenrt {result=}")
@@ -7434,7 +7409,7 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
                         print(f"{result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7442,14 +7417,13 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_TON=False):
     result = {}
     try:
-        if address == '': return
+        if address == '': return result
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -7514,7 +7488,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
 
                         if is_TON:
                             result['balance'] = data['balance']
-                            return
+                            return result
 
                         result['wallet_address'] = data['wallet_address']['address']
                         result['decimals'] = data['jetton']['decimals']
@@ -7528,11 +7502,11 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                                 response.raise_for_status()
                                 data = await response.json()
                                 print(f"{name=} {data=}")
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
                         if is_TON:
                             result['balance'] = data['accounts'][0]['balance']
-                            return
+                            return result
 
                         result['wallet_address'] = data['jetton_wallets'][0]['address']
                         result['balance'] = data['jetton_wallets'][0]['balance']
@@ -7548,7 +7522,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                         print(f"{name=} 1 {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7556,8 +7530,7 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
@@ -7621,9 +7594,9 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                                 data = await response.json()
                                 print(f"{data=}")
 
-                        if 'error' in data or not data['success']: return
+                        if 'error' in data or not data['success']: return result
                         print(f"pum pum {data['decoded']=}")
-                        if not data['decoded']['init']: return
+                        if not data['decoded']['init']: return result
                         result['init'] = data['decoded']['init']
                         print(f"{result['init']=}")
                         result['index'] = data['decoded']['index']
@@ -7667,7 +7640,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                                 response.raise_for_status()
                                 data = await response.json()
                         print(f"toncenter get_nft_data {data=}")
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
                         result['init'] = True if data['stack'][0]['value'] == '-0x1' else False
                         result['index'] = int(data['stack'][1]['value'], 16)
@@ -7719,7 +7692,7 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                             if 'uri' in result: result = await uri_metadata(cont, result)
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -7727,8 +7700,123 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
+
+
+async def get_nft_address_of_collection(address, limit, offset, KEYS_JSON, is_test_only=False):
+    result = []
+    try:
+        print(f"get_nft_address_of_collection start .. {address=}")
+        _ = Address(address)
+        pfx_testnet = "testnet." if is_test_only else ""
+        async with aiofiles.open(KEYS_JSON, mode='r') as f:
+            data = json.loads(await f.read())
+
+        items = []
+        for provider, keys in data["ton"].items():
+            for _ in keys:
+                if provider == "tonapi":
+                    key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
+                    if key:
+                        items.append([
+                            'tonapi',
+                            f'https://{pfx_testnet}tonapi.io/v2/nfts/collections/{address}/items?limit={limit}&offset={offset}',
+                            {
+                                'accept': 'application/json',
+                                'Authorization': f'Bearer {key}'
+                            }
+                        ])
+                elif provider == "toncenter":
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
+                        items.append([
+                            'toncenter',
+                            f"https://{pfx_testnet}toncenter.com/api/v3/nft/items?collection_address={address}&limit={limit}&offset={offset}",
+                            {
+                                'accept': 'application/json',
+                                'X-API-Key': key
+                            }
+                        ])
+        # print(f"{items=}")
+
+        while True:
+            random.shuffle(items)
+            for item in items:
+                try:
+                    name, url, headers = item
+                    print(f"{item=}")
+
+                    if name == 'tonapi':
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        # if 'error' in data or not data['success']: return result
+                        # result = data['decoded']['address']
+                        # print(f"get_nft_address_by_index: {result}")
+                        data_items = data.get('nft_items', [])
+
+                        print(f"{name}: {len(data_items)=}")
+                        for it in data_items:
+                            result.append({
+                                'address': it.get('address', ''),
+                                'index': it.get('index', ''),
+                                'item_id': it.get('metadata', {}).get('item_id', ''),
+                                'owner_address': it.get('owner', {}).get('address', ''),
+
+                                'name': it.get('metadata', {}).get('name', ''),
+                                'description': it.get('metadata', {}).get('description', ''),
+                                'image': it.get('metadata', {}).get('image', ''),
+                                'attributes': it.get('metadata', {}).get('attributes', []),
+                            })
+                    else:
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(url, headers=headers) as response:
+                                response.raise_for_status()
+                                data = await response.json()
+
+                        data_items = data.get('nft_items', [])
+
+                        print(f"{name}: {len(data_items)=}")
+                        async with aiohttp.ClientSession() as ses:
+                            for it in data_items:
+                                # print(f"{it=}")
+                                content_uri = it.get('content', {}).get('uri', '')
+                                name = description = image = item_id = ''
+                                attributes = []
+                                if content_uri:
+                                    item_id = content_uri.rstrip('/').split('/')[-1]
+                                    async with ses.get(content_uri) as resp:
+                                        data_ = await resp.json()
+                                        # print(f"{data_=}")
+                                        name = data_.get('name', '')
+                                        description = data_.get('description', '')
+                                        image = data_.get('image', '')
+                                        attributes = data_.get('attributes', [])
+
+                                result.append({
+                                    'address': it.get('address', '').lower(),
+                                    'index': it.get('index', ''),
+                                    'item_id': item_id,
+                                    'owner_address': it.get('owner_address', '').lower(),
+
+                                    'name': name,
+                                    'description': description,
+                                    'image': image,
+                                    'attributes': attributes,
+                                })
+
+                    await asyncio.sleep(0.6)
+                    return result
+                except Exception as e:
+                    logger.info(log_ % str(e))
+                    await asyncio.sleep(round(random.uniform(0, 1), 2))
+            break
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 
 async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False):
@@ -7856,8 +7944,8 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                                 response.raise_for_status()
                                 data = await response.json()
 
-                        if 'error' in data or not data['success']: return
-                        print(f'success {data=}')
+                        if 'error' in data or not data['success']: return result
+                        print(f'{name}: success {data=}')
                         result['next_item_index'] = data['decoded']['next_item_index']
                         result['owner_address'] = data['decoded']['owner_address']
 
@@ -7882,9 +7970,9 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                             async with session.post(url, headers=headers, json=payload) as response:
                                 response.raise_for_status()
                                 data = await response.json()
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
-                        print(f"{data=}")
+                        print(f"{name}: {data=}")
                         result['next_item_index'] = int(data['stack'][0]['value'], 16)
                         result['collection_content'] = data['stack'][1]['value']
                         try:
@@ -7905,13 +7993,16 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
 
                         print(f"{cont=}")
                         if cont.startswith('https://'):
+                            print(f"911")
                             result = await uri_metadata(cont, result)
                         else:
+                            print(f"912")
                             result = await onchain_metadata(cell, result)
                             if 'uri' in result: result = await uri_metadata(cont, result)
+                        print(f"FINALLY {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8126,7 +8217,7 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
                             }
                         ])
         # print(f"{items=}")
-        # toncenter doesnt understand sbt
+        # toncenter doesn't understand sbt
 
         while True:
             random.shuffle(items)
@@ -8151,7 +8242,7 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
                         result = [item["address"] for item in data["nft_items"]]
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8159,14 +8250,13 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_any_activity(address, KEYS_JSON, is_test_only=False):
     result = None
     try:
-        if address == '': return
+        if address == '': return result
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -8230,7 +8320,7 @@ async def get_any_activity(address, KEYS_JSON, is_test_only=False):
                         print(f"{name=},  {data=}, {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8238,14 +8328,13 @@ async def get_any_activity(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
     result = 0
     try:
-        if address == '': return
+        if address == '': return result
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -8308,7 +8397,7 @@ async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
                         print(f"{data=}, {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8316,14 +8405,13 @@ async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
     result = 0
     try:
-        if address == '': return
+        if address == '': return result
         _ = Address(address)
         pfx_testnet = "testnet." if is_test_only else ""
         async with aiofiles.open(KEYS_JSON, mode='r') as f:
@@ -8386,7 +8474,7 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
                         print(f"{data=}, {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8394,8 +8482,7 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False):
@@ -8474,7 +8561,7 @@ async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False)
                         print(f"{data=}, {result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8482,8 +8569,7 @@ async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
@@ -8532,7 +8618,7 @@ async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
                                 data = await response.json()
 
                         # print('sooooo', data)
-                        if 'error' in data or not data['success']: return
+                        if 'error' in data or not data['success']: return result
                         print('success', data['decoded']['total_supply'])
                         result['total_supply'] = data['decoded']['total_supply']
                         result['admin_address'] = data['decoded']['admin_address']
@@ -8565,7 +8651,7 @@ async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
                             async with session.post(url, headers=headers, json=payload) as response:
                                 response.raise_for_status()
                                 data = await response.json()
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
                         print(f"tc , {data=}")
                         print(f"0 len = {len(result)}")
@@ -8597,7 +8683,7 @@ async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
                                 int(result['total_supply']) / (10 ** (int(result['decimals']))))
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8605,8 +8691,7 @@ async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
@@ -8655,7 +8740,7 @@ async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
                                 data = await response.json()
 
                         # print('sooooo', data)
-                        if 'error' in data or not data['success']: return
+                        if 'error' in data or not data['success']: return result
                         result['balance'] = str(int(int(data['decoded']['balance']) / (10 ** int(decimals))))
                         result['owner'] = data['decoded']['owner']
                         result['jetton'] = data['decoded']['jetton']
@@ -8682,7 +8767,7 @@ async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
                         print(f"{result=}")
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8690,8 +8775,7 @@ async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
@@ -8742,7 +8826,7 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
                                 data = await response.json()
 
                         # print('sooooo', data)
-                        if 'error' in data or not data['success']: return
+                        if 'error' in data or not data['success']: return result
                         print(f"{data['decoded']=}")
                         result['next_admin_address'] = data['decoded']['next_admin_address']
                     else:
@@ -8751,16 +8835,16 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
                             async with session.post(url, headers=headers, json=payload) as response:
                                 response.raise_for_status()
                                 data = await response.json()
-                        if await check_error(data): return
+                        if await check_error(data): return result
 
                         try:
                             print(f"{data=}")
-                            result['next_admin_address'] = (Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(is_user_friendly = False)
+                            result['next_admin_address'] = (Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(is_user_friendly=False)
                         except Exception as _:
                             result['next_admin_address'] = ""
 
                     await asyncio.sleep(0.6)
-                    return
+                    return result
                 except Exception as e:
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -8768,11 +8852,10 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
-async def calculate_wallet_address_old(owner_address, master_address, jetton_wallet_code):
+async def calculate_wallet_address_old(owner_address, master_address, jetton_wallet_code, is_test_only):
     result = None
     try:
         code = Cell.one_from_boc(jetton_wallet_code)
@@ -8800,11 +8883,11 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
     try:
         if extra: print(f"{extra=}")
         parsed_data = dict(parse_qsl(init_data))  # return k/v, but not dict!
-        if "auth_date" not in parsed_data: return
+        if "auth_date" not in parsed_data: return result
         auth_date = utils.timestamp_to_datetime(int(parsed_data['auth_date']))  # web_app opened seconds
         # print(f'seconds {(datetime.now() - auth_date).seconds}', init_data)
         # if (datetime.now() - auth_date).seconds > 2000 or "hash" not in parsed_data: return
-        if (datetime.now() - auth_date).seconds > 20000 or "hash" not in parsed_data: return
+        if (datetime.now() - auth_date).seconds > 20000 or "hash" not in parsed_data: return result
 
         hash_ = parsed_data.pop("hash")
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items(), key=itemgetter(0)))
@@ -8819,7 +8902,7 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
             secret_key = hmac.new(key=b"WebAppData", msg=TOKEN_BOT.encode(), digestmod=hashlib.sha256)
             calculated_hash = hmac.new(key=secret_key.digest(), msg=data_check_string.encode(),
                                        digestmod=hashlib.sha256).hexdigest()
-            if calculated_hash != hash_: return
+            if calculated_hash != hash_: return result
 
         res = {}
         for key, value in parse_qsl(init_data):
@@ -8831,8 +8914,7 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_web, BASE_D, BOT_TOKEN_E18B):
@@ -8925,8 +9007,7 @@ async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_we
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return is_paid, till_paid, lz
+    return is_paid, till_paid, lz
 
 
 async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, req_url='', utm=''):
@@ -9070,8 +9151,7 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS, is_paid, till_paid
+    return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS, is_paid, till_paid
 
 
 async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE_P, req_url=''):
@@ -9184,8 +9264,7 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS
+    return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS
 # endregion
 
 
@@ -9194,7 +9273,7 @@ async def update_subscribe(bot, BASE_D, BOT_TOKEN_E18B):
     result = []
     try:
         dt_ = datetime.now(timezone.utc)
-        if not (dt_.hour % 2 == 0 and dt_.minute % 2 == 0 and dt_.second % 2 == 0): return
+        if not (dt_.hour % 2 == 0 and dt_.minute % 2 == 0 and dt_.second % 2 == 0): return result
         sql = "SELECT USER_TID, USER_LZ, USER_DTPAID, USER_ISPAID FROM USER"
         data = await db_select_pg(sql, (), BASE_D)
 
@@ -9234,8 +9313,7 @@ async def update_subscribe(bot, BASE_D, BOT_TOKEN_E18B):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def convert_domain_to_currency(domain):
@@ -9412,8 +9490,7 @@ async def convert_domain_to_currency(domain):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, BASE_D):
@@ -9421,7 +9498,7 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
     try:
         sql = "SELECT BOT_TOKEN, BOT_TOKENPAY FROM \"BOT\" WHERE BOT_TID=$1"
         data = await db_select_pg(sql, (BOT_TID,), BASE_D)
-        if not len(data): return
+        if not len(data): return result
         BOT_TOKEN, BOT_TOKENPAY = data[0]
 
         btn_name = msg_btns[0]['lbl'].encode('utf-16', 'surrogatepass').decode('utf-16')
@@ -9471,8 +9548,7 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
@@ -9528,8 +9604,7 @@ async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return is_paid, till_paid
+    return is_paid, till_paid
 
 
 async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME, EXTRA_D, BASE_P):
@@ -9639,7 +9714,8 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
         sql = f"UPDATE \"USER\" SET USER_LSTS=$1 WHERE USER_TID=$2"
         await db_change_pg(sql, (USER_LSTS, chat_id,), BASE_P)
 
-        text = f"{l_payment_success[lz]} ★{total_amount}, {payload_txt}\n\n♥️ @{PROJECT_USERNAME} {l_payment_hashtag[lz]}"
+        # , {payload_txt}
+        text = f"{l_payment_success[lz]} ★{total_amount}\n\n♥️ @{PROJECT_USERNAME} {l_payment_hashtag[lz]}"
         await bot.send_message(chat_id=chat_id, text=text)
     except TelegramRetryAfter as e:
         logger.info(log_ % f'TelegramRetryAfter {e.retry_after}')
@@ -9651,12 +9727,15 @@ async def pay_handler_for_all(bot, message, ideas_en, ideas_ru, PROJECT_USERNAME
 
 async def get_pay_btn(bot, chat_id, lz, payload='donate', stars=1):
     try:
-        reply_markup = InlineKeyboardBuilder().add(
-            types.InlineKeyboardButton(text=f"{l_donate[lz]} {stars}★", pay=True))
+        # url_ = channel_public_ru if lz == 'ru' else channel_public_en
+        reply_markup = InlineKeyboardBuilder()
+        reply_markup.row(types.InlineKeyboardButton(text=f"{l_donate[lz]} ★{stars}", pay=True))
+        # reply_markup.row(types.InlineKeyboardButton(text=f"ᯅ {l_chn[lz]}", url=url_))
+
         await bot.send_invoice(chat_id=chat_id, title='★', description=str_empty,
                                payload=payload, currency='XTR',
                                prices=[LabeledPrice(label="XTR", amount=stars)],
-                               message_effect_id='5159385139981059251',  # heart
+                               message_effect_id='5104841245755180586',  # flame
                                reply_markup=reply_markup.as_markup())
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -9666,7 +9745,24 @@ async def get_pay_btn(bot, chat_id, lz, payload='donate', stars=1):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-', subscription_period=2592000, photo_url=None):
+async def get_chn_btn(bot, chat_id, lz):
+    try:
+        url_ = channel_public_ru if lz == 'ru' else channel_public_en
+        reply_markup = InlineKeyboardBuilder()
+        reply_markup.row(types.InlineKeyboardButton(text=f"♥ {str(l_chn[lz]).capitalize()}", url=url_))
+
+        await bot.send_message(chat_id=chat_id, text='♥',
+                            message_effect_id='5159385139981059251',    # heart
+                            reply_markup=reply_markup.as_markup())
+    except TelegramRetryAfter as e:
+        logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
+        await asyncio.sleep(e.retry_after + 1)
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
+async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-', subscription_period: Optional[int] = 2592000, photo_url=None):
     result = None
     try:
         invoice = await bot.create_invoice_link(title=PROJECT_USERNAME,
@@ -9684,8 +9780,7 @@ async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-', 
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def list_star_invoice_link(bot, PROJECT_USERNAME, PROJECT_TYPE):
@@ -9813,8 +9908,7 @@ async def check_sub_is_paid(user_payments, bot_cpayperiod):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 # endregion
 
 
@@ -9897,9 +9991,10 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
         r2 = await return_unit_metrics(bot, data_users, EXTRA_D)
         r3 = await return_cohort_metrics(bot, data_users, EXTRA_D)
         r4 = await return_retention_metrics(bot, data_users, EXTRA_D)
-        r5 = await return_profit_and_loss_metrics(bot, data_users, EXTRA_D)
+        r5 = await return_acquisition_retention_metrics(bot, data_users, EXTRA_D)
+        r6 = await return_profit_and_loss_metrics(bot, data_users, EXTRA_D)
 
-        metrics_paths = [r1, r2, r3, r4, r5]
+        metrics_paths = [r1, r2, r3, r4, r5, r6]
         tables = []
 
         for path in metrics_paths:
@@ -10104,8 +10199,7 @@ async def return_activity_metrics(bot, data_users, EXTRA_D, BASE_P, data_ents, s
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def return_unit_metrics(bot, data_users, EXTRA_D):
@@ -10225,8 +10319,7 @@ async def return_unit_metrics(bot, data_users, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def return_cohort_metrics(bot, data_users, EXTRA_D):
@@ -10315,8 +10408,7 @@ async def return_cohort_metrics(bot, data_users, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def return_retention_metrics(bot, data_users, EXTRA_D):
@@ -10347,7 +10439,7 @@ async def return_retention_metrics(bot, data_users, EXTRA_D):
 
         cohort_months = sorted(cohort_users.keys())
         if not cohort_months:
-            return
+            return result
 
         def add_months(mo_str, n):
             y, m = map(int, mo_str.split("-"))
@@ -10406,8 +10498,73 @@ async def return_retention_metrics(bot, data_users, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
+
+
+async def return_acquisition_retention_metrics(bot, data_users, EXTRA_D):
+    result = None
+    try:
+        print("Starting acquisition retention calculation")
+
+        # map user to signup date and activity dates
+        user_signup = {}
+        user_activity = defaultdict(set)
+
+        for USER_TID, USER_VARS, USER_LSTS in data_users:
+            vars_ = json.loads(USER_VARS or "{}")
+            lsts = json.loads(USER_LSTS or "{}")
+            dt0_str = vars_.get("USER_DT", "").split("_")[0]
+            if not dt0_str:
+                print(f"Skip USER_TID={USER_TID}, no signup date")
+                continue
+            dt0 = datetime.strptime(dt0_str, "%d-%m-%Y")
+            user_signup[USER_TID] = dt0
+            for day in lsts.get("USER_DAU", []):
+                try:
+                    d = datetime.strptime(day, "%Y-%m-%d")
+                    user_activity[USER_TID].add(d)
+                except Exception as ex:
+                    print(f"Invalid date {day} for USER_TID={USER_TID}: {ex}")
+
+        checkpoints = [1, 7, 14, 30, 90, 180, 365]
+        header = ["Mo/Cohort"] + [f"Day{d}" for d in checkpoints]
+        rows = [header]
+        print("Checkpoints:", checkpoints)
+
+        # group by cohort month
+        cohorts = defaultdict(list)
+        for uid, dt0 in user_signup.items():
+            mo = dt0.strftime("%Y-%m")
+            cohorts[mo].append(uid)
+        print("Cohorts by month:", {k: len(v) for k, v in cohorts.items()})
+
+        for mo, uids in sorted(cohorts.items()):
+            row = [mo]
+            total = len(uids)
+            print(f"Processing cohort {mo}, users={total}")
+            for d in checkpoints:
+                cnt = 0
+                for uid in uids:
+                    target = user_signup[uid] + timedelta(days=d)
+                    if target in user_activity[uid]:
+                        cnt += 1
+                pct = (cnt / total * 100) if total else 0
+                row.append(f"{pct:.1f}%")
+                print(f"  Day{d}: {cnt}/{total} → {pct:.1f}%")
+            rows.append(row)
+
+        f_name = os.path.join(EXTRA_D, "6_acquisition_retention_metrics.csv")
+        async with aiofiles.open(f_name, "w", newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            for r in rows:
+                await f.write(",".join(r) + "\n")
+        print(f"Written CSV to {f_name}")
+
+        result = f_name
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 
 async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
@@ -10480,8 +10637,7 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 # endregion
 
@@ -10800,8 +10956,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PROJECT_USERNAME, is_private=True,
@@ -10884,7 +11039,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
             if PROJECT_USERNAME in ['FereyChannelBot', 'FereyGroupBot'] and not is_private:
                 sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
                 await db_change_pg(sql, (result.message_id, POST_TID,), BASE_D)
-            return
+            return result
         # endregion
 
         # region reply_markup
@@ -10914,17 +11069,17 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
             if PROJECT_USERNAME in ['FereyChannelBot']:
                 sql = f"SELECT CHANNEL_CPAYTOKEN FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
                 data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_D)
-                if not len(data_ent): return
+                if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             elif PROJECT_USERNAME == 'FereyGroupBot':
                 sql = f"SELECT GROUPP_CPAYTOKEN FROM \"GROUPP\" WHERE GROUPP_TID=$1"
                 data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_D)
-                if not len(data_ent): return
+                if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             else:
                 sql = f"SELECT BOT_TOKEN FROM \"BOT\" WHERE BOT_TID=$1"
                 data_ent = await db_select_pg(sql, (int(ENT_TID),), BASE_D)
-                if not len(data_ent): return
+                if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
 
             media = []
@@ -10959,7 +11114,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                     logger.info(log_ % str(e))
                     # await asyncio.sleep(round(random.uniform(0, 1), 2))
                     await bot.send_message(chat_id=int(POST_USERTID), text=l_payment_check_token[lz])
-                    return
+                    return result
         elif len(POST_MEDIA) > 1 and not POST_ISGALLERY:
             media = []
             for i in range(0, len(POST_MEDIA)):
@@ -11283,9 +11438,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        print("post pub finish")
-        return result
+    return result
 
 
 async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, PROJECT_TYPE='bot'):
@@ -11321,7 +11474,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, P
                     print(f"1")
                     sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
                     data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_D)
-                    if not len(data_bot): return
+                    if not len(data_bot): return result
                     BOT_USERNAME, BOT_FIRSTNAME = data_bot[0]
 
                     # get_chat_ = await bot.get_me()
@@ -11391,7 +11544,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, P
                 print(f"{html_=}")
                 result = page_blog['url']
                 logger.info(log_ % f"{ENT_TID}: {result}")
-                return
+                return result
             except Exception as e:
                 logger.info(log_ % str(e) + f"{POST_TEXT=}")
                 await asyncio.sleep(round(random.uniform(3, 5), 2))
@@ -11399,8 +11552,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, P
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D, PROJECT_USERNAME, is_check=True):
@@ -11425,7 +11577,7 @@ async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D
             except Exception as e:
                 logger.info(log_ % str(e))
                 await bot.send_message(chat_id, l_bot_need_start_add[lz].format(BOT_USERNAME))
-                return
+                return result
             finally:
                 await extra_bot.session.close()
 
@@ -11493,8 +11645,7 @@ async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS, BASE_D, PROJECT_USERNAME,
@@ -11559,6 +11710,8 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     rows[row_index].append(btn)
                 elif button['knd'] == 'share':
                     # get_chat_ = await bot.get_chat(int(ENT_TID))
+                    # language=python
+                    # noinspection GrammarCheckingInspection,SentenceFragment,MissingPronoun
                     # get_link_ = f"https://t.me/{get_chat_.username}" if get_chat_.username else get_chat_.invite_link
                     # txt = urllib.parse.quote(button['lnk'].strip(), safe="")
                     # url = f"https://t.me/share/url?url={get_link_}&text={txt}"
@@ -11619,8 +11772,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return reply_markup
+    return reply_markup
 
 
 async def podcast_start(bot, chat_id, lz, ENT_TID, POST_ID, POST_TYPE, POST_TEXT, POST_FID, POST_FILENAME, USER_ISPAID,
@@ -11824,8 +11976,7 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_D, PROJECT_USERNAME):
@@ -11944,7 +12095,7 @@ async def story_start(bot, lz, chat_id, ENT_TID, POST_TYPE, POST_TEXT, POST_FID,
 
                         result = await app.send_story(chat_id=int(ENT_TID), media=file_name, caption=POST_TEXT,
                                                       period=None, duration=duration,
-                                                      # for video, but for photo always 7 sec
+                                                      # for video, but for a photo always 7 sec
                                                       pinned=POST_CHKBOX['POST_ISPIN'],
                                                       protect_content=POST_CHKBOX['POST_ISPROTECT'])
                         print(f"{result=}")
@@ -12024,7 +12175,7 @@ async def pst_inline(chat_id, POST_TID, data_bot, BASE_P, PROJECT_USERNAME, is_m
             WHERE POST_TID=$1
         """
         data_post = await db_select_pg(sql, (POST_TID,), BASE_P)
-        if not len(data_post): return
+        if not len(data_post): return result
         POST_ID, POST_TID, POST_MSGID, POST_CHATTID, POST_USERTID, POST_USERTUN, \
             POST_TARGETTYPE, POST_TARGET, POST_TYPE, POST_TEXT, POST_MEDIA, POST_BUTTONS, \
             POST_CHKBOX, POST_WEB, POST_PAY, POST_NFT, POST_BLOG, POST_ISMINTED, \
@@ -12111,7 +12262,7 @@ async def pst_inline(chat_id, POST_TID, data_bot, BASE_P, PROJECT_USERNAME, is_m
                                                      input_message_content=input_message_content,
                                                      reply_markup=reply_markup.as_markup())
             result.append(article)
-            return
+            return result
 
         print(f"{POST_MEDIA=}")
         for media in POST_MEDIA:
@@ -12250,8 +12401,7 @@ async def pst_inline(chat_id, POST_TID, data_bot, BASE_P, PROJECT_USERNAME, is_m
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def delete_from_ipfs(MSG_VID, KEYS_JSON):
@@ -12330,20 +12480,20 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
         max_cnt = 256
         while max_cnt > 0:
             max_cnt -= 1
-            # region begin of POCAST_TID
+            # region begins of POCAST_TID
             sql = "SELECT UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST FROM UB WHERE UB_TID=$1"
             data_ub = await db_select_pg(sql, (UB_TID,), BASE_D)
             print(f"{UB_TID=}, {data_ub=}")
-            if not len(data_ub): return
+            if not len(data_ub): return result
             UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST = data_ub[0]
-            if not (UB_CPODCAST[0] == '☑' and UB_CPODCASTSRC and UB_CPODCASTDST): return
+            if not (UB_CPODCAST[0] == '☑' and UB_CPODCASTSRC and UB_CPODCASTDST): return result
             try:
                 POCAST_TIDs = json.loads(UB_CPODCASTSRC)
             except:
                 POCAST_TIDs = []
             status_, loop_, order_ = UB_CPODCAST
             if order_ != '☑': random.shuffle(POCAST_TIDs)
-            if not len(POCAST_TIDs): return
+            if not len(POCAST_TIDs): return result
             # endregion
 
             for POCAST_TID in POCAST_TIDs:
@@ -12351,7 +12501,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
                 sql = f"SELECT POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST WHERE POST_TID=$1"
                 data_post = await db_select_pg(sql, (int(POCAST_TID),), BASE_D)
                 print(f"{data_post=}")
-                if not len(data_post) and not len(POCAST_TIDs): return
+                if not len(data_post) and not len(POCAST_TIDs): return result
                 if not len(data_post): continue
                 POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA = data_post[0]
 
@@ -12442,7 +12592,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
                 sql = "UPDATE UB SET UB_CPODCAST=$1 WHERE UB_TID=$2"
                 await db_change_pg(sql, (UB_CPODCAST, UB_TID), BASE_D)
                 result = {'answer': 'loop', 'param': UB_CPODCAST}
-                return
+                return result
             # endregion
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -12455,7 +12605,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
             await call_py.leave_call(chat_id=ENT_TID)
         except:
             pass
-        return result
+    return result
 
 
 async def tgcalls_app(app, lz, ENT_TID, stream, duration):
@@ -12506,8 +12656,7 @@ async def tgcalls_app(app, lz, ENT_TID, stream, duration):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_btn_pushes(BOT_TID, MSG_BUTTONS, ENT_VID, ENT_TYPE, BASE_P, PROJECT_USERNAME):
@@ -12538,8 +12687,7 @@ async def get_btn_pushes(BOT_TID, MSG_BUTTONS, ENT_VID, ENT_TYPE, BASE_P, PROJEC
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def detect_post_type(links):
@@ -12568,8 +12716,7 @@ async def detect_post_type(links):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def ch_games(USER_GAMES, game, condition, balls=-1):
@@ -12609,9 +12756,7 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        print(f"Final: {USER_GAMES}")
-        return USER_GAMES
+    return USER_GAMES
 # endregion
 
 
@@ -12694,8 +12839,7 @@ async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id=1, call=None):
@@ -12902,8 +13046,7 @@ async def get_current_page_number(call):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids):
@@ -12926,7 +13069,7 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids):
             await bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
         all_len = len(user_ids)
         max_size = 20  # 1
-        # max_size = 1  # 1
+        # max_size = 1 # 1
         fact_len = 0
 
         sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
@@ -13082,8 +13225,7 @@ async def send_user(bot, chat_id, offer_id, item, message_id=None, cur_=1):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def generate_calendar_admin(bot, state, lz, chat_id, message_id=None, is_new=True):
@@ -13508,7 +13650,7 @@ async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BAS
 
                 performer = message.from_user.username if message.from_user.username else '@performer'
                 title = html.quote(message.from_user.first_name)
-                thumbnail = types.InputFile(os.path.join(EXTRA_D, 'img.jpg'))
+                thumbnail = types.FSInputFile(os.path.join(EXTRA_D, 'img.jpg'))
                 res = await bot.send_audio(chat_id=chat_id, audio=types.FSInputFile(file_name), thumbnail=thumbnail,
                                            title=title, performer=performer)
                 file_id = res.audio.file_id
@@ -13528,7 +13670,7 @@ async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BAS
 
                 performer = message.from_user.username if message.from_user.username else '@performer'
                 title = html.quote(message.from_user.first_name)
-                thumbnail = types.InputFile(os.path.join(EXTRA_D, 'img.jpg'))
+                thumbnail = types.FSInputFile(os.path.join(EXTRA_D, 'img.jpg'))
                 res = await bot.send_audio(chat_id=chat_id, audio=types.FSInputFile(file_name), thumbnail=thumbnail,
                                            title=title, performer=performer)
                 file_id_note = res.audio.file_id
@@ -13888,7 +14030,7 @@ async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_D):
         sql = "SELECT POST_TEXT, POST_MEDIATYPE, POST_FILEID, POST_FILEIDNOTE, POST_BUTTONS, POST_ISBUTTON, " \
               "POST_TGPHLINK, POST_ISTGPH, POST_ISGALLERY, POST_ISSPOILER FROM POST WHERE POST_ID=$1"
         data_posts = await db_select_pg(sql, (post_id,), BASE_D)
-        if not len(data_posts): return
+        if not len(data_posts): return result
         item = data_posts[0]
         POST_TEXT, POST_MEDIATYPE, POST_FILEID, POST_FILEIDNOTE, POST_BUTTONS, POST_ISBUTTON, POST_TGPHLINK, POST_ISTGPH, POST_ISGALLERY, POST_ISSPOILER = item
 
@@ -13979,8 +14121,7 @@ async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cur_, BASE_CHN):
@@ -13990,7 +14131,7 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
               "POST_ISBUTTON, POST_ISSOUND, POST_ISSILENCE, POST_ISPIN, POST_ISPREVIEW, POST_ISSPOILER, " \
               "POST_ISGALLERY, POST_TZ, POST_DT, POST_TARGET, POST_BLOG, POST_WEB FROM POST WHERE POST_ID=$1"
         data_posts = await db_select_pg(sql, (post_id,), BASE_CHN)
-        if not len(data_posts): return
+        if not len(data_posts): return result
         item = data_posts[0]
         POST_ID, POST_TYPE, POST_TEXT, POST_FID, POST_FIDNOTE, POST_LNK, POST_BUTTONS, POST_ISBUTTON, POST_ISSOUND, POST_ISSILENCE, POST_ISPIN, POST_ISPREVIEW, POST_ISSPOILER, POST_ISGALLERY, POST_TZ, POST_DT, POST_TARGET, POST_BLOG, POST_WEB = item
 
@@ -14102,10 +14243,7 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
-
-
+    return result
 # endregion
 
 
@@ -14188,8 +14326,7 @@ async def bots_by_inline(chat_id, message, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_buttons_main(lz, bot_un, BASE_D):
@@ -14206,8 +14343,7 @@ async def get_buttons_main(lz, bot_un, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def send_request_chat(bot, chat_id, lz, is_group=False):
@@ -14262,8 +14398,7 @@ async def send_request_chat(bot, chat_id, lz, is_group=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def every_media_url(file_name):
@@ -14302,14 +14437,13 @@ async def get_tz(dt_client):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_utc_from_local(POST_DT, POST_TZ):
     result = POST_DT
     try:
-        if str(POST_DT) in ['', 'None']: return
+        if str(POST_DT) in ['', 'None']: return result
         sign_ = POST_TZ[0]
         h_, m_ = POST_TZ.strip(sign_).split(':')
         h_, m_ = int(h_), int(m_)
@@ -14320,8 +14454,7 @@ async def get_utc_from_local(POST_DT, POST_TZ):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 def is_all_latin(text):
@@ -14341,8 +14474,7 @@ async def txt_moderate(txt):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def bot_middleware(app, handler):
@@ -14380,8 +14512,7 @@ async def getgems_set(bot, message, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def getgems_get(EXTRA_D):
@@ -14398,8 +14529,7 @@ async def getgems_get(EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def correct_orientation(image):
@@ -14422,8 +14552,7 @@ async def correct_orientation(image):
                     image = image.rotate(90, expand=True)
     except Exception as e:
         print(f"An error occurred: {e}")
-    finally:
-        return image
+    return image
 
 
 async def extract_links(text):
@@ -14464,8 +14593,7 @@ async def extract_links(text):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def is_member_in_channel(bot, chat_id, lz):
@@ -14495,8 +14623,7 @@ async def is_member_in_channel(bot, chat_id, lz):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def get_lz_by_entity_id(ENTITY_TID, BASE_D):
@@ -14504,12 +14631,12 @@ async def get_lz_by_entity_id(ENTITY_TID, BASE_D):
     try:
         sql = "SELECT OWNER_TID FROM CHANNEL WHERE CHANNEL_TID=$1"
         data = await db_select_pg(sql, (ENTITY_TID,), BASE_D)
-        if not len(data): return
+        if not len(data): return result
         OWNER_TID = data[0][0]
 
         sql = "SELECT USER_LZ FROM USER WHERE USER_TID=$1"
         data = await db_select_pg(sql, (OWNER_TID,), BASE_D)
-        if not len(data): return
+        if not len(data): return result
         result = data[0][0]
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -14517,8 +14644,7 @@ async def get_lz_by_entity_id(ENTITY_TID, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 def _join(*content, sep=" "):
@@ -14526,7 +14652,7 @@ def _join(*content, sep=" "):
 
 
 async def get_chat_channel(bot, link, SESSION_D, BASE_S):
-    result = r = None
+    result = None
     try:
         sql = "SELECT SESSION_TID, SESSION_STATUS FROM SESSION"
         data = await db_select_pg(sql, (), BASE_S)
@@ -14546,10 +14672,9 @@ async def get_chat_channel(bot, link, SESSION_D, BASE_S):
                 logger.info(log_ % f"{SESSION_TID} {SESSION_NAME}")
                 name_ = str(os.path.join(SESSION_D, SESSION_NAME))
                 async with Client(name=name_, api_id=SESSION_APIID, api_hash=SESSION_APIHASH) as app:
-                    try:
-                        r = await join_my_chat(bot, app, my_tid, link, SESSION_TID, BASE_S)
+                    r = await join_my_chat(bot, app, my_tid, link, SESSION_TID, BASE_S)
+                    if r.id:
                         result = await bot.get_chat(r.id)
-                    finally:
                         await leave_my_chat(app, r, link)
                         break
             except (UserDeactivatedBan, UserDeactivated, AuthKeyInvalid, AuthKeyUnregistered, AuthKeyDuplicated,
@@ -14568,14 +14693,13 @@ async def get_chat_channel(bot, link, SESSION_D, BASE_S):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def auto_destroy_msg(bot, telegram_bot, chat_id, text, message_id, type_='text', sec=5):
     result = None
     try:
-        if not random.choice([0, 1, 1]): return
+        if not random.choice([0, 1, 1]): return result
 
         step = 1
         by = f"<a href='https://t.me/{ferey_telegram_demo_bot}'>by</a>"
@@ -14608,7 +14732,7 @@ async def auto_destroy_msg(bot, telegram_bot, chat_id, text, message_id, type_='
         await asyncio.sleep(round(random.uniform(1, 2), 2))
     finally:
         await bot.delete_message(chat_id, message_id)
-        return result
+    return result
 
 
 async def log_old(txt, LOG_DEFAULT, colour=92):
@@ -14692,8 +14816,7 @@ async def lz_code(chat_id, lan, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def lz_code_pg(chat_id, lan, BASE_D):
@@ -14727,8 +14850,7 @@ async def lz_code_pg(chat_id, lan, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
@@ -14784,8 +14906,7 @@ async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return is_paid, till_paid
+    return is_paid, till_paid
 
 
 async def no_war_text(txt):
@@ -14794,8 +14915,7 @@ async def no_war_text(txt):
         pass  # result = txt.replace('а', 'ä').replace('А', 'Ä').replace('в', 'ʙ').replace('В', 'B').replace('г', 'ґ')  # .replace('Г', 'Ґ').replace('е', 'é').replace('Е', 'É').replace('ж', 'җ').replace('Ж', 'Җ').replace('з', 'з́')  # .replace('З', 'З́').replace('й', 'ҋ').replace('Й', 'Ҋ').replace('к','қ').replace('К', 'Қ').replace('М', 'M')  # .replace('Н','H').replace('о', 'ô').replace('О', 'Ô').replace('р', 'p').replace('Р', 'P').replace('с', 'č')  # .replace('С', 'Č').replace('т', 'ҭ').replace('Т', 'Ҭ').replace('у', 'ў').replace('У', 'Ў').replace('х', 'x')  # .replace('Х', 'X').replace('э', 'є').replace('Э', 'Є')  # result = txt.replace('А', 'Ä').replace('в', 'ʙ').replace('В', 'B').replace('г', 'ґ').replace('Г', 'Ґ').  # replace('Е', 'É').replace('ж', 'җ').replace('Ж', 'Җ').replace('й', 'ҋ').replace('К', 'Қ').replace('М', 'M')  # .replace('Н', 'H').replace('о', 'ô').replace('О', 'Ô').replace('р', 'p').replace('Р', 'P').replace('С', 'Č')  # .replace('Т', 'Ҭ').replace('У', 'Ў').replace('х', 'x').replace('Х', 'X').replace('э', 'є')
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def get_from_media(CONF_P, EXTRA_D, MEDIA_D, BASE_D, src, re_write=False, basewidth=1024):
@@ -14841,8 +14961,7 @@ async def get_from_media(CONF_P, EXTRA_D, MEDIA_D, BASE_D, src, re_write=False, 
             logger.info(log_ % 'dl media ok')
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def is_url(url):
@@ -14852,8 +14971,7 @@ async def is_url(url):
             status = True
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return status
+    return status
 
 
 async def get_fileid_from_src(src, is_link, BASE_D):
@@ -14869,8 +14987,7 @@ async def get_fileid_from_src(src, is_link, BASE_D):
         data = data[0][0]
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return data
+    return data
 
 
 async def is_image(file_name):
@@ -14882,8 +14999,7 @@ async def is_image(file_name):
         im = Image.open(file_name)
     except Exception as e:
         logger.info(log_ % 'isImage: ' + str(e))
-    finally:
-        return im
+    return im
 
 
 async def is_video(file_name):
@@ -14892,8 +15008,7 @@ async def is_video(file_name):
         vi = True if str(mimetypes.guess_type(file_name)[0]).startswith('video') else False
     except Exception as e:
         logger.info(log_ % 'isVideo: ' + str(e))
-    finally:
-        return vi
+    return vi
 
 
 async def get_thumb(MEDIA_D, file_name, sz_thumbnail=32):
@@ -14908,8 +15023,7 @@ async def get_thumb(MEDIA_D, file_name, sz_thumbnail=32):
         im.save(result, "JPEG")
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def check_username(username):
@@ -14927,15 +15041,14 @@ async def check_username(username):
             for it in username:
                 if it not in string.ascii_letters + string.digits + "@_":
                     result = False
-                    return
+                    return result
     except TelegramRetryAfter as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(e.retry_after + 1)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 def touch(path):
@@ -14996,8 +15109,8 @@ def get_keyboard(data, src, post_id=1, chat_id=''):
 
 
 async def save_fileid(message, src, BASE_D):
-    if message is None: return
     file_id = usr_id = ''
+    if message is None: return usr_id
     if message.photo:
         file_id = message.photo[-1].file_id
     elif message.animation:  # giff
@@ -15037,7 +15150,7 @@ async def check_email(content):
     # Email-check regular expression
     result = None
     try:
-        if not content: return
+        if not content: return result
         parts = content.split()
         for part in parts:
             USER_EMAIL = re.findall(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)", part)
@@ -15046,8 +15159,7 @@ async def check_email(content):
                 break
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def check_phone(content):
@@ -15060,8 +15172,7 @@ async def check_phone(content):
                 break
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def get_photo_file_id(bot, chat_id, file_id_text, BASE_D):
@@ -15078,17 +15189,11 @@ async def get_photo_file_id(bot, chat_id, file_id_text, BASE_D):
             result = data2[0][0]
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 def is_yes_not(msg):
-    result = False
-    try:
-        if msg and str(msg).lower().strip() in ['y', 'yes', 'да', 'д', 'lf', 'l', '1']:
-            result = True
-    finally:
-        return result
+    return str(msg).lower().strip() in ['y', 'yes', 'да', 'д', 'lf', 'l', '1'] if msg else False
 
 
 def w_conf(key, val, CONF_P, INI_D):
@@ -15103,23 +15208,16 @@ def w_conf(key, val, CONF_P, INI_D):
 
 
 def r_conf(key, CONF_P):
-    result = None
     try:
         s = CONF_P.get(SECTION, key)
         result = ast.literal_eval(s)
-        if len(result) == 0:
-            result = None
-    finally:
-        return result
+        return result if result else None
+    except Exception:
+        return None
 
 
 def get_doc_id_from_link(link):
-    try:
-        begin = link[0:link.rindex('/')].rindex('/') + 1
-        end = link.rindex('/')
-        link = link[begin:end]
-    finally:
-        return link
+    return link[link.rindex('/', 0, link.rindex('/')) + 1: link.rindex('/')]
 
 
 def get_tg_channel(lan):
@@ -15142,8 +15240,7 @@ def get_tg_channel(lan):
             result = 'ferey_channel_europe'
     except Exception as e:
         logger.info(e)
-    finally:
-        return result
+    return result
 
 
 def get_tg_group(lan):
@@ -15166,8 +15263,7 @@ def get_tg_group(lan):
             result = 'ferey_group_europe'
     except Exception as e:
         logger.info(e)
-    finally:
-        return result
+    return result
 
 
 async def send_to_admins(bot, CONF_P, txt):
@@ -15287,8 +15383,7 @@ async def read_likes(BASE_D, POST_ID=1):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return cnt
+    return cnt
 
 
 async def db_has_like(user_id, post_id, BASE_D):
@@ -15300,8 +15395,7 @@ async def db_has_like(user_id, post_id, BASE_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return data
+    return data
 
 
 def is_tid(item):
@@ -15311,14 +15405,13 @@ def is_tid(item):
     except Exception:
         # logger.info(log_ % str(e))
         pass
-    finally:
-        return result
+    return result
 
 
 async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BASE_D, COLUMN_OWNER="OFFER_CHATTID"):
     result = InlineKeyboardBuilder()
     try:
-        if OFFER_BUTTON is None or OFFER_BUTTON == '': return
+        if OFFER_BUTTON is None or OFFER_BUTTON == '': return result.as_markup()
         tmp = []
         dic_btns = await check_buttons(bot, None, OFFER_BUTTON)
         buttons = []
@@ -15358,8 +15451,7 @@ async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BAS
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result.as_markup()
+    return result.as_markup()
 
 
 async def create_replymarkup_bot(ent_id, post_id, POST_BUTTONS, reply_markup, cur_, len_, counters=None, is_spo=False):
@@ -15367,7 +15459,7 @@ async def create_replymarkup_bot(ent_id, post_id, POST_BUTTONS, reply_markup, cu
         counters = {}
     result = reply_markup
     try:
-        if POST_BUTTONS is None or POST_BUTTONS == '': return
+        if POST_BUTTONS is None or POST_BUTTONS == '': return result
         tmp = []
         btn_ix = 0
         buttons = []
@@ -15421,8 +15513,7 @@ async def create_replymarkup_bot(ent_id, post_id, POST_BUTTONS, reply_markup, cu
     except Exception as e:
         logger.info(log_ % str(e))
         pass
-    finally:
-        return result
+    return result
 
 
 async def create_replymarkup4(ent_id, post_id, POST_BUTTONS, reply_markup, counters=None):
@@ -15430,7 +15521,7 @@ async def create_replymarkup4(ent_id, post_id, POST_BUTTONS, reply_markup, count
         counters = dict()
     result = reply_markup
     try:
-        if POST_BUTTONS is None or POST_BUTTONS == '': return
+        if POST_BUTTONS is None or POST_BUTTONS == '': return result
         tmp = []
         btn_ix = 0
         buttons = []
@@ -15477,8 +15568,7 @@ async def create_replymarkup4(ent_id, post_id, POST_BUTTONS, reply_markup, count
     except Exception as e:
         logger.info(log_ % str(e))
         pass
-    finally:
-        return result
+    return result
 
 
 async def create_replymarkup5(ent_id, post_id, POST_BUTTONS, reply_markup, counters=None, is_spo=False):
@@ -15486,7 +15576,7 @@ async def create_replymarkup5(ent_id, post_id, POST_BUTTONS, reply_markup, count
         counters = {}
     result = reply_markup
     try:
-        if POST_BUTTONS is None or POST_BUTTONS == '': return
+        if POST_BUTTONS is None or POST_BUTTONS == '': return result
         tmp = []
         btn_ix = 0
         buttons = []
@@ -15539,8 +15629,7 @@ async def create_replymarkup5(ent_id, post_id, POST_BUTTONS, reply_markup, count
     except Exception as e:
         logger.info(log_ % str(e))
         pass
-    finally:
-        return result
+    return result
 
 
 async def create_replymarkup6(ent_id, post_id, POST_BUTTONS, reply_markup, counters=None):
@@ -15548,7 +15637,7 @@ async def create_replymarkup6(ent_id, post_id, POST_BUTTONS, reply_markup, count
         counters = dict()
     result = reply_markup
     try:
-        if POST_BUTTONS is None or POST_BUTTONS == '': return
+        if POST_BUTTONS is None or POST_BUTTONS == '': return result
         tmp = []
         btn_ix = 0
         buttons = []
@@ -15598,8 +15687,7 @@ async def create_replymarkup6(ent_id, post_id, POST_BUTTONS, reply_markup, count
     except Exception as e:
         logger.info(log_ % str(e))
         pass
-    finally:
-        return result
+    return result
 
 
 async def check_buttons(bot, chat_id, txt, is_counter=False):
@@ -15621,7 +15709,7 @@ async def check_buttons(bot, chat_id, txt, is_counter=False):
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(1, 2), 2))
 
-        if len(start_) != len(finish_): return
+        if len(start_) != len(finish_): return result
 
         for ix in range(0, len(start_)):
             try:
@@ -15635,7 +15723,7 @@ async def check_buttons(bot, chat_id, txt, is_counter=False):
                         btn_link = split_btn[-1].strip()
                         if not await is_url(btn_link):
                             await bot.send_message(chat_id, f"🔗 {btn_link}: invalid")
-                            return
+                            return result
                     else:
                         btn_name = f"⁰{split_btn[0]}" if is_counter else split_btn[0]
                         # btn_link = cleanhtml(split_btn[0])[:20]
@@ -15652,14 +15740,13 @@ async def check_buttons(bot, chat_id, txt, is_counter=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_buttons2(txt, is_counter=False):
     result = {}
     try:
-        if not txt: return
+        if not txt: return result
         txt = txt.strip()
         start_ = []
         finish_ = []
@@ -15676,7 +15763,7 @@ async def check_buttons2(txt, is_counter=False):
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(1, 2), 2))
 
-        if len(start_) != len(finish_): return
+        if len(start_) != len(finish_): return result
 
         for ix in range(0, len(start_)):
             try:
@@ -15689,7 +15776,7 @@ async def check_buttons2(txt, is_counter=False):
                         btn_name = split_btn[0].strip() if len(split_btn) > 1 else "🔗 Go"
                         btn_link = split_btn[-1].strip()
                         if not await is_url(btn_link):
-                            return
+                            return result
                     else:
                         btn_name = f"⁰{split_btn[0]}" if is_counter else split_btn[0]
                         btn_link = f"pst_"
@@ -15704,8 +15791,7 @@ async def check_buttons2(txt, is_counter=False):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 def get_post_of_dict(dicti_, pos=1):
@@ -15752,7 +15838,7 @@ async def del_extra_files(UNKNOWN_ERRORS_TXT, EXTRA_D):
 async def get_proxy(identifier, EXTRA_D, CONF_P, server=None):
     result = None
     try:
-        if r_conf('proxy', CONF_P) == 0: return
+        if r_conf('proxy', CONF_P) == 0: return result
 
         async with aiofiles.open(os.path.join(EXTRA_D, "proxy.txt"), "r") as f:
             lines = await f.readlines()
@@ -15771,8 +15857,7 @@ async def get_proxy(identifier, EXTRA_D, CONF_P, server=None):
     except Exception as e:
         logger.info(log_ % f"{str(e)}, {identifier}, {server}")
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def haversine(lon1, lat1, lon2, lat2):
@@ -15795,8 +15880,7 @@ async def haversine(lon1, lat1, lon2, lat2):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def run_shell(cmd):
@@ -15821,8 +15905,7 @@ async def run_shell(cmd):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def send_response(UB_TID, UB_TOKENTGPH, WEBHOOK_HOST, PROJECT_PATH, cmd, param=None):
@@ -15907,8 +15990,7 @@ async def convert_tgs_to_json(tgs_path, output_path=None):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def convert_json_to_tgs(json_path, output_path=None):
@@ -15927,8 +16009,7 @@ async def convert_json_to_tgs(json_path, output_path=None):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def convert_webm_to_mp4(webm_path, MEDIA_D, ENT_TID):
@@ -15960,8 +16041,7 @@ async def convert_webm_to_mp4(webm_path, MEDIA_D, ENT_TID):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
@@ -16009,14 +16089,13 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def correct_txt_tags_for_tg(txt):
     result = txt
     try:
-        if not txt or txt == str_empty: return
+        if not txt or txt == str_empty: return result
 
         print(f"correct_txt_tags_for_tg start {txt=}")
         txt = re.sub(
@@ -16048,8 +16127,7 @@ async def correct_txt_tags_for_tg(txt):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXTRA_D, MEDIA_D):
@@ -16064,7 +16142,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
                 sql = "SELECT OWNER_TID, BOT_USERNAME, BOT_FIRSTNAME, BOT_STATUS, BOT_TOKEN, BOT_VARS FROM \"BOT\" WHERE BOT_TID=$1"
                 data = await db_select_pg(sql, (int(BOT_TID),), BASE_D)
                 print(f"return_file_id {MSG_TYPE=} {data=}")
-                if not len(data): return
+                if not len(data): return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
                 OWNER_TID, BOT_USERNAME, BOT_FIRSTNAME, BOT_STATUS, BOT_TOKEN, BOT_VARS = data[0]
                 BOT_VARS = json.loads(BOT_VARS) if BOT_VARS else json.loads(BOT_VARS_)
                 BOT_LZ = BOT_VARS['BOT_LZ']
@@ -16211,7 +16289,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
                             FILE_NAME = F_NAME
                             await asyncio.sleep(0.05)
                             image.save(F_NAME, format="webp", quality=50)
-                            if os.path.getsize(F_NAME) > 1048576: return
+                            if os.path.getsize(F_NAME) > 1048576: return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
                             MEDIA = types.FSInputFile(F_NAME)
                         else:
                             print(f"else tgs")
@@ -16284,7 +16362,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
                     await extra_bot.session.close()
 
                 print(f"{file_id=}, {file_id_note=}, {file_type=}")
-                return
+                return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
             except Exception as e:
                 logger.info(log_ % str(e) + " (repeat)")
 
@@ -16292,7 +16370,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
                     file_id_note = 'restricted'
                     text = l_tools_has_restricted[BOT_LZ].format(BOT_USERNAME)
                     await bot.send_message(chat_id=OWNER_TID, text=text)
-                    return
+                    return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
 
                 if 'Internal Server Error' not in str(e): break
                 await asyncio.sleep(6)
@@ -16301,8 +16379,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
+    return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
 
 
 async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE, IS_LINK):
@@ -16333,7 +16410,7 @@ async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE
         else:
             print(f'hare ai in FILE_NAME, {MSG_TYPE=}, {result=}')
             if MSG_TYPE in ['document', 'web'] and not FILE_NAME.endswith(
-                ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return
+                ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return result
 
             res = await get_link_for_media(bot, MSG_VID, FILE_NAME, KEYS_JSON)
             if res:
@@ -16341,8 +16418,7 @@ async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYPE, file_id, MEDIA_D, BOT_TOKEN):
@@ -16370,7 +16446,7 @@ async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
             result = document_jpg
         tmpls = [photo_jpg, gif_jpg, video_jpg, video_note_jpg, audio_jpg, voice_jpg, sticker_jpg, web_jpg,
                  document_jpg]
-        if not BOT_TOKEN or not file_id or file_link in tmpls: return
+        if not BOT_TOKEN or not file_id or file_link in tmpls: return result
 
         # download
         dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f.mp4')
@@ -16438,7 +16514,7 @@ async def jpg_video_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         if destination and os.path.exists(destination): os.remove(destination)
         if destination2 and os.path.exists(destination2): os.remove(destination2)
         if destination3 and os.path.exists(destination3): os.remove(destination3)
-        return result
+    return result
 
 
 async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYPE, MEDIA_D):
@@ -16467,7 +16543,7 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         tmpls = [photo_jpg, gif_jpg, video_jpg, video_note_jpg, audio_jpg, voice_jpg, sticker_jpg, web_jpg,
                  document_jpg]
         if MSG_TYPE in ['audio', 'voice', 'document'] or file_link in tmpls or MSG_TYPE in [
-            'web'] and not file_link.endswith(('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return
+            'web'] and not file_link.endswith(('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return result
 
         dt = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f.jpg')
         dt_finish = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f-2.jpg')
@@ -16479,7 +16555,7 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
                 resp = await response.read()
                 async with aiofiles.open(file_name, 'wb') as f:
                     await f.write(resp)
-        if not os.path.exists(file_name): return
+        if not os.path.exists(file_name): return result
 
         # square jpg
         img = Image.open(file_name)
@@ -16504,8 +16580,7 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def resize_media(file_name, basewidth=1024):
@@ -16530,8 +16605,7 @@ async def resize_media(file_name, basewidth=1024):
         result = file_name
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def resize_video_note(file_name, basewidth):
@@ -16551,7 +16625,7 @@ async def resize_video_note(file_name, basewidth):
             result = file_name
         if basewidth == 440:
             clip = VideoFileClip(file_name)
-            clip_convert = Crop(x1=basewidth / 2, y1=basewidth / 2, x2=basewidth / 2, y2=basewidth / 2).apply(clip)
+            clip_convert = Crop(x1=int(basewidth / 2), y1=int(basewidth / 2), x2=int(basewidth / 2), y2=int(basewidth / 2)).apply(clip)
             # clip_convert.write_videofile(filename=file_video_note, codec='libx264', audio_codec='aac',
             #                              temp_audiofile='temp-audio.m4a', remove_temp=True)
             # clip_resized = clip.resize((basewidth, basewidth))
@@ -16566,8 +16640,7 @@ async def resize_video_note(file_name, basewidth):
             result = file_name
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def hand_video_note(MEDIA, IS_LINK, BOT_TID, MEDIA_D):
@@ -16611,8 +16684,7 @@ async def hand_video_note(MEDIA, IS_LINK, BOT_TID, MEDIA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def send_audio_my(extra_bot, BOT_TID, BOT_USERNAME, BOT_FIRSTNAME, OWNER_TID, MEDIA, FILE_NAME, EXTRA_D):
@@ -16668,8 +16740,7 @@ async def send_audio_my(extra_bot, BOT_TID, BOT_USERNAME, BOT_FIRSTNAME, OWNER_T
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result, file_name_video
+    return result, file_name_video
 
 
 async def send_video_my(extra_bot, OWNER_TID, MEDIA):
@@ -16682,8 +16753,7 @@ async def send_video_my(extra_bot, OWNER_TID, MEDIA):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def download_file_my(MEDIA, BOT_TID, ext, MEDIA_D):
@@ -16702,8 +16772,7 @@ async def download_file_my(MEDIA, BOT_TID, ext, MEDIA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_type, IS_LINK, BASE_D, EXTRA_D, MEDIA_D):
@@ -16770,7 +16839,7 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     finally:
         if FILE_NAME and os.path.exists(FILE_NAME): os.remove(FILE_NAME)
-        return tmp_json
+    return tmp_json
 
 
 async def convert_png_to_gif(input_name, output_name):
@@ -16785,8 +16854,7 @@ async def convert_png_to_gif(input_name, output_name):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def convert_png_to_mp4(ENT_TID, input_name, output_name, MEDIA_D):
@@ -16804,8 +16872,7 @@ async def convert_png_to_mp4(ENT_TID, input_name, output_name, MEDIA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND, is_upload=True, is_circle=False,
@@ -16860,7 +16927,7 @@ async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND,
                     result = await bot.send_sticker(chat_id=chat_id, sticker=types.FSInputFile(input_file))
                     if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                     result = result.sticker.file_id
-                return
+                return result, result_upl
             elif PACK_TYPE == 'sticker' and width <= 512 and height <= 512:
                 if width < 512 and height < 512:
                     target_width, target_height = 512, 512
@@ -16891,7 +16958,7 @@ async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND,
                     result = await bot.send_sticker(chat_id=chat_id, sticker=types.FSInputFile(input_file))
                     if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                     result = result.sticker.file_id
-                return
+                return result, result_upl
         elif input_file.lower().endswith('.tgs') and os.path.getsize(input_file) <= size_kb:
             upl = await bot.upload_sticker_file(user_id=chat_id, sticker=types.FSInputFile(input_file),
                                                 sticker_format=sticker_format)
@@ -16901,7 +16968,7 @@ async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND,
                 result = await bot.send_sticker(chat_id=chat_id, sticker=types.FSInputFile(input_file))
                 if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                 result = result.sticker.file_id
-            return
+            return result, result_upl
         # endregion
 
         # region pixels
@@ -16941,7 +17008,7 @@ async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND,
 
             if os.path.getsize(file_jpg) < size_kb: break
             quality = 1 if quality == 0 else quality - 10
-        if os.path.getsize(file_jpg) > size_kb: return
+        if os.path.getsize(file_jpg) > size_kb: return result, result_upl
         # endregion
 
         # region is_circle
@@ -17006,7 +17073,7 @@ async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND,
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-        return result, result_upl
+    return result, result_upl
 
 
 async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND, is_upload=True, is_circle=False,
@@ -17056,7 +17123,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                     result = await bot.send_sticker(chat_id=chat_id, sticker=types.FSInputFile(input_file))
                     if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                     result = result.sticker.file_id
-                return
+                return result, result_upl
             elif PACK_TYPE == 'sticker':  # and width <= 512 and height <= 512 and input_file.lower().endswith('.webm'):
                 print(f"here 1")
                 upl = await bot.upload_sticker_file(user_id=chat_id, sticker=types.FSInputFile(input_file),
@@ -17069,7 +17136,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                     if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                     result = result.sticker.file_id
                     # await bot.send_sticker(chat_id=chat_id, sticker=result)
-                return
+                return result, result_upl
         elif input_file.lower().endswith('.tgs') and os.path.getsize(input_file) <= size_kb:
             upl = await bot.upload_sticker_file(user_id=chat_id, sticker=types.FSInputFile(input_file),
                                                 sticker_format=sticker_format)
@@ -17079,7 +17146,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                 result = await bot.send_sticker(chat_id=chat_id, sticker=types.FSInputFile(input_file))
                 if is_del: await bot.delete_message(chat_id=chat_id, message_id=result.message_id)
                 result = result.sticker.file_id
-            return
+            return result, result_upl
         # endregion
 
         if input_file.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
@@ -17111,7 +17178,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
 
                 if os.path.getsize(file_jpg) < size_kb: break
                 quality = 1 if quality == 0 else quality - 10
-            if os.path.getsize(file_jpg) > size_kb: return
+            if os.path.getsize(file_jpg) > size_kb: return result, result_upl
             # endregion
 
             # region color
@@ -17317,7 +17384,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
-        return result, result_upl
+    return result, result_upl
 
 
 async def squared_video_ffmpeg(file_name, MEDIA_D):
@@ -17341,8 +17408,7 @@ async def squared_video_ffmpeg(file_name, MEDIA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 def handle_ver(emj, emj_data, entities_list):
@@ -17360,7 +17426,7 @@ def cleanhtml(raw_html):
 async def format_text_md(txt, is_web=False):
     result = txt
     try:
-        if format_text == '': return
+        if format_text == '': return result
         result = result[0].upper() + result[1:]
         tmp_arr = re.split(r'\s+', result)
         entities = []
@@ -17523,14 +17589,13 @@ async def format_text_md(txt, is_web=False):
     except Exception as e:
         logger.info(log_ % e)
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def format_link_md(txt):
     result = txt
     try:
-        if format_text == '': return
+        if format_text == '': return result
         tmp_arr = re.split(r'\s+', result)
         arr_links = []
         arr_tlg_links = []
@@ -17561,14 +17626,13 @@ async def format_link_md(txt):
     except Exception as e:
         logger.info(log_ % e)
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def format_text(txt, is_color=False, is_userbot=False):
     result = txt
     try:
-        if txt.strip() == '': return
+        if txt.strip() == '': return result
         result = result[0].upper() + result[1:]
         tmp_arr = re.split(r'\s+', result)
         entities = []
@@ -17770,14 +17834,13 @@ async def format_text(txt, is_color=False, is_userbot=False):
     except Exception as e:
         logger.info(log_ % str(e) + str(is_color))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def format_link(txt):
     result = txt
     try:
-        if txt.strip() == '': return
+        if txt.strip() == '': return result
         tmp_arr = re.split(r'\s+', result)
         arr_links = []
         arr_tlg_links = []
@@ -17812,8 +17875,7 @@ async def format_link(txt):
     except Exception as e:
         logger.info(log_ % e)
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def upper_register(txt):
@@ -17831,8 +17893,7 @@ async def upper_register(txt):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 def upper_register_sync(txt):
@@ -17849,8 +17910,7 @@ def upper_register_sync(txt):
             result = f"{result[0]}˙{result[2]}ᴹ"
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def convert_tgmd_to_html(markdown_text):
@@ -17876,15 +17936,14 @@ async def convert_tgmd_to_html(markdown_text):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 def escape_md(*content, sep=" ") -> str:
     """
     Escape Markdown text
 
-    E.g. for usernames
+    E.g., for usernames
 
     :param content:
     :param sep:
@@ -17925,8 +17984,7 @@ async def random_text(text):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def fun_stegano(f_name):
@@ -17934,7 +17992,7 @@ async def fun_stegano(f_name):
     try:
         if not os.path.exists(f_name):
             logger.info(log_ % f"SteganoFun: no file {f_name}")
-            return
+            return result
         b_name = os.path.basename(f_name)
         d_name = os.path.dirname(f_name)
         random_name = os.path.join(d_name, f"{random.choice(string.ascii_letters + string.digits)}_{b_name}")
@@ -18030,8 +18088,7 @@ async def fun_stegano(f_name):
     except Exception as e:
         logger.info(log_ % f"stageno error: {str(e)}")
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def correct_tag(txt, orig_txt=''):
@@ -18070,8 +18127,7 @@ async def correct_tag(txt, orig_txt=''):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 # async def photo_to_video_sticker(bot, user_id, input_file, bot_username):
@@ -18181,7 +18237,7 @@ async def correct_link(link):
         link = str(link)
         if len(str(link).strip()) < 4:
             result = None
-            return
+            return result
         link = link.strip()
         res = link.split()
         try:
@@ -18253,10 +18309,7 @@ async def correct_link(link):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
-
-
+    return result
 # endregion
 
 
@@ -18285,8 +18338,7 @@ async def text_title(text):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return title, content
+    return title, content
 
 
 async def get_content_part(ctx, content_all, width_, original_width):
@@ -18337,8 +18389,7 @@ async def get_content_part(ctx, content_all, width_, original_width):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return content_part, content_all, width_, original_width
+    return content_part, content_all, width_, original_width
 
 
 async def edit_surface(title_copy, content_all_copy, cnt=1, shift=0):
@@ -18397,8 +18448,7 @@ async def edit_surface(title_copy, content_all_copy, cnt=1, shift=0):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result, cnt
+    return result, cnt
 
 
 async def text_layout(text, MEDIA_D):
@@ -18417,8 +18467,7 @@ async def text_layout(text, MEDIA_D):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result, title
+    return result, title
 
 
 async def test_cairo(bot, MEDIA_D):
@@ -18533,9 +18582,9 @@ async def test_cairo(bot, MEDIA_D):
         if file_png and os.path.exists(file_png): os.remove(file_png)
         #
         #         text = f"""She literature discovered increasing how diminution understood. Though and highly the enough
-        # county for man. Of it up he still court alone widow seems. Suspected remainder rapturous my sweetness. All vanity regard sudden nor simple can. World mrs and vexed china since after often.
+        # county for man. Of it up he still court alone widow seems. The Suspected remainder is rapturous my sweetness. All vanity regard sudden nor simple can. The World mrs and vexed china since after often.
         #
-        # Remain valley who mrs uneasy remove wooded him you. Her questions favourite him concealed. We to wife face took he. The taste begin early old why since dried can first. Prepared as or humoured formerly. Evil mrs true get post. Express village evening prudent my as ye hundred forming. Thoughts why not directly reserved packages you. Winter a silent favour of am tended mutual. """
+        # Remain valley who mrs uneasy remove wooded him you. Her questions favourite him concealed. We to wife face took him. The taste begins early old why since dried can first. Prepared as or humored formerly. Evil mrs true get post. Express village evening prudent my as ye hundred forming. Thoughts why not directly reserved packages you. Winter a silent favor of am tended mutual. """
         #         file_png, t = await text_layout(text)
         #         print(file_png, t)
         #         image = Image.open(file_png)
@@ -18616,8 +18665,6 @@ Remain valley who mrs uneasy remove wooded him you. Her questions favourite him 
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-
-
 # endregion
 
 
@@ -18627,7 +18674,7 @@ async def get_session(SESSION_TID, SESSION_D, BASE_S, EXTRA_D, CONF_P, is_proxy=
     try:
         sql = "SELECT SESSION_NAME, SESSION_APIID, SESSION_APIHASH, SESSION_PHONE FROM SESSION WHERE SESSION_TID = ?"
         data = await db_select_pg(sql, (SESSION_TID,), BASE_S)
-        if not len(data): return
+        if not len(data): return res
         SESSION_NAME, SESSION_APIID, SESSION_APIHASH, SESSION_PHONE = data[0]
 
         if is_proxy:
@@ -18635,8 +18682,10 @@ async def get_session(SESSION_TID, SESSION_D, BASE_S, EXTRA_D, CONF_P, is_proxy=
 
         res = Client(name=str(os.path.join(SESSION_D, SESSION_NAME)), api_id=SESSION_APIID, api_hash=SESSION_APIHASH,
                      phone_number=SESSION_PHONE, proxy=proxy)
-    finally:
-        return res
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(1, 2), 2))
+    return res
 
 
 async def is_my_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BASE_E, is_history=False):
@@ -18652,7 +18701,7 @@ async def is_my_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BA
                     SESSION_STATUS == '' or SESSION_STATUS is None)): continue
             try:
                 link = await correct_link(link)
-                if not link: return
+                if not link: return result, get_chat_history_count
 
                 # process
                 sql = "UPDATE SESSION SET SESSION_STATUS = ? WHERE SESSION_TID = ?"
@@ -18663,11 +18712,11 @@ async def is_my_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BA
                         r = await join_my_chat(bot, app, chat_id, link, SESSION_TID, BASE_S)
                         if r is None:
                             logger.info(log_ % f"{link} is None")
-                            return
+                            return result, get_chat_history_count
                         txt_ = l_admin_closed_group_reject['en']
                         if r == -1:
                             await bot.send_message(chat_id, txt_)
-                            return
+                            return result, get_chat_history_count
                         if hasattr(r, 'id'):
                             result = await app.get_chat(r.id)
 
@@ -18704,8 +18753,7 @@ async def is_my_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BA
     except Exception as e:
         logger.info(log_ % str(e) + f"{BASE_E}")
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result, get_chat_history_count
+    return result, get_chat_history_count
 
 
 async def is_invite_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S, BASE_E):
@@ -18731,7 +18779,7 @@ async def is_invite_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S
                         r = await join_my_chat(bot, app, chat_id, link, SESSION_TID, BASE_S)
 
                         # get_chat https://t.me/+KO7_fV4aGKZkYTUy
-                        if r == -1 or r is None: return
+                        if r == -1 or r is None: return result
                         r = await app.get_chat(r.id)
                         logger.info(log_ % f"{SESSION_TID} get_chat {r.id}")
 
@@ -18779,8 +18827,7 @@ async def is_invite_chat(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE_S
     except Exception as e:
         logger.info(log_ % str(e) + f"{BASE_E}")
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def join_my_chat(bot, app, chat_id, link, SESSION_TID, BASE_S):
@@ -18832,8 +18879,7 @@ async def join_my_chat(bot, app, chat_id, link, SESSION_TID, BASE_S):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def leave_my_chat(app, r, link):
@@ -18892,7 +18938,7 @@ async def get_chat_members(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE
                         except ChatAdminRequired as e:
                             logger.info(log_ % str(e))
                             await bot.send_message(chat_id, l_admin_rights_required['en'])
-                            return
+                            return result
                         except Exception as e:
                             logger.info(log_ % str(e))
                     finally:
@@ -18923,8 +18969,7 @@ async def get_chat_members(bot, chat_id, link, SESSIONS_D, EXTRA_D, CONF_P, BASE
     except Exception as e:
         logger.info(log_ % str(e) + f"{BASE_E}")
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def delete_account(bot, SESSION_TID, SESSIONS_D, CONF_P, BASE_S):
@@ -18988,7 +19033,7 @@ async def check_session_flood(SESSION_TID, BASE_S):
     try:
         sql = "SELECT SESSION_STATUS FROM SESSION WHERE SESSION_TID = ?"
         data = await db_select_pg(sql, (SESSION_TID,), BASE_S)
-        if not data: return
+        if not data: return result
 
         t_t = str(data[0][0]).split()
         if len(t_t) == 2:
@@ -19012,8 +19057,7 @@ async def check_session_flood(SESSION_TID, BASE_S):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_session_limit(SESSION_TID, LIMIT_NAME, LIMIT, BASE_S):
@@ -19021,7 +19065,7 @@ async def check_session_limit(SESSION_TID, LIMIT_NAME, LIMIT, BASE_S):
     try:
         sql = f"SELECT {LIMIT_NAME} FROM SESSION WHERE SESSION_TID = ?"
         data = await db_select_pg(sql, (SESSION_TID,), BASE_S)
-        if not data: return
+        if not data: return result
 
         t_t = str(data[0][0]).split()
         if len(t_t) == 2:
@@ -19045,8 +19089,7 @@ async def check_session_limit(SESSION_TID, LIMIT_NAME, LIMIT, BASE_S):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def check_inviteday(CONF_P, BASE_S, threshold=0):
@@ -19074,8 +19117,7 @@ async def check_inviteday(CONF_P, BASE_S, threshold=0):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return result
+    return result
 
 
 async def set_privacy(app):
@@ -19172,8 +19214,10 @@ async def api_find_row_by_tid(USER_TID, CONF_P, EXTRA_D, sheet_id='Sheet1'):
                 row = ix + 1
                 break
         result = 'A' + str(row)
-    finally:
-        return result
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(1, 2), 2))
+    return result
 
 
 async def api_write_cells(sheets_service, value_many, range_many, spreadsheet_id, sheet_id, valueInputOption,
@@ -19188,8 +19232,7 @@ async def api_write_cells(sheets_service, value_many, range_many, spreadsheet_id
         logger.info(log_ % 'write to db ok')
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def api_append_cells(sheets_service, value_many, spreadsheet_id, valueInputOption):
@@ -19216,8 +19259,7 @@ async def api_read_cells(sheets_service, range_many, spreadsheet_id, sheet_id='S
         logger.info(log_ % 'read from db ok')
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 def get_random_color():
@@ -19236,8 +19278,9 @@ def api_create_file_or_folder(drive_service, mime_type, name, parent_id):
                 'properties': {'title': 'titleSpreadSheet', 'locale': 'ru_RU'}, 'locale': 'ru_RU'}
         result_folder = drive_service.files().create(body=body, fields='id').execute()
         creation_id = result_folder['id']
-    finally:
-        return creation_id
+    except Exception as e:
+        logger.info(log_ % str(e))
+    return creation_id
 
 
 async def table_init(TABLE_API_JSON, CELL_NAMES, EXTRA_D, CONF_P, INI_D):
@@ -19277,8 +19320,7 @@ async def send_my_copy(bot, cnt, USER_TID, USER_USERNAME, result):
         logger.info(log_ % str(e))
         logger.info(log_ % f"\tsend to user {USER_TID}-{USER_USERNAME} error")
         await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return cnt
+    return cnt
 
 
 async def api_get_file_list(drive_service, folder_id, tmp_dic=None, parent_name='', is_file=False):
@@ -19312,7 +19354,7 @@ async def api_get_file_list(drive_service, folder_id, tmp_dic=None, parent_name=
 async def upload_file(drive_service, name, post_media_name, folder_id):
     result = None
     try:
-        if name == 'нет' or name is None: return
+        if name == 'нет' or name is None: return result
 
         request_ = drive_service.files().create(media_body=MediaFileUpload(filename=post_media_name, resumable=True),
                                                 body={'name': name, 'parents': [folder_id]})
@@ -19326,8 +19368,7 @@ async def upload_file(drive_service, name, post_media_name, folder_id):
         result = True
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def api_dl_file(drive_service, id_, name, gdrive_mime_type, MEDIA_D):
@@ -19382,26 +19423,20 @@ def return_cutted_filename(name, add, MEDIA_D):
 
 
 def get_name_without_ext(file_name):
-    name = file_name
-    try:
-        ext = get_ext(name)
-        if ext != '':
-            index_ext = str(name).rindex(ext)
-            index_slash = str(name).rindex('/') + 1 if '/' in name else 0
-            name = name[index_slash:index_ext]
-    finally:
-        return name
+    ext = get_ext(file_name)
+    if ext:
+        index_ext = file_name.rindex(ext)
+        index_slash = file_name.rindex('/') + 1 if '/' in file_name else 0
+        return file_name[index_slash:index_ext]
+    return file_name
 
 
 def get_ext(name):
-    ext = ''
     try:
-        index = str(name).rindex('.')
-        ext = name[index:len(name)]
-        if len(ext) > 5:
-            ext = ''
-    finally:
-        return ext
+        ext = name[name.rindex('.'):]
+        return ext if len(ext) <= 5 else ''
+    except ValueError:
+        return ''
 
 
 async def is_need_for_create(file_list_dic, unit, mime_type, name, CONF_P, INI_D):
@@ -19424,16 +19459,12 @@ def is_exists_google_id(file_list_dic, mime_type, name, parent_name):
 
 
 def get_new_key_config(value, CONF_P, INI_D):
-    new_key = ""
-    try:
-        CONF_P.read(INI_D)
-        for k, v in CONF_P.items('CONFIG'):
-            if value == ast.literal_eval(v)[0]:
-                arr = str(k).split('_')
-                new_key = f'{arr[0]}_{arr[1]}_id'
-                break
-    finally:
-        return new_key
+    CONF_P.read(INI_D)
+    for k, v in CONF_P.items('CONFIG'):
+        if value == ast.literal_eval(v)[0]:
+            arr = k.split('_')
+            return f'{arr[0]}_{arr[1]}_id'
+    return ''
 
 
 async def api_init(CONF_P, INI_D, EXTRA_D, fields_0):
@@ -19492,8 +19523,7 @@ async def get_cell_dialog(range_many, CONF_P, EXTRA_D):
         logger.info(log_ % 'read from db ok')
     except Exception as e:
         logger.info(log_ % str(e))
-    finally:
-        return result
+    return result
 
 
 async def get_list_of_send_folder(CONF_P, EXTRA_D):
@@ -19576,7 +19606,7 @@ async def tgph_select(access_token, url):
         for page_ in pages_:
             if page_['url'] == url:
                 result = await telegraph_.get_page(path=page_['path'], return_content=True, return_html=False)
-                return
+                return telegraph_, result
     except Exception as e:
         if 'Flood control exceeded' in str(e):
             try:
@@ -19590,8 +19620,7 @@ async def tgph_select(access_token, url):
         else:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(1, 2), 2))
-    finally:
-        return telegraph_, result
+    return telegraph_, result
 
 
 async def tgph_change(access_token, url, json_):
@@ -19696,7 +19725,7 @@ async def is_ban_menu(chat_id):
 
                     if str(chat_id) in ban_ids:
                         result = True
-                    return
+                    return result
             except Exception as e:
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -19708,8 +19737,7 @@ async def is_ban_menu(chat_id):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def ban_handler_menu(bot, chat_id, args):
@@ -19861,7 +19889,7 @@ async def in_ban_list(tid, username=None):
     try:
         b_ids = [68728482,  # @yagupov
                  201960795,  # @korsdp
-                 6084199556,  # 👩🏽‍💻 User: Chris023, @None, 6084199556 block @FereyDemoBot
+                 6084199556,  # 👩🏽‍💻 User: Chris023, @None, 6084199556 blocks @FereyDemoBot
                  7227211988,  # Berto Silva
                  2066375437,  # Leslie Mccarthy
                  5105772611,  # Z Yuan
@@ -19878,8 +19906,7 @@ async def in_ban_list(tid, username=None):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return result
+    return result
 
 
 async def create_tgph_json_and_token(title_hash):
@@ -19904,15 +19931,13 @@ async def create_tgph_json_and_token(title_hash):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
+    return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
 
 
-async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, ENT_FN, MEDIA_D, BASE_D,
-                             entity_type='bot'):
+async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, ENT_FN, MEDIA_D, BASE_D, ent_type='bot'):
     ENT_TOKENTGPH = ENT_PAGETGPH = ENT_JSONTGPH = tgph_ph = None
     try:
-        if entity_type == 'bot':
+        if ent_type == 'bot':
             sql = "SELECT BOT_TOKENTGPH, BOT_PAGETGPH, BOT_JSONTGPH FROM \"BOT\" WHERE BOT_TID=$1"
             data = await db_select_pg(sql, (ENT_TID,), BASE_D)
         else:
@@ -19921,7 +19946,7 @@ async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, EN
 
         if len(data):
             ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH = data[0]
-            if ENT_TOKENTGPH and ENT_PAGETGPH and ENT_JSONTGPH: return
+            if ENT_TOKENTGPH and ENT_PAGETGPH and ENT_JSONTGPH: return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
         print(f"{bot.id}, {USER_ID}, {MEDIA_D}, {tgph_ph}")
 
         # file_name = os.path.join(MEDIA_D, datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f.jpeg'))
@@ -19942,12 +19967,11 @@ async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, EN
 
         tgph_ph = logo_photo
         ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH = await create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME,
-                                                                           ENT_FN, BASE_D, entity_type)
+                                                                           ENT_FN, BASE_D, ent_type)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
+    return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
 
 
 async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, BASE_D, entity_type='bot'):
@@ -19981,7 +20005,7 @@ async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, B
                 else:
                     sql = "UPDATE UB SET UB_TOKENTGPH=$1, UB_PAGETGPH=$2, UB_JSONTGPH=$3 WHERE UB_TID=$4"
                     await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_D)
-                return
+                return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
             except Exception as e:
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -19992,9 +20016,7 @@ async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, B
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-    finally:
-        return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
-
+    return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
 
 # endregion
 

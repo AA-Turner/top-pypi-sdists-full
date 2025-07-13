@@ -151,6 +151,11 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.UpdateClusterRequest.SerializeToString,
                 response_deserializer=beaker__pb2.UpdateClusterResponse.FromString,
                 _registered_method=True)
+        self.UpdateClusterRestrictions = channel.unary_unary(
+                '/allenai.beaker.Beaker/UpdateClusterRestrictions',
+                request_serializer=beaker__pb2.UpdateClusterRestrictionsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.UpdateClusterRestrictionsResponse.FromString,
+                _registered_method=True)
         self.ListClusterSlotUsage = channel.unary_unary(
                 '/allenai.beaker.Beaker/ListClusterSlotUsage',
                 request_serializer=beaker__pb2.ListClusterSlotUsageRequest.SerializeToString,
@@ -471,6 +476,16 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.ListQueueEntriesRequest.SerializeToString,
                 response_deserializer=beaker__pb2.ListQueueEntriesResponse.FromString,
                 _registered_method=True)
+        self.CreateClusterTag = channel.unary_unary(
+                '/allenai.beaker.Beaker/CreateClusterTag',
+                request_serializer=beaker__pb2.CreateClusterTagRequest.SerializeToString,
+                response_deserializer=beaker__pb2.CreateClusterTagResponse.FromString,
+                _registered_method=True)
+        self.DeleteClusterTag = channel.unary_unary(
+                '/allenai.beaker.Beaker/DeleteClusterTag',
+                request_serializer=beaker__pb2.DeleteClusterTagRequest.SerializeToString,
+                response_deserializer=beaker__pb2.DeleteClusterTagResponse.FromString,
+                _registered_method=True)
 
 
 class BeakerServicer(object):
@@ -611,6 +626,12 @@ class BeakerServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def UpdateCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateClusterRestrictions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1000,6 +1021,18 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateClusterTag(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteClusterTag(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_BeakerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -1117,6 +1150,11 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.UpdateCluster,
                     request_deserializer=beaker__pb2.UpdateClusterRequest.FromString,
                     response_serializer=beaker__pb2.UpdateClusterResponse.SerializeToString,
+            ),
+            'UpdateClusterRestrictions': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateClusterRestrictions,
+                    request_deserializer=beaker__pb2.UpdateClusterRestrictionsRequest.FromString,
+                    response_serializer=beaker__pb2.UpdateClusterRestrictionsResponse.SerializeToString,
             ),
             'ListClusterSlotUsage': grpc.unary_unary_rpc_method_handler(
                     servicer.ListClusterSlotUsage,
@@ -1437,6 +1475,16 @@ def add_BeakerServicer_to_server(servicer, server):
                     servicer.ListQueueEntries,
                     request_deserializer=beaker__pb2.ListQueueEntriesRequest.FromString,
                     response_serializer=beaker__pb2.ListQueueEntriesResponse.SerializeToString,
+            ),
+            'CreateClusterTag': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateClusterTag,
+                    request_deserializer=beaker__pb2.CreateClusterTagRequest.FromString,
+                    response_serializer=beaker__pb2.CreateClusterTagResponse.SerializeToString,
+            ),
+            'DeleteClusterTag': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteClusterTag,
+                    request_deserializer=beaker__pb2.DeleteClusterTagRequest.FromString,
+                    response_serializer=beaker__pb2.DeleteClusterTagResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -2062,6 +2110,33 @@ class Beaker(object):
             '/allenai.beaker.Beaker/UpdateCluster',
             beaker__pb2.UpdateClusterRequest.SerializeToString,
             beaker__pb2.UpdateClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateClusterRestrictions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/UpdateClusterRestrictions',
+            beaker__pb2.UpdateClusterRestrictionsRequest.SerializeToString,
+            beaker__pb2.UpdateClusterRestrictionsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -3790,6 +3865,60 @@ class Beaker(object):
             '/allenai.beaker.Beaker/ListQueueEntries',
             beaker__pb2.ListQueueEntriesRequest.SerializeToString,
             beaker__pb2.ListQueueEntriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateClusterTag(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/CreateClusterTag',
+            beaker__pb2.CreateClusterTagRequest.SerializeToString,
+            beaker__pb2.CreateClusterTagResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteClusterTag(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/DeleteClusterTag',
+            beaker__pb2.DeleteClusterTagRequest.SerializeToString,
+            beaker__pb2.DeleteClusterTagResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -16,7 +16,7 @@ in building the PDF object tree for decoding and rendering purposes.
 """
 import typing
 
-from borb.pdf.primitives import PDFType, stream, name, reference
+from borb.pdf.primitives import stream, name, reference
 from borb.pdf.visitor.read.compression.decode_stream import decode_stream
 from borb.pdf.visitor.read.xref_visitor import XRefVisitor
 
@@ -189,7 +189,7 @@ class CompressedXRefVisitor(XRefVisitor):
 
         # process decoded bytes
         decoded_xref_bytes: bytes = tmp_stream["DecodedBytes"]
-        xref: typing.List[PDFType] = []
+        xref: typing.List[reference] = []
         for k in range(0, len(indices), 2):
             start = indices[k]
             length = indices[k + 1]
@@ -266,6 +266,20 @@ class CompressedXRefVisitor(XRefVisitor):
                         index_in_parent_stream=field_3,
                     )
                     xref += [ref]
+
+        # for every entry that refers to a parent stream
+        # set the byte offset
+        for ref in xref:
+            if ref.get_parent_stream_object_nr() is not None:
+                ref.__byte_offset = next(
+                    iter(
+                        [
+                            x.get_byte_offset()
+                            for x in xref[::-1]
+                            if x.get_object_nr() == ref.get_parent_stream_object_nr()
+                        ]
+                    )
+                )
 
         # add to (root) xref tables
         self._ReadVisitor__root._RootVisitor__xref += xref  # type: ignore[attr-defined]

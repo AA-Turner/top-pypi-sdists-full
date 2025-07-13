@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: expandvars
-Version: 1.0.0
+Version: 1.1.1
 Summary: Expand system variables Unix style
 Project-URL: Homepage, https://github.com/sayanarijit/expandvars
 Author-email: Arijit Basu <sayanarijit@gmail.com>
@@ -16,7 +16,7 @@ License: MIT License
         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 License-File: LICENSE
 Keywords: expand,system,variables
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Other Audience
@@ -29,7 +29,7 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3
+Requires-Python: >=3.6.2
 Provides-Extra: tests
 Requires-Dist: black; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
@@ -120,13 +120,13 @@ EXPANDVARS_RECOVER_NULL=foo myapp --config production.ini && echo "All fine."
 
 ### Customization
 
-You can customize the variable symbol and data used for the expansion by using the more general `expand` function.
+You can customize the variable symbol, escape character, whether to expand non-surrounded variables and data used for the expansion by using the more general `expand` function.
 
 ```python
 from expandvars import expand
 
-print(expand("%PATH:$HOME/bin:%{SOME_UNDEFINED_PATH:-/default/path}", environ={"PATH": "/example"}, var_symbol="%"))
-# /example:$HOME/bin:/default/path
+print(expand("%PATH:$HOME/bin:%{SOME_UNDEFINED_PATH:-D:\\default\\path}", environ={"PATH": "/example"}, var_symbol="%", surrounded_vars_only=True, escape_char=""))
+# %PATH:$HOME/bin:D:\default\path
 ```
 
 ## Contributing

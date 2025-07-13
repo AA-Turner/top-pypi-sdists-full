@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot
-Version: 0.9.3
+Version: 0.10.0
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -47,6 +47,13 @@ Requires-Dist: python-multipart
 Requires-Dist: aiofiles
 Requires-Dist: httpx
 Requires-Dist: setproctitle
+Requires-Dist: sqlalchemy
+Requires-Dist: psycopg2-binary
+Requires-Dist: casbin
+Requires-Dist: sqlalchemy_adapter
+Requires-Dist: prometheus_client>=0.8.0
+Requires-Dist: passlib
+Requires-Dist: pyjwt
 Provides-Extra: aws
 Requires-Dist: awscli>=1.27.10; extra == "aws"
 Requires-Dist: botocore>=1.29.10; extra == "aws"
@@ -64,6 +71,7 @@ Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "azure"
 Provides-Extra: gcp
 Requires-Dist: google-api-python-client>=2.69.0; extra == "gcp"
 Requires-Dist: google-cloud-storage; extra == "gcp"
+Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "gcp"
 Provides-Extra: ibm
 Requires-Dist: ibm-cloud-sdk-core; extra == "ibm"
 Requires-Dist: ibm-vpc; extra == "ibm"
@@ -87,6 +95,9 @@ Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "oci"
 Provides-Extra: kubernetes
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "kubernetes"
 Requires-Dist: websockets; extra == "kubernetes"
+Provides-Extra: ssh
+Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "ssh"
+Requires-Dist: websockets; extra == "ssh"
 Provides-Extra: remote
 Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "remote"
 Requires-Dist: grpcio!=1.48.0,>=1.42.0; python_version >= "3.10" and extra == "remote"
@@ -111,6 +122,12 @@ Requires-Dist: awscli>=1.27.10; extra == "nebius"
 Requires-Dist: botocore>=1.29.10; extra == "nebius"
 Requires-Dist: boto3>=1.26.1; extra == "nebius"
 Requires-Dist: colorama<0.4.5; extra == "nebius"
+Provides-Extra: hyperbolic
+Provides-Extra: server
+Requires-Dist: casbin; extra == "server"
+Requires-Dist: sqlalchemy_adapter; extra == "server"
+Requires-Dist: passlib; extra == "server"
+Requires-Dist: pyjwt; extra == "server"
 Provides-Extra: all
 Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
@@ -126,6 +143,7 @@ Requires-Dist: msgraph-sdk; extra == "all"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
 Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
 Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: pyopenssl<24.3.0,>=23.2.0; extra == "all"
 Requires-Dist: ibm-cloud-sdk-core; extra == "all"
 Requires-Dist: ibm-vpc; extra == "all"
 Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
@@ -140,6 +158,8 @@ Requires-Dist: colorama<0.4.5; extra == "all"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
 Requires-Dist: oci; extra == "all"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
+Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
+Requires-Dist: websockets; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,>=20.0.0; extra == "all"
 Requires-Dist: websockets; extra == "all"
 Requires-Dist: grpcio!=1.48.0,>=1.32.0; python_version < "3.10" and extra == "all"
@@ -157,6 +177,10 @@ Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
 Requires-Dist: boto3>=1.26.1; extra == "all"
 Requires-Dist: colorama<0.4.5; extra == "all"
+Requires-Dist: casbin; extra == "all"
+Requires-Dist: sqlalchemy_adapter; extra == "all"
+Requires-Dist: passlib; extra == "all"
+Requires-Dist: pyjwt; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -281,7 +305,8 @@ workdir: ~/torch_examples
 # Commands to be run before executing the job.
 # Typical use: pip install -r requirements.txt, git clone, etc.
 setup: |
-  pip install "torch<2.2" torchvision --index-url https://download.pytorch.org/whl/cu121
+  cd mnist
+  pip install -r requirements.txt
 
 # Commands to run as a job.
 # Typical use: launch the main program.

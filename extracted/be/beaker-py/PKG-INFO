@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-py
-Version: 2.4.5
+Version: 2.4.6
 Summary: A Python Beaker client
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: Homepage, https://github.com/allenai/beaker

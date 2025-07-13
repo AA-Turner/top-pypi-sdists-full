@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250711
+Version: 1.0.0.dev20250712
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -67,6 +67,7 @@ Requires-Dist: azure-mgmt-network>=27.0.0; extra == "azure"
 Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "azure"
 Requires-Dist: azure-storage-blob>=12.23.1; extra == "azure"
 Requires-Dist: msgraph-sdk; extra == "azure"
+Requires-Dist: msrestazure; extra == "azure"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "azure"
 Provides-Extra: gcp
 Requires-Dist: google-api-python-client>=2.69.0; extra == "gcp"
@@ -140,6 +141,7 @@ Requires-Dist: azure-mgmt-network>=27.0.0; extra == "all"
 Requires-Dist: azure-mgmt-compute>=33.0.0; extra == "all"
 Requires-Dist: azure-storage-blob>=12.23.1; extra == "all"
 Requires-Dist: msgraph-sdk; extra == "all"
+Requires-Dist: msrestazure; extra == "all"
 Requires-Dist: ray[default]!=2.6.0,>=2.2.0; extra == "all"
 Requires-Dist: google-api-python-client>=2.69.0; extra == "all"
 Requires-Dist: google-cloud-storage; extra == "all"

@@ -1,16 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pymarkdownlnt
-Version: 0.9.30
+Version: 0.9.31
 Summary: A GitHub Flavored Markdown compliant Markdown linter.
 Home-page: https://github.com/jackdewinter/pymarkdown
 Author: Jack De Winter
 Author-email: jack.de.winter@outlook.com
 Maintainer: Jack De Winter
 Maintainer-email: jack.de.winter@outlook.com
+Project-URL: Documentation, https://pymarkdown.readthedocs.io/
 Project-URL: Change Log, https://pymarkdown.readthedocs.io/en/latest/changelog/
 Keywords: markdown,linter,markdown linter
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -19,12 +21,27 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: application-properties>=0.8.2
+Requires-Dist: application-properties>=0.9.0
 Requires-Dist: columnar>=1.4.0
-Requires-Dist: typing-extensions>=4.7.0
+Requires-Dist: typing-extensions>=4.5.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # PyMarkdown
 

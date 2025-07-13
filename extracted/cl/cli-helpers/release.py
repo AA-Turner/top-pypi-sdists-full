@@ -127,7 +127,7 @@ if __name__ == "__main__":
     if not click.confirm("Are you sure?", default=False):
         sys.exit(1)
 
-    # commit_for_release("cli_helpers/__init__.py", ver)
+    commit_for_release("cli_helpers/__init__.py", ver)
     create_git_tag("v{}".format(ver))
     create_distribution_files()
     push_to_github()
