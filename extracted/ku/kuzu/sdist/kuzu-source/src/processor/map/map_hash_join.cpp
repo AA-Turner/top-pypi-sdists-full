@@ -12,7 +12,7 @@ using namespace kuzu::common;
 namespace kuzu {
 namespace processor {
 
-std::unique_ptr<HashJoinBuildInfo> PlanMapper::createHashBuildInfo(const Schema& buildSideSchema,
+HashJoinBuildInfo PlanMapper::createHashBuildInfo(const Schema& buildSideSchema,
     const expression_vector& keys, const expression_vector& payloads) {
     f_group_pos_set keyGroupPosSet;
     std::vector<DataPos> keysPos;
@@ -55,8 +55,8 @@ std::unique_ptr<HashJoinBuildInfo> PlanMapper::createHashBuildInfo(const Schema&
     auto pointerColumn = ColumnSchema(false /* isUnFlat */, INVALID_DATA_CHUNK_POS,
         LogicalTypeUtils::getRowLayoutSize(LogicalType::INT64()));
     tableSchema.appendColumn(std::move(pointerColumn));
-    return std::make_unique<HashJoinBuildInfo>(std::move(keysPos), std::move(fStateTypes),
-        std::move(payloadsPos), std::move(tableSchema));
+    return HashJoinBuildInfo(std::move(keysPos), std::move(fStateTypes), std::move(payloadsPos),
+        std::move(tableSchema));
 }
 
 std::unique_ptr<PhysicalOperator> PlanMapper::mapHashJoin(const LogicalOperator* logicalOperator) {
@@ -85,13 +85,13 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapHashJoin(const LogicalOperator*
     // Create build
     auto buildInfo = createHashBuildInfo(*buildSchema, buildKeys, payloads);
     auto globalHashTable = std::make_unique<JoinHashTable>(*clientContext->getMemoryManager(),
-        LogicalType::copy(buildKeyTypes), buildInfo->getTableSchema()->copy());
+        LogicalType::copy(buildKeyTypes), buildInfo.tableSchema.copy());
     auto sharedState = std::make_shared<HashJoinSharedState>(std::move(globalHashTable));
     auto buildPrintInfo = std::make_unique<HashJoinBuildPrintInfo>(buildKeys, payloads);
-    auto hashJoinBuild =
-        make_unique<HashJoinBuild>(std::make_unique<ResultSetDescriptor>(buildSchema),
-            PhysicalOperatorType::HASH_JOIN_BUILD, sharedState, std::move(buildInfo),
-            std::move(buildSidePrevOperator), getOperatorID(), buildPrintInfo->copy());
+    auto hashJoinBuild = std::make_unique<HashJoinBuild>(PhysicalOperatorType::HASH_JOIN_BUILD,
+        sharedState, std::move(buildInfo), std::move(buildSidePrevOperator), getOperatorID(),
+        buildPrintInfo->copy());
+    hashJoinBuild->setDescriptor(std::make_unique<ResultSetDescriptor>(buildSchema));
     // Create probe
     std::vector<DataPos> probeKeysDataPos;
     for (auto& probeKey : probeKeys) {
@@ -112,7 +112,8 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapHashJoin(const LogicalOperator*
     auto probePrintInfo = std::make_unique<HashJoinProbePrintInfo>(probeKeys);
     auto hashJoinProbe = make_unique<HashJoinProbe>(sharedState, hashJoin->getJoinType(),
         hashJoin->requireFlatProbeKeys(), probeDataInfo, std::move(probeSidePrevOperator),
-        std::move(hashJoinBuild), getOperatorID(), probePrintInfo->copy());
+        getOperatorID(), probePrintInfo->copy());
+    hashJoinProbe->addChild(std::move(hashJoinBuild));
     if (hashJoin->getSIPInfo().direction == SIPDirection::PROBE_TO_BUILD) {
         mapSIPJoin(hashJoinProbe.get());
     }

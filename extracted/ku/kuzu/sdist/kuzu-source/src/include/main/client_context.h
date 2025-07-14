@@ -62,8 +62,8 @@ struct ActiveQuery {
 };
 
 /**
- * @brief Contain client side configuration. We make profiler associated per query, so profiler is
- * not maintained in client context.
+ * @brief Contain client side configuration. We make profiler associated per query, so the profiler
+ * is not maintained in the client context.
  */
 class KUZU_API ClientContext {
     friend class Connection;
@@ -73,7 +73,7 @@ class KUZU_API ClientContext {
     friend class processor::TableFunctionCall;
     friend class parser::StandaloneCallRewriter;
     friend struct SpillToDiskSetting;
-    friend class main::EmbeddedShell;
+    friend class EmbeddedShell;
     friend class extension::ExtensionManager;
 
 public:
@@ -109,10 +109,13 @@ public:
 
     // Replace function.
     void addScanReplace(function::ScanReplacement scanReplacement);
-    std::unique_ptr<function::ScanReplacementData> tryReplace(const std::string& objectName) const;
+    std::unique_ptr<function::ScanReplacementData> tryReplaceByName(
+        const std::string& objectName) const;
+    std::unique_ptr<function::ScanReplacementData> tryReplaceByHandle(
+        function::scan_replace_handle_t handle) const;
     // Extension
     void setExtensionOption(std::string name, common::Value value);
-    const main::ExtensionOption* getExtensionOption(std::string optionName) const;
+    const ExtensionOption* getExtensionOption(std::string optionName) const;
     std::string getExtensionDir() const;
 
     // Database component getters.
@@ -128,6 +131,7 @@ public:
     transaction::TransactionManager* getTransactionManagerUnsafe() const;
     common::VirtualFileSystem* getVFSUnsafe() const;
     common::RandomEngine* getRandomEngine() const;
+    bool isInMemory() const;
 
     static std::string getEnvVariable(const std::string& name);
 
@@ -153,7 +157,8 @@ public:
     void cleanUp();
 
     // Query.
-    std::unique_ptr<PreparedStatement> prepare(std::string_view query);
+    std::unique_ptr<PreparedStatement> prepareWithParams(std::string_view query,
+        std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams = {});
     std::unique_ptr<QueryResult> executeWithParams(PreparedStatement* preparedStatement,
         std::unordered_map<std::string, std::unique_ptr<common::Value>> inputParams,
         std::optional<uint64_t> queryID = std::nullopt);
@@ -243,6 +248,9 @@ private:
     std::mutex mtx;
     // Whether the query can access internal tables/sequences or not.
     bool useInternalCatalogEntry_ = false;
+    // Whether the transaction should be rolled back on destruction. If the parent database is
+    // closed, the rollback should be prevented or it will SEGFAULT.
+    bool preventTransactionRollbackOnDestruction = false;
 };
 
 } // namespace main

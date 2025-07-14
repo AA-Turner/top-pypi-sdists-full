@@ -21,6 +21,7 @@ class Transaction;
 
 namespace catalog {
 
+class CatalogSet;
 class Catalog;
 class KUZU_API TableCatalogEntry : public CatalogEntry {
 public:
@@ -32,7 +33,7 @@ public:
     common::table_id_t getTableID() const { return oid; }
 
     virtual std::unique_ptr<TableCatalogEntry> alter(common::transaction_t timestamp,
-        const binder::BoundAlterInfo& alterInfo) const;
+        const binder::BoundAlterInfo& alterInfo, CatalogSet* tables) const;
 
     virtual bool isParent(common::table_id_t /*tableID*/) { return false; };
     virtual common::TableType getTableType() const = 0;
@@ -44,7 +45,6 @@ public:
 
     common::column_id_t getMaxColumnID() const;
     void vacuumColumnIDs(common::column_id_t nextColumnID);
-    std::string propertiesToCypher() const;
     std::vector<binder::PropertyDefinition> getProperties() const {
         return propertyCollection.getDefinitions();
     }
@@ -57,9 +57,7 @@ public:
     common::column_id_t getColumnID(common::idx_t idx) const;
     void addProperty(const binder::PropertyDefinition& propertyDefinition);
     void dropProperty(const std::string& propertyName);
-    void renameProperty(const std::string& propertyName, const std::string& newName);
-
-    std::string getLabel(const Catalog* catalog, const transaction::Transaction* transaction);
+    virtual void renameProperty(const std::string& propertyName, const std::string& newName);
 
     void serialize(common::Serializer& serializer) const override;
     static std::unique_ptr<TableCatalogEntry> deserialize(common::Deserializer& deserializer,

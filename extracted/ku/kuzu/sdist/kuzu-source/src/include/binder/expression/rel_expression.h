@@ -56,6 +56,7 @@ public:
         return dataType.getLogicalTypeID() == common::LogicalTypeID::RECURSIVE_REL;
     }
 
+    bool isMultiLabeled() const override;
     bool isBoundByMultiLabeledNode() const {
         return srcNode->isMultiLabeled() || dstNode->isMultiLabeled();
     }
@@ -78,7 +79,7 @@ public:
     std::shared_ptr<Expression> getDirectionExpr() const { return directionExpr; }
     RelDirectionType getDirectionType() const { return directionType; }
 
-    std::shared_ptr<Expression> getInternalIDProperty() const {
+    std::shared_ptr<PropertyExpression> getInternalID() const override {
         return getPropertyExpression(common::InternalKeyword::ID);
     }
 
@@ -98,6 +99,8 @@ public:
     // if multiple tables match the pattern
     // returns the intersection of available extend directions for all matched tables
     std::vector<common::ExtendDirection> getExtendDirections() const;
+
+    std::vector<common::table_id_t> getInnerRelTableIDs() const;
 
 private:
     // Start node if a directed arrow is given. Left node otherwise.

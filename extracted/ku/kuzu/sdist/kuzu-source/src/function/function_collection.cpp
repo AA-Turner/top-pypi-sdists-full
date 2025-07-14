@@ -97,7 +97,7 @@ FunctionCollection* FunctionCollection::getFunctions() {
         SCALAR_FUNCTION(RegexpSplitToArrayFunction), SCALAR_FUNCTION(InitCapFunction),
         SCALAR_FUNCTION(StringSplitFunction), SCALAR_FUNCTION_ALIAS(StrSplitFunction),
         SCALAR_FUNCTION_ALIAS(StringToArrayFunction), SCALAR_FUNCTION(SplitPartFunction),
-        SCALAR_FUNCTION(InternalIDCreationFunction),
+        SCALAR_FUNCTION(InternalIDCreationFunction), SCALAR_FUNCTION(ConcatWSFunction),
 
         // Array Functions
         SCALAR_FUNCTION(ArrayValueFunction), SCALAR_FUNCTION(ArrayCrossProductFunction),
@@ -226,14 +226,15 @@ FunctionCollection* FunctionCollection::getFunctions() {
         TABLE_FUNCTION(StatsInfoFunction), TABLE_FUNCTION(StorageInfoFunction),
         TABLE_FUNCTION(ShowAttachedDatabasesFunction), TABLE_FUNCTION(ShowSequencesFunction),
         TABLE_FUNCTION(ShowFunctionsFunction), TABLE_FUNCTION(BMInfoFunction),
-        TABLE_FUNCTION(ShowLoadedExtensionsFunction),
+        TABLE_FUNCTION(FileInfoFunction), TABLE_FUNCTION(ShowLoadedExtensionsFunction),
         TABLE_FUNCTION(ShowOfficialExtensionsFunction), TABLE_FUNCTION(ShowIndexesFunction),
-        TABLE_FUNCTION(ShowProjectedGraphsFunction),
+        TABLE_FUNCTION(ShowProjectedGraphsFunction), TABLE_FUNCTION(ProjectedGraphInfoFunction),
 
         // Standalone Table functions
         STANDALONE_TABLE_FUNCTION(LocalCacheArrayColumnFunction),
         STANDALONE_TABLE_FUNCTION(ClearWarningsFunction),
-        STANDALONE_TABLE_FUNCTION(ProjectGraphFunction),
+        STANDALONE_TABLE_FUNCTION(ProjectGraphNativeFunction),
+        STANDALONE_TABLE_FUNCTION(ProjectGraphCypherFunction),
         STANDALONE_TABLE_FUNCTION(DropProjectedGraphFunction),
 
         // Scan functions

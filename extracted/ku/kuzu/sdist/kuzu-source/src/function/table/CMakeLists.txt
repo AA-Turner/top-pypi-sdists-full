@@ -6,11 +6,13 @@ add_library(kuzu_table_function
         cache_column.cpp
         catalog_version.cpp
         clear_warnings.cpp
-        project_graph.cpp
         current_setting.cpp
         db_version.cpp
         drop_project_graph.cpp
+        file_info.cpp
         free_space_info.cpp
+        project_cypher_graph.cpp
+        project_native_graph.cpp
         show_attached_databases.cpp
         show_connection.cpp
         show_functions.cpp
@@ -26,6 +28,7 @@ add_library(kuzu_table_function
         simple_table_function.cpp
         table_function.cpp
         table_info.cpp
+        projected_graph_info.cpp
         )
 
 set(ALL_OBJECT_FILES

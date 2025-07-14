@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: joserfc
-Version: 1.2.1
+Version: 1.2.2
 Summary: The ultimate Python library for JOSE RFCs, including JWS, JWE, JWK, JWA, JWT
 Author-email: Hsiaoming Yang <me@lepture.com>
 License: BSD-3-Clause

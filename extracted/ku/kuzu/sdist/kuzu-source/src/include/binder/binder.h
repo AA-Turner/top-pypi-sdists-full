@@ -27,7 +27,7 @@ struct YieldVariable;
 
 namespace catalog {
 class NodeTableCatalogEntry;
-class RelTableCatalogEntry;
+class RelGroupCatalogEntry;
 class Catalog;
 } // namespace catalog
 
@@ -68,7 +68,7 @@ public:
         : lastExpressionId{0}, scope{}, expressionBinder{this, clientContext},
           clientContext{clientContext} {}
 
-    std::unique_ptr<BoundStatement> bind(const parser::Statement& statement);
+    KUZU_API std::unique_ptr<BoundStatement> bind(const parser::Statement& statement);
 
     void setInputParameters(
         std::unordered_map<std::string, std::shared_ptr<common::Value>> parameters) {
@@ -78,9 +78,6 @@ public:
     std::unordered_map<std::string, std::shared_ptr<common::Value>> getParameterMap() {
         return expressionBinder.parameterMap;
     }
-
-    bool bindExportTableData(ExportedTableData& tableData, const catalog::TableCatalogEntry& entry,
-        const catalog::Catalog& catalog, const transaction::Transaction* transaction);
 
     KUZU_API std::shared_ptr<Expression> createVariable(const std::string& name,
         const common::LogicalType& dataType);
@@ -101,11 +98,9 @@ public:
     /*** bind DDL ***/
     BoundCreateTableInfo bindCreateTableInfo(const parser::CreateTableInfo* info);
     BoundCreateTableInfo bindCreateNodeTableInfo(const parser::CreateTableInfo* info);
-    BoundCreateTableInfo bindCreateRelTableInfo(const parser::CreateTableInfo* info);
-    BoundCreateTableInfo bindCreateRelTableInfo(const parser::CreateTableInfo* info,
-        const parser::options_t& parsedOptions);
     BoundCreateTableInfo bindCreateRelTableGroupInfo(const parser::CreateTableInfo* info);
     std::unique_ptr<BoundStatement> bindCreateTable(const parser::Statement& statement);
+    std::unique_ptr<BoundStatement> bindCreateTableAs(const parser::Statement& createTable);
     std::unique_ptr<BoundStatement> bindCreateType(const parser::Statement& statement) const;
     std::unique_ptr<BoundStatement> bindCreateSequence(const parser::Statement& statement) const;
 
@@ -116,6 +111,8 @@ public:
     std::unique_ptr<BoundStatement> bindDropProperty(const parser::Statement& statement) const;
     std::unique_ptr<BoundStatement> bindRenameProperty(const parser::Statement& statement) const;
     std::unique_ptr<BoundStatement> bindCommentOn(const parser::Statement& statement) const;
+    std::unique_ptr<BoundStatement> bindAlterFromToConnection(
+        const parser::Statement& statement) const;
 
     std::vector<PropertyDefinition> bindPropertyDefinitions(
         const std::vector<parser::ParsedPropertyDefinition>& parsedDefinitions,
@@ -126,11 +123,25 @@ public:
         const std::string& tableName, const std::string& propertyName);
 
     /*** bind copy ***/
+    BoundCopyFromInfo bindCopyNodeFromInfo(std::string tableName,
+        const std::vector<PropertyDefinition>& properties, const parser::BaseScanSource* source,
+        const parser::options_t& parsingOptions,
+        const std::vector<std::string>& expectedColumnNames,
+        const std::vector<common::LogicalType>& expectedColumnTypes, bool byColumn);
+    BoundCopyFromInfo bindCopyRelFromInfo(std::string tableName,
+        const std::vector<PropertyDefinition>& properties, const parser::BaseScanSource* source,
+        const parser::options_t& parsingOptions,
+        const std::vector<std::string>& expectedColumnNames,
+        const std::vector<common::LogicalType>& expectedColumnTypes,
+        const catalog::NodeTableCatalogEntry* fromTable,
+        const catalog::NodeTableCatalogEntry* toTable);
     std::unique_ptr<BoundStatement> bindCopyFromClause(const parser::Statement& statement);
     std::unique_ptr<BoundStatement> bindCopyNodeFrom(const parser::Statement& statement,
-        catalog::NodeTableCatalogEntry* nodeTableEntry);
+        catalog::NodeTableCatalogEntry& nodeEntry);
     std::unique_ptr<BoundStatement> bindCopyRelFrom(const parser::Statement& statement,
-        catalog::RelTableCatalogEntry* relTableEntry);
+        catalog::RelGroupCatalogEntry& relGroupEntry, const std::string& fromTableName,
+        const std::string& toTableName);
+    std::unique_ptr<BoundStatement> bindLegacyCopyRelGroupFrom(const parser::Statement& copyFrom);
 
     std::unique_ptr<BoundStatement> bindCopyToClause(const parser::Statement& statement);
 
@@ -154,6 +165,10 @@ public:
         const std::vector<std::string>& columnNames,
         const std::vector<common::LogicalType>& columnTypes);
     std::unique_ptr<BoundBaseScanSource> bindObjectScanSource(
+        const parser::BaseScanSource& scanSource, const parser::options_t& options,
+        const std::vector<std::string>& columnNames,
+        const std::vector<common::LogicalType>& columnTypes);
+    std::unique_ptr<BoundBaseScanSource> bindParameterScanSource(
         const parser::BaseScanSource& scanSource, const parser::options_t& options,
         const std::vector<std::string>& columnNames,
         const std::vector<common::LogicalType>& columnTypes);
@@ -268,35 +283,29 @@ public:
     expression_vector bindRecursivePatternRelProjectionList(
         const parser::RecursiveRelPatternInfo& info, const NodeOrRelExpression& expr);
     std::pair<uint64_t, uint64_t> bindVariableLengthRelBound(const parser::RelPattern& relPattern);
-    static void bindQueryRelProperties(RelExpression& rel);
 
     std::shared_ptr<NodeExpression> bindQueryNode(const parser::NodePattern& nodePattern,
         QueryGraph& queryGraph);
     std::shared_ptr<NodeExpression> createQueryNode(const parser::NodePattern& nodePattern);
     KUZU_API std::shared_ptr<NodeExpression> createQueryNode(const std::string& parsedName,
         const std::vector<catalog::TableCatalogEntry*>& entries);
-    static void bindQueryNodeProperties(NodeExpression& node);
 
     /*** bind table entries ***/
     std::vector<catalog::TableCatalogEntry*> bindNodeTableEntries(
         const std::vector<std::string>& tableNames) const;
-    catalog::TableCatalogEntry* bindNodeTableEntry(const std::string& name) const;
-    std::vector<catalog::TableCatalogEntry*> bindRelTableEntries(
+    std::vector<catalog::TableCatalogEntry*> bindRelGroupEntries(
         const std::vector<std::string>& tableNames) const;
+    catalog::TableCatalogEntry* bindNodeTableEntry(const std::string& name) const;
+    std::vector<PropertyDefinition> bindRelPropertyDefinitions(const parser::CreateTableInfo& info);
 
     /*** validations ***/
-    static void validateOrderByFollowedBySkipOrLimitInWithClause(
-        const BoundProjectionBody& boundProjectionBody);
-    static bool isOrderByKeyTypeSupported(const common::LogicalType& dataType);
-
     KUZU_API static void validateTableExistence(const main::ClientContext& context,
         const std::string& tableName);
     KUZU_API static void validateNodeTableType(const catalog::TableCatalogEntry* entry);
     KUZU_API static void validateColumnExistence(const catalog::TableCatalogEntry* entry,
         const std::string& columnName);
 
-    void validateNoIndexOnProperty(const std::string& tableName,
-        const std::string& propertyName) const;
+    void validateAllInputParametersParsed() const;
     /*** helpers ***/
     std::string getUniqueExpressionName(const std::string& name);
 

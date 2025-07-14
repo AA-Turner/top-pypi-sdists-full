@@ -31,6 +31,7 @@ enum class PhysicalOperatorType : uint8_t {
     DELETE_,
     DROP,
     DUMMY_SINK,
+    DUMMY_SIMPLE_SINK,
     EMPTY_RESULT,
     EXPORT_DATABASE,
     FILTER,
@@ -70,15 +71,13 @@ enum class PhysicalOperatorType : uint8_t {
     UNION_ALL_SCAN,
     UNWIND,
     USE_DATABASE,
+    UNINSTALL_EXTENSION,
 };
 
 class PhysicalOperator;
-class PhysicalOperatorUtils {
-public:
+struct PhysicalOperatorUtils {
     static std::string operatorToString(const PhysicalOperator* physicalOp);
-
-private:
-    static std::string operatorTypeToString(PhysicalOperatorType operatorType);
+    KUZU_API static std::string operatorTypeToString(PhysicalOperatorType operatorType);
 };
 
 struct OperatorMetrics {
@@ -164,7 +163,7 @@ protected:
     double getExecutionTime(common::Profiler& profiler) const;
     uint64_t getNumOutputTuples(common::Profiler& profiler) const;
 
-    virtual void finalizeInternal(ExecutionContext* /*context*/) {};
+    virtual void finalizeInternal(ExecutionContext* /*context*/) {}
 
 protected:
     physical_op_id id;
@@ -174,8 +173,6 @@ protected:
     physical_op_vector_t children;
     ResultSet* resultSet;
     std::unique_ptr<OPPrintInfo> printInfo;
-
-    bool hasBeenFinalized = false;
 };
 
 } // namespace processor

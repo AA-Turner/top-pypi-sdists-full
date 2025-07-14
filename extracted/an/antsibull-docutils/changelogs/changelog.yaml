@@ -45,3 +45,22 @@ releases:
       - 1.2.1.yml
       - 13-path.yml
     release_date: '2025-07-05'
+  1.3.0:
+    changes:
+      bugfixes:
+        - Fix code block first content line detection (https://github.com/ansible-community/antsibull-docutils/pull/16).
+      minor_changes:
+        - Add functionality to parse documents, and to search for code blocks in parsed
+          documents. This allows to perform other operations on the parsed document,
+          instead of having to parse it multiple times (https://github.com/ansible-community/antsibull-docutils/pull/14,
+          https://github.com/ansible-community/antsibull-docutils/pull/16).
+        - Allow to find all literal blocks without language (https://github.com/ansible-community/antsibull-docutils/pull/15).
+        - Allow to pass ``content_offset`` to ``mark_antsibull_code_block()`` for
+          more precise locating (https://github.com/ansible-community/antsibull-docutils/pull/16).
+      release_summary: Feature and bugfix release.
+    fragments:
+      - 1.3.0.yml
+      - 14-docutils.yml
+      - 15-code-blocks.yml
+      - 17-offset.yml
+    release_date: '2025-07-13'

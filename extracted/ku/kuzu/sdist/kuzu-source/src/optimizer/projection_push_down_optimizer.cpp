@@ -208,7 +208,7 @@ void ProjectionPushDownOptimizer::visitDelete(LogicalOperator* op) {
             collectExpressionsInUse(rel.getDstNode()->getInternalID());
             KU_ASSERT(rel.getRelType() == QueryRelType::NON_RECURSIVE);
             if (!rel.isEmpty()) {
-                collectExpressionsInUse(rel.getInternalIDProperty());
+                collectExpressionsInUse(rel.getInternalID());
             }
         }
     } break;
@@ -271,15 +271,12 @@ void ProjectionPushDownOptimizer::visitSetInfo(const binder::BoundSetPropertyInf
     case TableType::NODE: {
         auto& node = info.pattern->constCast<NodeExpression>();
         collectExpressionsInUse(node.getInternalID());
-        if (info.updatePk) {
-            collectExpressionsInUse(info.column);
-        }
     } break;
     case TableType::REL: {
         auto& rel = info.pattern->constCast<RelExpression>();
         collectExpressionsInUse(rel.getSrcNode()->getInternalID());
         collectExpressionsInUse(rel.getDstNode()->getInternalID());
-        collectExpressionsInUse(rel.getInternalIDProperty());
+        collectExpressionsInUse(rel.getInternalID());
     } break;
     default:
         KU_UNREACHABLE;
@@ -288,11 +285,11 @@ void ProjectionPushDownOptimizer::visitSetInfo(const binder::BoundSetPropertyInf
 }
 
 void ProjectionPushDownOptimizer::visitInsertInfo(const LogicalInsertInfo& info) {
-    if (info.tableType == common::TableType::REL) {
+    if (info.tableType == TableType::REL) {
         auto& rel = info.pattern->constCast<RelExpression>();
         collectExpressionsInUse(rel.getSrcNode()->getInternalID());
         collectExpressionsInUse(rel.getDstNode()->getInternalID());
-        collectExpressionsInUse(rel.getInternalIDProperty());
+        collectExpressionsInUse(rel.getInternalID());
     }
     for (auto i = 0u; i < info.columnExprs.size(); ++i) {
         if (info.isReturnColumnExprs[i]) {

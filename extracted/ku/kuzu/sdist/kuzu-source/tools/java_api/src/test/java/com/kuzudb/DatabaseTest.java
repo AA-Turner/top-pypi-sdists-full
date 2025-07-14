@@ -8,14 +8,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Path;
 
 public class DatabaseTest extends TestBase {
-    @TempDir
-    static Path tmpDir;
-
     @Test
     void DBCreationAndDestroyWithArgs() {
         String dbPath = "";
         try {
-            dbPath = tmpDir.toFile().getAbsolutePath();
+            dbPath = tempDir.resolve("db1.kz").toString();
         } catch (Exception e) {
             fail("Cannot get database path: " + e.getMessage());
         }
@@ -49,12 +46,12 @@ public class DatabaseTest extends TestBase {
     void DBCreationWithInvalidMaxDBSize() {
         String dbPath = "";
         try {
-            dbPath = tmpDir.toFile().getAbsolutePath();
+            dbPath = tempDir.resolve("db2.kz").toString();
         } catch (Exception e) {
             fail("Cannot get database path: " + e.getMessage());
         }
-        try {
-            Database database = new Database(
+            try {
+                Database database = new Database(
                             dbPath,
                             1 << 28 /* 256 MB */,
                             true /* compression */,
@@ -77,7 +74,7 @@ public class DatabaseTest extends TestBase {
     void DBCreationAndDestroyWithPathOnly() {
         String dbPath = "";
         try {
-            dbPath = tmpDir.toFile().getAbsolutePath();
+            dbPath = tempDir.resolve("db3.kz").toString();
         } catch (Exception e) {
             fail("Cannot get database path: " + e.getMessage());
         }
@@ -98,5 +95,29 @@ public class DatabaseTest extends TestBase {
         } catch (Exception e) {
             fail("DBCreationAndDestroyWithNoParam failed: " + e.getMessage());
         }
+    }
+
+    @Test
+    void DBDestroyBeforeConnectionAndQueryResult(){
+        Database database = new Database(":memory:", 1 << 28, true, false, 1 << 30, false, 0);
+        Connection conn = new Connection(database);
+        QueryResult result = conn.query("RETURN 1");
+        assertTrue(result.hasNext());
+        assertEquals(result.getNext().getValue(0).toString(), "1");
+        database.close();
+        try {
+            result.getNext();
+            fail("DBDestroyBeforeConnectionAndQueryResult failed: QueryResult should not be usable after database is closed.");
+        } catch (Exception e) {
+            assertEquals("Runtime exception: The current operation is not allowed because the parent database is closed.", e.getMessage());
+        }
+        try {
+            conn.query("RETURN 1");
+            fail("DBDestroyBeforeConnectionAndQueryResult failed: Connection should not be usable after database is closed.");
+        } catch (Exception e) {
+            assertEquals("Runtime exception: The current operation is not allowed because the parent database is closed.", e.getMessage());
+        }
+        result.close();
+        conn.close();
     }
 }

@@ -9,25 +9,15 @@ import sys
 try:
     import smart_open
 
-    smart_open_version = smart_open.__version__
-    (
-        smart_open_version_major,
-        smart_open_version_minor,
-        _,
-    ) = smart_open_version.split(".")
-    smart_open_version_major = int(smart_open_version_major)
-    smart_open_version_minor = int(smart_open_version_minor)
+    parts = smart_open.__version__.split(".")
+    smart_open_version_major = int(parts[0])
+    smart_open_version_minor = int(parts[1])
 except ImportError:  # pragma: no cover
     smart_open = None
     smart_open_version_major = None
     smart_open_version_minor = None
 except:  # pragma: no cover
     raise
-
-if sys.version_info.minor < 8:
-    from cached_property import cached_property
-else:
-    from functools import cached_property
 
 
 class Compat:  # pragma: no cover

@@ -143,14 +143,6 @@ expression_vector Binder::createInvisibleVariables(const std::vector<std::string
     return variables;
 }
 
-void Binder::validateOrderByFollowedBySkipOrLimitInWithClause(
-    const BoundProjectionBody& boundProjectionBody) {
-    auto hasSkipOrLimit = boundProjectionBody.hasSkip() || boundProjectionBody.hasLimit();
-    if (boundProjectionBody.hasOrderByExpressions() && !hasSkipOrLimit) {
-        throw BinderException("In WITH clause, ORDER BY must be followed by SKIP or LIMIT.");
-    }
-}
-
 std::string Binder::getUniqueExpressionName(const std::string& name) {
     return "_" + std::to_string(lastExpressionId++) + "_" + name;
 }
@@ -275,6 +267,14 @@ TableFunction Binder::getScanFunction(const FileTypeInfo& typeInfo,
         KU_UNREACHABLE;
     }
     return *func->ptrCast<TableFunction>();
+}
+
+void Binder::validateAllInputParametersParsed() const {
+    for (const auto& [name, _] : expressionBinder.parameterMap) {
+        if (!expressionBinder.parsedParameters.contains(name)) {
+            throw Exception("Parameter " + name + " not found.");
+        }
+    }
 }
 
 } // namespace binder

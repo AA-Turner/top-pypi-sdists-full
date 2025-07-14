@@ -1,5 +1,6 @@
 #include "processor/operator/persistent/rel_batch_insert.h"
 
+#include "catalog/catalog.h"
 #include "common/exception/copy.h"
 #include "common/exception/message.h"
 #include "common/string_format.h"
@@ -8,8 +9,8 @@
 #include "processor/result/factorized_table_util.h"
 #include "storage/local_storage/local_storage.h"
 #include "storage/storage_utils.h"
-#include "storage/store/column_chunk_data.h"
-#include "storage/store/rel_table.h"
+#include "storage/table/column_chunk_data.h"
+#include "storage/table/rel_table.h"
 
 using namespace kuzu::catalog;
 using namespace kuzu::common;
@@ -24,20 +25,26 @@ std::string RelBatchInsertPrintInfo::toString() const {
     return result;
 }
 
-void RelBatchInsert::initLocalStateInternal(ResultSet* /*resultSet_*/, ExecutionContext* context) {
+void RelBatchInsert::initLocalStateInternal(ResultSet*, ExecutionContext* context) {
     localState = std::make_unique<RelBatchInsertLocalState>();
     const auto relInfo = info->ptrCast<RelBatchInsertInfo>();
     localState->chunkedGroup =
         std::make_unique<ChunkedCSRNodeGroup>(*context->clientContext->getMemoryManager(),
             relInfo->columnTypes, relInfo->compressionEnabled, 0, 0, ResidencyState::IN_MEMORY);
-    const auto nbrTableID =
-        relInfo->tableEntry->constCast<RelTableCatalogEntry>().getNbrTableID(relInfo->direction);
-    const auto relTableID = relInfo->tableEntry->getTableID();
+    localState->optimisticAllocator =
+        context->clientContext->getTransaction()->getLocalStorage()->addOptimisticAllocator();
+    const auto clientContext = context->clientContext;
+    const auto catalogEntry = clientContext->getCatalog()->getTableCatalogEntry(
+        clientContext->getTransaction(), tableName);
+    const auto& relGroupEntry = catalogEntry->constCast<RelGroupCatalogEntry>();
+    auto tableID = relGroupEntry.getRelEntryInfo(relInfo->fromTableID, relInfo->toTableID)->oid;
+    auto nbrTableID = RelDirectionUtils::getNbrTableID(relInfo->direction, relInfo->fromTableID,
+        relInfo->toTableID);
     // TODO(Guodong): Get rid of the hard-coded nbr and rel column ID 0/1.
     localState->chunkedGroup->getColumnChunk(0).getData().cast<InternalIDChunkData>().setTableID(
         nbrTableID);
     localState->chunkedGroup->getColumnChunk(1).getData().cast<InternalIDChunkData>().setTableID(
-        relTableID);
+        tableID);
     const auto relLocalState = localState->ptrCast<RelBatchInsertLocalState>();
     relLocalState->dummyAllNullDataChunk = std::make_unique<DataChunk>(relInfo->columnTypes.size());
     for (auto i = 0u; i < relInfo->columnTypes.size(); i++) {
@@ -48,20 +55,55 @@ void RelBatchInsert::initLocalStateInternal(ResultSet* /*resultSet_*/, Execution
     }
 }
 
-void RelBatchInsert::initGlobalStateInternal(ExecutionContext*) {
+void RelBatchInsert::initGlobalStateInternal(ExecutionContext* context) {
+    const auto relBatchInsertInfo = info->ptrCast<RelBatchInsertInfo>();
+    // If initialization is required
+    if (info->insertColumnIDs.empty()) {
+        const auto clientContext = context->clientContext;
+        const auto catalog = clientContext->getCatalog();
+        const auto transaction = clientContext->getTransaction();
+        const auto catalogEntry = catalog->getTableCatalogEntry(transaction, tableName);
+        const auto& relGroupEntry = catalogEntry->constCast<RelGroupCatalogEntry>();
+        sharedState->table = partitionerSharedState->relTable;
+        // TODO(Xiyang): rewrite me
+        logical_type_vec_t newColumnTypes;
+        newColumnTypes.push_back(LogicalType::INTERNAL_ID());
+        info->insertColumnIDs.push_back(0);
+        for (auto& property : relGroupEntry.getProperties()) {
+            info->insertColumnIDs.push_back(relGroupEntry.getColumnID(property.getName()));
+            newColumnTypes.push_back(property.getType().copy());
+        }
+        for (auto&& warningDataColumnType : relBatchInsertInfo->columnTypes) {
+            newColumnTypes.push_back(std::move(warningDataColumnType));
+        }
+        relBatchInsertInfo->outputDataColumns.resize(
+            newColumnTypes.size() - relBatchInsertInfo->warningDataColumns.size());
+        std::iota(relBatchInsertInfo->outputDataColumns.begin(),
+            relBatchInsertInfo->outputDataColumns.end(), 0);
+        std::iota(relBatchInsertInfo->warningDataColumns.begin(),
+            relBatchInsertInfo->warningDataColumns.end(),
+            relBatchInsertInfo->outputDataColumns.size());
+        relBatchInsertInfo->columnTypes = std::move(newColumnTypes);
+    }
     progressSharedState = std::make_shared<RelBatchInsertProgressSharedState>();
     progressSharedState->partitionsDone = 0;
     progressSharedState->partitionsTotal =
-        partitionerSharedState->numPartitions[info->ptrCast<RelBatchInsertInfo>()->partitioningIdx];
+        partitionerSharedState->getNumPartitions(relBatchInsertInfo->partitioningIdx);
 }
 
 void RelBatchInsert::executeInternal(ExecutionContext* context) {
     const auto relInfo = info->ptrCast<RelBatchInsertInfo>();
     const auto relTable = sharedState->table->ptrCast<RelTable>();
     const auto relLocalState = localState->ptrCast<RelBatchInsertLocalState>();
+    const auto clientContext = context->clientContext;
+    const auto& relGroupEntry =
+        context->clientContext->getCatalog()
+            ->getTableCatalogEntry(clientContext->getTransaction(), relInfo->tableName)
+            ->constCast<RelGroupCatalogEntry>();
     while (true) {
-        relLocalState->nodeGroupIdx = partitionerSharedState->getNextPartition(
-            relInfo->partitioningIdx, *progressSharedState);
+        relLocalState->nodeGroupIdx =
+            partitionerSharedState->getNextPartition(relInfo->partitioningIdx);
+        ++progressSharedState->partitionsDone;
         if (relLocalState->nodeGroupIdx == INVALID_PARTITION_IDX) {
             // No more partitions left in the partitioning buffer.
             break;
@@ -72,16 +114,16 @@ void RelBatchInsert::executeInternal(ExecutionContext* context) {
                               ->getOrCreateNodeGroup(context->clientContext->getTransaction(),
                                   relLocalState->nodeGroupIdx, relInfo->direction)
                               ->cast<CSRNodeGroup>();
-        appendNodeGroup(*context->clientContext->getMemoryManager(),
-            context->clientContext->getTransaction(), nodeGroup, *relInfo, *relLocalState,
-            *sharedState, *partitionerSharedState);
+        appendNodeGroup(relGroupEntry, *clientContext->getMemoryManager(),
+            clientContext->getTransaction(), nodeGroup, *relInfo, *relLocalState);
         updateProgress(context);
     }
 }
 
 static void appendNewChunkedGroup(MemoryManager& mm, transaction::Transaction* transaction,
     const std::vector<column_id_t>& columnIDs, ChunkedCSRNodeGroup& chunkedGroup,
-    RelTable& relTable, CSRNodeGroup& nodeGroup, RelDataDirection direction) {
+    RelTable& relTable, CSRNodeGroup& nodeGroup, RelDataDirection direction,
+    PageAllocator& pageAllocator) {
     const bool isNewNodeGroup = nodeGroup.isEmpty();
     const CSRNodeGroupScanSource source = isNewNodeGroup ?
                                               CSRNodeGroupScanSource::COMMITTED_PERSISTENT :
@@ -92,9 +134,9 @@ static void appendNewChunkedGroup(MemoryManager& mm, transaction::Transaction* t
     relTable.pushInsertInfo(transaction, direction, nodeGroup, chunkedGroup.getNumRows(), source);
     if (isNewNodeGroup) {
         auto flushedChunkedGroup =
-            chunkedGroup.flushAsNewChunkedNodeGroup(transaction, *relTable.getDataFH());
+            chunkedGroup.flushAsNewChunkedNodeGroup(transaction, pageAllocator);
 
-        // If there are deleted columns that haven't been vaccumed yet
+        // If there are deleted columns that haven't been vacuumed yet
         // we need to add extra columns to the chunked group
         // to ensure that the number of columns is consistent with the rest of the node group
         auto persistentChunkedGroup = std::make_unique<ChunkedCSRNodeGroup>(mm,
@@ -106,35 +148,25 @@ static void appendNewChunkedGroup(MemoryManager& mm, transaction::Transaction* t
     }
 }
 
-void RelBatchInsert::appendNodeGroup(MemoryManager& mm, transaction::Transaction* transaction,
-    CSRNodeGroup& nodeGroup, const RelBatchInsertInfo& relInfo,
-    const RelBatchInsertLocalState& localState, BatchInsertSharedState& sharedState,
-    const PartitionerSharedState& partitionerSharedState) {
+void RelBatchInsert::appendNodeGroup(const RelGroupCatalogEntry& relGroupEntry, MemoryManager& mm,
+    transaction::Transaction* transaction, CSRNodeGroup& nodeGroup,
+    const RelBatchInsertInfo& relInfo, const RelBatchInsertLocalState& localState) {
     const auto nodeGroupIdx = localState.nodeGroupIdx;
-    auto partitioningBuffer =
-        partitionerSharedState.getPartitionBuffer(relInfo.partitioningIdx, localState.nodeGroupIdx);
-    const auto startNodeOffset = StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
-    for (auto& chunkedGroup : partitioningBuffer->getChunkedGroups()) {
-        setOffsetToWithinNodeGroup(
-            chunkedGroup->getColumnChunk(relInfo.boundNodeOffsetColumnID).getData(),
-            startNodeOffset);
-    }
+    const auto startNodeOffset = storage::StorageUtils::getStartOffsetOfNodeGroup(nodeGroupIdx);
+    auto executionState = impl->initExecutionState(*partitionerSharedState, relInfo, nodeGroupIdx);
     // Calculate num of source nodes in this node group.
     // This will be used to set the num of values of the node group.
     const auto numNodes = std::min(StorageConfig::NODE_GROUP_SIZE,
-        partitionerSharedState.numNodes[relInfo.partitioningIdx] - startNodeOffset);
+        partitionerSharedState->getNumNodes(relInfo.partitioningIdx) - startNodeOffset);
     // We optimistically flush new node group directly to disk in gapped CSR format.
     // There is no benefit of leaving gaps for existing node groups, which is kept in memory.
     const auto leaveGaps = nodeGroup.isEmpty();
-    populateCSRHeaderAndRowIdx(*partitioningBuffer, startNodeOffset, relInfo, localState, numNodes,
-        leaveGaps);
+    populateCSRHeader(relGroupEntry, *executionState, startNodeOffset, relInfo, localState,
+        numNodes, leaveGaps);
     const auto& csrHeader = localState.chunkedGroup->cast<ChunkedCSRNodeGroup>().getCSRHeader();
-    const auto maxSize = csrHeader.getEndCSROffset(numNodes - 1);
-    for (auto& chunkedGroup : partitioningBuffer->getChunkedGroups()) {
-        sharedState.incrementNumRows(chunkedGroup->getNumRows());
-        localState.chunkedGroup->write(*chunkedGroup, relInfo.boundNodeOffsetColumnID);
-    }
+    impl->writeToTable(*executionState, csrHeader, localState, *sharedState, relInfo);
     // Reset num of rows in the chunked group to fill gaps at the end of the node group.
+    const auto maxSize = csrHeader.getEndCSROffset(numNodes - 1);
     auto numGapsAtEnd = maxSize - localState.chunkedGroup->getNumRows();
     KU_ASSERT(localState.chunkedGroup->getCapacity() >= maxSize);
     while (numGapsAtEnd > 0) {
@@ -152,33 +184,35 @@ void RelBatchInsert::appendNodeGroup(MemoryManager& mm, transaction::Transaction
     KU_ASSERT(localState.chunkedGroup->getNumRows() == maxSize);
     localState.chunkedGroup->finalize();
 
-    auto* relTable = sharedState.table->ptrCast<RelTable>();
+    auto* relTable = sharedState->table->ptrCast<RelTable>();
 
     ChunkedCSRNodeGroup sliceToWriteToDisk{localState.chunkedGroup->cast<ChunkedCSRNodeGroup>(),
         relInfo.outputDataColumns};
     appendNewChunkedGroup(mm, transaction, relInfo.insertColumnIDs, sliceToWriteToDisk, *relTable,
-        nodeGroup, relInfo.direction);
+        nodeGroup, relInfo.direction, *localState.optimisticAllocator);
     localState.chunkedGroup->cast<ChunkedCSRNodeGroup>().mergeChunkedCSRGroup(sliceToWriteToDisk,
         relInfo.outputDataColumns);
 
     localState.chunkedGroup->resetToEmpty();
 }
 
-void RelBatchInsert::populateCSRHeaderAndRowIdx(InMemChunkedNodeGroupCollection& partition,
-    offset_t startNodeOffset, const RelBatchInsertInfo& relInfo,
-    const RelBatchInsertLocalState& localState, offset_t numNodes, bool leaveGaps) {
+void RelBatchInsertImpl::finalizeStartCSROffsets(RelBatchInsertExecutionState&,
+    storage::ChunkedCSRHeader& csrHeader, const RelBatchInsertInfo&) {
+    csrHeader.populateEndCSROffsetFromStartAndLength();
+}
+
+void RelBatchInsert::populateCSRHeader(const RelGroupCatalogEntry& relGroupEntry,
+    RelBatchInsertExecutionState& executionState, offset_t startNodeOffset,
+    const RelBatchInsertInfo& relInfo, const RelBatchInsertLocalState& localState,
+    offset_t numNodes, bool leaveGaps) {
     auto& csrNodeGroup = localState.chunkedGroup->cast<ChunkedCSRNodeGroup>();
     auto& csrHeader = csrNodeGroup.getCSRHeader();
     csrHeader.setNumValues(numNodes);
     // Populate lengths for each node and check multiplicity constraint.
-    populateCSRLengths(csrHeader, numNodes, partition, relInfo.boundNodeOffsetColumnID);
-    checkRelMultiplicityConstraint(csrHeader, startNodeOffset, relInfo);
+    impl->populateCSRLengths(executionState, csrHeader, numNodes, relInfo);
+    checkRelMultiplicityConstraint(relGroupEntry, csrHeader, startNodeOffset, relInfo);
     const auto rightCSROffsetOfRegions = csrHeader.populateStartCSROffsetsFromLength(leaveGaps);
-    for (auto& chunkedGroup : partition.getChunkedGroups()) {
-        auto& offsetChunk = chunkedGroup->getColumnChunk(relInfo.boundNodeOffsetColumnID);
-        // We reuse bound node offset column to store row idx for each rel in the node group.
-        setRowIdxFromCSROffsets(offsetChunk.getData(), csrHeader.offset->getData());
-    }
+    impl->finalizeStartCSROffsets(executionState, csrHeader, relInfo);
     csrHeader.finalizeCSRRegionEndOffsets(rightCSROffsetOfRegions);
     // Resize csr data column chunks.
     localState.chunkedGroup->resizeChunks(csrHeader.getEndCSROffset(numNodes - 1));
@@ -186,52 +220,16 @@ void RelBatchInsert::populateCSRHeaderAndRowIdx(InMemChunkedNodeGroupCollection&
     KU_ASSERT(csrHeader.sanityCheck());
 }
 
-void RelBatchInsert::populateCSRLengths(const ChunkedCSRHeader& csrHeader, offset_t numNodes,
-    InMemChunkedNodeGroupCollection& partition, column_id_t boundNodeOffsetColumn) {
-    KU_ASSERT(numNodes == csrHeader.length->getNumValues() &&
-              numNodes == csrHeader.offset->getNumValues());
-    const auto lengthData = reinterpret_cast<length_t*>(csrHeader.length->getData().getData());
-    std::fill(lengthData, lengthData + numNodes, 0);
-    for (auto& chunkedGroup : partition.getChunkedGroups()) {
-        auto& offsetChunk = chunkedGroup->getColumnChunk(boundNodeOffsetColumn);
-        for (auto i = 0u; i < offsetChunk.getNumValues(); i++) {
-            const auto nodeOffset = offsetChunk.getData().getValue<offset_t>(i);
-            KU_ASSERT(nodeOffset < numNodes);
-            lengthData[nodeOffset]++;
-        }
-    }
-}
-
-void RelBatchInsert::setOffsetToWithinNodeGroup(ColumnChunkData& chunk, offset_t startOffset) {
-    KU_ASSERT(chunk.getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID);
-    const auto offsets = reinterpret_cast<offset_t*>(chunk.getData());
-    for (auto i = 0u; i < chunk.getNumValues(); i++) {
-        offsets[i] -= startOffset;
-    }
-}
-
-void RelBatchInsert::setRowIdxFromCSROffsets(ColumnChunkData& rowIdxChunk,
-    ColumnChunkData& csrOffsetChunk) {
-    KU_ASSERT(rowIdxChunk.getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID);
-    for (auto i = 0u; i < rowIdxChunk.getNumValues(); i++) {
-        const auto nodeOffset = rowIdxChunk.getValue<offset_t>(i);
-        const auto csrOffset = csrOffsetChunk.getValue<offset_t>(nodeOffset);
-        rowIdxChunk.setValue<offset_t>(csrOffset, i);
-        // Increment current csr offset for nodeOffset by 1.
-        csrOffsetChunk.setValue<offset_t>(csrOffset + 1, nodeOffset);
-    }
-}
-
-void RelBatchInsert::checkRelMultiplicityConstraint(const ChunkedCSRHeader& csrHeader,
-    offset_t startNodeOffset, const RelBatchInsertInfo& relInfo) {
-    auto& relTableEntry = relInfo.tableEntry->constCast<RelTableCatalogEntry>();
-    if (!relTableEntry.isSingleMultiplicity(relInfo.direction)) {
+void RelBatchInsert::checkRelMultiplicityConstraint(const RelGroupCatalogEntry& relGroupEntry,
+    const ChunkedCSRHeader& csrHeader, offset_t startNodeOffset,
+    const RelBatchInsertInfo& relInfo) {
+    if (!relGroupEntry.isSingleMultiplicity(relInfo.direction)) {
         return;
     }
     for (auto i = 0u; i < csrHeader.length->getNumValues(); i++) {
         if (csrHeader.length->getData().getValue<length_t>(i) > 1) {
             throw CopyException(ExceptionMessage::violateRelMultiplicityConstraint(
-                relInfo.tableEntry->getName(), std::to_string(i + startNodeOffset),
+                relInfo.tableName, std::to_string(i + startNodeOffset),
                 RelDirectionUtils::relDirectionToString(relInfo.direction)));
         }
     }
@@ -243,7 +241,7 @@ void RelBatchInsert::finalizeInternal(ExecutionContext* context) {
         KU_ASSERT(relInfo->partitioningIdx == 0);
 
         auto outputMsg = stringFormat("{} tuples have been copied to the {} table.",
-            sharedState->getNumRows(), info->tableEntry->getName());
+            sharedState->getNumRows(), relInfo->tableName);
         FactorizedTableUtils::appendStringToTable(sharedState->fTable.get(), outputMsg,
             context->clientContext->getMemoryManager());
 
@@ -262,8 +260,7 @@ void RelBatchInsert::finalizeInternal(ExecutionContext* context) {
     }
     sharedState->numRows.store(0);
     sharedState->table->cast<RelTable>().setHasChanges();
-    partitionerSharedState->resetState();
-    partitionerSharedState->partitioningBuffers[relInfo->partitioningIdx].reset();
+    partitionerSharedState->resetState(relInfo->partitioningIdx);
 }
 
 void RelBatchInsert::updateProgress(const ExecutionContext* context) const {

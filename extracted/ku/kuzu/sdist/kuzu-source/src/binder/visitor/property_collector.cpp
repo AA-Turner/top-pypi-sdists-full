@@ -78,15 +78,12 @@ void PropertyCollector::visitTableFunctionCall(const BoundReadingClause& reading
 void PropertyCollector::visitSet(const BoundUpdatingClause& updatingClause) {
     auto& boundSetClause = updatingClause.constCast<BoundSetClause>();
     for (auto& info : boundSetClause.getInfos()) {
-        if (info.updatePk) {
-            collectProperties(info.column);
-        }
         collectProperties(info.columnData);
     }
     for (const auto& info : boundSetClause.getRelInfos()) {
         auto& rel = info.pattern->constCast<RelExpression>();
         KU_ASSERT(!rel.isEmpty() && rel.getRelType() == QueryRelType::NON_RECURSIVE);
-        properties.insert(rel.getInternalIDProperty());
+        properties.insert(rel.getInternalID());
     }
 }
 
@@ -103,7 +100,7 @@ void PropertyCollector::visitDelete(const BoundUpdatingClause& updatingClause) {
     for (const auto& info : boundDeleteClause.getRelInfos()) {
         auto& rel = info.pattern->constCast<RelExpression>();
         if (!rel.isEmpty() && rel.getRelType() == QueryRelType::NON_RECURSIVE) {
-            properties.insert(rel.getInternalIDProperty());
+            properties.insert(rel.getInternalID());
         }
     }
 }
@@ -121,7 +118,7 @@ void PropertyCollector::visitMerge(const BoundUpdatingClause& updatingClause) {
     auto& boundMergeClause = updatingClause.constCast<BoundMergeClause>();
     for (auto& rel : boundMergeClause.getQueryGraphCollection()->getQueryRels()) {
         if (rel->getRelType() == QueryRelType::NON_RECURSIVE) {
-            properties.insert(rel->getInternalIDProperty());
+            properties.insert(rel->getInternalID());
         }
     }
     if (boundMergeClause.hasPredicate()) {

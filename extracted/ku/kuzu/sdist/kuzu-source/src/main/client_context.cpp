@@ -4,12 +4,13 @@
 #include "common/exception/checkpoint.h"
 #include "common/exception/connection.h"
 #include "common/exception/runtime.h"
+#include "common/file_system/virtual_file_system.h"
 #include "common/random_engine.h"
 #include "common/string_utils.h"
 #include "common/task_system/progress_bar.h"
 #include "extension/extension.h"
 #include "extension/extension_manager.h"
-#include "graph/graph_entry.h"
+#include "graph/graph_entry_set.h"
 #include "main/attached_database.h"
 #include "main/database.h"
 #include "main/database_manager.h"
@@ -75,7 +76,14 @@ ClientContext::ClientContext(Database* database)
     progressBar = std::make_unique<ProgressBar>(clientConfig.enableProgressBar);
 }
 
-ClientContext::~ClientContext() = default;
+ClientContext::~ClientContext() {
+    if (preventTransactionRollbackOnDestruction) {
+        return;
+    }
+    if (getTransaction()) {
+        getDatabase()->transactionManager->rollback(*this, getTransaction());
+    }
+}
 
 uint64_t ClientContext::getTimeoutRemainingInMS() const {
     KU_ASSERT(hasTimeout());
@@ -146,10 +154,23 @@ void ClientContext::addScanReplace(function::ScanReplacement scanReplacement) {
     scanReplacements.push_back(std::move(scanReplacement));
 }
 
-std::unique_ptr<function::ScanReplacementData> ClientContext::tryReplace(
+std::unique_ptr<function::ScanReplacementData> ClientContext::tryReplaceByName(
     const std::string& objectName) const {
     for (auto& scanReplacement : scanReplacements) {
-        auto replaceData = scanReplacement.replaceFunc(objectName);
+        auto replaceHandles = scanReplacement.lookupFunc(objectName);
+        if (replaceHandles.empty()) {
+            continue; // Fail to replace.
+        }
+        return scanReplacement.replaceFunc(std::span(replaceHandles.begin(), replaceHandles.end()));
+    }
+    return {};
+}
+
+std::unique_ptr<function::ScanReplacementData> ClientContext::tryReplaceByHandle(
+    function::scan_replace_handle_t handle) const {
+    auto handleSpan = std::span{&handle, 1};
+    for (auto& scanReplacement : scanReplacements) {
+        auto replaceData = scanReplacement.replaceFunc(handleSpan);
         if (replaceData == nullptr) {
             continue; // Fail to replace.
         }
@@ -229,6 +250,14 @@ RandomEngine* ClientContext::getRandomEngine() const {
     return randomEngine.get();
 }
 
+bool ClientContext::isInMemory() const {
+    if (remoteDatabase != nullptr) {
+        // If we are connected to a remote database, we assume it is not in memory.
+        return false;
+    }
+    return localDatabase->storageManager->isInMemory();
+}
+
 std::string ClientContext::getEnvVariable(const std::string& name) {
 #if defined(_WIN32)
     auto envValue = WindowsUtils::utf8ToUnicode(name.c_str());
@@ -293,7 +322,8 @@ void ClientContext::cleanUp() {
     getVFSUnsafe()->cleanUP(this);
 }
 
-std::unique_ptr<PreparedStatement> ClientContext::prepare(std::string_view query) {
+std::unique_ptr<PreparedStatement> ClientContext::prepareWithParams(std::string_view query,
+    std::unordered_map<std::string, std::unique_ptr<Value>> inputParams) {
     std::unique_lock lck{mtx};
     auto parsedStatements = std::vector<std::shared_ptr<Statement>>();
     try {
@@ -305,7 +335,15 @@ std::unique_ptr<PreparedStatement> ClientContext::prepare(std::string_view query
         return preparedStatementWithError(
             "Connection Exception: We do not support prepare multiple statements.");
     }
-    auto result = prepareNoLock(parsedStatements[0], true /*shouldCommitNewTransaction*/);
+
+    // The binder deals with the parameter values as shared ptrs
+    // Copy the params to a new map that matches the format that the binder expects
+    std::unordered_map<std::string, std::shared_ptr<Value>> inputParamsTmp;
+    for (auto& [key, value] : inputParams) {
+        inputParamsTmp.insert(std::make_pair(key, std::make_shared<Value>(*value)));
+    }
+    auto result = prepareNoLock(parsedStatements[0], true /*shouldCommitNewTransaction*/,
+        std::move(inputParamsTmp));
     useInternalCatalogEntry_ = false;
     return result;
 }
@@ -406,6 +444,7 @@ void ClientContext::bindParametersNoLock(const PreparedStatement* preparedStatem
         if (!parameterMap.contains(name)) {
             throw Exception("Parameter " + name + " not found.");
         }
+        preparedStatement->validateExecuteParam(name, value.get());
         auto expectParam = parameterMap.at(name);
         // The much more natural `parameterMap.at(name) = std::move(v)` fails.
         // The reason is that other parts of the code rely on the existing Value object to be
@@ -486,16 +525,16 @@ std::unique_ptr<PreparedStatement> ClientContext::prepareNoLock(
                     binder.setInputParameters(*inputParams);
                 }
                 const auto boundStatement = binder.bind(*preparedStatement->parsedStatement);
+                binder.validateAllInputParametersParsed();
                 preparedStatement->parameterMap = binder.getParameterMap();
                 preparedStatement->statementResult = std::make_unique<BoundStatementResult>(
                     boundStatement->getStatementResult()->copy());
                 // planning
                 auto planner = Planner(this);
-                auto bestPlan = planner.getBestPlan(*boundStatement);
+                auto bestPlan = planner.planStatement(*boundStatement);
                 // optimizing
-                optimizer::Optimizer::optimize(bestPlan.get(), this,
-                    planner.getCardinalityEstimator());
-                preparedStatement->logicalPlan = std::move(bestPlan);
+                optimizer::Optimizer::optimize(&bestPlan, this, planner.getCardinalityEstimator());
+                preparedStatement->logicalPlan = std::make_unique<LogicalPlan>(bestPlan);
             },
             preparedStatement->isReadOnly(), preparedStatement->isTransactionStatement(),
             TransactionHelper::getAction(shouldCommitNewTransaction,
@@ -543,7 +582,10 @@ std::unique_ptr<QueryResult> ClientContext::executeNoLock(PreparedStatement* pre
                     resultFT = localDatabase->queryProcessor->execute(physicalPlan.get(),
                         executionContext.get());
                 } else {
-                    getTransaction()->checkForceCheckpoint(preparedStatement->getStatementType());
+                    if (preparedStatement->getStatementType() == StatementType::COPY_FROM) {
+                        // Note: We always force checkpoint for COPY_FROM statement.
+                        getTransaction()->setForceCheckpoint();
+                    }
                     resultFT = localDatabase->queryProcessor->execute(physicalPlan.get(),
                         executionContext.get());
                 }
@@ -623,7 +665,7 @@ bool ClientContext::canExecuteWriteQuery() const {
     // remote kuzu database can be attached.
     const auto dbManager = localDatabase->databaseManager.get();
     for (const auto& attachedDB : dbManager->getAttachedDatabases()) {
-        if (attachedDB->getDBType() == common::ATTACHED_KUZU_DB_TYPE) {
+        if (attachedDB->getDBType() == ATTACHED_KUZU_DB_TYPE) {
             return false;
         }
     }

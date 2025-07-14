@@ -2,9 +2,9 @@
 
 #include "binder/expression/expression_util.h"
 #include "processor/execution_context.h"
-#include "processor/operator/persistent/rel_batch_insert.h"
-#include "storage/store/node_table.h"
-#include "storage/store/rel_table.h"
+#include "storage/storage_manager.h"
+#include "storage/table/node_table.h"
+#include "storage/table/rel_table.h"
 
 using namespace kuzu::common;
 using namespace kuzu::storage;
@@ -29,40 +29,14 @@ void PartitionerFunctions::partitionRelData(ValueVector* key, ValueVector* parti
     }
 }
 
-static partition_idx_t getNumPartitions(offset_t numRows) {
-    return (numRows + StorageConfig::NODE_GROUP_SIZE - 1) / StorageConfig::NODE_GROUP_SIZE;
-}
-
-void PartitionerSharedState::initialize(const logical_type_vec_t& columnTypes,
+void CopyPartitionerSharedState::initialize(const logical_type_vec_t& columnTypes,
     idx_t numPartitioners, const main::ClientContext* clientContext) {
-    KU_ASSERT(numPartitioners >= 1 && numPartitioners <= DIRECTIONS);
-    numNodes[0] = srcNodeTable->getNumTotalRows(clientContext->getTransaction());
-    if (numPartitioners > 1) {
-        numNodes[1] = dstNodeTable->getNumTotalRows(clientContext->getTransaction());
-    }
-    numPartitions[0] = getNumPartitions(numNodes[0]);
-    if (numPartitioners > 1) {
-        numPartitions[1] = getNumPartitions(numNodes[1]);
-    }
+    PartitionerSharedState::initialize(columnTypes, numPartitioners, clientContext);
     Partitioner::initializePartitioningStates(columnTypes, partitioningBuffers, numPartitions,
         numPartitioners);
 }
 
-partition_idx_t PartitionerSharedState::getNextPartition(idx_t partitioningIdx,
-    RelBatchInsertProgressSharedState& progressSharedState) {
-    auto nextPartitionIdxToReturn = nextPartitionIdx++;
-    if (nextPartitionIdxToReturn >= numPartitions[partitioningIdx]) {
-        return INVALID_PARTITION_IDX;
-    }
-    ++progressSharedState.partitionsDone;
-    return nextPartitionIdxToReturn;
-}
-
-void PartitionerSharedState::resetState() {
-    nextPartitionIdx = 0;
-}
-
-void PartitionerSharedState::merge(
+void CopyPartitionerSharedState::merge(
     const std::vector<std::unique_ptr<PartitioningBuffer>>& localPartitioningStates) {
     std::unique_lock xLck{mtx};
     KU_ASSERT(partitioningBuffers.size() == localPartitioningStates.size());
@@ -70,6 +44,11 @@ void PartitionerSharedState::merge(
          partitioningIdx++) {
         partitioningBuffers[partitioningIdx]->merge(*localPartitioningStates[partitioningIdx]);
     }
+}
+
+void CopyPartitionerSharedState::resetState(common::idx_t partitioningIdx) {
+    PartitionerSharedState::resetState(partitioningIdx);
+    partitioningBuffers[partitioningIdx].reset();
 }
 
 void PartitioningBuffer::merge(const PartitioningBuffer& localPartitioningState) const {
@@ -81,17 +60,33 @@ void PartitioningBuffer::merge(const PartitioningBuffer& localPartitioningState)
     }
 }
 
-Partitioner::Partitioner(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-    PartitionerInfo info, PartitionerDataInfo dataInfo,
-    std::shared_ptr<PartitionerSharedState> sharedState, std::unique_ptr<PhysicalOperator> child,
-    uint32_t id, std::unique_ptr<OPPrintInfo> printInfo)
-    : Sink{std::move(resultSetDescriptor), type_, std::move(child), id, std::move(printInfo)},
-      dataInfo{std::move(dataInfo)}, info{std::move(info)}, sharedState{std::move(sharedState)} {
+Partitioner::Partitioner(PartitionerInfo info, PartitionerDataInfo dataInfo,
+    std::shared_ptr<CopyPartitionerSharedState> sharedState,
+    std::unique_ptr<PhysicalOperator> child, uint32_t id, std::unique_ptr<OPPrintInfo> printInfo)
+    : Sink{type_, std::move(child), id, std::move(printInfo)}, dataInfo{std::move(dataInfo)},
+      info{std::move(info)}, sharedState{std::move(sharedState)} {
     partitionIdxes = std::make_unique<ValueVector>(LogicalTypeID::INT64);
 }
 
 void Partitioner::initGlobalStateInternal(ExecutionContext* context) {
-    sharedState->initialize(dataInfo.columnTypes, info.infos.size(), context->clientContext);
+    const auto clientContext = context->clientContext;
+    // If initialization is required
+    if (!sharedState->srcNodeTable) {
+        auto storageManager = clientContext->getStorageManager();
+        auto catalog = clientContext->getCatalog();
+        auto transaction = clientContext->getTransaction();
+        auto fromTableID =
+            catalog->getTableCatalogEntry(transaction, dataInfo.fromTableName)->getTableID();
+        auto toTableID =
+            catalog->getTableCatalogEntry(transaction, dataInfo.toTableName)->getTableID();
+        sharedState->srcNodeTable = storageManager->getTable(fromTableID)->ptrCast<NodeTable>();
+        sharedState->dstNodeTable = storageManager->getTable(toTableID)->ptrCast<NodeTable>();
+        auto& relGroupEntry = catalog->getTableCatalogEntry(transaction, dataInfo.tableName)
+                                  ->constCast<catalog::RelGroupCatalogEntry>();
+        auto relEntryInfo = relGroupEntry.getRelEntryInfo(fromTableID, toTableID);
+        sharedState->relTable = storageManager->getTable(relEntryInfo->oid)->ptrCast<RelTable>();
+    }
+    sharedState->initialize(dataInfo.columnTypes, info.infos.size(), clientContext);
 }
 
 void Partitioner::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) {
@@ -115,7 +110,7 @@ DataChunk Partitioner::constructDataChunk(const std::shared_ptr<DataChunkState>&
 
 void Partitioner::initializePartitioningStates(const logical_type_vec_t& columnTypes,
     std::vector<std::unique_ptr<PartitioningBuffer>>& partitioningBuffers,
-    const std::array<partition_idx_t, PartitionerSharedState::DIRECTIONS>& numPartitions,
+    const std::array<partition_idx_t, CopyPartitionerSharedState::DIRECTIONS>& numPartitions,
     idx_t numPartitioners) {
     partitioningBuffers.resize(numPartitioners);
     for (auto partitioningIdx = 0u; partitioningIdx < numPartitioners; partitioningIdx++) {
@@ -184,11 +179,6 @@ void Partitioner::copyDataToPartitions(MemoryManager& memoryManager,
             localState->getPartitioningBuffer(partitioningIdx)->partitions[partitionIdx];
         partition->append(memoryManager, vectorsToAppend, i, 1);
     }
-}
-
-std::unique_ptr<PhysicalOperator> Partitioner::copy() {
-    return std::make_unique<Partitioner>(resultSetDescriptor->copy(), info.copy(), dataInfo.copy(),
-        sharedState, children[0]->copy(), id, printInfo->copy());
 }
 
 } // namespace processor

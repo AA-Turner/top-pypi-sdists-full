@@ -13,10 +13,10 @@ public:
     ProcessorTask(Sink* sink, ExecutionContext* executionContext);
 
     void run() override;
-    void finalizeIfNecessary() override;
 
-    static std::unique_ptr<ResultSet> populateResultSet(Sink* op,
-        storage::MemoryManager* memoryManager);
+    void finalize() override;
+
+    bool terminate() override;
 
 private:
     bool sharedStateInitialized;

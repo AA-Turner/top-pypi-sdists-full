@@ -35,7 +35,7 @@ class LogicalCopyFrom;
 
 namespace processor {
 
-class HashJoinBuildInfo;
+struct HashJoinBuildInfo;
 struct AggregateInfo;
 class NodeInsertExecutor;
 class RelInsertExecutor;
@@ -48,6 +48,7 @@ struct NodeTableSetInfo;
 struct RelTableSetInfo;
 struct BatchInsertSharedState;
 struct PartitionerSharedState;
+class RelBatchInsertImpl;
 
 class PlanMapper {
 public:
@@ -75,10 +76,13 @@ public:
         std::shared_ptr<PartitionerSharedState> partitionerSharedState,
         std::shared_ptr<BatchInsertSharedState> sharedState,
         const binder::BoundCopyFromInfo& copyFromInfo, planner::Schema* outFSchema,
-        common::RelDataDirection direction, std::vector<common::column_id_t> columnIDs,
-        std::vector<common::LogicalType> columnTypes, uint32_t operatorID);
+        common::RelDataDirection direction, common::table_id_t fromTableID,
+        common::table_id_t toTableID, std::vector<common::column_id_t> columnIDs,
+        std::vector<common::LogicalType> columnTypes, uint32_t operatorID,
+        std::unique_ptr<processor::RelBatchInsertImpl> impl);
 
-    std::unique_ptr<PhysicalOperator> mapOperator(const planner::LogicalOperator* logicalOperator);
+    KUZU_API std::unique_ptr<PhysicalOperator> mapOperator(
+        const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapAccumulate(
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapAggregate(const planner::LogicalOperator* logicalOperator);
@@ -88,7 +92,8 @@ public:
     std::unique_ptr<PhysicalOperator> mapCopyFrom(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCopyNodeFrom(
         const planner::LogicalOperator* logicalOperator);
-    physical_op_vector_t mapCopyRelFrom(const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapCopyRelFrom(
+        const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCopyTo(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapCreateMacro(
         const planner::LogicalOperator* logicalOperator);
@@ -134,6 +139,7 @@ public:
         const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapNodeLabelFilter(
         const planner::LogicalOperator* logicalOperator);
+    std::unique_ptr<PhysicalOperator> mapNoop(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapOrderBy(const planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapPartitioner(
         const planner::LogicalOperator* logicalOperator);
@@ -168,9 +174,6 @@ public:
         const binder::expression_vector& expressions, planner::Schema* schema,
         std::unique_ptr<PhysicalOperator> prevOperator);
 
-    std::unique_ptr<PhysicalOperator> createDummySink(planner::Schema* schema,
-        std::unique_ptr<PhysicalOperator> prevOperator);
-
     // Scan fTable
     std::unique_ptr<PhysicalOperator> createFTableScan(const binder::expression_vector& exprs,
         std::vector<ft_col_idx_t> colIndices, const planner::Schema* schema,
@@ -196,9 +199,8 @@ public:
         const binder::expression_vector& exprs, const planner::Schema* schema,
         std::shared_ptr<FactorizedTable> table, uint64_t maxMorselSize);
 
-    static std::unique_ptr<HashJoinBuildInfo> createHashBuildInfo(
-        const planner::Schema& buildSideSchema, const binder::expression_vector& keys,
-        const binder::expression_vector& payloads);
+    static HashJoinBuildInfo createHashBuildInfo(const planner::Schema& buildSideSchema,
+        const binder::expression_vector& keys, const binder::expression_vector& payloads);
 
     std::unique_ptr<PhysicalOperator> createDistinctHashAggregate(
         const binder::expression_vector& keys, const binder::expression_vector& payloads,
@@ -223,28 +225,32 @@ public:
         const binder::BoundDeleteInfo& boundInfo, const planner::Schema& schema) const;
     NodeTableDeleteInfo getNodeTableDeleteInfo(const catalog::TableCatalogEntry& entry,
         DataPos pkPos) const;
-    NodeTableSetInfo getNodeTableSetInfo(const catalog::TableCatalogEntry& entry,
-        const binder::Expression& expr) const;
-    RelTableSetInfo getRelTableSetInfo(const catalog::TableCatalogEntry& entry,
-        const binder::Expression& expr) const;
 
     static void mapSIPJoin(PhysicalOperator* joinRoot);
 
     static std::vector<DataPos> getDataPos(const binder::expression_vector& expressions,
         const planner::Schema& schema);
-    static planner::LogicalSemiMasker* findSemiMaskerInPlan(
-        planner::LogicalOperator* logicalOperator);
     static FactorizedTableSchema createFlatFTableSchema(
         const binder::expression_vector& expressions, const planner::Schema& schema);
     std::unique_ptr<common::SemiMask> createSemiMask(common::table_id_t tableID) const;
 
+    void addOperatorMapping(const planner::LogicalOperator* logicalOp,
+        PhysicalOperator* physicalOp) {
+        KU_ASSERT(!logicalOpToPhysicalOpMap.contains(logicalOp));
+        logicalOpToPhysicalOpMap.insert({logicalOp, physicalOp});
+    }
+    void eraseOperatorMapping(const planner::LogicalOperator* logicalOp) {
+        KU_ASSERT(logicalOpToPhysicalOpMap.contains(logicalOp));
+        logicalOpToPhysicalOpMap.erase(logicalOp);
+    }
+
 public:
     ExecutionContext* executionContext;
     main::ClientContext* clientContext;
-    std::unordered_map<const planner::LogicalOperator*, PhysicalOperator*> logicalOpToPhysicalOpMap;
 
 private:
-    uint32_t physicalOperatorID;
+    std::unordered_map<const planner::LogicalOperator*, PhysicalOperator*> logicalOpToPhysicalOpMap;
+    physical_op_id physicalOperatorID;
 };
 
 } // namespace processor

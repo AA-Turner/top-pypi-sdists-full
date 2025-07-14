@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: demisto-py
-Version: 3.2.20
+Version: 3.2.21
 Summary: "A Python library for the Demisto API"
 Home-page: https://github.com/demisto/demisto-py
 License: Apache-2.0

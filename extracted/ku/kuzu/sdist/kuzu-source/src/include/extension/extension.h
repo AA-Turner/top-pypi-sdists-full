@@ -15,6 +15,9 @@
 #define ADD_CONFIDENTIAL_EXTENSION_OPTION(OPTION)                                                  \
     db->addExtensionOption(OPTION::NAME, OPTION::TYPE, OPTION::getDefaultValue(), true)
 
+namespace kuzu::storage {
+struct IndexType;
+}
 namespace kuzu {
 namespace function {
 struct TableFunction;
@@ -43,7 +46,7 @@ struct ExtensionRepoInfo {
     std::string repoURL;
 };
 
-enum class ExtensionSource : uint8_t { OFFICIAL, USER };
+enum class ExtensionSource : uint8_t { OFFICIAL, USER, STATIC_LINKED };
 
 struct ExtensionSourceUtils {
     static std::string toString(ExtensionSource source);
@@ -62,21 +65,21 @@ void addFunc(main::Database& database, std::string name, catalog::CatalogEntryTy
 
 struct KUZU_API ExtensionUtils {
     static constexpr const char* OFFICIAL_EXTENSION_REPO = "http://extension.kuzudb.com/";
+    static constexpr const char* EXTENSION_FILE_SUFFIX = "kuzu_extension";
 
-    static constexpr const char* EXTENSION_FILE_REPO_PATH = "v{}/{}/{}/{}";
+    static constexpr const char* EXTENSION_FILE_REPO_PATH = "{}v{}/{}/{}/{}";
 
-    static constexpr const char* SHARED_LIB_REPO = "v{}/{}/common/{}";
+    static constexpr const char* SHARED_LIB_REPO = "{}v{}/{}/common/{}";
 
-    static constexpr const char* EXTENSION_FILE_NAME = "lib{}.kuzu_extension";
+    static constexpr const char* EXTENSION_FILE_NAME = "lib{}.{}";
 
     static constexpr const char* OFFICIAL_EXTENSION[] = {"HTTPFS", "POSTGRES", "DUCKDB", "JSON",
-        "SQLITE", "FTS", "DELTA", "ICEBERG", "UNITY_CATALOG", "VECTOR", "NEO4J", "ALGO"};
+        "SQLITE", "FTS", "DELTA", "ICEBERG", "AZURE", "UNITY_CATALOG", "VECTOR", "NEO4J", "ALGO",
+        "LLM"};
 
     static constexpr const char* EXTENSION_LOADER_SUFFIX = "_loader";
 
     static constexpr const char* EXTENSION_INSTALLER_SUFFIX = "_installer";
-
-    static bool isFullPath(const std::string& extension);
 
     static ExtensionRepoInfo getExtensionLibRepoInfo(const std::string& extensionName,
         const std::string& extensionRepo);
@@ -101,7 +104,7 @@ struct KUZU_API ExtensionUtils {
     static std::string getLocalPathForExtensionInstaller(main::ClientContext* context,
         const std::string& extensionName);
 
-    static std::string getLocalExtensionDir(main::ClientContext* context,
+    static std::string getLocalDirForExtension(main::ClientContext* context,
         const std::string& extensionName);
 
     static std::string appendLibSuffix(const std::string& libName);
@@ -145,6 +148,8 @@ struct KUZU_API ExtensionUtils {
         addFunc<typename T::alias>(database, T::name,
             catalog::CatalogEntryType::SCALAR_FUNCTION_ENTRY);
     }
+
+    static void registerIndexType(main::Database& database, storage::IndexType type);
 };
 
 class KUZU_API ExtensionLibLoader {
@@ -168,6 +173,8 @@ public:
 
     ext_install_func_t getInstallFunc();
 
+    void unload();
+
 private:
     void* getDynamicLibFunc(const std::string& funcName);
 
@@ -182,6 +189,8 @@ std::wstring utf8ToUnicode(const char* input);
 void* dlopen(const char* file, int /*mode*/);
 
 void* dlsym(void* handle, const char* name);
+
+void dlclose(void* handle);
 #endif
 
 } // namespace extension

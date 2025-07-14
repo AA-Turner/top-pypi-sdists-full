@@ -45,7 +45,7 @@ class Utf8TestCase(unittest.TestCase):
 
     def test_02_write(self):
         """Write/Read UTF-8 Filename"""
-        self.assertEqual(locale.getpreferredencoding(), 'UTF-8')
+        self.assertEqual(locale.getpreferredencoding().lower(), 'utf-8')
         self.crontab.write(filename)
         crontab = CronTab(tabfile=filename)
         self.assertTrue(crontab)

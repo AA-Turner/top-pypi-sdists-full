@@ -3,26 +3,29 @@
 #include "common/exception/internal.h"
 #include "common/metric.h"
 #include "processor/operator/physical_operator.h"
+#include "processor/result/factorized_table.h"
 #include "processor/result/result_set_descriptor.h"
+#include <processor/execution_context.h>
 
 namespace kuzu {
 namespace processor {
 
 class KUZU_API Sink : public PhysicalOperator {
 public:
-    Sink(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-        PhysicalOperatorType operatorType, uint32_t id, std::unique_ptr<OPPrintInfo> printInfo)
-        : PhysicalOperator{operatorType, id, std::move(printInfo)},
-          resultSetDescriptor{std::move(resultSetDescriptor)} {}
-    Sink(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-        PhysicalOperatorType operatorType, std::unique_ptr<PhysicalOperator> child, uint32_t id,
+    Sink(PhysicalOperatorType operatorType, physical_op_id id,
         std::unique_ptr<OPPrintInfo> printInfo)
-        : PhysicalOperator{operatorType, std::move(child), id, std::move(printInfo)},
-          resultSetDescriptor{std::move(resultSetDescriptor)} {}
+        : PhysicalOperator{operatorType, id, std::move(printInfo)} {}
+    Sink(PhysicalOperatorType operatorType, std::unique_ptr<PhysicalOperator> child,
+        physical_op_id id, std::unique_ptr<OPPrintInfo> printInfo)
+        : PhysicalOperator{operatorType, std::move(child), id, std::move(printInfo)} {}
 
     bool isSink() const override { return true; }
 
-    ResultSetDescriptor* getResultSetDescriptor() { return resultSetDescriptor.get(); }
+    void setDescriptor(std::unique_ptr<ResultSetDescriptor> descriptor) {
+        KU_ASSERT(resultSetDescriptor == nullptr);
+        resultSetDescriptor = std::move(descriptor);
+    }
+    std::unique_ptr<ResultSet> getResultSet(storage::MemoryManager* memoryManager);
 
     void execute(ResultSet* resultSet, ExecutionContext* context) {
         initLocalState(resultSet, context);
@@ -30,6 +33,14 @@ public:
         executeInternal(context);
         metrics->executionTime.stop();
     }
+
+    virtual std::shared_ptr<FactorizedTable> getResultFTable() const {
+        throw common::InternalException(common::stringFormat(
+            "Trying to get result table from {} operator which doesn't have one.",
+            PhysicalOperatorUtils::operatorTypeToString(operatorType)));
+    }
+
+    virtual bool terminate() const { return false; }
 
     std::unique_ptr<PhysicalOperator> copy() override = 0;
 
@@ -49,14 +60,11 @@ class KUZU_API DummySink final : public Sink {
     static constexpr PhysicalOperatorType type_ = PhysicalOperatorType::DUMMY_SINK;
 
 public:
-    DummySink(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-        std::unique_ptr<PhysicalOperator> child, uint32_t id,
-        std::unique_ptr<OPPrintInfo> printInfo)
-        : Sink{std::move(resultSetDescriptor), type_, std::move(child), id, std::move(printInfo)} {}
+    DummySink(std::unique_ptr<PhysicalOperator> child, uint32_t id)
+        : Sink{type_, std::move(child), id, OPPrintInfo::EmptyInfo()} {}
 
     std::unique_ptr<PhysicalOperator> copy() override {
-        return std::make_unique<DummySink>(resultSetDescriptor->copy(), children[0]->copy(), id,
-            printInfo->copy());
+        return std::make_unique<DummySink>(children[0]->copy(), id);
     }
 
 protected:
@@ -64,6 +72,40 @@ protected:
         while (children[0]->getNextTuple(context)) {
             // DO NOTHING.
         }
+    }
+};
+
+class SimpleSink : public Sink {
+public:
+    SimpleSink(PhysicalOperatorType operatorType, std::shared_ptr<FactorizedTable> messageTable,
+        physical_op_id id, std::unique_ptr<OPPrintInfo> printInfo)
+        : Sink{operatorType, id, std::move(printInfo)}, messageTable{std::move(messageTable)} {}
+
+    bool isSource() const final { return true; }
+    bool isParallel() const final { return false; }
+
+    std::shared_ptr<FactorizedTable> getResultFTable() const override { return messageTable; }
+
+protected:
+    void appendMessage(const std::string& msg, storage::MemoryManager* memoryManager);
+
+protected:
+    std::shared_ptr<FactorizedTable> messageTable;
+};
+
+// For cases like Export. We need a parent for ExportDB and multiple CopyTo. This parent does not
+// have any logic other than propagating the result fTable.
+class DummySimpleSink final : public SimpleSink {
+    static constexpr PhysicalOperatorType type_ = PhysicalOperatorType::DUMMY_SIMPLE_SINK;
+
+public:
+    DummySimpleSink(std::shared_ptr<FactorizedTable> messageTable, physical_op_id id)
+        : SimpleSink{type_, std::move(messageTable), id, OPPrintInfo::EmptyInfo()} {}
+
+    void executeInternal(ExecutionContext*) override {}
+
+    std::unique_ptr<PhysicalOperator> copy() override {
+        return std::make_unique<DummySimpleSink>(messageTable, id);
     }
 };
 

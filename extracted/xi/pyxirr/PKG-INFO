@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyxirr
-Version: 0.10.6
+Version: 0.10.7
 Classifier: Development Status :: 4 - Beta
 Classifier: Topic :: Office/Business :: Financial
 Classifier: Programming Language :: Rust

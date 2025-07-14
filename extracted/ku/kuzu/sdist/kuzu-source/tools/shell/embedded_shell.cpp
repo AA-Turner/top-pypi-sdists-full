@@ -10,7 +10,6 @@
 #endif
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <csignal>
 #include <iomanip>
 #include <regex>
@@ -18,14 +17,11 @@
 
 #include "binder/binder.h"
 #include "catalog/catalog.h"
-#include "catalog/catalog_entry/node_table_catalog_entry.h"
-#include "catalog/catalog_entry/rel_table_catalog_entry.h"
 #include "common/exception/parser.h"
 #include "keywords.h"
 #include "parser/parser.h"
 #include "printer/json_printer.h"
 #include "printer/printer_factory.h"
-#include "processor/result/factorized_table.h"
 #include "transaction/transaction.h"
 #include "utf8proc.h"
 #include "utf8proc_wrapper.h"
@@ -117,7 +113,7 @@ void EmbeddedShell::updateTableNames() {
              false /*useInternal*/)) {
         if (tableEntry->getType() == catalog::CatalogEntryType::NODE_TABLE_ENTRY) {
             nodeTableNames.push_back(tableEntry->getName());
-        } else if (tableEntry->getType() == catalog::CatalogEntryType::REL_TABLE_ENTRY) {
+        } else if (tableEntry->getType() == catalog::CatalogEntryType::REL_GROUP_ENTRY) {
             relTableNames.push_back(tableEntry->getName());
         } else {
             continue;
@@ -287,11 +283,11 @@ void completion(const char* buffer, linenoiseCompletions* lc) {
     std::vector<std::string> tempTableNames;
     std::vector<std::string> foundTableNames;
     for (auto& node : nodeTableNames) {
-        std::regex nodeTableRegex("\\(([^:]+):(" + node + ")\\)");
+        std::regex nodeTableRegex("\\(([^:\\(]+):(" + node + ")\\)");
         findTableVariableNames(buf, nodeTableRegex, tempTableNames, foundTableNames);
     }
     for (auto& rel : relTableNames) {
-        std::regex relTableRegex("\\[([^:]+):(" + rel + ")\\]");
+        std::regex relTableRegex("\\[([^:\\[]+):(" + rel + ")\\]");
         findTableVariableNames(buf, relTableRegex, tempTableNames, foundTableNames);
     }
 
@@ -586,6 +582,7 @@ void EmbeddedShell::run() {
     char* line = nullptr;
     const char ctrl_c = '\3';
     int numCtrlC = 0;
+    // `true` when a multiline query is incomplete. See `EmbeddedShell::processInput`.
     continueLine = false;
     currLine = "";
 
@@ -610,9 +607,23 @@ void EmbeddedShell::run() {
     SetConsoleOutputCP(CP_UTF8);
 #endif
 
-    while (
-        (line = linenoise(continueLine ? ALTPROMPT : PROMPT, CONPROMPT, SCONPROMPT)) != nullptr) {
-        auto lineStr = std::string(line);
+    while (true) {
+        line = linenoise(continueLine ? ALTPROMPT : PROMPT, CONPROMPT, SCONPROMPT);
+
+        if (line == nullptr && !continueLine) {
+            // EOF is reached and there is no input left to process. Exit loop.
+            break;
+        }
+
+        std::string lineStr;
+        if (line == nullptr) {
+            // EOF is reached, but there is an incomplete query (`continueLine` == true).
+            // Mark as complete with a semicolon and attempt to process the query.
+            lineStr = ";";
+        } else {
+            // Not EOF. We take the input as is.
+            lineStr = std::string(line);
+        }
         lineStr = lineStr.erase(lineStr.find_last_not_of(" \t\n\r\f\v") + 1);
         if (!lineStr.empty() && lineStr[0] == ctrl_c) {
             if (!continueLine && lineStr[1] == '\0') {
@@ -646,16 +657,19 @@ void EmbeddedShell::run() {
                 printErrorMessage(lineStr, *queryResult);
             }
         }
+
         if (!continueLine && !historyLine.empty()) {
             linenoiseHistoryAdd(historyLine.c_str());
         }
         linenoiseHistorySave(path_to_history);
         free(line);
     }
+
 #ifndef _WIN32
     /* Don't even check the return value as it's too late. */
-    if (noEcho && tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios) != -1)
+    if (noEcho && tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios) != -1) {
         noEcho = false;
+    }
 #else
     SetConsoleOutputCP(oldOutputCP);
 #endif

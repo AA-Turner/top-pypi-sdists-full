@@ -2,8 +2,10 @@
 
 #include "binder/binder.h"
 #include "binder/query/reading_clause/bound_table_function_call.h"
+#include "catalog/catalog.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "common/exception/binder.h"
+#include "graph/graph_entry_set.h"
 #include "graph/on_disk_graph.h"
 #include "main/client_context.h"
 #include "parser/parser.h"
@@ -38,34 +40,39 @@ static expression_vector getResultColumns(const std::string& cypher, ClientConte
     return boundStatement->getStatementResult()->getColumns();
 }
 
-static void validateNodeProjected(table_id_t tableID, const table_id_set_t& projectedNodeIDSet,
-    const std::string& relName, Catalog* catalog, transaction::Transaction* transaction) {
-    if (projectedNodeIDSet.contains(tableID)) {
-        return;
+static void validateNodeProjected(const table_id_set_t& connectedNodeTableIDSet,
+    const table_id_set_t& projectedNodeIDSet, const std::string& relName, Catalog* catalog,
+    transaction::Transaction* transaction) {
+    for (auto id : connectedNodeTableIDSet) {
+        if (!projectedNodeIDSet.contains(id)) {
+            auto entryName = catalog->getTableCatalogEntry(transaction, id)->getName();
+            throw BinderException(
+                stringFormat("{} is connected to {} but not projected.", entryName, relName));
+        }
     }
-    auto entryName = catalog->getTableCatalogEntry(transaction, tableID)->getName();
-    throw BinderException(
-        stringFormat("{} is connected to {} but not projected.", entryName, relName));
 }
 
 static void validateRelSrcDstNodeAreProjected(const TableCatalogEntry& entry,
-    const std::string printableRelName, const table_id_set_t& projectedNodeIDSet, Catalog* catalog,
+    const table_id_set_t& projectedNodeIDSet, Catalog* catalog,
     transaction::Transaction* transaction) {
-    auto& relEntry = entry.constCast<RelTableCatalogEntry>();
-    validateNodeProjected(relEntry.getSrcTableID(), projectedNodeIDSet, printableRelName, catalog,
-        transaction);
-    validateNodeProjected(relEntry.getDstTableID(), projectedNodeIDSet, printableRelName, catalog,
-        transaction);
+    auto& relEntry = entry.constCast<RelGroupCatalogEntry>();
+    validateNodeProjected(relEntry.getSrcNodeTableIDSet(), projectedNodeIDSet, relEntry.getName(),
+        catalog, transaction);
+    validateNodeProjected(relEntry.getDstNodeTableIDSet(), projectedNodeIDSet, relEntry.getName(),
+        catalog, transaction);
 }
 
-GraphEntry GDSFunction::bindGraphEntry(ClientContext& context, const std::string& name) {
-    if (!context.getGraphEntrySetUnsafe().hasGraph(name)) {
-        throw BinderException(stringFormat("Cannot find graph {}.", name));
+NativeGraphEntry GDSFunction::bindGraphEntry(ClientContext& context, const std::string& name) {
+    auto& set = context.getGraphEntrySetUnsafe();
+    set.validateGraphExist(name);
+    auto entry = set.getEntry(name);
+    if (entry->type != GraphEntryType::NATIVE) {
+        throw BinderException("AA");
     }
-    return bindGraphEntry(context, context.getGraphEntrySetUnsafe().getEntry(name));
+    return bindGraphEntry(context, entry->cast<ParsedNativeGraphEntry>());
 }
 
-static BoundGraphEntryTableInfo bindNodeEntry(ClientContext& context, const std::string& tableName,
+static NativeGraphEntryTableInfo bindNodeEntry(ClientContext& context, const std::string& tableName,
     const std::string& predicate) {
     auto catalog = context.getCatalog();
     auto transaction = context.getTransaction();
@@ -86,12 +93,12 @@ static BoundGraphEntryTableInfo bindNodeEntry(ClientContext& context, const std:
     }
 }
 
-static BoundGraphEntryTableInfo bindRelEntry(ClientContext& context, const std::string& tableName,
+static NativeGraphEntryTableInfo bindRelEntry(ClientContext& context, const std::string& tableName,
     const std::string& predicate) {
     auto catalog = context.getCatalog();
     auto transaction = context.getTransaction();
     auto relEntry = catalog->getTableCatalogEntry(transaction, tableName);
-    if (relEntry->getType() != CatalogEntryType::REL_TABLE_ENTRY) {
+    if (relEntry->getType() != CatalogEntryType::REL_GROUP_ENTRY) {
         throw BinderException(
             stringFormat("{} has catalog entry type. REL entry was expected.", tableName));
     }
@@ -109,10 +116,11 @@ static BoundGraphEntryTableInfo bindRelEntry(ClientContext& context, const std::
     }
 }
 
-GraphEntry GDSFunction::bindGraphEntry(ClientContext& context, const ParsedGraphEntry& entry) {
+NativeGraphEntry GDSFunction::bindGraphEntry(ClientContext& context,
+    const ParsedNativeGraphEntry& entry) {
     auto catalog = context.getCatalog();
     auto transaction = context.getTransaction();
-    auto result = GraphEntry();
+    auto result = NativeGraphEntry();
     table_id_set_t projectedNodeTableIDSet;
     for (auto& nodeInfo : entry.nodeInfos) {
         auto boundInfo = bindNodeEntry(context, nodeInfo.tableName, nodeInfo.predicate);
@@ -122,18 +130,9 @@ GraphEntry GDSFunction::bindGraphEntry(ClientContext& context, const ParsedGraph
     for (auto& relInfo : entry.relInfos) {
         if (catalog->containsTable(transaction, relInfo.tableName)) {
             auto boundInfo = bindRelEntry(context, relInfo.tableName, relInfo.predicate);
-            validateRelSrcDstNodeAreProjected(*boundInfo.entry, relInfo.tableName,
-                projectedNodeTableIDSet, catalog, transaction);
+            validateRelSrcDstNodeAreProjected(*boundInfo.entry, projectedNodeTableIDSet, catalog,
+                transaction);
             result.relInfos.push_back(std::move(boundInfo));
-        } else if (catalog->containsRelGroup(transaction, relInfo.tableName)) {
-            auto groupEntry = catalog->getRelGroupEntry(transaction, relInfo.tableName);
-            for (auto tableID : groupEntry->getRelTableIDs()) {
-                auto relEntry = catalog->getTableCatalogEntry(transaction, tableID);
-                auto boundInfo = bindRelEntry(context, relEntry->getName(), relInfo.predicate);
-                validateRelSrcDstNodeAreProjected(*boundInfo.entry, relInfo.tableName,
-                    projectedNodeTableIDSet, catalog, transaction);
-                result.relInfos.push_back(std::move(boundInfo));
-            }
         } else {
             throw BinderException(stringFormat("{} is not a REL table.", relInfo.tableName));
         }
@@ -142,7 +141,7 @@ GraphEntry GDSFunction::bindGraphEntry(ClientContext& context, const ParsedGraph
 }
 
 std::shared_ptr<Expression> GDSFunction::bindNodeOutput(const TableFuncBindInput& bindInput,
-    const std::vector<catalog::TableCatalogEntry*>& nodeEntries) {
+    const std::vector<TableCatalogEntry*>& nodeEntries) {
     std::string nodeColumnName = NODE_COLUMN_NAME;
     if (!bindInput.yieldVariables.empty()) {
         nodeColumnName = bindColumnName(bindInput.yieldVariables[0], nodeColumnName);
@@ -179,35 +178,36 @@ std::vector<std::shared_ptr<LogicalOperator>> getNodeMaskPlanRoots(const GDSBind
         if (nodeInfo.predicate == nullptr) {
             continue;
         }
-        auto p = planner->getNodeSemiMaskPlan(SemiMaskTargetType::GDS_GRAPH_NODE,
-            nodeInfo.nodeOrRel->constCast<NodeExpression>(), nodeInfo.predicate);
+        auto& node = nodeInfo.nodeOrRel->constCast<NodeExpression>();
+        planner->getCardinliatyEstimatorUnsafe().init(node);
+        auto p = planner->getNodeSemiMaskPlan(SemiMaskTargetType::GDS_GRAPH_NODE, node,
+            nodeInfo.predicate);
         nodeMaskPlanRoots.push_back(p.getLastOperator());
     }
     return nodeMaskPlanRoots;
 };
 
 void GDSFunction::getLogicalPlan(Planner* planner, const BoundReadingClause& readingClause,
-    binder::expression_vector predicates, std::vector<std::unique_ptr<LogicalPlan>>& logicalPlans) {
-    auto& call = readingClause.constCast<binder::BoundTableFunctionCall>();
+    expression_vector predicates, LogicalPlan& plan) {
+    auto& call = readingClause.constCast<BoundTableFunctionCall>();
     auto bindData = call.getBindData()->constPtrCast<GDSBindData>();
-    auto maskRoots = getNodeMaskPlanRoots(*bindData, planner);
-    for (auto& plan : logicalPlans) {
-        auto op = std::make_shared<LogicalTableFunctionCall>(call.getTableFunc(), bindData->copy());
-        op->setNodeMaskRoots(maskRoots);
-        op->computeFactorizedSchema();
-        planner->planReadOp(std::move(op), predicates, *plan);
+    auto op = std::make_shared<LogicalTableFunctionCall>(call.getTableFunc(), bindData->copy());
+    for (auto root : getNodeMaskPlanRoots(*bindData, planner)) {
+        op->addChild(root);
     }
+    op->computeFactorizedSchema();
+    planner->planReadOp(std::move(op), predicates, plan);
+
     auto nodeOutput = bindData->nodeOutput->ptrCast<NodeExpression>();
     KU_ASSERT(nodeOutput != nullptr);
+    planner->getCardinliatyEstimatorUnsafe().init(*nodeOutput);
     auto scanPlan = planner->getNodePropertyScanPlan(*nodeOutput);
     if (scanPlan.isEmpty()) {
         return;
     }
     expression_vector joinConditions;
     joinConditions.push_back(nodeOutput->getInternalID());
-    for (auto& plan : logicalPlans) {
-        planner->appendHashJoin(joinConditions, JoinType::INNER, *plan, scanPlan, *plan);
-    }
+    planner->appendHashJoin(joinConditions, JoinType::INNER, plan, scanPlan, plan);
 }
 
 std::unique_ptr<PhysicalOperator> GDSFunction::getPhysicalPlan(PlanMapper* planMapper,
@@ -229,12 +229,12 @@ std::unique_ptr<PhysicalOperator> GDSFunction::getPhysicalPlan(PlanMapper* planM
         std::make_unique<TableFunctionCallPrintInfo>(info.function.name, info.bindData->columns);
     auto call = std::make_unique<TableFunctionCall>(std::move(info), sharedState,
         planMapper->getOperatorID(), std::move(printInfo));
-    if (!logicalCall->getNodeMaskRoots().empty()) {
+    if (logicalCall->getNumChildren() > 0u) {
         const auto funcSharedState = sharedState->ptrCast<GDSFuncSharedState>();
         funcSharedState->setGraphNodeMask(std::make_unique<NodeOffsetMaskMap>());
         auto maskMap = funcSharedState->getGraphNodeMaskMap();
-        planMapper->logicalOpToPhysicalOpMap.insert({logicalOp, call.get()});
-        for (auto logicalRoot : logicalCall->getNodeMaskRoots()) {
+        planMapper->addOperatorMapping(logicalOp, call.get());
+        for (auto logicalRoot : logicalCall->getChildren()) {
             KU_ASSERT(logicalRoot->getNumChildren() == 1);
             auto child = logicalRoot->getChild(0);
             KU_ASSERT(child->getOperatorType() == LogicalOperatorType::SEMI_MASKER);
@@ -246,11 +246,13 @@ std::unique_ptr<PhysicalOperator> GDSFunction::getPhysicalPlan(PlanMapper* planM
             auto root = planMapper->mapOperator(logicalRoot.get());
             call->addChild(std::move(root));
         }
-        planMapper->logicalOpToPhysicalOpMap.erase(logicalOp);
+        planMapper->eraseOperatorMapping(logicalOp);
     }
-    planMapper->logicalOpToPhysicalOpMap.insert({logicalOp, call.get()});
+    planMapper->addOperatorMapping(logicalOp, call.get());
     physical_op_vector_t children;
-    children.push_back(planMapper->createDummySink(logicalCall->getSchema(), std::move(call)));
+    auto dummySink = std::make_unique<DummySink>(std::move(call), planMapper->getOperatorID());
+    dummySink->setDescriptor(std::make_unique<ResultSetDescriptor>(logicalCall->getSchema()));
+    children.push_back(std::move(dummySink));
     return planMapper->createFTableScanAligned(columns, logicalCall->getSchema(), table,
         DEFAULT_VECTOR_CAPACITY, std::move(children));
 }

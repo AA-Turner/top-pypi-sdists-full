@@ -3,8 +3,8 @@
 #include "common/enums/conflict_action.h"
 #include "expression_evaluator/expression_evaluator.h"
 #include "processor/execution_context.h"
-#include "storage/store/node_table.h"
-#include "storage/store/rel_table.h"
+#include "storage/table/node_table.h"
+#include "storage/table/rel_table.h"
 
 namespace kuzu {
 namespace processor {
@@ -65,7 +65,7 @@ public:
     void init(ResultSet* resultSet, const ExecutionContext* context);
 
     void setNodeIDVectorToNonNull() const;
-    common::nodeID_t insert(transaction::Transaction* transaction);
+    common::nodeID_t insert(main::ClientContext* context);
 
     // For MERGE, we might need to skip the insert for duplicate input. But still, we need to write
     // the output vector for later usage.
@@ -130,7 +130,7 @@ public:
 
     void init(ResultSet* resultSet, const ExecutionContext* context);
 
-    common::internalID_t insert(transaction::Transaction* transaction);
+    common::internalID_t insert(main::ClientContext* context);
 
     // See comment in NodeInsertExecutor.
     void skipInsert() const;

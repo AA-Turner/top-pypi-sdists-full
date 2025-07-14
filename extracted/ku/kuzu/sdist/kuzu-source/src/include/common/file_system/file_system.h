@@ -48,7 +48,7 @@ class KUZU_API FileSystem {
 public:
     FileSystem() = default;
 
-    explicit FileSystem(std::string homeDir) : homeDir(std::move(homeDir)) {}
+    explicit FileSystem(std::string homeDir) : dbPath(std::move(homeDir)) {}
 
     virtual ~FileSystem() = default;
 
@@ -68,7 +68,8 @@ public:
 
     virtual void createDir(const std::string& dir) const;
 
-    virtual void removeFileIfExists(const std::string& path);
+    virtual void removeFileIfExists(const std::string& path,
+        const main::ClientContext* context = nullptr);
 
     virtual bool fileOrPathExists(const std::string& path, main::ClientContext* context = nullptr);
 
@@ -87,6 +88,12 @@ public:
     virtual void syncFile(const FileInfo& fileInfo) const = 0;
 
     virtual bool canPerformSeek() const { return true; }
+
+    virtual bool handleFileViaFunction(const std::string& /*path*/) const { return false; }
+
+    virtual function::TableFunction getHandleFunction(const std::string& /*path*/) const {
+        KU_UNREACHABLE;
+    }
 
     template<class TARGET>
     TARGET* ptrCast() {
@@ -119,7 +126,7 @@ protected:
 
     static bool isGZIPCompressed(const std::filesystem::path& path);
 
-    std::string homeDir;
+    std::string dbPath;
 };
 
 } // namespace common

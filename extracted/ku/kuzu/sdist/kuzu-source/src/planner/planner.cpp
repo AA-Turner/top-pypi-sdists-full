@@ -1,6 +1,5 @@
 #include "planner/planner.h"
 
-#include "binder/bound_explain.h"
 #include "main/client_context.h"
 
 using namespace kuzu::binder;
@@ -27,7 +26,7 @@ expression_vector PropertyExprCollection::getProperties(const Expression& patter
     return patternNameToProperties.at(pattern.getUniqueName());
 }
 
-binder::expression_vector PropertyExprCollection::getProperties() const {
+expression_vector PropertyExprCollection::getProperties() const {
     expression_vector result;
     for (auto& [_, exprs] : patternNameToProperties) {
         for (auto& expr : exprs) {
@@ -38,7 +37,7 @@ binder::expression_vector PropertyExprCollection::getProperties() const {
 }
 
 void PropertyExprCollection::addProperties(const std::string& patternName,
-    std::shared_ptr<binder::Expression> property) {
+    std::shared_ptr<Expression> property) {
     if (!patternNameToProperties.contains(patternName)) {
         patternNameToProperties.insert({patternName, expression_vector{}});
     }
@@ -54,99 +53,71 @@ void PropertyExprCollection::clear() {
     patternNameToProperties.clear();
 }
 
-Planner::Planner(main::ClientContext* clientContext) : clientContext{clientContext} {
-    cardinalityEstimator = CardinalityEstimator(clientContext);
-    context = JoinOrderEnumeratorContext();
-}
+Planner::Planner(main::ClientContext* clientContext)
+    : clientContext{clientContext}, cardinalityEstimator{clientContext}, context{} {}
 
-std::unique_ptr<LogicalPlan> Planner::getBestPlan(const BoundStatement& statement) {
-    auto plan = std::make_unique<LogicalPlan>();
+LogicalPlan Planner::planStatement(const BoundStatement& statement) {
     switch (statement.getStatementType()) {
     case StatementType::QUERY: {
-        plan = getBestPlan(planQuery(statement));
-    } break;
+        return planQuery(statement);
+    }
     case StatementType::CREATE_TABLE: {
-        appendCreateTable(statement, *plan);
-    } break;
+        return planCreateTable(statement);
+    }
     case StatementType::CREATE_SEQUENCE: {
-        appendCreateSequence(statement, *plan);
-    } break;
+        return planCreateSequence(statement);
+    }
     case StatementType::CREATE_TYPE: {
-        appendCreateType(statement, *plan);
-    } break;
+        return planCreateType(statement);
+    }
     case StatementType::COPY_FROM: {
-        plan = planCopyFrom(statement);
-    } break;
+        return planCopyFrom(statement);
+    }
     case StatementType::COPY_TO: {
-        plan = planCopyTo(statement);
-    } break;
+        return planCopyTo(statement);
+    }
     case StatementType::DROP: {
-        appendDrop(statement, *plan);
-    } break;
+        return planDrop(statement);
+    }
     case StatementType::ALTER: {
-        appendAlter(statement, *plan);
-    } break;
+        return planAlter(statement);
+    }
     case StatementType::STANDALONE_CALL: {
-        appendStandaloneCall(statement, *plan);
-    } break;
+        return planStandaloneCall(statement);
+    }
     case StatementType::STANDALONE_CALL_FUNCTION: {
-        appendStandaloneCallFunction(statement, *plan);
-    } break;
+        return planStandaloneCallFunction(statement);
+    }
     case StatementType::EXPLAIN: {
-        appendExplain(statement, *plan);
-    } break;
+        return planExplain(statement);
+    }
     case StatementType::CREATE_MACRO: {
-        appendCreateMacro(statement, *plan);
-    } break;
+        return planCreateMacro(statement);
+    }
     case StatementType::TRANSACTION: {
-        appendTransaction(statement, *plan);
-    } break;
+        return planTransaction(statement);
+    }
     case StatementType::EXTENSION: {
-        appendExtension(statement, *plan);
-    } break;
+        return planExtension(statement);
+    }
     case StatementType::EXPORT_DATABASE: {
-        plan = planExportDatabase(statement);
-    } break;
+        return planExportDatabase(statement);
+    }
     case StatementType::IMPORT_DATABASE: {
-        plan = planImportDatabase(statement);
-    } break;
+        return planImportDatabase(statement);
+    }
     case StatementType::ATTACH_DATABASE: {
-        appendAttachDatabase(statement, *plan);
-    } break;
+        return planAttachDatabase(statement);
+    }
     case StatementType::DETACH_DATABASE: {
-        appendDetachDatabase(statement, *plan);
-    } break;
+        return planDetachDatabase(statement);
+    }
     case StatementType::USE_DATABASE: {
-        appendUseDatabase(statement, *plan);
-    } break;
+        return planUseDatabase(statement);
+    }
     default:
         KU_UNREACHABLE;
     }
-    return plan;
-}
-
-std::vector<std::unique_ptr<LogicalPlan>> Planner::getAllPlans(const BoundStatement& statement) {
-    // We enumerate all plans for our testing framework. This API should only be used for QUERY,
-    // EXPLAIN, but not DDL or COPY.
-    std::vector<std::unique_ptr<LogicalPlan>> plans;
-    switch (statement.getStatementType()) {
-    case StatementType::QUERY: {
-        for (auto& plan : planQuery(statement)) {
-            // Avoid sharing operator across plans.
-            plans.push_back(plan->deepCopy());
-        }
-    } break;
-    case StatementType::EXPLAIN: {
-        auto& explain = ku_dynamic_cast<const BoundExplain&>(statement);
-        plans = getAllPlans(*explain.getStatementToExplain());
-        for (auto& plan : plans) {
-            appendExplain(explain, *plan);
-        }
-    } break;
-    default:
-        KU_UNREACHABLE;
-    }
-    return plans;
 }
 
 } // namespace planner

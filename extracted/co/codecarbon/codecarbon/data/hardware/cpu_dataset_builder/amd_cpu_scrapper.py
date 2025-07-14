@@ -1,8 +1,8 @@
 """
 This script uses Playwright to scrape AMD CPU data from their website and save it as a CSV file.
 
-uv run pip install playwright
-uv run python amd_cpu_scrapper.py
+hatch run pip install playwright
+hatch run python amd_cpu_scrapper.py
 """
 
 import asyncio

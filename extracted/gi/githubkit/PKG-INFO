@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: GitHubKit
-Version: 0.12.15
+Version: 0.12.16
 Summary: GitHub SDK for Python
 License: MIT
 Keywords: github,octokit

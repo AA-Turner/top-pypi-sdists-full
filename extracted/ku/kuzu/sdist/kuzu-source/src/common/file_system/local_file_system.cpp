@@ -23,6 +23,8 @@
 
 #include <cstring>
 
+#include "storage/storage_utils.h"
+
 namespace kuzu {
 namespace common {
 
@@ -190,8 +192,9 @@ std::vector<std::string> LocalFileSystem::glob(main::ClientContext* context,
 }
 
 void LocalFileSystem::overwriteFile(const std::string& from, const std::string& to) {
-    if (!fileOrPathExists(from) || !fileOrPathExists(to))
+    if (!fileOrPathExists(from) || !fileOrPathExists(to)) {
         return;
+    }
     std::error_code errorCode;
     if (!std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing,
             errorCode)) {
@@ -203,8 +206,9 @@ void LocalFileSystem::overwriteFile(const std::string& from, const std::string& 
 }
 
 void LocalFileSystem::copyFile(const std::string& from, const std::string& to) {
-    if (!fileOrPathExists(from))
+    if (!fileOrPathExists(from)) {
         return;
+    }
     std::error_code errorCode;
     if (!std::filesystem::copy_file(from, to, std::filesystem::copy_options::none, errorCode)) {
         // LCOV_EXCL_START
@@ -253,31 +257,37 @@ void LocalFileSystem::createDir(const std::string& dir) const {
     }
 }
 
-bool isSubdirectory(const std::filesystem::path& base, const std::filesystem::path& sub) {
-    try {
-        // Resolve paths to their canonical form
-        auto canonicalBase = std::filesystem::canonical(base);
-        auto canonicalSub = std::filesystem::canonical(sub);
-
-        std::string relative = std::filesystem::relative(canonicalSub, canonicalBase).string();
-        // Size check for a "." result.
-        // If the path starts with "..", it's not a subdirectory.
-        return !relative.empty() && !(relative.starts_with(".."));
-
-    } catch (const std::filesystem::filesystem_error& e) {
-        // Handle errors, e.g., if paths don't exist
-        std::cerr << "Filesystem error: " << e.what() << std::endl;
-        return false;
-    }
+static std::unordered_set<std::string> getDatabaseFileSet(const std::string& path) {
+    std::unordered_set<std::string> result;
+    result.insert(storage::StorageUtils::getWALFilePath(path));
+    result.insert(storage::StorageUtils::getLockFilePath(path));
+    result.insert(storage::StorageUtils::getShadowFilePath(path));
+    result.insert(storage::StorageUtils::getTmpFilePath(path));
+    return result;
 }
 
-void LocalFileSystem::removeFileIfExists(const std::string& path) {
+static bool isExtensionFile(const main::ClientContext* context, const std::string& path) {
+    if (context == nullptr) {
+        return false;
+    }
+    auto extensionDir = context->getExtensionDir();
+    std::filesystem::path rel = std::filesystem::relative(path, extensionDir);
+    for (const auto& part : rel) {
+        if (part == "..") {
+            return false;
+        }
+    }
+    return true;
+}
+
+void LocalFileSystem::removeFileIfExists(const std::string& path,
+    const main::ClientContext* context) {
     if (!fileOrPathExists(path)) {
         return;
     }
-    if (!isSubdirectory(homeDir, path)) {
-        throw IOException(stringFormat("Error: Path {} is not within the allowed home directory {}",
-            path, homeDir));
+    if (!getDatabaseFileSet(dbPath).contains(path) && !isExtensionFile(context, path)) {
+        throw IOException(stringFormat(
+            "Error: Path {} is not within the allowed list of files to be removed.", path));
     }
     std::error_code errCode;
     bool success = false;
@@ -341,12 +351,14 @@ std::string LocalFileSystem::expandPath(main::ClientContext* context,
 bool LocalFileSystem::isLocalPath(const std::string& path) {
     return path.rfind("s3://", 0) != 0 && path.rfind("gs://", 0) != 0 &&
            path.rfind("gcs://", 0) != 0 && path.rfind("http://", 0) != 0 &&
-           path.rfind("https://", 0) != 0;
+           path.rfind("https://", 0) != 0 && path.rfind("az://", 0) != 0 &&
+           path.rfind("abfss://", 0) != 0;
 }
 
 void LocalFileSystem::readFromFile(FileInfo& fileInfo, void* buffer, uint64_t numBytes,
     uint64_t position) const {
     auto localFileInfo = fileInfo.constPtrCast<LocalFileInfo>();
+    KU_ASSERT(localFileInfo->getFileSize() >= position + numBytes);
 #if defined(_WIN32)
     DWORD numBytesRead;
     OVERLAPPED overlapped{0, 0, 0, 0};
@@ -367,7 +379,7 @@ void LocalFileSystem::readFromFile(FileInfo& fileInfo, void* buffer, uint64_t nu
     }
 #else
     auto numBytesRead = pread(localFileInfo->fd, buffer, numBytes, position);
-    if ((uint64_t)numBytesRead != numBytes &&
+    if (static_cast<uint64_t>(numBytesRead) != numBytes &&
         localFileInfo->getFileSize() != position + numBytesRead) {
         // LCOV_EXCL_START
         throw IOException(stringFormat("Cannot read from file: {} fileDescriptor: {} "
@@ -416,7 +428,7 @@ void LocalFileSystem::writeFile(FileInfo& fileInfo, const uint8_t* buffer, uint6
 #else
         auto numBytesWritten =
             pwrite(localFileInfo->fd, buffer + bufferOffset, numBytesToWrite, offset);
-        if (numBytesWritten != (int64_t)numBytesToWrite) {
+        if (numBytesWritten != static_cast<int64_t>(numBytesToWrite)) {
             // LCOV_EXCL_START
             throw IOException(
                 stringFormat("Cannot write to file. path: {} fileDescriptor: {} offsetToWrite: {} "

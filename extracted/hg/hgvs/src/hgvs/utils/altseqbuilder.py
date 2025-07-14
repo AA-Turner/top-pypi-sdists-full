@@ -6,13 +6,12 @@ Used in hgvsc to hgvsp conversion.
 
 """
 
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
 import logging
 import math
 
-import six
+from hgvs import global_config
+from hgvs.exceptions import HGVSError
+
 from bioutils.sequences import reverse_complement, translate_cds
 
 from ..edit import Dup, Inv, NARefAlt, Repeat
@@ -23,7 +22,7 @@ DBG = False
 _logger = logging.getLogger(__name__)
 
 
-class AltTranscriptData(object):
+class AltTranscriptData:
     def __init__(
         self,
         seq,
@@ -57,7 +56,7 @@ class AltTranscriptData(object):
         """
 
         if len(seq) > 0:
-            if isinstance(seq, six.string_types):
+            if isinstance(seq, str):
                 seq = list(seq)
             seq_cds = seq[cds_start - 1 :]
             seq_cds = "".join(seq_cds)
@@ -82,8 +81,7 @@ class AltTranscriptData(object):
         self.is_ambiguous = is_ambiguous
 
 
-class AltSeqBuilder(object):
-
+class AltSeqBuilder:
     EXON = "exon"
     INTRON = "intron"
     F_UTR = "five utr"
@@ -147,10 +145,14 @@ class AltSeqBuilder(object):
             if self._var_c.posedit.edit.type == "del":
                 edit_type = WHOLE_GENE_DELETED
             elif self._var_c.posedit.edit.type == "dup":
-                _logger.warning("Whole-gene duplication; consequence assumed to not affect protein product")
+                _logger.warning(
+                    "Whole-gene duplication; consequence assumed to not affect protein product"
+                )
                 edit_type = NOT_CDS
             elif self._var_c.posedit.edit.type == "inv":
-                _logger.warning("Whole-gene inversion; consequence assumed to not affect protein product")
+                _logger.warning(
+                    "Whole-gene inversion; consequence assumed to not affect protein product"
+                )
                 edit_type = NOT_CDS
             else:
                 edit_type = NOT_CDS
@@ -160,7 +162,9 @@ class AltSeqBuilder(object):
         try:
             this_alt_data = type_map[edit_type]()
         except KeyError:
-            raise NotImplementedError("c to p translation unsupported for {} type {}".format(self._var_c, edit_type))
+            raise NotImplementedError(
+                "c to p translation unsupported for {} type {}".format(self._var_c, edit_type)
+            )
 
         # get the start of the "terminal" frameshift (i.e. one never "cancelled out")
         this_alt_data = self._get_frameshift_start(this_alt_data)
@@ -176,14 +180,61 @@ class AltSeqBuilder(object):
         :return "exon", "intron", "five_utr", "three_utr", "whole_gene"
         :rtype str
         """
-        if self._var_c.posedit.pos.start.datum == Datum.CDS_END and self._var_c.posedit.pos.end.datum == Datum.CDS_END:
+        if (
+            self._var_c.posedit.pos.start.datum == Datum.CDS_END
+            and self._var_c.posedit.pos.end.datum == Datum.CDS_END
+        ):
+            result = self.T_UTR
+        elif (
+            self._var_c.posedit.edit.type in ["dup", "ins"]
+            and self._var_c.posedit.pos.end.datum == Datum.CDS_END
+        ):
             result = self.T_UTR
         elif self._var_c.posedit.pos.start.base < 0 and self._var_c.posedit.pos.end.base < 0:
             result = self.F_UTR
-        elif self._var_c.posedit.pos.start.base < 0 and self._var_c.posedit.pos.end.datum == Datum.CDS_END:
+        elif (
+            self._var_c.posedit.pos.start.base < 0
+            and self._var_c.posedit.pos.end.datum == Datum.CDS_END
+        ):
             result = self.WHOLE_GENE
+        elif (
+            global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "dup"
+            and self._var_c.posedit.pos.start.base in self._transcript_data.exon_start_positions
+        ):
+            result = self.INTRON
+        elif (
+            global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "dup"
+            and self._var_c.posedit.pos.end.base in self._transcript_data.exon_end_positions
+        ):
+            result = self.INTRON
+        elif (
+            not global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "ins"
+            and self._var_c.posedit.pos.start.offset == -1 and self._var_c.posedit.pos.end.offset == 0
+        ):
+            result = self.EXON
+        elif (
+            not global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "ins"
+            and self._var_c.posedit.pos.start.offset == 0 and self._var_c.posedit.pos.end.offset == 1
+        ):
+            result = self.EXON
+        elif (
+            not global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "dup"
+            and self._var_c.posedit.pos.end.offset == -1
+        ):
+            result = self.EXON
+        elif (
+            not global_config.mapping.ins_at_boundary_is_intronic
+            and self._var_c.posedit.edit.type == "dup"
+            and self._var_c.posedit.pos.start.offset == 1
+        ):
+            result = self.EXON
         elif self._var_c.posedit.pos.start.offset != 0 or self._var_c.posedit.pos.end.offset != 0:
-            # leave out anything intronic for now
+            # leave out anything else intronic for now
             result = self.INTRON
         else:  # anything else that contains an exon
             result = self.EXON
@@ -211,8 +262,12 @@ class AltSeqBuilder(object):
 
         ref = self._var_c.posedit.edit.ref
         alt = self._var_c.posedit.edit.alt
-        ref_length = end - start if ref is not None else 0  # can't just get from ref since ref isn't always known
-        alt_length = len(self._var_c.posedit.edit.alt) if self._var_c.posedit.edit.alt is not None else 0
+        ref_length = (
+            end - start if ref is not None else 0
+        )  # can't just get from ref since ref isn't always known
+        alt_length = (
+            len(self._var_c.posedit.edit.alt) if self._var_c.posedit.edit.alt is not None else 0
+        )
         net_base_change = alt_length - ref_length
         cds_stop += net_base_change
 
@@ -249,7 +304,10 @@ class AltSeqBuilder(object):
         """Incorporate dup into sequence"""
         seq, cds_start, cds_stop, start, end = self._setup_incorporate()
 
-        dup_seq = seq[start:end]
+        if not self._var_c.posedit.edit.ref:
+            raise HGVSError('Duplication variant is missing reference sequence')
+
+        dup_seq = self._var_c.posedit.edit.ref
         seq[end:end] = dup_seq
 
         is_frameshift = len(dup_seq) % 3 != 0
@@ -288,7 +346,9 @@ class AltSeqBuilder(object):
 
     def _incorporate_repeat(self):
         """Incorporate repeat int sequence"""
-        raise NotImplementedError("hgvs c to p conversion does not support {} type: repeats".format(self._var_c))
+        raise NotImplementedError(
+            "hgvs c to p conversion does not support {} type: repeats".format(self._var_c)
+        )
 
     def _setup_incorporate(self):
         """Helper to setup incorporate functions
@@ -309,10 +369,10 @@ class AltSeqBuilder(object):
                 if pos.base < 0:  # 5' UTR
                     result = cds_start - 1
                 else:  # cds/intron
-                    if pos.offset <= 0:
-                        result = (cds_start - 1) + pos.base - 1
+                    if pos.offset < 0:
+                        result = (cds_start - 1) + pos.base - 2
                     else:
-                        result = (cds_start - 1) + pos.base
+                        result = (cds_start - 1) + pos.base - 1
             elif pos.datum == Datum.CDS_END:  # 3' UTR
                 result = cds_stop + pos.base - 1
             else:
@@ -325,7 +385,9 @@ class AltSeqBuilder(object):
 
         if DBG:
             print(
-                "len seq:{} cds_start:{} cds_stop:{} start:{} end:{}".format(len(seq), cds_start, cds_stop, start, end)
+                "len seq:{} cds_start:{} cds_stop:{} start:{} end:{}".format(
+                    len(seq), cds_start, cds_stop, start, end
+                )
             )
         return seq, cds_start, cds_stop, start, end
 

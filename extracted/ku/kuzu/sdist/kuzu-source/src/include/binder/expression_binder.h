@@ -42,7 +42,8 @@ public:
     std::shared_ptr<Expression> bindExpression(const parser::ParsedExpression& parsedExpression);
 
     // TODO(Xiyang): move to an expression rewriter
-    std::shared_ptr<Expression> foldExpression(const std::shared_ptr<Expression>& expression) const;
+    KUZU_API std::shared_ptr<Expression> foldExpression(
+        const std::shared_ptr<Expression>& expression) const;
 
     // Boolean expressions.
     std::shared_ptr<Expression> bindBooleanExpression(
@@ -136,6 +137,7 @@ private:
     Binder* binder;
     main::ClientContext* context;
     std::unordered_map<std::string, std::shared_ptr<common::Value>> parameterMap;
+    std::unordered_set<std::string> parsedParameters;
     ExpressionBinderConfig config;
 };
 

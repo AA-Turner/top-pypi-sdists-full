@@ -39,19 +39,20 @@ class Transaction;
 namespace catalog {
 class TableCatalogEntry;
 class NodeTableCatalogEntry;
-class RelTableCatalogEntry;
 class RelGroupCatalogEntry;
 class FunctionCatalogEntry;
 class SequenceCatalogEntry;
 class IndexCatalogEntry;
 
+template<typename T>
+concept TableCatalogEntryType =
+    std::is_same_v<T, NodeTableCatalogEntry> || std::is_same_v<T, RelGroupCatalogEntry>;
+
 class KUZU_API Catalog {
     friend class main::AttachedKuzuDatabase;
 
 public:
-    // This is extended by DuckCatalog and PostgresCatalog.
     Catalog();
-    Catalog(const std::string& directory, common::VirtualFileSystem* vfs);
     virtual ~Catalog() = default;
 
     // ----------------------------- Tables ----------------------------
@@ -71,7 +72,7 @@ public:
     std::vector<NodeTableCatalogEntry*> getNodeTableEntries(
         const transaction::Transaction* transaction, bool useInternal = true) const;
     // Get all rel table entries.
-    std::vector<RelTableCatalogEntry*> getRelTableEntries(
+    std::vector<RelGroupCatalogEntry*> getRelGroupEntries(
         const transaction::Transaction* transaction, bool useInternal = true) const;
     // Get all table entries.
     std::vector<TableCatalogEntry*> getTableEntries(const transaction::Transaction* transaction,
@@ -88,34 +89,6 @@ public:
     void dropTableEntry(transaction::Transaction* transaction, const TableCatalogEntry* entry);
     // Alter table entry.
     void alterTableEntry(transaction::Transaction* transaction, const binder::BoundAlterInfo& info);
-    // Alter a rel group entry
-    // alterTableEntry() still needs to be called separately for each member of the group
-    void alterRelGroupEntry(transaction::Transaction* transaction,
-        const binder::BoundAlterInfo& info);
-
-    // ----------------------------- Rel groups ----------------------------
-
-    // Check if rel group entry exists.
-    bool containsRelGroup(const transaction::Transaction* transaction,
-        const std::string& name) const;
-    // Get rel group entry with name.
-    RelGroupCatalogEntry* getRelGroupEntry(const transaction::Transaction* transaction,
-        const std::string& name) const;
-    // Get all rel group entries.
-    std::vector<RelGroupCatalogEntry*> getRelGroupEntries(
-        const transaction::Transaction* transaction) const;
-
-    // Create rel group entry and its children rel entries.
-    CatalogEntry* createRelGroupEntry(transaction::Transaction* transaction,
-        const binder::BoundCreateTableInfo& info);
-    // Create rel group entry
-    CatalogEntry* createRelGroupEntry(transaction::Transaction* transaction,
-        const std::string& entryName, std::vector<common::table_id_t> childrenTableIDs);
-    // Drop rel group entry.
-    void dropRelGroupEntry(transaction::Transaction* transaction, common::oid_t id);
-    // Drop rel group entry.
-    void dropRelGroupEntry(transaction::Transaction* transaction,
-        const RelGroupCatalogEntry* entry);
 
     // ----------------------------- Sequences ----------------------------
 
@@ -153,24 +126,31 @@ public:
 
     // ----------------------------- Indexes ----------------------------
 
-    // Check if index entry exists.
+    // Check if index exists for given table and name
     bool containsIndex(const transaction::Transaction* transaction, common::table_id_t tableID,
         const std::string& indexName) const;
+    // Check if index exists for given table and property
+    bool containsIndex(const transaction::Transaction* transaction, common::table_id_t tableID,
+        common::property_id_t propertyID) const;
     // Get index entry with name.
     IndexCatalogEntry* getIndex(const transaction::Transaction* transaction,
         common::table_id_t tableID, const std::string& indexName) const;
     // Get all index entries.
     std::vector<IndexCatalogEntry*> getIndexEntries(
         const transaction::Transaction* transaction) const;
+    // Get all index entries for given table
+    std::vector<IndexCatalogEntry*> getIndexEntries(const transaction::Transaction* transaction,
+        common::table_id_t tableID) const;
 
     // Create index entry.
     void createIndex(transaction::Transaction* transaction,
-        std::unique_ptr<IndexCatalogEntry> indexCatalogEntry);
+        std::unique_ptr<CatalogEntry> indexCatalogEntry);
     // Drop all index entries within a table.
     void dropAllIndexes(transaction::Transaction* transaction, common::table_id_t tableID);
     // Drop index entry with name.
     void dropIndex(transaction::Transaction* transaction, common::table_id_t tableID,
         const std::string& indexName) const;
+    void dropIndex(transaction::Transaction* transaction, common::oid_t indexOID);
 
     // ----------------------------- Functions ----------------------------
 
@@ -204,7 +184,11 @@ public:
 
     void incrementVersion() { version++; }
     uint64_t getVersion() const { return version; }
-    void checkpoint(const std::string& databasePath, common::VirtualFileSystem* fs) const;
+    bool changedSinceLastCheckpoint() const { return version != 0; }
+    void resetVersion() { version = 0; }
+
+    void serialize(common::Serializer& ser) const;
+    void deserialize(common::Deserializer& deSer);
 
     template<class TARGET>
     TARGET* ptrCast() {
@@ -212,31 +196,26 @@ public:
     }
 
 private:
-    // The clientContext needs to be used when reading from a remote filesystem which
-    // requires some user-specific configs (e.g. s3 username, password).
-    void readFromFile(const std::string& directory, common::VirtualFileSystem* fs,
-        common::FileVersionType versionType, main::ClientContext* context = nullptr);
-    void saveToFile(const std::string& directory, common::VirtualFileSystem* fs,
-        common::FileVersionType versionType) const;
-
-private:
     void initCatalogSets();
     void registerBuiltInFunctions();
 
     CatalogEntry* createNodeTableEntry(transaction::Transaction* transaction,
         const binder::BoundCreateTableInfo& info);
-    CatalogEntry* createRelTableEntry(transaction::Transaction* transaction,
+    CatalogEntry* createRelGroupEntry(transaction::Transaction* transaction,
         const binder::BoundCreateTableInfo& info);
 
     void createSerialSequence(transaction::Transaction* transaction, const TableCatalogEntry* entry,
         bool isInternal);
     void dropSerialSequence(transaction::Transaction* transaction, const TableCatalogEntry* entry);
 
+    template<TableCatalogEntryType T>
+    std::vector<T*> getTableEntries(const transaction::Transaction* transaction, bool useInternal,
+        CatalogEntryType entryType) const;
+
 protected:
     std::unique_ptr<CatalogSet> tables;
 
 private:
-    std::unique_ptr<CatalogSet> relGroups;
     std::unique_ptr<CatalogSet> sequences;
     std::unique_ptr<CatalogSet> functions;
     std::unique_ptr<CatalogSet> types;
@@ -245,6 +224,8 @@ private:
     std::unique_ptr<CatalogSet> internalSequences;
     std::unique_ptr<CatalogSet> internalFunctions;
 
+    // incremented whenever a change is made to the catalog
+    // reset to 0 at the end of each checkpoint
     uint64_t version;
 };
 

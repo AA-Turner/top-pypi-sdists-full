@@ -4,10 +4,14 @@
 #include <mutex>
 #include <vector>
 
+#if defined(__APPLE__)
+#include <pthread/qos.h>
+#endif
+
 #include "common/api.h"
+#include "common/database_lifecycle_manager.h"
 #include "kuzu_fwd.h"
 #include "main/db_config.h"
-
 namespace kuzu {
 namespace common {
 class FileSystem;
@@ -34,7 +38,6 @@ class StorageExtension;
 namespace main {
 struct ExtensionOption;
 class DatabaseManager;
-class ClientContext;
 
 /**
  * @brief Stores runtime configuration for creating or opening a Database
@@ -60,10 +63,17 @@ struct KUZU_API SystemConfig {
      * the WAL file exceeds the checkpoint threshold.
      * @param checkpointThreshold The threshold of the WAL file size in bytes. When the size of the
      * WAL file exceeds this threshold, the database will checkpoint if autoCheckpoint is true.
+     * @param forceCheckpointOnClose If true, the database will force checkpoint when closing.
      */
     explicit SystemConfig(uint64_t bufferPoolSize = -1u, uint64_t maxNumThreads = 0,
         bool enableCompression = true, bool readOnly = false, uint64_t maxDBSize = -1u,
-        bool autoCheckpoint = true, uint64_t checkpointThreshold = 16777216 /* 16MB */);
+        bool autoCheckpoint = true, uint64_t checkpointThreshold = 16777216 /* 16MB */,
+        bool forceCheckpointOnClose = true
+#if defined(__APPLE__)
+        ,
+        uint32_t threadQos = QOS_CLASS_DEFAULT
+#endif
+    );
 
     uint64_t bufferPoolSize;
     uint64_t maxNumThreads;
@@ -72,6 +82,10 @@ struct KUZU_API SystemConfig {
     uint64_t maxDBSize;
     bool autoCheckpoint;
     uint64_t checkpointThreshold;
+    bool forceCheckpointOnClose;
+#if defined(__APPLE__)
+    uint32_t threadQos;
+#endif
 };
 
 /**
@@ -150,6 +164,7 @@ private:
     std::unique_ptr<DatabaseManager> databaseManager;
     std::unique_ptr<extension::ExtensionManager> extensionManager;
     QueryIDGenerator queryIDGenerator;
+    std::shared_ptr<common::DatabaseLifeCycleManager> dbLifeCycleManager;
 };
 
 } // namespace main

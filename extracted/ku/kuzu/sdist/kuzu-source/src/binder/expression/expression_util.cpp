@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "binder/binder.h"
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/node_rel_expression.h"
 #include "binder/expression/parameter_expression.h"
@@ -503,6 +504,17 @@ T ExpressionUtil::evaluateLiteral(const Expression& expression, const common::Lo
     return getExpressionVal(expression, value, type, validateParamFunc);
 }
 
+std::shared_ptr<Expression> ExpressionUtil::applyImplicitCastingIfNecessary(
+    main::ClientContext* context, std::shared_ptr<Expression> expr,
+    common::LogicalType targetType) {
+    if (expr->getDataType() != targetType) {
+        binder::Binder binder{context};
+        expr = binder.getExpressionBinder()->implicitCastIfNecessary(expr, targetType);
+        expr = binder.getExpressionBinder()->foldExpression(expr);
+    }
+    return expr;
+}
+
 template KUZU_API std::string ExpressionUtil::getExpressionVal(const Expression& expr,
     const common::Value& value, const common::LogicalType& targetType,
     validate_param_func<std::string> validateParamFunc);
@@ -531,6 +543,9 @@ template KUZU_API int64_t ExpressionUtil::evaluateLiteral<int64_t>(const Express
 
 template KUZU_API bool ExpressionUtil::evaluateLiteral<bool>(const Expression& expression,
     const LogicalType& type, validate_param_func<bool> validateParamFunc);
+
+template KUZU_API uint64_t ExpressionUtil::evaluateLiteral<uint64_t>(const Expression& expression,
+    const LogicalType& type, validate_param_func<uint64_t> validateParamFunc);
 
 } // namespace binder
 } // namespace kuzu

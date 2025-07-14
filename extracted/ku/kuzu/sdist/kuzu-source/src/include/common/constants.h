@@ -64,16 +64,11 @@ struct BufferPoolConstants {
 };
 
 struct StorageConstants {
-    static constexpr char OVERFLOW_FILE_SUFFIX[] = ".ovf";
-    static constexpr char WAL_FILE_SUFFIX[] = ".wal";
-    static constexpr char SHADOWING_SUFFIX[] = ".shadow";
-    static constexpr char INDEX_FILE_SUFFIX[] = ".hindex";
-    static constexpr char CATALOG_FILE_NAME[] = "catalog.kz";
-    static constexpr char CATALOG_FILE_NAME_FOR_WAL[] = "catalog.shadow";
-    static constexpr char DATA_FILE_NAME[] = "data.kz";
-    static constexpr char METADATA_FILE_NAME[] = "metadata.kz";
-    static constexpr char METADATA_FILE_NAME_FOR_WAL[] = "metadata.shadow";
-    static constexpr char LOCK_FILE_NAME[] = ".lock";
+    static constexpr page_idx_t DB_HEADER_PAGE_IDX = 0;
+    static constexpr char WAL_FILE_SUFFIX[] = "wal";
+    static constexpr char SHADOWING_SUFFIX[] = "shadow";
+    static constexpr char LOCK_FILE_SUFFIX[] = "lock";
+    static constexpr char TEMP_FILE_SUFFIX[] = "tmp";
 
     // The number of pages that we add at one time when we need to grow a file.
     static constexpr uint64_t PAGE_GROUP_SIZE_LOG2 = 10;
@@ -85,8 +80,6 @@ struct StorageConstants {
     static constexpr double LEAF_HIGH_CSR_DENSITY = 1.0;
 
     static constexpr uint64_t MAX_NUM_ROWS_IN_TABLE = static_cast<uint64_t>(1) << 62;
-
-    static constexpr char TEMP_SPILLING_FILE_NAME[] = ".tmp";
 };
 
 struct TableOptionConstants {
@@ -133,10 +126,13 @@ struct CopyConstants {
     static constexpr std::array DEFAULT_CSV_DELIMITER_SEARCH_SPACE = {',', ';', '\t', '|'};
     static constexpr std::array DEFAULT_CSV_QUOTE_SEARCH_SPACE = {'"', '\''};
     static constexpr std::array DEFAULT_CSV_ESCAPE_SEARCH_SPACE = {'"', '\\', '\''};
+    static constexpr std::array DEFAULT_CSV_NULL_STRINGS = {""};
 
     static constexpr const char* INT_CSV_PARSING_OPTIONS[] = {"SKIP", "SAMPLE_SIZE"};
     static constexpr uint64_t DEFAULT_CSV_SKIP_NUM = 0;
     static constexpr uint64_t DEFAULT_CSV_TYPE_DEDUCTION_SAMPLE_SIZE = 256;
+
+    static constexpr const char* LIST_CSV_PARSING_OPTIONS[] = {"NULL_STRINGS"};
 
     // metadata columns used to populate CSV warnings
     static constexpr std::array SHARED_WARNING_DATA_COLUMN_NAMES = {"blockIdx", "offsetInBlock",
@@ -203,6 +199,9 @@ struct PortDBConstants {
     static constexpr char INDEX_FILE_NAME[] = "index.cypher";
     static constexpr char SCHEMA_FILE_NAME[] = "schema.cypher";
     static constexpr char COPY_FILE_NAME[] = "copy.cypher";
+    static constexpr const char* SCHEMA_ONLY_OPTION = "SCHEMA_ONLY";
+    static constexpr const char* EXPORT_FORMAT_OPTION = "FORMAT";
+    static constexpr const char* DEFAULT_EXPORT_FORMAT_OPTION = "PARQUET";
 };
 
 struct WarningConstants {

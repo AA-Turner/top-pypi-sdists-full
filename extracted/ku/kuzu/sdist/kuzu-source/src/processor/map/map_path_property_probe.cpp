@@ -1,5 +1,6 @@
 #include "binder/expression/expression_util.h"
 #include "binder/expression/property_expression.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "common/string_utils.h"
 #include "main/client_context.h"
@@ -62,12 +63,12 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
             ExpressionUtil::excludeExpressions(nodeBuildSchema->getExpressionsInScope(), nodeKeys);
         auto nodeBuildInfo = createHashBuildInfo(*nodeBuildSchema, nodeKeys, nodePayloads);
         auto nodeHashTable = std::make_unique<JoinHashTable>(*clientContext->getMemoryManager(),
-            std::move(nodeKeyTypes), nodeBuildInfo->getTableSchema()->copy());
+            std::move(nodeKeyTypes), nodeBuildInfo.tableSchema.copy());
         nodeBuildSharedState = std::make_shared<HashJoinSharedState>(std::move(nodeHashTable));
-        nodeBuild = make_unique<HashJoinBuild>(
-            std::make_unique<ResultSetDescriptor>(nodeBuildSchema),
-            PhysicalOperatorType::HASH_JOIN_BUILD, nodeBuildSharedState, std::move(nodeBuildInfo),
-            std::move(nodeBuildPrevOperator), getOperatorID(), std::make_unique<OPPrintInfo>());
+        nodeBuild = make_unique<HashJoinBuild>(PhysicalOperatorType::HASH_JOIN_BUILD,
+            nodeBuildSharedState, std::move(nodeBuildInfo), std::move(nodeBuildPrevOperator),
+            getOperatorID(), std::make_unique<OPPrintInfo>());
+        nodeBuild->setDescriptor(std::make_unique<ResultSetDescriptor>(nodeBuildSchema));
         auto [fieldIndices, columnIndices] = getColIdxToScan(nodePayloads, nodeKeys.size(),
             ListType::getChildType(
                 StructType::getField(rel->getDataType(), InternalKeyword::NODES).getType()));
@@ -82,18 +83,18 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
     if (logicalProbe.getRelChild() != nullptr) {
         auto relBuildPrvOperator = mapOperator(logicalProbe.getRelChild().get());
         auto relBuildSchema = logicalProbe.getRelChild()->getSchema();
-        auto relKeys = expression_vector{recursiveInfo->rel->getInternalIDProperty()};
+        auto relKeys = expression_vector{recursiveInfo->rel->getInternalID()};
         auto relKeyTypes = ExpressionUtil::getDataTypes(relKeys);
         auto relPayloads =
             ExpressionUtil::excludeExpressions(relBuildSchema->getExpressionsInScope(), relKeys);
         auto relBuildInfo = createHashBuildInfo(*relBuildSchema, relKeys, relPayloads);
         auto relHashTable = std::make_unique<JoinHashTable>(*clientContext->getMemoryManager(),
-            std::move(relKeyTypes), relBuildInfo->getTableSchema()->copy());
+            std::move(relKeyTypes), relBuildInfo.tableSchema.copy());
         relBuildSharedState = std::make_shared<HashJoinSharedState>(std::move(relHashTable));
-        relBuild =
-            std::make_unique<HashJoinBuild>(std::make_unique<ResultSetDescriptor>(relBuildSchema),
-                PhysicalOperatorType::HASH_JOIN_BUILD, relBuildSharedState, std::move(relBuildInfo),
-                std::move(relBuildPrvOperator), getOperatorID(), std::make_unique<OPPrintInfo>());
+        relBuild = std::make_unique<HashJoinBuild>(PhysicalOperatorType::HASH_JOIN_BUILD,
+            relBuildSharedState, std::move(relBuildInfo), std::move(relBuildPrvOperator),
+            getOperatorID(), std::make_unique<OPPrintInfo>());
+        relBuild->setDescriptor(std::make_unique<ResultSetDescriptor>(relBuildSchema));
         auto [fieldIndices, columnIndices] = getColIdxToScan(relPayloads, relKeys.size(),
             ListType::getChildType(
                 StructType::getField(rel->getDataType(), InternalKeyword::RELS).getType()));
@@ -106,14 +107,13 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
     if (logicalChild->getOperatorType() == LogicalOperatorType::SEMI_MASKER) {
         // Create a pipeline to populate semi mask. Pipeline source is the scan of recursive extend
         // result, and pipeline sink is a dummy operator that does not materialize anything.
-        prevOperator = std::make_unique<DummySink>(
-            std::make_unique<ResultSetDescriptor>(logicalChild->getSchema()),
-            std::move(prevOperator), getOperatorID(), std::make_unique<OPPrintInfo>());
+        auto dummySink = std::make_unique<DummySink>(std::move(prevOperator), getOperatorID());
+        dummySink->setDescriptor(std::make_unique<ResultSetDescriptor>(logicalChild->getSchema()));
         auto extend = logicalChild->getChild(0)->ptrCast<LogicalRecursiveExtend>();
         auto columns = extend->getResultColumns();
         auto physicalCall = logicalOpToPhysicalOpMap.at(extend)->ptrCast<RecursiveExtend>();
         physical_op_vector_t children;
-        children.push_back(std::move(prevOperator));
+        children.push_back(std::move(dummySink));
         prevOperator = createFTableScanAligned(columns, extend->getSchema(),
             physicalCall->getSharedState()->factorizedTablePool.getGlobalTable(),
             DEFAULT_VECTOR_CAPACITY, std::move(children));
@@ -122,8 +122,6 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
     auto pathProbeInfo = PathPropertyProbeInfo();
     auto schema = logicalProbe.getSchema();
     pathProbeInfo.pathPos = getDataPos(*rel, *schema);
-    auto catalog = clientContext->getCatalog();
-    auto transaction = clientContext->getTransaction();
     if (logicalProbe.getPathEdgeIDs() != nullptr) {
         pathProbeInfo.leftNodeIDPos = getDataPos(*rel->getLeftNode()->getInternalID(), *schema);
         pathProbeInfo.rightNodeIDPos = getDataPos(*rel->getRightNode()->getInternalID(), *schema);
@@ -136,12 +134,13 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
                 getDataPos(*recursiveInfo->bindData->directionExpr, *schema);
         }
         for (auto entry : recursiveInfo->node->getEntries()) {
-            pathProbeInfo.tableIDToName.insert(
-                {entry->getTableID(), entry->getLabel(catalog, transaction)});
+            pathProbeInfo.tableIDToName.insert({entry->getTableID(), entry->getName()});
         }
         for (auto& entry : recursiveInfo->rel->getEntries()) {
-            pathProbeInfo.tableIDToName.insert(
-                {entry->getTableID(), entry->getLabel(catalog, transaction)});
+            auto& relGroupEntry = entry->constCast<catalog::RelGroupCatalogEntry>();
+            for (auto& relEntryInfo : relGroupEntry.getRelEntryInfos()) {
+                pathProbeInfo.tableIDToName.insert({relEntryInfo.oid, entry->getName()});
+            }
         }
     }
     pathProbeInfo.nodeFieldIndices = nodeFieldIndices;
@@ -151,17 +150,15 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapPathPropertyProbe(
     pathProbeInfo.extendFromLeft = logicalProbe.extendFromLeft;
     auto pathProbeSharedState =
         std::make_shared<PathPropertyProbeSharedState>(nodeBuildSharedState, relBuildSharedState);
-    std::vector<std::unique_ptr<PhysicalOperator>> children;
-    children.push_back(std::move(prevOperator));
-    if (nodeBuild != nullptr) {
-        children.push_back(std::move(nodeBuild));
-    }
-    if (relBuild != nullptr) {
-        children.push_back(std::move(relBuild));
-    }
     auto printInfo = std::make_unique<OPPrintInfo>();
     auto pathPropertyProbe = std::make_unique<PathPropertyProbe>(std::move(pathProbeInfo),
-        pathProbeSharedState, std::move(children), getOperatorID(), std::move(printInfo));
+        pathProbeSharedState, std::move(prevOperator), getOperatorID(), std::move(printInfo));
+    if (nodeBuild != nullptr) {
+        pathPropertyProbe->addChild(std::move(nodeBuild));
+    }
+    if (relBuild != nullptr) {
+        pathPropertyProbe->addChild(std::move(relBuild));
+    }
     if (logicalProbe.getSIPInfo().direction == SIPDirection::PROBE_TO_BUILD) {
         mapSIPJoin(pathPropertyProbe.get());
     }

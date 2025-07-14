@@ -7,6 +7,7 @@ import string
 import subprocess
 import time
 import socket
+import sys
 import asyncio
 import requests
 
@@ -36,13 +37,13 @@ def _auth_header(username, password):
     b64 = base64.b64encode(up.encode()).decode()
     return {"Authorization": f"Basic {b64}"}
 
-@unittest.skipUnless(is_test_flag("integration"), "Integration tests disabled")
+@unittest.skipUnless(is_test_flag("ocpp"), "OCPP tests disabled")
 class ChargerDashboardRefreshTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         _remove_test_user()
         cls.proc = subprocess.Popen(
-            ["gway", "-r", "test/website"],
+            [sys.executable, "-m", "gway", "-r", "test/website"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -79,7 +80,7 @@ class ChargerDashboardRefreshTests(unittest.TestCase):
             except OSError:
                 time.sleep(0.2)
         raise TimeoutError(f"Port {port} not responding after {timeout} seconds")
-    @unittest.skipUnless(is_test_flag("integration"), "Integration tests disabled")
+    @unittest.skipUnless(is_test_flag("ocpp"), "OCPP tests disabled")
 
     def test_dashboard_updates_with_simulator(self):
         async def run_sim_and_check():
@@ -106,6 +107,7 @@ class ChargerDashboardRefreshTests(unittest.TestCase):
                 timeout=5,
             )
             self.assertIn("SIMDASH", resp.text)
+            self.assertRegex(resp.text, r"kWh\.</td>\s*<td class=\"value\">[0-9.]+")
             await sim_task
         asyncio.run(run_sim_and_check())
 

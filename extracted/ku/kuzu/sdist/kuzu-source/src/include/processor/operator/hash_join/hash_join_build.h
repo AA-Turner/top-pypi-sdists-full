@@ -43,55 +43,45 @@ public:
     explicit HashJoinSharedState(std::unique_ptr<JoinHashTable> hashTable)
         : hashTable{std::move(hashTable)} {};
 
-    virtual ~HashJoinSharedState() = default;
-
     void mergeLocalHashTable(JoinHashTable& localHashTable);
 
-    inline JoinHashTable* getHashTable() { return hashTable.get(); }
+    JoinHashTable* getHashTable() { return hashTable.get(); }
 
 protected:
     std::mutex mtx;
     std::unique_ptr<JoinHashTable> hashTable;
 };
 
-class HashJoinBuildInfo {
-    friend class HashJoinBuild;
-
-public:
-    HashJoinBuildInfo(std::vector<DataPos> keysPos, std::vector<common::FStateType> fStateTypes,
-        std::vector<DataPos> payloadsPos, FactorizedTableSchema tableSchema)
-        : keysPos{std::move(keysPos)}, fStateTypes{std::move(fStateTypes)},
-          payloadsPos{std::move(payloadsPos)}, tableSchema{std::move(tableSchema)} {}
-    HashJoinBuildInfo(const HashJoinBuildInfo& other)
-        : keysPos{other.keysPos}, fStateTypes{other.fStateTypes}, payloadsPos{other.payloadsPos},
-          tableSchema{other.tableSchema.copy()} {}
-
-    uint32_t getNumKeys() const { return keysPos.size(); }
-
-    const FactorizedTableSchema* getTableSchema() const { return &tableSchema; }
-
-    std::unique_ptr<HashJoinBuildInfo> copy() const {
-        return std::make_unique<HashJoinBuildInfo>(*this);
-    }
-
-private:
+struct HashJoinBuildInfo {
     std::vector<DataPos> keysPos;
     std::vector<common::FStateType> fStateTypes;
     std::vector<DataPos> payloadsPos;
     FactorizedTableSchema tableSchema;
+
+    HashJoinBuildInfo(std::vector<DataPos> keysPos, std::vector<common::FStateType> fStateTypes,
+        std::vector<DataPos> payloadsPos, FactorizedTableSchema tableSchema)
+        : keysPos{std::move(keysPos)}, fStateTypes{std::move(fStateTypes)},
+          payloadsPos{std::move(payloadsPos)}, tableSchema{std::move(tableSchema)} {}
+    EXPLICIT_COPY_DEFAULT_MOVE(HashJoinBuildInfo);
+
+    common::idx_t getNumKeys() const { return keysPos.size(); }
+
+private:
+    HashJoinBuildInfo(const HashJoinBuildInfo& other)
+        : keysPos{other.keysPos}, fStateTypes{other.fStateTypes}, payloadsPos{other.payloadsPos},
+          tableSchema{other.tableSchema.copy()} {}
 };
 
 class HashJoinBuild : public Sink {
 public:
-    HashJoinBuild(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-        PhysicalOperatorType operatorType, std::shared_ptr<HashJoinSharedState> sharedState,
-        std::unique_ptr<HashJoinBuildInfo> info, std::unique_ptr<PhysicalOperator> child,
-        uint32_t id, std::unique_ptr<OPPrintInfo> printInfo)
-        : Sink{std::move(resultSetDescriptor), operatorType, std::move(child), id,
-              std::move(printInfo)},
+    HashJoinBuild(PhysicalOperatorType operatorType,
+        std::shared_ptr<HashJoinSharedState> sharedState, HashJoinBuildInfo info,
+        std::unique_ptr<PhysicalOperator> child, uint32_t id,
+        std::unique_ptr<OPPrintInfo> printInfo)
+        : Sink{operatorType, std::move(child), id, std::move(printInfo)},
           sharedState{std::move(sharedState)}, info{std::move(info)} {}
 
-    inline std::shared_ptr<HashJoinSharedState> getSharedState() const { return sharedState; }
+    std::shared_ptr<HashJoinSharedState> getSharedState() const { return sharedState; }
 
     void initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) override;
 
@@ -100,12 +90,12 @@ public:
     void finalizeInternal(ExecutionContext* context) override;
 
     std::unique_ptr<PhysicalOperator> copy() override {
-        return make_unique<HashJoinBuild>(resultSetDescriptor->copy(), operatorType, sharedState,
-            info->copy(), children[0]->copy(), id, printInfo->copy());
+        return make_unique<HashJoinBuild>(operatorType, sharedState, info.copy(),
+            children[0]->copy(), id, printInfo->copy());
     }
 
 protected:
-    virtual inline uint64_t appendVectors() {
+    virtual uint64_t appendVectors() {
         return hashTable->appendVectors(keyVectors, payloadVectors, keyState);
     }
 
@@ -114,7 +104,7 @@ private:
 
 protected:
     std::shared_ptr<HashJoinSharedState> sharedState;
-    std::unique_ptr<HashJoinBuildInfo> info;
+    HashJoinBuildInfo info;
 
     std::vector<common::ValueVector*> keyVectors;
     // State of unFlat key(s). If all keys are flat, it points to any flat key state.

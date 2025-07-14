@@ -57,7 +57,7 @@ struct ExtraNodeIDListKeyInfo final : ExtraKeyInfo {
     }
 };
 
-class LogicalSemiMasker final : public LogicalOperator {
+class KUZU_API LogicalSemiMasker final : public LogicalOperator {
     static constexpr LogicalOperatorType type_ = LogicalOperatorType::SEMI_MASKER;
 
 public:
@@ -66,6 +66,8 @@ public:
         std::shared_ptr<LogicalOperator> child)
         : LogicalOperator{type_, std::move(child)}, keyType{keyType}, targetType{targetType},
           key{std::move(key)}, nodeTableIDs{std::move(nodeTableIDs)} {}
+
+    ~LogicalSemiMasker() override;
 
     void computeFactorizedSchema() override { copyChildSchema(0); }
     void computeFlatSchema() override { copyChildSchema(0); }

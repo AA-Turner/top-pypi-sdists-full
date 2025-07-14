@@ -3,7 +3,7 @@
 #include "common/copy_constructors.h"
 #include "storage/local_storage/local_hash_index.h"
 #include "storage/local_storage/local_table.h"
-#include "storage/store/node_group_collection.h"
+#include "storage/table/node_group_collection.h"
 
 namespace kuzu {
 namespace storage {
@@ -13,10 +13,7 @@ class MemoryManager;
 
 class LocalNodeTable final : public LocalTable {
 public:
-    static std::vector<common::LogicalType> getNodeTableColumnTypes(
-        const catalog::TableCatalogEntry& table);
-
-    LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, Table& table);
+    LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, const Table& table);
     DELETE_COPY_AND_MOVE(LocalNodeTable);
 
     bool insert(transaction::Transaction* transaction, TableInsertState& insertState) override;
@@ -46,6 +43,9 @@ public:
 
     TableStats getStats() const { return nodeGroups.getStats(); }
 
+    static std::vector<common::LogicalType> getNodeTableColumnTypes(
+        const catalog::TableCatalogEntry& table);
+
 private:
     void initLocalHashIndex();
     bool isVisible(const transaction::Transaction* transaction, common::offset_t offset) const;
@@ -53,7 +53,7 @@ private:
 private:
     PageCursor overflowCursor;
     std::unique_ptr<OverflowFile> overflowFile;
-    std::unique_ptr<OverflowFileHandle> overflowFileHandle;
+    OverflowFileHandle* overflowFileHandle;
     std::unique_ptr<LocalHashIndex> hashIndex;
     NodeGroupCollection nodeGroups;
 };

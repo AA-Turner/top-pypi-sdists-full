@@ -18,6 +18,9 @@ static std::string getQueryFromFile(VirtualFileSystem* vfs, const std::string& b
     const std::string& fileName, main::ClientContext* context) {
     auto filePath = vfs->joinPath(boundFilePath, fileName);
     if (!vfs->fileOrPathExists(filePath, context)) {
+        if (fileName == PortDBConstants::COPY_FILE_NAME) {
+            return "";
+        }
         if (fileName == PortDBConstants::INDEX_FILE_NAME) {
             return "";
         }
@@ -55,7 +58,7 @@ static std::string getCopyFilePath(const std::string& boundFilePath, const std::
         // Note:
         // Unix absolute path starts with '/'
         // Windows absolute path starts with "[DiskID]://"
-        // This code path is for backward compatability, we used to export the absolute path for
+        // This code path is for backward compatibility, we used to export the absolute path for
         // csv files to copy.cypher files.
         return filePath;
     }
@@ -88,7 +91,7 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
     std::string finalQueryStatements;
     finalQueryStatements +=
         getQueryFromFile(fs, boundFilePath, PortDBConstants::SCHEMA_FILE_NAME, clientContext);
-    // replace the path in copy from statement with the bound path
+    // replace the path in copy from statements with the bound path
     auto copyQuery =
         getQueryFromFile(fs, boundFilePath, PortDBConstants::COPY_FILE_NAME, clientContext);
     if (!copyQuery.empty()) {
@@ -104,15 +107,31 @@ std::unique_ptr<BoundStatement> Binder::bindImportDatabaseClause(const Statement
             std::string query;
             auto copyFilePath = getCopyFilePath(boundFilePath, filePaths[0]);
             auto columnNames = getColumnNamesToCopy(copyFromStatement);
+            auto parsingOptions = bindParsingOptions(copyFromStatement.getParsingOptions());
+            std::unordered_map<std::string, std::string> copyFromOptions;
+            if (parsingOptions.contains(CopyConstants::FROM_OPTION_NAME)) {
+                KU_ASSERT(parsingOptions.contains(CopyConstants::TO_OPTION_NAME));
+                copyFromOptions[CopyConstants::FROM_OPTION_NAME] = stringFormat("'{}'",
+                    parsingOptions.at(CopyConstants::FROM_OPTION_NAME).getValue<std::string>());
+                copyFromOptions[CopyConstants::TO_OPTION_NAME] = stringFormat("'{}'",
+                    parsingOptions.at(CopyConstants::TO_OPTION_NAME).getValue<std::string>());
+                parsingOptions.erase(CopyConstants::FROM_OPTION_NAME);
+                parsingOptions.erase(CopyConstants::TO_OPTION_NAME);
+            }
             if (fileTypeInfo.fileType == FileType::CSV) {
-                auto csvConfig = CSVReaderConfig::construct(
-                    bindParsingOptions(copyFromStatement.getParsingOptions()));
+                auto csvConfig = CSVReaderConfig::construct(parsingOptions);
+                csvConfig.option.autoDetection = false;
+                auto optionsMap = csvConfig.option.toOptionsMap();
+                if (!copyFromOptions.empty()) {
+                    optionsMap.insert(copyFromOptions.begin(), copyFromOptions.end());
+                }
                 query =
                     stringFormat("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
-                        columnNames, copyFilePath, csvConfig.option.toCypher());
+                        columnNames, copyFilePath, CSVOption::toCypher(optionsMap));
             } else {
-                query = stringFormat("COPY `{}` {} FROM \"{}\";", copyFromStatement.getTableName(),
-                    columnNames, copyFilePath);
+                query =
+                    stringFormat("COPY `{}` {} FROM \"{}\" {};", copyFromStatement.getTableName(),
+                        columnNames, copyFilePath, CSVOption::toCypher(copyFromOptions));
             }
             finalQueryStatements += query;
         }

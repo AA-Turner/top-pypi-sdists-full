@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
 import csv
-from sys import version_info
 
 # Mock test input source
-
-
 
 
 class MockInputSource:
@@ -37,7 +31,7 @@ class MockInputSource:
         result = None
         data = self._mock_data.get(ac)
         if data:  # interbase coordinates
-            result = {"cds_start_i": data["cds_start_i"], "cds_end_i": data["cds_end_i"]}
+            result = {"cds_start_i": data["cds_start_i"], "cds_end_i": data["cds_end_i"], "lengths": data["lengths"]}
         return result
 
     def get_tx_identity_info(self, ac):
@@ -78,17 +72,10 @@ class MockInputSource:
                     "transcript_sequence": row["transcript_sequence"],
                     "cds_start_i": int(row["cds_start_i"]),
                     "cds_end_i": int(row["cds_end_i"]),
+                    "lengths": eval(row["lengths"]),
                 }
 
         return result
-
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()
 
 # <LICENSE>
 # Copyright 2018 HGVS Contributors (https://github.com/biocommons/hgvs)

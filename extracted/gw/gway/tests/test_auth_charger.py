@@ -4,6 +4,7 @@ import unittest
 import subprocess
 import time
 import socket
+import sys
 import os
 import base64
 import requests
@@ -37,7 +38,7 @@ class AuthChargerStatusTests(unittest.TestCase):
         _remove_test_user()
         # Start the server
         cls.proc = subprocess.Popen(
-            ["gway", "-r", "test/website"],
+            [sys.executable, "-m", "gway", "-r", "test/website"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -114,7 +115,7 @@ class AuthChargerStatusTests(unittest.TestCase):
         )
         self.assertIn("cookie", resp2.text.lower())
 
-    @unittest.skipUnless(is_test_flag("screenshot"), "Screenshot tests disabled")
+    @unittest.skipUnless(is_test_flag("screen"), "Screen tests disabled")
     def test_charger_status_screenshot(self):
         """Capture charger status page screenshot using basic auth."""
         screenshot_dir = Path("work/screenshots")

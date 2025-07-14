@@ -1,6 +1,7 @@
 #include "binder/binder.h"
 #include "binder/bound_scan_source.h"
 #include "binder/expression/literal_expression.h"
+#include "binder/expression/parameter_expression.h"
 #include "common/exception/binder.h"
 #include "common/exception/copy.h"
 #include "common/exception/message.h"
@@ -46,10 +47,10 @@ FileTypeInfo Binder::bindFileTypeInfo(const std::vector<std::string>& filePaths)
 std::vector<std::string> Binder::bindFilePaths(const std::vector<std::string>& filePaths) const {
     std::vector<std::string> boundFilePaths;
     for (auto& filePath : filePaths) {
-        // This is a temporary workaround because we use duckdb to read from iceberg/delta.
-        // When we read delta/iceberg tables from s3/httpfs, we don't have the httpfs extension
-        // loaded meaning that we cannot handle remote paths. So we pass the file path to duckdb
-        // for validation when we bindFileScanSource.
+        // This is a temporary workaround because we use duckdb to read from iceberg/delta/azure.
+        // When we read delta/iceberg/azure tables from s3/httpfs, we don't have the httpfs
+        // extension loaded meaning that we cannot handle remote paths. So we pass the file path to
+        // duckdb for validation when we bindFileScanSource.
         const auto& loadedExtensions = clientContext->getExtensionManager()->getLoadedExtensions();
         const bool httpfsExtensionLoaded =
             std::any_of(loadedExtensions.begin(), loadedExtensions.end(),
@@ -99,9 +100,20 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindScanSource(const BaseScanSource
     case ScanSourceType::TABLE_FUNC: {
         return bindTableFuncScanSource(*source, options, columnNames, columnTypes);
     }
+    case ScanSourceType::PARAM: {
+        return bindParameterScanSource(*source, options, columnNames, columnTypes);
+    }
     default:
         KU_UNREACHABLE;
     }
+}
+
+bool handleFileViaFunction(main::ClientContext* context, std::vector<std::string> filePaths) {
+    bool handleFileViaFunction = false;
+    if (context->getVFSUnsafe()->fileOrPathExists(filePaths[0], context)) {
+        handleFileViaFunction = context->getVFSUnsafe()->handleFileViaFunction(filePaths[0]);
+    }
+    return handleFileViaFunction;
 }
 
 std::unique_ptr<BoundBaseScanSource> Binder::bindFileScanSource(const BaseScanSource& scanSource,
@@ -111,6 +123,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindFileScanSource(const BaseScanSo
     auto filePaths = bindFilePaths(fileSource->filePaths);
     auto boundOptions = bindParsingOptions(options);
     FileTypeInfo fileTypeInfo;
+
     if (boundOptions.contains(FileScanInfo::FILE_FORMAT_OPTION_NAME)) {
         auto fileFormat = boundOptions.at(FileScanInfo::FILE_FORMAT_OPTION_NAME).toString();
         fileTypeInfo = FileTypeInfo{FileTypeUtils::fromString(fileFormat), fileFormat};
@@ -130,7 +143,12 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindFileScanSource(const BaseScanSo
     // Bind file configuration
     auto fileScanInfo = std::make_unique<FileScanInfo>(std::move(fileTypeInfo), filePaths);
     fileScanInfo->options = std::move(boundOptions);
-    auto func = getScanFunction(fileScanInfo->fileTypeInfo, *fileScanInfo);
+    TableFunction func;
+    if (handleFileViaFunction(clientContext, filePaths)) {
+        func = clientContext->getVFSUnsafe()->getHandleFunction(filePaths[0]);
+    } else {
+        func = getScanFunction(fileScanInfo->fileTypeInfo, *fileScanInfo);
+    }
     // Bind table function
     auto bindInput = TableFuncBindInput();
     bindInput.addLiteralParam(Value::createValue(filePaths[0]));
@@ -194,6 +212,36 @@ BoundTableScanInfo bindTableScanSourceInfo(Binder& binder, TableFunction func,
     return BoundTableScanInfo(func, std::move(bindData));
 }
 
+std::unique_ptr<BoundBaseScanSource> Binder::bindParameterScanSource(
+    const BaseScanSource& scanSource, const options_t& options,
+    const std::vector<std::string>& columnNames, const std::vector<LogicalType>& columnTypes) {
+    auto paramSource = scanSource.constPtrCast<ParameterScanSource>();
+    auto paramExpr = expressionBinder.bindParameterExpression(*paramSource->paramExpression);
+    auto scanSourceValue = paramExpr->constCast<ParameterExpression>().getValue();
+    if (scanSourceValue.getDataType().getLogicalTypeID() != LogicalTypeID::POINTER) {
+        throw BinderException(stringFormat(
+            "Trying to scan from unsupported data type {}. The only parameter types that can be "
+            "scanned from are pandas/polars dataframes and pyarrow tables.",
+            scanSourceValue.getDataType().toString()));
+    }
+    TableFunction func;
+    std::unique_ptr<TableFuncBindData> bindData;
+    auto bindInput = TableFuncBindInput();
+    bindInput.binder = this;
+    // Bind external object as table
+    auto replacementData =
+        clientContext->tryReplaceByHandle(scanSourceValue.getValue<scan_replace_handle_t>());
+    func = replacementData->func;
+    auto replaceExtraInput = std::make_unique<ExtraScanTableFuncBindInput>();
+    replaceExtraInput->fileScanInfo.options = bindParsingOptions(options);
+    replacementData->bindInput.extraInput = std::move(replaceExtraInput);
+    replacementData->bindInput.binder = this;
+    bindData = func.bindFunc(clientContext, &replacementData->bindInput);
+    auto info = bindTableScanSourceInfo(*this, func, paramExpr->toString(), std::move(bindData),
+        columnNames, columnTypes);
+    return std::make_unique<BoundTableScanSource>(ScanSourceType::OBJECT, std::move(info));
+}
+
 std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScanSource& scanSource,
     const options_t& options, const std::vector<std::string>& columnNames,
     const std::vector<LogicalType>& columnTypes) {
@@ -206,7 +254,7 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScan
     if (objectSource->objectNames.size() == 1) {
         // Bind external object as table
         objectName = objectSource->objectNames[0];
-        auto replacementData = clientContext->tryReplace(objectName);
+        auto replacementData = clientContext->tryReplaceByName(objectName);
         if (replacementData != nullptr) { // Replace as python object
             func = replacementData->func;
             auto replaceExtraInput = std::make_unique<ExtraScanTableFuncBindInput>();

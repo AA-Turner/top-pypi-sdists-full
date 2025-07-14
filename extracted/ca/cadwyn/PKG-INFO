@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cadwyn
-Version: 5.4.3
+Version: 5.4.4
 Summary: Production-ready community-driven modern Stripe-like API versioning in FastAPI
 Project-URL: Source code, https://github.com/zmievsa/cadwyn
 Project-URL: Documentation, https://docs.cadwyn.dev

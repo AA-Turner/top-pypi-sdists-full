@@ -1,9 +1,8 @@
 #include "processor/plan_mapper.h"
 
-#include "planner/operator/sip/logical_semi_masker.h"
 #include "processor/operator/profile.h"
 #include "storage/storage_manager.h"
-#include "storage/store/node_table.h"
+#include "storage/table/node_table.h"
 
 using namespace kuzu::binder;
 using namespace kuzu::common;
@@ -13,20 +12,17 @@ using namespace kuzu::storage;
 namespace kuzu {
 namespace processor {
 
-static void setPhysicalPlanIfProfile(const LogicalPlan* logicalPlan, PhysicalPlan* physicalPlan) {
-    if (logicalPlan->isProfile()) {
-        ku_dynamic_cast<Profile*>(physicalPlan->lastOperator->getChild(0))
-            ->setPhysicalPlan(physicalPlan);
-    }
-}
-
 std::unique_ptr<PhysicalPlan> PlanMapper::mapLogicalPlanToPhysical(const LogicalPlan* logicalPlan,
     const expression_vector& expressionsToCollect) {
-    auto lastOperator = mapOperator(logicalPlan->getLastOperator().get());
-    lastOperator = createResultCollector(AccumulateType::REGULAR, expressionsToCollect,
-        logicalPlan->getSchema(), std::move(lastOperator));
-    auto physicalPlan = make_unique<PhysicalPlan>(std::move(lastOperator));
-    setPhysicalPlanIfProfile(logicalPlan, physicalPlan.get());
+    auto root = mapOperator(logicalPlan->getLastOperator().get());
+    if (!root->isSink()) {
+        root = createResultCollector(AccumulateType::REGULAR, expressionsToCollect,
+            logicalPlan->getSchema(), std::move(root));
+    }
+    auto physicalPlan = std::make_unique<PhysicalPlan>(std::move(root));
+    if (logicalPlan->isProfile()) {
+        physicalPlan->lastOperator->ptrCast<Profile>()->setPhysicalPlan(physicalPlan.get());
+    }
     return physicalPlan;
 }
 
@@ -135,6 +131,9 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapOperator(const LogicalOperator*
     case LogicalOperatorType::NODE_LABEL_FILTER: {
         physicalOperator = mapNodeLabelFilter(logicalOperator);
     } break;
+    case LogicalOperatorType::NOOP: {
+        physicalOperator = mapNoop(logicalOperator);
+    } break;
     case LogicalOperatorType::ORDER_BY: {
         physicalOperator = mapOrderBy(logicalOperator);
     } break;
@@ -210,19 +209,6 @@ FactorizedTableSchema PlanMapper::createFlatFTableSchema(const expression_vector
 std::unique_ptr<SemiMask> PlanMapper::createSemiMask(table_id_t tableID) const {
     auto table = clientContext->getStorageManager()->getTable(tableID)->ptrCast<NodeTable>();
     return SemiMaskUtil::createMask(table->getNumTotalRows(clientContext->getTransaction()));
-}
-
-LogicalSemiMasker* PlanMapper::findSemiMaskerInPlan(LogicalOperator* logicalOperator) {
-    if (logicalOperator->getOperatorType() == LogicalOperatorType::SEMI_MASKER) {
-        return logicalOperator->ptrCast<LogicalSemiMasker>();
-    }
-    for (auto& child : logicalOperator->getChildren()) {
-        const auto semiMasker = findSemiMaskerInPlan(child.get());
-        if (semiMasker) {
-            return semiMasker;
-        }
-    }
-    return nullptr;
 }
 
 } // namespace processor

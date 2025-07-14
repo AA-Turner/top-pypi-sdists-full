@@ -16,7 +16,7 @@
 #include "main/db_config.h"
 #include "storage/buffer_manager/spiller.h"
 #include "storage/file_handle.h"
-#include "storage/store/column_chunk_data.h"
+#include "storage/table/column_chunk_data.h"
 #include <span>
 
 #if defined(_WIN32)
@@ -52,20 +52,6 @@ bool EvictionQueue::insert(uint32_t fileIndex, page_idx_t pageIndex) {
 std::span<std::atomic<EvictionCandidate>, EvictionQueue::BATCH_SIZE> EvictionQueue::next() {
     return std::span<std::atomic<EvictionCandidate>, BATCH_SIZE>(
         data.get() + ((evictionCursor += BATCH_SIZE) % capacity), BATCH_SIZE);
-}
-
-void EvictionQueue::removeCandidatesForFile(uint32_t fileIndex) {
-    if (size == 0) {
-        return;
-    }
-    for (uint64_t i = 0; i < capacity; i++) {
-        auto candidate = data[i].load();
-        if (candidate.fileIdx == fileIndex && data[i].compare_exchange_strong(candidate, EMPTY)) {
-            if (size-- == 1) {
-                return;
-            }
-        }
-    }
 }
 
 void EvictionQueue::clear(std::atomic<EvictionCandidate>& candidate) {
@@ -104,10 +90,11 @@ void BufferManager::verifySizeParams(uint64_t bufferPoolSize, uint64_t maxDBSize
         throw BufferManagerException(stringFormat(
             "The given buffer pool size should be at least {} bytes.", KUZU_PAGE_SIZE));
     }
-    if (maxDBSize < KUZU_PAGE_SIZE * StorageConstants::PAGE_GROUP_SIZE) {
+    // We require at least two page groups, one for the main data file, and one for the shadow file.
+    if (maxDBSize < 2 * KUZU_PAGE_SIZE * StorageConstants::PAGE_GROUP_SIZE) {
         throw BufferManagerException(
             "The given max db size should be at least " +
-            std::to_string(KUZU_PAGE_SIZE * StorageConstants::PAGE_GROUP_SIZE) + " bytes.");
+            std::to_string(2 * KUZU_PAGE_SIZE * StorageConstants::PAGE_GROUP_SIZE) + " bytes.");
     }
     if ((maxDBSize & (maxDBSize - 1)) != 0) {
         throw BufferManagerException("The given max db size should be a power of 2.");
@@ -198,11 +185,12 @@ void handleAccessViolation(unsigned int exceptionCode, PEXCEPTION_POINTERS excep
 // Returns true if the function completes successfully
 inline bool try_func(const std::function<void(uint8_t*)>& func, uint8_t* frame,
     const std::array<std::unique_ptr<VMRegion>, 2>& vmRegions [[maybe_unused]],
-    PageSizeClass pageSizeClass [[maybe_unused]]) {
+    PageSizeClass pageSizeClass [[maybe_unused]], [[maybe_unused]] PageState* pageState) {
 #if BM_MALLOC
     if (frame == nullptr) {
         return false;
     }
+    pageState->addReader();
 #endif
 
 #if defined(_WIN32) && !BM_MALLOC
@@ -221,6 +209,9 @@ inline bool try_func(const std::function<void(uint8_t*)>& func, uint8_t* frame,
         }
     }
 #endif
+#if BM_MALLOC
+    pageState->removeReader();
+#endif
     return true;
 }
 
@@ -236,7 +227,7 @@ void BufferManager::optimisticRead(FileHandle& fileHandle, page_idx_t pageIdx,
         switch (PageState::getState(currStateAndVersion)) {
         case PageState::UNLOCKED: {
             if (!try_func(func, getFrame(fileHandle, pageIdx), vmRegions,
-                    fileHandle.getPageSizeClass())) {
+                    fileHandle.getPageSizeClass(), pageState)) {
                 continue;
             }
             if (pageState->getStateAndVersion() == currStateAndVersion) {
@@ -421,8 +412,14 @@ uint64_t BufferManager::tryEvictPage(std::atomic<EvictionCandidate>& _candidate)
     }
     // The pageState was locked, but another thread already evicted this candidate and unlocked it
     // before the lock occurred
-    if (_candidate.load() != candidate) {
-        pageState.unlock();
+    if (_candidate.load() != candidate
+#if BM_MALLOC
+        // When the pageState is locked, optimisticReads will wait, so at this point no new
+        // optimistic reads will begin and thus it is safe to free the buffer at this point
+        || pageState.getReaderCount() > 0
+#endif
+    ) {
+        pageState.unlockUnchanged();
         return 0;
     }
     if (fileHandles[candidate.fileIdx]->isInMemoryMode()) {
@@ -458,7 +455,6 @@ void BufferManager::cachePageIntoFrame(FileHandle& fileHandle, page_idx_t pageId
 }
 
 void BufferManager::removeFilePagesFromFrames(FileHandle& fileHandle) {
-    evictionQueue.removeCandidatesForFile(fileHandle.getFileIndex());
     for (auto pageIdx = 0u; pageIdx < fileHandle.getNumPages(); ++pageIdx) {
         removePageFromFrame(fileHandle, pageIdx, false /* do not flush */);
     }

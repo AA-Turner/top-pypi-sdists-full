@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-crontab
-Version: 3.2.0
+Version: 3.3.0
 Summary: Python Crontab API
 Home-page: https://gitlab.com/doctormo/python-crontab/
 Author: Martin Owens
@@ -12,7 +12,6 @@ Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: POSIX :: SunOS/Solaris
@@ -29,11 +28,22 @@ Provides: cronlog
 Description-Content-Type: text/x-rst
 License-File: COPYING
 License-File: AUTHORS
-Requires-Dist: python-dateutil
 Provides-Extra: cron-schedule
 Requires-Dist: croniter; extra == "cron-schedule"
 Provides-Extra: cron-description
 Requires-Dist: cron-descriptor; extra == "cron-description"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides
+Dynamic: provides-extra
+Dynamic: summary
 
 Python Crontab
 --------------
@@ -94,6 +104,8 @@ Case        Meaning
 @annually   0 0 1 1 *  
 @midnight   0 0 * * *  
 =========== ============
+
+To control the output of specials see `SPECIALS_CONVERSION` below.
 
 How to Use the Module
 =====================
@@ -317,11 +329,27 @@ Each job can also have a list of environment variables::
         job.env['NEW_VAR'] = 'A'
         print(job.env)
 
+Specials Mode
+=============
+
+You may need to control the output of special schedules such as `@hourly`. This can be done with the `crontab.SPECIALS_CONVERSION` package variable.
+
+Enable conversion to a special on write (default)::
+
+    crontab.SPECIALS_CONVERSION = True
+
+Enabled conversion to normal output on write::
+
+    crontab.SPECIALS_CONVERSION = False
+
+Do no conversion and write whatever was read in::
+
+    crontab.SPECIALS_CONVERSION = None
 
 Proceeding Unit Confusion
 =========================
 
-It is sometimes logical to think that job.hour.every(2) will set all proceeding
+It is sometimes logical to think that `job.hour.every(2)` will set all proceeding
 units to '0' and thus result in "0 \*/2 * * \*". Instead you are controlling
 only the hours units and the minute column is unaffected. The real result would
 be "\* \*/2 * * \*" and maybe unexpected to those unfamiliar with crontabs.

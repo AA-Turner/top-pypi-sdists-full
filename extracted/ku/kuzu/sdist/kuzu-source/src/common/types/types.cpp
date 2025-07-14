@@ -1,7 +1,8 @@
 #include "common/types/types.h"
 
+#include <set>
+
 #include "catalog/catalog.h"
-#include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/cast.h"
 #include "common/constants.h"
 #include "common/exception/binder.h"
@@ -181,16 +182,6 @@ struct_field_idx_t StructType::getFieldIdx(const LogicalType& type, const std::s
     KU_ASSERT(type.getPhysicalType() == PhysicalTypeID::STRUCT);
     auto structTypeInfo = type.extraTypeInfo->constPtrCast<StructTypeInfo>();
     return structTypeInfo->getStructFieldIdx(key);
-}
-
-LogicalType StructType::getNodeType(const catalog::NodeTableCatalogEntry& entry) {
-    std::vector<StructField> nodeFields;
-    nodeFields.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
-    nodeFields.emplace_back(InternalKeyword::LABEL, LogicalType::STRING());
-    for (auto& property : entry.getProperties()) {
-        nodeFields.emplace_back(property.getName(), property.getType().copy());
-    }
-    return LogicalType::NODE(std::make_unique<StructTypeInfo>(std::move(nodeFields)));
 }
 
 const LogicalType& MapType::getKeyType(const LogicalType& type) {
@@ -670,7 +661,7 @@ static LogicalType parseListType(const std::string& trimmedStr,
 static LogicalType parseArrayType(const std::string& trimmedStr,
     main::ClientContext* context = nullptr);
 static std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
-    main::ClientContext* context);
+    main::ClientContext* context, std::string defType);
 static LogicalType parseStructType(const std::string& trimmedStr,
     main::ClientContext* context = nullptr);
 static LogicalType parseMapType(const std::string& trimmedStr,
@@ -1269,8 +1260,8 @@ std::vector<LogicalType> LogicalTypeUtils::getAllValidLogicTypes() {
     typeVec.push_back(LogicalType::MAP(LogicalType::ANY(), LogicalType::ANY()));
     typeVec.push_back(LogicalType::FLOAT());
     typeVec.push_back(LogicalType::SERIAL());
-    typeVec.push_back(LogicalType::NODE(std::make_unique<StructTypeInfo>()));
-    typeVec.push_back(LogicalType::REL(std::make_unique<StructTypeInfo>()));
+    typeVec.push_back(LogicalType::NODE({}));
+    typeVec.push_back(LogicalType::REL({}));
     typeVec.push_back(LogicalType::STRUCT({}));
     typeVec.push_back(LogicalType::UNION({}));
     return typeVec;
@@ -1330,7 +1321,7 @@ LogicalType parseArrayType(const std::string& trimmedStr, main::ClientContext* c
 }
 
 std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
-    main::ClientContext* context) {
+    main::ClientContext* context, std::string defType) {
     auto leftBracketPos = structTypeStr.find('(');
     auto rightBracketPos = structTypeStr.find_last_of(')');
     if (leftBracketPos == std::string::npos || rightBracketPos == std::string::npos) {
@@ -1341,9 +1332,19 @@ std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
         structTypeStr.substr(leftBracketPos + 1, rightBracketPos - leftBracketPos - 1);
     std::vector<StructField> structFields;
     auto structFieldStrs = parseStructFields(structFieldsStr);
+    auto numFields = structFieldStrs.size();
+    if (numFields > INVALID_STRUCT_FIELD_IDX + 1) {
+        throw BinderException(stringFormat("Too many fields in {} definition (max {}, got {})",
+            defType, INVALID_STRUCT_FIELD_IDX + 1, numFields));
+    }
+    std::set<std::string> fieldNames;
     for (auto& structFieldStr : structFieldStrs) {
         auto pos = structFieldStr.find(' ');
         auto fieldName = structFieldStr.substr(0, pos);
+        if (!fieldNames.insert(fieldName).second) {
+            throw BinderException(
+                stringFormat("Duplicate field '{}' in {} definition", fieldName, defType));
+        }
         auto fieldTypeString = structFieldStr.substr(pos + 1);
         LogicalType fieldType = LogicalType::convertFromString(fieldTypeString, context);
         structFields.emplace_back(fieldName, std::move(fieldType));
@@ -1352,7 +1353,7 @@ std::vector<StructField> parseStructTypeInfo(const std::string& structTypeStr,
 }
 
 LogicalType parseStructType(const std::string& trimmedStr, main::ClientContext* context) {
-    return LogicalType::STRUCT(parseStructTypeInfo(trimmedStr, context));
+    return LogicalType::STRUCT(parseStructTypeInfo(trimmedStr, context, "STRUCT"));
 }
 
 LogicalType parseMapType(const std::string& trimmedStr, main::ClientContext* context) {
@@ -1368,7 +1369,7 @@ LogicalType parseMapType(const std::string& trimmedStr, main::ClientContext* con
 }
 
 LogicalType parseUnionType(const std::string& trimmedStr, main::ClientContext* context) {
-    return LogicalType::UNION(parseStructTypeInfo(trimmedStr, context));
+    return LogicalType::UNION(parseStructTypeInfo(trimmedStr, context, "UNION"));
 }
 
 LogicalType parseDecimalType(const std::string& trimmedStr) {
@@ -1406,16 +1407,17 @@ LogicalType LogicalType::STRUCT(std::vector<StructField>&& fields) {
     return LogicalType(LogicalTypeID::STRUCT, std::make_unique<StructTypeInfo>(std::move(fields)));
 }
 
-LogicalType LogicalType::RECURSIVE_REL(std::unique_ptr<StructTypeInfo> typeInfo) {
-    return LogicalType(LogicalTypeID::RECURSIVE_REL, std::move(typeInfo));
+LogicalType LogicalType::RECURSIVE_REL(std::vector<StructField>&& fields) {
+    return LogicalType(LogicalTypeID::RECURSIVE_REL,
+        std::make_unique<StructTypeInfo>(std::move(fields)));
 }
 
-LogicalType LogicalType::NODE(std::unique_ptr<StructTypeInfo> typeInfo) {
-    return LogicalType(LogicalTypeID::NODE, std::move(typeInfo));
+LogicalType LogicalType::NODE(std::vector<StructField>&& fields) {
+    return LogicalType(LogicalTypeID::NODE, std::make_unique<StructTypeInfo>(std::move(fields)));
 }
 
-LogicalType LogicalType::REL(std::unique_ptr<StructTypeInfo> typeInfo) {
-    return LogicalType(LogicalTypeID::REL, std::move(typeInfo));
+LogicalType LogicalType::REL(std::vector<StructField>&& fields) {
+    return LogicalType(LogicalTypeID::REL, std::make_unique<StructTypeInfo>(std::move(fields)));
 }
 
 LogicalType LogicalType::UNION(std::vector<StructField>&& fields) {
@@ -1783,9 +1785,11 @@ bool LogicalTypeUtils::tryGetMaxLogicalType(const LogicalType& left, const Logic
     if (isSemanticallyNested(left.typeID) || isSemanticallyNested(right.typeID)) {
         if (left.typeID == LogicalTypeID::LIST && right.typeID == LogicalTypeID::ARRAY) {
             return tryCombineListArrayTypes(left, right, result);
-        } else if (left.typeID == LogicalTypeID::ARRAY && right.typeID == LogicalTypeID::LIST) {
+        }
+        if (left.typeID == LogicalTypeID::ARRAY && right.typeID == LogicalTypeID::LIST) {
             return tryCombineListArrayTypes(right, left, result);
-        } else if (left.typeID != right.typeID) {
+        }
+        if (left.typeID != right.typeID) {
             return false;
         }
         switch (left.typeID) {
@@ -1802,7 +1806,8 @@ bool LogicalTypeUtils::tryGetMaxLogicalType(const LogicalType& left, const Logic
             throw ConversionException("Union casting is not supported");
             // return tryCombineUnionTypes(left, right, result);
         default:
-            KU_UNREACHABLE;
+            throw RuntimeException(stringFormat("Casting between {} and {} is not implemented.",
+                left.toString(), right.toString()));
             // LCOV_EXCL_END
         }
     }
@@ -1833,8 +1838,8 @@ bool LogicalTypeUtils::tryGetMaxLogicalType(const std::vector<LogicalType>& type
     return true;
 }
 
-LogicalType LogicalTypeUtils::combineTypes(const common::LogicalType& lft,
-    const common::LogicalType& rit) { // always succeeds
+LogicalType LogicalTypeUtils::combineTypes(const LogicalType& lft,
+    const LogicalType& rit) { // always succeeds
     if (lft.getLogicalTypeID() == LogicalTypeID::STRING ||
         rit.getLogicalTypeID() == LogicalTypeID::STRING) {
         return LogicalType::STRING();
@@ -1878,6 +1883,23 @@ LogicalType LogicalTypeUtils::combineTypes(const common::LogicalType& lft,
     common::LogicalType result;
     if (!tryGetMaxLogicalType(lft, rit, result)) {
         return LogicalType::STRING();
+    }
+    return result;
+}
+
+LogicalType LogicalTypeUtils::combineTypes(const std::vector<LogicalType>& types) {
+    if (types.empty()) {
+        // LCOV_EXCL_START
+        throw RuntimeException(
+            stringFormat("Trying to combine empty types. This should never happen."));
+        // LCOV_EXCL_STOP
+    }
+    if (types.size() == 1) {
+        return types[0].copy();
+    }
+    auto result = combineTypes(types[0], types[1]);
+    for (auto i = 2u; i < types.size(); i++) {
+        result = combineTypes(result, types[i]);
     }
     return result;
 }

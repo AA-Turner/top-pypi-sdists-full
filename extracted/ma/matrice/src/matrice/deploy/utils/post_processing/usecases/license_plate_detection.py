@@ -413,7 +413,7 @@ class LicensePlateUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats with frame-based keys, including per-frame and cumulative counts."""
-        from datetime import datetime, timezone
+
 
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
@@ -429,21 +429,21 @@ class LicensePlateUseCase(BaseProcessor):
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
-        # Build human-readable summary string in new format
+        # Build human-readable summary string with consistent tabbed format
         human_text_lines = []
-        
+
         # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if per_frame_count > 0:
-            human_text_lines.append(f"    - License Plates Detected: {per_frame_count}")
+            human_text_lines.append(f"\t- License Plates Detected: {per_frame_count}")
         else:
-            human_text_lines.append("    - No license plates detected")
-        
+            human_text_lines.append("\t- No license plates detected")
+
         human_text_lines.append("")  # Empty line for spacing
-        
+
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"    - Total License Plates Detected: {total_unique}")
+        human_text_lines.append(f"\t- Total License Plates Detected: {total_unique}")
 
         human_text = "\n".join(human_text_lines)
 

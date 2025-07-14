@@ -91,7 +91,7 @@ public:
         VectorUpdateInfo* vectorUpdateInfo);
 
     void commit(common::transaction_t commitTS) const;
-    void rollback(const transaction::Transaction* transaction) const;
+    void rollback(main::ClientContext* context) const;
 
     uint64_t getMemUsage() const;
 
@@ -104,8 +104,8 @@ private:
 
     static void commitRecord(UndoRecordType recordType, const uint8_t* record,
         common::transaction_t commitTS);
-    static void rollbackRecord(const transaction::Transaction* transaction,
-        UndoRecordType recordType, const uint8_t* record);
+    static void rollbackRecord(main::ClientContext* context, UndoRecordType recordType,
+        const uint8_t* record);
 
     static void commitCatalogEntryRecord(const uint8_t* record, common::transaction_t commitTS);
     static void rollbackCatalogEntryRecord(const uint8_t* record);
@@ -115,8 +115,8 @@ private:
 
     static void commitVersionInfo(UndoRecordType recordType, const uint8_t* record,
         common::transaction_t commitTS);
-    static void rollbackVersionInfo(const transaction::Transaction* transaction,
-        UndoRecordType recordType, const uint8_t* record);
+    static void rollbackVersionInfo(main::ClientContext* context, UndoRecordType recordType,
+        const uint8_t* record);
 
     static void commitVectorUpdateInfo(const uint8_t* record, common::transaction_t commitTS);
     static void rollbackVectorUpdateInfo(const transaction::Transaction* transaction,

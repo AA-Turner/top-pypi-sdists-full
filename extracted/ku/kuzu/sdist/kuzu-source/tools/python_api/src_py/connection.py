@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Callable
 
 from . import _kuzu
@@ -127,24 +128,39 @@ class Connection:
             raise RuntimeError(msg)  # noqa: TRY004
 
         if len(parameters) == 0 and isinstance(query, str):
-            _query_result = self._connection.query(query)
+            query_result_internal = self._connection.query(query)
         else:
-            prepared_statement = self.prepare(query) if isinstance(query, str) else query
-            _query_result = self._connection.execute(prepared_statement._prepared_statement, parameters)
-        if not _query_result.isSuccess():
-            raise RuntimeError(_query_result.getErrorMessage())
-        current_query_result = QueryResult(self, _query_result)
-        if not _query_result.hasNextQueryResult():
+            prepared_statement = self._prepare(query, parameters) if isinstance(query, str) else query
+            query_result_internal = self._connection.execute(prepared_statement._prepared_statement, parameters)
+        if not query_result_internal.isSuccess():
+            raise RuntimeError(query_result_internal.getErrorMessage())
+        current_query_result = QueryResult(self, query_result_internal)
+        if not query_result_internal.hasNextQueryResult():
             return current_query_result
         all_query_results = [current_query_result]
-        while _query_result.hasNextQueryResult():
-            _query_result = _query_result.getNextQueryResult()
-            if not _query_result.isSuccess():
-                raise RuntimeError(_query_result.getErrorMessage())
-            all_query_results.append(QueryResult(self, _query_result))
+        while query_result_internal.hasNextQueryResult():
+            query_result_internal = query_result_internal.getNextQueryResult()
+            if not query_result_internal.isSuccess():
+                raise RuntimeError(query_result_internal.getErrorMessage())
+            all_query_results.append(QueryResult(self, query_result_internal))
         return all_query_results
 
-    def prepare(self, query: str) -> PreparedStatement:
+    def _prepare(
+        self,
+        query: str,
+        parameters: dict[str, Any] | None = None,
+    ) -> PreparedStatement:
+        """
+        The only parameters supported during prepare are dataframes.
+        Any remaining parameters will be ignored and should be passed to execute().
+        """  # noqa: D401
+        return PreparedStatement(self, query, parameters)
+
+    def prepare(
+        self,
+        query: str,
+        parameters: dict[str, Any] | None = None,
+    ) -> PreparedStatement:
         """
         Create a prepared statement for a query.
 
@@ -153,13 +169,22 @@ class Connection:
         query : str
             Query to prepare.
 
+        parameters : dict[str, Any]
+            Parameters for the query.
+
         Returns
         -------
         PreparedStatement
             Prepared statement.
 
         """
-        return PreparedStatement(self, query)
+        warnings.warn(
+            "The use of separate prepare + execute of queries is deprecated. "
+            "Please using a single call to the execute() API instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._prepare(query, parameters)
 
     def _get_node_property_names(self, table_name: str) -> dict[str, Any]:
         LIST_START_SYMBOL = "["
@@ -248,7 +273,7 @@ class Connection:
         catch_exceptions: bool = False,
     ) -> None:
         """
-        Sets a User Defined Function (UDF) to use in cypher queries.
+        Set a User Defined Function (UDF) for use in cypher queries.
 
         Parameters
         ----------
@@ -288,7 +313,7 @@ class Connection:
 
     def remove_function(self, name: str) -> None:
         """
-        Removes a User Defined Function (UDF).
+        Remove a User Defined Function (UDF).
 
         Parameters
         ----------

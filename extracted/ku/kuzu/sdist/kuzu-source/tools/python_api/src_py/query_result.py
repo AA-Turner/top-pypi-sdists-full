@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .torch_geometric_result_converter import TorchGeometricResultConverter
 from .types import Type
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Iterator
     from types import TracebackType
+    from typing import Any
 
     import networkx as nx
     import pandas as pd
@@ -40,6 +42,7 @@ class QueryResult:
         self.connection = connection
         self._query_result = query_result
         self.is_closed = False
+        self.as_dict = False
 
     def __enter__(self) -> Self:
         return self
@@ -55,6 +58,80 @@ class QueryResult:
     def __del__(self) -> None:
         self.close()
 
+    def __iter__(self) -> Iterator[list[Any] | dict[str, Any]]:
+        return self
+
+    def __next__(self) -> list[Any] | dict[str, Any]:
+        if self.has_next():
+            return self.get_next()
+
+        raise StopIteration
+
+    def has_next(self) -> bool:
+        """
+        Check if there are more rows in the query result.
+
+        Returns
+        -------
+        bool
+            True if there are more rows in the query result, False otherwise.
+        """
+        self.check_for_query_result_close()
+        return self._query_result.hasNext()
+
+    def get_next(self) -> list[Any] | dict[str, Any]:
+        """
+        Get the next row in the query result.
+
+        Returns
+        -------
+        list
+            Next row in the query result.
+
+        Raises
+        ------
+        Exception
+            If there are no more rows.
+        """
+        self.check_for_query_result_close()
+        row = self._query_result.getNext()
+        return _row_to_dict(self.columns, row) if self.as_dict else row
+
+    def get_all(self) -> list[list[Any] | dict[str, Any]]:
+        """
+        Get the next row in the query result.
+
+        Returns
+        -------
+        list
+            All remaining rows in the query result.
+        """
+        return list(self)
+
+    def get_n(self, count: int) -> list[list[Any] | dict[str, Any]]:
+        """
+        Get many rows in the query result.
+
+        Returns
+        -------
+        list
+            Up to `count` rows in the query result.
+        """
+        results = []
+        while self.has_next() and count > 0:
+            results.append(self.get_next())
+            count -= 1
+        return results
+
+    def close(self) -> None:
+        """Close the query result."""
+        if not self.is_closed:
+            # Allows the connection to be garbage collected if the query result
+            # is closed manually by the user.
+            self._query_result.close()
+            self.connection = None
+            self.is_closed = True
+
     def check_for_query_result_close(self) -> None:
         """
         Check if the query result is closed and raise an exception if it is.
@@ -68,41 +145,6 @@ class QueryResult:
         if self.is_closed:
             msg = "Query result is closed"
             raise RuntimeError(msg)
-
-    def has_next(self) -> bool:
-        """
-        Check if there are more rows in the query result.
-
-        Returns
-        -------
-        bool
-            True if there are more rows in the query result, False otherwise.
-
-        """
-        self.check_for_query_result_close()
-        return self._query_result.hasNext()
-
-    def get_next(self) -> list[Any]:
-        """
-        Get the next row in the query result.
-
-        Returns
-        -------
-        list
-            Next row in the query result.
-
-        """
-        self.check_for_query_result_close()
-        return self._query_result.getNext()
-
-    def close(self) -> None:
-        """Close the query result."""
-        if not self.is_closed:
-            # Allows the connection to be garbage collected if the query result
-            # is closed manually by the user.
-            self._query_result.close()
-            self.connection = None
-            self.is_closed = True
 
     def get_as_df(self) -> pd.DataFrame:
         """
@@ -284,32 +326,28 @@ class QueryResult:
                     continue
                 column_type, _ = properties_to_extract[i]
                 if column_type == Type.NODE.value:
-                    _id = row[i]["_id"]
-                    nodes[(_id["table"], _id["offset"])] = row[i]
-                    table_to_label_dict[_id["table"]] = row[i]["_label"]
+                    nid = row[i]["_id"]
+                    nodes[nid["table"], nid["offset"]] = row[i]
+                    table_to_label_dict[nid["table"]] = row[i]["_label"]
 
                 elif column_type == Type.REL.value:
-                    _src = row[i]["_src"]
-                    _dst = row[i]["_dst"]
                     rels[encode_rel_id(row[i])] = row[i]
 
                 elif column_type == Type.RECURSIVE_REL.value:
                     for node in row[i]["_nodes"]:
-                        _id = node["_id"]
-                        nodes[(_id["table"], _id["offset"])] = node
-                        table_to_label_dict[_id["table"]] = node["_label"]
+                        nid = node["_id"]
+                        nodes[nid["table"], nid["offset"]] = node
+                        table_to_label_dict[nid["table"]] = node["_label"]
                     for rel in row[i]["_rels"]:
                         for key in list(rel.keys()):
                             if rel[key] is None:
                                 del rel[key]
-                        _src = rel["_src"]
-                        _dst = rel["_dst"]
                         rels[encode_rel_id(rel)] = rel
 
         # Add nodes
         for node in nodes.values():
-            _id = node["_id"]
-            node_id = node["_label"] + "_" + str(_id["offset"])
+            nid = node["_id"]
+            node_id = node["_label"] + "_" + str(nid["offset"])
             if node["_label"] not in table_primary_key_dict:
                 props = self.connection._get_node_property_names(node["_label"])
                 for prop_name in props:
@@ -322,10 +360,10 @@ class QueryResult:
 
         # Add rels
         for rel in rels.values():
-            _src = rel["_src"]
-            _dst = rel["_dst"]
-            src_node = nodes[(_src["table"], _src["offset"])]
-            dst_node = nodes[(_dst["table"], _dst["offset"])]
+            src = rel["_src"]
+            dst = rel["_dst"]
+            src_node = nodes[src["table"], src["offset"]]
+            dst_node = nodes[dst["table"], dst["offset"]]
             src_id = encode_node_id(src_node, table_primary_key_dict)
             dst_id = encode_node_id(dst_node, table_primary_key_dict)
             nx_graph.add_edge(src_id, dst_id, **rel)
@@ -350,7 +388,7 @@ class QueryResult:
 
     def get_as_torch_geometric(self) -> tuple[geo.Data | geo.HeteroData, dict, dict, dict]:  # type: ignore[type-arg]
         """
-        Converts the nodes and rels in query result into a PyTorch Geometric graph representation
+        Convert the nodes and rels in query result into a PyTorch Geometric graph representation
         torch_geometric.data.Data or torch_geometric.data.HeteroData.
 
         For node conversion, numerical and boolean properties are directly converted into tensor and
@@ -437,3 +475,32 @@ class QueryResult:
         """
         self.check_for_query_result_close()
         return self._query_result.getNumTuples()
+
+    def rows_as_dict(self, state=True) -> Self:
+        """
+        Change the format of the results, such that each row is a dict with the
+        column name as a key.
+
+        Parameters
+        ----------
+        state
+            Whether to turn dict formatting on or off. Turns it on by default.
+
+        Returns
+        -------
+        self
+            The object itself.
+
+        """
+        self.as_dict = state
+        if state:
+            self.columns = self.get_column_names()
+        return self
+
+
+def _row_to_dict(columns: list[str], row: list[Any]) -> dict[str, Any]:
+    if len(columns) != len(row):
+        msg = "Number of columns in output row does not match number of columns"
+        raise RuntimeError(msg)
+
+    return dict(zip(columns, row))

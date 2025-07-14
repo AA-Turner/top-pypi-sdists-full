@@ -399,44 +399,59 @@ class PPEComplianceUseCase(BaseProcessor):
             frame_events.append(alert_event)
         return events
 
-
-    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str, config: PPEComplianceConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(
+            self,
+            counting_summary: Dict,
+            insights: List[str],
+            summary: str,
+            config: PPEComplianceConfig,
+            frame_number: Optional[int] = None,
+            stream_info: Optional[Dict[str, Any]] = None
+    ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
+
+
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
+
         total_violations = counting_summary.get("total_count", 0)
         per_cat = counting_summary.get("per_category_count", {})
         cumulative = counting_summary.get("total_violation_counts", {})
         cumulative_total = sum(cumulative.values()) if cumulative else 0
-        # Always get track ID info even if 0 detections — to ensure consistency
+
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-        # Get formatted timestamps
+
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
-        # Build human-readable summary string in requested format
+
         human_text_lines = []
+
         # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
         if total_violations > 0:
-            human_text_lines.append(f"    - PPE Violations Detected: {total_violations}")
+            human_text_lines.append(f"\t- PPE Violations Detected: {total_violations}")
             for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]:
                 count = per_cat.get(cat, 0)
                 if count > 0:
                     label = self.CATEGORY_DISPLAY.get(cat, cat).replace(" Violations", "")
-                    human_text_lines.append(f"        - {label}: {count}")
+                    human_text_lines.append(f"\t\t- {label}: {count}")
         else:
-            human_text_lines.append("    - No PPE violations detected")
-        human_text_lines.append("")  # Empty line for spacing
+            human_text_lines.append("\t- No PPE violations detected")
+
+        human_text_lines.append("")  # spacing
+
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"    - Total PPE Violations Detected: {cumulative_total}")
+        human_text_lines.append(f"\t- Total PPE Violations Detected: {cumulative_total}")
         for cat in ["NO-Hardhat", "NO-Mask", "NO-Safety Vest"]:
             count = cumulative.get(cat, 0)
             if count > 0:
                 label = self.CATEGORY_DISPLAY.get(cat, cat).replace(" Violations", "")
-                human_text_lines.append(f"        - {label}: {count}")
+                human_text_lines.append(f"\t\t- {label}: {count}")
+
         human_text = "\n".join(human_text_lines)
+
         tracking_stat = {
             "type": "ppe_tracking",
             "category": "ppe",
@@ -449,10 +464,9 @@ class PPEComplianceUseCase(BaseProcessor):
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
             "local_frame_id": frame_key
         }
+
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
-
-
 
     def _count_categories(self, detections: list, config: PPEComplianceConfig) -> dict:
         """

@@ -12,7 +12,7 @@ messages = []
 
 if __name__ == "__main__":
     if not len(sys.argv) == 2:
-        print("Usage: python send-dicord-notification.py <result.json>")
+        print("Usage: python send-discord-notification.py <result.json>")
         sys.exit(1)
     if not os.path.isfile(sys.argv[1]):
         print(f"Error: {sys.argv[1]} is not a file")
@@ -37,17 +37,29 @@ if __name__ == "__main__":
                 sys.exit(1)
         await client.close()
 
-    message = ""
-    message += "## Multiplatform test result:\n"
+    message = "## Multiplatform test result:\n"
     with open(sys.argv[1], "r") as f:
         result = json.load(f)
-        for platform in result:
-            if len(message) >= 1500:
-                messages.append(message)
-                message = ""
-            message += f"- **{platform}**:\n"
+        failures = {}
+        stages = []
+        for platform in sorted(result.keys()):
             for r in result[platform]:
-                message += f"  - {r['stage']}: {r['status']}\n"
+                if r['stage'] not in stages:
+                    stages.append(r['stage'])
+                if r['status'] != "✅":
+                    failures.setdefault(platform, list()).append(r)
+        message += f"- Platforms:\n  - {', '.join(sorted(result.keys()))}\n"
+        message += f"- Stages:\n  - {', '.join(stages)}\n"
+        # Add only the failures.
+        if len(failures) > 0:
+            message += "### Failures:\n"
+            for platform in sorted(failures.keys()):
+                if len(message) >= 1500:
+                    messages.append(message)
+                    message = ""
+                message += f"- **{platform}**:\n"
+                for r in failures[platform]:
+                    message += f"  - {r['stage']}: {r['status']}\n"
     if GITHUB_URL:
         message += "\n"
         message += f"  [Github]({GITHUB_URL})"

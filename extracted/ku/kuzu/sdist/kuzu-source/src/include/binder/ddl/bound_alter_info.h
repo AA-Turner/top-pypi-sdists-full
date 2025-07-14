@@ -110,5 +110,16 @@ struct BoundExtraCommentInfo final : BoundExtraAlterInfo {
     }
 };
 
+struct BoundExtraAlterFromToConnection final : BoundExtraAlterInfo {
+    common::table_id_t fromTableID;
+    common::table_id_t toTableID;
+
+    BoundExtraAlterFromToConnection(common::table_id_t fromTableID, common::table_id_t toTableID)
+        : fromTableID{fromTableID}, toTableID{toTableID} {}
+    std::unique_ptr<BoundExtraAlterInfo> copy() const override {
+        return std::make_unique<BoundExtraAlterFromToConnection>(*this);
+    }
+};
+
 } // namespace binder
 } // namespace kuzu

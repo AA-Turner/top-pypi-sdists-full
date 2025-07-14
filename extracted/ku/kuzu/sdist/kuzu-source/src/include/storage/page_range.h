@@ -1,10 +1,11 @@
 #pragma once
 
 #include "common/types/types.h"
+
 namespace kuzu::storage {
 
 struct PageRange {
-    PageRange() = default;
+    PageRange() : startPageIdx(common::INVALID_PAGE_IDX), numPages(0){};
     PageRange(common::page_idx_t startPageIdx, common::page_idx_t numPages)
         : startPageIdx(startPageIdx), numPages(numPages) {}
 

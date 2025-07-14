@@ -1,9 +1,8 @@
 #include <utility>
 
 #include "catalog/catalog.h"
-#include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "common/enums/join_type.h"
-#include "graph/graph_entry.h"
 #include "main/client_context.h"
 #include "planner/join_order/cost_model.h"
 #include "planner/operator/extend/logical_extend.h"
@@ -26,17 +25,17 @@ static std::unordered_set<table_id_t> getBoundNodeTableIDSet(const RelExpression
     ExtendDirection extendDirection) {
     std::unordered_set<table_id_t> result;
     for (auto entry : rel.getEntries()) {
-        auto& relTableEntry = entry->constCast<RelTableCatalogEntry>();
+        auto& groupEntry = entry->constCast<RelGroupCatalogEntry>();
         switch (extendDirection) {
         case ExtendDirection::FWD: {
-            result.insert(relTableEntry.getBoundTableID(RelDataDirection::FWD));
+            result.merge(groupEntry.getBoundNodeTableIDSet(RelDataDirection::FWD));
         } break;
         case ExtendDirection::BWD: {
-            result.insert(relTableEntry.getBoundTableID(RelDataDirection::BWD));
+            result.merge(groupEntry.getBoundNodeTableIDSet(RelDataDirection::BWD));
         } break;
         case ExtendDirection::BOTH: {
-            result.insert(relTableEntry.getBoundTableID(RelDataDirection::FWD));
-            result.insert(relTableEntry.getBoundTableID(RelDataDirection::BWD));
+            result.merge(groupEntry.getBoundNodeTableIDSet(RelDataDirection::FWD));
+            result.merge(groupEntry.getBoundNodeTableIDSet(RelDataDirection::BWD));
         } break;
         default:
             KU_UNREACHABLE;
@@ -49,17 +48,17 @@ static std::unordered_set<table_id_t> getNbrNodeTableIDSet(const RelExpression& 
     ExtendDirection extendDirection) {
     std::unordered_set<table_id_t> result;
     for (auto entry : rel.getEntries()) {
-        auto& relTableEntry = entry->constCast<RelTableCatalogEntry>();
+        auto& groupEntry = entry->constCast<RelGroupCatalogEntry>();
         switch (extendDirection) {
         case ExtendDirection::FWD: {
-            result.insert(relTableEntry.getNbrTableID(RelDataDirection::FWD));
+            result.merge(groupEntry.getNbrNodeTableIDSet(RelDataDirection::FWD));
         } break;
         case ExtendDirection::BWD: {
-            result.insert(relTableEntry.getNbrTableID(RelDataDirection::BWD));
+            result.merge(groupEntry.getNbrNodeTableIDSet(RelDataDirection::BWD));
         } break;
         case ExtendDirection::BOTH: {
-            result.insert(relTableEntry.getNbrTableID(RelDataDirection::FWD));
-            result.insert(relTableEntry.getNbrTableID(RelDataDirection::BWD));
+            result.merge(groupEntry.getNbrNodeTableIDSet(RelDataDirection::FWD));
+            result.merge(groupEntry.getNbrNodeTableIDSet(RelDataDirection::BWD));
         } break;
         default:
             KU_UNREACHABLE;
@@ -109,22 +108,16 @@ void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& bound
     bindData->extendDirection = direction;
     // If we extend from right to left, we need to print path in reverse direction.
     bindData->flipPath = *boundNode == *rel->getRightNode();
-
     auto resultColumns = recursiveInfo->function->getResultColumns(*bindData);
-
-    std::shared_ptr<LogicalOperator> nodeMaskRoot = nullptr;
+    auto recursiveExtend = std::make_shared<LogicalRecursiveExtend>(recursiveInfo->function->copy(),
+        *recursiveInfo->bindData, resultColumns);
     if (recursiveInfo->nodePredicate != nullptr) {
         auto p = getNodeSemiMaskPlan(SemiMaskTargetType::RECURSIVE_EXTEND_PATH_NODE,
             *recursiveInfo->node, recursiveInfo->nodePredicate);
-        nodeMaskRoot = p.getLastOperator();
-    }
-    auto probePlan = LogicalPlan();
-    auto recursiveExtend = std::make_shared<LogicalRecursiveExtend>(recursiveInfo->function->copy(),
-        *recursiveInfo->bindData, resultColumns);
-    if (nodeMaskRoot != nullptr) {
-        recursiveExtend->addChild(nodeMaskRoot);
+        recursiveExtend->addChild(p.getLastOperator());
     }
     recursiveExtend->computeFactorizedSchema();
+    auto probePlan = LogicalPlan();
     probePlan.setLastOperator(std::move(recursiveExtend));
     // Scan path node property pipeline
     std::shared_ptr<LogicalOperator> pathNodePropertyScanRoot = nullptr;
@@ -137,14 +130,14 @@ void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& bound
     // Scan path rel property pipeline
     std::shared_ptr<LogicalOperator> pathRelPropertyScanRoot = nullptr;
     if (!recursiveInfo->relProjectionList.empty()) {
-        auto pathRelPropertyScanPlan = std::make_unique<LogicalPlan>();
+        auto pathRelPropertyScanPlan = LogicalPlan();
         auto relProperties = recursiveInfo->relProjectionList;
-        relProperties.push_back(recursiveInfo->rel->getInternalIDProperty());
+        relProperties.push_back(recursiveInfo->rel->getInternalID());
         bool extendFromSource = *boundNode == *rel->getSrcNode();
         createPathRelPropertyScanPlan(recursiveInfo->node, recursiveInfo->nodeCopy,
             recursiveInfo->rel, direction, extendFromSource, relProperties,
-            *pathRelPropertyScanPlan);
-        pathRelPropertyScanRoot = pathRelPropertyScanPlan->getLastOperator();
+            pathRelPropertyScanPlan);
+        pathRelPropertyScanRoot = pathRelPropertyScanPlan.getLastOperator();
     }
     // Construct path by probing scanned properties
     auto pathPropertyProbe =

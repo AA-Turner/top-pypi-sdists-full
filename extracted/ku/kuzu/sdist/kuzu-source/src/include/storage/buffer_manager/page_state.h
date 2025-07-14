@@ -6,7 +6,6 @@
 
 // Alternative variant of the buffer manager which doesn't rely on MADV_DONTNEED (on Unix) for
 // evicting pages (which is unavailable in Webassembly runtimes)
-#define BM_MALLOC __WASM__
 #if BM_MALLOC
 #include <memory>
 #endif
@@ -56,6 +55,11 @@ public:
         // KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
         stateAndVersion.store(updateStateAndIncrementVersion(stateAndVersion.load(), UNLOCKED));
     }
+    void unlockUnchanged() {
+        // TODO(Keenan / Guodong): Track down this rare bug and re-enable the assert. Ref #2289.
+        // KU_ASSERT(getState(stateAndVersion.load()) == LOCKED);
+        stateAndVersion.store(updateStateWithSameVersion(stateAndVersion.load(), UNLOCKED));
+    }
     // Change page state from Mark to Unlocked.
     bool tryClearMark(uint64_t oldStateAndVersion) {
         KU_ASSERT(getState(oldStateAndVersion) == MARKED);
@@ -94,6 +98,9 @@ public:
         page = std::make_unique<uint8_t[]>(pageSize);
         return page.get();
     }
+    uint16_t getReaderCount() const { return readerCount; }
+    void addReader() { readerCount++; }
+    void removeReader() { readerCount--; }
 #endif
 
 private:
@@ -102,6 +109,7 @@ private:
     std::atomic<uint64_t> stateAndVersion;
 #if BM_MALLOC
     std::unique_ptr<uint8_t[]> page;
+    std::atomic<uint16_t> readerCount;
 #endif
 };
 

@@ -17,6 +17,7 @@
 #include "processor/processor.h"
 #include "storage/storage_extension.h"
 #include "storage/storage_manager.h"
+#include "storage/storage_utils.h"
 #include "transaction/transaction_manager.h"
 
 using namespace kuzu::catalog;
@@ -28,9 +29,19 @@ namespace kuzu {
 namespace main {
 
 SystemConfig::SystemConfig(uint64_t bufferPoolSize_, uint64_t maxNumThreads, bool enableCompression,
-    bool readOnly, uint64_t maxDBSize, bool autoCheckpoint, uint64_t checkpointThreshold)
+    bool readOnly, uint64_t maxDBSize, bool autoCheckpoint, uint64_t checkpointThreshold,
+    bool forceCheckpointOnClose
+#if defined(__APPLE__)
+    ,
+    uint32_t threadQos
+#endif
+    )
     : maxNumThreads{maxNumThreads}, enableCompression{enableCompression}, readOnly{readOnly},
-      autoCheckpoint{autoCheckpoint}, checkpointThreshold{checkpointThreshold} {
+      autoCheckpoint{autoCheckpoint}, checkpointThreshold{checkpointThreshold},
+      forceCheckpointOnClose{forceCheckpointOnClose} {
+#if defined(__APPLE__)
+    this->threadQos = threadQos;
+#endif
     if (bufferPoolSize_ == -1u || bufferPoolSize_ == 0) {
 #if defined(_WIN32)
         MEMORYSTATUSEX status;
@@ -86,10 +97,10 @@ Database::Database(std::string_view databasePath, SystemConfig systemConfig,
     initMembers(databasePath, constructBMFunc);
 }
 
-std::unique_ptr<storage::BufferManager> Database::initBufferManager(const Database& db) {
+std::unique_ptr<BufferManager> Database::initBufferManager(const Database& db) {
     return std::make_unique<BufferManager>(db.databasePath,
-        db.vfs->joinPath(db.databasePath, StorageConstants::TEMP_SPILLING_FILE_NAME),
-        db.dbConfig.bufferPoolSize, db.dbConfig.maxDBSize, db.vfs.get(), db.dbConfig.readOnly);
+        StorageUtils::getTmpFilePath(db.databasePath), db.dbConfig.bufferPoolSize,
+        db.dbConfig.maxDBSize, db.vfs.get(), db.dbConfig.readOnly);
 }
 
 void Database::initMembers(std::string_view dbPath, construct_bm_func_t initBmFunc) {
@@ -99,20 +110,34 @@ void Database::initMembers(std::string_view dbPath, construct_bm_func_t initBmFu
     auto clientContext = ClientContext(this);
     databasePath = StorageUtils::expandPath(&clientContext, dbPathStr);
 
+    if (std::filesystem::is_directory(databasePath)) {
+        throw RuntimeException("Database path cannot be a directory: " + databasePath);
+    }
     vfs = std::make_unique<VirtualFileSystem>(databasePath);
-
     initAndLockDBDir();
+
     bufferManager = initBmFunc(*this);
     memoryManager = std::make_unique<MemoryManager>(bufferManager.get(), vfs.get());
+#if defined(__APPLE__)
+    queryProcessor =
+        std::make_unique<processor::QueryProcessor>(dbConfig.maxNumThreads, dbConfig.threadQos);
+#else
     queryProcessor = std::make_unique<processor::QueryProcessor>(dbConfig.maxNumThreads);
-    catalog = std::make_unique<Catalog>(this->databasePath, vfs.get());
-    storageManager = std::make_unique<StorageManager>(dbPathStr, dbConfig.readOnly, *catalog,
+#endif
+
+    catalog = std::make_unique<Catalog>();
+    storageManager = std::make_unique<StorageManager>(databasePath, dbConfig.readOnly,
         *memoryManager, dbConfig.enableCompression, vfs.get(), &clientContext);
     transactionManager = std::make_unique<TransactionManager>(storageManager->getWAL());
-    StorageManager::recover(clientContext);
     databaseManager = std::make_unique<DatabaseManager>();
+
     extensionManager = std::make_unique<extension::ExtensionManager>();
-    extensionManager->autoLoadLinkedExtensions(&clientContext);
+    dbLifeCycleManager = std::make_shared<DatabaseLifeCycleManager>();
+    if (clientContext.isInMemory()) {
+        extensionManager->autoLoadLinkedExtensions(&clientContext);
+        return;
+    }
+    StorageManager::recover(clientContext);
 }
 
 Database::~Database() {
@@ -122,6 +147,7 @@ Database::~Database() {
             transactionManager->checkpoint(clientContext);
         } catch (...) {} // NOLINT
     }
+    dbLifeCycleManager->isDatabaseClosed = true;
 }
 
 void Database::registerFileSystem(std::unique_ptr<FileSystem> fs) {
@@ -145,7 +171,7 @@ std::vector<StorageExtension*> Database::getStorageExtensions() {
 void Database::openLockFile() {
     int flags = 0;
     FileLockType lock{};
-    auto lockFilePath = StorageUtils::getLockFilePath(vfs.get(), databasePath);
+    auto lockFilePath = StorageUtils::getLockFilePath(databasePath);
     if (!vfs->fileOrPathExists(lockFilePath)) {
         getLockFileFlagsAndType(dbConfig.readOnly, true, flags, lock);
     } else {
@@ -167,13 +193,12 @@ void Database::initAndLockDBDir() {
         if (dbConfig.readOnly) {
             throw Exception("Cannot create an empty database under READ ONLY mode.");
         }
-        vfs->createDir(databasePath);
     }
     openLockFile();
 }
 
 uint64_t Database::getNextQueryID() {
-    std::lock_guard<std::mutex> lock(queryIDGenerator.queryIDLock);
+    std::unique_lock lock(queryIDGenerator.queryIDLock);
     return queryIDGenerator.queryID++;
 }
 

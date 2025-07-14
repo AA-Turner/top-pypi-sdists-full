@@ -468,12 +468,15 @@ def _render_charger_card(cid, tx, state, raw_hb, *, show_controls=True):
 def view_charger_status(*, action=None, charger_id=None, show=None, **_):
     """
     Card-based OCPP dashboard: summary of charger connections.
-    Renders <div id="charger-list" data-gw-render="charger_list" data-gw-refresh="5">
+    Renders <div id="charger-list" gw-render="charger_list" gw-refresh="5">
     so the client can periodically refresh the list via render.js.
     ``show=all`` includes historic chargers from the database.
     """
     msg = ""
     show = show or request.query.get("show")
+    gw.verbose(
+        f"[view_charger_status] start: action={action} charger_id={charger_id} show={show}"
+    )
     if request.method == "POST":
         action = request.forms.get("action")
         charger_id = request.forms.get("charger_id")
@@ -485,12 +488,22 @@ def view_charger_status(*, action=None, charger_id=None, show=None, **_):
                 gw.error(f"Failed to dispatch action {action} to {charger_id}: {e}")
                 msg = f"Error: {e}"
 
+    gw.verbose(
+        f"[view_charger_status] active_cons={list(_active_cons.keys())}"
+    )
+    gw.verbose(
+        f"[view_charger_status] transactions={list(_transactions.keys())}"
+    )
+
     all_chargers = set(_active_cons) | set(_transactions)
     if show == "all":
         try:
             all_chargers |= set(gw.ocpp.data.list_chargers())
         except Exception:
             pass
+    gw.verbose(
+        f"[view_charger_status] all_chargers={sorted(all_chargers)} show={show}"
+    )
     html = [
         '<link rel="stylesheet" href="/static/ocpp/csms/charger_status.css">',
         '<script src="/static/render.js"></script>',
@@ -523,7 +536,7 @@ def view_charger_status(*, action=None, charger_id=None, show=None, **_):
 
     # --- The key block for autorefresh ---
     html.append(
-        f'<div id="charger-list" data-gw-render="charger_list" data-gw-refresh="5" data-gw-click="refresh" data-show="{show or ""}">' 
+        f'<div id="charger-list" gw-render="charger_list" gw-refresh="5" gw-click="refresh" data-show="{show or ""}">'
     )
     if not all_chargers:
         html.append('<p><em>No chargers connected or transactions seen yet.</em></p>')
@@ -621,7 +634,7 @@ def view_charger_detail(*, charger_id=None, **_):
         html.append(f'<p class="error">{msg}</p>')
 
     html.append(
-        f'<div id="charger-info" data-gw-render="charger_info" data-gw-refresh="5" data-gw-click="refresh" data-charger-id="{charger_id}">' +
+        f'<div id="charger-info" gw-render="charger_info" gw-refresh="5" gw-click="refresh" data-charger-id="{charger_id}">' +
         _render_charger_card(charger_id, tx, state, raw_hb) +
         '</div>'
     )
@@ -636,14 +649,14 @@ def view_charger_detail(*, charger_id=None, **_):
     )
 
     html.append(
-        f'<div id="charger-transactions" data-gw-render="charger_transactions" '
+        f'<div id="charger-transactions" gw-render="charger_transactions" '
         f'data-charger-id="{charger_id}" data-since="{since}" data-until="{until}">' +
         render_charger_transactions(charger_id=charger_id, since=since, until=until) +
         '</div>'
     )
 
     html.append(
-        f'<div id="charger-log" data-gw-render="charger_log" data-gw-refresh="2" data-gw-click="refresh" data-charger-id="{charger_id}">' +
+        f'<div id="charger-log" gw-render="charger_log" gw-refresh="2" gw-click="refresh" data-charger-id="{charger_id}">' +
         render_charger_log(charger_id=charger_id) +
         '</div>'
     )

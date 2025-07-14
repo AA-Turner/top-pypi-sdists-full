@@ -55,7 +55,7 @@ PyDatabase::PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
     }
     database = std::make_unique<Database>(databasePath, systemConfig);
     kuzu::extension::ExtensionUtils::addTableFunc<kuzu::PandasScanFunction>(*database);
-    storageDriver = std::make_unique<kuzu::main::StorageDriver>(database.get());
+    storageDriver = std::make_unique<StorageDriver>(database.get());
     py::gil_scoped_acquire acquire;
     if (kuzu::importCache.get() == nullptr) {
         kuzu::importCache = std::make_shared<kuzu::PythonCachedImport>();

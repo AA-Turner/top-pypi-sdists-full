@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-mcp
-Version: 0.40.14
+Version: 0.41.0
 Summary: OpenTelemetry mcp instrumentation
 License: Apache-2.0
 Author: Felix George
@@ -14,9 +14,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: instruments
 Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
+Requires-Dist: opentelemetry-exporter-otlp (==1.34.1)
 Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
 Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.9)
+Requires-Dist: opentelemetry-semantic-conventions-ai (==0.4.10)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-mcp
 Description-Content-Type: text/markdown
 

@@ -57,6 +57,12 @@ impl<'src, D> Recipe<'src, D> {
     }
   }
 
+  pub(crate) fn module_path(&self) -> String {
+    let mut path = self.namepath.to_string();
+    path.truncate(path.find("::").unwrap_or_default());
+    path
+  }
+
   pub(crate) fn name(&self) -> &'src str {
     self.name.lexeme()
   }
@@ -93,6 +99,10 @@ impl<'src, D> Recipe<'src, D> {
     }
 
     Ok(())
+  }
+
+  pub(crate) fn is_parallel(&self) -> bool {
+    self.attributes.contains(AttributeDiscriminant::Parallel)
   }
 
   pub(crate) fn is_public(&self) -> bool {
@@ -416,6 +426,7 @@ impl<'src, D> Recipe<'src, D> {
     })?;
 
     let mut command = executor.command(
+      config,
       &path,
       self.name(),
       self.working_directory(context).as_deref(),
@@ -485,8 +496,12 @@ impl<'src, D> Recipe<'src, D> {
     self.doc.as_deref()
   }
 
-  pub(crate) fn subsequents(&self) -> impl Iterator<Item = &D> {
-    self.dependencies.iter().skip(self.priors)
+  pub(crate) fn priors(&self) -> &[D] {
+    &self.dependencies[..self.priors]
+  }
+
+  pub(crate) fn subsequents(&self) -> &[D] {
+    &self.dependencies[self.priors..]
   }
 }
 

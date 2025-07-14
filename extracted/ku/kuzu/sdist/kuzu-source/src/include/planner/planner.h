@@ -66,74 +66,59 @@ public:
     explicit Planner(main::ClientContext* clientContext);
     DELETE_COPY_AND_MOVE(Planner);
 
-    std::unique_ptr<LogicalPlan> getBestPlan(const binder::BoundStatement& statement);
-
-    std::vector<std::unique_ptr<LogicalPlan>> getAllPlans(const binder::BoundStatement& statement);
+    LogicalPlan planStatement(const binder::BoundStatement& statement);
 
     // Plan simple statement.
-    void appendCreateTable(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendCreateType(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendCreateSequence(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendDrop(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendAlter(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendStandaloneCall(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendStandaloneCallFunction(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendExplain(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendCreateMacro(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendTransaction(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendExtension(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendAttachDatabase(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendDetachDatabase(const binder::BoundStatement& statement, LogicalPlan& plan);
-    void appendUseDatabase(const binder::BoundStatement& statement, LogicalPlan& plan);
+    LogicalPlan planCreateTable(const binder::BoundStatement& statement);
+    LogicalPlan planCreateType(const binder::BoundStatement& statement);
+    LogicalPlan planCreateSequence(const binder::BoundStatement& statement);
+    LogicalPlan planCreateMacro(const binder::BoundStatement& statement);
+    LogicalPlan planDrop(const binder::BoundStatement& statement);
+    LogicalPlan planAlter(const binder::BoundStatement& statement);
+    LogicalPlan planStandaloneCall(const binder::BoundStatement& statement);
+    LogicalPlan planStandaloneCallFunction(const binder::BoundStatement& statement);
+    LogicalPlan planExplain(const binder::BoundStatement& statement);
+    LogicalPlan planTransaction(const binder::BoundStatement& statement);
+    LogicalPlan planExtension(const binder::BoundStatement& statement);
+    LogicalPlan planAttachDatabase(const binder::BoundStatement& statement);
+    LogicalPlan planDetachDatabase(const binder::BoundStatement& statement);
+    LogicalPlan planUseDatabase(const binder::BoundStatement& statement);
 
     // Plan copy.
-    std::unique_ptr<LogicalPlan> planCopyTo(const binder::BoundStatement& statement);
-    std::unique_ptr<LogicalPlan> planCopyFrom(const binder::BoundStatement& statement);
-    std::unique_ptr<LogicalPlan> planCopyNodeFrom(const binder::BoundCopyFromInfo* info,
-        binder::expression_vector outExprs);
-    std::unique_ptr<LogicalPlan> planCopyRelFrom(const binder::BoundCopyFromInfo* info,
-        binder::expression_vector outExprs);
+    LogicalPlan planCopyTo(const binder::BoundStatement& statement);
+    LogicalPlan planCopyFrom(const binder::BoundStatement& statement);
+    LogicalPlan planCopyNodeFrom(const binder::BoundCopyFromInfo* info);
+    LogicalPlan planCopyRelFrom(const binder::BoundCopyFromInfo* info);
 
     // Plan export/import database
-    std::unique_ptr<LogicalPlan> planExportDatabase(const binder::BoundStatement& statement);
-    std::unique_ptr<LogicalPlan> planImportDatabase(const binder::BoundStatement& statement);
+    std::vector<std::shared_ptr<LogicalOperator>> planExportTableData(
+        const binder::BoundStatement& boundExportDatabase);
+    LogicalPlan planExportDatabase(const binder::BoundStatement& statement);
+    LogicalPlan planImportDatabase(const binder::BoundStatement& statement);
 
     // Plan query.
-    std::vector<std::unique_ptr<LogicalPlan>> planQuery(
-        const binder::BoundStatement& boundStatement);
-    std::vector<std::unique_ptr<LogicalPlan>> planSingleQuery(
-        const binder::NormalizedSingleQuery* singleQuery);
-    std::vector<std::unique_ptr<LogicalPlan>> planQueryPart(
-        const binder::NormalizedQueryPart* queryPart,
-        std::vector<std::unique_ptr<LogicalPlan>> prevPlans);
+    LogicalPlan planQuery(const binder::BoundStatement& boundStatement);
+    LogicalPlan planSingleQuery(const binder::NormalizedSingleQuery& singleQuery);
+    void planQueryPart(const binder::NormalizedQueryPart& queryPart, LogicalPlan& prevPlan);
 
     // Plan read.
-    void planReadingClause(const binder::BoundReadingClause& readingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& prevPlans);
-    void planMatchClause(const binder::BoundReadingClause& readingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& plans);
-    void planUnwindClause(const binder::BoundReadingClause& readingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& plans);
-    void planTableFunctionCall(const binder::BoundReadingClause& readingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& plans);
+    void planReadingClause(const binder::BoundReadingClause& readingClause, LogicalPlan& plan);
+    void planMatchClause(const binder::BoundReadingClause& readingClause, LogicalPlan& plan);
+    void planUnwindClause(const binder::BoundReadingClause& readingClause, LogicalPlan& plan);
+    void planTableFunctionCall(const binder::BoundReadingClause& readingClause, LogicalPlan& plan);
 
     void planReadOp(std::shared_ptr<LogicalOperator> op,
         const binder::expression_vector& predicates, LogicalPlan& plan);
-    void planLoadFrom(const binder::BoundReadingClause& readingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& plans);
+    void planLoadFrom(const binder::BoundReadingClause& readingClause, LogicalPlan& plan);
 
     // Plan updating
-    void planUpdatingClause(const binder::BoundUpdatingClause* updatingClause,
-        std::vector<std::unique_ptr<LogicalPlan>>& plans);
-    void planUpdatingClause(const binder::BoundUpdatingClause* updatingClause, LogicalPlan& plan);
-    void planInsertClause(const binder::BoundUpdatingClause* updatingClause, LogicalPlan& plan);
-    void planMergeClause(const binder::BoundUpdatingClause* updatingClause, LogicalPlan& plan);
-    void planSetClause(const binder::BoundUpdatingClause* updatingClause, LogicalPlan& plan);
-    void planDeleteClause(const binder::BoundUpdatingClause* updatingClause, LogicalPlan& plan);
+    void planUpdatingClause(const binder::BoundUpdatingClause& updatingClause, LogicalPlan& plan);
+    void planInsertClause(const binder::BoundUpdatingClause& updatingClause, LogicalPlan& plan);
+    void planMergeClause(const binder::BoundUpdatingClause& updatingClause, LogicalPlan& plan);
+    void planSetClause(const binder::BoundUpdatingClause& updatingClause, LogicalPlan& plan);
+    void planDeleteClause(const binder::BoundUpdatingClause& updatingClause, LogicalPlan& plan);
 
     // Plan projection
-    void planProjectionBody(const binder::BoundProjectionBody* projectionBody,
-        const std::vector<std::unique_ptr<LogicalPlan>>& plans);
     void planProjectionBody(const binder::BoundProjectionBody* projectionBody, LogicalPlan& plan);
     void planAggregate(const binder::expression_vector& expressionsToAggregate,
         const binder::expression_vector& expressionsToGroupBy, LogicalPlan& plan);
@@ -160,24 +145,19 @@ public:
         Schema* outerSchema);
 
     // Plan query graphs
-    std::unique_ptr<LogicalPlan> planQueryGraphCollection(
+    LogicalPlan planQueryGraphCollectionInNewContext(
         const binder::QueryGraphCollection& queryGraphCollection,
         const QueryGraphPlanningInfo& info);
-    std::unique_ptr<LogicalPlan> planQueryGraphCollectionInNewContext(
-        const binder::QueryGraphCollection& queryGraphCollection,
+    LogicalPlan planQueryGraphCollection(const binder::QueryGraphCollection& queryGraphCollection,
         const QueryGraphPlanningInfo& info);
-
-    std::vector<std::unique_ptr<LogicalPlan>> enumerateQueryGraphCollection(
-        const binder::QueryGraphCollection& queryGraphCollection,
+    LogicalPlan planQueryGraph(const binder::QueryGraph& queryGraph,
         const QueryGraphPlanningInfo& info);
-    std::vector<std::unique_ptr<LogicalPlan>> enumerateQueryGraph(
-        const binder::QueryGraph& queryGraph, const QueryGraphPlanningInfo& info);
 
     // Plan node/rel table scan
     void planBaseTableScans(const QueryGraphPlanningInfo& info);
     void planCorrelatedExpressionsScan(const QueryGraphPlanningInfo& info);
     void planNodeScan(uint32_t nodePos);
-    void planNodeIDScan(uint32_t nodePos, const QueryGraphPlanningInfo& info);
+    void planNodeIDScan(uint32_t nodePos);
     void planRelScan(uint32_t relPos);
     void appendExtend(std::shared_ptr<binder::NodeExpression> boundNode,
         std::shared_ptr<binder::NodeExpression> nbrNode, std::shared_ptr<binder::RelExpression> rel,
@@ -204,15 +184,18 @@ public:
         const binder::SubqueryGraph& otherSubgraph,
         const std::vector<std::shared_ptr<binder::NodeExpression>>& joinNodes, bool flipPlan);
 
-    std::vector<std::unique_ptr<LogicalPlan>> planCrossProduct(
-        std::vector<std::unique_ptr<LogicalPlan>> leftPlans,
-        std::vector<std::unique_ptr<LogicalPlan>> rightPlans);
-
+    // Plan semi mask
+    void appendNodeSemiMask(SemiMaskTargetType targetType, const binder::NodeExpression& node,
+        LogicalPlan& plan);
     LogicalPlan getNodeSemiMaskPlan(SemiMaskTargetType targetType,
         const binder::NodeExpression& node, std::shared_ptr<binder::Expression> nodePredicate);
+
     // This is mostly used when we try to reinterpret function output as node and read its
     // properties, e.g. query_vector_index, gds algorithms ...
     LogicalPlan getNodePropertyScanPlan(const binder::NodeExpression& node);
+
+    // Append dummy sink
+    void appendDummySink(LogicalPlan& plan);
 
     // Append empty result
     void appendEmptyResult(LogicalPlan& plan);
@@ -284,7 +267,7 @@ public:
         LogicalPlan& buildPlan, LogicalPlan& resultPlan);
     void appendIntersect(const std::shared_ptr<binder::Expression>& intersectNodeID,
         binder::expression_vector& boundNodeIDs, LogicalPlan& probePlan,
-        std::vector<std::unique_ptr<LogicalPlan>>& buildPlans);
+        std::vector<LogicalPlan>& buildPlans);
 
     void appendCrossProduct(const LogicalPlan& probePlan, const LogicalPlan& buildPlan,
         LogicalPlan& resultPlan);
@@ -326,7 +309,7 @@ public:
     void appendDistinct(const binder::expression_vector& keys, LogicalPlan& plan);
 
     const CardinalityEstimator& getCardinalityEstimator() const { return cardinalityEstimator; }
-    CardinalityEstimator& getCardinalityEstimator() { return cardinalityEstimator; }
+    CardinalityEstimator& getCardinliatyEstimatorUnsafe() { return cardinalityEstimator; }
 
     // Get operators
     static std::shared_ptr<LogicalOperator> getTableFunctionCall(
@@ -334,11 +317,7 @@ public:
     static std::shared_ptr<LogicalOperator> getTableFunctionCall(
         const binder::BoundReadingClause& readingClause);
 
-    std::unique_ptr<LogicalPlan> createUnionPlan(
-        std::vector<std::unique_ptr<LogicalPlan>>& childrenPlans, bool isUnionAll);
-    std::unique_ptr<LogicalPlan> getBestPlan(std::vector<std::unique_ptr<LogicalPlan>> plans);
-
-    static std::vector<std::unique_ptr<LogicalPlan>> getInitialEmptyPlans();
+    LogicalPlan createUnionPlan(std::vector<LogicalPlan>& childrenPlans, bool isUnionAll);
 
     binder::expression_vector getProperties(const binder::Expression& pattern) const;
 

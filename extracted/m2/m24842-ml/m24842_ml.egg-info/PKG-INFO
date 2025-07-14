@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: m24842_ml
-Version: 1.2.20
+Version: 1.2.24
 Summary: Collection of ML models and benchmarking tools
 Requires-Python: >=3.8
 Requires-Dist: torch

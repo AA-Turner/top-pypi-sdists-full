@@ -25,6 +25,7 @@ struct CSVOption {
     bool setDelim;
     bool setQuote;
     bool setHeader;
+    std::vector<std::string> nullStrings;
 
     CSVOption()
         : escapeChar{CopyConstants::DEFAULT_CSV_ESCAPE_CHAR},
@@ -39,40 +40,43 @@ struct CSVOption {
           setEscape{CopyConstants::DEFAULT_CSV_SET_DIALECT},
           setDelim{CopyConstants::DEFAULT_CSV_SET_DIALECT},
           setQuote{CopyConstants::DEFAULT_CSV_SET_DIALECT},
-          setHeader{CopyConstants::DEFAULT_CSV_SET_DIALECT} {}
+          setHeader{CopyConstants::DEFAULT_CSV_SET_DIALECT},
+          nullStrings{CopyConstants::DEFAULT_CSV_NULL_STRINGS[0]} {}
 
     EXPLICIT_COPY_DEFAULT_MOVE(CSVOption);
 
     // TODO: COPY FROM and COPY TO should support transform special options, like '\'.
-    std::string toCypher() const {
-        std::string result;
-
-        // Add the option IFF option is set by user.
+    std::unordered_map<std::string, std::string> toOptionsMap() const {
+        std::unordered_map<std::string, std::string> result;
         if (setHeader) {
-            std::string header = hasHeader ? "true" : "false";
-            result += "header=" + header;
+            result["header"] = hasHeader ? "true" : "false";
         }
         if (setEscape) {
-            if (!result.empty())
-                result += ", "; // Add separator if not the first option
-            result += stringFormat("escape='\\{}'", escapeChar);
+            result["escape"] = stringFormat("escape='\\{}'", escapeChar);
         }
         if (setDelim) {
-            if (!result.empty())
-                result += ", ";
-            result += stringFormat("delim='{}'", delimiter);
+            result["delim"] = stringFormat("delim='{}'", delimiter);
         }
         if (setQuote) {
-            if (!result.empty())
-                result += ", ";
-            result += stringFormat("quote='\\{}'", quoteChar);
+            result["quote"] = stringFormat("quote='\\{}'", quoteChar);
         }
+        if (autoDetection != CopyConstants::DEFAULT_CSV_AUTO_DETECT) {
+            result["auto_detect"] = autoDetection ? "true" : "false";
+        }
+        return result;
+    }
 
-        // If no options, return empty string.
-        if (result.empty()) {
+    static std::string toCypher(const std::unordered_map<std::string, std::string>& options) {
+        if (options.empty()) {
             return "";
         }
-
+        std::string result = "";
+        for (const auto& [key, value] : options) {
+            if (!result.empty()) {
+                result += ", ";
+            }
+            result += key + "=" + value;
+        }
         return "(" + result + ")";
     }
 
@@ -86,7 +90,7 @@ struct CSVOption {
                                             // sampleSize is 0
           allowUnbracedList{other.allowUnbracedList}, ignoreErrors{other.ignoreErrors},
           autoDetection{other.autoDetection}, setEscape{other.setEscape}, setDelim{other.setDelim},
-          setQuote{other.setQuote}, setHeader{other.setHeader} {}
+          setQuote{other.setQuote}, setHeader{other.setHeader}, nullStrings{other.nullStrings} {}
 };
 
 struct CSVReaderConfig {
@@ -96,7 +100,7 @@ struct CSVReaderConfig {
     CSVReaderConfig() : option{}, parallel{CopyConstants::DEFAULT_CSV_PARALLEL} {}
     EXPLICIT_COPY_DEFAULT_MOVE(CSVReaderConfig);
 
-    static CSVReaderConfig construct(const case_insensitive_map_t<common::Value>& options);
+    static CSVReaderConfig construct(const case_insensitive_map_t<Value>& options);
 
 private:
     CSVReaderConfig(const CSVReaderConfig& other)

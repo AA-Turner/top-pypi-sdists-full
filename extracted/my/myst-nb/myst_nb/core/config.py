@@ -1,4 +1,5 @@
 """Configuration for myst-nb."""
+
 import dataclasses as dc
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, Literal, Optional, Sequence, Tuple
@@ -285,7 +286,7 @@ class NbParserConfig:
         default=False,
         metadata={
             "validator": instance_of(bool),
-            "help": "Merge stdout/stderr execution output streams",
+            "help": "Merge all stdout execution output streams; same with stderr",
             "sections": (
                 Section.global_lvl,
                 Section.file_lvl,
@@ -324,6 +325,20 @@ class NbParserConfig:
         metadata={
             "validator": instance_of(bool),
             "help": "Remove code cell outputs",
+            "sections": (
+                Section.global_lvl,
+                Section.file_lvl,
+                Section.cell_lvl,
+                Section.render,
+            ),
+        },
+    )
+
+    scroll_outputs: bool = dc.field(
+        default=False,
+        metadata={
+            "validator": instance_of(bool),
+            "help": "Make long cell outputs scrollable",
             "sections": (
                 Section.global_lvl,
                 Section.file_lvl,
@@ -575,7 +590,7 @@ class NbParserConfig:
     def get_cell_level_config(
         self,
         field_name: str,
-        cell_metadata: Dict[str, Any],
+        cell_metadata: Any,
         warning_callback: Callable[[str, MystNBWarnings], Any],
     ) -> Any:
         """Get a configuration value at the cell level.

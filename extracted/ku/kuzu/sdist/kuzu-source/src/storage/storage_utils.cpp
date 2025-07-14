@@ -1,12 +1,13 @@
 #include "storage/storage_utils.h"
 
-#include "common/assert.h"
-#include "common/file_system/virtual_file_system.h"
+#include <filesystem>
+
 #include "common/null_buffer.h"
 #include "common/string_format.h"
 #include "common/types/ku_list.h"
 #include "common/types/ku_string.h"
 #include "common/types/types.h"
+#include "main/settings.h"
 
 using namespace kuzu::common;
 
@@ -46,30 +47,20 @@ std::string StorageUtils::getColumnName(const std::string& propertyName, ColumnT
     }
 }
 
-std::string StorageUtils::getNodeIndexFName(const VirtualFileSystem* vfs,
-    const std::string& directory, const table_id_t& tableID, FileVersionType fileVersionType) {
-    const auto fName = stringFormat("n-{}", tableID);
-    return appendWALFileSuffixIfNecessary(
-        vfs->joinPath(directory, fName + StorageConstants::INDEX_FILE_SUFFIX), fileVersionType);
-}
-
-uint32_t StorageUtils::getDataTypeSize(PhysicalTypeID type) {
-    switch (type) {
-    case PhysicalTypeID::STRING: {
-        return sizeof(ku_string_t);
+std::string StorageUtils::expandPath(const main::ClientContext* context, const std::string& path) {
+    if (main::DBConfig::isDBPathInMemory(path)) {
+        return path;
     }
-    case PhysicalTypeID::ARRAY:
-    case PhysicalTypeID::LIST: {
-        return sizeof(ku_list_t);
+    auto fullPath = path;
+    // Handle '~' for home directory expansion
+    if (path.starts_with('~')) {
+        fullPath =
+            context->getCurrentSetting(main::HomeDirectorySetting::name).getValue<std::string>() +
+            fullPath.substr(1);
     }
-    case PhysicalTypeID::STRUCT: {
-        // Not calculable using this interface!
-        KU_UNREACHABLE;
-    }
-    default: {
-        return PhysicalTypeUtils::getFixedTypeSize(type);
-    }
-    }
+    // Normalize the path to resolve '.' and '..'
+    std::filesystem::path normalizedPath = std::filesystem::absolute(fullPath).lexically_normal();
+    return normalizedPath.string();
 }
 
 uint32_t StorageUtils::getDataTypeSize(const LogicalType& type) {
@@ -94,15 +85,6 @@ uint32_t StorageUtils::getDataTypeSize(const LogicalType& type) {
         return PhysicalTypeUtils::getFixedTypeSize(type.getPhysicalType());
     }
     }
-}
-
-std::string StorageUtils::appendSuffixOrInsertBeforeWALSuffix(const std::string& fileName,
-    const std::string& suffix) {
-    const auto pos = fileName.find(StorageConstants::WAL_FILE_SUFFIX);
-    if (pos == std::string::npos) {
-        return fileName + suffix;
-    }
-    return fileName.substr(0, pos) + suffix + StorageConstants::WAL_FILE_SUFFIX;
 }
 
 } // namespace storage

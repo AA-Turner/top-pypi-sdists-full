@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
-Name: dice-ml
-Version: 0.11
+Metadata-Version: 2.4
+Name: dice_ml
+Version: 0.12
 Summary: Generate Diverse Counterfactual Explanations for any machine learning model.
 Home-page: https://github.com/interpretml/DiCE
-Download-URL: https://github.com/interpretml/DiCE/archive/v0.11.tar.gz
+Download-URL: https://github.com/interpretml/DiCE/archive/v0.12.tar.gz
 Author: Ramaravind Mothilal, Amit Sharma, Chenhao Tan
 Author-email: raam.arvind93@gmail.com
 License: MIT
@@ -11,25 +11,40 @@ Keywords: machine-learning explanation interpretability counterfactual
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: jsonschema
 Requires-Dist: numpy
-Requires-Dist: pandas<2.0.0
+Requires-Dist: pandas>=2.0.0
 Requires-Dist: scikit-learn
 Requires-Dist: tqdm
 Requires-Dist: raiutils>=0.4.0
+Requires-Dist: xgboost
+Requires-Dist: lightgbm
 Provides-Extra: deeplearning
 Requires-Dist: tensorflow>=1.13.1; extra == "deeplearning"
 Requires-Dist: torch; extra == "deeplearning"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 |PyPiVersion|_ |CondaVersion|_ |MITlicense| |PythonSupport|_ |Downloads|_ 
 

@@ -20,8 +20,10 @@ static constexpr std::array duckdbExtensionFunctions = {"CLEAR_ATTACHED_DB_CACHE
 static constexpr std::array deltaExtensionFunctions = {"DELTA_SCAN"};
 static constexpr std::array icebergExtensionFunctions = {"ICEBERG_SCAN", "ICEBERG_METADATA",
     "ICEBERG_SNAPSHOTS"};
+static constexpr std::array azureExtensionFunctions = {"AZURE_SCAN"};
 static constexpr std::array vectorExtensionFunctions = {"QUERY_VECTOR_INDEX", "CREATE_VECTOR_INDEX",
     "DROP_VECTOR_INDEX"};
+static constexpr std::array llmExtensionFunctions = {"CREATE_EMBEDDING"};
 static constexpr std::array neo4jExtensionFunctions = {"NEO4J_MIGRATE"};
 static constexpr std::array algoExtensionFunctions = {"K_CORE_DECOMPOSITION", "PAGE_RANK",
     "STRONGLY_CONNECTED_COMPONENTS_KOSARAJU", "STRONGLY_CONNECTED_COMPONENTS",
@@ -31,9 +33,11 @@ static constexpr EntriesForExtension functionsForExtensionsRaw[] = {
     {"FTS", ftsExtensionFunctions, ftsExtensionFunctions.size()},
     {"DUCKDB", duckdbExtensionFunctions, duckdbExtensionFunctions.size()},
     {"DELTA", deltaExtensionFunctions, deltaExtensionFunctions.size()},
-    {"ICEBERG", icebergExtensionFunctions, ftsExtensionFunctions.size()},
+    {"ICEBERG", icebergExtensionFunctions, icebergExtensionFunctions.size()},
+    {"AZURE", azureExtensionFunctions, azureExtensionFunctions.size()},
     {"JSON", jsonExtensionFunctions, jsonExtensionFunctions.size()},
     {"VECTOR", vectorExtensionFunctions, vectorExtensionFunctions.size()},
+    {"LLM", llmExtensionFunctions, llmExtensionFunctions.size()},
     {"NEO4J", neo4jExtensionFunctions, neo4jExtensionFunctions.size()},
     {"ALGO", algoExtensionFunctions, algoExtensionFunctions.size()},
 };

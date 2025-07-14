@@ -6,7 +6,7 @@
 #include "common/types/types.h"
 #include "storage/index/hash_index.h"
 #include "storage/storage_utils.h"
-#include "storage/store/node_table.h"
+#include "storage/table/node_table.h"
 
 using namespace kuzu::common;
 using namespace kuzu::transaction;
@@ -23,21 +23,19 @@ std::vector<LogicalType> LocalNodeTable::getNodeTableColumnTypes(
     return types;
 }
 
-LocalNodeTable::LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, Table& table)
-    : LocalTable{table}, nodeGroups{this->table.getMemoryManager(),
-                             getNodeTableColumnTypes(*tableEntry), false /*enableCompression*/} {
+LocalNodeTable::LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, const Table& table)
+    : LocalTable{table}, overflowFileHandle(nullptr),
+      nodeGroups{getNodeTableColumnTypes(*tableEntry), false /*enableCompression*/} {
     initLocalHashIndex();
 }
 
 void LocalNodeTable::initLocalHashIndex() {
     auto& nodeTable = ku_dynamic_cast<const NodeTable&>(table);
-    DBFileIDAndName dbFileIDAndName{DBFileID{}, "in-mem-overflow"};
-    overflowFile =
-        std::make_unique<InMemOverflowFile>(dbFileIDAndName, nodeTable.getMemoryManager());
-    overflowFileHandle = std::make_unique<OverflowFileHandle>(*overflowFile, overflowCursor);
+    overflowFile = std::make_unique<InMemOverflowFile>(nodeTable.getMemoryManager());
+    overflowFileHandle = overflowFile->addHandle();
     hashIndex = std::make_unique<LocalHashIndex>(table.getMemoryManager(),
         nodeTable.getColumn(nodeTable.getPKColumnID()).getDataType().getPhysicalType(),
-        overflowFileHandle.get());
+        overflowFileHandle);
 }
 
 bool LocalNodeTable::isVisible(const Transaction* transaction, offset_t offset) const {
@@ -81,12 +79,7 @@ bool LocalNodeTable::update(Transaction* transaction, TableUpdateState& updateSt
     KU_ASSERT(nodeUpdateState.nodeIDVector.state->getSelVector().getSelSize() == 1);
     const auto pos = nodeUpdateState.nodeIDVector.state->getSelVector()[0];
     const auto offset = nodeUpdateState.nodeIDVector.readNodeOffset(pos);
-    if (nodeUpdateState.columnID == table.cast<NodeTable>().getPKColumnID()) {
-        KU_ASSERT(nodeUpdateState.pkVector);
-        hashIndex->delete_(*nodeUpdateState.pkVector);
-        hashIndex->insert(*nodeUpdateState.pkVector, offset,
-            [&](offset_t offset_) { return isVisible(transaction, offset_); });
-    }
+    KU_ASSERT(nodeUpdateState.columnID != table.cast<NodeTable>().getPKColumnID());
     const auto [nodeGroupIdx, rowIdxInGroup] = StorageUtils::getQuotientRemainder(
         transaction->getLocalRowIdx(table.getTableID(), offset), StorageConfig::NODE_GROUP_SIZE);
     const auto nodeGroup = nodeGroups.getNodeGroup(nodeGroupIdx);
@@ -121,7 +114,7 @@ void LocalNodeTable::clear() {
     auto& nodeTable = ku_dynamic_cast<const NodeTable&>(table);
     hashIndex = std::make_unique<LocalHashIndex>(table.getMemoryManager(),
         nodeTable.getColumn(nodeTable.getPKColumnID()).getDataType().getPhysicalType(),
-        overflowFileHandle.get());
+        overflowFileHandle);
     nodeGroups.clear();
 }
 

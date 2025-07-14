@@ -2,7 +2,6 @@
 
 #include "common/uniq_lock.h"
 #include "storage/file_handle.h"
-#include "storage/shadow_utils.h"
 
 namespace kuzu::storage {
 static constexpr bool ENABLE_FSM = true;
@@ -12,6 +11,7 @@ PageRange PageManager::allocatePageRange(common::page_idx_t numPages) {
         common::UniqLock lck{mtx};
         auto allocatedFreeChunk = freeSpaceManager->popFreePages(numPages);
         if (allocatedFreeChunk.has_value()) {
+            ++version;
             return {*allocatedFreeChunk};
         }
     }
@@ -26,6 +26,19 @@ void PageManager::freePageRange(PageRange entry) {
         // Freed pages cannot be immediately reused to ensure checkpoint recovery works
         // Instead they are reusable after the end of the next checkpoint
         freeSpaceManager->addUncheckpointedFreePages(entry);
+        ++version;
+    }
+}
+
+common::page_idx_t PageManager::estimatePagesNeededForSerialize() {
+    return freeSpaceManager->getMaxNumPagesForSerialization();
+}
+
+void PageManager::freeImmediatelyRewritablePageRange(FileHandle* fileHandle, PageRange entry) {
+    if constexpr (ENABLE_FSM) {
+        common::UniqLock lck{mtx};
+        freeSpaceManager->evictAndAddFreePages(fileHandle, entry);
+        ++version;
     }
 }
 
@@ -39,5 +52,9 @@ void PageManager::deserialize(common::Deserializer& deSer) {
 
 void PageManager::finalizeCheckpoint() {
     freeSpaceManager->finalizeCheckpoint(fileHandle);
+}
+
+void PageManager::clearEvictedBMEntriesIfNeeded(BufferManager* bufferManager) {
+    freeSpaceManager->clearEvictedBufferManagerEntriesIfNeeded(bufferManager);
 }
 } // namespace kuzu::storage

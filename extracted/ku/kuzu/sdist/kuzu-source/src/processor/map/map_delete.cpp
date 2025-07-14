@@ -15,33 +15,33 @@ using namespace kuzu::storage;
 namespace kuzu {
 namespace processor {
 
-static void checkDetachDeleteRelDirection(const RelTable* relTable, const NodeTable* nodeTable) {
-    if (relTable->getStorageDirections().size() < NUM_REL_DIRECTIONS) {
-        throw RuntimeException(stringFormat(
-            "Cannot detach delete from node table '{}' as it has connected edges in rel "
-            "table '{}' (detach delete only supports deleting from rel tables with "
-            "storage direction 'both').",
-            nodeTable->getTableName(), relTable->getTableName()));
-    }
-}
-
-table_id_set_t getFwdRelTableIDs(table_id_t nodeTableID, Catalog* catalog,
-    transaction::Transaction* transaction) {
-    table_id_set_t result;
-    for (const auto& relEntry : catalog->getRelTableEntries(transaction)) {
-        if (relEntry->getSrcTableID() == nodeTableID) {
-            result.insert(relEntry->getTableID());
+std::vector<RelTable*> getFwdRelTables(table_id_t nodeTableID, const main::ClientContext* context) {
+    std::vector<RelTable*> result;
+    for (const auto entry :
+        context->getCatalog()->getRelGroupEntries(context->getTransaction(), false)) {
+        auto& relGroupEntry = entry->constCast<RelGroupCatalogEntry>();
+        for (auto& relEntryInfo : relGroupEntry.getRelEntryInfos()) {
+            const auto srcTableID = relEntryInfo.nodePair.srcTableID;
+            if (srcTableID == nodeTableID) {
+                const auto relTable = context->getStorageManager()->getTable(relEntryInfo.oid);
+                result.push_back(relTable->ptrCast<RelTable>());
+            }
         }
     }
     return result;
 }
 
-table_id_set_t getBwdRelTableIDs(table_id_t nodeTableID, Catalog* catalog,
-    transaction::Transaction* transaction) {
-    table_id_set_t result;
-    for (const auto& relEntry : catalog->getRelTableEntries(transaction)) {
-        if (relEntry->getDstTableID() == nodeTableID) {
-            result.insert(relEntry->getTableID());
+std::vector<RelTable*> getBwdRelTables(table_id_t nodeTableID, const main::ClientContext* context) {
+    std::vector<RelTable*> result;
+    for (const auto entry :
+        context->getCatalog()->getRelGroupEntries(context->getTransaction(), false)) {
+        auto& relGroupEntry = entry->constCast<RelGroupCatalogEntry>();
+        for (auto& relEntryInfo : relGroupEntry.getRelEntryInfos()) {
+            const auto dstTableID = relEntryInfo.nodePair.dstTableID;
+            if (dstTableID == nodeTableID) {
+                const auto relTable = context->getStorageManager()->getTable(relEntryInfo.oid);
+                result.push_back(relTable->ptrCast<RelTable>());
+            }
         }
     }
     return result;
@@ -50,21 +50,15 @@ table_id_set_t getBwdRelTableIDs(table_id_t nodeTableID, Catalog* catalog,
 NodeTableDeleteInfo PlanMapper::getNodeTableDeleteInfo(const TableCatalogEntry& entry,
     DataPos pkPos) const {
     auto storageManager = clientContext->getStorageManager();
-    auto catalog = clientContext->getCatalog();
-    auto transaction = clientContext->getTransaction();
     auto tableID = entry.getTableID();
     auto table = storageManager->getTable(tableID)->ptrCast<NodeTable>();
     std::unordered_set<RelTable*> fwdRelTables;
     std::unordered_set<RelTable*> bwdRelTables;
     auto& nodeEntry = entry.constCast<NodeTableCatalogEntry>();
-    for (auto id : getFwdRelTableIDs(nodeEntry.getTableID(), catalog, transaction)) {
-        auto* relTable = storageManager->getTable(id)->ptrCast<RelTable>();
-        checkDetachDeleteRelDirection(relTable, table);
+    for (auto relTable : getFwdRelTables(nodeEntry.getTableID(), clientContext)) {
         fwdRelTables.insert(relTable);
     }
-    for (auto id : getBwdRelTableIDs(nodeEntry.getTableID(), catalog, transaction)) {
-        auto* relTable = storageManager->getTable(id)->ptrCast<RelTable>();
-        checkDetachDeleteRelDirection(relTable, table);
+    for (auto relTable : getBwdRelTables(nodeEntry.getTableID(), clientContext)) {
         bwdRelTables.insert(relTable);
     }
     return NodeTableDeleteInfo(table, std::move(fwdRelTables), std::move(bwdRelTables), pkPos);
@@ -89,8 +83,10 @@ std::unique_ptr<NodeDeleteExecutor> PlanMapper::getNodeDeleteExecutor(
         return std::make_unique<MultiLabelNodeDeleteExecutor>(std::move(info),
             std::move(tableInfos));
     }
-    auto pkPos = getDataPos(*node.getPrimaryKey(node.getSingleEntry()->getTableID()), schema);
-    auto extraInfo = getNodeTableDeleteInfo(*node.getSingleEntry(), pkPos);
+    KU_ASSERT(node.getNumEntries() == 1);
+    auto entry = node.getEntry(0);
+    auto pkPos = getDataPos(*node.getPrimaryKey(entry->getTableID()), schema);
+    auto extraInfo = getNodeTableDeleteInfo(*entry, pkPos);
     return std::make_unique<SingleLabelNodeDeleteExecutor>(std::move(info), std::move(extraInfo));
 }
 
@@ -133,7 +129,7 @@ std::unique_ptr<RelDeleteExecutor> PlanMapper::getRelDeleteExecutor(
     if (rel.isEmpty()) {
         return std::make_unique<EmptyRelDeleteExecutor>();
     }
-    auto relIDPos = getDataPos(*rel.getInternalIDProperty(), schema);
+    auto relIDPos = getDataPos(*rel.getInternalID(), schema);
     auto srcNodeIDPos = getDataPos(*rel.getSrcNode()->getInternalID(), schema);
     auto dstNodeIDPos = getDataPos(*rel.getDstNode()->getInternalID(), schema);
     auto info = RelDeleteInfo(srcNodeIDPos, dstNodeIDPos, relIDPos);
@@ -141,14 +137,19 @@ std::unique_ptr<RelDeleteExecutor> PlanMapper::getRelDeleteExecutor(
     if (rel.isMultiLabeled()) {
         table_id_map_t<RelTable*> tableIDToTableMap;
         for (auto entry : rel.getEntries()) {
-            auto tableID = entry->getTableID();
-            auto table = storageManager->getTable(tableID)->ptrCast<RelTable>();
-            tableIDToTableMap.insert({tableID, table});
+            auto& relGroupEntry = entry->constCast<RelGroupCatalogEntry>();
+            for (auto& relEntryInfo : relGroupEntry.getRelEntryInfos()) {
+                auto table = storageManager->getTable(relEntryInfo.oid);
+                tableIDToTableMap.insert({table->getTableID(), table->ptrCast<RelTable>()});
+            }
         }
         return std::make_unique<MultiLabelRelDeleteExecutor>(std::move(tableIDToTableMap),
             std::move(info));
     }
-    auto table = storageManager->getTable(rel.getSingleEntry()->getTableID())->ptrCast<RelTable>();
+    KU_ASSERT(rel.getNumEntries() == 1);
+    auto& entry = rel.getEntry(0)->constCast<RelGroupCatalogEntry>();
+    auto relEntryInfo = entry.getSingleRelEntryInfo();
+    auto table = storageManager->getTable(relEntryInfo.oid)->ptrCast<RelTable>();
     return std::make_unique<SingleLabelRelDeleteExecutor>(table, std::move(info));
 }
 

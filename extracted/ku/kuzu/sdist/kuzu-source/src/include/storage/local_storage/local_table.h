@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common/enums/table_type.h"
-#include "storage/store/table.h"
+#include "storage/table/table.h"
 
 namespace kuzu {
 namespace transaction {
@@ -47,10 +47,12 @@ public:
     }
 
 protected:
-    explicit LocalTable(Table& table) : table{table} {}
+    // TODO(Guodong): Revisit this interface. We don't need to pass in Table here, instead should
+    // pass in a struct that describes Table, e.g., TableInfo.
+    explicit LocalTable(const Table& table) : table{table} {}
 
 protected:
-    Table& table;
+    const Table& table;
 };
 
 } // namespace storage

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2008-2018 Martin Owens
+# Copyright (C) 2008-2025 Martin Owens
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -20,7 +20,6 @@
 
 import os
 from setuptools import setup
-from crontab import __version__, __pkgname__
 
 # remove MANIFEST. distutils doesn't properly update it when the
 # contents of directories change.
@@ -35,8 +34,8 @@ with open('README.rst') as fhl:
 RELEASE = "1"
 
 setup(
-    name             = __pkgname__,
-    version          = __version__,
+    name             = 'python-crontab',
+    version          = '3.3.0',
     release          = RELEASE,
     description      = 'Python Crontab API',
     long_description = description,
@@ -49,7 +48,6 @@ setup(
     license          = 'LGPLv3',
     py_modules       = ['crontab', 'crontabs', 'cronlog'],
     provides         = ['crontab', 'crontabs', 'cronlog'],
-    install_requires = ['python-dateutil'],
     extras_require   = {
         'cron-schedule': ['croniter'],
         'cron-description': ['cron-descriptor'],
@@ -60,7 +58,6 @@ setup(
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',
         'Intended Audience :: System Administrators',
-        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: POSIX',
         'Operating System :: POSIX :: Linux',
         'Operating System :: POSIX :: SunOS/Solaris',

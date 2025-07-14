@@ -3,6 +3,7 @@ from uuid import UUID
 from typing import Any, Optional
 
 from vellum.client.core import UniversalBaseModel
+from vellum.client.types.api_version_enum import ApiVersionEnum
 from vellum.workflows.context import ExecutionContext
 
 DEFAULT_TIMEOUT_SECONDS = 60 * 30
@@ -14,6 +15,7 @@ class BaseExecutorContext(UniversalBaseModel):
     timeout: int = DEFAULT_TIMEOUT_SECONDS
     files: dict[str, str]
     environment_api_key: str
+    api_version: Optional[ApiVersionEnum] = None
     execution_id: UUID
     module: str
     execution_context: ExecutionContext = field(default_factory=ExecutionContext)

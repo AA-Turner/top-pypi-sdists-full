@@ -4,6 +4,7 @@
 #include "function/table/bind_data.h"
 #include "graph/graph.h"
 #include "graph/graph_entry.h"
+#include "graph/parsed_graph_entry.h"
 #include "processor/result/factorized_table_pool.h"
 
 namespace kuzu {
@@ -31,15 +32,16 @@ struct KUZU_API GDSOptionalParams {
 };
 
 struct KUZU_API GDSBindData : public TableFuncBindData {
-    graph::GraphEntry graphEntry;
+    graph::NativeGraphEntry graphEntry;
     std::shared_ptr<binder::Expression> nodeOutput;
     std::unique_ptr<GDSOptionalParams> optionalParams;
 
-    GDSBindData(binder::expression_vector columns, graph::GraphEntry graphEntry,
+    GDSBindData(binder::expression_vector columns, graph::NativeGraphEntry graphEntry,
         std::shared_ptr<binder::Expression> nodeOutput,
         std::unique_ptr<GDSOptionalParams> optionalParams = nullptr)
         : TableFuncBindData{std::move(columns)}, graphEntry{graphEntry.copy()},
           nodeOutput{std::move(nodeOutput)}, optionalParams{std::move(optionalParams)} {}
+
     GDSBindData(const GDSBindData& other)
         : TableFuncBindData{other}, graphEntry{other.graphEntry.copy()},
           nodeOutput{other.nodeOutput},
@@ -83,9 +85,10 @@ class KUZU_API GDSFunction {
     static constexpr char NODE_COLUMN_NAME[] = "node";
 
 public:
-    static graph::GraphEntry bindGraphEntry(main::ClientContext& context, const std::string& name);
-    static graph::GraphEntry bindGraphEntry(main::ClientContext& context,
-        const graph::ParsedGraphEntry& parsedGraphEntry);
+    static graph::NativeGraphEntry bindGraphEntry(main::ClientContext& context,
+        const std::string& name);
+    static graph::NativeGraphEntry bindGraphEntry(main::ClientContext& context,
+        const graph::ParsedNativeGraphEntry& parsedGraphEntry);
     static std::shared_ptr<binder::Expression> bindNodeOutput(const TableFuncBindInput& bindInput,
         const std::vector<catalog::TableCatalogEntry*>& nodeEntries);
     static std::string bindColumnName(const parser::YieldVariable& yieldVariable,
@@ -95,7 +98,7 @@ public:
         const TableFuncInitSharedStateInput& input);
     static void getLogicalPlan(planner::Planner* planner,
         const binder::BoundReadingClause& readingClause, binder::expression_vector predicates,
-        std::vector<std::unique_ptr<planner::LogicalPlan>>& logicalPlans);
+        planner::LogicalPlan& plan);
     static std::unique_ptr<processor::PhysicalOperator> getPhysicalPlan(
         processor::PlanMapper* planMapper, const planner::LogicalOperator* logicalOp);
 };

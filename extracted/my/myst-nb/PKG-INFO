@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: myst-nb
-Version: 1.2.0
+Version: 1.3.0
 Summary: A Jupyter Notebook Sphinx reader built on top of the MyST markdown parser.
 Keywords: markdown,lexer,parser,jupyter,docutils,sphinx
 Author-email: ExecutableBookProject <chrisj_sewell@hotmail.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
+License-File: LICENSE
 Requires-Dist: importlib_metadata
 Requires-Dist: ipython
 Requires-Dist: jupyter-cache>=0.5
@@ -48,6 +49,7 @@ Requires-Dist: sphinx-copybutton ; extra == "rtd"
 Requires-Dist: sphinx-design ; extra == "rtd"
 Requires-Dist: sphinxcontrib-bibtex ; extra == "rtd"
 Requires-Dist: sympy ; extra == "rtd"
+Requires-Dist: sphinx-autodoc-typehints ; extra == "rtd"
 Requires-Dist: coverage>=6.4 ; extra == "testing"
 Requires-Dist: beautifulsoup4 ; extra == "testing"
 Requires-Dist: ipykernel>=5.5 ; extra == "testing"

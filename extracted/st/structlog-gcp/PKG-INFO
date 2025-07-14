@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: structlog-gcp
-Version: 0.4.0
+Version: 0.5.0
 Summary: A structlog set of processors to output as Google Cloud Logging format
 Project-URL: Documentation, https://github.com/multani/structlog-gcp#readme
 Project-URL: Issues, https://github.com/multani/structlog-gcp/issues

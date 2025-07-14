@@ -1,9 +1,11 @@
 #include "extension/extension_manager.h"
 
+#include "common/exception/binder.h"
 #include "common/file_system/virtual_file_system.h"
 #include "common/string_utils.h"
 #include "extension/extension.h"
 #include "generated_extension_loader.h"
+#include "storage/wal/local_wal.h"
 
 namespace kuzu {
 namespace extension {
@@ -19,7 +21,7 @@ static void executeExtensionLoader(main::ClientContext* context, const std::stri
 
 void ExtensionManager::loadExtension(const std::string& path, main::ClientContext* context) {
     auto fullPath = path;
-    bool isOfficial = extension::ExtensionUtils::isOfficialExtension(path);
+    bool isOfficial = ExtensionUtils::isOfficialExtension(path);
     if (isOfficial) {
         auto localPathForSharedLib = ExtensionUtils::getLocalPathForSharedLib(context);
         if (!context->getVFSUnsafe()->fileOrPathExists(localPathForSharedLib)) {
@@ -30,12 +32,24 @@ void ExtensionManager::loadExtension(const std::string& path, main::ClientContex
     }
 
     auto libLoader = ExtensionLibLoader(path, fullPath);
+    auto name = libLoader.getNameFunc();
+    std::string extensionName = (*name)();
+    if (std::any_of(loadedExtensions.begin(), loadedExtensions.end(),
+            [&](const LoadedExtension& ext) { return ext.getExtensionName() == extensionName; })) {
+        libLoader.unload();
+        throw common::BinderException{
+            common::stringFormat("Extension: {} is already loaded. You can check loaded extensions "
+                                 "by `CALL SHOW_LOADED_EXTENSIONS() RETURN *`.",
+                extensionName)};
+    }
     auto init = libLoader.getInitFunc();
     (*init)(context);
-    auto name = libLoader.getNameFunc();
-    auto extensionName = (*name)();
     loadedExtensions.push_back(LoadedExtension(extensionName, fullPath,
         isOfficial ? ExtensionSource::OFFICIAL : ExtensionSource::USER));
+    auto transaction = context->getTransaction();
+    if (transaction->shouldLogToWAL()) {
+        transaction->getLocalWAL().logLoadExtension(path);
+    }
 }
 
 std::string ExtensionManager::toCypher() {
@@ -79,7 +93,10 @@ std::vector<storage::StorageExtension*> ExtensionManager::getStorageExtensions()
 }
 
 void ExtensionManager::autoLoadLinkedExtensions(main::ClientContext* context) {
-    loadLinkedExtensions(context);
+    auto trxContext = context->getTransactionContext();
+    trxContext->beginRecoveryTransaction();
+    loadLinkedExtensions(context, loadedExtensions);
+    trxContext->commit();
 }
 
 } // namespace extension

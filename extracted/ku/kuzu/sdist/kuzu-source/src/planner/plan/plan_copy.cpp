@@ -1,6 +1,8 @@
 #include "binder/copy/bound_copy_from.h"
 #include "binder/copy/bound_copy_to.h"
-#include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "main/client_context.h"
 #include "planner/operator/logical_partitioner.h"
 #include "planner/operator/persistent/logical_copy_from.h"
 #include "planner/operator/persistent/logical_copy_to.h"
@@ -23,11 +25,10 @@ static void appendIndexScan(const ExtraBoundCopyRelInfo& extraInfo, LogicalPlan&
     plan.setLastOperator(std::move(indexScan));
 }
 
-static void appendPartitioner(const BoundCopyFromInfo& copyFromInfo, LogicalPlan& plan) {
-    const auto* tableCatalogEntry =
-        copyFromInfo.tableEntry->constPtrCast<catalog::RelTableCatalogEntry>();
-    LogicalPartitionerInfo info(copyFromInfo.tableEntry, copyFromInfo.offset);
-    for (auto direction : tableCatalogEntry->getRelDataDirections()) {
+static void appendPartitioner(const BoundCopyFromInfo& copyFromInfo, LogicalPlan& plan,
+    const std::vector<RelDataDirection>& directions) {
+    LogicalPartitionerInfo info(copyFromInfo.offset);
+    for (auto& direction : directions) {
         info.partitioningInfos.push_back(
             LogicalPartitioningInfo(RelDirectionUtils::relDirectionToKeyIdx(direction)));
     }
@@ -37,88 +38,91 @@ static void appendPartitioner(const BoundCopyFromInfo& copyFromInfo, LogicalPlan
     plan.setLastOperator(std::move(partitioner));
 }
 
-static void appendCopyFrom(const BoundCopyFromInfo& info, expression_vector outExprs,
-    LogicalPlan& plan) {
-    auto op =
-        make_shared<LogicalCopyFrom>(info.copy(), std::move(outExprs), plan.getLastOperator());
+static void appendCopyFrom(const BoundCopyFromInfo& info, LogicalPlan& plan) {
+    auto op = make_shared<LogicalCopyFrom>(info.copy(), plan.getLastOperator());
     op->computeFactorizedSchema();
     plan.setLastOperator(std::move(op));
 }
 
-std::unique_ptr<LogicalPlan> Planner::planCopyFrom(const BoundStatement& statement) {
+LogicalPlan Planner::planCopyFrom(const BoundStatement& statement) {
     auto& copyFrom = statement.constCast<BoundCopyFrom>();
-    auto outExprs = statement.getStatementResult()->getColumns();
     auto copyFromInfo = copyFrom.getInfo();
-    auto tableType = copyFromInfo->tableEntry->getTableType();
-    switch (tableType) {
+    switch (copyFromInfo->tableType) {
     case TableType::NODE: {
-        return planCopyNodeFrom(copyFromInfo, outExprs);
+        return planCopyNodeFrom(copyFromInfo);
     }
     case TableType::REL: {
-        return planCopyRelFrom(copyFromInfo, outExprs);
+        return planCopyRelFrom(copyFromInfo);
     }
     default:
         KU_UNREACHABLE;
     }
 }
 
-std::unique_ptr<LogicalPlan> Planner::planCopyNodeFrom(const BoundCopyFromInfo* info,
-    expression_vector results) {
-    auto plan = std::make_unique<LogicalPlan>();
+LogicalPlan Planner::planCopyNodeFrom(const BoundCopyFromInfo* info) {
+    auto plan = LogicalPlan();
     switch (info->source->type) {
     case ScanSourceType::FILE:
     case ScanSourceType::OBJECT: {
         auto& scanSource = info->source->constCast<BoundTableScanSource>();
-        appendTableFunctionCall(scanSource.info, *plan);
+        appendTableFunctionCall(scanSource.info, plan);
     } break;
     case ScanSourceType::QUERY: {
         auto& querySource = info->source->constCast<BoundQueryScanSource>();
-        plan = getBestPlan(planQuery(*querySource.statement));
-        if (plan->getSchema()->getNumGroups() > 1) {
+        plan = planQuery(*querySource.statement);
+        if (plan.getSchema()->getNumGroups() > 1) {
             // Copy operator assumes all input are in the same data chunk. If this is not the case,
             // we first materialize input in flat form into a factorized table.
-            appendAccumulate(AccumulateType::REGULAR, plan->getSchema()->getExpressionsInScope(),
-                nullptr /* mark */, *plan);
+            appendAccumulate(AccumulateType::REGULAR, plan.getSchema()->getExpressionsInScope(),
+                nullptr /* mark */, plan);
         }
     } break;
     default:
         KU_UNREACHABLE;
     }
-    appendCopyFrom(*info, results, *plan);
+    appendCopyFrom(*info, plan);
     return plan;
 }
 
-std::unique_ptr<LogicalPlan> Planner::planCopyRelFrom(const BoundCopyFromInfo* info,
-    expression_vector results) {
-    auto plan = std::make_unique<LogicalPlan>();
+LogicalPlan Planner::planCopyRelFrom(const BoundCopyFromInfo* info) {
+    auto plan = LogicalPlan();
     switch (info->source->type) {
     case ScanSourceType::FILE:
     case ScanSourceType::OBJECT: {
         auto& fileSource = info->source->constCast<BoundTableScanSource>();
-        appendTableFunctionCall(fileSource.info, *plan);
+        appendTableFunctionCall(fileSource.info, plan);
     } break;
     case ScanSourceType::QUERY: {
         auto& querySource = info->source->constCast<BoundQueryScanSource>();
-        plan = getBestPlan(planQuery(*querySource.statement));
-        if (plan->getSchema()->getNumGroups() == 1 && !plan->getSchema()->getGroup(0)->isFlat()) {
+        plan = planQuery(*querySource.statement);
+        if (plan.getSchema()->getNumGroups() == 1 && !plan.getSchema()->getGroup(0)->isFlat()) {
             break;
         }
         // Copy operator assumes all input are in the same data chunk. If this is not the case,
         // we first materialize input in flat form into a factorized table.
-        appendAccumulate(AccumulateType::REGULAR, plan->getSchema()->getExpressionsInScope(),
-            nullptr /* mark */, *plan);
+        appendAccumulate(AccumulateType::REGULAR, plan.getSchema()->getExpressionsInScope(),
+            nullptr /* mark */, plan);
     } break;
     default:
         KU_UNREACHABLE;
     }
     auto& extraInfo = info->extraInfo->constCast<ExtraBoundCopyRelInfo>();
-    appendIndexScan(extraInfo, *plan);
-    appendPartitioner(*info, *plan);
-    appendCopyFrom(*info, results, *plan);
+    // If the table entry doesn't exist, assume both directions
+    std::vector<RelDataDirection> directions = {RelDataDirection::FWD, RelDataDirection::BWD};
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTransaction();
+    if (catalog->containsTable(transaction, info->tableName)) {
+        const auto& relGroupEntry = catalog->getTableCatalogEntry(transaction, info->tableName)
+                                        ->constCast<RelGroupCatalogEntry>();
+        directions = relGroupEntry.getRelDataDirections();
+    }
+    appendIndexScan(extraInfo, plan);
+    appendPartitioner(*info, plan, directions);
+    appendCopyFrom(*info, plan);
     return plan;
 }
 
-std::unique_ptr<LogicalPlan> Planner::planCopyTo(const BoundStatement& statement) {
+LogicalPlan Planner::planCopyTo(const BoundStatement& statement) {
     auto& boundCopyTo = statement.constCast<BoundCopyTo>();
     auto regularQuery = boundCopyTo.getRegularQuery();
     std::vector<std::string> columnNames;
@@ -126,10 +130,10 @@ std::unique_ptr<LogicalPlan> Planner::planCopyTo(const BoundStatement& statement
         columnNames.push_back(column->toString());
     }
     KU_ASSERT(regularQuery->getStatementType() == StatementType::QUERY);
-    auto plan = getBestPlan(*regularQuery);
+    auto plan = planStatement(*regularQuery);
     auto copyTo = make_shared<LogicalCopyTo>(boundCopyTo.getBindData()->copy(),
-        boundCopyTo.getExportFunc(), plan->getLastOperator());
-    plan->setLastOperator(std::move(copyTo));
+        boundCopyTo.getExportFunc(), plan.getLastOperator());
+    plan.setLastOperator(std::move(copyTo));
     return plan;
 }
 

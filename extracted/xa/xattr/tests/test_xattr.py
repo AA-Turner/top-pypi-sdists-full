@@ -35,9 +35,13 @@ class BaseTestXattr(object):
             d['SUNWattr_ro'] = x['SUNWattr_ro']
             d['SUNWattr_rw'] = x['SUNWattr_rw']
 
+        # macOS 13.x SIP adds this attribute to all files
+        # POSIX platforms may have system.posix_acl_default
         # SELinux systems use an attribute which must be accounted for
-        if sys.platform.startswith('linux') and 'security.selinux' in x:
-            d['security.selinux'] = x['security.selinux']
+        IGNORE_KEYS = ['com.apple.provenance', 'system.posix_acl_default', 'security.selinux']
+        for k in IGNORE_KEYS:
+            if x.has_key(k):
+                d[k] = x[k]
 
         self.assertEqual(list(x.keys()), list(d.keys()))
         self.assertEqual(list(x.list()), list(d.keys()))
@@ -94,7 +98,9 @@ class BaseTestXattr(object):
                 # Solaris, Linux don't support extended attributes on symlinks
                 raise unittest.SkipTest("XATTRs on symlink not allowed"
                                         " on filesystem/platform")
-            self.assertEqual(dict(realfile), {})
+            realfile_xattrs = dict(realfile)
+            realfile_xattrs.pop('com.apple.provenance', None)
+            self.assertEqual(realfile_xattrs, {})
             self.assertEqual(symlink['user.islink'], b'true')
         finally:
             os.remove(symlinkPath)
@@ -116,6 +122,34 @@ class BaseTestXattr(object):
         self.assertEqual(x.list(), ['user.test'])
         # Test that listing with pyxattr_compat does not prefix or decode
         self.assertEqual(pyxattr_compat.list(self.tempfile), [b'test'])
+
+    def test_get_with_default(self):
+        x = xattr.xattr(self.tempfile)
+
+        # Test backwards compatibility - exception raised when no default
+        with self.assertRaises(OSError):
+            x.get('user.nonexistent')
+
+        # Test default=None returns None
+        result = x.get('user.nonexistent', default=None)
+        self.assertIsNone(result)
+
+        # Test default parameter with non-None values
+        result = x.get('user.nonexistent', default=b'default_value')
+        self.assertEqual(result, b'default_value')
+
+        # Test default parameter with empty string
+        result = x.get('user.nonexistent', default=b'')
+        self.assertEqual(result, b'')
+
+        # Test that existing attributes ignore default
+        x['user.existing'] = b'real_value'
+        result = x.get('user.existing', default=b'should_be_ignored')
+        self.assertEqual(result, b'real_value')
+
+        # Test that default is keyword-only (positional should fail)
+        with self.assertRaises(TypeError):
+            x.get('user.nonexistent', 0, b'default_value')
 
 
 class TestFile(TestCase, BaseTestXattr):

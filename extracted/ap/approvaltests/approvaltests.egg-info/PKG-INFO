@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 14.7.1
+Version: 15.0.0
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -29,10 +29,9 @@ Requires-Dist: typing_extensions>=3.6.2
 Requires-Dist: pyperclip>=1.5.29
 Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: allpairspy>=2.1.0
-Requires-Dist: mrjob>=0.7.4
 Requires-Dist: testfixtures>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==14.7.1
+Requires-Dist: approval_utilities==15.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -344,11 +343,10 @@ If you want the bare minimum you can use the pypi project
 pyperclip>=1.5.29     # For Clipboard Reporter
 beautifulsoup4>=4.4.0 # For verify_html
 allpairspy>=2.1.0     # For PairwiseCombinations
-mrjob>=0.7.4          # For MrJob
 testfixtures >= 7.1.0 # For verify_logging
 mock >= 5.1.0         # For verify_logging
 ```
-<sup><a href='/requirements.prod.extras.txt#L1-L6' title='Snippet source file'>snippet source</a> | <a href='#snippet-requirements.prod.extras.txt' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/requirements.prod.extras.txt#L1-L5' title='Snippet source file'>snippet source</a> | <a href='#snippet-requirements.prod.extras.txt' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 ## For developers

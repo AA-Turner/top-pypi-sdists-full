@@ -10,8 +10,8 @@
 #include "storage/buffer_manager/buffer_manager.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/file_handle.h"
-#include "storage/store/chunked_node_group.h"
-#include "storage/store/column_chunk_data.h"
+#include "storage/table/chunked_node_group.h"
+#include "storage/table/column_chunk_data.h"
 
 namespace kuzu {
 namespace storage {
@@ -24,13 +24,13 @@ Spiller::Spiller(std::string tmpFilePath, BufferManager& bufferManager,
     vfs->removeFileIfExists(this->tmpFilePath);
 }
 
-FileHandle* Spiller::getDataFH() const {
-    if (dataFH) {
+FileHandle* Spiller::getOrCreateDataFH() const {
+    if (dataFH.load()) {
         return dataFH;
     }
     std::unique_lock lock(fileCreationMutex);
     // Another thread may have created the file while the lock was being acquired
-    if (dataFH) {
+    if (dataFH.load()) {
         return dataFH;
     }
     const_cast<Spiller*>(this)->dataFH = bufferManager.getFileHandle(tmpFilePath,
@@ -38,13 +38,20 @@ FileHandle* Spiller::getDataFH() const {
     return dataFH;
 }
 
+FileHandle* Spiller::getDataFH() const {
+    if (dataFH.load()) {
+        return dataFH;
+    }
+    return nullptr;
+}
+
 void Spiller::addUnusedChunk(ChunkedNodeGroup* nodeGroup) {
-    std::unique_lock<std::mutex> lock(partitionerGroupsMtx);
+    std::unique_lock lock(partitionerGroupsMtx);
     fullPartitionerGroups.insert(nodeGroup);
 }
 
 void Spiller::clearUnusedChunk(ChunkedNodeGroup* nodeGroup) {
-    std::unique_lock<std::mutex> lock(partitionerGroupsMtx);
+    std::unique_lock lock(partitionerGroupsMtx);
     auto entry = fullPartitionerGroups.find(nodeGroup);
     if (entry != fullPartitionerGroups.end()) {
         fullPartitionerGroups.erase(entry);
@@ -62,7 +69,7 @@ Spiller::~Spiller() {
 uint64_t Spiller::spillToDisk(ColumnChunkData& chunk) const {
     auto& buffer = *chunk.buffer;
     KU_ASSERT(!buffer.evicted);
-    auto dataFH = getDataFH();
+    auto dataFH = getOrCreateDataFH();
     auto pageSize = dataFH->getPageSize();
     auto numPages = (buffer.buffer.size_bytes() + pageSize - 1) / pageSize;
     auto startPage = dataFH->addNewPages(numPages);
@@ -75,6 +82,8 @@ void Spiller::loadFromDisk(ColumnChunkData& chunk) const {
     auto& buffer = *chunk.buffer;
     if (buffer.evicted) {
         buffer.prepareLoadFromDisk();
+        auto dataFH = getDataFH();
+        KU_ASSERT(dataFH);
         dataFH->getFileInfo()->readFromFile(buffer.buffer.data(), buffer.buffer.size(),
             buffer.filePosition);
     }
@@ -83,7 +92,7 @@ void Spiller::loadFromDisk(ColumnChunkData& chunk) const {
 uint64_t Spiller::claimNextGroup() {
     ChunkedNodeGroup* groupToFlush = nullptr;
     {
-        std::unique_lock<std::mutex> lock(partitionerGroupsMtx);
+        std::unique_lock lock(partitionerGroupsMtx);
         if (!fullPartitionerGroups.empty()) {
             auto groupToFlushEntry = fullPartitionerGroups.begin();
             groupToFlush = *groupToFlushEntry;
@@ -98,8 +107,9 @@ uint64_t Spiller::claimNextGroup() {
 
 // NOLINTNEXTLINE(readability-make-member-function-const): Function shouldn't be re-ordered
 void Spiller::clearFile() {
-    if (dataFH) {
-        dataFH->getFileInfo()->truncate(0);
+    auto curDataFH = getDataFH();
+    if (curDataFH) {
+        curDataFH->getFileInfo()->truncate(0);
     }
 }
 

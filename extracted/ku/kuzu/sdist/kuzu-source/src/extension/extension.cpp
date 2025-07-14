@@ -5,6 +5,8 @@
 #include "common/string_utils.h"
 #include "common/system_message.h"
 #include "main/client_context.h"
+#include "storage/storage_manager.h"
+
 #ifdef _WIN32
 
 #include "windows.h"
@@ -62,6 +64,8 @@ std::string ExtensionSourceUtils::toString(ExtensionSource source) {
         return "OFFICIAL";
     case ExtensionSource::USER:
         return "USER";
+    case ExtensionSource::STATIC_LINKED:
+        return "STATIC LINK";
     default:
         KU_UNREACHABLE;
     }
@@ -69,9 +73,8 @@ std::string ExtensionSourceUtils::toString(ExtensionSource source) {
 
 static ExtensionRepoInfo getExtensionFilePath(const std::string& extensionName,
     const std::string& extensionRepo, const std::string& fileName) {
-    auto extensionURL =
-        common::stringFormat(extensionRepo + ExtensionUtils::EXTENSION_FILE_REPO_PATH,
-            KUZU_EXTENSION_VERSION, getPlatform(), extensionName, fileName);
+    auto extensionURL = common::stringFormat(ExtensionUtils::EXTENSION_FILE_REPO_PATH,
+        extensionRepo, KUZU_EXTENSION_VERSION, getPlatform(), extensionName, fileName);
     return getExtensionRepoInfo(extensionURL);
 }
 
@@ -94,34 +97,35 @@ ExtensionRepoInfo ExtensionUtils::getExtensionInstallerRepoInfo(const std::strin
 
 ExtensionRepoInfo ExtensionUtils::getSharedLibRepoInfo(const std::string& fileName,
     const std::string& extensionRepo) {
-    auto extensionURL = common::stringFormat(extensionRepo + SHARED_LIB_REPO,
-        KUZU_EXTENSION_VERSION, getPlatform(), fileName);
+    auto extensionURL = common::stringFormat(SHARED_LIB_REPO, extensionRepo, KUZU_EXTENSION_VERSION,
+        getPlatform(), fileName);
     return getExtensionRepoInfo(extensionURL);
 }
 
 std::string ExtensionUtils::getExtensionFileName(const std::string& name) {
-    return common::stringFormat(EXTENSION_FILE_NAME, common::StringUtils::getLower(name));
+    return common::stringFormat(EXTENSION_FILE_NAME, common::StringUtils::getLower(name),
+        EXTENSION_FILE_SUFFIX);
 }
 
 std::string ExtensionUtils::getLocalPathForExtensionLib(main::ClientContext* context,
     const std::string& extensionName) {
-    return common::stringFormat("{}{}/{}", context->getExtensionDir(), extensionName,
+    return common::stringFormat("{}/{}", getLocalDirForExtension(context, extensionName),
         getExtensionFileName(extensionName));
 }
 
 std::string ExtensionUtils::getLocalPathForExtensionLoader(main::ClientContext* context,
     const std::string& extensionName) {
-    return common::stringFormat("{}{}/{}", context->getExtensionDir(), extensionName,
+    return common::stringFormat("{}/{}", getLocalDirForExtension(context, extensionName),
         getExtensionFileName(extensionName + EXTENSION_LOADER_SUFFIX));
 }
 
 std::string ExtensionUtils::getLocalPathForExtensionInstaller(main::ClientContext* context,
     const std::string& extensionName) {
-    return common::stringFormat("{}{}/{}", context->getExtensionDir(), extensionName,
+    return common::stringFormat("{}/{}", getLocalDirForExtension(context, extensionName),
         getExtensionFileName(extensionName + EXTENSION_INSTALLER_SUFFIX));
 }
 
-std::string ExtensionUtils::getLocalExtensionDir(main::ClientContext* context,
+std::string ExtensionUtils::getLocalDirForExtension(main::ClientContext* context,
     const std::string& extensionName) {
     return common::stringFormat("{}{}", context->getExtensionDir(), extensionName);
 }
@@ -158,6 +162,10 @@ bool ExtensionUtils::isOfficialExtension(const std::string& extension) {
     return false;
 }
 
+void ExtensionUtils::registerIndexType(main::Database& database, storage::IndexType type) {
+    database.storageManager->registerIndexType(std::move(type));
+}
+
 ExtensionLibLoader::ExtensionLibLoader(const std::string& extensionName, const std::string& path)
     : extensionName{extensionName} {
     libHdl = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -184,7 +192,14 @@ ext_install_func_t ExtensionLibLoader::getInstallFunc() {
     return (ext_install_func_t)getDynamicLibFunc(EXTENSION_INSTALL_FUNC_NAME);
 }
 
+void ExtensionLibLoader::unload() {
+    KU_ASSERT(libHdl != nullptr);
+    dlclose(libHdl);
+    libHdl = nullptr;
+}
+
 void* ExtensionLibLoader::getDynamicLibFunc(const std::string& funcName) {
+    KU_ASSERT(libHdl != nullptr);
     auto sym = dlsym(libHdl, funcName.c_str());
     if (sym == nullptr) {
         throw common::IOException(
@@ -219,6 +234,11 @@ void* dlopen(const char* file, int /*mode*/) {
 void* dlsym(void* handle, const char* name) {
     KU_ASSERT(handle);
     return (void*)GetProcAddress((HINSTANCE)handle, name);
+}
+
+void dlclose(void* handle) {
+    KU_ASSERT(handle);
+    FreeLibrary((HINSTANCE)handle);
 }
 #endif
 

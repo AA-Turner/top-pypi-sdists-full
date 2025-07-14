@@ -4,7 +4,7 @@
 #include <numeric>
 
 #include "common/enums/rel_direction.h"
-#include "storage/store/rel_table.h"
+#include "storage/table/rel_table.h"
 #include "transaction/transaction.h"
 
 using namespace kuzu::common;
@@ -25,11 +25,11 @@ static std::vector<LogicalType> getTypesForLocalRelTable(const catalog::TableCat
     return types;
 }
 
-LocalRelTable::LocalRelTable(const catalog::TableCatalogEntry* tableEntry, Table& table)
+LocalRelTable::LocalRelTable(const catalog::TableCatalogEntry* tableEntry, const Table& table)
     : LocalTable{table} {
     localNodeGroup = std::make_unique<NodeGroup>(0, false, getTypesForLocalRelTable(*tableEntry),
         INVALID_ROW_IDX);
-    const auto& relTable = table.cast<RelTable&>();
+    const auto& relTable = table.cast<RelTable>();
     for (auto relDirection : relTable.getStorageDirections()) {
         directedIndices.emplace_back(relDirection);
     }
@@ -226,7 +226,8 @@ bool LocalRelTable::scan(const Transaction* transaction, TableScanState& state) 
                 localScanState.rowIndices[localScanState.nextRowToScan + i]);
         }
         localScanState.rowIdxVector->state->getSelVectorUnsafe().setSelSize(numToScan);
-        [[maybe_unused]] auto lookupRes = localNodeGroup->lookup(transaction, localScanState);
+        [[maybe_unused]] auto lookupRes =
+            localNodeGroup->lookupMultiple(transaction, localScanState);
         localScanState.nextRowToScan += numToScan;
         relScanState.setNodeIDVectorToFlat(
             relScanState.cachedBoundNodeSelVector[relScanState.currBoundNodeIdx]);
@@ -276,7 +277,7 @@ row_idx_t LocalRelTable::findMatchingRow(const Transaction* transaction,
         const auto scanState = setupLocalTableScanState(scanChunk, currentRowsToCheck);
 
         auto dummyTrx = Transaction::getDummyTransactionFromExistingOne(*transaction);
-        [[maybe_unused]] auto lookupRes = localNodeGroup->lookup(&dummyTrx, *scanState);
+        [[maybe_unused]] auto lookupRes = localNodeGroup->lookupMultiple(&dummyTrx, *scanState);
         const auto scannedRelIDVector = scanState->outputVectors[0];
         KU_ASSERT(
             scannedRelIDVector->state->getSelVector().getSelSize() == currentRowsToCheck.size());

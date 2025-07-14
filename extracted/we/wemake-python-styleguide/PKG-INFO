@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: wemake-python-styleguide
-Version: 1.2.0
+Version: 1.3.0
 Summary: The strictest and most opinionated python linter ever
 License: MIT
 Keywords: flake8,flake8-plugin,flake8-formatter,linter,wemake.services,styleguide,code quality,pycqa

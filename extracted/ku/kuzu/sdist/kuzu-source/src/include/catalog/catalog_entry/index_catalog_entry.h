@@ -2,7 +2,7 @@
 
 #include "catalog_entry.h"
 #include "common/copier_config/file_scan_info.h"
-#include "common/serializer/buffered_reader.h"
+#include "common/serializer/buffer_reader.h"
 #include "common/serializer/deserializer.h"
 #include "table_catalog_entry.h"
 
@@ -10,7 +10,7 @@ namespace kuzu::common {
 struct BufferReader;
 }
 namespace kuzu::common {
-class BufferedSerializer;
+class BufferWriter;
 }
 namespace kuzu {
 namespace catalog {
@@ -27,7 +27,7 @@ struct KUZU_API IndexToCypherInfo : ToCypherInfo {
 class IndexCatalogEntry;
 struct KUZU_API IndexAuxInfo {
     virtual ~IndexAuxInfo() = default;
-    virtual std::shared_ptr<common::BufferedSerializer> serialize() const;
+    virtual std::shared_ptr<common::BufferWriter> serialize() const;
 
     virtual std::unique_ptr<IndexAuxInfo> copy() = 0;
 
@@ -68,6 +68,7 @@ public:
     std::string getIndexName() const { return indexName; }
 
     std::vector<common::property_id_t> getPropertyIDs() const { return propertyIDs; }
+    bool containsPropertyID(common::property_id_t propertyID) const;
 
     // When serializing index entries to disk, we first write the fields of the base class,
     // followed by the size (in bytes) of the auxiliary data and its content.
@@ -81,10 +82,6 @@ public:
     std::string toCypher(const ToCypherInfo& info) const override {
         return isLoaded() ? auxInfo->toCypher(*this, info) : "";
     }
-    std::unique_ptr<IndexCatalogEntry> copy() const {
-        return std::make_unique<IndexCatalogEntry>(type, tableID, indexName, propertyIDs,
-            auxInfo->copy());
-    }
 
     void copyFrom(const CatalogEntry& other) override;
 
@@ -92,11 +89,17 @@ public:
 
     void setAuxInfo(std::unique_ptr<IndexAuxInfo> auxInfo_);
     const IndexAuxInfo& getAuxInfo() const { return *auxInfo; }
+    IndexAuxInfo& getAuxInfoUnsafe() { return *auxInfo; }
 
     bool isLoaded() const { return auxBuffer == nullptr; }
 
-    TableCatalogEntry* getTableEntryToExport(main::ClientContext* context) {
+    TableCatalogEntry* getTableEntryToExport(main::ClientContext* context) const {
         return isLoaded() ? auxInfo->getTableEntryToExport(context) : nullptr;
+    }
+
+    std::unique_ptr<IndexCatalogEntry> copy() const {
+        return std::make_unique<IndexCatalogEntry>(type, tableID, indexName, propertyIDs,
+            auxInfo->copy());
     }
 
 protected:

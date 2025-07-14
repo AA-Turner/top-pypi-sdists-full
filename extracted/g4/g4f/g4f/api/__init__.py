@@ -14,7 +14,7 @@ import hashlib
 import asyncio
 from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
-from fastapi import FastAPI, Response, Request, UploadFile, Form, Depends
+from fastapi import FastAPI, Response, Request, UploadFile, Form, Depends, Header
 from fastapi.responses import StreamingResponse, RedirectResponse, HTMLResponse, JSONResponse, FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import APIKeyHeader
@@ -69,6 +69,7 @@ from g4f.cookies import read_cookie_files, get_cookies_dir
 from g4f.providers.types import ProviderType
 from g4f.providers.response import AudioResponse
 from g4f.providers.any_provider import AnyProvider
+from g4f.config import STATIC_URL
 from g4f import Provider
 from g4f.gui import get_gui_app
 from .stubs import (
@@ -82,7 +83,7 @@ from .stubs import (
 from g4f import debug
 
 try:
-    from g4f.gui.server.crypto import create_or_read_keys, decrypt_data
+    from g4f.gui.server.crypto import create_or_read_keys, decrypt_data, get_session_key
     has_crypto = True
 except ImportError:
     has_crypto = False
@@ -188,6 +189,15 @@ class AppConfig:
         for key, value in data.items():
             setattr(cls, key, value)
 
+def update_headers(request: Request, user: str) -> Request:
+    new_headers = request.headers.mutablecopy()
+    del new_headers["Authorization"]
+    if user:
+        new_headers["x-user"] = user
+    request.scope["headers"] = new_headers.raw
+    delattr(request, "_headers")
+    return request
+
 class Api:
     def __init__(self, app: FastAPI) -> None:
         self.app = app
@@ -217,8 +227,10 @@ class Api:
             print(f"Register authentication key: {''.join(['*' for _ in range(len(AppConfig.g4f_api_key))])}")
         if has_crypto:
             private_key, _ = create_or_read_keys()
+            session_key = get_session_key()
         @self.app.middleware("http")
         async def authorization(request: Request, call_next):
+            user = None
             if AppConfig.g4f_api_key is not None or AppConfig.demo:
                 try:
                     user_g4f_api_key = await self.get_g4f_api_key(request)
@@ -226,15 +238,19 @@ class Api:
                     user_g4f_api_key = await self.security(request)
                     if hasattr(user_g4f_api_key, "credentials"):
                         user_g4f_api_key = user_g4f_api_key.credentials
-                user = None
                 if AppConfig.g4f_api_key is None or not secrets.compare_digest(AppConfig.g4f_api_key, user_g4f_api_key):
                     if has_crypto and user_g4f_api_key:
                         try:
                             expires, user = decrypt_data(private_key, user_g4f_api_key).split(":", 1)
-                            expires = int(expires) - int(time.time())
-                            debug.log(f"User: '{user}' G4F API key expires in {expires} seconds")
-                        except Exception as e:
-                            return ErrorResponse.from_message(f"Invalid G4F API key: {e}", HTTP_401_UNAUTHORIZED)
+                        except:
+                            try:
+                                data = json.loads(decrypt_data(session_key, user_g4f_api_key))
+                                expires = int(decrypt_data(private_key, data["data"])) + 86400
+                                user = data.get("user", user)
+                            except:
+                                return ErrorResponse.from_message(f"Invalid G4F API key", HTTP_401_UNAUTHORIZED)
+                        expires = int(expires) - int(time.time())
+                        debug.log(f"User: '{user}' G4F API key expires in {expires} seconds")
                         if expires < 0:
                             return ErrorResponse.from_message("G4F API key expired", HTTP_401_UNAUTHORIZED)
                 else:
@@ -254,10 +270,15 @@ class Api:
                             user = await self.get_username(request)
                         except HTTPException as e:
                             return ErrorResponse.from_message(e.detail, e.status_code, e.headers)
-                        response = await call_next(request)
-                        response.headers["x-user"] = user
-                        return response
-            return await call_next(request)
+                if user is None:
+                    ip = request.headers.get("X-Forwarded-For", "")[:4].strip(":.")
+                    user = request.headers.get("Cf-Ipcountry", "")
+                    user = f"{user}:{ip}" if user else ip
+                request = update_headers(request, user)
+            response = await call_next(request)
+            if "Access-Control-Allow-Origin" not in response.headers:
+                response.headers["Access-Control-Allow-Origin"] = STATIC_URL
+            return response
 
     def register_validation_exception_handler(self):
         @self.app.exception_handler(RequestValidationError)
@@ -302,17 +323,19 @@ class Api:
                     "created": 0,
                     "owned_by": "",
                     "image": isinstance(model, g4f.models.ImageModel),
+                    "vision": isinstance(model, g4f.models.VisionModel),
                     "provider": False,
                 } for model in AnyProvider.get_models()] +
                 [{
                     "id": provider_name,
                     "object": "model",
                     "created": 0,
-                    "owned_by": getattr(provider, "label", None),
+                    "owned_by": getattr(provider, "label", ""),
                     "image": bool(getattr(provider, "image_models", False)),
+                    "vision": bool(getattr(provider, "vision_models", False)),
                     "provider": True,
                 } for provider_name, provider in Provider.ProviderUtils.convert.items()
-                    if provider.working and provider_name not in ("Custom", "Puter")
+                    if provider.working and provider_name not in ("Custom")
                 ]
             }
 
@@ -369,6 +392,7 @@ class Api:
             credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None,
             provider: str = None,
             conversation_id: str = None,
+            x_user: Annotated[str | None, Header()] = None
         ):
             try:
                 if config.provider is None:
@@ -413,7 +437,8 @@ class Api:
                             **config.dict(exclude_none=True),
                             **{
                                 "conversation_id": None,
-                                "conversation": conversation
+                                "conversation": conversation,
+                                "user": x_user,
                             }
                         },
                         ignored=AppConfig.ignored_providers

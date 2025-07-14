@@ -1,14 +1,13 @@
 #include "transaction/transaction.h"
 
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
-#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "common/exception/runtime.h"
 #include "main/client_context.h"
 #include "main/db_config.h"
 #include "storage/local_storage/local_storage.h"
 #include "storage/storage_manager.h"
 #include "storage/undo_buffer.h"
-#include "storage/wal/wal.h"
+#include "storage/wal/local_wal.h"
 
 using namespace kuzu::catalog;
 
@@ -17,7 +16,7 @@ namespace transaction {
 
 bool LocalCacheManager::put(std::unique_ptr<LocalCacheObject> object) {
     std::unique_lock lck{mtx};
-    auto key = object->getKey();
+    const auto key = object->getKey();
     if (cachedObjects.contains(key)) {
         return false;
     }
@@ -34,11 +33,12 @@ Transaction::Transaction(main::ClientContext& clientContext, TransactionType tra
     undoBuffer = std::make_unique<storage::UndoBuffer>(clientContext.getMemoryManager());
     currentTS = common::Timestamp::getCurrentTimestamp().value;
     // Note that the use of `this` should be safe here as there is no inheritance.
-    for (auto entry : clientContext.getCatalog()->getNodeTableEntries(this)) {
+    for (const auto entry : clientContext.getCatalog()->getNodeTableEntries(this)) {
         auto id = entry->getTableID();
         minUncommittedNodeOffsets[id] =
             clientContext.getStorageManager()->getTable(id)->getNumTotalRows(this);
     }
+    localWAL = std::make_unique<storage::LocalWAL>(*clientContext.getMemoryManager());
 }
 
 Transaction::Transaction(TransactionType transactionType) noexcept
@@ -57,20 +57,21 @@ Transaction::Transaction(TransactionType transactionType, common::transaction_t 
 }
 
 bool Transaction::shouldLogToWAL() const {
-    // When we are in recovery mode, we don't log to WAL.
-    return !isRecovery() && !main::DBConfig::isDBPathInMemory(clientContext->getDatabasePath());
+    return isWriteTransaction() && !clientContext->isInMemory();
 }
 
 bool Transaction::shouldForceCheckpoint() const {
-    return !main::DBConfig::isDBPathInMemory(clientContext->getDatabasePath()) && forceCheckpoint;
+    return !clientContext->isInMemory() && forceCheckpoint;
 }
 
 void Transaction::commit(storage::WAL* wal) {
     localStorage->commit();
     undoBuffer->commit(commitTS);
-    if (isWriteTransaction() && shouldLogToWAL()) {
-        KU_ASSERT(wal);
-        wal->logAndFlushCommit();
+    if (shouldLogToWAL()) {
+        KU_ASSERT(localWAL && wal);
+        localWAL->logCommit();
+        wal->logCommittedWAL(*localWAL, clientContext);
+        localWAL->clear();
     }
     if (hasCatalogChanges) {
         clientContext->getCatalog()->incrementVersion();
@@ -78,18 +79,19 @@ void Transaction::commit(storage::WAL* wal) {
     }
 }
 
-void Transaction::rollback(storage::WAL* wal) {
+void Transaction::rollback(storage::WAL*) {
     localStorage->rollback();
-    undoBuffer->rollback(this);
-    if (isWriteTransaction() && shouldLogToWAL()) {
-        KU_ASSERT(wal);
-        wal->logRollback();
-    }
+    undoBuffer->rollback(clientContext);
     hasCatalogChanges = false;
 }
 
 uint64_t Transaction::getEstimatedMemUsage() const {
     return localStorage->getEstimatedMemUsage() + undoBuffer->getMemUsage();
+}
+
+bool Transaction::isUnCommitted(common::table_id_t tableID, common::offset_t nodeOffset) const {
+    return localStorage && localStorage->getLocalTable(tableID) &&
+           nodeOffset >= getMinUncommittedNodeOffset(tableID);
 }
 
 void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntry& catalogEntry,
@@ -99,36 +101,18 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
     if (!shouldLogToWAL() || skipLoggingToWAL) {
         return;
     }
-    const auto wal = clientContext->getWAL();
-    KU_ASSERT(wal);
+    KU_ASSERT(localWAL);
     const auto newCatalogEntry = catalogEntry.getNext();
     switch (newCatalogEntry->getType()) {
+    case CatalogEntryType::INDEX_ENTRY:
     case CatalogEntryType::NODE_TABLE_ENTRY:
-    case CatalogEntryType::REL_TABLE_ENTRY: {
-        if (catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY) {
-            auto& entry = newCatalogEntry->constCast<TableCatalogEntry>();
-            KU_ASSERT(catalogEntry.isDeleted());
-            if (entry.hasParent()) {
-                return;
-            }
-            wal->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
-        } else {
-            throw common::RuntimeException("This shouldn't happen. Alter table is not supported.");
-        }
-    } break;
     case CatalogEntryType::REL_GROUP_ENTRY: {
         if (catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY) {
             KU_ASSERT(catalogEntry.isDeleted());
-            auto& entry = newCatalogEntry->constCast<RelGroupCatalogEntry>();
-            std::vector<CatalogEntry*> children;
-            for (auto tableID : entry.getRelTableIDs()) {
-                children.push_back(
-                    clientContext->getCatalog()->getTableCatalogEntry(this, tableID));
-            }
-            wal->logCreateCatalogEntryRecord(newCatalogEntry, children, isInternal);
+            localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
+        } else {
+            throw common::RuntimeException("This shouldn't happen. Alter table is not supported.");
         }
-        // Otherwise must be ALTER. We don't do anything in this case since the only operation
-        // we need on rel groups is RENAME which only requires create/drop
     } break;
     case CatalogEntryType::SEQUENCE_ENTRY: {
         KU_ASSERT(
@@ -137,13 +121,13 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
             // We don't log SERIAL catalog entry creation as it is implicit
             return;
         }
-        wal->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
+        localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
     } break;
     case CatalogEntryType::SCALAR_MACRO_ENTRY:
     case CatalogEntryType::TYPE_ENTRY: {
         KU_ASSERT(
             catalogEntry.getType() == CatalogEntryType::DUMMY_ENTRY && catalogEntry.isDeleted());
-        wal->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
+        localWAL->logCreateCatalogEntryRecord(newCatalogEntry, isInternal);
     } break;
     case CatalogEntryType::DUMMY_ENTRY: {
         KU_ASSERT(newCatalogEntry->isDeleted());
@@ -151,16 +135,16 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
             return;
         }
         switch (catalogEntry.getType()) {
-        // Eventually we probably want to merge these
+        case CatalogEntryType::INDEX_ENTRY:
         case CatalogEntryType::NODE_TABLE_ENTRY:
-        case CatalogEntryType::REL_TABLE_ENTRY:
         case CatalogEntryType::REL_GROUP_ENTRY:
         case CatalogEntryType::SEQUENCE_ENTRY: {
-            wal->logDropCatalogEntryRecord(catalogEntry.getOID(), catalogEntry.getType());
+            localWAL->logDropCatalogEntryRecord(catalogEntry.getOID(), catalogEntry.getType());
         } break;
-        case CatalogEntryType::INDEX_ENTRY:
-        case CatalogEntryType::SCALAR_FUNCTION_ENTRY: {
-            // DO NOTHING. We don't persistent index/function entries.
+        case CatalogEntryType::SCALAR_FUNCTION_ENTRY:
+        case CatalogEntryType::TABLE_FUNCTION_ENTRY:
+        case CatalogEntryType::STANDALONE_TABLE_FUNCTION_ENTRY: {
+            // DO NOTHING. We don't persist function entries.
         } break;
         case CatalogEntryType::SCALAR_MACRO_ENTRY:
         case CatalogEntryType::TYPE_ENTRY:
@@ -172,8 +156,9 @@ void Transaction::pushCreateDropCatalogEntry(CatalogSet& catalogSet, CatalogEntr
         }
     } break;
     case CatalogEntryType::SCALAR_FUNCTION_ENTRY:
-    case CatalogEntryType::INDEX_ENTRY: {
-        // DO NOTHING. We don't persistent function/index entries.
+    case CatalogEntryType::TABLE_FUNCTION_ENTRY:
+    case CatalogEntryType::STANDALONE_TABLE_FUNCTION_ENTRY: {
+        // DO NOTHING. We don't persist function entries.
     } break;
     default: {
         throw common::RuntimeException(
@@ -187,20 +172,19 @@ void Transaction::pushAlterCatalogEntry(CatalogSet& catalogSet, CatalogEntry& ca
     const binder::BoundAlterInfo& alterInfo) {
     undoBuffer->createCatalogEntry(catalogSet, catalogEntry);
     hasCatalogChanges = true;
-    if (!shouldLogToWAL()) {
-        return;
+    if (shouldLogToWAL()) {
+        KU_ASSERT(localWAL);
+        localWAL->logAlterCatalogEntryRecord(&alterInfo);
     }
-    const auto wal = clientContext->getWAL();
-    KU_ASSERT(wal);
-    wal->logAlterCatalogEntryRecord(&alterInfo);
 }
 
 void Transaction::pushSequenceChange(SequenceCatalogEntry* sequenceEntry, int64_t kCount,
     const SequenceRollbackData& data) {
     undoBuffer->createSequenceChange(*sequenceEntry, data);
     hasCatalogChanges = true;
-    if (clientContext->getTransaction()->shouldLogToWAL()) {
-        clientContext->getWAL()->logUpdateSequenceRecord(sequenceEntry->getOID(), kCount);
+    if (shouldLogToWAL()) {
+        KU_ASSERT(localWAL);
+        localWAL->logUpdateSequenceRecord(sequenceEntry->getOID(), kCount);
     }
 }
 

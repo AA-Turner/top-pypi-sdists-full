@@ -1,8 +1,13 @@
+from typing import TYPE_CHECKING
+
 from .constants import JSONReturnType
 from .json_context import ContextValues
 
+if TYPE_CHECKING:
+    from .json_parser import JSONParser
 
-def parse_object(self) -> dict[str, JSONReturnType]:
+
+def parse_object(self: "JSONParser") -> dict[str, JSONReturnType]:
     # <object> ::= '{' [ <member> *(', ' <member>) ] '}' ; A sequence of 'members'
     obj: dict[str, JSONReturnType] = {}
     # Stop when you either find the closing parentheses or you have iterated over the entire string
@@ -59,12 +64,17 @@ def parse_object(self) -> dict[str, JSONReturnType]:
                 # If the string is empty but there is a object divider, we are done here
                 break
         if ContextValues.ARRAY in self.context.context and key in obj:
-            self.log(
-                "While parsing an object we found a duplicate key, closing the object here and rolling back the index",
-            )
-            self.index = rollback_index - 1
-            # add an opening curly brace to make this work
-            self.json_str = self.json_str[: self.index + 1] + "{" + self.json_str[self.index + 1 :]
+            if self.stream_stable:
+                # This is possibly another problem, the key is incomplete and it "appears" duplicate
+                # Let's just do nothing
+                pass
+            else:
+                self.log(
+                    "While parsing an object we found a duplicate key, closing the object here and rolling back the index",
+                )
+                self.index = rollback_index - 1
+                # add an opening curly brace to make this work
+                self.json_str = self.json_str[: self.index + 1] + "{" + self.json_str[self.index + 1 :]
             break
 
         # Skip filler whitespaces

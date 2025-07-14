@@ -44,12 +44,15 @@ public:
 
     void addChild(std::unique_ptr<ParsedExpression> child) { children.push_back(std::move(child)); }
 
+    void setOptionalArguments(std::vector<std::string> optionalArguments) {
+        this->optionalArguments = std::move(optionalArguments);
+    }
     void addOptionalParams(std::string name, std::unique_ptr<ParsedExpression> child) {
         optionalArguments.push_back(std::move(name));
         children.push_back(std::move(child));
     }
 
-    std::vector<std::string> getOptionalArguments() const { return optionalArguments; }
+    const std::vector<std::string>& getOptionalArguments() const { return optionalArguments; }
 
     static std::unique_ptr<ParsedFunctionExpression> deserialize(
         common::Deserializer& deserializer);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.4.1
+Version: 0.4.2
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -58,16 +58,19 @@ This Python package
 * Text with **bold**, *italic*, `monospace`, <ins>underline</ins> and ~~strikethrough~~
 * Link to [sections on the same page](#getting-started) or [external locations](http://example.com/)
 * Subscript and superscript (with HTML tags `<sub>` and `<sup>`)
+* Math formulas with LaTeX notation [^math]
 * Emoji
 * Ordered and unordered lists
 * Block quotes
 * Code blocks (e.g. Python, JSON, XML)
 * Images (uploaded as Confluence page attachments or hosted externally)
 * Tables
+* Footnotes
 * [Table of contents](https://docs.gitlab.com/ee/user/markdown.html#table-of-contents)
 * [Admonitions](https://python-markdown.github.io/extensions/admonition/) and alert boxes in [GitHub](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#alerts) and [GitLab](https://docs.gitlab.com/ee/development/documentation/styleguide/#alert-boxes)
 * [Collapsed sections](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections)
-* [Mermaid diagrams](https://mermaid.live/) in code blocks (converted to images)
+* draw\.io diagrams [^drawio]
+* [Mermaid diagrams](https://mermaid.live/) in code blocks (converted to images) [^mermaid]
 
 Whenever possible, the implementation uses [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/) to fetch space properties, and get, create or update page content.
 
@@ -79,11 +82,25 @@ Whenever possible, the implementation uses [Confluence REST API v2](https://deve
 pip install markdown-to-confluence
 ```
 
-**Optional.** Converting code blocks of Mermaid diagrams into Confluence image attachments requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli):
+### Command-line utilities
+
+**Optional.** Converting `*.drawio` diagrams into PNG or SVG images requires installing [draw.io](https://www.drawio.com/). (Refer to `--render-drawio`.)
+
+**Optional.** Converting code blocks of Mermaid diagrams into PNG or SVG images requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). (Refer to `--render-mermaid`.)
 
 ```sh
 npm install -g @mermaid-js/mermaid-cli
 ```
+
+### Marketplace apps
+
+As authors of *md2conf*, we don't endorse or support any particular Confluence marketplace apps.
+
+**Optional.** Editable draw\.io diagrams require [draw.io Diagrams marketplace app](https://marketplace.atlassian.com/apps/1210933/draw-io-diagrams-uml-bpmn-aws-erd-flowcharts). (Refer to `--no-render-drawio`.)
+
+**Optional.** Displaying Mermaid diagrams in Confluence without pre-rendering requires a marketplace app. (Refer to `--no-render-mermaid`.)
+
+**Optional.** Displaying formulas and equations requires [LaTeX Math marketplace app](https://marketplace.atlassian.com/apps/1226109/latex-math-for-confluence-math-formula-equations).
 
 ## Getting started
 
@@ -152,7 +169,7 @@ If you lack appropriate permissions, you will get an *Unauthorized* response fro
 Each Markdown file is associated with a Confluence wiki page with a Markdown comment:
 
 ```markdown
-<!-- confluence-page-id: 85668266616 -->
+<!-- confluence-page-id: 20250001023 -->
 ```
 
 The above tells the tool to synchronize the Markdown file with the given Confluence page ID. This implies that the Confluence wiki page must exist such that it has an ID. The comment can be placed anywhere in the source file.
@@ -193,24 +210,28 @@ First, *md2conf* builds an index of pages in the directory hierarchy. The index 
 
 If a Markdown file doesn't yet pair up with a Confluence page, *md2conf* creates a new page and assigns a parent. Parent-child relationships are reflected in the navigation panel in Confluence. You can set a root page ID with the command-line option `-r`, which constitutes the topmost parent. (This could correspond to the landing page of your Confluence space. The Confluence page ID is always revealed when you edit a page.) Whenever a directory contains the file `index.md` or `README.md`, this page becomes the future parent page, and all Markdown files in this directory (and possibly nested directories) become its child pages (unless they already have a page ID). However, if an `index.md` or `README.md` file is subsequently found in one of the nested directories, it becomes the parent page of that directory, and any of its subdirectories.
 
+The top-level directory to be synchronized must always have an `index.md` or `README.md`, which maps to the root of the corresponding sub-tree in Confluence (specified with `-r`).
+
 The concepts above are illustrated in the following sections.
 
 #### File-system directory hierarchy
 
-The title of each Markdown file (either the text of the topmost unique heading (`#`), or the title specified in front-matter) is shown next to the file name.
+The title of each Markdown file (either the text of the topmost unique heading (`#`), or the title specified in front-matter) is shown next to the file name. `docs` is the top-level directory to be synchronized.
 
 ```
-.
+docs
+├── index.md: Root page
 ├── computer-science
 │   ├── index.md: Introduction to computer science
 │   ├── algebra.md: Linear algebra
 │   └── algorithms.md: Theory of algorithms
-└── machine-learning
-    ├── README.md: AI and ML
-    ├── awareness.md: Consciousness and intelligence
-    └── statistics
-        ├── index.md: Introduction to statistics
-        └── median.md: Mean vs. median
+├── machine-learning
+│   ├── README.md: AI and ML
+│   ├── awareness.md: Consciousness and intelligence
+│   └── statistics
+│       ├── index.md: Introduction to statistics
+│       └── median.md: Mean vs. median
+└── ethics.md: Ethical considerations
 ```
 
 #### Page hierarchy in Confluence
@@ -218,14 +239,15 @@ The title of each Markdown file (either the text of the topmost unique heading (
 Observe how `index.md` and `README.md` files have assumed parent (or ancestor) role for any Markdown files in the same directory (or below).
 
 ```
-root
+Root page
 ├── Introduction to computer science
 │   ├── Linear algebra
 │   └── Theory of algorithms
-└── AI and ML
-    ├── Consciousness and intelligence
-    └── Introduction to statistics
-        └── Mean vs. median
+├── AI and ML
+│   ├── Consciousness and intelligence
+│   └── Introduction to statistics
+│       └── Mean vs. median
+└── Ethical considerations
 ```
 
 ### Emoji
@@ -299,6 +321,25 @@ Unfortunately, Confluence struggles with SVG images, e.g. they may only show in 
 
 External images referenced with an absolute URL retain the original URL.
 
+### LaTeX math formulas
+
+Inline formulas can be enclosed with `$` signs, or delimited with `\(` and `\)`, i.e.
+
+* the code `$\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$` is shown as $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$,
+* and `\(\lim _{x\rightarrow \infty }\frac{1}{x}=0\)` is shown as $\lim _{x\rightarrow \infty }\frac{1}{x}=0$.
+
+Block formulas can be enclosed with `$$`, or wrapped in code blocks specifying the language `math`:
+
+```md
+$$\int _{a}^{b}f(x)dx=F(b)-F(a)$$
+```
+
+is shown as
+
+$$\int _{a}^{b}f(x)dx=F(b)-F(a)$$
+
+Displaying math formulas in Confluence requires the extension [LaTeX Math for Confluence - Math Formula & Equations](https://help.narva.net/latex-math-for-confluence/).
+
 ### Ignoring files
 
 Skip files in a directory with rules defined in `.mdignore`. Each rule should occupy a single line. Rules follow the syntax (and constraints) of [fnmatch](https://docs.python.org/3/library/fnmatch.html#fnmatch.fnmatch). Specifically, `?` matches any single character, and `*` matches zero or more characters. For example, use `up-*.md` to exclude Markdown files that start with `up-`. Lines that start with `#` are treated as comments.
@@ -306,6 +347,20 @@ Skip files in a directory with rules defined in `.mdignore`. Each rule should oc
 Files that don't have the extension `*.md` are skipped automatically. Hidden directories (whose name starts with `.`) are not recursed into.
 
 Relative paths to items in a nested directory are not supported. You must put `.mdignore` in the same directory where the items to be skipped reside.
+
+If you add the `synchronized` attribute to JSON or YAML front-matter with the value `false`, the document content (including attachments) and metadata (e.g. tags) will not be synchronized with Confluence:
+
+```yaml
+---
+title: "Collaborating with other teams"
+page_id: "19830101"
+synchronized: false
+---
+
+This Markdown document is neither parsed, nor synchronized with Confluence.
+```
+
+This is useful if you have a page in a hierarchy that participates in parent-child relationships but whose content is edited directly in Confluence. Specifically, these documents can be referenced with relative links from other Markdown documents in the file system tree.
 
 ### Page title
 
@@ -348,12 +403,18 @@ properties:
 
 The attribute `properties` is parsed as a dictionary with keys of type string and values of type JSON. *md2conf* passes JSON values to Confluence REST API unchanged.
 
-### Converting diagrams
+### draw\.io diagrams
+
+With the command-line option `--no-render-drawio` (default), editable diagram data is extracted from images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`), and uploaded to Confluence as attachments. `*.drawio` and `*.drawio.xml` files are uploaded as-is. You need a [marketplace app](https://marketplace.atlassian.com/apps/1210933/draw-io-diagrams-uml-bpmn-aws-erd-flowcharts) to view and edit these diagrams on a Confluence page.
+
+With the command-line option `--render-drawio`, images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`) are uploaded unchanged, and shown on the Confluence page as images. These diagrams are not editable in Confluence. When both an SVG and a PNG image is available, PNG is preferred. `*.drawio` and `*.drawio.xml` files are converted into PNG or SVG images by invoking draw\.io as a command-line utility, and the generated images are uploaded to Confluence as attachments, and shown as images.
+
+### Mermaid diagrams
 
 You can include [Mermaid diagrams](https://mermaid.js.org/) in your Markdown documents to create visual representations of systems, processes, and relationships. When a Markdown document contains a code block with the language specifier `mermaid`, *md2conf* offers two options to publish the diagram:
 
-1. Pre-render into an image. The code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
-2. Render on demand. The code block is transformed into a [diagram macro](https://atlasauthority.atlassian.net/wiki/spaces/MARKDOWNCLOUD/pages/2946826241/Diagram+Macro), which is processed by Confluence. You need a [Confluence plugin](https://marketplace.atlassian.com/apps/1211438/markdown-html-plantuml-latex-diagrams-open-api-mermaid) to turn macro definitions into images when a Confluence page is visited. This is a contributed feature. As authors of *md2conf*, we don't endorse or support any particular Confluence plugin.
+1. Pre-render into an image (command-line option `--render-mermaid`). The code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
+2. Display on demand (command-line option `--no-render-mermaid`). The code block is transformed into a [diagram macro](https://atlasauthority.atlassian.net/wiki/spaces/MARKDOWNCLOUD/pages/2946826241/Diagram+Macro), which is processed by Confluence. You need a [marketplace app](https://marketplace.atlassian.com/apps/1211438/markdown-html-plantuml-latex-diagrams-open-api-mermaid) to turn macro definitions into images when a Confluence page is visited.
 
 If you are running into issues with the pre-rendering approach (e.g. misaligned labels in the generated image), verify if `mermaid-cli` can process the Mermaid source:
 
@@ -379,8 +440,9 @@ Use the `--help` switch to get a full list of supported command-line options:
 
 ```console
 $ python3 -m md2conf --help
-usage: md2conf [-h] [--version] [-d DOMAIN] [-p PATH] [--api-url API_URL] [-u USERNAME] [-a API_KEY] [-s SPACE] [-l {debug,info,warning,error,critical}] [-r ROOT_PAGE] [--keep-hierarchy] [--generated-by GENERATED_BY]
-               [--no-generated-by] [--render-mermaid] [--no-render-mermaid] [--render-mermaid-format {png,svg}] [--heading-anchors] [--ignore-invalid-url] [--local] [--headers [KEY=VALUE ...]] [--webui-links]
+usage: md2conf [-h] [--version] [-d DOMAIN] [-p PATH] [--api-url API_URL] [-u USERNAME] [-a API_KEY] [-s SPACE] [-l {debug,info,warning,error,critical}] [-r ROOT_PAGE] [--keep-hierarchy] [--flatten-hierarchy]
+               [--generated-by GENERATED_BY] [--no-generated-by] [--render-drawio] [--no-render-drawio] [--render-mermaid] [--no-render-mermaid] [--render-mermaid-format {png,svg}] [--heading-anchors]
+               [--no-heading-anchors] [--ignore-invalid-url] [--local] [--headers [KEY=VALUE ...]] [--webui-links]
                mdpath
 
 positional arguments:
@@ -389,28 +451,30 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
-  -d DOMAIN, --domain DOMAIN
-                        Confluence organization domain.
-  -p PATH, --path PATH  Base path for Confluence (default: '/wiki/').
+  -d, --domain DOMAIN   Confluence organization domain.
+  -p, --path PATH       Base path for Confluence (default: '/wiki/').
   --api-url API_URL     Confluence API URL. Required for scoped tokens. Refer to documentation how to obtain one.
-  -u USERNAME, --username USERNAME
+  -u, --username USERNAME
                         Confluence user name.
-  -a API_KEY, --apikey API_KEY, --api-key API_KEY
+  -a, --apikey, --api-key API_KEY
                         Confluence API key. Refer to documentation how to obtain one.
-  -s SPACE, --space SPACE
-                        Confluence space key for pages to be published. If omitted, will default to user space.
-  -l {debug,info,warning,error,critical}, --loglevel {debug,info,warning,error,critical}
+  -s, --space SPACE     Confluence space key for pages to be published. If omitted, will default to user space.
+  -l, --loglevel {debug,info,warning,error,critical}
                         Use this option to set the log verbosity.
   -r ROOT_PAGE          Root Confluence page to create new pages. If omitted, will raise exception when creating new pages.
   --keep-hierarchy      Maintain source directory structure when exporting to Confluence.
+  --flatten-hierarchy   Flatten directories with no index.md or README.md when exporting to Confluence.
   --generated-by GENERATED_BY
                         Add prompt to pages (default: 'This page has been generated with a tool.').
   --no-generated-by     Do not add 'generated by a tool' prompt to pages.
-  --render-mermaid      Render Mermaid diagrams as image files and add as attachments.
-  --no-render-mermaid   Inline Mermaid diagram in Confluence page.
+  --render-drawio       Render draw.io diagrams as image files and add as attachments. (Converter required.)
+  --no-render-drawio    Inline draw.io diagram in Confluence page. (Marketplace app required.)
+  --render-mermaid      Render Mermaid diagrams as image files and add as attachments. (Converter required.)
+  --no-render-mermaid   Inline Mermaid diagram in Confluence page. (Marketplace app required.)
   --render-mermaid-format {png,svg}
-                        Format for rendering Mermaid diagrams (default: 'png').
+                        Format for rendering Mermaid and draw.io diagrams (default: 'png').
   --heading-anchors     Place an anchor at each section heading with GitHub-style same-page identifiers.
+  --no-heading-anchors  Don't place an anchor at each section heading.
   --ignore-invalid-url  Emit a warning but otherwise ignore relative URLs that point to ill-specified locations.
   --local               Write XHTML-based Confluence Storage Format files locally without invoking Confluence API.
   --headers [KEY=VALUE ...]
@@ -459,3 +523,7 @@ FROM leventehunyadi/md2conf:latest
 
 CMD ["-d", "example.atlassian.net", "-u", "levente.hunyadi@instructure.com", "-a", "0123456789abcdef", "-s", "SPACE", "./"]
 ```
+
+[^math]: Requires installing Confluence plugin [LaTeX Math for Confluence - Math Formula & Equations](https://help.narva.net/latex-math-for-confluence/).
+[^drawio]: Converting draw\.io diagrams to images before uploading to Confluence requires an installation of [draw.io](https://www.drawio.com/). Editable draw\.io diagrams require separate marketplace app.
+[^mermaid]: Converting Mermaid diagrams to images before uploading to Confluence requires [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). Displaying Mermaid diagrams on the fly requires separate marketplace app.

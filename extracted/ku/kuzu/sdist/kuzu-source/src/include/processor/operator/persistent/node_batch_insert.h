@@ -6,7 +6,7 @@
 #include "processor/operator/persistent/batch_insert.h"
 #include "processor/operator/persistent/index_builder.h"
 #include "storage/stats/table_stats.h"
-#include "storage/store/chunked_node_group.h"
+#include "storage/table/chunked_node_group.h"
 
 namespace kuzu {
 namespace storage {
@@ -36,28 +36,21 @@ private:
 };
 
 struct NodeBatchInsertInfo final : BatchInsertInfo {
-    std::vector<common::LogicalType> columnTypes;
     evaluator::evaluator_vector_t columnEvaluators;
     std::vector<common::ColumnEvaluateType> evaluateTypes;
 
-    NodeBatchInsertInfo(catalog::TableCatalogEntry* tableEntry, bool compressionEnabled,
-        std::vector<common::column_id_t> columnIDs, std::vector<common::LogicalType> columnTypes,
+    NodeBatchInsertInfo(std::string tableName, bool compressionEnabled,
+        std::vector<common::LogicalType> columnTypes,
         std::vector<std::unique_ptr<evaluator::ExpressionEvaluator>> columnEvaluators,
         std::vector<common::ColumnEvaluateType> evaluateTypes,
         common::column_id_t numWarningDataColumns)
-        : BatchInsertInfo{tableEntry, compressionEnabled, std::move(columnIDs),
-              static_cast<common::column_id_t>(columnTypes.size() - numWarningDataColumns),
+        : BatchInsertInfo{std::move(tableName), compressionEnabled, {}, std::move(columnTypes),
               numWarningDataColumns},
-          columnTypes{std::move(columnTypes)}, columnEvaluators{std::move(columnEvaluators)},
-          evaluateTypes{std::move(evaluateTypes)} {}
+          columnEvaluators{std::move(columnEvaluators)}, evaluateTypes{std::move(evaluateTypes)} {}
 
     NodeBatchInsertInfo(const NodeBatchInsertInfo& other)
-        : BatchInsertInfo{other.tableEntry, other.compressionEnabled, other.insertColumnIDs,
-              static_cast<common::column_id_t>(other.outputDataColumns.size()),
-              static_cast<common::column_id_t>(other.warningDataColumns.size())},
-          columnTypes{common::LogicalType::copy(other.columnTypes)},
-          columnEvaluators{copyVector(other.columnEvaluators)}, evaluateTypes{other.evaluateTypes} {
-    }
+        : BatchInsertInfo{other}, columnEvaluators{copyVector(other.columnEvaluators)},
+          evaluateTypes{other.evaluateTypes} {}
 
     std::unique_ptr<BatchInsertInfo> copy() const override {
         return std::make_unique<NodeBatchInsertInfo>(*this);
@@ -78,12 +71,11 @@ struct NodeBatchInsertSharedState final : BatchInsertSharedState {
     // ops.
     std::unique_ptr<storage::ChunkedNodeGroup> sharedNodeGroup;
 
-    NodeBatchInsertSharedState(storage::Table* table, common::column_id_t pkColumnID,
-        common::LogicalType pkType, std::shared_ptr<FactorizedTable> fTable, storage::WAL* wal,
+    NodeBatchInsertSharedState(std::shared_ptr<FactorizedTable> fTable, storage::WAL* wal,
         storage::MemoryManager* mm)
-        : BatchInsertSharedState{table, std::move(fTable), wal, mm}, pkColumnID{pkColumnID},
-          pkType{std::move(pkType)}, globalIndexBuilder(std::nullopt),
-          tableFuncSharedState{nullptr}, sharedNodeGroup{nullptr} {}
+        : BatchInsertSharedState{nullptr, std::move(fTable), wal, mm}, pkColumnID{0},
+          globalIndexBuilder(std::nullopt), tableFuncSharedState{nullptr},
+          sharedNodeGroup{nullptr} {}
 
     void initPKIndex(const ExecutionContext* context);
 };
@@ -104,12 +96,11 @@ struct NodeBatchInsertLocalState final : BatchInsertLocalState {
 
 class NodeBatchInsert final : public BatchInsert {
 public:
-    NodeBatchInsert(std::unique_ptr<BatchInsertInfo> info,
+    NodeBatchInsert(std::string tableName, std::unique_ptr<BatchInsertInfo> info,
         std::shared_ptr<BatchInsertSharedState> sharedState,
-        std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
         std::unique_ptr<PhysicalOperator> child, uint32_t id,
         std::unique_ptr<OPPrintInfo> printInfo)
-        : BatchInsert{std::move(info), std::move(sharedState), std::move(resultSetDescriptor), id,
+        : BatchInsert{std::move(tableName), std::move(info), std::move(sharedState), id,
               std::move(printInfo)} {
         children.push_back(std::move(child));
     }
@@ -124,15 +115,16 @@ public:
     void finalizeInternal(ExecutionContext* context) override;
 
     std::unique_ptr<PhysicalOperator> copy() override {
-        return std::make_unique<NodeBatchInsert>(info->copy(), sharedState,
-            resultSetDescriptor->copy(), children[0]->copy(), id, printInfo->copy());
+        return std::make_unique<NodeBatchInsert>(tableName, info->copy(), sharedState,
+            children[0]->copy(), id, printInfo->copy());
     }
 
     // The node group will be reset so that the only values remaining are the ones which were
     // not written
     void writeAndResetNodeGroup(transaction::Transaction* transaction,
         std::unique_ptr<storage::ChunkedNodeGroup>& nodeGroup,
-        std::optional<IndexBuilder>& indexBuilder, storage::MemoryManager* mm) const;
+        std::optional<IndexBuilder>& indexBuilder, storage::MemoryManager* mm,
+        storage::PageAllocator& pageAllocator) const;
 
 private:
     void evaluateExpressions(uint64_t numTuples) const;
@@ -150,7 +142,7 @@ private:
     void writeAndResetNodeGroup(transaction::Transaction* transaction,
         std::unique_ptr<storage::ChunkedNodeGroup>& nodeGroup,
         std::optional<IndexBuilder>& indexBuilder, storage::MemoryManager* mm,
-        NodeBatchInsertErrorHandler& errorHandler) const;
+        NodeBatchInsertErrorHandler& errorHandler, storage::PageAllocator& pageAllocator) const;
 };
 
 } // namespace processor

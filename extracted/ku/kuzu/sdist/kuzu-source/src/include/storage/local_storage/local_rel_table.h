@@ -4,7 +4,7 @@
 
 #include "common/enums/rel_direction.h"
 #include "storage/local_storage/local_table.h"
-#include "storage/store/csr_node_group.h"
+#include "storage/table/csr_node_group.h"
 
 namespace kuzu {
 namespace storage {
@@ -32,7 +32,8 @@ struct DirectedCSRIndex {
 
 class LocalRelTable final : public LocalTable {
 public:
-    LocalRelTable(const catalog::TableCatalogEntry* tableEntry, Table& table);
+    LocalRelTable(const catalog::TableCatalogEntry* tableEntry, const Table& table);
+    DELETE_COPY_AND_MOVE(LocalRelTable);
 
     bool insert(transaction::Transaction* transaction, TableInsertState& state) override;
     bool update(transaction::Transaction* transaction, TableUpdateState& state) override;

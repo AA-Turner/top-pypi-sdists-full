@@ -7,8 +7,9 @@
 #include "binder/query/updating_clause/bound_merge_clause.h"
 #include "binder/query/updating_clause/bound_set_clause.h"
 #include "catalog/catalog.h"
+#include "catalog/catalog_entry/index_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
-#include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "common/assert.h"
 #include "common/exception/binder.h"
 #include "common/string_format.h"
@@ -171,37 +172,52 @@ void Binder::bindInsertNode(std::shared_ptr<NodeExpression> node,
         throw BinderException(
             "Create node " + node->toString() + " with multiple node labels is not supported.");
     }
-    auto entry = node->getSingleEntry();
+    KU_ASSERT(node->getNumEntries() == 1);
+    auto entry = node->getEntry(0);
     KU_ASSERT(entry->getTableType() == TableType::NODE);
     auto insertInfo = BoundInsertInfo(TableType::NODE, node);
-    for (auto& expr : node->getPropertyExprs()) {
-        auto propertyExpr = expr->constPtrCast<PropertyExpression>();
-        if (propertyExpr->hasProperty(entry->getTableID())) {
-            insertInfo.columnExprs.push_back(expr);
+    for (auto& property : node->getPropertyExpressions()) {
+        if (property->hasProperty(entry->getTableID())) {
+            insertInfo.columnExprs.push_back(property);
         }
     }
     insertInfo.columnDataExprs =
         bindInsertColumnDataExprs(node->getPropertyDataExprRef(), entry->getProperties());
     auto nodeEntry = entry->ptrCast<NodeTableCatalogEntry>();
     validatePrimaryKeyExistence(nodeEntry, *node, insertInfo.columnDataExprs);
+    // Check extension secondary index loaded
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTransaction();
+    for (auto indexEntry : catalog->getIndexEntries(transaction, nodeEntry->getTableID())) {
+        if (!indexEntry->isLoaded()) {
+            throw BinderException(stringFormat(
+                "Trying to insert into an index on table {} but its extension is not loaded.",
+                nodeEntry->getName()));
+        }
+    }
     infos.push_back(std::move(insertInfo));
 }
 
-static TableCatalogEntry* tryPruneMultiLabeled(const RelExpression& rel, table_id_t srcTableID,
-    table_id_t dstTableID) {
+static TableCatalogEntry* tryPruneMultiLabeled(const RelExpression& rel,
+    const TableCatalogEntry& srcEntry, const TableCatalogEntry& dstEntry) {
     std::vector<TableCatalogEntry*> candidates;
     for (auto& entry : rel.getEntries()) {
-        KU_ASSERT(entry->getType() == CatalogEntryType::REL_TABLE_ENTRY);
-        auto& relEntry = entry->constCast<RelTableCatalogEntry>();
-        if (relEntry.getSrcTableID() == srcTableID && relEntry.getDstTableID() == dstTableID) {
+        KU_ASSERT(entry->getType() == CatalogEntryType::REL_GROUP_ENTRY);
+        auto& relEntry = entry->constCast<RelGroupCatalogEntry>();
+        if (relEntry.hasRelEntryInfo(srcEntry.getTableID(), dstEntry.getTableID())) {
             candidates.push_back(entry);
         }
     }
-    if (candidates.size() != 1) {
+    if (candidates.size() > 1) {
         throw BinderException(stringFormat(
             "Create rel {} with multiple rel labels is not supported.", rel.toString()));
     }
-    return nullptr;
+    if (candidates.size() == 0) {
+        throw BinderException(
+            stringFormat("Cannot find a valid label in {} that connects {} and {}.", rel.toString(),
+                srcEntry.getName(), dstEntry.getName()));
+    }
+    return candidates[0];
 }
 
 void Binder::bindInsertRel(std::shared_ptr<RelExpression> rel,
@@ -219,19 +235,14 @@ void Binder::bindInsertRel(std::shared_ptr<RelExpression> rel,
     }
     TableCatalogEntry* entry = nullptr;
     if (!rel->isMultiLabeled()) {
-        entry = rel->getSingleEntry();
+        KU_ASSERT(rel->getNumEntries() == 1);
+        entry = rel->getEntry(0);
     } else {
-        auto srcTableID = rel->getSrcNode()->getSingleEntry()->getTableID();
-        auto dstTableID = rel->getDstNode()->getSingleEntry()->getTableID();
-        entry = tryPruneMultiLabeled(*rel, srcTableID, dstTableID);
-        // LCOV_EXCL_START
-        if (entry == nullptr) {
-            throw BinderException(
-                stringFormat("Cannot find a valid label in {} to create. This should not happen."));
-        }
-        // LCOV_EXCL_STOP
+        auto srcEntry = rel->getSrcNode()->getEntry(0);
+        auto dstEntry = rel->getDstNode()->getEntry(0);
+        entry = tryPruneMultiLabeled(*rel, *srcEntry, *dstEntry);
     }
-    rel->setEntries(std::vector<TableCatalogEntry*>{entry});
+    rel->setEntries(std::vector{entry});
     auto insertInfo = BoundInsertInfo(TableType::REL, rel);
     // Because we might prune entries, some property exprs may belong to pruned entry
     for (auto& p : entry->getProperties()) {
@@ -278,19 +289,38 @@ BoundSetPropertyInfo Binder::bindSetPropertyInfo(const ParsedExpression* column,
             stringFormat("Cannot set expression {} with type {}. Expect node or rel pattern.",
                 expr->toString(), ExpressionTypeUtil::toString(expr->expressionType)));
     }
-    auto& nodeOrRel = expr->constCast<NodeOrRelExpression>();
     auto boundSetItem = bindSetItem(column, columnData);
     auto boundColumn = boundSetItem.first;
     auto boundColumnData = boundSetItem.second;
+    auto& nodeOrRel = expr->constCast<NodeOrRelExpression>();
+    auto& property = boundSetItem.first->constCast<PropertyExpression>();
+    // Check secondary index constraint
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTransaction();
+    for (auto entry : nodeOrRel.getEntries()) {
+        // When setting multi labeled node, skip checking if property is not in current table.
+        if (!property.hasProperty(entry->getTableID())) {
+            continue;
+        }
+        auto propertyID = entry->getPropertyID(property.getPropertyName());
+        if (catalog->containsIndex(transaction, entry->getTableID(), propertyID)) {
+            throw BinderException(
+                stringFormat("Cannot set property {} in table {} because it is used in one or more "
+                             "indexes. Try delete and then insert.",
+                    property.getPropertyName(), entry->getName()));
+        }
+    }
+    // Check primary key constraint
     if (isNode) {
-        auto info = BoundSetPropertyInfo(TableType::NODE, expr, boundColumn, boundColumnData);
-        auto& property = boundSetItem.first->constCast<PropertyExpression>();
         for (auto entry : nodeOrRel.getEntries()) {
             if (property.isPrimaryKey(entry->getTableID())) {
-                info.updatePk = true;
+                throw BinderException(
+                    stringFormat("Cannot set property {} in table {} because it is used as primary "
+                                 "key. Try delete and then insert.",
+                        property.getPropertyName(), entry->getName()));
             }
         }
-        return info;
+        return BoundSetPropertyInfo(TableType::NODE, expr, boundColumn, boundColumnData);
     }
     return BoundSetPropertyInfo(TableType::REL, expr, boundColumn, boundColumnData);
 }
@@ -313,6 +343,19 @@ std::unique_ptr<BoundUpdatingClause> Binder::bindDeleteClause(
         auto pattern = expressionBinder.bindExpression(*deleteClause.getExpression(i));
         if (ExpressionUtil::isNodePattern(*pattern)) {
             auto deleteNodeInfo = BoundDeleteInfo(deleteType, TableType::NODE, pattern);
+            auto& node = pattern->constCast<NodeExpression>();
+            auto catalog = clientContext->getCatalog();
+            auto transaction = clientContext->getTransaction();
+            for (auto entry : node.getEntries()) {
+                for (auto index : catalog->getIndexEntries(transaction, entry->getTableID())) {
+                    if (!index->isLoaded()) {
+                        throw BinderException(
+                            stringFormat("Trying to delete from an index on table {} but its "
+                                         "extension is not loaded.",
+                                entry->getName()));
+                    }
+                }
+            }
             boundDeleteClause->addInfo(std::move(deleteNodeInfo));
         } else if (ExpressionUtil::isRelPattern(*pattern)) {
             // LCOV_EXCL_START

@@ -23,6 +23,22 @@ static bool upgradeType(common::LogicalType& left, common::LogicalType& right) {
                 common::LogicalTypeID::ANY))) {
         return true;
     }
+    if (left.getLogicalTypeID() == common::LogicalTypeID::STRUCT &&
+        right.getLogicalTypeID() == common::LogicalTypeID::STRUCT) {
+        if (common::StructType::getNumFields(left) != common::StructType::getNumFields(right)) {
+            return false;
+        }
+        for (auto i = 0u; i < common::StructType::getNumFields(left); i++) {
+            auto& leftType = common::StructType::getField(left, 0);
+            auto& rightType = common::StructType::getField(right, 0);
+            if (leftType.getName() != rightType.getName() ||
+                leftType.getType() != rightType.getType()) {
+                return false;
+            }
+        }
+        left = std::move(right);
+        return true;
+    }
     auto leftToRightCost = function::BuiltInFunctionsUtils::getCastCost(left.getLogicalTypeID(),
         right.getLogicalTypeID());
     if (leftToRightCost != common::UNDEFINED_CAST_COST) {
@@ -54,6 +70,81 @@ common::LogicalType PandasAnalyzer::getListType(py::object& ele, bool& canConver
     return listType;
 }
 
+static bool isValidMapComponent(const py::handle& component) {
+    if (py::none().is(component)) {
+        return true;
+    }
+    if (!py::hasattr(component, "__getitem__")) {
+        return false;
+    }
+    if (!py::hasattr(component, "__len__")) {
+        return false;
+    }
+    return true;
+}
+
+bool dictionaryHasMapFormat(const PyDictionary& dict) {
+    if (dict.len != 2) {
+        return false;
+    }
+
+    // { 'key': [ .. keys .. ], 'value': [ .. values .. ]}
+    auto keysKey = py::str("key");
+    auto valuesKey = py::str("value");
+    auto keys = dict[keysKey];
+    auto values = dict[valuesKey];
+    if (!keys || !values) {
+        return false;
+    }
+    if (!isValidMapComponent(keys)) {
+        return false;
+    }
+    if (!isValidMapComponent(values)) {
+        return false;
+    }
+    if (py::none().is(keys) || py::none().is(values)) {
+        return true;
+    }
+    auto size = py::len(keys);
+    if (size != py::len(values)) {
+        return false;
+    }
+    return true;
+}
+
+common::LogicalType PandasAnalyzer::dictToMap(const PyDictionary& dict, bool& canConvert) {
+    auto keys = dict.values.attr("__getitem__")(0);
+    auto values = dict.values.attr("__getitem__")(1);
+
+    if (py::none().is(keys) || py::none().is(values)) {
+        return common::LogicalType::MAP(common::LogicalType::ANY(), common::LogicalType::ANY());
+    }
+
+    auto keyType = PandasAnalyzer::getListType(keys, canConvert);
+    if (!canConvert) {
+        return common::LogicalType::MAP(common::LogicalType::ANY(), common::LogicalType::ANY());
+    }
+    auto valueType = getListType(values, canConvert);
+    if (!canConvert) {
+        return common::LogicalType::MAP(common::LogicalType::ANY(), common::LogicalType::ANY());
+    }
+
+    return common::LogicalType::MAP(std::move(keyType), std::move(valueType));
+}
+
+common::LogicalType PandasAnalyzer::dictToStruct(const PyDictionary& dict, bool& canConvert) {
+    std::vector<common::StructField> fields;
+
+    for (auto i = 0u; i < dict.len; i++) {
+        auto dictKey = dict.keys.attr("__getitem__")(i);
+        auto key = std::string(py::str(dictKey));
+        auto dictVal = dict.values.attr("__getitem__")(i);
+        auto val = getItemType(dictVal, canConvert);
+        fields.emplace_back(std::move(key), std::move(val));
+    }
+    return common::LogicalType::STRUCT(std::move(fields));
+}
+
 common::LogicalType PandasAnalyzer::getItemType(py::object ele, bool& canConvert) {
     auto objectType = getPythonObjectType(ele);
     switch (objectType) {
@@ -75,6 +166,16 @@ common::LogicalType PandasAnalyzer::getItemType(py::object ele, bool& canConvert
         return common::LogicalType::LIST(getListType(ele, canConvert));
     case PythonObjectType::UUID:
         return common::LogicalType::UUID();
+    case PythonObjectType::Dict: {
+        PyDictionary dict = PyDictionary(py::reinterpret_borrow<py::object>(ele));
+        if (dict.len == 0) {
+            return common::LogicalType::MAP(common::LogicalType::ANY(), common::LogicalType::ANY());
+        }
+        if (dictionaryHasMapFormat(dict)) {
+            return dictToMap(dict, canConvert);
+        }
+        return dictToStruct(dict, canConvert);
+    }
     default:
         KU_UNREACHABLE;
     }

@@ -15,7 +15,7 @@ from typing import Iterable, Optional
 
 from .collection import ConfluencePageCollection
 from .converter import ConfluenceDocument, ConfluenceDocumentOptions, ConfluencePageID
-from .matcher import Matcher, MatcherOptions
+from .matcher import DirectoryEntry, FileEntry, Matcher, MatcherOptions
 from .metadata import ConfluenceSiteMetadata
 from .properties import ArgumentError
 from .scanner import Scanner
@@ -28,6 +28,7 @@ class DocumentNode:
     page_id: Optional[str]
     space_key: Optional[str]
     title: Optional[str]
+    synchronized: bool
 
     _children: list["DocumentNode"]
 
@@ -35,13 +36,15 @@ class DocumentNode:
         self,
         absolute_path: Path,
         page_id: Optional[str],
-        space_key: Optional[str] = None,
-        title: Optional[str] = None,
+        space_key: Optional[str],
+        title: Optional[str],
+        synchronized: bool,
     ):
         self.absolute_path = absolute_path
         self.page_id = page_id
         self.space_key = space_key
         self.title = title
+        self.synchronized = synchronized
         self._children = []
 
     def count(self) -> int:
@@ -98,16 +101,11 @@ class Processor:
         local_dir = local_dir.resolve(True)
         LOGGER.info("Processing directory: %s", local_dir)
 
-        # Step 1: build index of all Markdown files in directory hierarchy
+        # build index of all Markdown files in directory hierarchy
         root = self._index_directory(local_dir, None)
         LOGGER.info("Indexed %d document(s)", root.count())
 
-        # Step 2: synchronize directory tree structure with page hierarchy in space
-        self._synchronize_tree(root, self.options.root_page_id)
-
-        # Step 3: synchronize files in directory hierarchy with pages in space
-        for path, metadata in self.page_metadata.items():
-            self._synchronize_page(path, ConfluencePageID(metadata.page_id))
+        self._process_items(root)
 
     def process_page(self, path: Path) -> None:
         """
@@ -115,16 +113,22 @@ class Processor:
         """
 
         LOGGER.info("Processing page: %s", path)
-
-        # Step 1: parse Markdown file
         root = self._index_file(path)
 
-        # Step 2: find matching page in Confluence
+        self._process_items(root)
+
+    def _process_items(self, root: DocumentNode) -> None:
+        """
+        Processes a sub-tree rooted at an ancestor node.
+        """
+
+        # synchronize directory tree structure with page hierarchy in space (find matching pages in Confluence)
         self._synchronize_tree(root, self.options.root_page_id)
 
-        # Step 3: synchronize document with page in space
+        # synchronize files in directory hierarchy with pages in space
         for path, metadata in self.page_metadata.items():
-            self._synchronize_page(path, ConfluencePageID(metadata.page_id))
+            if metadata.synchronized:
+                self._synchronize_page(path, ConfluencePageID(metadata.page_id))
 
     def _synchronize_page(self, path: Path, page_id: ConfluencePageID) -> None:
         """
@@ -161,36 +165,40 @@ class Processor:
 
         matcher = Matcher(MatcherOptions(source=".mdignore", extension="md"), local_dir)
 
-        files: list[Path] = []
-        directories: list[Path] = []
+        files: list[FileEntry] = []
+        directories: list[DirectoryEntry] = []
         for entry in os.scandir(local_dir):
             if matcher.is_excluded(entry):
                 continue
 
             if entry.is_file():
-                files.append(local_dir / entry.name)
+                files.append(FileEntry(entry.name))
             elif entry.is_dir():
-                directories.append(local_dir / entry.name)
+                directories.append(DirectoryEntry(entry.name))
+
+        files.sort()
+        directories.sort()
 
         # make page act as parent node
         parent_doc: Optional[Path] = None
-        if (local_dir / "index.md") in files:
+        if FileEntry("index.md") in files:
             parent_doc = local_dir / "index.md"
-        elif (local_dir / "README.md") in files:
+        elif FileEntry("README.md") in files:
             parent_doc = local_dir / "README.md"
-        elif (local_dir / f"{local_dir.name}.md") in files:
+        elif FileEntry(f"{local_dir.name}.md") in files:
             parent_doc = local_dir / f"{local_dir.name}.md"
 
         if parent_doc is None and self.options.keep_hierarchy:
             parent_doc = local_dir / "index.md"
 
             # create a blank page for directory entry
-            with open(parent_doc, "w"):
-                pass
+            with open(parent_doc, "w") as f:
+                print("[[_LISTING_]]", file=f)
 
         if parent_doc is not None:
-            if parent_doc in files:
-                files.remove(parent_doc)
+            parent_entry = FileEntry(parent_doc.name)
+            if parent_entry in files:
+                files.remove(parent_entry)
 
             # promote Markdown document in directory as parent page in Confluence
             node = self._index_file(parent_doc)
@@ -201,11 +209,11 @@ class Processor:
             raise ArgumentError(f"root page requires corresponding top-level Markdown document in {local_dir}")
 
         for file in files:
-            node = self._index_file(file)
+            node = self._index_file(local_dir / Path(file.name))
             parent.add_child(node)
 
         for directory in directories:
-            self._index_directory(directory, parent)
+            self._index_directory(local_dir / Path(directory.name), parent)
 
         return parent
 
@@ -224,6 +232,7 @@ class Processor:
             page_id=document.page_id,
             space_key=document.space_key,
             title=document.title,
+            synchronized=document.synchronized if document.synchronized is not None else True,
         )
 
     def _generate_hash(self, absolute_path: Path) -> str:

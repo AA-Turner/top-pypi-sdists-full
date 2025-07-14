@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: xattr
-Version: 1.1.4
+Version: 1.2.0
 Summary: Python wrapper for extended filesystem attributes
 Author-email: Bob Ippolito <bob@redivi.com>
 Maintainer-email: Bob Ippolito <bob@redivi.com>
@@ -38,6 +38,8 @@ License-File: LICENSE.txt
 Requires-Dist: cffi>=1.16.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
+Dynamic: platform
 
 xattr
 -----

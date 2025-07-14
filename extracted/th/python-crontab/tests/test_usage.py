@@ -78,6 +78,21 @@ class UseTestCase(unittest.TestCase):
         self.assertEqual(cron.render(), BASIC)
         self.assertEqual(repr(cron), "<User CronTab 'basic'>")
 
+    def test_02_user_bad_command(self):
+        # Test bad cron command
+        cron = crontab.CronTab(user='basic')
+        cron.cron_command = 'wibble/no/no/no/yes'
+        with self.assertRaises(IOError):
+            cron.read()
+        with self.assertRaises(IOError):
+            cron.write()
+
+    def test_02_user_self(self):
+        tab = crontab.CronTab(user='foo')
+        self.assertEqual(tab.user_opt, {'u': 'foo'})
+        tab = crontab.CronTab(user=crontab.current_user())
+        self.assertEqual(tab.user_opt, {})
+
     def test_03_usage(self):
         """Dont modify crontab"""
         cron = crontab.CronTab(tab='')
@@ -199,11 +214,23 @@ class UseTestCase(unittest.TestCase):
         """Rendering can be done without specials"""
         cronitem = crontab.CronItem('true')
         cronitem.setall('0 0 * * *')
-        self.assertEqual(cronitem.render(specials=True), '@daily true')
-        self.assertEqual(cronitem.render(specials=None), '0 0 * * * true')
+        crontab.SPECIALS_CONVERSION = True
+        self.assertEqual(cronitem.render(), '@daily true')
+        crontab.SPECIALS_CONVERSION = False
+        self.assertEqual(cronitem.render(), '0 0 * * * true')
+        crontab.SPECIALS_CONVERSION = None
+        self.assertEqual(cronitem.render(), '0 0 * * * true')
+
+    def test_22_slice_special_convert(self):
+        """Render of specials global control"""
+        cronitem = crontab.CronItem('true')
         cronitem.setall('@daily')
-        self.assertEqual(cronitem.render(specials=None), '@daily true')
-        self.assertEqual(cronitem.render(specials=False), '0 0 * * * true')
+        crontab.SPECIALS_CONVERSION = True
+        self.assertEqual(cronitem.render(), '@daily true')
+        crontab.SPECIALS_CONVERSION = False
+        self.assertEqual(cronitem.render(), '0 0 * * * true')
+        crontab.SPECIALS_CONVERSION = None
+        self.assertEqual(cronitem.render(), '@daily true')
 
     def test_25_process(self):
         """Test opening pipes"""

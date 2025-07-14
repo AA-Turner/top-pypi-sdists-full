@@ -132,6 +132,12 @@ typedef struct {
     // The threshold of the WAL file size in bytes. When the size of the
     // WAL file exceeds this threshold, the database will checkpoint if auto_checkpoint is true.
     uint64_t checkpoint_threshold;
+
+#if defined(__APPLE__)
+    // The thread quality of service (QoS) for the worker threads.
+    // This works for Swift bindings on Apple platforms only.
+    uint32_t thread_qos;
+#endif
 } kuzu_system_config;
 
 /**
@@ -428,8 +434,11 @@ KUZU_C_API void kuzu_prepared_statement_destroy(kuzu_prepared_statement* prepare
  */
 KUZU_C_API bool kuzu_prepared_statement_is_success(kuzu_prepared_statement* prepared_statement);
 /**
+ * @brief Returns the error message if the prepared statement is not prepared successfully.
+ * The caller is responsible for freeing the returned string with `kuzu_destroy_string`.
  * @param prepared_statement The prepared statement instance.
- * @return the error message if the statement is not prepared successfully.
+ * @return the error message if the statement is not prepared successfully or null
+ * if the statement is prepared successfully.
  */
 KUZU_C_API char* kuzu_prepared_statement_get_error_message(
     kuzu_prepared_statement* prepared_statement);
@@ -629,8 +638,9 @@ KUZU_C_API void kuzu_query_result_destroy(kuzu_query_result* query_result);
 KUZU_C_API bool kuzu_query_result_is_success(kuzu_query_result* query_result);
 /**
  * @brief Returns the error message if the query is failed.
+ * The caller is responsible for freeing the returned string with `kuzu_destroy_string`.
  * @param query_result The query result instance to check and return error message.
- * @return The error message if the query has failed.
+ * @return The error message if the query has failed, or null if the query is successful.
  */
 KUZU_C_API char* kuzu_query_result_get_error_message(kuzu_query_result* query_result);
 /**

@@ -352,6 +352,7 @@ def _create_workflow_context(executor_context: BaseExecutorContext) -> WorkflowC
         vellum_client=Vellum(
             api_key=executor_context.environment_api_key,
             environment=environment,
+            api_version=executor_context.api_version,
         ),
         execution_context=executor_context.execution_context,
         generated_files=executor_context.files,

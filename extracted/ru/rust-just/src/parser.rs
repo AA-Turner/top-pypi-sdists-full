@@ -246,10 +246,10 @@ impl<'run, 'src> Parser<'run, 'src> {
     }
   }
 
-  /// Accept a token of kind `Identifier` and parse into a `Name`
-  fn accept_name(&mut self) -> CompileResult<'src, Option<Name<'src>>> {
+  /// Accept a double-colon separated sequence of identifiers
+  fn accept_namepath(&mut self) -> CompileResult<'src, Option<Namepath<'src>>> {
     if self.next_is(Identifier) {
-      Ok(Some(self.parse_name()?))
+      Ok(Some(self.parse_namepath()?))
     } else {
       Ok(None)
     }
@@ -268,13 +268,13 @@ impl<'run, 'src> Parser<'run, 'src> {
 
   /// Accept a dependency
   fn accept_dependency(&mut self) -> CompileResult<'src, Option<UnresolvedDependency<'src>>> {
-    if let Some(recipe) = self.accept_name()? {
+    if let Some(recipe) = self.accept_namepath()? {
       Ok(Some(UnresolvedDependency {
         arguments: Vec::new(),
         recipe,
       }))
     } else if self.accepted(ParenL)? {
-      let recipe = self.parse_name()?;
+      let recipe = self.parse_namepath()?;
 
       let mut arguments = Vec::new();
 
@@ -441,9 +441,9 @@ impl<'run, 'src> Parser<'run, 'src> {
             } else {
               let doc = pop_doc_comment(&mut items, eol_since_last_comment);
               items.push(Item::Recipe(self.parse_recipe(
+                take_attributes(),
                 doc,
                 false,
-                take_attributes(),
               )?));
             }
           }
@@ -451,9 +451,9 @@ impl<'run, 'src> Parser<'run, 'src> {
       } else if self.accepted(At)? {
         let doc = pop_doc_comment(&mut items, eol_since_last_comment);
         items.push(Item::Recipe(self.parse_recipe(
+          take_attributes(),
           doc,
           true,
-          take_attributes(),
         )?));
       } else {
         return Err(self.unexpected_token()?);
@@ -475,6 +475,10 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     Ok(Ast {
       items,
+      module_path: self
+        .module_namepath
+        .map(ToString::to_string)
+        .unwrap_or_default(),
       unstable_features: self.unstable_features,
       warnings: Vec::new(),
       working_directory: self.working_directory.into(),
@@ -898,9 +902,9 @@ impl<'run, 'src> Parser<'run, 'src> {
   /// Parse a recipe
   fn parse_recipe(
     &mut self,
+    attributes: AttributeSet<'src>,
     doc: Option<&'src str>,
     quiet: bool,
-    attributes: AttributeSet<'src>,
   ) -> CompileResult<'src, UnresolvedRecipe<'src>> {
     let name = self.parse_name()?;
 
@@ -1629,6 +1633,24 @@ mod tests {
     name: recipe_line_single,
     text: "foo:\n bar",
     tree: (justfile (recipe foo (body ("bar")))),
+  }
+
+  test! {
+    name: recipe_dependency_module,
+    text: "foo: bar::baz",
+    tree: (justfile (recipe foo (deps (bar baz)))),
+  }
+
+  test! {
+    name: recipe_dependency_parenthesis_module,
+    text: "foo: (bar::baz)",
+    tree: (justfile (recipe foo (deps (bar baz)))),
+  }
+
+  test! {
+    name: recipe_dependency_module_mixed,
+      text: "foo: bar::baz qux",
+    tree: (justfile (recipe foo (deps (bar baz) qux))),
   }
 
   test! {
@@ -2534,7 +2556,7 @@ mod tests {
     column:  9,
     width:   1,
     kind:    UnexpectedToken{
-      expected: vec![AmpersandAmpersand, Comment, Eof, Eol, Identifier, ParenL],
+      expected: vec![AmpersandAmpersand, ColonColon, Comment, Eof, Eol, Identifier, ParenL],
       found: Equals
     },
   }

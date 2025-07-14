@@ -1,12 +1,29 @@
 import os
+from pathlib import Path
 
 import pytest
 from support import CACHE
 
+from hgvs.assemblymapper import AssemblyMapper
 import hgvs.easy
 from hgvs.extras.babelfish import Babelfish
+from hgvs.variantmapper import VariantMapper
 
-hgvs.easy.hdp = hgvs.dataproviders.uta.connect(mode=os.environ.get("HGVS_CACHE_MODE", "run"), cache=CACHE)
+
+@pytest.fixture(scope="function")
+def vcr_config(request):
+    """See https://pytest-vcr.readthedocs.io/en/latest/configuration/"""
+    test_file_path = Path(request.node.fspath)
+    return {
+        "cassette_library_dir": str(test_file_path.with_name("cassettes") / test_file_path.stem),
+        "record_mode": os.environ.get("VCR_RECORD_MODE", "new_episodes"),
+        "cassette_name": f"{request.node.name}.yaml"
+    }
+
+
+hgvs.easy.hdp = hgvs.dataproviders.uta.connect(
+    mode=os.environ.get("HGVS_CACHE_MODE", "run"), cache=CACHE
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -15,13 +32,18 @@ def parser():
 
 
 @pytest.fixture(scope="session")
-def am37():
-    return hgvs.easy.am37
+def vm(hdp):
+    return VariantMapper(hdp)
 
 
 @pytest.fixture(scope="session")
-def am38():
-    return hgvs.easy.am38
+def am37(hdp):
+    return AssemblyMapper(hdp, assembly_name="GRCh37")
+
+
+@pytest.fixture(scope="session")
+def am38(hdp):
+    return AssemblyMapper(hdp, assembly_name="GRCh38")
 
 
 @pytest.fixture(scope="session")
@@ -64,3 +86,4 @@ def kitchen_sink_setup(request, hdp, parser, am37, am38):
     request.cls.parser = parser
     request.cls.am37 = am37
     request.cls.am38 = am38
+

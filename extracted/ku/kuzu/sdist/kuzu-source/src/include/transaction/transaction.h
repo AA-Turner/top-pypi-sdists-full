@@ -1,8 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <mutex>
 
-#include "common/enums/statement_type.h"
 #include "common/types/types.h"
 
 namespace kuzu {
@@ -19,6 +19,7 @@ namespace main {
 class ClientContext;
 } // namespace main
 namespace storage {
+class LocalWAL;
 class LocalStorage;
 class UndoBuffer;
 class WAL;
@@ -73,7 +74,7 @@ private:
     std::mutex mtx;
 };
 
-class Transaction {
+class KUZU_API Transaction {
     friend class TransactionManager;
 
 public:
@@ -102,31 +103,28 @@ public:
     int64_t getCurrentTS() const { return currentTS; }
     main::ClientContext* getClientContext() const { return clientContext; }
 
-    void checkForceCheckpoint(common::StatementType statementType) {
-        // Note: We always force checkpoint for COPY_FROM statement.
-        if (statementType == common::StatementType::COPY_FROM) {
-            forceCheckpoint = true;
-        }
-    }
+    void setForceCheckpoint() { forceCheckpoint = true; }
     bool shouldAppendToUndoBuffer() const {
-        return getID() > DUMMY_TRANSACTION_ID && !isReadOnly();
+        // Only write transactions and recovery transactions should append to the undo buffer.
+        return isWriteTransaction() || isRecovery();
     }
     bool shouldLogToWAL() const;
+    storage::LocalWAL& getLocalWAL() const {
+        KU_ASSERT(localWAL);
+        return *localWAL;
+    }
 
     bool shouldForceCheckpoint() const;
 
-    KUZU_API void commit(storage::WAL* wal);
+    void commit(storage::WAL* wal);
     void rollback(storage::WAL* wal);
 
     uint64_t getEstimatedMemUsage() const;
     storage::LocalStorage* getLocalStorage() const { return localStorage.get(); }
     LocalCacheManager& getLocalCacheManager() { return localCacheManager; }
-    bool isUnCommitted(common::table_id_t tableID, common::offset_t nodeOffset) const {
-        return nodeOffset >= getMinUncommittedNodeOffset(tableID);
-    }
+    bool isUnCommitted(common::table_id_t tableID, common::offset_t nodeOffset) const;
     common::row_idx_t getLocalRowIdx(common::table_id_t tableID,
         common::offset_t nodeOffset) const {
-        KU_ASSERT(isUnCommitted(tableID, nodeOffset));
         return nodeOffset - getMinUncommittedNodeOffset(tableID);
     }
     common::offset_t getUncommittedOffset(common::table_id_t tableID,
@@ -169,9 +167,10 @@ private:
     main::ClientContext* clientContext;
     std::unique_ptr<storage::LocalStorage> localStorage;
     std::unique_ptr<storage::UndoBuffer> undoBuffer;
+    std::unique_ptr<storage::LocalWAL> localWAL;
     LocalCacheManager localCacheManager;
     bool forceCheckpoint;
-    bool hasCatalogChanges;
+    std::atomic<bool> hasCatalogChanges;
 
     // For each node table, we keep track of the minimum uncommitted node offset when the
     // transaction starts. This is mainly used to assign offsets to local nodes and determine if a

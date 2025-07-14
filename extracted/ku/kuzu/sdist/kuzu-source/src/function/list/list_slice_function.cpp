@@ -1,4 +1,3 @@
-
 #include "function/list/vector_list_functions.h"
 #include "function/scalar_function.h"
 #include "function/string/functions/substr_function.h"
@@ -12,20 +11,18 @@ static void normalizeIndices(int64_t& startIdx, int64_t& endIdx, uint64_t size) 
     if (startIdx < 0) {
         startIdx = size + startIdx + 1;
     }
-    if (endIdx <= 0) {
-        endIdx = size + endIdx + 1;
-    }
-
     if (startIdx <= 0) {
         startIdx = 1;
     }
-
-    if ((uint64_t)endIdx > size) {
-        endIdx = size + 1;
+    if (endIdx < 0) {
+        endIdx = size + endIdx + 1;
     }
-
-    if (startIdx > endIdx) {
-        endIdx = startIdx;
+    if (endIdx > (int64_t)size) {
+        endIdx = size;
+    }
+    if (endIdx < startIdx) {
+        startIdx = 1;
+        endIdx = 0;
     }
 }
 
@@ -38,12 +35,12 @@ struct ListSlice {
         auto startIdx = begin;
         auto endIdx = end;
         normalizeIndices(startIdx, endIdx, listEntry.size);
-        result = common::ListVector::addList(&resultVector, endIdx - startIdx);
+        result = common::ListVector::addList(&resultVector, endIdx - startIdx + 1);
         auto srcDataVector = common::ListVector::getDataVector(&listVector);
         auto srcPos = listEntry.offset + startIdx - 1;
         auto dstDataVector = common::ListVector::getDataVector(&resultVector);
         auto dstPos = result.offset;
-        for (; startIdx < endIdx; startIdx++) {
+        for (; startIdx <= endIdx; startIdx++) {
             dstDataVector->copyFromVectorData(dstPos++, srcDataVector, srcPos++);
         }
     }
@@ -61,11 +58,14 @@ struct ListSlice {
 static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& input) {
     KU_ASSERT(input.arguments.size() == 3);
     std::vector<LogicalType> paramTypes;
-    paramTypes.push_back(input.arguments[0]->getDataType().copy());
+    if (input.arguments[0]->getDataType().getLogicalTypeID() == LogicalTypeID::ANY) {
+        paramTypes.push_back(LogicalType::STRING());
+    } else {
+        paramTypes.push_back(input.arguments[0]->getDataType().copy());
+    }
     paramTypes.push_back(LogicalType(input.definition->parameterTypeIDs[1]));
     paramTypes.push_back(LogicalType(input.definition->parameterTypeIDs[2]));
-    return std::make_unique<FunctionBindData>(std::move(paramTypes),
-        input.arguments[0]->getDataType().copy());
+    return std::make_unique<FunctionBindData>(std::move(paramTypes), paramTypes[0].copy());
 }
 
 function_set ListSliceFunction::getFunctionSet() {

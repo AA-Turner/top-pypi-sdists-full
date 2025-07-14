@@ -2,6 +2,7 @@ import unittest
 import subprocess
 import time
 import socket
+import sys
 from pathlib import Path
 from gway.builtins import is_test_flag
 from gway import gw
@@ -10,7 +11,7 @@ class ScreenshotAttachmentTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.proc = subprocess.Popen([
-            "gway", "-r", "test/website"],
+            sys.executable, "-m", "gway", "-r", "test/website"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -39,7 +40,7 @@ class ScreenshotAttachmentTest(unittest.TestCase):
                 time.sleep(0.2)
         raise TimeoutError(f"Port {port} not responding after {timeout} seconds")
 
-    @unittest.skipUnless(is_test_flag("screenshot"), "Screenshot tests disabled")
+    @unittest.skipUnless(is_test_flag("screen"), "Screen tests disabled")
     def test_capture_help_page_screenshot(self):
         screenshot_dir = Path("work/screenshots")
         screenshot_dir.mkdir(parents=True, exist_ok=True)

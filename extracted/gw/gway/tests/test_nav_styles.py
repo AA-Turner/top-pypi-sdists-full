@@ -4,6 +4,7 @@ import unittest
 import subprocess
 import time
 import socket
+import sys
 import requests
 from bs4 import BeautifulSoup
 from pathlib import Path
@@ -15,7 +16,7 @@ class NavStyleTests(unittest.TestCase):
     def setUpClass(cls):
         # Launch the website recipe on a test port (8888)
         cls.proc = subprocess.Popen(
-            ["gway", "-r", "test/website"],
+            [sys.executable, "-m", "gway", "-r", "test/website"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -170,7 +171,7 @@ class NavStyleTests(unittest.TestCase):
         link = soup2.find("link", rel="stylesheet", href=lambda h: h and "styles/" in h and h.endswith(".css"))
         self.assertIsNotNone(link, "Page missing stylesheet link for random theme")
 
-    @unittest.skipUnless(is_test_flag("screenshot"), "Screenshot tests disabled")
+    @unittest.skipUnless(is_test_flag("screen"), "Screen tests disabled")
     def test_style_switcher_screenshot(self):
         """Capture a screenshot of the style switcher page."""
         screenshot_dir = Path("work/screenshots")

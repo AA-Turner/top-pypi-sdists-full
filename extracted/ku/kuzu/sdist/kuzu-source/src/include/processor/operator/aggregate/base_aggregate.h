@@ -104,7 +104,7 @@ protected:
 
 protected:
     std::mutex mtx;
-    uint64_t currentOffset;
+    std::atomic<uint64_t> currentOffset;
     std::vector<function::AggregateFunction> aggregateFunctions;
     std::atomic<size_t> numThreadsFinishedProducing;
     std::atomic<size_t> numThreads;
@@ -117,18 +117,15 @@ class BaseAggregate : public Sink {
     static constexpr PhysicalOperatorType type_ = PhysicalOperatorType::AGGREGATE;
 
 protected:
-    BaseAggregate(std::unique_ptr<ResultSetDescriptor> resultSetDescriptor,
-        std::shared_ptr<BaseAggregateSharedState> sharedState,
+    BaseAggregate(std::shared_ptr<BaseAggregateSharedState> sharedState,
         std::vector<function::AggregateFunction> aggregateFunctions,
         std::vector<AggregateInfo> aggInfos, std::unique_ptr<PhysicalOperator> child, uint32_t id,
         std::unique_ptr<OPPrintInfo> printInfo)
-        : Sink{std::move(resultSetDescriptor), type_, std::move(child), id, std::move(printInfo)},
+        : Sink{type_, std::move(child), id, std::move(printInfo)},
           aggregateFunctions{std::move(aggregateFunctions)}, aggInfos{std::move(aggInfos)},
           sharedState{std::move(sharedState)} {}
 
     void initLocalStateInternal(ResultSet* resultSet, ExecutionContext* context) override;
-
-    std::unique_ptr<PhysicalOperator> copy() override = 0;
 
     bool containDistinctAggregate() const;
 
@@ -136,6 +133,8 @@ protected:
         // Delegated to HashAggregateFinalize so it can be parallelized
         sharedState->readyForFinalization = true;
     }
+
+    std::unique_ptr<PhysicalOperator> copy() override = 0;
 
 protected:
     std::vector<function::AggregateFunction> aggregateFunctions;

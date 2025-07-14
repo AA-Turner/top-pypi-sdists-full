@@ -28,7 +28,7 @@ class VirtualFileSystem;
 }
 
 namespace storage {
-// FileHandle seves several purposes:
+// FileHandle serves several purposes:
 // 1) holds basic state information of a file, including FileInfo, flags, pageSize,
 // numPages, and pageCapacity.
 // 2) provides utility methods to read/write pages from/to the file.
@@ -78,8 +78,11 @@ public:
     uint8_t* getFrame(common::page_idx_t pageIdx);
     PageState* getPageState(common::page_idx_t pageIdx) { return &pageStates[pageIdx]; }
 
+    // Pages added through these APIs are not tracked by the FSM
+    // If allocating pages from the data.kz file it's recommended to do so using the PageManager
     common::page_idx_t addNewPage();
     common::page_idx_t addNewPages(common::page_idx_t numNewPages);
+
     void removePageIdxAndTruncateIfNecessary(common::page_idx_t pageIdx);
     void removePageFromFrameIfNecessary(common::page_idx_t pageIdx);
     void flushAllDirtyPagesInFrames();
@@ -93,14 +96,7 @@ public:
         KU_ASSERT(pageIdx < numPages);
         writePagesToFile(buffer, getPageSize(), pageIdx);
     }
-    void writePagesToFile(const uint8_t* buffer, uint64_t size, common::page_idx_t startPageIdx) {
-        if (isInMemoryMode()) {
-            const auto frame = getFrame(startPageIdx);
-            memcpy(frame, buffer, size);
-        } else {
-            fileInfo->writeFile(buffer, size, startPageIdx * getPageSize());
-        }
-    }
+    void writePagesToFile(const uint8_t* buffer, uint64_t size, common::page_idx_t startPageIdx);
 
     bool isInMemoryMode() const { return !isLargePaged() && isNewTmpFile(); }
 

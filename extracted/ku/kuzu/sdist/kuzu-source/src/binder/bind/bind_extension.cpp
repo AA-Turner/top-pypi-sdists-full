@@ -41,7 +41,19 @@ static void bindLoadExtension(main::ClientContext* context, const ExtensionAuxIn
     }
 }
 
+static void bindUninstallExtension(const ExtensionAuxInfo& auxInfo) {
+    if (!ExtensionUtils::isOfficialExtension(auxInfo.path)) {
+        throw common::BinderException(
+            common::stringFormat("The extension {} is not an official extension.\nOnly official "
+                                 "extensions can be uninstalled.",
+                auxInfo.path));
+    }
+}
+
 std::unique_ptr<BoundStatement> Binder::bindExtension(const Statement& statement) {
+#ifdef __WASM__
+    throw common::BinderException{"Extensions are not available in the WASM environment"};
+#endif
     auto extensionStatement = statement.constPtrCast<ExtensionStatement>();
     auto auxInfo = extensionStatement->getAuxInfo();
     switch (auxInfo->action) {
@@ -50,6 +62,9 @@ std::unique_ptr<BoundStatement> Binder::bindExtension(const Statement& statement
         break;
     case ExtensionAction::LOAD:
         bindLoadExtension(clientContext, *auxInfo);
+        break;
+    case ExtensionAction::UNINSTALL:
+        bindUninstallExtension(*auxInfo);
         break;
     default:
         KU_UNREACHABLE;

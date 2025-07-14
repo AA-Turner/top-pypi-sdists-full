@@ -1,8 +1,9 @@
 """Module providing task_utils functionality."""
 
 import os
-import shlex
-import subprocess
+import shutil
+import urllib.request
+import zipfile
 from matrice.utils import log_errors
 
 
@@ -30,24 +31,46 @@ def setup_workspace_and_run_task(
     if os.path.exists(workspace_dir):
         return
     os.makedirs(workspace_dir, exist_ok=True)
-    download_codebase_cmd = (
-        f"curl -L -o {shlex.quote(codebase_zip_path)} {shlex.quote(model_codebase_url)}"
-    )
-    subprocess.run(
-        download_codebase_cmd,
-        shell=True,
-        check=True,
-    )
-    unzip_codebase_cmd = (
-        f"unzip -o {shlex.quote(codebase_zip_path)} -d {shlex.quote(workspace_dir)}"
-    )
-    subprocess.run(unzip_codebase_cmd, shell=True, check=True)
-    move_files_cmd = f"rsync -av {shlex.quote(workspace_dir)}/*/ {shlex.quote(workspace_dir)}/ "
-    subprocess.run(move_files_cmd, shell=True, check=True)
+    
+    # Download codebase ZIP file
+    urllib.request.urlretrieve(model_codebase_url, codebase_zip_path)
+    
+    # Extract ZIP file with overwrite
+    with zipfile.ZipFile(codebase_zip_path, 'r') as zip_ref:
+        zip_ref.extractall(workspace_dir)
+    
+    # Move files from subdirectories to workspace root (equivalent to rsync -av)
+    for root, dirs, files in os.walk(workspace_dir):
+        # Skip the workspace_dir itself to avoid moving files to themselves
+        if root == workspace_dir:
+            continue
+        
+        for file in files:
+            src_file = os.path.join(root, file)
+            dst_file = os.path.join(workspace_dir, file)
+            
+            # If destination file exists, overwrite it (equivalent to rsync -av behavior)
+            if os.path.exists(dst_file):
+                os.remove(dst_file)
+            
+            shutil.move(src_file, dst_file)
+        
+        # Remove empty directories after moving files
+        for dir_name in dirs:
+            dir_path = os.path.join(root, dir_name)
+            if os.path.exists(dir_path) and not os.listdir(dir_path):
+                os.rmdir(dir_path)
+    
+    # Clean up any remaining empty subdirectories
+    for root, dirs, files in os.walk(workspace_dir, topdown=False):
+        if root == workspace_dir:
+            continue
+        if not files and not dirs:
+            try:
+                os.rmdir(root)
+            except OSError:
+                pass  # Directory might not be empty or might not exist
+    
+    # Download requirements.txt if URL is provided
     if model_codebase_requirements_url:
-        download_requirements_cmd = f"curl -L -o {shlex.quote(requirements_txt_path)} {shlex.quote(model_codebase_requirements_url)}"
-        subprocess.run(
-            download_requirements_cmd,
-            shell=True,
-            check=True,
-        )
+        urllib.request.urlretrieve(model_codebase_requirements_url, requirements_txt_path)

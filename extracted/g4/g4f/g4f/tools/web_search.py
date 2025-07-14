@@ -10,7 +10,8 @@ import asyncio
 
 # Optional dependencies using the new 'ddgs' package name
 try:
-    from ddgs import DDGS, DDGSError
+    from ddgs import DDGS
+    from ddgs.exceptions import DDGSException
     from bs4 import BeautifulSoup
     has_requirements = True
 except ImportError:
@@ -212,8 +213,8 @@ async def search(
 
     results: List[SearchResultEntry] = []
     # Use the new DDGS() context manager style
-    async with DDGS() as ddgs:
-        async for result in ddgs.text(
+    with DDGS() as ddgs:
+        for result in ddgs.text(
             query,
             region=region,
             safesearch="moderate",
@@ -312,8 +313,8 @@ def get_search_message(prompt: str, raise_search_exceptions: bool = False, **kwa
         result, _ = asyncio.run(do_search(prompt, **kwargs))
         return result
     # Use the new DDGSError exception
-    except (DDGSError, MissingRequirementsError) as e:
+    except (DDGSException, MissingRequirementsError) as e:
         if raise_search_exceptions:
             raise e
-        debug.error(f"Couldn't do web search: {e.__class__.__name__}: {e}")
+        debug.error(f"Couldn't do web search:", e)
         return prompt

@@ -13,8 +13,8 @@
 #include "graph_entry.h"
 #include "main/client_context.h"
 #include "processor/operator/filtering_operator.h"
-#include "storage/store/node_table.h"
-#include "storage/store/rel_table.h"
+#include "storage/table/node_table.h"
+#include "storage/table/rel_table.h"
 
 namespace kuzu {
 namespace storage {
@@ -27,11 +27,11 @@ class OnDiskGraphNbrScanState : public NbrScanState {
     friend class OnDiskGraph;
 
 public:
-    OnDiskGraphNbrScanState(main::ClientContext* context, catalog::TableCatalogEntry* tableEntry,
-        std::shared_ptr<binder::Expression> predicate);
-    OnDiskGraphNbrScanState(main::ClientContext* context, catalog::TableCatalogEntry* tableEntry,
-        std::shared_ptr<binder::Expression> predicate, std::vector<std::string> relProperties,
-        bool randomLookup = false);
+    OnDiskGraphNbrScanState(main::ClientContext* context, const catalog::TableCatalogEntry& entry,
+        common::oid_t relTableID, std::shared_ptr<binder::Expression> predicate);
+    OnDiskGraphNbrScanState(main::ClientContext* context, const catalog::TableCatalogEntry& entry,
+        common::oid_t relTableID, std::shared_ptr<binder::Expression> predicate,
+        std::vector<std::string> relProperties, bool randomLookup = false);
 
     Chunk getChunk() override {
         std::vector<common::ValueVector*> vectors;
@@ -103,7 +103,8 @@ public:
 
     bool next() override;
     Chunk getChunk() override {
-        return createChunk(std::span(&nodeIDVector->getValue<common::nodeID_t>(0), numNodesScanned),
+        return createChunk(std::span(&nodeIDVector->getValue<common::nodeID_t>(0),
+                               nodeIDVector->getSelVectorPtr()->getSelSize()),
             std::span(propertyVectors.valueVectors));
     }
 
@@ -115,24 +116,21 @@ private:
     std::unique_ptr<common::ValueVector> nodeIDVector;
     std::unique_ptr<storage::NodeTableScanState> tableScanState;
 
-    common::offset_t numNodesScanned;
+    common::offset_t numNodesToScan;
     common::offset_t currentOffset;
     common::offset_t endOffsetExclusive;
 };
 
 class KUZU_API OnDiskGraph final : public Graph {
 public:
-    OnDiskGraph(main::ClientContext* context, GraphEntry entry);
+    OnDiskGraph(main::ClientContext* context, NativeGraphEntry entry);
 
-    GraphEntry* getGraphEntry() override { return &graphEntry; }
+    NativeGraphEntry* getGraphEntry() override { return &graphEntry; }
 
     void setNodeOffsetMask(common::NodeOffsetMaskMap* maskMap) { nodeOffsetMaskMap = maskMap; }
 
     std::vector<common::table_id_t> getNodeTableIDs() const override {
         return graphEntry.getNodeTableIDs();
-    }
-    std::vector<common::table_id_t> getRelTableIDs() const override {
-        return graphEntry.getRelTableIDs();
     }
 
     common::table_id_map_t<common::offset_t> getMaxOffsetMap(
@@ -143,13 +141,11 @@ public:
 
     common::offset_t getNumNodes(transaction::Transaction* transaction) const override;
 
-    std::vector<NbrTableInfo> getForwardNbrTableInfos(common::table_id_t srcNodeTableID) override;
+    std::vector<GraphRelInfo> getRelInfos(common::table_id_t srcTableID) override;
 
-    std::unique_ptr<NbrScanState> prepareRelScan(catalog::TableCatalogEntry* tableEntry,
-        catalog::TableCatalogEntry* nbrNodeEntry, std::vector<std::string> relProperties) override;
-    // This is used for few random lookups in the relationship table. Internally we skip caching the
-    // CSR header during scan.
-    std::unique_ptr<NbrScanState> prepareRelScan(catalog::TableCatalogEntry* tableEntry) const;
+    std::unique_ptr<NbrScanState> prepareRelScan(const catalog::TableCatalogEntry& entry,
+        common::oid_t relTableID, common::table_id_t nbrTableID,
+        std::vector<std::string> relProperties) override;
 
     EdgeIterator scanFwd(common::nodeID_t nodeID, NbrScanState& state) override;
     EdgeIterator scanBwd(common::nodeID_t nodeID, NbrScanState& state) override;
@@ -161,10 +157,10 @@ public:
 
 private:
     main::ClientContext* context;
-    GraphEntry graphEntry;
+    NativeGraphEntry graphEntry;
     common::NodeOffsetMaskMap* nodeOffsetMaskMap = nullptr;
     common::table_id_map_t<storage::NodeTable*> nodeIDToNodeTable;
-    common::table_id_map_t<std::vector<NbrTableInfo>> nodeIDToNbrTableInfos;
+    std::vector<GraphRelInfo> relInfos;
 };
 
 } // namespace graph

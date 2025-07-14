@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Kuzu VERSION 0.10.1 LANGUAGES CXX C)
+project(Kuzu VERSION 0.11.0 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -8,6 +8,7 @@ if(SINGLE_THREADED)
     add_compile_definitions(__SINGLE_THREADED__)
     message(STATUS "Single-threaded mode is enabled")
 else()
+    message(STATUS "Multi-threaded mode is enabled: CMAKE_BUILD_PARALLEL_LEVEL=$ENV{CMAKE_BUILD_PARALLEL_LEVEL}")
     find_package(Threads REQUIRED)
 endif()
 
@@ -103,11 +104,13 @@ option(ENABLE_THREAD_SANITIZER "Enable thread sanitizer." FALSE)
 option(ENABLE_UBSAN "Enable undefined behavior sanitizer." FALSE)
 option(ENABLE_RUNTIME_CHECKS "Enable runtime coherency checks (e.g. asserts)" FALSE)
 option(ENABLE_LTO "Enable Link-Time Optimization" FALSE)
+option(ENABLE_MALLOC_BUFFER_MANAGER "Enable Buffer manager using malloc. Default option for webassembly" OFF)
 
 option(KUZU_DEFAULT_REL_STORAGE_DIRECTION "Only store fwd direction in rel tables by default." BOTH)
 if(NOT KUZU_DEFAULT_REL_STORAGE_DIRECTION)
     set(KUZU_DEFAULT_REL_STORAGE_DIRECTION BOTH)
 endif()
+set(KUZU_DEFAULT_REL_STORAGE_DIRECTION ${KUZU_DEFAULT_REL_STORAGE_DIRECTION}_REL_STORAGE)
 option(KUZU_PAGE_SIZE_LOG2 "Log2 of the page size." 12)
 if(NOT KUZU_PAGE_SIZE_LOG2)
     set(KUZU_PAGE_SIZE_LOG2 12)
@@ -151,6 +154,8 @@ if(MSVC)
     add_compile_options("/EHa")
     # Reduces the size of the static library by roughly 1/2
     add_compile_options("/Zc:inline")
+    # Disable type conversion warnings
+    add_compile_options(/wd4244 /wd4267)
     # Remove the default to avoid warnings
     STRING(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     STRING(REPLACE "/EHs" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -205,6 +210,16 @@ if(${BUILD_WASM})
     add_link_options(-s DISABLE_EXCEPTION_CATCHING=0)
     add_link_options(-fexceptions)
     add_compile_definitions(__WASM__)
+    set(ENABLE_MALLOC_BUFFER_MANAGER ON)
+endif()
+
+if(${BUILD_SWIFT})
+    add_compile_definitions(__SWIFT__)
+    set(ENABLE_MALLOC_BUFFER_MANAGER ON)
+endif()
+
+if (${ENABLE_MALLOC_BUFFER_MANAGER})
+    add_compile_definitions(BM_MALLOC)
 endif()
 
 if(ANDROID_ABI)
@@ -264,6 +279,8 @@ option(BUILD_TESTS "Build C++ tests." FALSE)
 option(BUILD_EXTENSION_TESTS "Build C++ extension tests." FALSE)
 option(BUILD_KUZU "Build Kuzu." TRUE)
 option(ENABLE_BACKTRACES "Enable backtrace printing for exceptions and segfaults" FALSE)
+option(USE_STD_FORMAT "Use std::format instead of a custom formatter." FALSE)
+option(PREFER_SYSTEM_DEPS "Only download certain deps if not found on the system" TRUE)
 
 option(BUILD_LCOV "Build coverage report." FALSE)
 if(${BUILD_LCOV})
@@ -271,18 +288,30 @@ if(${BUILD_LCOV})
 endif()
 
 if (ENABLE_BACKTRACES)
-    find_package(cpptrace)
-    if (NOT cpptrace_FOUND)
+    set(DOWNLOAD_CPPTRACE TRUE)
+    if(${PREFER_SYSTEM_DEPS})
+        find_package(cpptrace QUIET)
+        if(cpptrace_FOUND)
+            message(STATUS "Using system cpptrace")
+            set(DOWNLOAD_CPPTRACE FALSE)
+        endif()
+    endif()
+    if(${DOWNLOAD_CPPTRACE})
+        message(STATUS "Fetching cpptrace from GitHub...")
         include(FetchContent)
         FetchContent_Declare(
-          cpptrace
-          GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
-          GIT_TAG        v0.5.4
-          GIT_SHALLOW    TRUE
+            cpptrace
+            GIT_REPOSITORY https://github.com/jeremy-rifkin/cpptrace.git
+            GIT_TAG        v0.8.3
+            GIT_SHALLOW    TRUE
         )
         FetchContent_MakeAvailable(cpptrace)
     endif()
     add_compile_definitions(KUZU_BACKTRACE)
+endif()
+
+if (USE_STD_FORMAT)
+    add_compile_definitions(USE_STD_FORMAT)
 endif()
 
 function(add_kuzu_test TEST_NAME)
@@ -358,7 +387,7 @@ add_subdirectory(third_party)
 
 add_definitions(-DKUZU_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 add_definitions(-DKUZU_CMAKE_VERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DKUZU_EXTENSION_VERSION="0.10.0")
+add_definitions(-DKUZU_EXTENSION_VERSION="0.11.0")
 
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extension/CMakeLists.txt")
     add_subdirectory(extension)
@@ -372,6 +401,16 @@ include_directories(
 )
 
 add_subdirectory(src)
+
+# Link extensions which require static linking.
+foreach(ext IN LISTS STATICALLY_LINKED_EXTENSIONS)
+    if (${BUILD_EXTENSION_TESTS})
+        add_compile_definitions(__STATIC_LINK_EXTENSION_TEST__)
+    endif ()
+    target_link_libraries(kuzu PRIVATE "kuzu_${ext}_static_extension")
+    target_link_libraries(kuzu_shared PRIVATE "kuzu_${ext}_static_extension")
+endforeach()
+
 if (${BUILD_TESTS} OR ${BUILD_EXTENSION_TESTS})
     add_subdirectory(test)
 elseif (${BUILD_BENCHMARK})
@@ -379,12 +418,6 @@ elseif (${BUILD_BENCHMARK})
 endif ()
 add_subdirectory(tools)
 endif ()
-
-# Link extensions which require static linking.
-foreach(ext IN LISTS STATICALLY_LINKED_EXTENSIONS)
-    target_link_libraries(kuzu PRIVATE "kuzu_${ext}_static_extension")
-    target_link_libraries(kuzu_shared PRIVATE "kuzu_${ext}_static_extension")
-endforeach()
 
 if (${BUILD_EXAMPLES})
     add_subdirectory(examples/c)

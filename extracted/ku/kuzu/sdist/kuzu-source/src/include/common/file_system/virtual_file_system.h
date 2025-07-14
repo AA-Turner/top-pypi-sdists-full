@@ -38,7 +38,8 @@ public:
 
     void createDir(const std::string& dir) const override;
 
-    void removeFileIfExists(const std::string& path) override;
+    void removeFileIfExists(const std::string& path,
+        const main::ClientContext* context = nullptr) override;
 
     bool fileOrPathExists(const std::string& path, main::ClientContext* context = nullptr) override;
 
@@ -47,6 +48,10 @@ public:
     void syncFile(const FileInfo& fileInfo) const override;
 
     void cleanUP(main::ClientContext* context) override;
+
+    bool handleFileViaFunction(const std::string& path) const override;
+
+    function::TableFunction getHandleFunction(const std::string& path) const override;
 
 protected:
     void readFromFile(FileInfo& fileInfo, void* buffer, uint64_t numBytes,
@@ -66,7 +71,7 @@ protected:
 private:
     FileSystem* findFileSystem(const std::string& path) const;
 
-    FileCompressionType autoDetectCompressionType(const std::string& path) const;
+    static FileCompressionType autoDetectCompressionType(const std::string& path);
 
 private:
     std::vector<std::unique_ptr<FileSystem>> subSystems;

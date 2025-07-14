@@ -29,7 +29,7 @@ try:
 except ImportError as e:
     has_markitdown = False
 try:
-    from .crypto import rsa, serialization, create_or_read_keys, decrypt_data, encrypt_data
+    from .crypto import rsa, serialization, create_or_read_keys, decrypt_data, encrypt_data, get_session_key
     has_crypto = True
 except ImportError:
     has_crypto = False
@@ -79,7 +79,7 @@ class Backend_Api(Api):
         self.chat_cache = {}
 
         if has_crypto:
-            private_key_obj = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+            private_key_obj = get_session_key()
             public_key_obj = private_key_obj.public_key()
             public_key_pem = public_key_obj.public_bytes(
                 encoding=serialization.Encoding.PEM,
@@ -185,10 +185,7 @@ class Backend_Api(Api):
                 else:
                     json_data["provider"] = models.HuggingFace
             if app.demo:
-                ip = request.headers.get("X-Forwarded-For", "")
-                ip = sha256(ip.encode()).hexdigest()[:4] if ip else ""
-                user = request.headers.get("Cf-Ipcountry", "")
-                json_data["user"] = request.headers.get("x_user", f"{user}:{ip}")
+                json_data["user"] = request.headers.get("x-user", "error")
                 json_data["referer"] = request.headers.get("referer", "")
                 json_data["user-agent"] = request.headers.get("user-agent", "")
             kwargs = self._prepare_conversation_kwargs(json_data)
@@ -214,6 +211,13 @@ class Backend_Api(Api):
             with cache_file.open("a" if cache_file.exists() else "w") as f:
                 f.write(f"{json.dumps(request.json)}\n")
             return {}
+    
+        @app.route('/backend-api/v2/usage/<date>', methods=['GET'])
+        def get_usage(date: str):
+            cache_dir = Path(get_cookies_dir()) / ".usage"
+            cache_file = cache_dir / f"{date}.jsonl"
+            print(f"Loading usage data from {cache_file}")
+            return cache_file.read_text() if cache_file.exists() else (jsonify({"error": {"message": "No usage data found for this date"}}), 404)
 
         @app.route('/backend-api/v2/log', methods=['POST'])
         def add_log():

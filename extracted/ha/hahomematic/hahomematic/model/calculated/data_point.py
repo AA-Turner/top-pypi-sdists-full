@@ -240,25 +240,14 @@ class CalculatedDataPoint[ParameterT: GenericParameterType](BaseDataPoint):
         return self._readable_data_points
 
     @property
+    def _relevant_values_data_points(self) -> tuple[hmge.GenericDataPoint, ...]:
+        """Returns the list of relevant VALUES data points. To be overridden by subclasses."""
+        return tuple(dp for dp in self._readable_data_points if dp.paramset_key == ParamsetKey.VALUES)
+
+    @property
     def data_point_name_postfix(self) -> str:
         """Return the data point name postfix."""
         return ""
-
-    @property
-    def _data_points_received_shortly(self) -> bool:
-        """Check if all data points have been received shortly."""
-        min_received: datetime | None = None
-        max_received: datetime | None = None
-        for data_point in self._relevant_data_points:
-            if refreshed_at := data_point.refreshed_at:
-                if min_received is None or refreshed_at < min_received:
-                    min_received = refreshed_at
-                if max_received is None or refreshed_at > max_received:
-                    max_received = refreshed_at
-
-        if min_received and max_received:
-            return (max_received - min_received).total_seconds() < 1
-        return False
 
     def _get_path_data(self) -> PathData:
         """Return the path data of the data_point."""
@@ -297,7 +286,25 @@ class CalculatedDataPoint[ParameterT: GenericParameterType](BaseDataPoint):
     @property
     def _should_fire_data_point_updated_callback(self) -> bool:
         """Check if a data point has been updated or refreshed."""
-        return self._data_points_received_shortly
+        min_received: datetime | None = None
+        max_received: datetime | None = None
+        if (relevant_values_data_point := self._relevant_values_data_points) is not None and len(
+            relevant_values_data_point
+        ) <= 1:
+            return True
+
+        for data_point in relevant_values_data_point:
+            if not data_point.is_valid:
+                return False
+            if refreshed_at := data_point.refreshed_at:
+                if min_received is None or refreshed_at < min_received:
+                    min_received = refreshed_at
+                if max_received is None or refreshed_at > max_received:
+                    max_received = refreshed_at
+
+        if min_received and max_received:
+            return (max_received - min_received).total_seconds() < 1
+        return False
 
     def _unregister_data_point_updated_callback(self, cb: Callable, custom_id: str) -> None:
         """Unregister update callback."""

@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
-"""represents simple sequence-based variants
-
-"""
-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
-import re
+""" represents simple sequence-based variants """
 
 import attr
 
@@ -16,7 +9,7 @@ from hgvs.utils.validation import validate_type_ac_pair
 
 
 @attr.s(slots=True, repr=False)
-class SequenceVariant(object):
+class SequenceVariant:
     """
     represents a basic HGVS variant.  The only requirement is that each
     component can be stringified; for example, passing pos as either a string
@@ -60,16 +53,21 @@ class SequenceVariant(object):
             ", ".join((a.name + "=" + str(getattr(self, a.name))) for a in self.__attrs_attrs__),
         )
 
-    def fill_ref(self, hdp):
+    def fill_ref(self, hdp, alt_ac=None, alt_aln_method=hgvs.global_config.mapping.alt_aln_method):
         # TODO: Refactor. SVs should not operate on themselves when
         # external resources are required
         # replace_reference should be moved outside function
         vm = hgvs.variantmapper.VariantMapper(hdp)
         type = None
-        if isinstance(self.posedit, hgvs.posedit.PosEdit) and isinstance(self.posedit.edit, hgvs.edit.Edit):
+        if isinstance(self.posedit, hgvs.posedit.PosEdit) and isinstance(
+            self.posedit.edit, hgvs.edit.Edit
+        ):
             type = self.posedit.edit.type
-        if type in ["del", "delins", "identity", "dup", "repeat"] and self.posedit.edit.ref_s is None:
-            vm._replace_reference(self)
+        if (
+            type in ["del", "delins", "identity", "dup", "repeat"]
+            and self.posedit.edit.ref_s is None
+        ):
+            vm._replace_reference(self, alt_ac=alt_ac, alt_aln_method=alt_aln_method)
         if type == "identity" and isinstance(self.posedit.edit, hgvs.edit.NARefAlt):
             self.posedit.edit.alt = self.posedit.edit.ref
         return self
@@ -89,7 +87,7 @@ class SequenceVariant(object):
 
 
 # <LICENSE>
-# Copyright 2018 HGVS Contributors (https://github.com/biocommons/hgvs)
+# Copyright 2023 HGVS Contributors (https://github.com/biocommons/hgvs)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

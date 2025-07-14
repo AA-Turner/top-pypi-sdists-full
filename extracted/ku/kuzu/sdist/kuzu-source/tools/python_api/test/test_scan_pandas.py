@@ -6,6 +6,7 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 import pytest
+from type_aliases import ConnDB
 
 try:
     from zoneinfo import ZoneInfo
@@ -126,9 +127,8 @@ def validate_scan_pandas_results(results: kuzu.QueryResult) -> None:
     ]
 
 
-def test_scan_pandas(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_pandas(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     data = {
         "BOOL": [True, False, None, False],
         "UINT8": np.array([1, 2, 3, 4], dtype=np.uint8),
@@ -207,10 +207,12 @@ def test_scan_pandas(tmp_path: Path) -> None:
     results = conn.execute("LOAD FROM df RETURN *")
     validate_scan_pandas_results(results)
 
+    results_parameterized = conn.execute("LOAD FROM $df RETURN *", {"df": df})
+    validate_scan_pandas_results(results_parameterized)
 
-def test_scan_pandas_timestamp(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+
+def test_scan_pandas_timestamp(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     ts = np.array(
         [
             datetime.datetime(1996, 2, 15, hour=12, minute=22, second=54),
@@ -230,40 +232,38 @@ def test_scan_pandas_timestamp(tmp_path: Path) -> None:
     assert results.get_next() == [datetime.datetime(2033, 2, 11, microsecond=55)]
 
 
-def test_replace_failure(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_replace_failure(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
 
     with pytest.raises(RuntimeError, match=re.escape("Binder exception: Variable x is not in scope.")):
         conn.execute("LOAD FROM x RETURN *;")
 
     with pytest.raises(
-            RuntimeError,
-            match=re.escape(
-                "Binder exception: Cannot match a built-in function for given function "
-                "READ_PANDAS(STRING). Supported inputs are\n(POINTER)\n"
-            ),
+        RuntimeError,
+        match=re.escape(
+            "Binder exception: Function READ_PANDAS did not receive correct arguments:\n"
+            "Actual:   (STRING)\n"
+            "Expected: (POINTER)\n"
+        ),
     ):
         conn.execute("CALL READ_PANDAS('df213') WHERE id > 20 RETURN id + 5, weight")
 
 
-def test_int64_overflow(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
-    overflowpd = pd.DataFrame({"id": [4, 2 ** 125]})
+def test_int64_overflow(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    overflowpd = pd.DataFrame({"id": [4, 2**125]})
     with pytest.raises(
-            RuntimeError,
-            match=re.escape(
-                "Conversion exception: Failed to cast value: "
-                "Python value '42535295865117307932921825928971026432' to INT64"
-            ),
+        RuntimeError,
+        match=re.escape(
+            "Conversion exception: Failed to cast value: "
+            "Python value '42535295865117307932921825928971026432' to INT64"
+        ),
     ):
         conn.execute("LOAD FROM overflowpd RETURN *;")
 
 
-def test_scan_pandas_with_filter(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_pandas_with_filter(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     data = {
         "id": np.array([22, 3, 100], dtype=np.uint8),
         "weight": np.array([23.2, 31.7, 42.9], dtype=np.float64),
@@ -277,9 +277,8 @@ def test_scan_pandas_with_filter(tmp_path: Path) -> None:
     assert results.get_next() == [105, 42.9, "😊"]
 
 
-def test_large_pd(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_large_pd(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     num_rows = 40000
     odd_numbers = [2 * i + 1 for i in range(num_rows)]
     even_numbers = [2 * i for i in range(num_rows)]
@@ -292,9 +291,8 @@ def test_large_pd(tmp_path: Path) -> None:
     assert result["even"].to_list() == even_numbers
 
 
-def test_pandas_scan_demo(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_pandas_scan_demo(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
 
     conn.execute("CREATE NODE TABLE student (ID int64, height int32, PRIMARY KEY(ID))")
     conn.execute("CREATE (s:student {ID: 0, height: 70})")
@@ -335,9 +333,8 @@ def test_pandas_scan_demo(tmp_path: Path) -> None:
     assert np.all(result["p.is_student"].to_list() == is_student)
 
 
-def test_scan_pandas_copy_subquery(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_pandas_copy_subquery(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     data = {"id": np.array([22, 3, 100], dtype=np.int64), "name": ["A", "B", "C"]}
     df = pd.DataFrame(data)
     conn.execute("CREATE NODE TABLE person(ID INT64, NAME STRING, PRIMARY KEY(ID))")
@@ -347,9 +344,8 @@ def test_scan_pandas_copy_subquery(tmp_path: Path) -> None:
     assert result["p.NAME"].to_list() == ["A", "B", "C"]
 
 
-def test_scan_all_null(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_all_null(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     data = {"id": np.array([None, None, None], dtype=object)}
     df = pd.DataFrame(data)
     result = conn.execute("LOAD FROM df RETURN *")
@@ -358,9 +354,8 @@ def test_scan_all_null(tmp_path: Path) -> None:
     assert result.get_next() == [None]
 
 
-def test_copy_from_scan_pandas_result(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_scan_pandas_result(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM (LOAD FROM df WHERE age < 30 RETURN *);")
@@ -369,9 +364,8 @@ def test_copy_from_scan_pandas_result(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_scan_from_py_arrow_pandas(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_from_py_arrow_pandas(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}).convert_dtypes(
         dtype_backend="pyarrow"
     )
@@ -383,18 +377,16 @@ def test_scan_from_py_arrow_pandas(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_scan_long_utf8_string(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_long_utf8_string(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     data = {"name": ["很长的一段中文", "短", "非常长的中文"]}
     df = pd.DataFrame(data)
     result = conn.execute("LOAD FROM df WHERE name = '非常长的中文' RETURN count(*);")
     assert result.get_next() == [1]
 
 
-def test_copy_from_pandas_object(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df;")
@@ -413,9 +405,8 @@ def test_copy_from_pandas_object(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_object_skip(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object_skip(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df(SKIP=2);")
@@ -431,9 +422,8 @@ def test_copy_from_pandas_object_skip(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_object_limit(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object_limit(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df(LIMIT=2);")
@@ -449,9 +439,8 @@ def test_copy_from_pandas_object_limit(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_object_skip_and_limit(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object_skip_and_limit(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df(SKIP=1, LIMIT=2);")
@@ -461,9 +450,8 @@ def test_copy_from_pandas_object_skip_and_limit(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_object_skip_bounds_check(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object_skip_bounds_check(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df(SKIP=10);")
@@ -471,9 +459,8 @@ def test_copy_from_pandas_object_skip_bounds_check(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_object_limit_bounds_check(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_object_limit_bounds_check(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
     conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
     conn.execute("COPY Person FROM df(LIMIT=10);")
@@ -485,9 +472,8 @@ def test_copy_from_pandas_object_limit_bounds_check(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_copy_from_pandas_date(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_copy_from_pandas_date(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"id": [1, 2], "date": [pd.Timestamp("2024-01-03"), pd.Timestamp("2023-10-10")]})
     conn.execute("CREATE NODE TABLE Person(id INT16, d TIMESTAMP, PRIMARY KEY (id));")
     conn.execute("COPY Person FROM df;")
@@ -497,9 +483,8 @@ def test_copy_from_pandas_date(tmp_path: Path) -> None:
     assert result.has_next() is False
 
 
-def test_scan_string_to_nested(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_string_to_nested(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({
         "id": ["1"],
         "lstcol": ["[1,2,3]"],
@@ -522,12 +507,11 @@ def test_scan_string_to_nested(tmp_path: Path) -> None:
     assert not result.has_next()
 
 
-def test_pandas_scan_ignore_errors(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_pandas_scan_ignore_errors(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     df = pd.DataFrame({"id": [1, 2, 3, 1]})
     conn.execute("CREATE NODE TABLE person(id INT64, PRIMARY KEY(id))")
-    conn.execute("COPY person FROM df(IGNORE_ERRORS=true)")
+    conn.execute("COPY person FROM $dataframe(IGNORE_ERRORS=true)", {"dataframe": df})
 
     people = conn.execute("MATCH (p:person) RETURN p.id")
     assert people.get_next() == [1]
@@ -540,20 +524,30 @@ def test_pandas_scan_ignore_errors(tmp_path: Path) -> None:
     assert not warnings.has_next()
 
 
-def test_copy_from_pandas_multi_pairs(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_pandas_scan_ignore_errors_docs_example(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    persons = ["Rhea", "Alice", "Rhea", None]
+    age = [25, 23, 25, 24]
+
+    df = pd.DataFrame({"name": persons, "age": age})
+    conn.execute("CREATE NODE TABLE Person(name STRING PRIMARY KEY, age INT64)")
+    conn.execute("COPY Person FROM $dataframe (ignore_errors=true)", {"dataframe": df})
+
+    people = conn.execute("MATCH (p:Person) RETURN p.name, p.age")
+    assert people.get_next() == ["Rhea", 25]
+    assert people.get_next() == ["Alice", 23]
+    assert not people.has_next()
+
+
+def test_copy_from_pandas_multi_pairs(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     conn.execute("CREATE NODE TABLE person(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:person {id: 3});")
     conn.execute("CREATE (p:person {id: 4});")
     conn.execute("CREATE NODE TABLE student(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:student {id: 2});")
     conn.execute("CREATE REL TABLE knows(from person to person, from person to student, length int64)")
-    df = pd.DataFrame({
-        "from": [3],
-        "to": [4],
-        "length": [252]
-    })
+    df = pd.DataFrame({"from": [3], "to": [4], "length": [252]})
     conn.execute("COPY knows from df (from = 'person', to = 'person');")
     result = conn.execute("match (:person)-[e:knows]->(:person) return e.*")
     assert result.has_next()
@@ -561,9 +555,8 @@ def test_copy_from_pandas_multi_pairs(tmp_path: Path) -> None:
     assert not result.has_next()
 
 
-def test_scan_pandas_with_exists(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
+def test_scan_pandas_with_exists(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
     conn.execute("CREATE NODE TABLE person(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:person {id: 1})")
     conn.execute("CREATE (p:person {id: 2})")
@@ -574,7 +567,8 @@ def test_scan_pandas_with_exists(tmp_path: Path) -> None:
         "to": [3, 2, 1],
     })
     conn.execute(
-        "COPY knows from (load from df where not exists {MATCH (p:person)-[:knows]->(p1:person) WHERE p.id = from AND p1.id = to} return from + 1 - 1, to)")
+        "COPY knows from (load from df where not exists {MATCH (p:person)-[:knows]->(p1:person) WHERE p.id = from AND p1.id = to} return from + 1 - 1, to)"
+    )
     res = conn.execute("MATCH (p:person)-[:knows]->(p1:person) return p.id, p1.id order by p.id, p1.id")
     assert res.has_next()
     tp = res.get_next()
@@ -587,15 +581,95 @@ def test_scan_pandas_with_exists(tmp_path: Path) -> None:
     assert tp[0] == 3
     assert tp[1] == 1
 
-def test_scan_empty_list(tmp_path: Path) -> None:
-    db = kuzu.Database(tmp_path)
-    conn = kuzu.Connection(db)
-    df = pd.DataFrame({
-        "id": ["1"],
-        "lstcol": [[]]
-    })
+
+def test_scan_empty_list(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame({"id": ["1"], "lstcol": [[]]})
     res = conn.execute("load from df return *")
     assert res.has_next()
     tp = res.get_next()
     assert tp[0] == "1"
     assert tp[1] == []
+
+
+def test_scan_py_dict_struct_format(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame({"id": [1, 3, 4], "dt": [{"key1": 5, "key3": 4}, {"key1": 10, "key3": 25}, None]})
+    res = conn.execute("LOAD FROM df RETURN *")
+    tp = res.get_next()
+    assert tp[0] == 1
+    assert tp[1] == {"key1": 5, "key3": 4}
+    tp = res.get_next()
+    assert tp[0] == 3
+    assert tp[1] == {"key1": 10, "key3": 25}
+    tp = res.get_next()
+    assert tp[0] == 4
+    assert tp[1] is None
+
+
+def test_scan_py_dict_map_format(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame({
+        "id": [1, 3, 4],
+        "dt": [
+            {"key": ["Alice", "Bob"], "value": [32, 41]},
+            {"key": ["Carol"], "value": [2]},
+            {"key": ["zoo", "ela", "dan"], "value": [44, 52, 88]},
+        ],
+    })
+    res = conn.execute("LOAD FROM df RETURN *")
+    tp = res.get_next()
+    assert tp[0] == 1
+    assert tp[1] == {"Alice": 32, "Bob": 41}
+    tp = res.get_next()
+    assert tp[0] == 3
+    assert tp[1] == {"Carol": 2}
+    tp = res.get_next()
+    assert tp[0] == 4
+    assert tp[1] == {"zoo": 44, "ela": 52, "dan": 88}
+
+    # If key and value size don't match, kuzu sniffs it as struct.
+    df = pd.DataFrame({"id": [4], "dt": [{"key": ["Alice", "Bob"], "value": []}]})
+    res = conn.execute("LOAD FROM df RETURN *")
+    tup = res.get_next()
+    assert tup[0] == 4
+    assert tup[1] == {"key": ["Alice", "Bob"], "value": []}
+
+
+def test_scan_py_dict_empty(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame({"id": [], "dt": []})
+    res = conn.execute("LOAD FROM df RETURN *")
+    assert not res.has_next()
+
+
+def test_df_with_struct_cast(conn_db_readonly: ConnDB) -> None:
+    conn, _ = conn_db_readonly
+    df = pd.DataFrame({"test": [{"a": 1}, {"a": 2}, {"a": 3}, {"b": "abc"}], "qwe": [1, 2, 3, False]})
+    res = conn.execute("load from df return test, qwe")
+    tup = res.get_next()
+    assert tup[0] == "{'a': 1}"
+    assert tup[1] == "1"
+    tup = res.get_next()
+    assert tup[0] == "{'a': 2}"
+    assert tup[1] == "2"
+    tup = res.get_next()
+    assert tup[0] == "{'a': 3}"
+    assert tup[1] == "3"
+    tup = res.get_next()
+    assert tup[0] == "{'b': 'abc'}"
+    assert tup[1] == "False"
+
+    df = pd.DataFrame({"test": [{"a": 1, "b": 4}, {"a": 2}]})
+    res = conn.execute("load from df return test")
+    tup = res.get_next()
+    assert tup[0] == "{'a': 1, 'b': 4}"
+    tup = res.get_next()
+    assert tup[0] == "{'a': 2}"
+
+    df = pd.DataFrame({"test": [{"a": 1}, {"a": "2"}]})
+    res = conn.execute("load from df return test")
+    tup = res.get_next()
+    assert tup[0] == "{'a': 1}"
+    tup = res.get_next()
+    assert tup[0] == "{'a': '2'}"

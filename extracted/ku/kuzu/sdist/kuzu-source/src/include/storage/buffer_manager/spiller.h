@@ -31,6 +31,7 @@ public:
     ~Spiller();
 
 private:
+    FileHandle* getOrCreateDataFH() const;
     FileHandle* getDataFH() const;
 
 private:
@@ -38,7 +39,7 @@ private:
     BufferManager& bufferManager;
     common::VirtualFileSystem* vfs;
     std::unordered_set<ChunkedNodeGroup*> fullPartitionerGroups;
-    FileHandle* dataFH;
+    std::atomic<FileHandle*> dataFH;
     std::mutex partitionerGroupsMtx;
     mutable std::mutex fileCreationMutex;
 };

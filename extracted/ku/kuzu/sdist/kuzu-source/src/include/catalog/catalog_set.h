@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <shared_mutex>
 
 #include "catalog_entry/catalog_entry.h"
@@ -36,14 +37,19 @@ public:
 
     void alterTableEntry(transaction::Transaction* transaction,
         const binder::BoundAlterInfo& alterInfo);
-    void alterRelGroupEntry(transaction::Transaction* transaction,
-        const binder::BoundAlterInfo& alterInfo);
 
     CatalogEntrySet getEntries(const transaction::Transaction* transaction);
     CatalogEntry* getEntryOfOID(const transaction::Transaction* transaction, common::oid_t oid);
 
     void serialize(common::Serializer serializer) const;
     static std::unique_ptr<CatalogSet> deserialize(common::Deserializer& deserializer);
+
+    common::oid_t getNextOID() {
+        std::unique_lock lck{mtx};
+        return nextOID++;
+    }
+
+    common::oid_t getNextOIDNoLock() { return nextOID++; }
 
 private:
     bool containsEntryNoLock(const transaction::Transaction* transaction,

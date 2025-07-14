@@ -5,7 +5,7 @@ from typing import Optional
 import urllib.request
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = 'a56765adf27092cae0af658790e2d76fd4472256'
+_SKYPILOT_COMMIT_SHA = '6369e0e45c8eec6beeec9b6543353f21157cb3a5'
 
 
 def _get_git_commit():
@@ -35,7 +35,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250712'
+__version__ = '1.0.0.dev20250713'
 __root_dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
