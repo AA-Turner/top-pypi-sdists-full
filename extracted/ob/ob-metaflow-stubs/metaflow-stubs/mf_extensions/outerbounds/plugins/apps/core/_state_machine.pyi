@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.558966                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.754106                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -41,6 +41,9 @@ class CurrentWorkerInfo(TypedDict, total=True):
     pending: int
     running: int
     crashlooping: int
+
+class LogLine(TypedDict, total=True):
+    message: str
 
 class DEPLOYMENT_READY_CONDITIONS(object, metaclass=type):
     """

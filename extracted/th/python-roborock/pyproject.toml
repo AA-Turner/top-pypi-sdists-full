@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-roborock"
-version = "2.24.0"
+version = "2.25.0"
 description = "A package to control Roborock vacuums."
 authors = ["humbertogontijo <humbertogontijo@users.noreply.github.com>"]
 license = "GPL-3.0-only"
@@ -76,3 +76,4 @@ select=["E", "F", "UP", "I"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 timeout = 30
+log_format = "%(asctime)s.%(msecs)03d %(levelname)s (%(threadName)s) [%(name)s] %(message)s"

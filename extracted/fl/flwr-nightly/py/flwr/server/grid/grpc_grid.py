@@ -47,6 +47,12 @@ from flwr.common.message import remove_content_from_message
 from flwr.common.retry_invoker import _make_simple_grpc_retry_invoker, _wrap_stub
 from flwr.common.serde import message_to_proto, run_from_proto
 from flwr.common.typing import Run
+from flwr.proto.appio_pb2 import (  # pylint: disable=E0611
+    PullAppMessagesRequest,
+    PullAppMessagesResponse,
+    PushAppMessagesRequest,
+    PushAppMessagesResponse,
+)
 from flwr.proto.message_pb2 import (  # pylint: disable=E0611
     ConfirmMessageReceivedRequest,
 )
@@ -55,10 +61,6 @@ from flwr.proto.run_pb2 import GetRunRequest, GetRunResponse  # pylint: disable=
 from flwr.proto.serverappio_pb2 import (  # pylint: disable=E0611
     GetNodesRequest,
     GetNodesResponse,
-    PullResMessagesRequest,
-    PullResMessagesResponse,
-    PushInsMessagesRequest,
-    PushInsMessagesResponse,
 )
 from flwr.proto.serverappio_pb2_grpc import ServerAppIoStub  # pylint: disable=E0611
 
@@ -223,8 +225,8 @@ class GrpcGrid(Grid):
         object_tree = get_object_tree(message)
 
         # Call GrpcServerAppIoStub method
-        res: PushInsMessagesResponse = self._stub.PushMessages(
-            PushInsMessagesRequest(
+        res: PushAppMessagesResponse = self._stub.PushMessages(
+            PushAppMessagesRequest(
                 messages_list=[message_to_proto(remove_content_from_message(message))],
                 run_id=run_id,
                 message_object_trees=[object_tree],
@@ -294,8 +296,8 @@ class GrpcGrid(Grid):
         run_id = cast(Run, self._run).run_id
         try:
             # Pull Messages
-            res: PullResMessagesResponse = self._stub.PullMessages(
-                PullResMessagesRequest(
+            res: PullAppMessagesResponse = self._stub.PullMessages(
+                PullAppMessagesRequest(
                     message_ids=message_ids,
                     run_id=run_id,
                 )

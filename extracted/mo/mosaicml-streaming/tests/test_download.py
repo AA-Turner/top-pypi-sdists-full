@@ -135,7 +135,6 @@ class TestGCSClient:
     def test_download_service_account(self, mock_isinstance: Mock, mock_client: Mock,
                                       mock_default: Mock, out: str):
 
-        # Because of how mock works on the types... have to patch isinstance
         def isinstance_impl(obj: Any, cls: Any):
             return obj.__class__ == cls.__class__
 
@@ -145,9 +144,19 @@ class TestGCSClient:
             credentials_mock = Mock()
             mock_default.return_value = credentials_mock, None
             downloader = GCSDownloader()
-            downloader.download(out, tmp)
-            mock_client.assert_called_once_with(credentials=credentials_mock)
-            assert os.path.isfile(tmp)
+            downloader._create_gcs_client()
+            if downloader._gcs_client is not None:
+                downloader._gcs_client._extra_headers = {}
+
+            with patch('google.cloud.storage.Blob') as mock_blob_cls:
+                mock_blob_instance = Mock()
+                mock_blob_instance.download_to_filename.side_effect = lambda path: open(
+                    path, 'w').write('mock data')
+                mock_blob_cls.return_value = mock_blob_instance
+
+                downloader.download(out, tmp)
+                mock_client.assert_called_once_with(credentials=credentials_mock)
+                assert os.path.isfile(tmp)
 
     @pytest.mark.usefixtures('gcs_hmac_client', 'gcs_test', 'remote_local_file')
     def test_filenotfound_exception(self, remote_local_file: Any):
@@ -185,7 +194,7 @@ class TestDatabricksUnityCatalog:
     @patch('databricks.sdk.WorkspaceClient', autospec=True)
     def test_databricks_error_file_not_found(self, workspace_client_mock: Mock,
                                              remote_local_file: Any):
-        from databricks.sdk.core import DatabricksError
+        from databricks.sdk.errors.base import DatabricksError
         workspace_client_mock_instance = workspace_client_mock.return_value
         workspace_client_mock_instance.files = Mock()
         workspace_client_mock_instance.files.download = Mock()
@@ -204,7 +213,7 @@ class TestDatabricksUnityCatalog:
 
     @patch('databricks.sdk.WorkspaceClient', autospec=True)
     def test_databricks_error(self, workspace_client_mock: Mock, remote_local_file: Any):
-        from databricks.sdk.core import DatabricksError
+        from databricks.sdk.errors.base import DatabricksError
         workspace_client_mock_instance = workspace_client_mock.return_value
         workspace_client_mock_instance.files = Mock()
         workspace_client_mock_instance.files.download = Mock()

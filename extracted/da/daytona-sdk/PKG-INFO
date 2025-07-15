@@ -1,26 +1,26 @@
 Metadata-Version: 2.3
 Name: daytona_sdk
-Version: 0.22.0
+Version: 0.23.0
 Summary: Python SDK for Daytona
 License: Apache-2.0
 Keywords: daytona,sdk
 Author: Daytona Platforms Inc.
 Author-email: support@daytona.io
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: Deprecated (>=1.2.18,<2.0.0)
-Requires-Dist: aioboto3 (>=13.0.0,<15.0.0)
 Requires-Dist: aiofiles (>=24.1.0,<24.2.0)
-Requires-Dist: boto3 (>=1.0.0,<2.0.0)
-Requires-Dist: daytona-api-client (==0.22.0)
-Requires-Dist: daytona-api-client-async (==0.22.0)
+Requires-Dist: daytona-api-client (==0.23.0)
+Requires-Dist: daytona-api-client-async (==0.23.0)
 Requires-Dist: environs (>=10.0.0,<15.0.0)
 Requires-Dist: httpx (>=0.28.0,<0.29.0)
+Requires-Dist: obstore (>=0.7.0,<0.8.0)
 Requires-Dist: pydantic (>=2.4.2,<3.0.0)
 Requires-Dist: toml (>=0.10.0,<0.11.0)
 Description-Content-Type: text/markdown
@@ -87,7 +87,8 @@ sandbox = daytona.create(CreateSandboxFromSnapshotParams(
     language="python",
     env_vars={"PYTHON_ENV": "development"},
     auto_stop_interval=60,  # Auto-stop after 1 hour of inactivity
-    auto_archive_interval=60  # Auto-archive after a Sandbox has been stopped for 1 hour
+    auto_archive_interval=60,  # Auto-archive after a Sandbox has been stopped for 1 hour
+    auto_delete_interval=120 # Auto-delete after a Sandbox has been stopped for 2 hours
 ))
 ```
 

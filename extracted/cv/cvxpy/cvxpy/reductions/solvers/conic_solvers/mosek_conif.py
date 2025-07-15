@@ -24,10 +24,18 @@ import scipy as sp
 import cvxpy.settings as s
 from cvxpy.constraints import PSD, SOC, ExpCone, PowCone3D
 from cvxpy.reductions.cone2cone import affine2direct as a2d
-from cvxpy.reductions.cone2cone.affine2direct import Dualize, Slacks
+from cvxpy.reductions.cone2cone.affine2direct import (
+    DUAL_EXP,
+    DUAL_POW3D,
+    EXP,
+    POW3D,
+    Dualize,
+    Slacks,
+)
 from cvxpy.reductions.solution import Solution
 from cvxpy.reductions.solvers.conic_solvers.conic_solver import ConicSolver
 from cvxpy.reductions.solvers.utilities import expcone_permutor
+from cvxpy.utilities.citations import CITATION_DICT
 
 __MSK_ENUM_PARAM_DEPRECATION__ = """
 Using MOSEK constants to specify parameters is deprecated.
@@ -50,8 +58,9 @@ def vectorized_lower_tri_to_mat(v, dim):
     return A
 
 
-def vectorized_lower_tri_to_triples(A: sp.sparse.coo_matrix | list[float] | np.ndarray, dim: int) \
-        -> tuple[list[int], list[int], list[float]]:
+def vectorized_lower_tri_to_triples(A: sp.sparse.coo_matrix | sp.sparse.sparray |
+                                        list[float] | np.ndarray, dim: int) \
+                                    -> tuple[list[int], list[int], list[float]]:
     """
     Attributes
     ----------
@@ -71,7 +80,7 @@ def vectorized_lower_tri_to_triples(A: sp.sparse.coo_matrix | list[float] | np.n
         The values of the entries in the original matrix.
     """
 
-    if isinstance(A, sp.sparse.coo_matrix):
+    if sp.sparse.issparse(A):
         vals = A.data
         flattened_cols = A.col
         # Ensure that the columns are sorted.
@@ -189,14 +198,14 @@ class MOSEK(ConicSolver):
         val_arr = val_arr[np.nonzero(val_arr)]
 
         shape = (entries, rows*cols)
-        scaled_lower_tri = sp.sparse.csc_matrix((val_arr, (row_arr, col_arr)), shape)
+        scaled_lower_tri = sp.sparse.csc_array((val_arr, (row_arr, col_arr)), shape)
 
         idx = np.arange(rows * cols)
         val_symm = 0.5 * np.ones(2 * rows * cols)
         K = idx.reshape((rows, cols))
         row_symm = np.append(idx, np.ravel(K, order='F'))
         col_symm = np.append(idx, np.ravel(K.T, order='F'))
-        symm_matrix = sp.sparse.csc_matrix((val_symm, (row_symm, col_symm)))
+        symm_matrix = sp.sparse.csc_array((val_symm, (row_symm, col_symm)))
 
         return scaled_lower_tri @ symm_matrix
 
@@ -216,7 +225,7 @@ class MOSEK(ConicSolver):
                 # A_row defines a symmetric matrix by where the first "order" entries
                 #   gives the matrix's first column, the second "order-1" entries gives
                 #   the matrix's second column (diagonal and below), and so on.
-                A_row = A_block[i, :]
+                A_row = A_block[[i], :]
                 if A_row.nnz == 0:
                     continue
 
@@ -257,7 +266,6 @@ class MOSEK(ConicSolver):
             else:
                 data['A_bar_data'] = []
                 data['c_bar_data'] = []
-
         data[s.PARAM_PROB] = problem
         return data, inv_data
 
@@ -406,8 +414,26 @@ class MOSEK(ConicSolver):
         # a2d.FREE, then a2d.SOC, then a2d.EXP. PSD is not supported.
         m, n = A.shape
         task.appendvars(n)
-        o = np.zeros(n)
-        task.putvarboundlist(np.arange(n, dtype=np.int32), [mosek.boundkey.fr] * n, o, o)
+        # Create mosek bound keys if variables have bounds
+        if data[s.LOWER_BOUNDS] is not None and data[s.UPPER_BOUNDS] is not None:
+            bl, bu = data[s.LOWER_BOUNDS], data[s.UPPER_BOUNDS]
+            # Initialize bound key array as defined in 
+            # https://docs.mosek.com/10.2/pythonapi/constants.html#mosek.boundkey
+            bk = np.empty(n, dtype=np.object_)
+            mask = np.isfinite([bl, bu])
+
+            bk[(~mask[0]) & (~mask[1])] = mosek.boundkey.fr # (free) No bounds
+            bk[(~mask[0]) & mask[1]] = mosek.boundkey.up # Upper bound only
+            bk[mask[0] & (~mask[1])] = mosek.boundkey.lo # Lower bound only
+            bk[mask[0] & mask[1]] = mosek.boundkey.ra # (range) Both bounds
+
+            # Replace infinite values with zeros for free variables
+            bl[~mask[0]] = 0.0
+            bu[~mask[1]] = 0.0
+            task.putvarboundlist(np.arange(n, dtype=np.int32), list(bk), bl, bu)
+        else:
+            o = np.zeros(n)
+            task.putvarboundlist(np.arange(n, dtype=np.int32), [mosek.boundkey.fr] * n, o, o)
         task.appendcons(m)
         # objective
         task.putclist(np.arange(n, dtype=np.int32), c)
@@ -759,3 +785,28 @@ class MOSEK(ConicSolver):
             "MSK_DPAR_MIO_TOL_REL_GAP"
         )
 
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        citation = CITATION_DICT['MOSEK']
+
+        # We need another citation if nonsymmetric cones are present.
+        nonsym_cones = False
+        K_dir = data.get('K_dir', dict())
+        if K_dir.get(DUAL_EXP, 0):
+            nonsym_cones = True
+        if K_dir.get(DUAL_POW3D, 0):
+            nonsym_cones = True
+        K_aff = data.get('K_aff', dict())
+        if K_aff.get(EXP, 0):
+            nonsym_cones = True
+        if K_aff.get(POW3D, 0):
+            nonsym_cones = True
+        if nonsym_cones:
+            citation += CITATION_DICT['MOSEK_EXP']
+        return citation

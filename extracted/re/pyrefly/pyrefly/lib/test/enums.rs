@@ -135,8 +135,8 @@ class MyEnum(Enum):
     V = member(1)
     W = auto()
     X = 1
-    Y = "FOO"  # E: The value for enum member `Y` must match the annotation of the _value_ attribute
-    Z = member("FOO")  # E: The value for enum member `Z` must match the annotation of the _value_ attribute
+    Y = "FOO"  # E: Enum member `Y` has type `str`, must match the `_value_` attribute annotation of `int`
+    Z = member("FOO")  # E: Enum member `Z` has type `str`, must match the `_value_` attribute annotation of `int`
 
     def get_value(self) -> int:
         if self.value > 0:
@@ -187,7 +187,7 @@ from typing import assert_type, Literal
 from enum import Enum
 
 class MyEnum(Enum):
-    X: float = 5  # E: Enum member `X` may not be annotated directly. Instead, annotate the _value_ attribute
+    X: float = 5  # E: Enum member `X` may not be annotated directly. Instead, annotate the `_value_` attribute
 
 assert_type(MyEnum.X, Literal[MyEnum.X])
 assert_type(MyEnum.X.value, float)
@@ -204,6 +204,48 @@ class E(Enum):
     Y = 2
 def f(e: Literal[E.X, E.Y]) -> int:
     return e.value
+    "#,
+);
+
+testcase!(
+    test_enum_union_simplification,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+class E1(Enum):
+    X = 1
+    Y = 2
+class E2(Enum):
+    X = 1
+    Y = 2
+    Z = 3
+def f(test: bool):
+    # union of all possible enum members simplifies to the enum class
+    e1 = E1.X if test else E1.Y
+    assert_type(e1, E1)
+
+    # this doesn't simplify because not all members are included
+    e2 = E2.X if test else E2.Y
+    assert_type(e2, Literal[E2.X, E2.Y])
+    "#,
+);
+
+testcase!(
+    test_enum_subset_of_union,
+    r#"
+from typing import assert_type, Literal
+from enum import Enum
+class E1(Enum):
+    X = 1
+    Y = 2
+class E2(Enum):
+    X = 1
+    Y = 2
+    Z = 3
+def f(test: bool, e1: E1, e2: E2):
+    x: Literal[E1.X, E1.Y] = e1
+    y: Literal[E1.X, E1.Y, 1] = e1
+    z: Literal[E2.X, E2.Y] = e2  # E: `E2` is not assignable to `Literal[E2.X, E2.Y]`
     "#,
 );
 
@@ -365,4 +407,39 @@ class CustomMetaclass(Any):
 class C[T](metaclass=CustomMetaclass):  # Ok - was a false positive
     x: T
     "#,
+);
+
+fn env_enum_dots() -> TestEnv {
+    let mut env = TestEnv::new();
+    env.add_with_path("py", "py.py", r#"
+from enum import IntEnum
+
+class Color(IntEnum):
+    RED = ... # E: Enum member `RED` has type `Ellipsis`, must match the `_value_` attribute annotation of `int`
+    GREEN = "wrong" # E: Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`
+"#
+    );
+    env.add_with_path("pyi", "pyi.pyi", r#"
+from enum import IntEnum
+
+class Color(IntEnum):
+    RED = ...
+    GREEN = "wrong" # E: Enum member `GREEN` has type `str`, must match the `_value_` attribute annotation of `int`
+"#
+    );
+    env
+}
+
+testcase!(
+    bug = "The RED = ... in pyi should be fine",
+    test_enum_value_dots_pyi,
+    env_enum_dots(),
+    r#"
+import py
+import pyi
+
+from typing import assert_type, Literal
+assert_type(py.Color.RED, Literal[py.Color.RED])
+assert_type(pyi.Color.RED, Literal[pyi.Color.RED])
+"#,
 );

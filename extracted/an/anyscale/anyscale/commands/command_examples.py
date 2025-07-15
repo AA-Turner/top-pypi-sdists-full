@@ -651,6 +651,31 @@ collaborators:
     permission_level: "readonly"
 """
 
+CLOUD_ADD_DEPLOYMENT_EXAMPLE = """\
+$ anyscale cloud add-deployment --cloud my-cloud --file new-cloud-deployment.yaml
+Successfully added deployment my-new-deployment to cloud my-cloud.
+
+$ cat new-cloud-deployment.yaml
+name: my-new-deployment
+provider: AWS
+compute_stack: VM
+region: us-west-2
+networking_mode: PUBLIC
+object_storage:
+  bucket_name: s3://my-bucket
+file_storage:
+  file_storage_id: fs-123
+aws_config:
+  vpc_id: vpc-123
+  subnet_ids:
+  - subnet-123
+  security_group_ids:
+  - sg-123
+  anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-role-123
+  cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-role-123
+  memorydb_cluster_name: my-memorydb-cluster
+"""
+
 CLOUD_GET_CLOUD_EXAMPLE = """\
 $ anyscale cloud get --name my-cloud
 id: cld_123

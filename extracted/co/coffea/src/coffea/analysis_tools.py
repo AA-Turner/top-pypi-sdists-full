@@ -212,11 +212,31 @@ class Weights:
         if self._storeIndividual:
             self._weights[name] = weight
         self.__add_variation(name, weight, weightUp, weightDown, shift)
+        if weight.size == 0:
+            dtype = weight.dtype
+            if dtype in (
+                numpy.int8,
+                numpy.int16,
+                numpy.int32,
+                numpy.int64,
+                numpy.uint8,
+                numpy.uint16,
+                numpy.uint32,
+                numpy.uint64,
+            ):
+                min = numpy.iinfo(dtype).max
+                max = numpy.iinfo(dtype).min
+            else:
+                min = numpy.inf
+                max = -numpy.inf
+        else:
+            min = weight.min()
+            max = weight.max()
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            min,
+            max,
             weight.size,
         )
         self._names.append(name)
@@ -238,8 +258,9 @@ class Weights:
         self._weightStats[name] = {
             "sumw": dask_awkward.sum(weight),
             "sumw2": dask_awkward.sum(weight**2),
-            "minw": dask_awkward.min(weight),
-            "maxw": dask_awkward.max(weight),
+            "minw": dask_awkward.min(weight, mask_identity=False),
+            "maxw": dask_awkward.max(weight, mask_identity=False),
+            "n": dask_awkward.num(weight, axis=0),
         }
         self._names.append(name)
 
@@ -284,7 +305,7 @@ class Weights:
             self.__add_delayed(name, weight, weightUp, weightDown, shift)
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_multivariation_eager(
@@ -312,11 +333,31 @@ class Weights:
         ):
             systName = f"{name}_{modifier}"
             self.__add_variation(systName, weight, weightUp, weightDown, shift)
+        if weight.size == 0:
+            dtype = weight.dtype
+            if dtype in (
+                numpy.int8,
+                numpy.int16,
+                numpy.int32,
+                numpy.int64,
+                numpy.uint8,
+                numpy.uint16,
+                numpy.uint32,
+                numpy.uint64,
+            ):
+                min = numpy.iinfo(dtype).max
+                max = numpy.iinfo(dtype).min
+            else:
+                min = numpy.inf
+                max = -numpy.inf
+        else:
+            min = weight.min()
+            max = weight.max()
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(),
-            weight.max(),
+            min,
+            max,
             weight.size,
         )
         self._names.append(name)
@@ -352,8 +393,9 @@ class Weights:
         self._weightStats[name] = {
             "sumw": dask_awkward.sum(weight),
             "sumw2": dask_awkward.sum(weight**2),
-            "minw": dask_awkward.min(weight),
-            "maxw": dask_awkward.max(weight),
+            "minw": dask_awkward.min(weight, mask_identity=False),
+            "maxw": dask_awkward.max(weight, mask_identity=False),
+            "n": dask_awkward.num(weight, axis=0),
         }
         self._names.append(name)
 
@@ -406,7 +448,7 @@ class Weights:
             )
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_variation_eager(self, name, weight, weightUp, weightDown, shift):

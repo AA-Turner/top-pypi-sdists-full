@@ -12,18 +12,20 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Quota(_message.Message):
-    __slots__ = ("name", "value", "max_value", "update_time", "create_time")
+    __slots__ = ("name", "value", "max_value", "usage", "update_time", "create_time")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     MAX_VALUE_FIELD_NUMBER: _ClassVar[int]
+    USAGE_FIELD_NUMBER: _ClassVar[int]
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
     name: str
     value: int
     max_value: int
+    usage: float
     update_time: _timestamp_pb2.Timestamp
     create_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., value: _Optional[int] = ..., max_value: _Optional[int] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., value: _Optional[int] = ..., max_value: _Optional[int] = ..., usage: _Optional[float] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class GetQuotaRequest(_message.Message):
     __slots__ = ("name", "read_mask")

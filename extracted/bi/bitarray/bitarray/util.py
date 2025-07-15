@@ -54,10 +54,11 @@ Return random bitarray of length `n` (uses `os.urandom()`).
 def random_p(__n, p=0.5, endian=None):
     """random_p(n, /, p=0.5, endian=None) -> bitarray
 
-Return pseudo-random bitarray of length `n`.  Each bit has probability `p` of
-being 1.  Equivalent to `bitarray((random() < p for _ in range(n)), endian)`.
-The bitarrays are reproducible when calling Python's `random.seed()` with a
-specific seed value.
+Return (pseudo-) random bitarray of length `n`.  Each bit has probability `p`
+of being one (independent of any other bits).  Mathematically equivalent
+to `bitarray((random() < p for _ in range(n)), endian)`, but much faster
+for large `n`.  The random bitarrays are reproducible when giving
+Python's `random.seed()` with a specific seed value.
 
 This function requires Python 3.12 or higher, as it depends on the standard
 library function `random.binomialvariate()`.  Raises `NotImplementedError`
@@ -70,6 +71,11 @@ when Python version is too low.
     return r.random_p(p)
 
 class _RandomP:
+
+    # The main reason for this class it to enable testing functionality
+    # individually in the test class Random_P_Tests in 'test_util.py'.
+    # The test class also contains many comments and explanations.
+    # To better understand how the algorithm works, see ./doc/random_p.rst
 
     # maximal number of calls to .random_half() in .combine()
     M = 8
@@ -97,24 +103,23 @@ class _RandomP:
     def get_op_seq(self, i):
         """
         Return bitarray containing operator sequence.
-        Each item represents a bitwise operation:   0: and   1: or
+        Each item represents a bitwise operation:   0: AND   1: OR
         After applying the sequence (see .random_combine()), we
         obtain a bitarray with probability  q = i / K
         """
-        assert 0 < i < self.K
+        if not 0 < i < self.K:
+            raise ValueError("0 < i < %d, got i = %d" % (self.K, i))
         # sequence of &, | operations - least significant operations first
-        seq = int2ba(i, length=self.M, endian="little")
-        seq = strip(seq, mode="left")
-        del seq[0]
-        return seq
+        a = bitarray(i.to_bytes(2, byteorder="little"), "little")
+        return a[a.index(1) + 1 : self.M]
 
-    def random_combine(self, p):
+    def combine_half(self, seq):
         """
-        Given a desired probability p, return a random bitarray with
-        actual probability  q = int(p * K) / K
+        Combine random bitarrays with probability 1/2
+        according to given operator sequence.
         """
         a = self.random_half()
-        for k in self.get_op_seq(int(p * self.K)):
+        for k in seq:
             b = self.random_half()
             if k:
                 a |= b
@@ -122,19 +127,20 @@ class _RandomP:
                 a &= b
         return a
 
-    def random_m(self, m):
+    def random_pop(self, k):
         """
-        Return a bitarray (of length n) with m bits randomly set to 1.
-        Designed for small m (compared to n).
+        Return a random bitarray of length self.n and population count k.
+        Designed for small k (compared to self.n).
         """
-        assert 0 <= m <= self.n
+        if not 0 <= k <= self.n:
+            raise ValueError("0 <= k <= %d, got k = %d" % (self.n, k))
+        randrange = random.randrange
         a = zeros(self.n, self.endian)
-        for _ in range(m):
-            while 1:
-                i = random.randrange(self.n)
-                if not a[i]:
-                    a[i] = 1
-                    break
+        for _ in range(k):
+            i = randrange(self.n)
+            while a[i]:
+                i = randrange(self.n)
+            a[i] = 1
         return a
 
     def random_p(self, p):
@@ -149,7 +155,7 @@ class _RandomP:
             raise ValueError("p must be in range 0.0 <= p <= 1.0, got %s" % p)
 
         # for small n, use literal definition
-        if self.n < 10:
+        if self.n < 16:
             return bitarray((random.random() < p for _ in range(self.n)),
                             self.endian)
 
@@ -161,13 +167,22 @@ class _RandomP:
 
         # for small p, set randomly individual bits
         if p < self.SMALL_P:
-            return self.random_m(random.binomialvariate(self.n, p))
+            return self.random_pop(random.binomialvariate(self.n, p))
 
-        # combine random bitarrays using bitwise & and | operations
-        a = self.random_combine(p)
-        q = int(p * self.K) / self.K
+        # calculate operator sequence
+        i = int(p * self.K)
+        q = i / self.K
+        seq = self.get_op_seq(i)
+
+        # when n is small compared to number of operations, also use literal
+        if self.n < 100 and self.nbytes <= len(seq) + 2 * bool(q < p):
+            return bitarray((random.random() < p for _ in range(self.n)),
+                            self.endian)
+
+        # combine random bitarrays using bitwise AND and OR operations
+        a = self.combine_half(seq)
         if q < p:
-            # increase probability q by "oring" with probability x
+            # increase probability q by ORing with probability x
             x = (p - q) / (1.0 - q)
             a |= self.random_p(x)
 

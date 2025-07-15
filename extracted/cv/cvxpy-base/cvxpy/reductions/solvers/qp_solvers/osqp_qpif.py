@@ -6,6 +6,7 @@ import cvxpy.settings as s
 from cvxpy.error import SolverError
 from cvxpy.reductions.solution import Solution, failure_solution
 from cvxpy.reductions.solvers.qp_solvers.qp_solver import QpSolver
+from cvxpy.utilities.citations import CITATION_DICT
 
 
 class OSQP(QpSolver):
@@ -79,6 +80,11 @@ class OSQP(QpSolver):
         lA = np.concatenate([data[s.B], -np.inf*np.ones(data[s.G].shape)])
         data['l'] = lA
 
+        if P is not None:
+            P = sp.csc_matrix((P.data, P.indices, P.indptr), shape=P.shape)
+        if A is not None:
+            A = sp.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+
         # Overwrite defaults eps_abs=eps_rel=1e-3, max_iter=4000
         solver_opts['eps_abs'] = solver_opts.get('eps_abs', 1e-5)
         solver_opts['eps_rel'] = solver_opts.get('eps_rel', 1e-5)
@@ -94,7 +100,7 @@ class OSQP(QpSolver):
             factorizing = False
             if P.data.shape != old_data[s.P].data.shape or any(
                     P.data != old_data[s.P].data):
-                P_triu = sp.triu(P).tocsc()
+                P_triu = sp.csc_array(sp.triu(P, format='csc'))
                 new_args['Px'] = P_triu.data
                 factorizing = True
             if A.data.shape != old_data['Ax'].data.shape or any(
@@ -128,3 +134,13 @@ class OSQP(QpSolver):
         if solver_cache is not None:
             solver_cache[self.name()] = (solver, data, results)
         return results
+
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["OSQP"]

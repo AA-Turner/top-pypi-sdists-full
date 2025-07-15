@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class User(_message.Message):
-    __slots__ = ("name", "display_name", "first_name", "last_name", "stated_role", "create_time", "role", "email", "state", "status", "update_time")
+    __slots__ = ("name", "display_name", "first_name", "last_name", "stated_role", "service_account", "create_time", "role", "email", "state", "status", "update_time")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[User.State]
@@ -32,6 +32,7 @@ class User(_message.Message):
     FIRST_NAME_FIELD_NUMBER: _ClassVar[int]
     LAST_NAME_FIELD_NUMBER: _ClassVar[int]
     STATED_ROLE_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_ACCOUNT_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     EMAIL_FIELD_NUMBER: _ClassVar[int]
@@ -43,13 +44,14 @@ class User(_message.Message):
     first_name: str
     last_name: str
     stated_role: str
+    service_account: bool
     create_time: _timestamp_pb2.Timestamp
     role: str
     email: str
     state: User.State
     status: _status_pb2.Status
     update_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., first_name: _Optional[str] = ..., last_name: _Optional[str] = ..., stated_role: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., role: _Optional[str] = ..., email: _Optional[str] = ..., state: _Optional[_Union[User.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., first_name: _Optional[str] = ..., last_name: _Optional[str] = ..., stated_role: _Optional[str] = ..., service_account: bool = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., role: _Optional[str] = ..., email: _Optional[str] = ..., state: _Optional[_Union[User.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CreateUserRequest(_message.Message):
     __slots__ = ("parent", "user", "user_id")

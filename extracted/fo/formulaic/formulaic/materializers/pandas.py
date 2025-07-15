@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import functools
 import itertools
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Dict, List, Sequence, Set, Tuple, cast
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy
 import pandas
@@ -12,10 +12,8 @@ from interface_meta import override
 
 from formulaic.utils.cast import as_columns
 from formulaic.utils.null_handling import drop_rows as drop_nulls
-from formulaic.utils.null_handling import find_nulls
 
 from .base import FormulaMaterializer
-from .types import NAAction
 
 if TYPE_CHECKING:  # pragma: no cover
     from formulaic.model_spec import ModelSpec
@@ -50,37 +48,11 @@ class PandasMaterializer(FormulaMaterializer):
         return super()._is_categorical(values)
 
     @override
-    def _check_for_nulls(
-        self, name: str, values: Any, na_action: NAAction, drop_rows: Set[int]
-    ) -> None:
-        if na_action is NAAction.IGNORE:
-            return
-
-        try:
-            null_indices = find_nulls(values)
-
-            if na_action is NAAction.RAISE:
-                if null_indices:
-                    raise ValueError(f"`{name}` contains null values after evaluation.")
-
-            elif na_action is NAAction.DROP:
-                drop_rows.update(null_indices)
-
-            else:
-                raise ValueError(
-                    f"Do not know how to interpret `na_action` = {repr(na_action)}."
-                )  # pragma: no cover; this is currently impossible to reach
-        except ValueError as e:
-            raise ValueError(
-                f"Error encountered while checking for nulls in `{name}`: {e}"
-            ) from e
-
-    @override
     def _encode_constant(
         self,
         value: Any,
         metadata: Any,
-        encoder_state: Dict[str, Any],
+        encoder_state: dict[str, Any],
         spec: ModelSpec,
         drop_rows: Sequence[int],
     ) -> Any:
@@ -95,7 +67,7 @@ class PandasMaterializer(FormulaMaterializer):
         self,
         values: Any,
         metadata: Any,
-        encoder_state: Dict[str, Any],
+        encoder_state: dict[str, Any],
         spec: ModelSpec,
         drop_rows: Sequence[int],
     ) -> Any:
@@ -112,7 +84,7 @@ class PandasMaterializer(FormulaMaterializer):
         self,
         values: Any,
         metadata: Any,
-        encoder_state: Dict[str, Any],
+        encoder_state: dict[str, Any],
         spec: ModelSpec,
         drop_rows: Sequence[int],
         reduced_rank: bool = False,
@@ -136,8 +108,8 @@ class PandasMaterializer(FormulaMaterializer):
 
     @override
     def _get_columns_for_term(
-        self, factors: List[Dict[str, Any]], spec: ModelSpec, scale: float = 1
-    ) -> Dict[str, Any]:
+        self, factors: list[dict[str, Any]], spec: ModelSpec, scale: float = 1
+    ) -> dict[str, Any]:
         out = {}
 
         names = [
@@ -190,7 +162,7 @@ class PandasMaterializer(FormulaMaterializer):
 
     @override
     def _combine_columns(
-        self, cols: Sequence[Tuple[str, Any]], spec: ModelSpec, drop_rows: Sequence[int]
+        self, cols: Sequence[tuple[str, Any]], spec: ModelSpec, drop_rows: Sequence[int]
     ) -> pandas.DataFrame:
         # If we are outputing a pandas DataFrame, explicitly override index
         # in case transforms/etc have lost track of it.
@@ -212,7 +184,7 @@ class PandasMaterializer(FormulaMaterializer):
 
         # Otherwise, concatenate columns into model matrix
         if spec.output == "sparse":
-            return spsparse.hstack([col[1] for col in cols])
+            return spsparse.hstack([col[1] for col in cols], format="csc")
         if spec.output == "numpy":
             return numpy.stack([col[1] for col in cols], axis=1)
         return pandas.DataFrame(

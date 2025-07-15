@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.528205                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.715421                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,13 +9,14 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.user_configs.config_decorators
+    import metaflow.user_decorators.mutable_flow
+    import metaflow.user_decorators.user_flow_decorator
 
-from .....user_configs.config_decorators import MutableFlow as MutableFlow
-from .....user_configs.config_decorators import MutableStep as MutableStep
-from .....user_configs.config_decorators import CustomFlowDecorator as CustomFlowDecorator
+from .....user_decorators.user_flow_decorator import FlowMutator as FlowMutator
+from .....user_decorators.mutable_flow import MutableFlow as MutableFlow
+from .....user_decorators.mutable_step import MutableStep as MutableStep
 
-class coreweave_checkpoints(metaflow.user_configs.config_decorators.CustomFlowDecorator, metaclass=type):
+class coreweave_checkpoints(metaflow.user_decorators.user_flow_decorator.FlowMutator, metaclass=metaflow.user_decorators.user_flow_decorator.FlowMutatorMeta):
     """
     This decorator is used for setting the coreweave object store as the artifact store for checkpoints/models created by the flow.
     
@@ -35,7 +36,7 @@ class coreweave_checkpoints(metaflow.user_configs.config_decorators.CustomFlowDe
     ```python
     from metaflow import checkpoint, step, FlowSpec, coreweave_checkpoints
     
-    @coreweave_checkpoints(secrets=[], bucket_path=None)
+    @coreweave_checkpoints(secrets=[], bucket_path="s3://my-coreweave-bucket/foo")
     class MyFlow(FlowSpec):
         @checkpoint
         @step
@@ -48,11 +49,12 @@ class coreweave_checkpoints(metaflow.user_configs.config_decorators.CustomFlowDe
             pass
     ```
     """
-    def __init__(self, *args, **kwargs):
-        ...
     def init(self, *args, **kwargs):
         ...
-    def evaluate(self, mutable_flow: metaflow.user_configs.config_decorators.MutableFlow):
+    def pre_mutate(self, mutable_flow: metaflow.user_decorators.mutable_flow.MutableFlow):
+        ...
+    @classmethod
+    def __init_subclass__(cls_, **_kwargs):
         ...
     ...
 

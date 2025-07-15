@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtail-localize
-Version: 1.12.1
+Version: 1.12.2
 Summary: Translation plugin for Wagtail CMS
 Author-email: Karl Hobley <karl@torchbox.com>
 Maintainer-email: Dan Braghis <dan.braghis@torchbox.com>

@@ -54,6 +54,14 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.supervised_fine_tun
     DeleteSupervisedFineTuningJobRequest as SyncDeleteSupervisedFineTuningJobRequest,
     GetSupervisedFineTuningJobRequest as SyncGetSupervisedFineTuningJobRequest,
 )
+from fireworks.control_plane.generated.protos_grpcio.gateway.batch_inference_job_pb2 import (
+    BatchInferenceJob as SyncBatchInferenceJob,
+    CreateBatchInferenceJobRequest as SyncCreateBatchInferenceJobRequest,
+    GetBatchInferenceJobRequest as SyncGetBatchInferenceJobRequest,
+    ListBatchInferenceJobsRequest as SyncListBatchInferenceJobsRequest,
+    ListBatchInferenceJobsResponse as SyncListBatchInferenceJobsResponse,
+    DeleteBatchInferenceJobRequest as SyncDeleteBatchInferenceJobRequest,
+)
 from fireworks.control_plane.generated.protos_grpcio.gateway.deployment_pb2 import (
     ListDeploymentsRequest as SyncListDeploymentsRequest,
     UpdateDeploymentRequest as SyncUpdateDeploymentRequest,
@@ -356,6 +364,54 @@ class Gateway:
         except _InactiveRpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 return None
+            raise e
+
+    def create_batch_inference_job_sync(
+        self, request: SyncCreateBatchInferenceJobRequest
+    ) -> SyncBatchInferenceJob:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        response = self._sync_stub.CreateBatchInferenceJob(request)
+        return response
+
+    def get_batch_inference_job_sync(self, name: str) -> Optional[SyncBatchInferenceJob]:
+        try:
+            response = self._sync_stub.GetBatchInferenceJob(SyncGetBatchInferenceJobRequest(name=name))
+            return response
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
+
+    def list_batch_inference_jobs_sync(
+        self, request: SyncListBatchInferenceJobsRequest
+    ) -> SyncListBatchInferenceJobsResponse:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        request.page_size = 200
+
+        max_retries = 3
+        base_delay = 1.0  # Start with 1 second delay
+
+        for attempt in range(max_retries):
+            try:
+                response = self._sync_stub.ListBatchInferenceJobs(request)
+                return response
+            except _InactiveRpcError as e:
+                if attempt == max_retries - 1:  # Last attempt
+                    raise e
+                if e.code() == grpc.StatusCode.UNAVAILABLE:
+                    delay = base_delay * (2 ** attempt)  # Exponential backoff
+                    time.sleep(delay)
+                else:
+                    raise e
+
+    def delete_batch_inference_job_sync(self, name: str) -> None:
+        try:
+            self._sync_stub.DeleteBatchInferenceJob(SyncDeleteBatchInferenceJobRequest(name=name))
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return
             raise e
 
     async def list_datasets(

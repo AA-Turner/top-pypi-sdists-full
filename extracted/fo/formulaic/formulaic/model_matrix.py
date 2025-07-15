@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, Tuple, TypeVar, cast
-
-try:
-    from typing import SupportsIndex
-except ImportError:  # pragma: no cover
-    from typing_extensions import SupportsIndex
-
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Optional,
+    SupportsIndex,
+    TypeVar,
+    cast,
+)
 
 import wrapt
 
@@ -65,8 +68,8 @@ class ModelMatrix(Generic[MatrixType], wrapt.ObjectProxy):
 
     def __reduce_ex__(
         self, protocol: SupportsIndex
-    ) -> Tuple[
-        Callable[[Any, ModelSpec], ModelMatrix], Tuple[Any, Optional[ModelSpec]]
+    ) -> tuple[
+        Callable[[Any, ModelSpec], ModelMatrix], tuple[Any, Optional[ModelSpec]]
     ]:
         return ModelMatrix, (self.__wrapped__, self._self_model_spec)
 

@@ -87,19 +87,19 @@ assert_words!(KeyYield, 1);
 assert_words!(KeyYieldFrom, 1);
 assert_words!(KeyFunction, 1);
 
-assert_words!(Binding, 9);
-assert_words!(BindingExpect, 9);
-assert_words!(BindingAnnotation, 13);
-assert_words!(BindingClass, 18);
-assert_words!(BindingTParams, 9);
+assert_words!(Binding, 11);
+assert_words!(BindingExpect, 11);
+assert_words!(BindingAnnotation, 15);
+assert_words!(BindingClass, 20);
+assert_words!(BindingTParams, 10);
 assert_words!(BindingClassMetadata, 8);
 assert_bytes!(BindingClassMro, 4);
-assert_words!(BindingClassField, 26);
+assert_words!(BindingClassField, 30);
 assert_bytes!(BindingClassSynthesizedFields, 4);
 assert_bytes!(BindingLegacyTypeParam, 4);
-assert_words!(BindingYield, 3);
-assert_words!(BindingYieldFrom, 3);
-assert_words!(BindingFunction, 21);
+assert_words!(BindingYield, 4);
+assert_words!(BindingYieldFrom, 4);
+assert_words!(BindingFunction, 22);
 
 #[derive(Clone, Dupe, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AnyIdx {
@@ -853,6 +853,15 @@ impl DisplayWith<Bindings> for BindingFunction {
 pub struct ClassBinding {
     pub def: StmtClassDef,
     pub def_index: ClassDefIndex,
+    /// The fields are all the names declared on the class that we were able to detect
+    /// from an AST traversal, which includes:
+    /// - any name defined in the class body (e.g. by assignment or a def statement)
+    /// - attributes annotated in the class body (but not necessarily defined)
+    /// - anything assigned to something we think is a `self` or `cls` argument
+    ///
+    /// The last case may include names that are actually declared in a parent class,
+    /// because at binding time we cannot know that so we have to treat assignment
+    /// as potentially defining a field that would not otherwise exist.
     pub fields: SmallMap<Name, ClassFieldProperties>,
     /// Were we able to determine, using only syntactic analysis at bindings time,
     /// that there can be no legacy tparams? If no, we need a `BindingTParams`, if yes
@@ -1181,7 +1190,7 @@ impl DisplayWith<Bindings> for Binding {
                             0 => "".to_owned(),
                             _ => format!("-{j}"),
                         };
-                        format!("{}:{}", i, end)
+                        format!("{i}:{end}")
                     }
                 };
                 write!(
@@ -1194,7 +1203,7 @@ impl DisplayWith<Bindings> for Binding {
                 )
             }
             Self::Function(x, _pred, _class) => write!(f, "Function({})", ctx.display(*x)),
-            Self::Import(m, n, original_name) => write!(f, "Import({m}, {n}, {:?})", original_name),
+            Self::Import(m, n, original_name) => write!(f, "Import({m}, {n}, {original_name:?})"),
             Self::ClassDef(x, _) => write!(f, "ClassDef({})", ctx.display(*x)),
             Self::Forward(k) => write!(f, "Forward({})", ctx.display(*k)),
             Self::AugAssign(a, s) => write!(f, "AugAssign({}, {})", ann(a), m.display(s)),
@@ -1567,7 +1576,7 @@ impl DisplayWith<Bindings> for BindingClass {
     fn fmt(&self, f: &mut fmt::Formatter<'_>, _ctx: &Bindings) -> fmt::Result {
         match self {
             Self::ClassDef(c) => write!(f, "ClassDef({})", c.def.name),
-            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({})", id),
+            Self::FunctionalClassDef(_, id, _) => write!(f, "FunctionalClassDef({id})"),
         }
     }
 }
@@ -1597,7 +1606,7 @@ pub struct BindingClassField {
     pub value: ExprOrBinding,
     pub annotation: Option<Idx<KeyAnnotation>>,
     pub range: TextRange,
-    pub initial_value: ClassFieldInitialValue,
+    pub initial_value: RawClassFieldInitialization,
     pub is_function_without_return_annotation: bool,
     pub implicit_def_method: Option<Name>,
 }
@@ -1614,19 +1623,27 @@ impl DisplayWith<Bindings> for BindingClassField {
     }
 }
 
-/// The value that the class field is initialized to.
+/// Information about the value, if any, that a field is initialized to when it is declared.
 #[derive(Clone, Debug)]
-pub enum ClassFieldInitialValue {
-    /// The field does not have an initial value. If a name is provided, it is the name of the
-    /// method where the field was inferred (which will be None for fields declared but not
-    /// initialized in the class body, or for instance-only fields of synthesized classes)
-    Instance(Option<Name>),
-    /// The field has an initial value.
+pub enum RawClassFieldInitialization {
+    /// At the point where the field is declared, it does not have an initial value. This includes
+    /// fields declared but not initialized in the class body, and instance-only fields of
+    /// synthesized classes.
+    Uninitialized,
+    /// The field is set in a method *and declared nowhere else*. Consider:
+    ///   class A:
+    ///     x: int
+    ///     def __init__(self):
+    ///         self.x = 42
+    ///         self.y = 42
+    /// `x`'s initialization type is `Uninitialized`, whereas y's is `Method('__init__')`.
+    Method(Name),
+    /// The field is declared and initialized to a value in the class body.
     ///
     /// If the value is from an assignment, stores the expression that the field is assigned to,
     /// which is needed for some cases like dataclass fields. The `None` case is for fields that
     /// have values which don't come from assignment (e.g. function defs, imports in a class body)
-    Class(Option<Expr>),
+    ClassBody(Option<Expr>),
 }
 
 /// Bindings for fields synthesized by a class, such as a dataclass's `__init__` method. This

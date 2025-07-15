@@ -74,11 +74,10 @@ from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.distributed import (
     DDPSyncStrategy,
     ddp_sync_context,
-    parallelize_composer_model,
     prepare_ddp_module,
-    prepare_fsdp_module,
     prepare_tp_module,
 )
+from composer.distributed.shared_utils import generate_oom_hook
 from composer.loggers import (
     ConsoleLogger,
     Logger,
@@ -425,32 +424,6 @@ def _update_num_consecutive_thrashes(state: State, num_consecutive_thrashes: int
     else:
         num_consecutive_thrashes = 0
     return num_consecutive_thrashes
-
-
-def _create_sync_hook(state: State):
-    """Check if other ranks OOMed after forward/backward pass when using auto microbatching.
-
-    This may happen when close to memory limit or with uneven memory usage across ranks. Since we
-    need to do this before the model weights are gathered for the next FSDP block, we wrap every
-    FSPD block with a hook that checks if any other rank OOMed.
-
-    This wrapper method is needed because PyTorch FSDP doesn't take `state` as an argument in hooks
-    that are registered using methods such as `register_forward_pre_hook`.
-    """
-
-    def sync_hook(*args):
-        # Check if any other rank hit an OOM
-        found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
-        found_cuda_oom = found_cuda_oom_tensor.item()
-        # Signal current rank is still in batch
-        all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-
-        if found_cuda_oom == 1:
-            raise RuntimeError()
-
-    return sync_hook
 
 
 def _readd_fsdp_sync_hooks(fsdp_modules: dict[str, torch.nn.Module], sync_hook):
@@ -1220,6 +1193,11 @@ class Trainer:
 
         # Distributed
         parallelism_config = self._parse_parallelism_config(parallelism_config)
+        if parallelism_config is not None and parallelism_config.fsdp is None and auto_microbatching:
+            raise ValueError(
+                'Auto microbatching is not supported outside of FSDP1. '
+                'Please set a reasonable microbatch size manually or enable FSDP1.',
+            )
         if parallelism_config is not None or dist.get_world_size() > 1:
             # FSDP requires torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
@@ -1630,7 +1608,7 @@ class Trainer:
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
-        self._wrap_model_for_distributed(model, optimizers, precision, device, auto_microbatching)
+        self._wrap_model_for_distributed(model, optimizers)
 
         self.engine.run_event(Event.BEFORE_LOAD)
 
@@ -1723,6 +1701,12 @@ class Trainer:
                 log.info('No previous autoresume checkpoint found')
         # Actually load the checkpoint from potentially updated arguments
         if load_path is not None:
+            # If we are using FSDP and load_monolith_rank0_only is True, then the state_dict must be `full`
+            # when we are loading a checkpoint
+            if self.state.fsdp_config and self.state.fsdp_config.load_monolith_rank0_only:  # type: ignore
+                err_msg = 'state_dict_type must be `full` when load_monolith_rank0_only is True when loading a checkpoint'
+                assert self.state.fsdp_config.state_dict_type == 'full', err_msg  # type: ignore
+
             log.info(f'Loading checkpoint from {load_path}')
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
@@ -1751,25 +1735,8 @@ class Trainer:
 
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_monolith_rank0_only=True but no checkpoint was loaded.
-        if (
-            not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_config.auto_wrap and
-            self.state.load_monolith_rank0_only
-        ):
-            # TODO (FSDP2): support calling FSDP2 wrapper depending on the config type
-            assert isinstance(
-                self.state.fsdp_config,
-                FSDPConfig,
-            ), f'prepare_fsdp_module requires FSDPConfig, got: {type(self.state.fsdp_config)}'
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                    model,
-                    optimizers,
-                    self.state.fsdp_config,
-                    precision,
-                    device,
-                    auto_microbatching,
-                )
+        if not self.state.fsdp_enabled and self.state.load_monolith_rank0_only:
+            self.state._apply_fsdp()
 
         # Set the iteration timestamp to the overall timestamp if loading from a checkpoint that was created before
         # iteration was introduced in Composer v0.19.1. This is necessary to ensure that the iteration timestamp is
@@ -1815,9 +1782,6 @@ class Trainer:
         self,
         model: ComposerModel,
         optimizers: Optional[torch.optim.Optimizer],
-        precision: Union[str, Precision],
-        device: Device,
-        auto_microbatching: bool,
     ):
         """Wrap the model for distributed training (TP, FSDP, etc.).
 
@@ -1845,27 +1809,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and not self.state.load_monolith_rank0_only:
-            # Init with globally fixed seed so all HSDP replicas have the same initial weights
-            with reproducibility.seed_context(self.state.rank_zero_seed):
-                match self.state.fsdp_config_version:
-                    case 1:
-                        self.state.automicrobatch_fsdp_hook_handles, self.state.fsdp_modules = prepare_fsdp_module(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                            precision,
-                            device,
-                            auto_microbatching,
-                            self.state.seed,
-                        )
-                    case 2:
-                        parallelize_composer_model(
-                            model,
-                            optimizers,
-                            self.state.fsdp_config,  # type: ignore
-                        )
-                    case _:
-                        raise ValueError(f'Unsupported FSDP config version: {self.state.fsdp_config_version}')
+            self.state._apply_fsdp()
 
     @property
     def saved_checkpoints(self) -> list[str]:
@@ -2713,7 +2657,7 @@ class Trainer:
         device_batch = self.state.batch
 
         # Define sync hook for FSDP modules if automicrobatching is on
-        sync_hook = _create_sync_hook(self.state)
+        sync_hook = generate_oom_hook(self.state.device)
 
         original_microbatch_size = self.state.device_train_microbatch_size
         oom_found_this_batch = False
@@ -3619,9 +3563,12 @@ class Trainer:
 
         # If training occurs after evaluation, readd hooks in case of memory spike
         if self.state.auto_microbatching:
-            sync_hook = _create_sync_hook(self.state)
+            sync_hook = generate_oom_hook(self.state.device)
             if self.state.fsdp_enabled and len(self.state.automicrobatch_fsdp_hook_handles) == 0:
-                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(self.state.fsdp_modules, sync_hook)
+                self.state.automicrobatch_fsdp_hook_handles = _readd_fsdp_sync_hooks(
+                    self.state.fsdp_modules,
+                    sync_hook,
+                )
             self.num_consecutive_non_OOM_batches = 0
 
     def _use_grad_scaling(self, precision: Union[str, Precision], scaler: Optional[GradScaler]) -> bool:
@@ -3821,10 +3768,12 @@ class Trainer:
         if parallelism_config is not None and not isinstance(parallelism_config, ParallelismConfig):
             parallelism_config_args = {}
             if 'fsdp' in parallelism_config and parallelism_config['fsdp'] is not None:
-                if isinstance(parallelism_config['fsdp'], FSDPConfig | FSDP2Config):
+                if isinstance(parallelism_config['fsdp'], FSDPConfig):
                     parallelism_config_args['fsdp'] = parallelism_config['fsdp']
+                elif isinstance(parallelism_config['fsdp'], FSDP2Config):
+                    parallelism_config_args['fsdp2'] = parallelism_config['fsdp']
                 elif os.environ.get('FSDP_VERSION', '1') == '2':
-                    parallelism_config_args['fsdp'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
+                    parallelism_config_args['fsdp2'] = FSDP2Config.from_compatible_attrs(parallelism_config['fsdp'])
                 else:
                     parallelism_config_args['fsdp'] = FSDPConfig(**parallelism_config['fsdp'])
             if 'tp' in parallelism_config and parallelism_config['tp'] is not None:

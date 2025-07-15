@@ -1,25 +1,24 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.535691                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.726439                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow._vendor.click.types
     import typing
+    import metaflow._vendor.click.types
 
 from .._vendor import click as click
 from .config_parameters import ConfigValue as ConfigValue
 from ..exception import MetaflowException as MetaflowException
 from ..exception import MetaflowInternalError as MetaflowInternalError
+from ..packaging_sys import MetaflowCodeContent as MetaflowCodeContent
 from ..parameters import DeployTimeField as DeployTimeField
 from ..parameters import ParameterContext as ParameterContext
-
-CONFIG_FILE: str
 
 class ConvertPath(metaflow._vendor.click.types.Path, metaclass=type):
     def convert(self, value, param, ctx):

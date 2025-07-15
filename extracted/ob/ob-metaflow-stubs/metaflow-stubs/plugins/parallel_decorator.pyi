@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.545550                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.740381                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class ParallelDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     is_parallel -> bool
         True if the current step is a @parallel step.
     """
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def runtime_step_cli(self, cli_args, retry_count, max_user_code_retries, ubf_context):
         ...

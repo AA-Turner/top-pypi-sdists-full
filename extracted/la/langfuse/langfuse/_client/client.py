@@ -105,6 +105,8 @@ class Langfuse:
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
         mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
         blocked_instrumentation_scopes (Optional[List[str]]): List of instrumentation scope names to block from being exported to Langfuse. Spans from these scopes will be filtered out before being sent to the API. Useful for filtering out spans from specific libraries or frameworks. For exported spans, you can see the instrumentation scope name in the span metadata in Langfuse (`metadata.scope.name`)
+        additional_headers (Optional[Dict[str, str]]): Additional headers to include in all API requests and OTLPSpanExporter requests. These headers will be merged with default headers. Note: If httpx_client is provided, additional_headers must be set directly on your custom httpx_client as well.
+        tracer_provider(Optional[TracerProvider]): OpenTelemetry TracerProvider to use for Langfuse. This can be useful to set to have disconnected tracing between Langfuse and other OpenTelemetry-span emitting libraries. Note: To track active spans, the context is still shared between TracerProviders. This may lead to broken trace trees.
 
     Example:
         ```python
@@ -163,6 +165,8 @@ class Langfuse:
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
+        additional_headers: Optional[Dict[str, str]] = None,
+        tracer_provider: Optional[otel_trace_api.TracerProvider] = None,
     ):
         self._host = host or os.environ.get(LANGFUSE_HOST, "https://cloud.langfuse.com")
         self._environment = environment or os.environ.get(LANGFUSE_TRACING_ENVIRONMENT)
@@ -225,6 +229,8 @@ class Langfuse:
             mask=mask,
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
+            additional_headers=additional_headers,
+            tracer_provider=tracer_provider,
         )
         self._mask = self._resources.mask
 
@@ -767,6 +773,7 @@ class Langfuse:
     def update_current_generation(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -787,6 +794,7 @@ class Langfuse:
         details that become available during or after model generation.
 
         Args:
+            name: The generation name
             input: Updated input data for the model
             output: Output from the model (e.g., completions)
             metadata: Additional metadata to associate with the generation
@@ -829,6 +837,9 @@ class Langfuse:
                 otel_span=current_otel_span, langfuse_client=self
             )
 
+            if name:
+                current_otel_span.update_name(name)
+
             generation.update(
                 input=input,
                 output=output,
@@ -847,6 +858,7 @@ class Langfuse:
     def update_current_span(
         self,
         *,
+        name: Optional[str] = None,
         input: Optional[Any] = None,
         output: Optional[Any] = None,
         metadata: Optional[Any] = None,
@@ -861,6 +873,7 @@ class Langfuse:
         that become available during execution.
 
         Args:
+            name: The span name
             input: Updated input data for the operation
             output: Output data from the operation
             metadata: Additional metadata to associate with the span
@@ -898,6 +911,9 @@ class Langfuse:
                 langfuse_client=self,
                 environment=self._environment,
             )
+
+            if name:
+                current_otel_span.update_name(name)
 
             span.update(
                 input=input,
@@ -1680,8 +1696,7 @@ class Langfuse:
             ```
         """
         project_id = self._get_project_id()
-        current_trace_id = self.get_current_trace_id()
-        final_trace_id = trace_id or current_trace_id
+        final_trace_id = trace_id or self.get_current_trace_id()
 
         return (
             f"{self._host}/project/{project_id}/traces/{final_trace_id}"

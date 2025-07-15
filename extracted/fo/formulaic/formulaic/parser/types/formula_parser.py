@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import (
     Any,
-    Iterable,
-    Mapping,
-    MutableMapping,
+    Literal,
     Optional,
-    Tuple,
     Union,
     overload,
 )
-
-from typing_extensions import Literal
 
 from formulaic.parser.types.ordered_set import OrderedSet
 from formulaic.utils.layered_mapping import LayeredMapping
@@ -181,7 +177,7 @@ class FormulaParser:
             return Structured([])
 
         terms: Union[
-            OrderedSet[Term], Tuple[OrderedSet[Term]], Structured[OrderedSet[Term]]
+            OrderedSet[Term], tuple[OrderedSet[Term]], Structured[OrderedSet[Term]]
         ] = ast.to_terms(context=context)
         if not isinstance(terms, Structured):
             terms = Structured[OrderedSet[Term]](terms)

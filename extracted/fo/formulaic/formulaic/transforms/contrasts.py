@@ -3,18 +3,13 @@ from __future__ import annotations
 import inspect
 import warnings
 from abc import abstractmethod
+from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from numbers import Number
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
-    Hashable,
-    Iterable,
-    List,
     Optional,
-    Sequence,
-    Tuple,
     Union,
     cast,
 )
@@ -40,7 +35,7 @@ if TYPE_CHECKING:
 def C(
     data: Any,
     contrasts: Optional[
-        Union[Contrasts, Dict[str, Iterable[Number]], numpy.ndarray]
+        Union[Contrasts, dict[str, Iterable[Number]], numpy.ndarray]
     ] = None,
     *,
     levels: Optional[Iterable[str]] = None,
@@ -70,11 +65,14 @@ def C(
     def encoder(
         values: Any,
         reduced_rank: bool,
-        drop_rows: List[int],
-        encoder_state: Dict[str, Any],
+        drop_rows: list[int],
+        encoder_state: dict[str, Any],
         model_spec: ModelSpec,
     ) -> FactorValues:
-        values = pandas.Series(values)
+        # wrapped numpy arrays are problematic
+        values = pandas.Series(
+            values.__wrapped__ if isinstance(values, FactorValues) else values
+        )
         values = values.drop(index=values.index[drop_rows])
         return encode_contrasts(
             values,
@@ -98,7 +96,7 @@ def encode_contrasts(  # pylint: disable=dangerous-default-value  # always repla
     data: Any,
     contrasts: Union[
         Contrasts,
-        Dict[Hashable, Sequence[float]],
+        dict[Hashable, Sequence[float]],
         Sequence[Sequence[float]],
         numpy.ndarray,
         None,
@@ -107,7 +105,7 @@ def encode_contrasts(  # pylint: disable=dangerous-default-value  # always repla
     levels: Optional[Iterable[str]] = None,
     reduced_rank: bool = False,
     output: Optional[str] = None,
-    _state: Dict[str, Any] = {},
+    _state: dict[str, Any] = {},
     _spec: Optional[ModelSpec] = None,
 ) -> FactorValues[Union[pandas.DataFrame, spsparse.spmatrix]]:
     """
@@ -134,6 +132,8 @@ def encode_contrasts(  # pylint: disable=dangerous-default-value  # always repla
     levels = (
         levels if levels is not None else _state.get("categories")
     )  # TODO: Is this too early to provide useful feedback to users?
+    if isinstance(data, FactorValues):  # wrapped numpy arrays are problematic
+        data = data.__wrapped__
 
     if contrasts is None:
         contrasts = TreatmentContrasts()
@@ -143,7 +143,7 @@ def encode_contrasts(  # pylint: disable=dangerous-default-value  # always repla
         contrasts = CustomContrasts(
             cast(
                 Union[
-                    Dict[Hashable, Sequence[float]],
+                    dict[Hashable, Sequence[float]],
                     Sequence[Sequence[float]],
                     numpy.ndarray,
                 ],
@@ -165,7 +165,7 @@ def encode_contrasts(  # pylint: disable=dangerous-default-value  # always repla
         data = pandas.Series(data).astype("category")
 
     # Perform dummy encoding
-    if output in ("pandas", "numpy"):
+    if output in ("narwhals", "pandas", "numpy"):
         categories = list(data.cat.categories)
         encoded = pandas.get_dummies(data)
     elif output == "sparse":
@@ -231,9 +231,14 @@ class Contrasts(metaclass=InterfaceMeta):
                 raise ValueError(
                     f"Cannot impute output type for dummies of type `{type(dummies)}`."
                 )
-        elif output not in ("pandas", "numpy", "sparse"):  # pragma: no cover
+        elif output not in (
+            "narwhals",
+            "pandas",
+            "numpy",
+            "sparse",
+        ):  # pragma: no cover
             raise ValueError(
-                "Output type for contrasts must be one of: 'pandas', 'numpy' or 'sparse'."
+                "Output type for contrasts must be one of: 'narwhals', 'pandas', 'numpy' or 'sparse'."
             )
 
         # Short-circuit when we know the output encoding will be empty
@@ -257,7 +262,7 @@ class Contrasts(metaclass=InterfaceMeta):
             return FactorValues(
                 encoded,
                 kind="categorical",
-                column_names=cast(Tuple[Hashable], ()),
+                column_names=cast(tuple[Hashable], ()),
                 spans_intercept=False,
                 format=self.get_factor_format(levels, reduced_rank=reduced_rank),
                 format_reduced=self.get_factor_format(levels, reduced_rank=True),
@@ -616,7 +621,7 @@ class SumContrasts(Contrasts):
             return spsparse.eye(n).tocsc() if sparse else numpy.eye(n)
         contr = spsparse.eye(n, n - 1).tolil() if sparse else numpy.eye(n, n - 1)
         contr[-1, :] = -1
-        return contr.tocsc() if sparse else contr
+        return cast(spsparse.lil_matrix, contr).tocsc() if sparse else contr
 
     @Contrasts.override
     def get_coding_column_names(
@@ -846,7 +851,7 @@ class CustomContrasts(Contrasts):
     def __init__(
         self,
         contrasts: Union[
-            Dict[Hashable, Sequence[float]], Sequence[Sequence[float]], numpy.ndarray
+            dict[Hashable, Sequence[float]], Sequence[Sequence[float]], numpy.ndarray
         ],
         names: Optional[Sequence[Hashable]] = None,
     ):

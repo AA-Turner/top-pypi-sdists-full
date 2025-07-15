@@ -36,6 +36,16 @@ from datadog_api_client.v2.model.aws_auth_config_role import AWSAuthConfigRole
 from datadog_api_client.v2.model.aws_credentials import AWSCredentials
 from datadog_api_client.v2.model.aws_credentials_update import AWSCredentialsUpdate
 from datadog_api_client.v2.model.aws_integration import AWSIntegration
+from datadog_api_client.v2.model.aws_integration_iam_permissions_response import AWSIntegrationIamPermissionsResponse
+from datadog_api_client.v2.model.aws_integration_iam_permissions_response_attributes import (
+    AWSIntegrationIamPermissionsResponseAttributes,
+)
+from datadog_api_client.v2.model.aws_integration_iam_permissions_response_data import (
+    AWSIntegrationIamPermissionsResponseData,
+)
+from datadog_api_client.v2.model.aws_integration_iam_permissions_response_data_type import (
+    AWSIntegrationIamPermissionsResponseDataType,
+)
 from datadog_api_client.v2.model.aws_integration_type import AWSIntegrationType
 from datadog_api_client.v2.model.aws_integration_update import AWSIntegrationUpdate
 from datadog_api_client.v2.model.aws_lambda_forwarder_config import AWSLambdaForwarderConfig
@@ -938,6 +948,11 @@ from datadog_api_client.v2.model.data_transform import DataTransform
 from datadog_api_client.v2.model.data_transform_properties import DataTransformProperties
 from datadog_api_client.v2.model.data_transform_type import DataTransformType
 from datadog_api_client.v2.model.database_monitoring_trigger_wrapper import DatabaseMonitoringTriggerWrapper
+from datadog_api_client.v2.model.dataset import Dataset
+from datadog_api_client.v2.model.dataset_attributes import DatasetAttributes
+from datadog_api_client.v2.model.dataset_create_request import DatasetCreateRequest
+from datadog_api_client.v2.model.dataset_response_multi import DatasetResponseMulti
+from datadog_api_client.v2.model.dataset_response_single import DatasetResponseSingle
 from datadog_api_client.v2.model.delete_app_response import DeleteAppResponse
 from datadog_api_client.v2.model.delete_app_response_data import DeleteAppResponseData
 from datadog_api_client.v2.model.delete_apps_request import DeleteAppsRequest
@@ -1219,6 +1234,7 @@ from datadog_api_client.v2.model.fastly_service_request import FastlyServiceRequ
 from datadog_api_client.v2.model.fastly_service_response import FastlyServiceResponse
 from datadog_api_client.v2.model.fastly_service_type import FastlyServiceType
 from datadog_api_client.v2.model.fastly_services_response import FastlyServicesResponse
+from datadog_api_client.v2.model.filters_per_product import FiltersPerProduct
 from datadog_api_client.v2.model.finding import Finding
 from datadog_api_client.v2.model.finding_attributes import FindingAttributes
 from datadog_api_client.v2.model.finding_evaluation import FindingEvaluation
@@ -1251,6 +1267,23 @@ from datadog_api_client.v2.model.gcpsts_service_account_update_request_data impo
 from datadog_api_client.v2.model.gcpsts_service_accounts_response import GCPSTSServiceAccountsResponse
 from datadog_api_client.v2.model.gcp_service_account_meta import GCPServiceAccountMeta
 from datadog_api_client.v2.model.gcp_service_account_type import GCPServiceAccountType
+from datadog_api_client.v2.model.gcp_usage_cost_config import GCPUsageCostConfig
+from datadog_api_client.v2.model.gcp_usage_cost_config_attributes import GCPUsageCostConfigAttributes
+from datadog_api_client.v2.model.gcp_usage_cost_config_patch_data import GCPUsageCostConfigPatchData
+from datadog_api_client.v2.model.gcp_usage_cost_config_patch_request import GCPUsageCostConfigPatchRequest
+from datadog_api_client.v2.model.gcp_usage_cost_config_patch_request_attributes import (
+    GCPUsageCostConfigPatchRequestAttributes,
+)
+from datadog_api_client.v2.model.gcp_usage_cost_config_patch_request_type import GCPUsageCostConfigPatchRequestType
+from datadog_api_client.v2.model.gcp_usage_cost_config_post_data import GCPUsageCostConfigPostData
+from datadog_api_client.v2.model.gcp_usage_cost_config_post_request import GCPUsageCostConfigPostRequest
+from datadog_api_client.v2.model.gcp_usage_cost_config_post_request_attributes import (
+    GCPUsageCostConfigPostRequestAttributes,
+)
+from datadog_api_client.v2.model.gcp_usage_cost_config_post_request_type import GCPUsageCostConfigPostRequestType
+from datadog_api_client.v2.model.gcp_usage_cost_config_response import GCPUsageCostConfigResponse
+from datadog_api_client.v2.model.gcp_usage_cost_config_type import GCPUsageCostConfigType
+from datadog_api_client.v2.model.gcp_usage_cost_configs_response import GCPUsageCostConfigsResponse
 from datadog_api_client.v2.model.get_action_connection_response import GetActionConnectionResponse
 from datadog_api_client.v2.model.get_app_key_registration_response import GetAppKeyRegistrationResponse
 from datadog_api_client.v2.model.get_app_response import GetAppResponse
@@ -1539,6 +1572,7 @@ from datadog_api_client.v2.model.list_apps_response_data_items_relationships imp
 )
 from datadog_api_client.v2.model.list_apps_response_meta import ListAppsResponseMeta
 from datadog_api_client.v2.model.list_apps_response_meta_page import ListAppsResponseMetaPage
+from datadog_api_client.v2.model.list_assets_sbo_ms_response import ListAssetsSBOMsResponse
 from datadog_api_client.v2.model.list_devices_response import ListDevicesResponse
 from datadog_api_client.v2.model.list_devices_response_metadata import ListDevicesResponseMetadata
 from datadog_api_client.v2.model.list_devices_response_metadata_page import ListDevicesResponseMetadataPage
@@ -2740,8 +2774,15 @@ from datadog_api_client.v2.model.saml_assertion_attributes_type import SAMLAsser
 from datadog_api_client.v2.model.sbom import SBOM
 from datadog_api_client.v2.model.sbom_attributes import SBOMAttributes
 from datadog_api_client.v2.model.sbom_component import SBOMComponent
+from datadog_api_client.v2.model.sbom_component_dependency import SBOMComponentDependency
+from datadog_api_client.v2.model.sbom_component_license import SBOMComponentLicense
+from datadog_api_client.v2.model.sbom_component_license_license import SBOMComponentLicenseLicense
+from datadog_api_client.v2.model.sbom_component_license_type import SBOMComponentLicenseType
+from datadog_api_client.v2.model.sbom_component_property import SBOMComponentProperty
+from datadog_api_client.v2.model.sbom_component_supplier import SBOMComponentSupplier
 from datadog_api_client.v2.model.sbom_component_type import SBOMComponentType
 from datadog_api_client.v2.model.sbom_metadata import SBOMMetadata
+from datadog_api_client.v2.model.sbom_metadata_author import SBOMMetadataAuthor
 from datadog_api_client.v2.model.sbom_metadata_component import SBOMMetadataComponent
 from datadog_api_client.v2.model.sbom_type import SBOMType
 from datadog_api_client.v2.model.slo_report_interval import SLOReportInterval
@@ -3580,6 +3621,10 @@ __all__ = [
     "AWSCredentials",
     "AWSCredentialsUpdate",
     "AWSIntegration",
+    "AWSIntegrationIamPermissionsResponse",
+    "AWSIntegrationIamPermissionsResponseAttributes",
+    "AWSIntegrationIamPermissionsResponseData",
+    "AWSIntegrationIamPermissionsResponseDataType",
     "AWSIntegrationType",
     "AWSIntegrationUpdate",
     "AWSLambdaForwarderConfig",
@@ -4230,6 +4275,11 @@ __all__ = [
     "DataTransformProperties",
     "DataTransformType",
     "DatabaseMonitoringTriggerWrapper",
+    "Dataset",
+    "DatasetAttributes",
+    "DatasetCreateRequest",
+    "DatasetResponseMulti",
+    "DatasetResponseSingle",
     "DeleteAppResponse",
     "DeleteAppResponseData",
     "DeleteAppsRequest",
@@ -4457,6 +4507,7 @@ __all__ = [
     "FastlyServiceResponse",
     "FastlyServiceType",
     "FastlyServicesResponse",
+    "FiltersPerProduct",
     "Finding",
     "FindingAttributes",
     "FindingEvaluation",
@@ -4489,6 +4540,19 @@ __all__ = [
     "GCPSTSServiceAccountsResponse",
     "GCPServiceAccountMeta",
     "GCPServiceAccountType",
+    "GCPUsageCostConfig",
+    "GCPUsageCostConfigAttributes",
+    "GCPUsageCostConfigPatchData",
+    "GCPUsageCostConfigPatchRequest",
+    "GCPUsageCostConfigPatchRequestAttributes",
+    "GCPUsageCostConfigPatchRequestType",
+    "GCPUsageCostConfigPostData",
+    "GCPUsageCostConfigPostRequest",
+    "GCPUsageCostConfigPostRequestAttributes",
+    "GCPUsageCostConfigPostRequestType",
+    "GCPUsageCostConfigResponse",
+    "GCPUsageCostConfigType",
+    "GCPUsageCostConfigsResponse",
     "GetActionConnectionResponse",
     "GetAppKeyRegistrationResponse",
     "GetAppResponse",
@@ -4739,6 +4803,7 @@ __all__ = [
     "ListAppsResponseDataItemsRelationships",
     "ListAppsResponseMeta",
     "ListAppsResponseMetaPage",
+    "ListAssetsSBOMsResponse",
     "ListDevicesResponse",
     "ListDevicesResponseMetadata",
     "ListDevicesResponseMetadataPage",
@@ -5548,8 +5613,15 @@ __all__ = [
     "SBOM",
     "SBOMAttributes",
     "SBOMComponent",
+    "SBOMComponentDependency",
+    "SBOMComponentLicense",
+    "SBOMComponentLicenseLicense",
+    "SBOMComponentLicenseType",
+    "SBOMComponentProperty",
+    "SBOMComponentSupplier",
     "SBOMComponentType",
     "SBOMMetadata",
+    "SBOMMetadataAuthor",
     "SBOMMetadataComponent",
     "SBOMType",
     "SLOReportInterval",

@@ -113,6 +113,8 @@ async def worker(
         run_creation_ms=run_creation_ms,
         run_queue_ms=ms(run_started_at_dt, run["created_at"]),
         run_stream_start_ms=ms(run_stream_started_at_dt, run_started_at_dt),
+        temporary=temporary,
+        resumable=resumable,
     )
 
     def on_checkpoint(checkpoint_arg: CheckpointPayload):
@@ -242,47 +244,55 @@ async def worker(
                             run_id=str(run_id),
                             run_attempt=attempt,
                         )
-                await Threads.set_joint_status(
-                    conn, run["thread_id"], run_id, status, checkpoint=checkpoint
-                )
+                if not temporary:
+                    await Threads.set_joint_status(
+                        conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                    )
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
                 await logger.awarning(
                     "Background run timed out",
                     **log_info,
                 )
-                await Threads.set_joint_status(
-                    conn, run["thread_id"], run_id, status, checkpoint=checkpoint
-                )
-            elif isinstance(exception, UserRollback):
-                status = "rollback"
-                try:
+                if not temporary:
                     await Threads.set_joint_status(
                         conn, run["thread_id"], run_id, status, checkpoint=checkpoint
                     )
-                    await logger.ainfo(
-                        "Background run rolled back",
-                        **log_info,
-                    )
-                except HTTPException as e:
-                    if e.status_code == 404:
+            elif isinstance(exception, UserRollback):
+                status = "rollback"
+                if not temporary:
+                    try:
+                        await Threads.set_joint_status(
+                            conn,
+                            run["thread_id"],
+                            run_id,
+                            status,
+                            checkpoint=checkpoint,
+                        )
                         await logger.ainfo(
-                            "Ignoring rollback error for missing run",
+                            "Background run rolled back",
                             **log_info,
                         )
-                    else:
-                        raise
+                    except HTTPException as e:
+                        if e.status_code == 404:
+                            await logger.ainfo(
+                                "Ignoring rollback error for missing run",
+                                **log_info,
+                            )
+                        else:
+                            raise
 
-                checkpoint = None  # reset the checkpoint
+                    checkpoint = None  # reset the checkpoint
             elif isinstance(exception, UserInterrupt):
                 status = "interrupted"
                 await logger.ainfo(
                     "Background run interrupted",
                     **log_info,
                 )
-                await Threads.set_joint_status(
-                    conn, run["thread_id"], run_id, status, checkpoint, exception
-                )
+                if not temporary:
+                    await Threads.set_joint_status(
+                        conn, run["thread_id"], run_id, status, checkpoint, exception
+                    )
             elif isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 status = "retry"
                 await logger.awarning(
@@ -290,6 +300,7 @@ async def worker(
                     **log_info,
                 )
                 # Don't update thread status yet.
+                # Apply this even for temporary runs, so we retry
                 await Runs.set_status(conn, run_id, "pending")
             else:
                 status = "error"
@@ -303,13 +314,14 @@ async def worker(
                     exc_info=not isinstance(exception, RemoteException),
                     **log_info,
                 )
-                await Threads.set_joint_status(
-                    conn, run["thread_id"], run_id, status, checkpoint, exception
-                )
+                if not temporary:
+                    await Threads.set_joint_status(
+                        conn, run["thread_id"], run_id, status, checkpoint, exception
+                    )
 
             # delete thread if it's temporary and we don't want to retry
             if temporary and not isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
-                await Threads.delete(conn, run["thread_id"])
+                await Threads._delete_with_run(conn, run["thread_id"], run_id)
 
         if isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
             await logger.awarning("RETRYING", exc_info=exception)

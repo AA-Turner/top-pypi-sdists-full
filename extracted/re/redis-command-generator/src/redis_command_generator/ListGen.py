@@ -2,63 +2,42 @@ import redis
 import random
 from simple_parsing import parse
 from dataclasses import dataclass
-from redis_command_generator.BaseGen import BaseGen
+from redis_command_generator.BaseGen import BaseGen, cg_method
 
 @dataclass
 class ListGen(BaseGen):
     max_subelements: int = 10
     subval_size: int = 5
     
-    def lpush(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="list", can_create_key=True)
+    def lpush(self, pipe: redis.client.Pipeline, key: str) -> None:
         items = [self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_subelements))]
         pipe.lpush(key, *items)
     
-    def rpush(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="list", can_create_key=True)
+    def rpush(self, pipe: redis.client.Pipeline, key: str) -> None:
         items = [self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_subelements))]
         pipe.rpush(key, *items)
     
-    def lpop(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "list")
-        if not key: return
-        
+    @cg_method(cmd_type="list", can_create_key=False)
+    def lpop(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.lpop(key)
     
-    def rpop(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "list")
-        if not key: return
-        
+    @cg_method(cmd_type="list", can_create_key=False)
+    def rpop(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.rpop(key)
     
-    def lrem(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
+    @cg_method(cmd_type="list", can_create_key=False)
+    def lrem(self, pipe: redis.client.Pipeline, key: str) -> None:
         redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "list")
-        if not key: return
-        
         list_length = redis_obj.llen(key)
-        if not list_length: return
+        if not list_length:
+            return
         
         rand_index = random.randint(0, list_length - 1)
         item = redis_obj.lindex(key, rand_index)
-        if not item: return
+        if not item:
+            return
         
         pipe.lrem(key, 0, item)
 

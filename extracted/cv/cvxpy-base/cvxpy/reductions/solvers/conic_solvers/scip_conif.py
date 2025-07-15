@@ -18,7 +18,7 @@ import logging
 from typing import Any, Dict, Generic, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
-from scipy.sparse import dok_matrix
+from scipy.sparse import dok_array
 
 import cvxpy.settings as s
 from cvxpy import Zero
@@ -30,6 +30,7 @@ from cvxpy.reductions.solvers.conic_solvers.conic_solver import (
     ConicSolver,
     dims_to_solver_dict,
 )
+from cvxpy.utilities.citations import CITATION_DICT
 
 log = logging.getLogger(__name__)
 
@@ -187,8 +188,8 @@ class SCIP(ConicSolver):
         """Define data parts from the data reference."""
         c = data[s.C]
         b = data[s.B]
-        A = dok_matrix(data[s.A])
-        # Save the dok_matrix.
+        A = dok_array(data[s.A])
+        # Save the dok_array.
         data[s.A] = A
         dims = dims_to_solver_dict(data[s.DIMS])
         return A, b, c, dims
@@ -213,7 +214,7 @@ class SCIP(ConicSolver):
             self,
             model: ScipModel,
             variables: List,
-            A: dok_matrix,
+            A: dok_array,
             b: np.ndarray,
             dims: Dict[str, Union[int, List]],
     ) -> List:
@@ -380,7 +381,7 @@ class SCIP(ConicSolver):
         variables: List,
         rows: Iterator,
         ctype: str,
-        A: dok_matrix,
+        A: dok_array,
         b: np.ndarray,
     ) -> List:
         """Adds EQ/LEQ constraints to the model using the data from mat and vec.
@@ -418,7 +419,7 @@ class SCIP(ConicSolver):
         model: ScipModel,
         variables: List,
         rows: Iterator,
-        A: dok_matrix,
+        A: dok_array,
         b: np.ndarray,
     ) -> Tuple:
         """Adds SOC constraint to the model using the data from mat and vec.
@@ -470,6 +471,15 @@ class SCIP(ConicSolver):
             soc_vars,
         )
 
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["SCIP"]
 
 def get_variable_type(n: int, data: Dict[str, Any]) -> str:
     """Given an index n, and a set of data,

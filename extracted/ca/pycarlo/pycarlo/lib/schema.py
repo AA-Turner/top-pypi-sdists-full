@@ -9677,7 +9677,15 @@ class TransactionalDbUpdateConnectionSettings(sgqlc.types.Input):
 
 class TransformInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("alias", "prompt", "categories", "function", "field", "id")
+    __field_names__ = (
+        "alias",
+        "prompt",
+        "categories",
+        "model_connection_id",
+        "function",
+        "field",
+        "id",
+    )
     alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
 
     prompt = sgqlc.types.Field(String, graphql_name="prompt")
@@ -9686,6 +9694,8 @@ class TransformInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(ClassificationCategoriesInput)),
         graphql_name="categories",
     )
+
+    model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
@@ -62519,7 +62529,15 @@ class TrackTablePayload(sgqlc.types.Type):
 
 class Transform(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("alias", "prompt", "categories", "function", "field", "id")
+    __field_names__ = (
+        "alias",
+        "prompt",
+        "categories",
+        "model_connection_id",
+        "function",
+        "field",
+        "id",
+    )
     alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
 
     prompt = sgqlc.types.Field(String, graphql_name="prompt")
@@ -62528,6 +62546,8 @@ class Transform(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(ClassificationCategories)),
         graphql_name="categories",
     )
+
+    model_connection_id = sgqlc.types.Field(String, graphql_name="modelConnectionId")
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 

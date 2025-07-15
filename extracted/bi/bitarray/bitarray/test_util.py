@@ -51,7 +51,7 @@ else:
 class ZerosOnesTests(unittest.TestCase):
 
     def test_basic(self):
-        for _ in range(20):
+        for _ in range(50):
             default_endian = choice(['little', 'big'])
             _set_default_endian(default_endian)
             a = choice([zeros(0), zeros(0, None), zeros(0, endian=None),
@@ -107,14 +107,15 @@ class URandomTests(unittest.TestCase):
             self.assertEqual(type(a), bitarray)
 
     def test_errors(self):
-        self.assertRaises(TypeError, urandom)
-        self.assertRaises(TypeError, urandom, '')
-        self.assertRaises(TypeError, urandom, bitarray())
-        self.assertRaises(TypeError, urandom, [])
-        self.assertRaises(TypeError, urandom, 1.0)
-        self.assertRaises(ValueError, urandom, -1)
-        self.assertRaises(TypeError, urandom, 0, 1)
-        self.assertRaises(ValueError, urandom, 0, 'foo')
+        U = urandom
+        self.assertRaises(TypeError, U)
+        self.assertRaises(TypeError, U, '')
+        self.assertRaises(TypeError, U, bitarray())
+        self.assertRaises(TypeError, U, [])
+        self.assertRaises(TypeError, U, 1.0)
+        self.assertRaises(ValueError, U, -1)
+        self.assertRaises(TypeError, U, 0, 1)
+        self.assertRaises(ValueError, U, 0, 'foo')
 
     def test_count(self):
         a = urandom(10_000_000)
@@ -139,7 +140,7 @@ class Random_P_Tests(unittest.TestCase):
             default_endian = choice(['little', 'big'])
             _set_default_endian(default_endian)
             endian = choice(['little', 'big', None])
-            n = randrange(100)
+            n = randrange(120)
             p = choice([0.0, 0.0001, 0.2, 0.5, 0.9, 1.0])
             a = random_p(n, p, endian)
             self.assertTrue(type(a), bitarray)
@@ -153,11 +154,14 @@ class Random_P_Tests(unittest.TestCase):
         self.assertRaises(TypeError, R, 1, "0.5")
         self.assertRaises(ValueError, R, -1)
         self.assertRaises(ValueError, R, 1, -0.5)
-        self.assertRaises(ValueError, R, 1, 1.5)
+        self.assertRaises(ValueError, R, 1, p=1.5)
+        self.assertRaises(ValueError, R, 1, 0.15, 'foo')
+        self.assertRaises(ValueError, R, 10, 0.5, endian='foo')
         self.assertEqual(R(0), bitarray())
         for n in range(20):
             self.assertEqual(R(n, 0), zeros(n))
-            self.assertEqual(R(n, p=1.0), ones(n))
+            self.assertEqual(len(R(n, 0.5)), n)
+            self.assertEqual(R(n, p=1), ones(n))
 
     def test_default(self):
         a = random_p(10_000_000)  # p defaults to 0.5
@@ -166,7 +170,7 @@ class Random_P_Tests(unittest.TestCase):
 
     def test_count(self):
         for _ in range(500):
-            n = choice([4, 10, 100, 1000, 10_000])
+            n = choice([randrange(4, 120), randrange(100, 1000)])
             p = choice([0.0001, 0.001, 0.01, 0.1, 0.25, 0.5, 0.9])
             sigma = math.sqrt(n * p * (1.0 - p))
             a = random_p(n, p)
@@ -184,14 +188,16 @@ class Random_P_Tests(unittest.TestCase):
         a = random_p(5000, 0.001)
         self.assertEqual(list(a.search(1)), [286, 687, 806, 2905])
         # general case
-        self.assertEqual(random_p(32, 0.7),
-                         bitarray('11111011101011111000111111011111'))
+        self.assertEqual(random_p(100, 0.7)[:32],
+                         bitarray('10101111001010110010111111000111'))
         # small n (note that p=0.4 will call the "literal definition" case)
-        self.assertEqual(random_p(9, 0.4), bitarray('001111001'))
+        self.assertEqual(random_p(15, 0.4), bitarray('00010100 0110001'))
         # initialize with current system time again
         seed()
 
     # ---------------- tests for internal _RandomP methods ------------------
+
+    # To better understand how the algorithm works, see ./doc/random_p.rst
 
     r = _RandomP()
 
@@ -204,34 +210,36 @@ class Random_P_Tests(unittest.TestCase):
 
         K = self.r.K
         SMALL_P = self.r.SMALL_P
-        #print(1.0 / (K / 2 + 1))
 
         # Ensure the small p case filters out i = 0 for get_op_seq().
         i = int(SMALL_P * K)
         self.assertTrue(i > 0)
         # So SMALL_P must the larger than the interval span:
         self.assertTrue(SMALL_P > 1.0 / K)
-        # However, this limit is exceeded by the following.
+        # However, this limit is exceeded by the following (larger) limit.
 
         # Ensure we hit the small p case when calling random_p() itself.
         # This would be problematic as it could cause a self recursive loop.
-        # We consider p just below 1/2
+        # We consider p just below 1/2:
         p = 0.5 - 1e-16
         q = int(p * K) / K
         self.assertEqual(q, 0.5 - 1.0 / K)
         self.assertEqual(q, (K / 2 - 1) / K)
         x = (0.5 - q) / (1.0 - q)  # see below
-        self.assertAlmostEqual(x, 1.0 / (K / 2 + 1))
-        self.assertTrue(x < SMALL_P)
+        self.assertEqual(x, 1.0 / (K / 2 + 1))
+        self.assertTrue(x < SMALL_P, x)
         # So SMALL_P must the larger than:
         self.assertTrue(SMALL_P > 1.0 / (K / 2 + 1))
 
-    def test_final_oring(self):
+    def test_final_OR(self):
+        # The purpose of this test function is to ensure the final OR step
+        # in .random_p() always gives us the correct probability.
+
         K = self.r.K
         SMALL_P = self.r.SMALL_P
 
-        special_p = [0.0, 1e-16, SMALL_P - 1e-16, SMALL_P, 0.25 - 1e-16,
-                     0.25, 1.0 / 3, 0.5 - 1e-16, 0.5]
+        special_p = [0.0, 1e-16, SMALL_P - 1e-16, SMALL_P,
+                     0.25 - 1e-16, 0.25, 1.0 / 3, 0.5 - 1e-16, 0.5]
         for j in range(1000):
             try:
                 p = special_p[j]
@@ -242,23 +250,23 @@ class Random_P_Tests(unittest.TestCase):
             self.assertTrue(q <= p)
             self.assertTrue(0.0 <= p - q < 1.0 / K)
 
-            r = math.fmod(p, 1.0 / K)  # remainder
+            r = math.fmod(p, 1.0 / K)  # remainder (not used in util.py)
             self.assertEqual(q + r, p)
             self.assertEqual(bool(r), q < p)
 
             if q < p:
                 # calculated such that q will equal to p
                 x = (p - q) / (1.0 - q)
-                self.assertAlmostEqual(r / (1.0 - p + r), x, delta=1e-16)
+                self.assertEqual(r / (1.0 - p + r), x)
                 # Ensure we hit the small p case when calling random_p()
                 # itself.  Considering p = 0.5-1e-16, we have q = 127/256,
-                # so the maximal:
+                # so the maximal x is given by:
                 # x = (0.5 - q) / (1 - q) = 1 / 129 = 0.0077519 < 0.01
-                self.assertTrue(x < SMALL_P, x)
+                self.assertTrue(0.0 < x < SMALL_P, x)
                 q += x * (1.0 - q)   # q = 1 - (1 - q) * (1 - x)
 
             # ensure desired probability q is p
-            self.assertAlmostEqual(q, p, delta=1e-16)
+            self.assertEqual(q, p)
 
     def test_get_op_seq(self):
         G = self.r.get_op_seq
@@ -266,21 +274,21 @@ class Random_P_Tests(unittest.TestCase):
         M = self.r.M
 
         # special cases
-        self.assertRaises(AssertionError, G, 0)
+        self.assertRaises(ValueError, G, 0)
         self.assertEqual(G(1), zeros(M - 1))
         self.assertEqual(G(K // 2), bitarray())
         self.assertEqual(G(K - 1), ones(M - 1))
-        self.assertRaises(AssertionError, G, K)
+        self.assertRaises(ValueError, G, K)
 
         # examples
         for p, s in [
                 (0.15625, '0100'),
-                (0.25,       '0'),  # 1/2   and ->   1/4
-                (0.375,     '10'),  # 1/2   or ->   3/4   and ->   3/8
+                (0.25,       '0'),  # 1/2   AND ->   1/4
+                (0.375,     '10'),  # 1/2   OR ->   3/4   AND ->   3/8
                 (0.5,         ''),
-                (0.625,     '01'),  # 1/2   and ->   1/4   or ->   5/8
+                (0.625,     '01'),  # 1/2   AND ->   1/4   OR ->   5/8
                 (0.6875,   '101'),
-                (0.75,       '1'),  # 1/2   or ->   3/4
+                (0.75,       '1'),  # 1/2   OR ->   3/4
         ]:
             seq = G(int(p * K))
             self.assertEqual(seq.to01(), s)
@@ -297,28 +305,42 @@ class Random_P_Tests(unittest.TestCase):
                     q *= 0.5               # a &= random_half()
             self.assertEqual(q, i / K)
 
-    def test_random_m_basic(self):
+    def test_combine_half(self):
+        r = _RandomP(1_000_000)
+        for seq, mean in [
+                ([],     500_000),  # .random_half() itself
+                ([0],    250_000),  # AND
+                ([1],    750_000),  # OR
+                ([1, 0], 375_000),  # OR followed by AND
+        ]:
+            a = r.combine_half(seq)
+            self.assertTrue(abs(a.count() - mean) < 5_000)
+
+    def test_random_pop_basic(self):
         r = _RandomP(7)
+        a = r.random_pop(3)
+        self.assertEqual(len(a), 7)
+        self.assertEqual(a.count(), 3)
         for m in -1, 8:
-            self.assertRaises(AssertionError, r.random_m, m)
+            self.assertRaises(ValueError, r.random_pop, m)
 
         for n in range(10):
             r = _RandomP(n)
-            m = randint(0, n)
-            a = r.random_m(m)
+            k = randint(0, n)
+            a = r.random_pop(k)
             self.assertEqual(len(a), n)
-            self.assertEqual(a.count(), m)
+            self.assertEqual(a.count(), k)
 
-    def test_random_m_active(self):
+    def test_random_pop_active(self):
         # test if all bits are active
         n = 250
         r = _RandomP(n)
         cum = zeros(n)
         for _ in range(100):
-            m = randrange(n // 2)
-            a = r.random_m(m)
+            k = randrange(n // 2)
+            a = r.random_pop(k)
             self.assertEqual(len(a), n)
-            self.assertEqual(a.count(), m)
+            self.assertEqual(a.count(), k)
             cum |= a
         self.assertTrue(cum.all())
 

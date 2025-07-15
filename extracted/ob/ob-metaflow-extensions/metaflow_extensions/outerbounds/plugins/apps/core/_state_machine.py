@@ -189,6 +189,10 @@ class CurrentWorkerInfo(TypedDict):
     crashlooping: int
 
 
+class LogLine(TypedDict):
+    message: str
+
+
 class DEPLOYMENT_READY_CONDITIONS:
     """
     Deployment ready conditions define what is considered a successful completion of the current deployment instance.

@@ -27,12 +27,13 @@ import string
 import subprocess
 import sys
 import tempfile
-from typing import Optional
 
 import pytest
 from craft_providers import lxd, multipass
 from craft_providers.actions.snap_installer import get_host_snap_info
 from craft_providers.bases import ubuntu
+from craft_providers.lxd import project as lxc_project
+from craft_providers.provider import Provider
 
 
 def pytest_runtest_setup(item: pytest.Item):
@@ -40,8 +41,8 @@ def pytest_runtest_setup(item: pytest.Item):
     with_sudo = item.get_closest_marker("with_sudo")
     if (
         with_sudo
-        and not os.getenv("CI")
-        and not os.getenv("CRAFT_PROVIDERS_TESTS_ENABLE_SUDO")
+        and not os.environ.get("CI")
+        and not os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_SUDO")
     ):
         pytest.skip("Not running in CI and CRAFT_PROVIDERS_TESTS_ENABLE_SUDO not set.")
 
@@ -99,7 +100,11 @@ def installed_lxd():
     if lxd.is_installed():
         return
 
-    if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_LXD_INSTALL") == "1":
+    # Always install lxd in CI
+    if (
+        os.environ.get("CI")
+        or os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_LXD_INSTALL") == "1"
+    ):
         lxd.install()
     else:
         pytest.skip("lxd not installed, skipped")
@@ -121,10 +126,19 @@ def uninstalled_lxd():
     if not lxd.is_installed():
         pytest.skip("lxd not installed, skipped")
 
-    if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_LXD_UNINSTALL") != "1":
+    if os.environ.get("CI"):
+        # Always try uninstalling LXD in CI
+        pass
+    elif os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_LXD_UNINSTALL") != "1":
         pytest.skip("not configured to uninstall lxd, skipped")
 
     if sys.platform == "linux":
+        import grp  # noqa: PLC0415
+
+        lxd_info = grp.getgrnam("lxd")
+        assert lxd_info.gr_gid in os.getgroups(), (
+            "Process not affiliated with lxd group"
+        )
         subprocess.run(["sudo", "snap", "remove", "lxd", "--purge"], check=True)
 
     yield
@@ -144,7 +158,10 @@ def installed_multipass():
     if multipass.is_installed():
         return
 
-    if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_MULTIPASS_INSTALL") == "1":
+    if os.environ.get("CI") and sys.platform == "darwin":
+        # Always do this on macos in CI
+        pass
+    elif os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_MULTIPASS_INSTALL") == "1":
         multipass.install()
     else:
         pytest.skip("multipass not installed, skipped")
@@ -163,7 +180,10 @@ def uninstalled_multipass():
     if not multipass.is_installed():
         pytest.skip("multipass not installed, skipped")
 
-    if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_MULTIPASS_UNINSTALL") != "1":
+    if os.environ.get("CI"):
+        # Always try uninstalling multipass in CI
+        pass
+    elif os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_MULTIPASS_UNINSTALL") != "1":
         pytest.skip("not configured to uninstall multipass, skipped")
 
     if sys.platform == "linux":
@@ -211,14 +231,17 @@ def installed_snap():
         pytest.skip("requires linux and snapd")
 
     @contextlib.contextmanager
-    def _installed_snap(snap_name, *, try_path: Optional[pathlib.Path] = None):
+    def _installed_snap(snap_name, *, try_path: pathlib.Path | None = None):
         """Ensure snap is installed or skip test."""
         # do nothing if already installed and not dangerous
         if snap_exists(snap_name) and not is_installed_dangerously(snap_name):
             yield
         else:
             # Install it, if enabled to do so by environment.
-            if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_SNAP_INSTALL") != "1":
+            if os.environ.get("CI") and sys.platform == "linux":
+                # Always do this on Linux in CI
+                pass
+            elif os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_SNAP_INSTALL") != "1":
                 pytest.skip(f"{snap_name!r} snap not installed, skipped")
 
             if try_path:
@@ -255,7 +278,10 @@ def dangerously_installed_snap(tmpdir):
         if snap_exists(snap_name) and is_installed_dangerously(snap_name):
             yield
         else:
-            if os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_SNAP_INSTALL") != "1":
+            if os.environ.get("CI") and sys.platform == "linux":
+                # Always do this on Linux in CI
+                pass
+            elif os.environ.get("CRAFT_PROVIDERS_TESTS_ENABLE_SNAP_INSTALL") != "1":
                 pytest.skip(f"{snap_name!r} snap not installed, skipped")
 
             # download the snap
@@ -307,3 +333,52 @@ def empty_test_snap(installed_snap):
 
         with installed_snap(snap_name, try_path=tmp_path):
             yield snap_name
+
+
+@pytest.fixture(scope="session")
+def session_lxd_project(installed_lxd):
+    lxc = lxd.LXC()
+    project_name = "craft-providers-test-session"
+    # We could need to purge if previous tests were killed.
+    lxc_project.purge(lxc=lxc, project=project_name)
+    lxc_project.create_with_default_profile(lxc=lxc, project=project_name)
+
+    projects = lxc.project_list()
+    assert project_name in projects
+
+    instances = lxc.list(project=project_name)
+    assert instances == []
+
+    expected_cfg = lxc.profile_show(profile="default", project="default")
+    expected_cfg["used_by"] = []
+    if "project" in expected_cfg:
+        del expected_cfg["project"]
+
+    actual_config = lxc.profile_show(profile="default", project=project_name)
+    if "project" in actual_config:
+        del actual_config["project"]
+
+    assert actual_config == expected_cfg
+
+    yield project_name
+
+    lxc_project.purge(lxc=lxc, project=project_name)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        pytest.param("lxd", marks=[pytest.mark.lxd_instance]),
+        pytest.param("multipass", marks=[pytest.mark.multipass_instance]),
+    ],
+)
+def session_provider(request: pytest.FixtureRequest) -> Provider:
+    match request.param:
+        case "lxd":
+            return lxd.LXDProvider(
+                lxd_project=request.getfixturevalue("session_lxd_project")
+            )
+        case "multipass":
+            return multipass.MultipassProvider()
+        case _:
+            raise ValueError(f"Unknown provider {request.param}")

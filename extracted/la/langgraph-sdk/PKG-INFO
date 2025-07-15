@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-sdk
-Version: 0.1.72
+Version: 0.1.73
 Summary: SDK for interacting with LangGraph API
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT

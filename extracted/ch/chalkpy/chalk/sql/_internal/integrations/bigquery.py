@@ -5,7 +5,7 @@ import functools
 import queue
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, Mapping, Optional, Sequence
 from uuid import uuid4
 
 import google
@@ -313,12 +313,8 @@ class BigQuerySourceImpl(BaseSQLSource):
             import google.cloud.bigquery.dbapi
             import google.cloud.bigquery.dbapi._helpers
             import google.cloud.bigquery.dbapi.cursor
-            from sqlalchemy_bigquery.base import BigQueryCompiler
 
-            dialect = self.get_engine().dialect
-            Compiler = cast("type[BigQueryCompiler]", self.get_engine().dialect.statement_compiler)
-
-            compiled_stmt = Compiler(dialect, finalized_query.query)
+            compiled_stmt = finalized_query.query.compile(dialect=self.get_sqlalchemy_dialect(paramstyle="pyformat"))
             operation = compiled_stmt.string
             parameters = finalized_query.params if finalized_query.params else compiled_stmt.params
             (

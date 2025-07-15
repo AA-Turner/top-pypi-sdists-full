@@ -50,7 +50,7 @@ from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from langchain_nvidia_ai_endpoints._common import _NVIDIAClient
 from langchain_nvidia_ai_endpoints._statics import Model
@@ -254,6 +254,8 @@ class ChatNVIDIA(BaseChatModel):
             response = model.invoke("Hello")
     """
 
+    model_config = ConfigDict(populate_by_name=True)
+
     _client: _NVIDIAClient = PrivateAttr()
     base_url: Optional[str] = Field(
         default=None,
@@ -264,7 +266,9 @@ class ChatNVIDIA(BaseChatModel):
         None, description="Sampling temperature in [0, 1]"
     )
     max_tokens: Optional[int] = Field(
-        1024, description="Maximum # of tokens to generate"
+        1024,
+        description="Maximum # of tokens to generate",
+        alias="max_completion_tokens",
     )
     top_p: Optional[float] = Field(None, description="Top-p for distribution sampling")
     seed: Optional[int] = Field(None, description="The seed for deterministic results")
@@ -287,6 +291,11 @@ class ChatNVIDIA(BaseChatModel):
                             Format for base URL is http://host:port
             temperature (float): Sampling temperature in [0, 1].
             max_tokens (int): Maximum number of tokens to generate.
+                              Deprecated, use max_completion_tokens instead
+                              max_tokens and max_completion_tokens are aliases.
+                              If both max_tokens and max_completion_tokens are supplied,
+                              max_completion_tokens takes precedence.
+            max_completion_tokens (int): Maximum number of tokens to generate.
             top_p (float): Top-p for distribution sampling.
             seed (int): A seed for deterministic results.
             stop (list[str]): A list of cased stop words.
@@ -303,6 +312,16 @@ class ChatNVIDIA(BaseChatModel):
                 model="meta-llama3-8b-instruct"
             )
         """
+        # Show deprecation warning if max_tokens was used
+        if "max_tokens" in kwargs:
+            warnings.warn(
+                "The 'max_tokens' parameter is deprecated and will be removed "
+                "in a future version. "
+                "Please use 'max_completion_tokens' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         super().__init__(**kwargs)
         # allow nvidia_base_url as an alternative for base_url
         base_url = kwargs.pop("nvidia_base_url", self.base_url)
@@ -359,7 +378,11 @@ class ChatNVIDIA(BaseChatModel):
             ls_model_name=self.model or "UNKNOWN",
             ls_model_type="chat",
             ls_temperature=params.get("temperature", self.temperature),
-            ls_max_tokens=params.get("max_tokens", self.max_tokens),
+            # TODO: remove max_tokens once all models support max_completion_tokens
+            ls_max_tokens=(
+                params.get("max_completion_tokens", self.max_tokens)
+                or params.get("max_tokens", self.max_tokens)
+            ),
             # mypy error: Extra keys ("ls_top_p", "ls_seed")
             #  for TypedDict "LangSmithParams"  [typeddict-item]
             # ls_top_p=params.get("top_p", self.top_p),
@@ -511,6 +534,15 @@ class ChatNVIDIA(BaseChatModel):
     ) -> dict:  # todo: remove
         """Generates payload for the _NVIDIAClient API to send to service."""
         messages: List[Dict[str, Any]] = []
+
+        # Add system message for thinking mode if specified
+        thinking_mode = kwargs.pop("thinking_mode", None)
+        if thinking_mode is not None:
+            content = (
+                "detailed thinking on" if thinking_mode else "detailed thinking off"
+            )
+            messages.append({"role": "system", "content": content})
+
         for msg in inputs:
             if isinstance(msg, str):
                 # (WFH) this shouldn't ever be reached but leaving this here bcs
@@ -765,7 +797,7 @@ class ChatNVIDIA(BaseChatModel):
         For Pydantic schema and Enum, the output will be None if the response is
         insufficient to construct the object or otherwise invalid. For instance,
         ```
-        llm = ChatNVIDIA(max_tokens=1)
+        llm = ChatNVIDIA(max_completion_tokens=1)
         structured_llm = llm.with_structured_output(Joke)
         print(structured_llm.invoke("Tell me a joke about NVIDIA"))
 
@@ -889,4 +921,47 @@ class ChatNVIDIA(BaseChatModel):
                 ls_structured_output_format=ls_structured_output_format,
             )
             | output_parser
+        )
+
+    def with_thinking_mode(
+        self,
+        enabled: bool = True,
+        **kwargs: Any,
+    ) -> Runnable[LanguageModelInput, BaseMessage]:
+        """
+        Configure the model to use thinking mode.
+
+        Args:
+            enabled (bool): Whether to enable thinking mode. Defaults to True.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            A runnable that will use thinking mode when enabled.
+
+        Example:
+            .. code-block:: python
+
+                from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
+                model = ChatNVIDIA(model="nvidia/llama-3.1-nemotron-nano-8b-v1")
+
+                # Enable thinking mode
+                thinking_model = model.with_thinking_mode(enabled=True)
+                response = thinking_model.invoke("Hello")
+
+                # Disable thinking mode
+                no_thinking_model = model.with_thinking_mode(enabled=False)
+                response = no_thinking_model.invoke("Hello")
+        """
+        # check if the model supports thinking mode, warn if it does not
+        if self._client.model and not self._client.model.supports_thinking:
+            warnings.warn(
+                f"Model '{self.model}' does not support thinking mode. "
+                "The thinking mode configuration will be ignored."
+            )
+            return self
+
+        return super().bind(
+            thinking_mode=enabled,
+            **kwargs,
         )

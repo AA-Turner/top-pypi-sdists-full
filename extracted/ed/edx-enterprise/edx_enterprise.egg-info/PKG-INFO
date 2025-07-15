@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-enterprise
-Version: 6.2.8
+Version: 6.2.10
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -108,6 +108,14 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.2.10]
+--------
+* fix: update pbkdf2 to address security vulnerability
+
+[6.2.9]
+--------
+* chore: upgrades python requirements
 
 [6.2.8]
 --------

@@ -31,7 +31,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19gateway/reservation.proto\x12\x07gateway\x1a\x18gateway/deployment.proto\x1a\x15gateway/options.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf8\x04\n\x0bReservation\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x36\n\x0b\x63reate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\x05 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12%\n\x06region\x18\r \x01(\x0e\x32\x0f.gateway.RegionB\x04\xe2\x41\x01\x02\x12\x38\n\x10\x61\x63\x63\x65lerator_type\x18\x06 \x01(\x0e\x32\x18.gateway.AcceleratorTypeB\x04\xe2\x41\x01\x02\x12\x1c\n\x0ereserved_count\x18\x07 \x01(\x05\x42\x04\xe2\x41\x01\x02\x12\x34\n\nstart_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x01\x12\x32\n\x08\x65nd_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x01\x12,\n\x08\x63ontract\x18\x0c \x01(\tB\x1a\xe2\x41\x01\x02\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x35\n\x0bupdate_time\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03:|\xea\x41l\n\x1c\x61pi.fireworks.ai/Reservation\x12\x31\x61\x63\x63ounts/{AccountId}/reservations/{ReservationId}*\x0creservations2\x0breservation\x82\xf1\x04\t\n\x07\x41\x63\x63ount\"`\n\x15GetReservationRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xc5\x01\n\x17ListReservationsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"s\n\x18ListReservationsResponse\x12*\n\x0creservations\x18\x01 \x03(\x0b\x32\x14.gateway.Reservation\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x19gateway/reservation.proto\x12\x07gateway\x1a\x18gateway/deployment.proto\x1a\x15gateway/options.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaa\x05\n\x0bReservation\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x19\n\x0b\x64\x65scription\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x36\n\x0b\x63reate_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x19\n\ncreated_by\x18\x05 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12%\n\x06region\x18\r \x01(\x0e\x32\x0f.gateway.RegionB\x04\xe2\x41\x01\x01\x12\x30\n\x0cmulti_region\x18\x0f \x01(\x0e\x32\x14.gateway.MultiRegionB\x04\xe2\x41\x01\x01\x12\x38\n\x10\x61\x63\x63\x65lerator_type\x18\x06 \x01(\x0e\x32\x18.gateway.AcceleratorTypeB\x04\xe2\x41\x01\x02\x12\x1c\n\x0ereserved_count\x18\x07 \x01(\x05\x42\x04\xe2\x41\x01\x02\x12\x34\n\nstart_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x01\x12\x32\n\x08\x65nd_time\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x01\x12,\n\x08\x63ontract\x18\x0c \x01(\tB\x1a\xe2\x41\x01\x02\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x35\n\x0bupdate_time\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03:|\xea\x41l\n\x1c\x61pi.fireworks.ai/Reservation\x12\x31\x61\x63\x63ounts/{AccountId}/reservations/{ReservationId}*\x0creservations2\x0breservation\x82\xf1\x04\t\n\x07\x41\x63\x63ount\"`\n\x15GetReservationRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xc5\x01\n\x17ListReservationsRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"s\n\x18ListReservationsResponse\x12*\n\x0creservations\x18\x01 \x03(\x0b\x32\x14.gateway.Reservation\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -50,7 +50,9 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_RESERVATION'].fields_by_name['created_by']._loaded_options = None
   _globals['_RESERVATION'].fields_by_name['created_by']._serialized_options = b'\342A\002\003\005'
   _globals['_RESERVATION'].fields_by_name['region']._loaded_options = None
-  _globals['_RESERVATION'].fields_by_name['region']._serialized_options = b'\342A\001\002'
+  _globals['_RESERVATION'].fields_by_name['region']._serialized_options = b'\342A\001\001'
+  _globals['_RESERVATION'].fields_by_name['multi_region']._loaded_options = None
+  _globals['_RESERVATION'].fields_by_name['multi_region']._serialized_options = b'\342A\001\001'
   _globals['_RESERVATION'].fields_by_name['accelerator_type']._loaded_options = None
   _globals['_RESERVATION'].fields_by_name['accelerator_type']._serialized_options = b'\342A\001\002'
   _globals['_RESERVATION'].fields_by_name['reserved_count']._loaded_options = None
@@ -82,11 +84,11 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_LISTRESERVATIONSREQUEST'].fields_by_name['read_mask']._loaded_options = None
   _globals['_LISTRESERVATIONSREQUEST'].fields_by_name['read_mask']._serialized_options = b'\342A\001\001'
   _globals['_RESERVATION']._serialized_start=244
-  _globals['_RESERVATION']._serialized_end=876
-  _globals['_GETRESERVATIONREQUEST']._serialized_start=878
-  _globals['_GETRESERVATIONREQUEST']._serialized_end=974
-  _globals['_LISTRESERVATIONSREQUEST']._serialized_start=977
-  _globals['_LISTRESERVATIONSREQUEST']._serialized_end=1174
-  _globals['_LISTRESERVATIONSRESPONSE']._serialized_start=1176
-  _globals['_LISTRESERVATIONSRESPONSE']._serialized_end=1291
+  _globals['_RESERVATION']._serialized_end=926
+  _globals['_GETRESERVATIONREQUEST']._serialized_start=928
+  _globals['_GETRESERVATIONREQUEST']._serialized_end=1024
+  _globals['_LISTRESERVATIONSREQUEST']._serialized_start=1027
+  _globals['_LISTRESERVATIONSREQUEST']._serialized_end=1224
+  _globals['_LISTRESERVATIONSRESPONSE']._serialized_start=1226
+  _globals['_LISTRESERVATIONSRESPONSE']._serialized_end=1341
 # @@protoc_insertion_point(module_scope)

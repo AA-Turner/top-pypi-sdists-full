@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: uptrace
-Version: 1.34.0
+Version: 1.35.0
 Summary: OpenTelemetry Python distribution for Uptrace
 Home-page: https://uptrace.dev
 Author: Uptrace.dev
@@ -17,10 +17,10 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: opentelemetry-api~=1.34.1
-Requires-Dist: opentelemetry-sdk~=1.34.1
-Requires-Dist: opentelemetry-exporter-otlp~=1.34.1
-Requires-Dist: opentelemetry-instrumentation~=0.55b1
+Requires-Dist: opentelemetry-api~=1.35.0
+Requires-Dist: opentelemetry-sdk~=1.35.0
+Requires-Dist: opentelemetry-exporter-otlp~=1.35.0
+Requires-Dist: opentelemetry-instrumentation~=0.56b0
 
 # Uptrace for Python
 

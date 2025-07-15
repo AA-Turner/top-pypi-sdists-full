@@ -8,6 +8,7 @@ from redis.asyncio.client import Pipeline
 
 from cashews._typing import Key, Value
 from cashews.backends.interface import Backend
+from cashews.serialize import DEFAULT_SERIALIZER, Serializer
 
 from .client import Redis, SafePipeline, SafeRedis
 
@@ -76,7 +77,8 @@ class _Redis(Backend):
         self._kwargs = kwargs
         self._address = address
         self.__is_init = False
-        super().__init__()
+        super().__init__(serializer=kwargs.pop("serializer", None))
+        self._serializer: Serializer = self._serializer or DEFAULT_SERIALIZER
 
     @property
     def is_init(self) -> bool:
@@ -105,6 +107,7 @@ class _Redis(Backend):
         expire: float | None = None,
         exist=None,
     ) -> bool:
+        value = await self._serializer.encode(self, key=key, value=value, expire=expire)
         nx = xx = False
         if exist is True:
             xx = True
@@ -118,6 +121,7 @@ class _Redis(Backend):
         px = int(expire * 1000) if expire else None
         async with self._pipeline as pipe:
             for key, value in pairs.items():
+                value = await self._serializer.encode(self, key=key, value=value, expire=expire)
                 await pipe.set(key, value, px=px)
             await pipe.execute()
 
@@ -147,7 +151,7 @@ class _Redis(Backend):
         return True
 
     async def unlock(self, key: Key, value: Value) -> bool:
-        if "UNLOCK" not in self._sha:
+        if self._sha.get("UNLOCK") is None:
             self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
         return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
 
@@ -160,7 +164,7 @@ class _Redis(Backend):
     async def exists(self, key: Key) -> bool:
         return bool(await self._client.exists(key))
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -189,7 +193,7 @@ class _Redis(Backend):
             await self._client.unlink(*keys)
             await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -211,7 +215,7 @@ class _Redis(Backend):
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
         value = await self._client.get(key)
-        return self._transform_value(value, default)
+        return await self._transform_value(key, value, default)
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         if not keys:
@@ -219,20 +223,21 @@ class _Redis(Backend):
         values = await self._client.mget(*keys)
         if values is None:
             return tuple([default] * len(keys))
-        return tuple(self._transform_value(value, default) for value in values)
+        return tuple(
+            await asyncio.gather(*[self._transform_value(key, value, default) for key, value in zip(keys, values)])
+        )
 
-    @staticmethod
-    def _transform_value(value: bytes | None, default: Value | None):
+    async def _transform_value(self, key: Key, value: bytes | None, default: Value | None):
         if value is None:
             return default
         if value.isdigit():
             return int(value)
-        return value
+        return await self._serializer.decode(self, key=key, value=value, default=default)
 
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not expire:
             return await self._client.incr(key, amount=value)
-        if "INCR_EXPIRE" not in self._sha:
+        if self._sha.get("INCR_EXPIRE") is None:
             self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
@@ -277,7 +282,7 @@ class _Redis(Backend):
     ) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
-        if "INCR_SLICE" not in self._sha:
+        if self._sha.get("INCR_SLICE") is None:
             self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
         return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
 

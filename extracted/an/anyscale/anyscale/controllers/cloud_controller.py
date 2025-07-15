@@ -100,6 +100,7 @@ from anyscale.util import (  # pylint:disable=private-import
     get_user_env_aws_account,
     prepare_cloudformation_template,
     REDIS_TLS_ADDRESS_PREFIX,
+    SharedStorageType,
 )
 from anyscale.utils.cloud_update_utils import (
     CLOUDFORMATION_TIMEOUT_SECONDS_LONG,
@@ -234,6 +235,7 @@ class CloudController(BaseController):
         boto3_session: Optional[boto3.Session] = None,
         is_anyscale_hosted: bool = False,
         anyscale_hosted_network_info: Optional[Dict[str, Any]] = None,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
     ):
         if boto3_session is None:
             boto3_session = boto3.Session(region_name=region)
@@ -248,6 +250,7 @@ class CloudController(BaseController):
             enable_head_node_fault_tolerance,
             boto3_session,
             is_anyscale_hosted=is_anyscale_hosted,
+            shared_storage=shared_storage,
         )
 
         parameters = [
@@ -265,6 +268,12 @@ class CloudController(BaseController):
             {
                 "ParameterKey": "MemoryDBRedisPort",
                 "ParameterValue": MEMORYDB_REDIS_PORT,
+            },
+            {
+                "ParameterKey": "EnableEFS",
+                "ParameterValue": "true"
+                if shared_storage == SharedStorageType.NFS
+                else "false",
             },
         ]
         if not is_anyscale_hosted:
@@ -316,6 +325,7 @@ class CloudController(BaseController):
         anyscale_aws_account: str,
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         boto3_session: Optional[boto3.Session] = None,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
     ) -> Dict[str, Any]:
         """
         Run cloudformation to create the AWS resources for a cloud.
@@ -334,6 +344,7 @@ class CloudController(BaseController):
             cloud_id,
             enable_head_node_fault_tolerance,
             boto3_session,
+            shared_storage=shared_storage,
         )
 
         cross_account_iam_policies = self._get_anyscale_cross_account_iam_policies(
@@ -359,6 +370,12 @@ class CloudController(BaseController):
             {
                 "ParameterKey": "MemoryDBRedisPort",
                 "ParameterValue": MEMORYDB_REDIS_PORT,
+            },
+            {
+                "ParameterKey": "EnableEFS",
+                "ParameterValue": "true"
+                if shared_storage == SharedStorageType.NFS
+                else "false",
             },
         ]
         for parameter in cross_account_iam_policies:
@@ -454,6 +471,7 @@ class CloudController(BaseController):
         anyscale_aws_account: str,
         organization_id: str,
         enable_head_node_fault_tolerance: bool,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
     ):
         setup_utils = try_import_gcp_managed_setup_utils()
 
@@ -469,6 +487,7 @@ class CloudController(BaseController):
             anyscale_aws_account,
             organization_id,
             enable_head_node_fault_tolerance,
+            shared_storage=shared_storage,
         )
 
         self.log.debug("GCP Deployment Manager resource config:")
@@ -943,6 +962,7 @@ class CloudController(BaseController):
         ] = None,  # This is used by AIOA cloud setup
         _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
         auto_add_user: bool = True,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
     ) -> None:
         """
         Sets up a cloud provider
@@ -991,6 +1011,7 @@ class CloudController(BaseController):
                     anyscale_aws_account,
                     _use_strict_iam_permissions=_use_strict_iam_permissions,
                     boto3_session=boto3_session,
+                    shared_storage=shared_storage,
                 )
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
@@ -1111,6 +1132,7 @@ class CloudController(BaseController):
                     anyscale_aws_account,
                     organization_id,
                     enable_head_node_fault_tolerance,
+                    shared_storage=shared_storage,
                 )
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
@@ -1525,48 +1547,6 @@ class CloudController(BaseController):
 
         return formatted_diff.strip()
 
-    def _compare_cloud_deployments(
-        self,
-        deployments: List[CloudDeployment],
-        existing_deployments: Dict[str, CloudDeployment],
-    ) -> List[CloudDeployment]:
-        """
-        Compares the new deployments with the existing deployments and returns a list of updated/added deployments.
-        """
-
-        deployment_ids = {
-            deployment.cloud_deployment_id
-            for deployment in deployments
-            if deployment.cloud_deployment_id
-        }
-
-        if existing_deployments.keys() - deployment_ids:
-            raise ClickException("Deleting cloud deployments is not supported.")
-
-        unknown_deployments = deployment_ids - existing_deployments.keys()
-        if unknown_deployments:
-            raise ClickException(
-                f"Cloud deployment(s) {unknown_deployments} do not exist. Do not include a deployment ID when adding a new deployment."
-            )
-
-        updated_deployments: List[CloudDeployment] = []
-        for d in deployments:
-            if d.cloud_deployment_id:
-                if d == existing_deployments[d.cloud_deployment_id]:
-                    continue
-                if d.provider == CloudProviders.PCP:
-                    raise ClickException(
-                        "Updating machine pool deployments is not supported."
-                    )
-            else:
-                if d.provider == CloudProviders.PCP:
-                    raise ClickException(
-                        "Please use `anyscale machine-pool attach` to attach a machine pool to a cloud."
-                    )
-            updated_deployments.append(d)
-
-        return updated_deployments
-
     def _preprocess_aws(self, cloud_id: str, deployment: CloudDeployment,) -> None:
         if not deployment.aws_config and not deployment.file_storage:
             return
@@ -1685,6 +1665,62 @@ class CloudController(BaseController):
 
             deployment.gcp_config = gcp_config
 
+    def add_cloud_deployment(
+        self, cloud_name: str, spec_file: str, yes: bool = False,
+    ):
+        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+
+        # Read the spec file.
+        path = pathlib.Path(spec_file)
+        if not path.exists():
+            raise ClickException(f"{spec_file} does not exist.")
+        if not path.is_file():
+            raise ClickException(f"{spec_file} is not a file.")
+
+        spec = yaml.safe_load(path.read_text())
+        try:
+            new_deployment = CloudDeployment(**spec)
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to parse deployment: {e}")
+
+        if new_deployment.provider == CloudProviders.AWS:
+            self._preprocess_aws(cloud_id=cloud_id, deployment=new_deployment)
+        elif new_deployment.provider == CloudProviders.GCP:
+            self._preprocess_gcp(deployment=new_deployment)
+
+        # Log an additional warning if a new deployment is being added but a deployment with the same AWS/GCP region already exists.
+        existing_spec = self.get_cloud_deployments(cloud_id)
+        existing_deployments = {
+            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
+            for deployment in existing_spec["deployments"]
+        }
+        existing_stack_provider_regions = {
+            (d.compute_stack, d.provider, d.region)
+            for d in existing_deployments.values()
+            if d.provider in (CloudProviders.AWS, CloudProviders.GCP)
+        }
+        if (
+            new_deployment.compute_stack,
+            new_deployment.provider,
+            new_deployment.region,
+        ) in existing_stack_provider_regions:
+            self.log.warning(
+                f"A {new_deployment.provider} {new_deployment.compute_stack} deployment in region {new_deployment.region} already exists."
+            )
+            confirm("Would you like to proceed with adding this deployment?", yes)
+
+        # Add the deployment.
+        try:
+            self.api_client.add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put(
+                cloud_id=cloud_id, cloud_deployment=new_deployment,
+            )
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to add cloud deployment: {e}")
+
+        self.log.info(
+            f"Successfully added deployment {new_deployment.name} to cloud {existing_spec['name']}!"
+        )
+
     def update_cloud_deployments(  # noqa: PLR0912
         self, spec_file: str, yes: bool = False,
     ):
@@ -1707,57 +1743,40 @@ class CloudController(BaseController):
             raise ClickException("Changing the name of a cloud is not supported.")
 
         # Diff the existing and new specs
-        diff = self._generate_diff(existing_spec, spec)
+        diff = self._generate_diff(existing_spec["deployments"], spec["deployments"])
         if not diff:
             self.log.info("No changes detected.")
             return
-
-        # Get updated/new deployments.
-        try:
-            deployments = [CloudDeployment(**d) for d in spec["deployments"]]
-        except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to parse deployments: {e}")
 
         existing_deployments = {
             deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
             for deployment in existing_spec["deployments"]
         }
 
-        # Figure out which deployments have been updated/added.
-        updated_deployments = self._compare_cloud_deployments(
-            deployments, existing_deployments,
-        )
+        updated_deployments: List[CloudDeployment] = []
+        for d in spec["deployments"]:
+            try:
+                deployment = CloudDeployment(**d)
+            except Exception as e:  # noqa: BLE001
+                raise ClickException(f"Failed to parse deployment: {e}")
+
+            if not deployment.cloud_deployment_id:
+                raise ClickException(
+                    "All cloud deployments must include a cloud_deployment_id."
+                )
+            if deployment.cloud_deployment_id not in existing_deployments:
+                raise ClickException(
+                    f"Cloud deployment {deployment.cloud_deployment_id} not found."
+                )
+            if deployment.provider == CloudProviders.PCP:
+                raise ClickException(
+                    "Please use the `anyscale machine-pool` CLI to update machine pools."
+                )
+            if deployment != existing_deployments[deployment.cloud_deployment_id]:
+                updated_deployments.append(deployment)
 
         # Log the diff and confirm.
         self.log.info(f"Detected the following changes:\n{diff}")
-
-        existing_deployment_ids = {
-            d.cloud_deployment_id for d in updated_deployments if d.cloud_deployment_id
-        }
-        if len(updated_deployments) - len(existing_deployment_ids):
-            self.log.info(
-                f"{len(updated_deployments) - len(existing_deployment_ids)} new deployment(s) will be added."
-            )
-        if existing_deployment_ids:
-            self.log.info(
-                f"{len(existing_deployment_ids)} existing deployment(s) will be updated ({', '.join(existing_deployment_ids)})"
-            )
-
-        # Log an additional warning if a new deployment is being added but a deployment with the same AWS/GCP region already exists.
-        existing_stack_provider_regions = {
-            (d.compute_stack, d.provider, d.region)
-            for d in existing_deployments.values()
-            if d.provider in (CloudProviders.AWS, CloudProviders.GCP)
-        }
-        for d in updated_deployments:
-            if (
-                not d.cloud_deployment_id
-                and (d.compute_stack, d.provider, d.region)
-                in existing_stack_provider_regions
-            ):
-                self.log.warning(
-                    f"A {d.provider} {d.compute_stack} deployment in region {d.region} already exists."
-                )
 
         confirm("Would you like to proceed with updating this cloud?", yes)
 
@@ -2658,7 +2677,10 @@ class CloudController(BaseController):
                 self.api_client, cloud_id, CloudProviders.GCP, self.log
             )
             verify_filestore_result = True
-            if cloud_resource.gcp_filestore_config.instance_name:
+            if (
+                cloud_resource.gcp_filestore_config
+                and cloud_resource.gcp_filestore_config.instance_name
+            ):
                 verify_filestore_result = verify_lib.verify_filestore(
                     factory, cloud_resource, region, gcp_logger, strict=strict
                 )
@@ -2679,7 +2701,10 @@ class CloudController(BaseController):
             f"cloud storage: {self._passed_or_failed_str_from_bool(verify_cloud_storage_result)}",
         ]
 
-        if cloud_resource.gcp_filestore_config.instance_name:
+        if (
+            cloud_resource.gcp_filestore_config
+            and cloud_resource.gcp_filestore_config.instance_name
+        ):
             verification_results.append(
                 f"filestore: {self._passed_or_failed_str_from_bool(verify_filestore_result)}"
             )

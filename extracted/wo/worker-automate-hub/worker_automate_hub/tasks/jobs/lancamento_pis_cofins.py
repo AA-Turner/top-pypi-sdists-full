@@ -66,7 +66,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
 
         try:
             app = Application(backend="win32").connect(
-                class_name="TFrmLoginModulo", timeout=50
+                class_name="TFrmLoginModulo", timeout=120
             )
         except:
             return RpaRetornoProcessoDTO(
@@ -77,230 +77,304 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
             )
 
         return_login = await login_emsys_fiscal(config.conConfiguracao, app, task)
-        if return_login.sucesso == True:
-            type_text_into_field(
-                "Livro de Apuração Pis Cofins",
-                app["TFrmMenuPrincipal"]["Edit"],
-                True,
-                "50",
-            )
+        # if return_login.sucesso == True:
+        #     type_text_into_field(
+        #         "Livro de Apuração Pis Cofins",
+        #         app["TFrmMenuPrincipal"]["Edit"],
+        #         True,
+        #         "50",
+        #     )
 
-            await worker_sleep(10)
-            console.print(f"Verificando a presença de Confirm...")
-            confirm_pop_up = await is_window_open("Confirm")
-            if confirm_pop_up["IsOpened"] == True:
-                app = Application().connect(class_name="TMessageForm")
-                main_window = app["TMessageForm"]
-                main_window.set_focus()
-                main_window.child_window(title="&No").click()
-            pyautogui.click(120, 173)
-            pyautogui.press("enter")
-            await worker_sleep(2)
-            pyautogui.press("enter")
-            console.print(
-                f"\nPesquisa: 'Livro de Apuração PIS Cofins' realizada com sucesso",
-                style="bold green",
-            )
-        else:
-            logger.info(f"\nError Message: {return_login.retorno}")
-            console.print(f"\nError Message: {return_login.retorno}", style="bold red")
-            return return_login
+        #     await worker_sleep(10)
+        #     console.print(f"Verificando a presença de Confirm...")
+        #     confirm_pop_up = await is_window_open("Confirm")
+        #     if confirm_pop_up["IsOpened"] == True:
+        #         app = Application().connect(class_name="TMessageForm")
+        #         main_window = app["TMessageForm"]
+        #         main_window.set_focus()
+        #         main_window.child_window(title="&No").click()
+        #     pyautogui.click(120, 173)
+        #     pyautogui.press("enter")
+        #     await worker_sleep(2)
+        #     pyautogui.press("enter")
+        #     console.print(
+        #         f"\nPesquisa: 'Livro de Apuração PIS Cofins' realizada com sucesso",
+        #         style="bold green",
+        #     )
+        # else:
+        #     logger.info(f"\nError Message: {return_login.retorno}")
+        #     console.print(f"\nError Message: {return_login.retorno}", style="bold red")
+        #     return return_login
 
-        await worker_sleep(8)
-        console.print(
-            "Verificando se a janela Movimento de Apuração PIS / COFINS foi aberta com sucesso...\n"
-        )
-        max_attempts = 15
-        i = 0
-        while i < max_attempts:
-            movimento_apura_pis_cofins = await is_window_open_by_class(
-                "TFrmMovtoApuraPisCofins", "TFrmMovtoApuraPisCofins"
-            )
-            if movimento_apura_pis_cofins["IsOpened"] == True:
-                console.print(
-                    "janela Movimento de Apuração PIS / COFINS foi aberta com sucesso...\n"
-                )
-                break
-            else:
-                await worker_sleep(1)
-                i = i + 1
+        # await worker_sleep(8)
+        # console.print(
+        #     "Verificando se a janela Movimento de Apuração PIS / COFINS foi aberta com sucesso...\n"
+        # )
+        # max_attempts = 15
+        # i = 0
+        # while i < max_attempts:
+        #     movimento_apura_pis_cofins = await is_window_open_by_class(
+        #         "TFrmMovtoApuraPisCofins", "TFrmMovtoApuraPisCofins"
+        #     )
+        #     if movimento_apura_pis_cofins["IsOpened"] == True:
+        #         console.print(
+        #             "janela Movimento de Apuração PIS / COFINS foi aberta com sucesso...\n"
+        #         )
+        #         break
+        #     else:
+        #         await worker_sleep(1)
+        #         i = i + 1
 
-        if i >= max_attempts:
-            return RpaRetornoProcessoDTO(
-                sucesso=False,
-                retorno="Erro ao abrir a janela Movimento de Apuração PIS / COFINS, tela não encontrada",
-                status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-            )
+        # if i >= max_attempts:
+        #     return RpaRetornoProcessoDTO(
+        #         sucesso=False,
+        #         retorno="Erro ao abrir a janela Movimento de Apuração PIS / COFINS, tela não encontrada",
+        #         status=RpaHistoricoStatusEnum.Falha,
+        #         tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        #     )
 
-        filial_cod = lancamento_pis_cofins_processar.get("empresa")
-        periodo_dt = lancamento_pis_cofins_processar.get("periodo")
+        # filial_cod = lancamento_pis_cofins_processar.get("empresa")
+        # periodo_dt = lancamento_pis_cofins_processar.get("periodo")
 
-        await worker_sleep(1)
-        # Preenchendo os campos necessarios de período e selecionando todas as empresas
-        console.print(f"\Informando o período... ", style="bold green")
-        app = Application().connect(class_name="TFrmMovtoApuraPisCofins", timeout=60)
-        main_window = app["TFrmMovtoApuraPisCofins"]
-        main_window.set_focus()
+        # await worker_sleep(1)
+        # # Preenchendo os campos necessarios de período e selecionando todas as empresas
+        # console.print(f"\Informando o período... ", style="bold green")
+        # app = Application().connect(class_name="TFrmMovtoApuraPisCofins", timeout=120)
+        # main_window = app["TFrmMovtoApuraPisCofins"]
+        # main_window.set_focus()
 
-        console.print("Inserindo o período...\n")
-        periodo_field = main_window.child_window(
-            class_name="TDBIEditDate", found_index=0
-        )
-        periodo_field.set_edit_text(periodo_dt)
+        # console.print("Inserindo o período...\n")
+        # periodo_field = main_window.child_window(
+        #     class_name="TDBIEditDate", found_index=0
+        # )
+        # periodo_field.set_edit_text(periodo_dt)
 
-        console.print("Selecionando Replicar para empresas...\n")
-        replicar_para_empresas_check = main_window.child_window(
-            class_name="TcxCheckBox", found_index=0
-        )
-        replicar_para_empresas_check.click_input()
-        console.print(
-            "A opção 'Aplicar Rateio aos Itens Selecionados' selecionado com sucesso... \n"
-        )
+        # console.print("Selecionando Replicar para empresas...\n")
+        # replicar_para_empresas_check = main_window.child_window(
+        #     class_name="TcxCheckBox", found_index=0
+        # )
+        # replicar_para_empresas_check.click_input()
+        # console.print(
+        #     "A opção 'Aplicar Rateio aos Itens Selecionados' selecionado com sucesso... \n"
+        # )
 
-        await worker_sleep(5)
-        console.print("Confirmando Pop-up - ...Pode causar lentidão no sistema...\n")
-        console.print(f"Verificando a presença de Confirm...")
-        confirm_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
-        if confirm_pop_up["IsOpened"] == True:
-            app = Application().connect(class_name="TMessageForm")
-            main_window = app["TMessageForm"]
-            main_window.set_focus()
-            main_window.child_window(title="&Yes").click()
-            console.print(f"Yes clicado com sucesso...")
+        # await worker_sleep(5)
+        # console.print("Confirmando Pop-up - ...Pode causar lentidão no sistema...\n")
+        # console.print(f"Verificando a presença de Confirm...")
+        # confirm_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
+        # if confirm_pop_up["IsOpened"] == True:
+        #     app = Application().connect(class_name="TMessageForm")
+        #     main_window = app["TMessageForm"]
+        #     main_window.set_focus()
+        #     main_window.child_window(title="&Yes").click()
+        #     console.print(f"Yes clicado com sucesso...")
 
-        await worker_sleep(5)
-        console.print(
-            f"Verificando se foi aberto a tela de Seleção de Empresas clicado com sucesso..."
-        )
-        selecao_empresas_screen = await is_window_open_by_class(
-            "TFrmSelecionaEmpresas", "TFrmSelecionaEmpresas"
-        )
-        if selecao_empresas_screen["IsOpened"] == True:
-            console.print(f"Janela de Seleção de Empresas foi aberta com sucesso...")
-            app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=60)
-            main_window = app["TFrmSelecionaEmpresas"]
-            main_window.set_focus()
-            console.print(f"Clicando em seleciona todas...")
-            try:
-                selecionar_todos_itens = (
-                    ASSETS_PATH + "\\lancamento_pis_cofins\\btn_selecionar_todas.png"
-                )
-                # Tenta localizar a imagem na tela
-                localizacao = pyautogui.locateOnScreen(
-                    selecionar_todos_itens, confidence=0.9
-                )
-                await worker_sleep(3)
-                if localizacao:
-                    centro = pyautogui.center(localizacao)
-                    pyautogui.moveTo(centro)
-                    pyautogui.click()
-                    console.print("Clique realizado com sucesso!")
-                else:
-                    console.print("Imagem não encontrada na tela.")
-            except Exception as e:
-                retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=retorno,
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
+        # await worker_sleep(5)
+        # console.print(
+        #     f"Verificando se foi aberto a tela de Seleção de Empresas clicado com sucesso..."
+        # )
+        # selecao_empresas_screen = await is_window_open_by_class(
+        #     "TFrmSelecionaEmpresas", "TFrmSelecionaEmpresas"
+        # )
+        # if selecao_empresas_screen["IsOpened"] == True:
+        #     console.print(f"Janela de Seleção de Empresas foi aberta com sucesso...")
+        #     app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
+        #     main_window = app["TFrmSelecionaEmpresas"]
+        #     main_window.set_focus()
+        #     console.print(f"Clicando em seleciona todas...")
+        #     try:
+        #         selecionar_todos_itens = (
+        #             ASSETS_PATH + "\\lancamento_pis_cofins\\btn_selecionar_todas.png"
+        #         )
+        #         # Tenta localizar a imagem na tela
+        #         localizacao = pyautogui.locateOnScreen(
+        #             selecionar_todos_itens, confidence=0.9
+        #         )
+        #         await worker_sleep(3)
+        #         if localizacao:
+        #             centro = pyautogui.center(localizacao)
+        #             pyautogui.moveTo(centro)
+        #             pyautogui.click()
+        #             console.print("Clique realizado com sucesso!")
+        #         else:
+        #             console.print("Imagem não encontrada na tela.")
+        #     except Exception as e:
+        #         retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
+        #         return RpaRetornoProcessoDTO(
+        #             sucesso=False,
+        #             retorno=retorno,
+        #             status=RpaHistoricoStatusEnum.Falha,
+        #             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        #         )
 
-            console.print(f"Clicando em OK - para andamento do processo...")
-            app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=60)
-            main_window = app["TFrmSelecionaEmpresas"]
-            main_window.set_focus()
+        #     console.print(f"Clicando em OK - para andamento do processo...")
+        #     app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
+        #     main_window = app["TFrmSelecionaEmpresas"]
+        #     main_window.set_focus()
 
-            try:
-                btn_ok = main_window.child_window(title="OK")
-                btn_ok.click()
-            except:
-                btn_ok = main_window.child_window(title="&OK")
-                btn_ok.click()
+        #     try:
+        #         btn_ok = main_window.child_window(title="OK")
+        #         btn_ok.click()
+        #     except:
+        #         btn_ok = main_window.child_window(title="&OK")
+        #         btn_ok.click()
 
-            await worker_sleep(5)
-            console.print("Verificando se possui tela de Informação... \n")
-            information_pop_up = await is_window_open("Information")
-            if information_pop_up["IsOpened"] == True:
-                msg_pop_up = await ocr_title("Information_pop_up_cofins", "Informação")
-                console.print(f"retorno:{msg_pop_up.sucesso}")
-                console.print(f"retorno:{msg_pop_up}")
-                if msg_pop_up.sucesso == True:
-                    msg_retorno = msg_pop_up.retorno
-                    console.print(msg_retorno)
-                    retorno = f"Pop up nao mapeado para seguimento do robo {msg_pop_up.retorno}"
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=retorno,
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
-                    )
-                else:
-                    retorno = f"Não foi possivel realizar a confirmação do msg do OCR após clicar em Incluir na tela de Movimento de Apuração PIS / COFINS"
-                    return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno=retorno,
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                    )
-            else:
-                console.print("Não possui tela de Informação... \n")
+        #     await worker_sleep(3)
 
-            # PRECISO TESTAR ADICIONAR EXCESSÃO PARA A TELA DE AVISO
-            pop_up_aviso = []
-            console.print(f"Verificando se possui tela de Aviso...")
-            while True:
-                aviso_screen_opened = await is_window_open("Aviso")
-                if aviso_screen_opened["IsOpened"] == True:
-                    msg_pop_up = await ocr_title("aviso_pop_up_cofins", "Aviso")
-                    console.print(f"retorno:{msg_pop_up.sucesso}")
-                    if msg_pop_up.sucesso == True:
-                        msg_retorno = msg_pop_up.retorno
-                        console.print(msg_retorno)
-                        pop_up_aviso.append(msg_retorno)
+        #     try:
+        #         selecionar_todos_itens = (
+        #             ASSETS_PATH + "\\lancamento_pis_cofins\\botao_incluir.png"
+        #         )
+        #         # Tenta localizar a imagem na tela
+        #         localizacao = pyautogui.locateOnScreen(
+        #             selecionar_todos_itens, confidence=0.9
+        #         )
+        #         await worker_sleep(3)
+        #         if localizacao:
+        #             centro = pyautogui.center(localizacao)
+        #             pyautogui.moveTo(centro)
+        #             pyautogui.click()
+        #             console.print("Clique realizado com sucesso!")
+        #         else:
+        #             console.print("Imagem não encontrada na tela.")
+        #     except Exception as e:
+        #         retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
+        #         return RpaRetornoProcessoDTO(
+        #             sucesso=False,
+        #             retorno=retorno,
+        #             status=RpaHistoricoStatusEnum.Falha,
+        #             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        #         )
 
-                        app = Application().connect(title="Aviso", timeout=60)
-                        main_window = app["Aviso"]
-                        main_window.set_focus()
+        #     await worker_sleep(10)
+        #     # Verificar se já existe registro no mês apurado
+        #     try:
+        #         selecionar_todos_itens = (
+        #             ASSETS_PATH + "\\lancamento_pis_cofins\\ja_existe_periodo.png"
+        #         )
+        #         # Tenta localizar a imagem na tela
+        #         localizacao = pyautogui.locateOnScreen(
+        #             selecionar_todos_itens, confidence=0.9
+        #         )
+        #         await worker_sleep(3)
+        #         if localizacao:
+        #             app = Application().connect(title="Informação", timeout=120)
+        #             main_window = app["Informação"]
+        #             main_window.set_focus()
+        #             informacao = main_window.child_window(title="OK")
+        #             informacao.click()
+        #             console.print("Clique realizado com sucesso!")
+        #         else:
+        #             console.print("Imagem não encontrada na tela.")
+        #     except:
+        #         pass
+        #     await worker_sleep(5)
+        #     console.print("Verificando se possui tela de Informação... \n")
+        #     information_pop_up = await is_window_open("Information")
+        #     if information_pop_up["IsOpened"] == True:
+        #         msg_pop_up = await ocr_title("Information_pop_up_cofins", "Informação")
+        #         console.print(f"retorno:{msg_pop_up.sucesso}")
+        #         console.print(f"retorno:{msg_pop_up}")
+        #         if msg_pop_up.sucesso == True:
+        #             msg_retorno = msg_pop_up.retorno
+        #             console.print(msg_retorno)
+        #             retorno = f"Pop up nao mapeado para seguimento do robo {msg_pop_up.retorno}"
+        #             return RpaRetornoProcessoDTO(
+        #                 sucesso=False,
+        #                 retorno=retorno,
+        #                 status=RpaHistoricoStatusEnum.Falha,
+        #                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+        #             )
+        #         else:
+        #             retorno = f"Não foi possivel realizar a confirmação do msg do OCR após clicar em Incluir na tela de Movimento de Apuração PIS / COFINS"
+        #             return RpaRetornoProcessoDTO(
+        #                 sucesso=False,
+        #                 retorno=retorno,
+        #                 status=RpaHistoricoStatusEnum.Falha,
+        #                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        #             )
+        #     else:
+        #         console.print("Não possui tela de Informação... \n")
 
-                        try:
-                            btn_ok = main_window.child_window(title="OK")
-                            btn_ok.click()
-                        except:
-                            btn_ok = main_window.child_window(title="&OK")
-                            btn_ok.click()
+        #     # PRECISO TESTAR ADICIONAR EXCESSÃO PARA A TELA DE AVISO
+        #     pop_up_aviso = []
+        #     console.print(f"Verificando se possui tela de Aviso...")
+        #     while True:
+        #         aviso_screen_opened = await is_window_open("Aviso")
+        #         if aviso_screen_opened["IsOpened"] == True:
+        #             msg_pop_up = await ocr_title("aviso_pop_up_cofins", "Aviso")
+        #             console.print(f"retorno:{msg_pop_up.sucesso}")
+        #             if msg_pop_up.sucesso == True:
+        #                 msg_retorno = msg_pop_up.retorno
+        #                 console.print(msg_retorno)
+        #                 pop_up_aviso.append(msg_retorno)
 
-                        await worker_sleep(3)
-                else:
-                    break
+        #                 app = Application().connect(title="Aviso", timeout=120)
+        #                 main_window = app["Aviso"]
+        #                 main_window.set_focus()
 
-            if len(pop_up_aviso) > 0:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Livro de apuração diferente de Confirmado/Encerrado:  {pop_up_aviso}",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
-                )
-            else:
-                console.print(
-                    "Não possui tela de Aviso ou Pop-up de informação, seguindo com o andamento do processo... \n"
-                )
-                app = Application().connect(
-                    class_name="TFrmMovtoApuraPisCofins", timeout=60
-                )
-                main_window = app["TFrmMovtoApuraPisCofins"]
-                main_window.close()
-                console.print("Tela de Movimento Apuração, fechada com sucesso... \n")
-        else:
-            return RpaRetornoProcessoDTO(
-                sucesso=False,
-                retorno="Erro ao abrir a janela Seleção de Empresas, tela não encontrada",
-                status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-            )
+        #                 try:
+        #                     btn_ok = main_window.child_window(title="OK")
+        #                     btn_ok.click()
+        #                 except:
+        #                     btn_ok = main_window.child_window(title="&OK")
+        #                     btn_ok.click()
 
-        console.print(f"Abrindo a janela de Otimizador cálculo PIS/COFINS...")
+        #                 await worker_sleep(3)
+        #         else:
+        #             break
+
+        #     if len(pop_up_aviso) > 0:
+        #         return RpaRetornoProcessoDTO(
+        #             sucesso=False,
+        #             retorno=f"Livro de apuração diferente de Confirmado/Encerrado:  {pop_up_aviso}",
+        #             status=RpaHistoricoStatusEnum.Falha,
+        #             tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+        #         )
+        #     else:
+        #         console.print(
+        #             "Não possui tela de Aviso ou Pop-up de informação, seguindo com o andamento do processo... \n"
+        #         )
+        #         app = Application().connect(
+        #             class_name="TFrmMovtoApuraPisCofins", timeout=120
+        #         )
+        #         main_window = app["TFrmMovtoApuraPisCofins"]
+        #         main_window.close()
+        #         await worker_sleep(2)
+        #         console.print("Tela de Movimento Apuração, fechada com sucesso... \n")
+        # else:
+        #     return RpaRetornoProcessoDTO(
+        #         sucesso=False,
+        #         retorno="Erro ao abrir a janela Seleção de Empresas, tela não encontrada",
+        #         status=RpaHistoricoStatusEnum.Falha,
+        #         tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+        #     )
+
+        # await worker_sleep(10)
+        # # Verificar se já existe registro no mês apurado
+        # try:
+        #     selecionar_todos_itens = (
+        #         ASSETS_PATH + "\\lancamento_pis_cofins\\ja_existe_periodo.png"
+        #     )
+        #     # Tenta localizar a imagem na tela
+        #     localizacao = pyautogui.locateOnScreen(
+        #         selecionar_todos_itens, confidence=0.9
+        #     )
+        #     await worker_sleep(3)
+        #     if localizacao:
+        #         app = Application().connect(title="Informação", timeout=120)
+        #         main_window = app["Informação"]
+        #         main_window.set_focus()
+        #         informacao = main_window.child_window(title="OK")
+        #         informacao.click()
+        #         console.print("Clique realizado com sucesso!")
+        #     else:
+        #         console.print("Imagem não encontrada na tela.")
+        # except:
+        #     pass
+
+        # console.print(f"Abrindo a janela de Otimizador cálculo PIS/COFINS...")
+
         try:
             type_text_into_field(
                 "Otimizador Cálculo PIS/COFINS",
@@ -311,7 +385,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
             pyautogui.press("enter")
             await worker_sleep(2)
             pyautogui.press("enter")
-            await worker_sleep(4)
+            await worker_sleep(5)
             console.print(
                 f"\nPesquisa: 'Otimizador Cálculo PIS/COFINS' realizada com sucesso",
                 style="bold green",
@@ -334,7 +408,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
             tipos = ["Livro Entrada", "Livro Saída"]
             for tipo in tipos:
                 app = Application().connect(
-                    class_name="TFrmOtimizadorCalcPisCofins", timeout=60
+                    class_name="TFrmOtimizadorCalcPisCofins", timeout=120
                 )
                 main_window = app["TFrmOtimizadorCalcPisCofins"]
                 main_window.set_focus()
@@ -438,7 +512,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
                     print(f"Clicando em Atribuir Tributação do Item no Livro...")
                     try:
                         app = Application().connect(
-                            class_name="TFrmOtimizadorCalcPisCofins", timeout=60
+                            class_name="TFrmOtimizadorCalcPisCofins", timeout=120
                         )
                         main_window = app["TFrmOtimizadorCalcPisCofins"]
                         main_window.set_focus()
@@ -474,7 +548,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
                     console.print(f"Gravando...")
                     try:
                         app = Application().connect(
-                            class_name="TFrmOtimizadorCalcPisCofins", timeout=20
+                            class_name="TFrmOtimizadorCalcPisCofins", timeout=120
                         )
                         main_window = app["TFrmOtimizadorCalcPisCofins"]
                         main_window.set_focus()
@@ -538,7 +612,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
             "Trabalho realizado na tela de Otimizador Cálculo PIS/COFINS, fechando a janela... \n"
         )
         app = Application().connect(
-            class_name="TFrmOtimizadorCalcPisCofins", timeout=60
+            class_name="TFrmOtimizadorCalcPisCofins", timeout=120
         )
         main_window = app["TFrmOtimizadorCalcPisCofins"]
         main_window.close()
@@ -597,7 +671,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
         console.print("Selecionando a primeira apuração...\n")
         try:
             app = Application().connect(
-                class_name="TFrmMovtoApuraPisCofins", timeout=60
+                class_name="TFrmMovtoApuraPisCofins", timeout=120
             )
             main_window = app["TFrmMovtoApuraPisCofins"]
             main_window.set_focus()
@@ -657,7 +731,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
         console.print("Gerando Crédito...\n")
         try:
             app = Application().connect(
-                class_name="TFrmMovtoApuraPisCofins", timeout=60
+                class_name="TFrmMovtoApuraPisCofins", timeout=120
             )
             main_window = app["TFrmMovtoApuraPisCofins"]
             main_window.set_focus()
@@ -721,7 +795,7 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
         console.print("Gerando Débito...\n")
         try:
             app = Application().connect(
-                class_name="TFrmMovtoApuraPisCofins", timeout=60
+                class_name="TFrmMovtoApuraPisCofins", timeout=120
             )
             main_window = app["TFrmMovtoApuraPisCofins"]
             main_window.set_focus()

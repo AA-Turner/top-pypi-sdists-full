@@ -239,6 +239,17 @@ fn continue_find_module(
     }))
 }
 
+/// Search for the given [`ModuleName`] in the given `include`, which is
+/// a list of paths denoting import roots. A [`FindError`] result indicates
+/// searching should be discontinued because of a special condition, whereas
+/// an `Ok(None)` indicates the module wasn't found here, but could be found in another
+/// search location (`site_package_path`, `typeshed`, ...).
+///
+/// `search_path` differs from `site_package_path` in two ways:
+/// 1. meaning: `search_path` *should* be project files, while `site_package_path`
+///    should be third-party imports
+/// 2. import resolution: `site_package_path` has extra checks that can occur, while `search_path`
+///    is just a 'find and return the first result' search.
 pub fn find_module_in_search_path<'a, I>(
     module: ModuleName,
     include: I,
@@ -249,23 +260,35 @@ where
     match module.components().as_slice() {
         [] => Ok(None),
         [first, rest @ ..] => {
-            let start_result = find_one_part(first, include.clone());
-            let result = start_result
-                .and_then(|start_result| continue_find_module(start_result, rest).unwrap());
-            if result.is_some() {
-                return Ok(result);
-            }
-            // If we can't find the module, try to find a stub by adding the -stubs suffix
+            // First try finding the module in `-stubs`.
             let stub_first = Name::new(format!("{first}-stubs"));
-            let start_stub_result = match find_one_part(&stub_first, include) {
-                Some(result) => result,
-                None => return Ok(None),
-            };
-            continue_find_module(start_stub_result, rest)
+            let stub_result = find_one_part(&stub_first, include.clone())
+                .map(|start_result| continue_find_module(start_result, rest))
+                .transpose()?
+                .flatten();
+            if let Some(stub_result) = stub_result {
+                return Ok(Some(stub_result));
+            }
+
+            // If we couldn't find it in a `-stubs` module, look normally.
+            let start_result = find_one_part(first, include);
+            Ok(start_result
+                .and_then(|start_result| continue_find_module(start_result, rest).unwrap()))
         }
     }
 }
 
+/// Search for the given [`ModuleName`] in the given `include`, which is
+/// a list of paths denoting import roots. A [`FindError`] result indicates
+/// searching should be discontinued because of a special condition, whereas
+/// an `Ok(None)` indicates the module wasn't found here, but could be found in another
+/// search location (`search_path`, `typeshed`, ...).
+///
+/// `search_path` differs from `site_package_path` in two ways:
+/// 1. meaning: `search_path` *should* be project files, while `site_package_path`
+///    should be third-party imports
+/// 2. import resolution: `site_package_path` has extra checks that can occur, while `search_path`
+///    is just a 'find and return the first result' search.
 pub fn find_module_in_site_package_path<'a, I>(
     module: ModuleName,
     include: I,
@@ -291,7 +314,7 @@ where
         let stub_module_py_typed = stub_module_import.py_typed();
         any_has_partial_py_typed |= stub_module_py_typed == PyTyped::Partial;
         checked_one_stub = true;
-        if let Some(stub_result) = continue_find_module(stub_module_import, rest).unwrap() {
+        if let Some(stub_result) = continue_find_module(stub_module_import, rest)? {
             found_stubs = Some(stub_result);
             break;
         }
@@ -325,7 +348,7 @@ where
             && module.py_typed() == PyTyped::Missing
         {
             any_has_none_py_typed = true;
-        } else if let Some(module_result) = continue_find_module(module, rest).unwrap() {
+        } else if let Some(module_result) = continue_find_module(module, rest)? {
             return Ok(Some(module_result));
         }
     }

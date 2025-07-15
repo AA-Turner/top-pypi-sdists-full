@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: batched
-Version: 0.1.4
+Version: 0.1.5
 Summary: Batched is a flexible and efficient batch processing library implemented in Python. It supports asynchronous batch processing with dynamic batching and prioritization.
 Author-email: Mixedbread <support@mixedbread.ai>, Julius Lipp <julius@mixedbread.ai>, Rui Huang <rui@mixedbread.ai>
 Requires-Python: >=3.9
@@ -14,6 +14,7 @@ Requires-Dist: ruff>=0.2.0; extra == "dev"
 Requires-Dist: pre-commit>=3.6.0; extra == "dev"
 Requires-Dist: torch>=2.0.0; extra == "dev"
 Requires-Dist: numpy>=1.26.4; extra == "dev"
+Dynamic: license-file
 
 
 # Batched (Dynamic Batching)

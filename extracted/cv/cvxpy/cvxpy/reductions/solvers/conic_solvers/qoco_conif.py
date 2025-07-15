@@ -15,11 +15,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 """
+from numpy import int32
+
 import cvxpy.settings as s
 from cvxpy.constraints import SOC
 from cvxpy.reductions.solution import Solution, failure_solution
 from cvxpy.reductions.solvers import utilities
 from cvxpy.reductions.solvers.conic_solvers.conic_solver import ConicSolver
+from cvxpy.utilities.citations import CITATION_DICT
 
 # QOCO standard form.
 # minimize   (1/2)x'Px + c'x
@@ -176,6 +179,17 @@ class QOCO(ConicSolver):
         A = data[s.A] if p > 0 else None
         G = data[s.G] if m > 0 else None
 
+        # Cast row indices and column pointer arrays to int32.
+        if P is not None:
+            P.indices = P.indices.astype(int32)
+            P.indptr = P.indptr.astype(int32)
+        if A is not None:
+            A.indices = A.indices.astype(int32)
+            A.indptr = A.indptr.astype(int32)
+        if G is not None:
+            G.indices = G.indices.astype(int32)
+            G.indptr = G.indptr.astype(int32)
+
         solver = qoco.QOCO()
         solver.setup(n, m, p, P, data[s.C], A, data[s.B], G, data[s.H], num_nno, nsoc, q,
         verbose=verbose, **solver_opts)
@@ -185,3 +199,13 @@ class QOCO(ConicSolver):
             solver_cache[self.name()] = results
 
         return results
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["QOCO"]

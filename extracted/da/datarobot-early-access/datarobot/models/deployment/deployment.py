@@ -2457,7 +2457,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def get_accuracy(
         self,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         start: Optional[datetime] = None,
@@ -2465,6 +2465,8 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         target_classes: Optional[List[str]] = None,
         segment_attribute: Optional[str] = None,
         segment_value: Optional[str] = None,
+        metric: Optional[str] = None,
+        baseline_model_id: Optional[str] = None,
     ) -> Accuracy:
         """Retrieves values of many accuracy metrics aggregated over a time period.
 
@@ -2472,7 +2474,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         Parameters
         ----------
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -2484,6 +2486,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             (New in Version v3.6) the segment attribute
         segment_value : Optional[str]
             (New in Version v3.6) the segment value
+        metric : str
+            (New in Version v3.9) the metric value to retrieve,
+            must be provided when querying for multiple models
+        baseline_model_id : str
+            (New in Version v3.9) the id of the baseline model when calculating percentage change
 
         Returns
         -------
@@ -2506,12 +2513,14 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             target_classes=target_classes,
             segment_attribute=segment_attribute,
             segment_value=segment_value,
+            metric=metric,
+            baseline_model_id=baseline_model_id,
         )
 
     def get_accuracy_over_time(
         self,
         metric: Optional[ACCURACY_METRIC] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -2527,7 +2536,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         ----------
         metric : ACCURACY_METRIC
             the accuracy metric to retrieve
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period

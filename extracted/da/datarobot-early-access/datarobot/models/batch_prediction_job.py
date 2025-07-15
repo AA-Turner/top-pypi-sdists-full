@@ -439,108 +439,108 @@ class BatchPredictionJob(AbstractBatchJob):
             To score from a local file, add the this parameter to the
             settings:
 
-                - file : file-like object, string path to file or a
-                  pandas.DataFrame of scoring data
+            - file : file-like object, string path to file or a
+              pandas.DataFrame of scoring data
 
             To score from S3, add the next parameters to the settings:
 
-                - url : str, the URL to score (e.g.: `s3://bucket/key`)
-                - credential_id : Optional[str]
-                - endpoint_url : Optional[str], any non-default endpoint
-                  URL for S3 access (omit to use the default)
+            - url : str, the URL to score (e.g.: `s3://bucket/key`)
+            - credential_id : Optional[str]
+            - endpoint_url : Optional[str], any non-default endpoint
+              URL for S3 access (omit to use the default)
 
             To score from JDBC, add the next parameters to the settings:
 
-                - data_store_id : str, the ID of the external data store connected
-                  to the JDBC data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - query : str (optional if `table`, `schema` and/or `catalog` is specified),
-                  a self-supplied SELECT statement of the data set you wish to predict.
-                - table : str (optional if `query` is specified),
-                  the name of specified database table.
-                - schema : str (optional if `query` is specified),
-                  the name of specified database schema.
-                - catalog : str  (optional if `query` is specified),
-                  (new in v2.22) the name of specified database catalog.
-                - fetch_size : Optional[int],
-                  Changing the `fetchSize` can be used to balance throughput and memory
-                  usage.
-                - credential_id : Optional[str] the ID of the credentials holding
-                  information about a user with read-access to the JDBC data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+            - data_store_id : str, the ID of the external data store connected
+              to the JDBC data source (see
+              :ref:`Database Connectivity <database-connectivity-overview>`).
+            - query : str (optional if `table`, `schema` and/or `catalog` is specified),
+              a self-supplied SELECT statement of the data set you wish to predict.
+            - table : str (optional if `query` is specified),
+              the name of specified database table.
+            - schema : str (optional if `query` is specified),
+              the name of specified database schema.
+            - catalog : str  (optional if `query` is specified),
+              (new in v2.22) the name of specified database catalog.
+            - fetch_size : Optional[int],
+              Changing the `fetchSize` can be used to balance throughput and memory
+              usage.
+            - credential_id : Optional[str] the ID of the credentials holding
+              information about a user with read-access to the JDBC data source (see
+              :ref:`Credentials <credentials-api-doc>`).
 
             To score from Datasphere, add the next parameters to the settings:
 
-                - `data_store_id` : str, the ID of the external data store connected to
-                  the Datasphere data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : str,  the name of specified database table.
-                - `schema` : str, the name of specified database schema.
-                - `credential_id` : str, the ID of the credentials holding information about
-                  a user with read-access to the Datasphere data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+            - `data_store_id` : str, the ID of the external data store connected to
+              the Datasphere data source (see
+              :ref:`Database Connectivity <database-connectivity-overview>`).
+            - `table` : str,  the name of specified database table.
+            - `schema` : str, the name of specified database schema.
+            - `credential_id` : str, the ID of the credentials holding information about
+              a user with read-access to the Datasphere data source (see
+              :ref:`Credentials <credentials-api-doc>`).
 
         output_settings : Optional[OutputSettings]
             A dict configuring how scored data is to be saved. Supported
             options:
 
-                - type : str, either `localFile`, `s3`, `azure`, `gcp`, `jdbc`,
-                  `snowflake`, `synapse`, `bigquery`, or `datasphere`
+            - type : str, either `localFile`, `s3`, `azure`, `gcp`, `jdbc`,
+              `snowflake`, `synapse`, `bigquery`, or `datasphere`
 
             To save scored data to a local file, add this parameters to the
             settings:
 
-                - path : Optional[str], path to save the scored data
-                  as CSV. If a path is not specified, you must download
-                  the scored data yourself with `job.download()`.
-                  If a path is specified, the call will block until the
-                  job is done. if there are no other jobs currently
-                  processing for the targeted prediction instance,
-                  uploading, scoring, downloading will happen in parallel
-                  without waiting for a full job to complete. Otherwise,
-                  it will still block, but start downloading the scored
-                  data as soon as it starts generating data. This is the
-                  fastest method to get predictions.
+            - path : Optional[str], path to save the scored data
+              as CSV. If a path is not specified, you must download
+              the scored data yourself with `job.download()`.
+              If a path is specified, the call will block until the
+              job is done. if there are no other jobs currently
+              processing for the targeted prediction instance,
+              uploading, scoring, downloading will happen in parallel
+              without waiting for a full job to complete. Otherwise,
+              it will still block, but start downloading the scored
+              data as soon as it starts generating data. This is the
+              fastest method to get predictions.
 
             To save scored data to S3, add the next parameters to the settings:
 
-                - url : str, the URL for storing the results
-                  (e.g.: `s3://bucket/key`)
-                - credential_id : Optional[str]
-                - endpoint_url : Optional[str], any non-default endpoint
-                  URL for S3 access (omit to use the default)
+            - url : str, the URL for storing the results
+              (e.g.: `s3://bucket/key`)
+            - credential_id : Optional[str]
+            - endpoint_url : Optional[str], any non-default endpoint
+              URL for S3 access (omit to use the default)
 
             To save scored data to JDBC, add the next parameters to the settings:
 
-                - `data_store_id` : str, the ID of the external data store connected to
-                  the JDBC data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : str,  the name of specified database table.
-                - `schema` : Optional[str], the name of specified database schema.
-                - `catalog` : Optional[str], (new in v2.22) the name of specified database
-                  catalog.
-                - `statement_type` : str, the type of insertion statement to create,
-                  one of ``datarobot.enums.AVAILABLE_STATEMENT_TYPES``.
-                - `update_columns` : list(string) (optional),  a list of strings containing
-                  those column names to be updated in case `statement_type` is set to a
-                  value related to update or upsert.
-                - `where_columns` : list(string) (optional), a list of strings containing
-                  those column names to be selected in case `statement_type` is set to a
-                  value related to insert or update.
-                - `credential_id` : str, the ID of the credentials holding information about
-                  a user with write-access to the JDBC data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+            - `data_store_id` : str, the ID of the external data store connected to
+              the JDBC data source (see
+              :ref:`Database Connectivity <database-connectivity-overview>`).
+            - `table` : str,  the name of specified database table.
+            - `schema` : Optional[str], the name of specified database schema.
+            - `catalog` : Optional[str], (new in v2.22) the name of specified database
+              catalog.
+            - `statement_type` : str, the type of insertion statement to create,
+              one of ``datarobot.enums.AVAILABLE_STATEMENT_TYPES``.
+            - `update_columns` : list(string) (optional),  a list of strings containing
+              those column names to be updated in case `statement_type` is set to a
+              value related to update or upsert.
+            - `where_columns` : list(string) (optional), a list of strings containing
+              those column names to be selected in case `statement_type` is set to a
+              value related to insert or update.
+            - `credential_id` : str, the ID of the credentials holding information about
+              a user with write-access to the JDBC data source (see
+              :ref:`Credentials <credentials-api-doc>`).
 
             To save scored data to Datasphere, add the following parameters to the settings:
 
-                - `data_store_id` : str, the ID of the external data store connected to
-                  the Datasphere data source (see
-                  :ref:`Database Connectivity <database-connectivity-overview>`).
-                - `table` : str,  the name of specified database table.
-                - `schema` : str, the name of specified database schema.
-                - `credential_id` : str, the ID of the credentials holding information about
-                  a user with write-access to the Datasphere data source (see
-                  :ref:`Credentials <credentials-api-doc>`).
+            - `data_store_id` : str, the ID of the external data store connected to
+              the Datasphere data source (see
+              :ref:`Database Connectivity <database-connectivity-overview>`).
+            - `table` : str,  the name of specified database table.
+            - `schema` : str, the name of specified database schema.
+            - `credential_id` : str, the ID of the credentials holding information about
+              a user with write-access to the Datasphere data source (see
+              :ref:`Credentials <credentials-api-doc>`).
 
         csv_settings : Optional[CsvSettings]
             CSV intake and output settings. Supported options:
@@ -1353,7 +1353,7 @@ class BatchPredictionJob(AbstractBatchJob):
         intake_settings : Optional[IntakeSettings]
             A dict configuring how data is coming from. Supported options:
 
-                - type : str, either `localFile`, `dataset`, or `dss`.
+            - type : str, either `localFile`, `dataset`, or `dss`.
 
             Note that to pass a dataset, you not only need to specify the `type` parameter
             as `dataset`, but you must also set the `dataset` parameter as a
@@ -1362,36 +1362,34 @@ class BatchPredictionJob(AbstractBatchJob):
             To score from a local file, add the this parameter to the
             settings:
 
-                - file : file-like object, string path to file or a
-                  pandas.DataFrame of scoring data.
+            - file : file-like object, string path to file or a pandas.DataFrame of scoring data.
 
             To score subset of training data, use `dss` intake type and specify
             following parameters:
 
-                - project_id : project to fetch training data from. Access to project is required.
-                - partition : subset of training data to score,
-                  one of ``datarobot.enums.TrainingDataSubsets``.
+            - project_id : project to fetch training data from. Access to project is required.
+            - partition : subset of training data to score, one of ``datarobot.enums.TrainingDataSubsets``.
 
         output_settings : Optional[OutputSettings]
             A dict configuring how scored data is to be saved. Supported
             options:
 
-                - type : str, `localFile`
+            - type : str, `localFile`
 
             To save scored data to a local file, add this parameters to the
             settings:
 
-                - path : Optional[str] The path to save the scored data
-                  as a CSV file. If a path is not specified, you must download
-                  the scored data yourself with `job.download()`.
-                  If a path is specified, the call is blocked until the
-                  job is done. If there are no other jobs currently
-                  processing for the targeted prediction instance,
-                  uploading, scoring, and downloading will happen in parallel
-                  without waiting for a full job to complete. Otherwise,
-                  it will still block, but start downloading the scored
-                  data as soon as it starts generating data. This is the
-                  fastest method to get predictions.
+            - path : Optional[str] The path to save the scored data
+              as a CSV file. If a path is not specified, you must download
+              the scored data yourself with `job.download()`.
+              If a path is specified, the call is blocked until the
+              job is done. If there are no other jobs currently
+              processing for the targeted prediction instance,
+              uploading, scoring, and downloading will happen in parallel
+              without waiting for a full job to complete. Otherwise,
+              it will still block, but start downloading the scored
+              data as soon as it starts generating data. This is the
+              fastest method to get predictions.
 
         csv_settings : Optional[CsvSettings]
             CSV intake and output settings. Supported options:

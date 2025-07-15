@@ -47,6 +47,7 @@ def _create_token(
     scopes=None,
     inherit_session=False,
     create_refresh_token=None,
+    get_user=None,
 ):
     obj = agilicus.CreateTokenRequest(
         sub=user_id,
@@ -63,6 +64,9 @@ def _create_token(
         obj.scopes = scopes
     if create_refresh_token:
         obj.create_refresh_token = create_refresh_token
+
+    if get_user:
+        obj.get_user = get_user
 
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)

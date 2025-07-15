@@ -1,3 +1,5 @@
+# cython: freethreading_compatible = True
+
 import sys
 
 from libc.stdlib cimport free, malloc
@@ -245,9 +247,11 @@ cdef inline c_read_binary(CyTransportBase buf, int32_t size):
 
     if size > STACK_STRING_LEN:
         data = <char*>malloc(size)
-        buf.c_read(size, data)
-        py_data = data[:size]
-        free(data)
+        try:
+            buf.c_read(size, data)
+            py_data = data[:size]
+        finally:
+            free(data)
     else:
         buf.c_read(size, string_val)
         py_data = string_val[:size]

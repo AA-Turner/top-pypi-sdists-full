@@ -33,6 +33,7 @@ from .usecases import (
     AdvancedCustomerServiceUseCase,
     LicensePlateUseCase,
     ColorDetectionUseCase,
+    PotholeSegmentationUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
     FireSmokeUseCase,
@@ -103,6 +104,7 @@ class PostProcessor:
         
         # Register PPE compliance use case
         registry.register_use_case("ppe", "ppe_compliance_detection", PPEComplianceUseCase)
+        registry.register_use_case("infrastructure", "pothole_segmentation", PotholeSegmentationUseCase)
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)

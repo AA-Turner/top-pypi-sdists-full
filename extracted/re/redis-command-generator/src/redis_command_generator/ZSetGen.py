@@ -2,38 +2,26 @@ import redis
 import random
 from simple_parsing import parse
 from dataclasses import dataclass
-from redis_command_generator.BaseGen import BaseGen
+from redis_command_generator.BaseGen import BaseGen, cg_method
 
 @dataclass
 class ZSetGen(BaseGen):
     max_subelements: int = 10
     subval_size: int = 5
     
-    def zadd(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="zset", can_create_key=True)
+    def zadd(self, pipe: redis.client.Pipeline, key: str) -> None:
         members = {self._rand_str(self.subval_size): random.random() for _ in range(random.randint(1, self.max_subelements))}
         pipe.zadd(key, mapping=members)
     
-    def zincrby(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="zset", can_create_key=True)
+    def zincrby(self, pipe: redis.client.Pipeline, key: str) -> None:
         member = self._rand_str(self.subval_size)
         increment = random.random()
         pipe.zincrby(key, increment, member)
     
-    def zrem(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "zset")
-        if not key: return
-        
+    @cg_method(cmd_type="zset", can_create_key=False)
+    def zrem(self, pipe: redis.client.Pipeline, key: str) -> None:
         members = [self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_subelements))]
         pipe.zrem(key, *members)
 

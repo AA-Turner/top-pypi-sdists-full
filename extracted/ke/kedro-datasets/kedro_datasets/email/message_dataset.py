@@ -29,9 +29,8 @@ class EmailMessageDataset(AbstractVersionedDataset[Message, Message]):
 
     Note that ``EmailMessageDataset`` doesn't handle sending email messages.
 
-    Example:
-
-    .. code-block:: pycon
+    Examples:
+        Using the [Python API](https://docs.kedro.org/en/stable/data/advanced_data_catalog_usage.html):
 
         >>> from email.message import EmailMessage
         >>>

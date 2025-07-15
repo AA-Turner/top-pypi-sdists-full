@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: craft-providers
-Version: 2.3.1
+Version: 2.4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
@@ -18,36 +18,12 @@ Requires-Dist: pydantic~=2.4
 Requires-Dist: pyyaml
 Requires-Dist: requests>=2.31
 Requires-Dist: requests_unixsocket2>=0.4.0
-Provides-Extra: dev
-Requires-Dist: coverage[toml]==7.6.4; extra == "dev"
-Requires-Dist: freezegun==1.5.1; extra == "dev"
-Requires-Dist: logassert==7; extra == "dev"
-Requires-Dist: pyfakefs==5.7.1; extra == "dev"
-Requires-Dist: pytest==8.3.3; extra == "dev"
-Requires-Dist: pytest-cov==5.0.0; extra == "dev"
-Requires-Dist: pytest-mock==3.14.0; extra == "dev"
-Requires-Dist: pytest-rerunfailures==14.0; extra == "dev"
-Requires-Dist: pytest-subprocess==1.5.2; extra == "dev"
-Requires-Dist: pytest-xdist==3.6.1; extra == "dev"
-Requires-Dist: pytest-time==0.3.2; extra == "dev"
-Requires-Dist: responses==0.25.3; extra == "dev"
-Requires-Dist: types-requests==2.32.0.20241016; extra == "dev"
-Requires-Dist: types-setuptools==75.2.0.20241019; extra == "dev"
-Requires-Dist: types-pyyaml==6.0.12.20240917; extra == "dev"
-Provides-Extra: lint
-Requires-Dist: codespell[toml]==2.3.0; extra == "lint"
-Requires-Dist: yamllint==1.35.1; extra == "lint"
-Provides-Extra: types
-Requires-Dist: mypy[reports]~=1.15; extra == "types"
 Provides-Extra: docs
 Requires-Dist: pyspelling==2.10; extra == "docs"
 Requires-Dist: sphinx-autobuild==2024.10.3; extra == "docs"
 Requires-Dist: sphinx-lint==1.0.0; extra == "docs"
 Requires-Dist: sphinx-tabs==3.4.7; extra == "docs"
 Requires-Dist: canonical-sphinx~=0.2.0; extra == "docs"
-Provides-Extra: tics
-Requires-Dist: flake8; extra == "tics"
-Requires-Dist: pylint; extra == "tics"
 
 ***************
 Craft providers

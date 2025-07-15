@@ -9,6 +9,7 @@ from coffea.dataset_tools import (
     filter_files,
     get_failed_steps_for_fileset,
     max_chunks,
+    max_chunks_per_file,
     max_files,
     preprocess,
     slice_chunks,
@@ -374,10 +375,14 @@ def test_preprocess_calculate_form():
         )
 
         raw_form_dy = uproot.dask(
-            "tests/samples/nano_dy.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dy.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
         raw_form_data = uproot.dask(
-            "tests/samples/nano_dimuon.root:Events", open_files=False, ak_add_doc=True
+            "tests/samples/nano_dimuon.root:Events",
+            open_files=False,
+            ak_add_doc={"__doc__": "title", "typename": "typename"},
         ).layout.form.to_json()
 
         assert decompress_form(dataset_runnable["ZJets"]["form"]) == raw_form_dy
@@ -553,6 +558,89 @@ def test_max_chunks():
             },
             "metadata": None,
             "form": None,
+        },
+    }
+
+    max_chunked = max_chunks(_starting_fileset_with_steps, 10)
+
+    assert max_chunked == {
+        "ZJets": {
+            "files": {
+                "tests/samples/nano_dy.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                        [10, 15],
+                        [15, 20],
+                        [20, 25],
+                        [25, 30],
+                        [30, 35],
+                        [35, 40],
+                    ],
+                }
+            }
+        },
+        "Data": {
+            "files": {
+                "tests/samples/nano_dimuon.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                        [10, 15],
+                        [15, 20],
+                        [20, 25],
+                        [25, 30],
+                        [30, 35],
+                        [35, 40],
+                    ],
+                },
+                "tests/samples/nano_dimuon_not_there.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                    ],
+                },
+            }
+        },
+    }
+
+    max_chunked = max_chunks_per_file(_starting_fileset_with_steps, 3)
+
+    assert max_chunked == {
+        "ZJets": {
+            "files": {
+                "tests/samples/nano_dy.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                        [10, 15],
+                    ],
+                }
+            }
+        },
+        "Data": {
+            "files": {
+                "tests/samples/nano_dimuon.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                        [10, 15],
+                    ],
+                },
+                "tests/samples/nano_dimuon_not_there.root": {
+                    "object_path": "Events",
+                    "steps": [
+                        [0, 5],
+                        [5, 10],
+                        [10, 15],
+                    ],
+                },
+            }
         },
     }
 

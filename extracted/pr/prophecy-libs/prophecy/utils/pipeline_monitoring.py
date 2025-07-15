@@ -1,4 +1,4 @@
-import base64
+import base64 as base64_std
 import gzip
 import json
 import logging
@@ -44,7 +44,7 @@ def decompress(encoded: str) -> str:
     Placeholder implementation: assumes each part is
     base64-encoded + gzipped bytes of UTF-8 JSON text.
     """
-    raw: bytes = base64.b64decode(encoded)
+    raw: bytes = base64_std.b64decode(encoded)
     return gzip.decompress(raw).decode("utf-8")
 
 

@@ -1,31 +1,19 @@
 Metadata-Version: 2.4
 Name: numpyencoder
-Version: 0.3.1
+Version: 0.3.2
 Summary: Python JSON encoder for handling Numpy data types.
-Home-page: https://github.com/hmallen/numpyencoder
-Author: Hunter M. Allen
-Author-email: allenhm@gmail.com
-License: MIT
+Author-email: "Hunter M. Allen" <allenhm@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/hmallen/numpyencoder
 Keywords: numpy,json,encoder
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.14.3
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Requires-Dist: packaging>=20.0
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # numpyencoder
 
@@ -49,3 +37,10 @@ with open(json_file, 'w') as file:
         cls=NumpyEncoder
     )
 ```
+
+## Installation
+
+```
+pip install numpyencoder==0.3.2
+```
+

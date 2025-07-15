@@ -43,6 +43,15 @@ $ANYSCALE_CROSS_ACCOUNT_IAM_POLICY_PARAMETERS
     Type: String
     Default: "6379"
 
+  EnableEFS:
+    Description: Whether to create EFS file system
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+
+Conditions:
+  CreateEFS: !Equals [!Ref EnableEFS, "true"]
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -207,6 +216,7 @@ $SUBNETS_ROUTE_TABLE_ASSOCIATION
                   - Arn
   EFS:
     Type: AWS::EFS::FileSystem
+    Condition: CreateEFS
     Properties:
         BackupPolicy:
           Status: ENABLED
@@ -214,7 +224,6 @@ $SUBNETS_ROUTE_TABLE_ASSOCIATION
         LifecyclePolicies:
           - TransitionToIA: AFTER_60_DAYS
         PerformanceMode: generalPurpose
-        Encrypted: true
         ThroughputMode: bursting
         FileSystemTags:
           - Key: anyscale-cloud-id
@@ -304,13 +313,10 @@ Outputs:
 
   EFS:
     Description: Anyscale managed EFS
+    Condition: CreateEFS
     Value: !Ref EFS
 
-  EFSMountTargetIP:
-    Description: Anyscale managed EFS mount target
-    Value: !GetAtt
-      - EFSMountTarget0
-      - IpAddress
+$EFS_MOUNT_TARGET_OUTPUT
 
   AnyscaleIAMRole:
     Description: ARN of the cross-account IAM role

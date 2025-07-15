@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sagemaker
-Version: 2.247.1
+Version: 2.248.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
 Author: Amazon Web Services
@@ -30,7 +30,7 @@ Requires-Dist: packaging<25,>=23.0
 Requires-Dist: pandas
 Requires-Dist: pathos
 Requires-Dist: platformdirs
-Requires-Dist: protobuf<6.0,>=3.12
+Requires-Dist: protobuf<6.32,>=3.12
 Requires-Dist: psutil
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: requests
@@ -103,7 +103,7 @@ Requires-Dist: opentelemetry-proto==1.27.0; extra == 'test'
 Requires-Dist: orderly-set<5.4.0; extra == 'test'
 Requires-Dist: pandas==1.4.4; extra == 'test'
 Requires-Dist: pillow<=11,>=10.0.1; extra == 'test'
-Requires-Dist: protobuf==4.25.5; extra == 'test'
+Requires-Dist: protobuf==4.25.8; extra == 'test'
 Requires-Dist: pyspark==3.3.2; extra == 'test'
 Requires-Dist: pytest-cov==3.0.0; extra == 'test'
 Requires-Dist: pytest-rerunfailures==10.2; extra == 'test'

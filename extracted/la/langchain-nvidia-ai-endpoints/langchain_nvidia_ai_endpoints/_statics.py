@@ -16,6 +16,7 @@ class Model(BaseModel):
     aliases: list of aliases for the model
     supports_tools: whether the model supports tool calling
     supports_structured_output: whether the model supports structured output
+    supports_thinking: whether the model supports thinking mode
 
     All aliases are deprecated and will trigger a warning when used.
     """
@@ -38,6 +39,7 @@ class Model(BaseModel):
     aliases: Optional[list] = None
     supports_tools: Optional[bool] = False
     supports_structured_output: Optional[bool] = False
+    supports_thinking: Optional[bool] = False
     base_model: Optional[str] = None
 
     def __hash__(self) -> int:
@@ -513,6 +515,18 @@ CHAT_MODEL_TABLE = {
         model_type="chat",
         client="ChatNVIDIA",
     ),
+    "nvidia/llama-3.1-nemotron-nano-8b-v1": Model(
+        id="nvidia/llama-3.1-nemotron-nano-8b-v1",
+        model_type="chat",
+        client="ChatNVIDIA",
+        supports_thinking=True,
+    ),
+    "nvidia/llama-3.3-nemotron-super-49b-v1": Model(
+        id="nvidia/llama-3.3-nemotron-super-49b-v1",
+        model_type="chat",
+        client="ChatNVIDIA",
+        supports_thinking=True,
+    ),
 }
 
 QA_MODEL_TABLE = {
@@ -603,6 +617,16 @@ VLM_MODEL_TABLE = {
     ),
     "meta/llama-4-scout-17b-16e-instruct": Model(
         id="meta/llama-4-scout-17b-16e-instruct",
+        model_type="vlm",
+        client="ChatNVIDIA",
+    ),
+    "nvdev/meta/llama-4-maverick-17b-128e-instruct": Model(
+        id="nvdev/meta/llama-4-maverick-17b-128e-instruct",
+        model_type="vlm",
+        client="ChatNVIDIA",
+    ),
+    "nvdev/meta/llama-4-scout-17b-16e-instruct": Model(
+        id="nvdev/meta/llama-4-scout-17b-16e-instruct",
         model_type="vlm",
         client="ChatNVIDIA",
     ),

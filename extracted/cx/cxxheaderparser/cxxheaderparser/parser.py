@@ -607,12 +607,21 @@ class CxxParser:
                         lex.return_token(ptok)
                         param = self._parse_template_type_parameter(tok, None)
                     else:
+                        lex.return_token(ptok)
                         param, _ = self._parse_parameter(
-                            ptok, TemplateNonTypeParam, False, ">"
+                            tok,
+                            TemplateNonTypeParam,
+                            concept_ok=False,
+                            deduce_this_ok=False,
+                            end=">",
                         )
                 else:
                     param, _ = self._parse_parameter(
-                        tok, TemplateNonTypeParam, concept_ok=False, end=">"
+                        tok,
+                        TemplateNonTypeParam,
+                        concept_ok=False,
+                        deduce_this_ok=False,
+                        end=">",
                     )
 
                 params.append(param)
@@ -1761,6 +1770,7 @@ class CxxParser:
         tok: typing.Optional[LexToken],
         cls: typing.Type[PT],
         concept_ok: bool,
+        deduce_this_ok: bool,
         end: str = ")",
     ) -> typing.Tuple[PT, typing.Optional[Type]]:
         """
@@ -1775,6 +1785,10 @@ class CxxParser:
         param_pack = False
         parsed_type: typing.Optional[Type]
         at_type: typing.Optional[Type] = None
+        extras: typing.Dict[str, typing.Any] = {}
+
+        if deduce_this_ok and self.lex.token_if("this"):
+            extras["deduces_this"] = True
 
         if not tok:
             tok = self.lex.token()
@@ -1825,12 +1839,18 @@ class CxxParser:
         if at_type and self.lex.token_if("ELLIPSIS"):
             param_pack = True
 
-        param = cls(type=dtype, name=param_name, default=default, param_pack=param_pack)
+        param = cls(
+            type=dtype,
+            name=param_name,
+            default=default,
+            param_pack=param_pack,
+            **extras,
+        )
         self.debug_print("parameter: %s", param)
         return param, at_type
 
     def _parse_parameters(
-        self, concept_ok: bool
+        self, concept_ok: bool, deduce_this_ok: bool
     ) -> typing.Tuple[typing.List[Parameter], bool, typing.List[TemplateParam]]:
         """
         Consumes function parameters and returns them, and vararg if found, and
@@ -1854,7 +1874,13 @@ class CxxParser:
                 self._next_token_must_be(")")
                 break
 
-            param, at_type = self._parse_parameter(None, Parameter, concept_ok)
+            # Deduce-this only applicable for first function parameter
+            param, at_type = self._parse_parameter(
+                None,
+                Parameter,
+                concept_ok,
+                deduce_this_ok=deduce_this_ok and len(params) == 0,
+            )
             params.append(param)
             if at_type:
                 at_params.append(
@@ -2047,7 +2073,9 @@ class CxxParser:
         state.location = location
         is_class_block = isinstance(state, ClassBlockState)
 
-        params, vararg, at_params = self._parse_parameters(True)
+        params, vararg, at_params = self._parse_parameters(
+            True, deduce_this_ok=is_class_block
+        )
 
         # Promote abbreviated template parameters
         if at_params:
@@ -2217,7 +2245,9 @@ class CxxParser:
         # nonptr_fn is for parsing function types directly in template specialization
 
         while True:
-            tok = self.lex.token_if("*", "const", "volatile", "(")
+            tok = self.lex.token_if(
+                "*", "const", "volatile", "__restrict__", "restrict", "("
+            )
             if not tok:
                 break
 
@@ -2233,6 +2263,10 @@ class CxxParser:
                 if not isinstance(dtype, (Pointer, Type)):
                     raise self._parse_error(tok)
                 dtype.volatile = True
+            elif tok.type in ("__restrict__", "restrict"):
+                if not isinstance(dtype, (Pointer, Reference)):
+                    raise self._parse_error(tok)
+                dtype.restrict = True
             elif nonptr_fn:
                 # remove any inner grouping parens
                 while True:
@@ -2243,7 +2277,7 @@ class CxxParser:
                     toks = self._consume_balanced_tokens(gtok)
                     self.lex.return_tokens(toks[1:-1])
 
-                fn_params, vararg, _ = self._parse_parameters(False)
+                fn_params, vararg, _ = self._parse_parameters(False, False)
 
                 assert not isinstance(dtype, FunctionType)
                 dtype = dtype_fn = FunctionType(dtype, fn_params, vararg)
@@ -2273,7 +2307,7 @@ class CxxParser:
                         assert not isinstance(dtype, FunctionType)
                         dtype = self._parse_array_type(aptok, dtype)
                     elif aptok.type == "(":
-                        fn_params, vararg, _ = self._parse_parameters(False)
+                        fn_params, vararg, _ = self._parse_parameters(False, False)
                         # the type we already have is the return type of the function pointer
 
                         assert not isinstance(dtype, FunctionType)
@@ -2304,7 +2338,7 @@ class CxxParser:
 
             # peek at the next token and see if it's a paren. If so, it might
             # be a nasty function pointer
-            if self.lex.token_peek_if("("):
+            if self.lex.token_peek_if("(", "__restrict__", "restrict"):
                 dtype = self._parse_cv_ptr_or_fn(dtype, nonptr_fn)
 
         return dtype

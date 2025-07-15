@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crds
-Version: 12.1.10
+Version: 12.1.11
 Summary: Calibration Reference Data System,  HST/JWST/Roman reference file management
 Author: STScI CRDS s/w developers
 Project-URL: homepage, https://github.com/spacetelescope/crds
@@ -11,6 +11,7 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Astronomy
+Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: astropy

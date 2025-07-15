@@ -23,15 +23,20 @@ class BaseCompletion(ABC):
     _client = None  # type: ignore
 
     def __init__(self, llm: "LLM"):
+        self._ran_setup = False
+        self._model_id = None
         self._llm = llm
 
     def _create_setup(self):
         """
         Setup for .create() and .acreate()
         """
-        self._llm._ensure_deployment_ready()
-        model_id = self._llm.model_id()
-        return model_id
+        if not self._ran_setup:
+            self._llm._ensure_deployment_ready()
+            self._ran_setup = True
+        if self._model_id is None:
+            self._model_id = self._llm.model_id()
+        return self._model_id
 
     def _should_retry_error(self, e: Exception) -> bool:
         """Check if an error should trigger a retry."""

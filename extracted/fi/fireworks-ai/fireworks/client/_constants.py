@@ -5,4 +5,4 @@ STREAMED_RAW_RESPONSE_HEADER = "X-Stainless-Streamed-Raw-Response"
 
 # default timeout is 10 minutes
 DEFAULT_MAX_RETRIES = 2
-DEFAULT_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20)
+DEFAULT_LIMITS = httpx.Limits(max_connections=500, max_keepalive_connections=20)

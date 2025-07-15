@@ -8,12 +8,12 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.66",
+    "langchain-core<1.0.0,>=0.3.68",
     "openai<2.0.0,>=1.86.0",
     "tiktoken<1,>=0.7",
 ]
 name = "langchain-openai"
-version = "0.3.27"
+version = "0.3.28"
 description = "An integration package connecting OpenAI and LangChain"
 readme = "README.md"
 
@@ -47,7 +47,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "langchain-core",
@@ -88,9 +88,17 @@ select = [
     "I",
     "T201",
     "UP",
+    "S",
 ]
 ignore = [
     "UP007",
+    "UP045",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
 ]
 
 [tool.ruff.format]

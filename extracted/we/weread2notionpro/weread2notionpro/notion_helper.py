@@ -515,27 +515,30 @@ class NotionHelper:
         books_dict = {}
         for result in results:
             bookId = get_property_value(result.get("properties").get("BookId"))
-            books_dict[bookId] = {
-                "pageId": result.get("id"),
-                "readingTime": get_property_value(
-                    result.get("properties").get("阅读时长")
-                ),
-                "category": get_property_value(
-                    result.get("properties").get("书架分类")
-                ),
-                "Sort": get_property_value(result.get("properties").get("Sort")),
-                "douban_url": get_property_value(
-                    result.get("properties").get("豆瓣链接")
-                ),
-                "cover": result.get("cover"),
-                "myRating": get_property_value(
-                    result.get("properties").get("我的评分")
-                ), 
-                "price": get_property_value(result.get("properties").get("价格")),
-                "wordCount": get_property_value(result.get("properties").get("字数")),
-                "image": get_property_value(result.get("properties").get("封面")),
-                "status": get_property_value(result.get("properties").get("阅读状态")),
-            }
+            if bookId not in books_dict:
+                books_dict[bookId] = {
+                    "pageId": result.get("id"),
+                    "readingTime": get_property_value(
+                        result.get("properties").get("阅读时长")
+                    ),
+                    "category": get_property_value(
+                        result.get("properties").get("书架分类")
+                    ),
+                    "Sort": get_property_value(result.get("properties").get("Sort")),
+                    "douban_url": get_property_value(
+                        result.get("properties").get("豆瓣链接")
+                    ),
+                    "cover": result.get("cover"),
+                    "myRating": get_property_value(
+                        result.get("properties").get("我的评分")
+                    ), 
+                    "price": get_property_value(result.get("properties").get("价格")),
+                    "wordCount": get_property_value(result.get("properties").get("字数")),
+                    "image": get_property_value(result.get("properties").get("封面")),
+                    "status": get_property_value(result.get("properties").get("阅读状态")),
+                }
+            else:
+                self.delete_block(result.get("id"))
         return books_dict
 
     @retry(stop_max_attempt_number=3, wait_fixed=5000)

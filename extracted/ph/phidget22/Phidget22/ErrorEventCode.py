@@ -51,6 +51,8 @@ class ErrorEventCode:
 	EEPHIDGET_FAULT = 4116
 	# External stop condition detected.
 	EEPHIDGET_ESTOP = 4117
+	# Current sensor problem detected.
+	EEPHIDGET_BADCURRENT = 4118
 
 	@classmethod
 	def getName(self, val):
@@ -104,4 +106,6 @@ class ErrorEventCode:
 			return "EEPHIDGET_FAULT"
 		if val == self.EEPHIDGET_ESTOP:
 			return "EEPHIDGET_ESTOP"
+		if val == self.EEPHIDGET_BADCURRENT:
+			return "EEPHIDGET_BADCURRENT"
 		return "<invalid enumeration value>"

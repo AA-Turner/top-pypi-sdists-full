@@ -452,7 +452,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         self: Cloud[Sync],
         account: str | None = None,
         workspace: str | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 20,
         just_mine: bool = False,
     ) -> list: ...
 
@@ -461,7 +461,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         self: Cloud[Async],
         account: str | None = None,
         workspace: str | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 20,
         just_mine: bool = False,
     ) -> Awaitable[list]: ...
 
@@ -470,7 +470,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         self,
         account: str | None = None,
         workspace: str | None = None,
-        max_pages: int | None = None,
+        max_pages: int | None = 20,
         just_mine: bool = False,
     ) -> Union[list, Awaitable[list]]:
         return self._sync(self._list_clusters, workspace=workspace or account, max_pages=max_pages, just_mine=just_mine)
@@ -1838,7 +1838,7 @@ def create_cluster(
 
 
 @list_docstring
-def list_clusters(account=None, workspace=None, max_pages: int | None = None, just_mine: bool = False):
+def list_clusters(account=None, workspace=None, max_pages: int | None = 20, just_mine: bool = False):
     with CloudV2() as cloud:
         return cloud.list_clusters(workspace=workspace or account, max_pages=max_pages, just_mine=just_mine)
 

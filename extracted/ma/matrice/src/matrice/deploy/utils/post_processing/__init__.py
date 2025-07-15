@@ -68,6 +68,7 @@ from .core.config import (
 from .usecases.color_detection import ColorDetectionConfig
 from .usecases.fire_detection import FireSmokeUseCase, FireSmokeConfig
 from .usecases.license_plate_detection import LicensePlateConfig
+from .usecases.pothole_segmentation import PotholeConfig
 
 # Use case implementations
 from .usecases import (
@@ -80,7 +81,8 @@ from .usecases import (
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
     FireSmokeUseCase,
-    FlareAnalysisUseCase
+    FlareAnalysisUseCase,
+    PotholeSegmentationUseCase
 )
 
 # Register use cases automatically
@@ -94,6 +96,7 @@ _ppe_compliance = PPEComplianceUseCase()
 _vehicle_monitoring = VehicleMonitoringUseCase()
 _fire_detection = FireSmokeUseCase()
 _flare_analysis = FlareAnalysisUseCase()
+_pothole_segmentation = PotholeSegmentationUseCase()
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -104,6 +107,7 @@ registry.register_use_case(_ppe_compliance.category, _ppe_compliance.name, PPECo
 registry.register_use_case(_vehicle_monitoring.category,_vehicle_monitoring.name,VehicleMonitoringUseCase)
 registry.register_use_case(_fire_detection.category,_fire_detection.name,FireSmokeUseCase)
 registry.register_use_case(_flare_analysis.category,_flare_analysis.name,FlareAnalysisUseCase)
+registry.register_use_case(_pothole_segmentation.category, _pothole_segmentation.name, PotholeSegmentationUseCase)
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
     # Geometry utilities
@@ -235,7 +239,8 @@ __all__ = [
     'CustomerServiceConfig',
     'ColorDetectionConfig',
     'LicensePlateConfig',
-    'VehicleMonitoringConfig'
+    'PotholeConfig',
+    'VehicleMonitoringConfig',
     'ZoneConfig',
     'TrackingConfig',
     'AlertConfig',
@@ -253,6 +258,7 @@ __all__ = [
     'LicensePlateUseCase',
     'ColorDetectionUseCase',
     'PPEComplianceUseCase',
+    'PotholeSegmentationUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'FlareAnalysisUseCase'

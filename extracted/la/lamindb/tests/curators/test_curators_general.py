@@ -230,6 +230,18 @@ def test_pandera_dataframe_schema(
     ln.Feature.filter().delete()
 
 
+def test_schema_not_saved(df):
+    """Attempting to validate an unsaved Schema must error."""
+    feature = ln.Feature(name="cell_type", dtype="str").save()
+    schema = ln.Schema(features=[feature])
+
+    with pytest.raises(ValueError) as excinfo:
+        ln.curators.DataFrameCurator(df, schema)
+    assert excinfo.exconly() == (
+        "ValueError: Schema must be saved before curation. Please save it using '.save()'."
+    )
+
+
 def test_schema_optionals():
     schema = ln.Schema(
         name="my-schema",
@@ -505,3 +517,23 @@ def test_curate_columns(df):
 
     schema.delete()
     ln.Feature.filter().delete()
+
+
+def test_wrong_datatype(df):
+    feature = ln.Feature(name="sample_id", dtype=ln.ULabel).save()
+    schema = ln.Schema(features=[feature]).save()
+
+    curator = ln.curators.DataFrameCurator(df, schema)
+    with pytest.raises(ln.errors.ValidationError) as excinfo:
+        curator.validate()
+
+    assert "expected series 'sample_id' to have type category, got object" in str(
+        excinfo.value
+    )
+    assert (
+        "Hint: Consider setting 'coerce_datatype=True' to attempt coercing/converting values during validation to the pre-defined dtype."
+        in str(excinfo.value)
+    )
+
+    schema.delete()
+    feature.delete()

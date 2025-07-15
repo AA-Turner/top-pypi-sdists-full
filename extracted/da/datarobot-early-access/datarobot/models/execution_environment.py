@@ -151,13 +151,9 @@ class ExecutionEnvironment(APIObject):
         self.use_cases = use_cases
 
         if latest_version is not None:
-            # "image_id" is being removed in RAPTOR-2460
-            latest_version.pop("image_id", None)  # type: ignore[typeddict-item]
             self.latest_version = ExecutionEnvironmentVersion(**latest_version)
 
         if latest_successful_version is not None:
-            # "image_id" is being removed in RAPTOR-2460
-            latest_successful_version.pop("image_id", None)  # type: ignore[typeddict-item]
             self.latest_successful_version = ExecutionEnvironmentVersion(
                 **latest_successful_version
             )

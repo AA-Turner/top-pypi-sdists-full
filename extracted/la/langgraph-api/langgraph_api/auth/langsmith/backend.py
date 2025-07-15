@@ -14,7 +14,6 @@ from langgraph_api.config import (
     LANGSMITH_AUTH_VERIFY_TENANT_ID,
     LANGSMITH_TENANT_ID,
 )
-from langgraph_api.utils.cache import LRUCache
 
 
 class AuthDict(TypedDict):
@@ -31,6 +30,8 @@ class AuthCacheEntry(TypedDict):
 
 class LangsmithAuthBackend(AuthenticationBackend):
     def __init__(self):
+        from langgraph_api.utils.cache import LRUCache
+
         self._cache = LRUCache[AuthCacheEntry](max_size=1000, ttl=60)
 
     def _get_cache_key(self, headers):

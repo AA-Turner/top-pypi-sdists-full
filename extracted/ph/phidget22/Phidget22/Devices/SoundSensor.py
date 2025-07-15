@@ -156,18 +156,6 @@ class SoundSensor(Phidget):
 
 		return _dB.value
 
-	def getMaxdB(self):
-		_MaxdB = ctypes.c_double()
-
-		__func = PhidgetSupport.getDll().PhidgetSoundSensor_getMaxdB
-		__func.restype = ctypes.c_int32
-		result = __func(self.handle, ctypes.byref(_MaxdB))
-
-		if result > 0:
-			raise PhidgetException(result)
-
-		return _MaxdB.value
-
 	def getdBA(self):
 		_dBA = ctypes.c_double()
 
@@ -191,6 +179,18 @@ class SoundSensor(Phidget):
 			raise PhidgetException(result)
 
 		return _dBC.value
+
+	def getMaxdB(self):
+		_MaxdB = ctypes.c_double()
+
+		__func = PhidgetSupport.getDll().PhidgetSoundSensor_getMaxdB
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, ctypes.byref(_MaxdB))
+
+		if result > 0:
+			raise PhidgetException(result)
+
+		return _MaxdB.value
 
 	def getNoiseFloor(self):
 		_NoiseFloor = ctypes.c_double()

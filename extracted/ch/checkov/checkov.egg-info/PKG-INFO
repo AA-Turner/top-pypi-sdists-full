@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: checkov
-Version: 3.2.450
+Version: 3.2.451
 Summary: Infrastructure as code static analysis
 Home-page: https://github.com/bridgecrewio/checkov
 Author: bridgecrew
@@ -22,7 +22,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: bc-python-hcl2==0.4.2
+Requires-Dist: bc-python-hcl2==0.4.3
 Requires-Dist: bc-detect-secrets==1.5.44
 Requires-Dist: bc-jsonpath-ng==1.6.1
 Requires-Dist: pycep-parser==0.5.1

@@ -18,6 +18,7 @@ from ._state_machine import (
     WorkerStatus,
     CapsuleStatus,
     DEPLOYMENT_READY_CONDITIONS,
+    LogLine,
 )
 
 
@@ -508,7 +509,7 @@ class CapsuleApi:
 
     def logs(
         self, capsule_id: str, worker_id: str, previous: bool = False
-    ) -> List[str]:
+    ) -> List[LogLine]:
         _url = os.path.join(self._base_url, capsule_id, "workers", worker_id, "logs")
         options = None
         if previous:
@@ -529,6 +530,20 @@ class CapsuleApi:
                 response.text,
                 message="Capsule JSON decode failed",
             )
+
+    def patch(self, capsule_id: str, patch_input: dict):
+        capsule_response = self.get(capsule_id)
+        if "spec" not in capsule_response or len(capsule_response.get("spec", {})) == 0:
+            raise CapsuleApiException(
+                self._base_url,
+                "patch",
+                403,
+                "Capsule response of incorrect format",
+            )
+
+        spec = capsule_response.get("spec")
+        spec.update(patch_input)
+        return self.create(spec)
 
 
 def list_and_filter_capsules(

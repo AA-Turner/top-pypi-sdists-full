@@ -14215,15 +14215,17 @@ class module_CreateModuleRequest(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'name': ConjureFieldDefinition('name', str),
+            'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
             'definition': ConjureFieldDefinition('definition', module_ModuleVersionDefinition),
             'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid])
         }
 
-    __slots__: List[str] = ['_name', '_description', '_definition', '_workspace']
+    __slots__: List[str] = ['_name', '_title', '_description', '_definition', '_workspace']
 
-    def __init__(self, definition: "module_ModuleVersionDefinition", description: str, name: str, workspace: Optional[str] = None) -> None:
+    def __init__(self, definition: "module_ModuleVersionDefinition", description: str, name: str, title: str, workspace: Optional[str] = None) -> None:
         self._name = name
+        self._title = title
         self._description = description
         self._definition = definition
         self._workspace = workspace
@@ -14233,6 +14235,10 @@ class module_CreateModuleRequest(ConjureBeanType):
         """The name of the module. This should be unique to the module in the current workspace.
         """
         return self._name
+
+    @builtins.property
+    def title(self) -> str:
+        return self._title
 
     @builtins.property
     def description(self) -> str:
@@ -14670,17 +14676,19 @@ class module_ModuleMetadata(ConjureBeanType):
         return {
             'rid': ConjureFieldDefinition('rid', modules_api_ModuleRid),
             'name': ConjureFieldDefinition('name', str),
+            'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
             'created_by': ConjureFieldDefinition('createdBy', scout_rids_api_UserRid),
             'created_at': ConjureFieldDefinition('createdAt', str),
             'archived_at': ConjureFieldDefinition('archivedAt', OptionalTypeWrapper[str])
         }
 
-    __slots__: List[str] = ['_rid', '_name', '_description', '_created_by', '_created_at', '_archived_at']
+    __slots__: List[str] = ['_rid', '_name', '_title', '_description', '_created_by', '_created_at', '_archived_at']
 
-    def __init__(self, created_at: str, created_by: str, description: str, name: str, rid: str, archived_at: Optional[str] = None) -> None:
+    def __init__(self, created_at: str, created_by: str, description: str, name: str, rid: str, title: str, archived_at: Optional[str] = None) -> None:
         self._rid = rid
         self._name = name
+        self._title = title
         self._description = description
         self._created_by = created_by
         self._created_at = created_at
@@ -14695,6 +14703,10 @@ class module_ModuleMetadata(ConjureBeanType):
         """The name of the module. This is unique to the module in the current workspace.
         """
         return self._name
+
+    @builtins.property
+    def title(self) -> str:
+        return self._title
 
     @builtins.property
     def description(self) -> str:
@@ -15869,23 +15881,21 @@ class module_UpdateModuleRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'name': ConjureFieldDefinition('name', str),
+            'title': ConjureFieldDefinition('title', str),
             'description': ConjureFieldDefinition('description', str),
             'definition': ConjureFieldDefinition('definition', module_ModuleVersionDefinition)
         }
 
-    __slots__: List[str] = ['_name', '_description', '_definition']
+    __slots__: List[str] = ['_title', '_description', '_definition']
 
-    def __init__(self, definition: "module_ModuleVersionDefinition", description: str, name: str) -> None:
-        self._name = name
+    def __init__(self, definition: "module_ModuleVersionDefinition", description: str, title: str) -> None:
+        self._title = title
         self._description = description
         self._definition = definition
 
     @builtins.property
-    def name(self) -> str:
-        """The name of the module. This should be unique to the module in the current workspace.
-        """
-        return self._name
+    def title(self) -> str:
+        return self._title
 
     @builtins.property
     def description(self) -> str:
@@ -18499,7 +18509,7 @@ includes metrics for check and violation review status.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_run_api_SearchRunsWithDataReviewSummaryResponse, self._return_none_for_unknown_union_types)
 
-    def archive_run(self, auth_header: str, rid: str) -> bool:
+    def archive_run(self, auth_header: str, rid: str, include_linked_workbooks: Optional[bool] = None) -> bool:
         """Soft-deletes a run. Runs still exist in the database but are no longer visible.
         """
         _conjure_encoder = ConjureEncoder()
@@ -18510,6 +18520,7 @@ includes metrics for check and violation review status.
         }
 
         _params: Dict[str, Any] = {
+            'includeLinkedWorkbooks': _conjure_encoder.default(include_linked_workbooks),
         }
 
         _path_params: Dict[str, str] = {
@@ -18531,7 +18542,7 @@ includes metrics for check and violation review status.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), bool, self._return_none_for_unknown_union_types)
 
-    def unarchive_run(self, auth_header: str, rid: str) -> bool:
+    def unarchive_run(self, auth_header: str, rid: str, include_linked_workbooks: Optional[bool] = None) -> bool:
         _conjure_encoder = ConjureEncoder()
 
         _headers: Dict[str, Any] = {
@@ -18540,6 +18551,7 @@ includes metrics for check and violation review status.
         }
 
         _params: Dict[str, Any] = {
+            'includeLinkedWorkbooks': _conjure_encoder.default(include_linked_workbooks),
         }
 
         _path_params: Dict[str, str] = {
@@ -49064,7 +49076,7 @@ class scout_compute_api_StabilityDetectionRanges(ConjureBeanType):
 the specified lookback window, including the current point. A point is considered stable if its value does 
 not deviate from the calculated min and the max by more than the threshold and the total number of points
 within the window is at least the specified amount. The threshold can be either fixed values or percentages 
-of the value. The minimum points threshold defaults to 2.
+of the value. The lookback window must be strictly positive. The minimum points threshold defaults to 2.
     """
 
     @builtins.classmethod
@@ -62861,6 +62873,7 @@ If commitId is omitted from a ChecklistRef, it will match all commits.
         return {
             'run_rids': ConjureFieldDefinition('runRids', List[scout_run_api_RunRid]),
             'asset_rids': ConjureFieldDefinition('assetRids', List[scout_rids_api_AssetRid]),
+            'filter_by_both_runs_and_assets': ConjureFieldDefinition('filterByBothRunsAndAssets', OptionalTypeWrapper[bool]),
             'checklist_refs': ConjureFieldDefinition('checklistRefs', List[scout_checks_api_ChecklistRef]),
             'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
             'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int]),
@@ -62868,11 +62881,12 @@ If commitId is omitted from a ChecklistRef, it will match all commits.
             'archived_statuses': ConjureFieldDefinition('archivedStatuses', OptionalTypeWrapper[List[api_ArchivedStatus]])
         }
 
-    __slots__: List[str] = ['_run_rids', '_asset_rids', '_checklist_refs', '_next_page_token', '_page_size', '_show_archived', '_archived_statuses']
+    __slots__: List[str] = ['_run_rids', '_asset_rids', '_filter_by_both_runs_and_assets', '_checklist_refs', '_next_page_token', '_page_size', '_show_archived', '_archived_statuses']
 
-    def __init__(self, asset_rids: List[str], checklist_refs: List["scout_checks_api_ChecklistRef"], run_rids: List[str], archived_statuses: Optional[List["api_ArchivedStatus"]] = None, next_page_token: Optional[str] = None, page_size: Optional[int] = None, show_archived: Optional[bool] = None) -> None:
+    def __init__(self, asset_rids: List[str], checklist_refs: List["scout_checks_api_ChecklistRef"], run_rids: List[str], archived_statuses: Optional[List["api_ArchivedStatus"]] = None, filter_by_both_runs_and_assets: Optional[bool] = None, next_page_token: Optional[str] = None, page_size: Optional[int] = None, show_archived: Optional[bool] = None) -> None:
         self._run_rids = run_rids
         self._asset_rids = asset_rids
+        self._filter_by_both_runs_and_assets = filter_by_both_runs_and_assets
         self._checklist_refs = checklist_refs
         self._next_page_token = next_page_token
         self._page_size = page_size
@@ -62886,6 +62900,16 @@ If commitId is omitted from a ChecklistRef, it will match all commits.
     @builtins.property
     def asset_rids(self) -> List[str]:
         return self._asset_rids
+
+    @builtins.property
+    def filter_by_both_runs_and_assets(self) -> Optional[bool]:
+        """If true, results are filtered to data reviews w/ both run and asset in the requested runs/assets.
+Defaults to false, where assets are converted to runs and all data reviews under the linked runs
+(including data reviews on other assets sharing the parent run) will be returned.
+It is recommended to set this to true and pass in asset RIDs for multi-asset runs.
+Toggling this option has no effect if no asset RIDs are supplied.
+        """
+        return self._filter_by_both_runs_and_assets
 
     @builtins.property
     def checklist_refs(self) -> List["scout_checks_api_ChecklistRef"]:
@@ -70070,6 +70094,8 @@ class scout_metadata_ResourceType(ConjureEnumType):
     '''EVENT'''
     DATASET = 'DATASET'
     '''DATASET'''
+    MODULE = 'MODULE'
+    '''MODULE'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 

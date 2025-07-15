@@ -10,6 +10,7 @@ from fireworks.client.api_client import FireworksClient
 from functools import cache as sync_cache
 from google.protobuf.field_mask_pb2 import FieldMask as SyncFieldMask
 from typing import (
+    Any,
     Callable,
     List,
     Optional,
@@ -137,6 +138,7 @@ class LLM:
         long_prompt_optimized: Optional[bool] = None,
         temperature: Optional[float] = None,
         perf_metrics_in_response: Optional[bool] = None,
+        client_kwargs: dict[str, Any] = {},
     ):
         """
         Initialize an LLM object. Performs validation of the model and deployment type.
@@ -163,13 +165,14 @@ class LLM:
             scale_to_zero_window: The scale to zero window to use.
             enable_metrics: Whether to enable metrics. Only records time to last token for non-streaming requests.
             max_retries: The maximum number of retries to use.
+            client_kwargs: Additional keyword arguments to pass to the FireworksClient.
             For more information on parameters, see the [API Reference](https://docs.fireworks.ai/api-reference/post-chatcompletions)
         """
         if not model:
             raise ValueError("model is required")
         if deployment_type is None:
             raise ValueError('deployment_type is required - must be one of "serverless", "on-demand", or "auto"')
-        self._client = FireworksClient(api_key=api_key, base_url=base_url)
+        self._client = FireworksClient(api_key=api_key, base_url=base_url, **client_kwargs)
         self._id = id
         self._gateway = Gateway(api_key=api_key)
         self._deployment_display_name = deployment_display_name

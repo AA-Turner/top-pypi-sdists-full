@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import functools as _ft
 import re as _re
-import math as _ma
 import documark as _dm
 import plotly.graph_objects as _pg
 from collections.abc import Sequence
@@ -18,6 +17,7 @@ from ..conveniences import descriptions as _descriptions
 from ..conveniences import copies as _copies
 from .. import ez_plotly as _ez_plotly
 from .. import dates as _dates
+from ..dates import Period
 from ..databoxes import main as _databoxes
 
 from typing import TYPE_CHECKING
@@ -36,6 +36,7 @@ __all__ =  (
 
 _FIGURE_SETTINGS = {
     "legend": None,
+    "show_legend": None,
     "highlight": None,
     "tiles": None,
     "shared_xaxes": False,
@@ -132,6 +133,7 @@ self = Chartpack(
     transforms=None,
     highlight=None,
     legend=None,
+    show_legend=None,
     reverse_plot_order=False,
 )
 ```
@@ -160,6 +162,10 @@ self = Chartpack(
 ???+ input "legend"
     A list of strings that will be used as the legend for the charts.
 
+???+ input "show_legend"
+    Show the legend in the figure. If `None`, the legend will be shown if `legend` is
+    not `None` and non-empty.
+
 ???+ input "reverse_plot_order"
     If `True`, the order of plotting the individual time series within each
     chart will be reversed.
@@ -175,6 +181,15 @@ self = Chartpack(
 ················································································
         """
         pass
+
+    def set_span(
+        self,
+        span: Iterable[Period] | EllipsisType,
+    ) -> None:
+        r"""
+        """
+        for f in self._figures:
+            f.set_span(span, )
 
     @_dm.reference(category="plot", )
     def plot(
@@ -235,9 +250,9 @@ self = Chartpack(
         """
         new_figure = _Figure.from_string(
             figure_string,
-            kwargs=kwargs,
             figure_settings_cascaded=self._figure_settings,
             chart_settings_cascaded=self._chart_settings,
+            **kwargs,
         )
         self._add_figure(new_figure, )
         return new_figure
@@ -305,19 +320,22 @@ class _Figure:
         self.title = title
         self._charts = []
         self._chart_settings = {}
+        if self.show_legend is None:
+            self.show_legend = self.legend is not None and bool(self.legend)
 
     @classmethod
     def from_string(
         klass,
         input_string: str,
-        /,
-        kwargs: dict[str, Any],
-        figure_settings_cascaded: dict[str, Any],
-        chart_settings_cascaded: dict[str, Any],
+        figure_settings_cascaded: dict[str, Any] | None = None,
+        chart_settings_cascaded: dict[str, Any] | None = None,
+        **kwargs,
     ) -> Self:
         """
         """
         self = klass(title=input_string, )
+        figure_settings_cascaded = figure_settings_cascaded or {}
+        chart_settings_cascaded = chart_settings_cascaded or {}
         #
         for key in _FIGURE_SETTINGS_KEYS:
             if key in kwargs:
@@ -344,6 +362,15 @@ class _Figure:
     def num_charts(self, ) -> int:
         return len(self._charts, )
 
+    def set_span(
+        self,
+        span: Iterable[Period] | EllipsisType,
+    ) -> None:
+        r"""
+        """
+        for ch in self._charts:
+            ch.span = span
+
     def plot(
         self,
         input_db: _databoxes.Databox,
@@ -363,12 +390,17 @@ class _Figure:
         for i, chart in enumerate(self, ):
             chart.plot(
                 input_db, figure, i,
-                legend=self.legend if i == 0 else None,
+                legend=self.legend,
+                include_in_legend=(i == 0),
             )
             if self.highlight is not None:
                 _ez_plotly.highlight(figure, self.highlight, subplot=i, )
         #
-        figure.update_layout(title={"text": self.title, }, )
+        figure.update_layout(
+            title={"text": self.title, },
+            showlegend=self.show_legend,
+        )
+        #
         return figure
 
     def format_figure_title(
@@ -408,8 +440,8 @@ class _Figure:
         """
         chart = _Chart.from_string(
             chart_string,
-            kwargs=kwargs,
             chart_settings_cascaded=self._chart_settings,
+            **kwargs,
         )
         self._add_chart(chart, )
 
@@ -441,8 +473,11 @@ class _Chart:
     def __init__(
         self,
         expression: str,
+        #
         title: str | None = None,
         transform: str | Callable | None = None,
+        chart_settings_cascaded: dict[str, Any] | None = None,
+        **kwargs,
     ) -> None:
         """
         """
@@ -451,23 +486,11 @@ class _Chart:
         self.expression = (expression or "").strip()
         self.title = (title or "").strip() or self.expression
         self.transform = (transform or "").strip()
-
-    @classmethod
-    def from_string(
-        klass,
-        input_string: str,
-        kwargs: dict[str, Any],
-        chart_settings_cascaded: dict[str, Any],
-    ) -> Self:
-        """
-        """
-        match = _CHART_INPUT_STRING_PATTERN.match(input_string, )
-        if not match:
-            raise ValueError(f"Invalid input string: {input_string!r}")
-        self = klass(**match.groupdict(), )
-        #
+        chart_settings_cascaded = chart_settings_cascaded or {}
         for key in _CHART_SETTINGS_KEYS:
-            if key in kwargs:
+            if getattr(self, key, None) is not None:
+                continue
+            elif key in kwargs:
                 setattr(self, key, kwargs[key], )
                 continue
             elif key in chart_settings_cascaded:
@@ -476,8 +499,21 @@ class _Chart:
             else:
                 setattr(self, key, _CHART_SETTINGS[key], )
                 continue
-        #
-        return self
+
+    @classmethod
+    def from_string(
+        klass,
+        input_string: str,
+        chart_settings_cascaded: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> Self:
+        """
+        """
+        match = _CHART_INPUT_STRING_PATTERN.match(input_string, )
+        if not match:
+            raise ValueError(f"Invalid input string: {input_string!r}")
+        match_dict = match.groupdict()
+        return klass(**match.groupdict(), chart_settings_cascaded=chart_settings_cascaded, **kwargs, )
 
     @property
     def caption(self, ) -> str:
@@ -489,7 +525,8 @@ class _Chart:
         input_db: _databoxes.Databox,
         figure: _pg.Figure,
         index: int,
-        legend: Iterable[str, ...] | None = None,
+        legend: Iterable[str, ...] | None,
+        include_in_legend: bool,
     ) -> None:
         """
         """
@@ -502,6 +539,8 @@ class _Chart:
             show_figure=False,
             freeze_span=True,
             legend=legend,
+            include_in_legend=include_in_legend,
+            show_legend=False,
             reverse_plot_order=self.reverse_plot_order,
             chart_type=self.chart_type,
             update_traces=self.update_traces,
@@ -512,11 +551,11 @@ class _Chart:
         """
         if self.transform and self.transforms and self.transform in self.transforms:
             func = self.transforms[self.transform]
-        elif isinstance(self.transform, str):
+            return func(x, )
+        if self.transform and isinstance(self.transform, str):
             func = eval("lambda x:" + self.transform, )
-        else:
-            func = None
-        return func(x) if func else x
+            return func(x, )
+        return x
 
     def __str__(self, /, ) -> str:
         """
@@ -558,23 +597,12 @@ def _resolve_tiles(tiles, num_charts, ) -> tuple[int, int]:
     """
     #[
     if tiles is None:
-        return _auto_tiles(num_charts, )
+        return _ez_plotly.auto_tiles(num_charts, )
     if isinstance(tiles, int, ):
-        return _auto_tiles(tiles, )
+        return _ez_plotly.auto_tiles(tiles, )
     if isinstance(tiles, Sequence, ):
         return tiles[:2]
     raise TypeError(f"Invalid tiles: {tiles!r}")
-    #]
-
-
-def _auto_tiles(num_charts, ) -> tuple[int, int]:
-    """
-    """
-    #[
-    n = _ma.ceil(_ma.sqrt(num_charts, ), )
-    if n * (n-1) >= num_charts:
-        return (n, n-1, )
-    return (n, n, )
     #]
 
 

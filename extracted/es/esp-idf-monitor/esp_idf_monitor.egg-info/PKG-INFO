@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-idf-monitor
-Version: 1.6.2
+Version: 1.7.0
 Summary: Serial monitor for esp-idf
 Author: Espressif Systems
 Project-URL: Homepage, https://github.com/espressif/esp-idf-monitor
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -25,11 +26,11 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyserial>=3.3
 Requires-Dist: esp-coredump~=1.2
-Requires-Dist: esp-idf-panic-decoder~=1.2
+Requires-Dist: esp-idf-panic-decoder~=1.4
 Requires-Dist: pyelftools
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: commitizen; extra == "dev"
+Requires-Dist: czespressif; python_version >= "3.9" and extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
 Provides-Extra: ide
 Requires-Dist: websocket-client; extra == "ide"

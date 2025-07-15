@@ -410,7 +410,7 @@ class TestSCS(BaseTest):
 
     def test_scs_sdp_pcp_1(self):
         StandardTestMixedCPs.test_sdp_pcp_1(solver='SCS')
-        
+
     def test_scs_pcp_1(self) -> None:
         StandardTestPCPs.test_pcp_1(solver='SCS')
 
@@ -532,7 +532,7 @@ class TestClarabel(BaseTest):
         StandardTestSDPs.test_sdp_1min(solver='CLARABEL')
 
     def test_clarabel_sdp_2(self) -> None:
-        # produces a different optimizer than 
+        # produces a different optimizer than
         # the one expected by the standard test
         places = 3
         sth = sths.sdp_2()
@@ -542,6 +542,114 @@ class TestClarabel(BaseTest):
         # sth.verify_primal_values(places) # skip
         sth.check_complementarity(places)
         sth.check_dual_domains(places)
+
+@unittest.skipUnless('CUCLARABEL' in INSTALLED_SOLVERS, 'CLARABEL is not installed.')
+class TestCuClarabel(BaseTest):
+
+    """ Unit tests for Clarabel. """
+    def setUp(self) -> None:
+
+        self.x = cp.Variable(2, name='x')
+        self.y = cp.Variable(3, name='y')
+
+        self.A = cp.Variable((2, 2), name='A')
+        self.B = cp.Variable((2, 2), name='B')
+        self.C = cp.Variable((3, 2), name='C')
+
+    def test_clarabel_parameter_update(self) -> None:
+        """Test warm start.
+        """
+        x = cp.Variable(2)
+        P = cp.Parameter(nonneg=True),
+        A = cp.Parameter(4)
+        b = cp.Parameter(2, nonneg=True)
+        q = cp.Parameter(2)
+
+        def update_parameters(P, A, b, q):
+            P[0].value = np.random.rand()
+            A.value = np.random.randn(4)
+            b.value = np.random.rand(2)
+            q.value = np.random.randn(2)
+
+        prob = cp.Problem(
+                cp.Minimize(P[0]*cp.square(x[0]) + cp.quad_form(x, np.ones([2, 2])) + q.T @ x),
+                [A[0] * x[0] + A[1] * x[1] == b[0],
+                 A[2] * x[0] + A[3] * x[1] <= b[1]]
+            )
+
+        update_parameters(P, A, b, q)
+        result1 = prob.solve(solver=cp.CLARABEL, warm_start=False)
+        result2 = prob.solve(solver=cp.CLARABEL, warm_start=True)
+        self.assertAlmostEqual(result1, result2)
+
+        update_parameters(P, A, b, q)
+        result1 = prob.solve(solver=cp.CLARABEL, warm_start=True)
+        result2 = prob.solve(solver=cp.CLARABEL, warm_start=False)
+        self.assertAlmostEqual(result1, result2)
+
+        # consecutive solves, no data update
+        result1 = prob.solve(solver=cp.CLARABEL, warm_start=False)
+        self.assertAlmostEqual(result1, result2)
+
+
+    def test_clarabel_lp_0(self) -> None:
+        StandardTestLPs.test_lp_0(solver=cp.CUCLARABEL)
+
+    def test_clarabel_nonstandard_name(self) -> None:
+        # Test that solver name with non-standard capitalization works.
+        StandardTestLPs.test_lp_0(solver="CuClarabel")
+
+    def test_clarabel_lp_1(self) -> None:
+        StandardTestLPs.test_lp_1(solver='CUCLARABEL')
+
+    def test_clarabel_lp_2(self) -> None:
+        StandardTestLPs.test_lp_2(solver='CUCLARABEL')
+
+    def test_clarabel_lp_3(self) -> None:
+        StandardTestLPs.test_lp_3(solver='CUCLARABEL')
+
+    def test_clarabel_lp_4(self) -> None:
+        StandardTestLPs.test_lp_4(solver='CUCLARABEL')
+
+    def test_clarabel_lp_5(self) -> None:
+        StandardTestLPs.test_lp_5(solver='CUCLARABEL')
+
+    def test_clarabel_qp_0(self) -> None:
+        StandardTestQPs.test_qp_0(solver='CUCLARABEL')
+
+    def test_clarabel_qp_0_linear_obj(self) -> None:
+        StandardTestQPs.test_qp_0(solver='CUCLARABEL', use_quad_obj=False)
+
+    def test_clarabel_socp_0(self) -> None:
+        StandardTestSOCPs.test_socp_0(solver='CUCLARABEL')
+
+    def test_clarabel_socp_1(self) -> None:
+        StandardTestSOCPs.test_socp_1(solver='CUCLARABEL')
+
+    def test_clarabel_socp_2(self) -> None:
+        StandardTestSOCPs.test_socp_2(solver='CUCLARABEL')
+
+    def test_clarabel_socp_3(self) -> None:
+        # axis 0
+        breakpoint()
+        StandardTestSOCPs.test_socp_3ax0(solver='CUCLARABEL')
+        # axis 1
+        StandardTestSOCPs.test_socp_3ax1(solver='CUCLARABEL')
+
+    def test_clarabel_expcone_1(self) -> None:
+        StandardTestECPs.test_expcone_1(solver='CUCLARABEL')
+
+    def test_clarabel_exp_soc_1(self) -> None:
+        StandardTestMixedCPs.test_exp_soc_1(solver='CUCLARABEL')
+
+    def test_clarabel_pcp_0(self) -> None:
+        StandardTestSOCPs.test_socp_0(solver='CUCLARABEL')
+
+    def test_clarabel_pcp_1(self) -> None:
+        StandardTestSOCPs.test_socp_1(solver='CUCLARABEL')
+
+    def test_clarabel_pcp_2(self) -> None:
+        StandardTestSOCPs.test_socp_2(solver='CUCLARABEL')
 
 
 @unittest.skipUnless('MOSEK' in INSTALLED_SOLVERS, 'MOSEK is not installed.')
@@ -567,6 +675,9 @@ class TestMosek(unittest.TestCase):
 
     def test_mosek_lp_5(self) -> None:
         StandardTestLPs.test_lp_5(solver='MOSEK')
+
+    def test_mosek_lp_bound_attr(self) -> None:
+        StandardTestLPs.test_lp_bound_attr(solver='MOSEK')
 
     def test_mosek_socp_0(self) -> None:
         StandardTestSOCPs.test_socp_0(solver='MOSEK')
@@ -718,7 +829,6 @@ class TestMosek(unittest.TestCase):
     def test_mosek_sdp_power(self) -> None:
         """Test the problem in issue #2128"""
         StandardTestMixedCPs.test_sdp_pcp_1(solver='MOSEK')
-        
 
     def test_power_portfolio(self) -> None:
         """Test the portfolio problem in issue #2042"""
@@ -1711,6 +1821,15 @@ class TestGUROBI(BaseTest):
     def test_gurobi_lp_5(self) -> None:
         StandardTestLPs.test_lp_5(solver='GUROBI')
 
+    def test_gurobi_lp_bound_attr(self) -> None:
+        sth = StandardTestLPs.test_lp_bound_attr(solver='GUROBI')
+        # check that the bounds do reach the solver and don't just generate constraints
+        model = sth.prob.solver_stats.extra_stats
+        expected_bounds = sth.prob.variables()[0].bounds
+        actual_lb = [v.LB for v in model.getVars()]
+        actual_ub = [v.UB for v in model.getVars()]
+        np.testing.assert_equal([actual_lb, actual_ub], expected_bounds)
+
     def test_gurobi_socp_0(self) -> None:
         StandardTestSOCPs.test_socp_0(solver='GUROBI')
 
@@ -1725,6 +1844,15 @@ class TestGUROBI(BaseTest):
         StandardTestSOCPs.test_socp_3ax0(solver='GUROBI')
         # axis 1
         StandardTestSOCPs.test_socp_3ax1(solver='GUROBI')
+
+    def test_gurobi_socp_bound_attr(self) -> None:
+        sth = StandardTestSOCPs.test_socp_bounds_attr(solver='GUROBI')
+        # check that the bounds do reach the solver and don't just generate constraints
+        model = sth.prob.solver_stats.extra_stats
+        x = model.getVarByName("x_0")
+        expected_bounds = sth.prob.variables()[0].bounds
+        actual_bounds = [x.LB, x.UB]
+        np.testing.assert_equal(actual_bounds, expected_bounds)
 
     def test_gurobi_mi_lp_0(self) -> None:
         StandardTestLPs.test_mi_lp_0(solver='GUROBI')
@@ -1966,7 +2094,7 @@ class TestNAG(BaseTest):
 
     def test_nag_quad_obj(self) -> None:
         """Test NAG canonicalization with a quadratic objective.
-        """    
+        """
         x = cp.Variable(2)
         expr = cp.sum_squares(x)
         constr = [x >= 1]
@@ -2134,12 +2262,12 @@ class TestHIGHS:
         ],
     )
     def test_highs_solving(self, problem) -> None:
-        problem(solver=cp.HIGHS)
-
-    def test_highs_nonstandard_name(self) -> None:
-        """Test HiGHS solver with non-capitalized solver name."""
-        # https://github.com/cvxpy/cvxpy/issues/2751
-        StandardTestLPs.test_lp_0(solver="HiGHS")
+        # HACK needed to use the HiGHS conic interface rather than 
+        # the QP interface for LPs.
+        from cvxpy.reductions.solvers.conic_solvers.highs_conif import HIGHS
+        solver = HIGHS()
+        solver.name = lambda: "HIGHS CONIC"
+        problem(solver=solver)
 
     @pytest.mark.parametrize(
         ["problem", "confirmation_string"],
@@ -2160,6 +2288,12 @@ class TestHIGHS:
         p.prob.solve(cp.HIGHS, warm_start=True, verbose=True)
         captured = capfd.readouterr()
         assert re.search(confirmation_string, captured.out) is not None
+
+
+    def test_highs_nonstandard_name(self) -> None:
+        """Test HiGHS solver with non-capitalized solver name."""
+        # https://github.com/cvxpy/cvxpy/issues/2751
+        StandardTestLPs.test_lp_0(solver="HiGHS")
 
     @pytest.mark.parametrize(
         "problem",
@@ -2184,7 +2318,7 @@ class TestHIGHS:
             "time_limit": 0.123,  # double option
             "random_seed": 1234,  # int option
             # no need to optimize for real
-            "mip_rel_gap": 1.0,  
+            "mip_rel_gap": 1.0,
             "primal_feasibility_tolerance": 1e-3,
             "dual_feasibility_tolerance": 1e-3,
         }

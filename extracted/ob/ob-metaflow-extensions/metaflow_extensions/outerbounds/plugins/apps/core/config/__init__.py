@@ -9,4 +9,4 @@ from .config_utils import (
     RequiredFieldMissingException,
 )
 from . import schema_export
-from .typed_configs import TypedCoreConfig
+from .typed_configs import TypedCoreConfig, TypedDict

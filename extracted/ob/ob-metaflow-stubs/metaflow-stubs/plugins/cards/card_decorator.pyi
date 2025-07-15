@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.573125                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.770705                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -75,8 +75,6 @@ class CardDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     def task_pre_step(self, step_name, task_datastore, metadata, run_id, task_id, flow, graph, retry_count, max_user_code_retries, ubf_context, inputs):
         ...
     def task_finished(self, step_name, flow, graph, is_task_ok, retry_count, max_user_code_retries):
-        ...
-    def task_exception(self, exception, step_name, flow, graph, retry_count, max_user_code_retries):
         ...
     ...
 

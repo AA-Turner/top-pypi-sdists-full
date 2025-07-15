@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import numpy as np
+from scipy import sparse
 
 import cvxpy.interface as intf
 import cvxpy.settings as s
@@ -22,15 +23,16 @@ from cvxpy.constraints import SOC, ExpCone, NonNeg, Zero
 from cvxpy.reductions.solution import Solution, failure_solution
 from cvxpy.reductions.solvers import utilities
 from cvxpy.reductions.solvers.conic_solvers.conic_solver import ConicSolver
+from cvxpy.utilities.citations import CITATION_DICT
 
 
 # Utility method for formatting a ConeDims instance into a dictionary
 # that can be supplied to ecos.
 def dims_to_solver_dict(cone_dims):
     cones = {
-        'l': cone_dims.nonneg,
+        "l": cone_dims.nonneg,
         "q": cone_dims.soc,
-        'e': cone_dims.exp,
+        "e": cone_dims.exp,
     }
     return cones
 
@@ -134,8 +136,17 @@ class ECOS(ConicSolver):
                 "ECOS cannot handle sparse data with nnz == 0; "
                 "this is a bug in ECOS, and it indicates that your problem "
                 "might have redundant constraints.")
-        solution = ecos.solve(data[s.C], data[s.G], data[s.H],
-                              cones, data[s.A], data[s.B],
+
+        # Convert csc_array to csc_matrix
+        G = data[s.G]
+        A = data[s.A]
+        if G is not None:
+            G = sparse.csc_matrix((G.data, G.indices, G.indptr), shape=G.shape)
+        if A is not None:
+            A = sparse.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
+
+        solution = ecos.solve(data[s.C], G, data[s.H],
+                              cones, A, data[s.B],
                               verbose=verbose,
                               **solver_opts)
         return solution
@@ -174,3 +185,16 @@ class ECOS(ConicSolver):
             return Solution(status, opt_val, primal_vars, dual_vars, attr)
         else:
             return failure_solution(status, attr)
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        if data["dims"].exp > 0:
+            return CITATION_DICT["ECOS"] + CITATION_DICT["ECOS_EXP"]
+        else:
+            return CITATION_DICT["ECOS"]

@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 2.6.0
+Version: 2.7.0
 Summary: Apify SDK for Python
-Project-URL: Homepage, https://docs.apify.com/sdk/python/
-Project-URL: Apify homepage, https://apify.com
+Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://docs.apify.com/sdk/python/docs/changelog
-Project-URL: Documentation, https://docs.apify.com/sdk/python/
-Project-URL: Issue tracker, https://github.com/apify/apify-sdk-python/issues
-Project-URL: Repository, https://github.com/apify/apify-sdk-python
+Project-URL: Discord, https://discord.com/invite/jyEM2PRvMU
+Project-URL: Documentation, https://docs.apify.com/sdk/python/docs/overview/introduction
+Project-URL: Homepage, https://docs.apify.com/sdk/python/
+Project-URL: Issue Tracker, https://github.com/apify/apify-sdk-python/issues
+Project-URL: Release Notes, https://docs.apify.com/sdk/python/docs/upgrading/upgrading-to-v2
+Project-URL: Source Code, https://github.com/apify/apify-sdk-python
 Author-email: "Apify Technologies s.r.o." <support@apify.com>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -213,17 +215,17 @@ License:                                  Apache License
 License-File: LICENSE
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping,sdk
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
-Requires-Dist: apify-client>=1.9.2
+Requires-Python: >=3.10
+Requires-Dist: apify-client>=1.11.0
 Requires-Dist: apify-shared>=1.3.0
 Requires-Dist: crawlee~=0.6.0
 Requires-Dist: cryptography>=42.0.0

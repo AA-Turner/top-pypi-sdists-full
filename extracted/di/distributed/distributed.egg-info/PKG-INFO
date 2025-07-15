@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: distributed
-Version: 2025.5.1
+Version: 2025.7.0
 Summary: Distributed scheduler for Dask
 Maintainer-email: Matthew Rocklin <mrocklin@gmail.com>
 License: BSD-3-Clause
@@ -26,7 +26,7 @@ License-File: LICENSE.txt
 License-File: AUTHORS.md
 Requires-Dist: click>=8.0
 Requires-Dist: cloudpickle>=3.0.0
-Requires-Dist: dask==2025.5.1
+Requires-Dist: dask==2025.7.0
 Requires-Dist: jinja2>=2.10.3
 Requires-Dist: locket>=1.0.0
 Requires-Dist: msgpack>=1.0.2

@@ -2,6 +2,7 @@ from . import deployment_pb2 as _deployment_pb2
 from . import options_pb2 as _options_pb2
 from ..google.api import field_behavior_pb2 as _field_behavior_pb2
 from ..google.api import resource_pb2 as _resource_pb2
+from ..google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -12,7 +13,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class DeploymentTemplate(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "min_replica_count", "max_replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "max_peft_batch_size", "kv_cache_memory_pct", "enable_addons", "draft_model", "ngram_speculation_length", "draft_token_count", "enable_session_affinity", "image_tag", "region", "direct_route_api_keys", "direct_route_type", "precision", "extra_args", "extra_values", "update_time", "max_context_length", "annotations")
+    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "min_replica_count", "max_replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "max_peft_batch_size", "kv_cache_memory_pct", "enable_addons", "draft_model", "ngram_speculation_length", "draft_token_count", "enable_session_affinity", "image_tag", "region", "direct_route_api_keys", "direct_route_type", "precision", "extra_args", "extra_values", "update_time", "max_context_length", "annotations", "disable_deployment_size_validation")
     class ExtraValuesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -60,6 +61,7 @@ class DeploymentTemplate(_message.Message):
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
     MAX_CONTEXT_LENGTH_FIELD_NUMBER: _ClassVar[int]
     ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
+    DISABLE_DEPLOYMENT_SIZE_VALIDATION_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     description: str
@@ -93,7 +95,8 @@ class DeploymentTemplate(_message.Message):
     update_time: _timestamp_pb2.Timestamp
     max_context_length: int
     annotations: _containers.ScalarMap[str, str]
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[_deployment_pb2.AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_addons: bool = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., draft_token_count: _Optional[int] = ..., enable_session_affinity: bool = ..., image_tag: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., direct_route_type: _Optional[_Union[_deployment_pb2.DirectRouteType, str]] = ..., precision: _Optional[_Union[_deployment_pb2.Deployment.Precision, str]] = ..., extra_args: _Optional[_Iterable[str]] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_context_length: _Optional[int] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    disable_deployment_size_validation: bool
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[_deployment_pb2.AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_addons: bool = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., draft_token_count: _Optional[int] = ..., enable_session_affinity: bool = ..., image_tag: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., direct_route_type: _Optional[_Union[_deployment_pb2.DirectRouteType, str]] = ..., precision: _Optional[_Union[_deployment_pb2.Deployment.Precision, str]] = ..., extra_args: _Optional[_Iterable[str]] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., max_context_length: _Optional[int] = ..., annotations: _Optional[_Mapping[str, str]] = ..., disable_deployment_size_validation: bool = ...) -> None: ...
 
 class CreateDeploymentTemplateRequest(_message.Message):
     __slots__ = ("parent", "deployment_template", "deployment_template_id")

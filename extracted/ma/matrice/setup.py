@@ -15,7 +15,10 @@ setup(
     name="matrice",
 
 
-    version = "1.0.98853",
+
+
+    version = "1.0.98862",
+
 
 
     description="SDK for connecting to matrice.ai services",

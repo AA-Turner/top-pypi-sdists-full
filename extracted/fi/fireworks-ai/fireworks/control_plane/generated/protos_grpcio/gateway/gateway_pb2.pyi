@@ -18,7 +18,9 @@ from . import evaluation_job_pb2 as _evaluation_job_pb2
 from . import evaluator_pb2 as _evaluator_pb2
 from . import feature_flag_pb2 as _feature_flag_pb2
 from . import fine_tuning_job_pb2 as _fine_tuning_job_pb2
+from . import identity_provider_pb2 as _identity_provider_pb2
 from . import inference_log_pb2 as _inference_log_pb2
+from . import mcp_server_pb2 as _mcp_server_pb2
 from . import model_pb2 as _model_pb2
 from . import node_pool_pb2 as _node_pool_pb2
 from . import node_pool_binding_pb2 as _node_pool_binding_pb2

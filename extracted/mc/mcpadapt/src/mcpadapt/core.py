@@ -139,7 +139,7 @@ class MCPAdapt:
     If running asynchronously, it will use the async context manager and return async
     tools.
 
-    Dependening on what your Agent framework supports choose the approriate method. If
+    Depending on what your Agent framework supports choose the appropriate method. If
     async is supported it is recommended.
 
     Important Note: adapters need to implement the async_adapt method to support async
@@ -147,25 +147,25 @@ class MCPAdapt:
 
     Usage:
     >>> # sync usage
-    >>> with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentAdapter()) as tools:
+    >>> with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentsAdapter()) as tools:
     >>>     print(tools)
 
     >>> # sync usage by start ... close pattern
-    >>> adapter = MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentAdapter())
+    >>> adapter = MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentsAdapter())
     >>> adapter.start()
     >>> print(adapter.tools()) # get latest tools
     >>> adapter.close()
 
     >>> # sync usage with streamable-http
-    >>> with MCPAdapt({"url": "http://127.0.0.1:8000/mcp", "transport": "streamable-http"}), SmolAgentAdapter()) as tools:
+    >>> with MCPAdapt({"url": "http://127.0.0.1:8000/mcp", "transport": "streamable-http"}), SmolAgentsAdapter()) as tools:
     >>>     print(tools)
 
     >>> # async usage
-    >>> async with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentAdapter()) as tools:
+    >>> async with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentsAdapter()) as tools:
     >>>     print(tools)
 
     >>> # async usage with sse
-    >>> async with MCPAdapt({"url": "http://127.0.0.1:8000/sse"}, SmolAgentAdapter()) as tools:
+    >>> async with MCPAdapt({"url": "http://127.0.0.1:8000/sse"}, SmolAgentsAdapter()) as tools:
     >>>     print(tools)
     """
 

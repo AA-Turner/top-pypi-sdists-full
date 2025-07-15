@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask
-Version: 2025.5.1
+Version: 2025.7.0
 Summary: Parallel PyData with Task Scheduling
 Maintainer-email: Matthew Rocklin <mrocklin@gmail.com>
 License: BSD-3-Clause
@@ -40,7 +40,7 @@ Requires-Dist: dask[array]; extra == "dataframe"
 Requires-Dist: pandas>=2.0; extra == "dataframe"
 Requires-Dist: pyarrow>=14.0.1; extra == "dataframe"
 Provides-Extra: distributed
-Requires-Dist: distributed==2025.5.1; extra == "distributed"
+Requires-Dist: distributed==2025.7.0; extra == "distributed"
 Provides-Extra: diagnostics
 Requires-Dist: bokeh>=3.1.0; extra == "diagnostics"
 Requires-Dist: jinja2>=2.10.3; extra == "diagnostics"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2025.3.0
+Version: 2025.7.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -28,11 +28,11 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Requires-Dist: aiohttp
-Requires-Dist: awkward>=2.6.7
+Requires-Dist: awkward>=2.8.2
 Requires-Dist: cachetools
 Requires-Dist: cloudpickle>=1.2.3
 Requires-Dist: correctionlib>=2.6.0
-Requires-Dist: dask-awkward>=2025.2.0
+Requires-Dist: dask-awkward>=2025.5.0
 Requires-Dist: dask-histogram>=2025.2.0
 Requires-Dist: dask[array]>=2024.3.0
 Requires-Dist: fsspec-xrootd>=0.2.3
@@ -49,7 +49,7 @@ Requires-Dist: requests
 Requires-Dist: scipy>=1.1.0
 Requires-Dist: toml>=0.10.2
 Requires-Dist: tqdm>=4.27.0
-Requires-Dist: uproot>=5.3.11
+Requires-Dist: uproot>=5.6.0
 Requires-Dist: vector!=1.6.0,>=1.4.1
 Provides-Extra: dask
 Requires-Dist: bokeh!=3.0.*,>=2.4.2; extra == 'dask'
@@ -72,7 +72,7 @@ Requires-Dist: sphinx-copybutton>=0.3.2; extra == 'dev'
 Requires-Dist: sphinx-rtd-theme; extra == 'dev'
 Requires-Dist: sphinx<8; extra == 'dev'
 Provides-Extra: parsl
-Requires-Dist: parsl>=2022.12.1; extra == 'parsl'
+Requires-Dist: parsl>=2024.12.09; extra == 'parsl'
 Provides-Extra: rucio
 Requires-Dist: rucio-clients>=32; extra == 'rucio'
 Provides-Extra: spark
@@ -160,7 +160,7 @@ For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/
 Strict dependencies
 ===================
 
-- `Python <http://docs.python-guide.org/en/latest/starting/installation/>`__ (3.8+)
+- `Python <http://docs.python-guide.org/en/latest/starting/installation/>`__ (3.9+)
 
 The following are installed automatically when you install coffea with pip:
 

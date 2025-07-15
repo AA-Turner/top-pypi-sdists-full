@@ -18,7 +18,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Model(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "state", "status", "kind", "github_url", "hugging_face_url", "base_model_details", "peft_details", "teft_details", "public", "conversation_config", "context_length", "supports_image_input", "supports_tools", "imported_from", "tokens_per_second", "featured_priority", "fine_tuning_job", "sku_infos", "default_draft_model", "default_draft_token_count", "precisions", "deployed_model_refs", "cluster", "deprecation_date", "calibrated", "tunable", "supports_lora", "use_hf_apply_chat_template", "extra_deployment_args", "update_time", "default_sampling_params", "gcs_uri", "rl_tunable", "supported_precisions", "supported_precisions_with_calibration", "training_context_length")
+    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "state", "status", "kind", "github_url", "hugging_face_url", "base_model_details", "peft_details", "teft_details", "public", "conversation_config", "context_length", "supports_image_input", "supports_tools", "imported_from", "tokens_per_second", "featured_priority", "fine_tuning_job", "sku_infos", "default_draft_model", "default_draft_token_count", "deployed_model_refs", "cluster", "deprecation_date", "calibrated", "tunable", "supports_lora", "use_hf_apply_chat_template", "extra_deployment_args", "update_time", "default_sampling_params", "gcs_uri", "rl_tunable", "supported_precisions", "supported_precisions_with_calibration", "training_context_length")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Model.State]
@@ -81,7 +81,6 @@ class Model(_message.Message):
     SKU_INFOS_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_DRAFT_MODEL_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_DRAFT_TOKEN_COUNT_FIELD_NUMBER: _ClassVar[int]
-    PRECISIONS_FIELD_NUMBER: _ClassVar[int]
     DEPLOYED_MODEL_REFS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     DEPRECATION_DATE_FIELD_NUMBER: _ClassVar[int]
@@ -122,7 +121,6 @@ class Model(_message.Message):
     sku_infos: _containers.RepeatedCompositeFieldContainer[_billing_pb2.SKUInfo]
     default_draft_model: str
     default_draft_token_count: int
-    precisions: _containers.RepeatedScalarFieldContainer[_deployment_pb2.Deployment.Precision]
     deployed_model_refs: _containers.RepeatedCompositeFieldContainer[_deployed_model_pb2.DeployedModelRef]
     cluster: str
     deprecation_date: _date_pb2.Date
@@ -138,7 +136,7 @@ class Model(_message.Message):
     supported_precisions: _containers.RepeatedScalarFieldContainer[_deployment_pb2.Deployment.Precision]
     supported_precisions_with_calibration: _containers.RepeatedScalarFieldContainer[_deployment_pb2.Deployment.Precision]
     training_context_length: int
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Model.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., kind: _Optional[_Union[Model.Kind, str]] = ..., github_url: _Optional[str] = ..., hugging_face_url: _Optional[str] = ..., base_model_details: _Optional[_Union[BaseModelDetails, _Mapping]] = ..., peft_details: _Optional[_Union[PEFTDetails, _Mapping]] = ..., teft_details: _Optional[_Union[TEFTDetails, _Mapping]] = ..., public: bool = ..., conversation_config: _Optional[_Union[ConversationConfig, _Mapping]] = ..., context_length: _Optional[int] = ..., supports_image_input: bool = ..., supports_tools: bool = ..., imported_from: _Optional[str] = ..., tokens_per_second: _Optional[int] = ..., featured_priority: _Optional[int] = ..., fine_tuning_job: _Optional[str] = ..., sku_infos: _Optional[_Iterable[_Union[_billing_pb2.SKUInfo, _Mapping]]] = ..., default_draft_model: _Optional[str] = ..., default_draft_token_count: _Optional[int] = ..., precisions: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., deployed_model_refs: _Optional[_Iterable[_Union[_deployed_model_pb2.DeployedModelRef, _Mapping]]] = ..., cluster: _Optional[str] = ..., deprecation_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., calibrated: bool = ..., tunable: bool = ..., supports_lora: bool = ..., use_hf_apply_chat_template: bool = ..., extra_deployment_args: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., default_sampling_params: _Optional[_Mapping[str, float]] = ..., gcs_uri: _Optional[str] = ..., rl_tunable: bool = ..., supported_precisions: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., supported_precisions_with_calibration: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., training_context_length: _Optional[int] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Model.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., kind: _Optional[_Union[Model.Kind, str]] = ..., github_url: _Optional[str] = ..., hugging_face_url: _Optional[str] = ..., base_model_details: _Optional[_Union[BaseModelDetails, _Mapping]] = ..., peft_details: _Optional[_Union[PEFTDetails, _Mapping]] = ..., teft_details: _Optional[_Union[TEFTDetails, _Mapping]] = ..., public: bool = ..., conversation_config: _Optional[_Union[ConversationConfig, _Mapping]] = ..., context_length: _Optional[int] = ..., supports_image_input: bool = ..., supports_tools: bool = ..., imported_from: _Optional[str] = ..., tokens_per_second: _Optional[int] = ..., featured_priority: _Optional[int] = ..., fine_tuning_job: _Optional[str] = ..., sku_infos: _Optional[_Iterable[_Union[_billing_pb2.SKUInfo, _Mapping]]] = ..., default_draft_model: _Optional[str] = ..., default_draft_token_count: _Optional[int] = ..., deployed_model_refs: _Optional[_Iterable[_Union[_deployed_model_pb2.DeployedModelRef, _Mapping]]] = ..., cluster: _Optional[str] = ..., deprecation_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., calibrated: bool = ..., tunable: bool = ..., supports_lora: bool = ..., use_hf_apply_chat_template: bool = ..., extra_deployment_args: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., default_sampling_params: _Optional[_Mapping[str, float]] = ..., gcs_uri: _Optional[str] = ..., rl_tunable: bool = ..., supported_precisions: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., supported_precisions_with_calibration: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., training_context_length: _Optional[int] = ...) -> None: ...
 
 class BaseModelDetails(_message.Message):
     __slots__ = ("world_size", "checkpoint_format", "huggingface_files", "parameter_count", "moe", "tunable", "model_type", "supports_fireattention", "default_precision")
@@ -291,12 +289,16 @@ class GetModelDownloadEndpointResponse(_message.Message):
     def __init__(self, filename_to_signed_urls: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class ValidateModelUploadRequest(_message.Message):
-    __slots__ = ("name", "skip_hf_config_validation")
+    __slots__ = ("name", "skip_hf_config_validation", "trust_remote_code", "config_only")
     NAME_FIELD_NUMBER: _ClassVar[int]
     SKIP_HF_CONFIG_VALIDATION_FIELD_NUMBER: _ClassVar[int]
+    TRUST_REMOTE_CODE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_ONLY_FIELD_NUMBER: _ClassVar[int]
     name: str
     skip_hf_config_validation: bool
-    def __init__(self, name: _Optional[str] = ..., skip_hf_config_validation: bool = ...) -> None: ...
+    trust_remote_code: bool
+    config_only: bool
+    def __init__(self, name: _Optional[str] = ..., skip_hf_config_validation: bool = ..., trust_remote_code: bool = ..., config_only: bool = ...) -> None: ...
 
 class ListModelsRequest(_message.Message):
     __slots__ = ("parent", "page_size", "page_token", "filter", "order_by", "include_deployed_model_refs", "read_mask", "show_internal")

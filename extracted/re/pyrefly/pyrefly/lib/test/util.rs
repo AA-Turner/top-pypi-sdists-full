@@ -289,7 +289,7 @@ pub fn extract_cursors_for_test(source: &str) -> Vec<TextSize> {
     for (line_index, line_str) in source.lines().enumerate() {
         for (row_index, _) in line_str.match_indices('^') {
             if prev_line.len() < row_index {
-                panic!("Invalid cursor at {}:{}", line_index, row_index);
+                panic!("Invalid cursor at {line_index}:{row_index}");
             }
             let position = index.offset(
                 SourceLocation {
@@ -454,9 +454,19 @@ pub fn testcase_for_macro(
             errors.check_against_expectations()?;
         } else {
             let (state, handle) = env.clone().to_state();
+            let t = state.transaction();
+            // First check against main, so we can capture any import order errors.
+            t.get_errors([&handle("main")])
+                .check_against_expectations()?;
+            // THen check all handles, so we make sure the rest of the TestEnv is valid.
+            let handles = env
+                .modules
+                .keys()
+                .map(|x| handle(x.as_str()))
+                .collect::<Vec<_>>();
             state
                 .transaction()
-                .get_errors([&handle("main")])
+                .get_errors(handles.iter())
                 .check_against_expectations()?;
         }
         if start.elapsed().as_secs() <= limit {
@@ -480,4 +490,9 @@ pub fn get_class(name: &str, handle: &Handle, state: &State) -> Class {
         Type::ClassDef(cls) => cls.dupe(),
         _ => unreachable!(),
     }
+}
+
+#[test]
+fn test_inception() {
+    assert!(testcase_for_macro(TestEnv::new(), "i: int = 'test'", file!(), line!()).is_err());
 }

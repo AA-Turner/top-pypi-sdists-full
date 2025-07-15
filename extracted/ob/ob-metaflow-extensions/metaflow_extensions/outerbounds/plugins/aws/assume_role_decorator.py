@@ -1,12 +1,10 @@
-from metaflow.user_configs.config_decorators import (
-    MutableFlow,
-    MutableStep,
-    CustomFlowDecorator,
-)
+from metaflow.user_decorators.user_flow_decorator import FlowMutator
+from metaflow.user_decorators.mutable_flow import MutableFlow
+from metaflow.user_decorators.mutable_step import MutableStep
 from .assume_role import OBP_ASSUME_ROLE_ARN_ENV_VAR
 
 
-class assume_role(CustomFlowDecorator):
+class assume_role(FlowMutator):
     """
     Flow-level decorator for assuming AWS IAM roles.
 
@@ -42,7 +40,7 @@ class assume_role(CustomFlowDecorator):
                 "`role_arn` must be a valid AWS IAM role ARN starting with 'arn:aws:iam::'"
             )
 
-    def evaluate(self, mutable_flow: MutableFlow) -> None:
+    def pre_mutate(self, mutable_flow: MutableFlow) -> None:
         """
         This method is called by Metaflow to apply the decorator to the flow.
         It sets up environment variables that will be used by the AWS client

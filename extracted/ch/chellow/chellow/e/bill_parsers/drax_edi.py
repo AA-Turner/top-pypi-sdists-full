@@ -51,7 +51,11 @@ ELEMENT_MAP = {
                 "cfd-operational-kwh",
             ),
             "954379": ("cfd-interim-gbp", "cfd-interim-rate", "cfd-interim-kwh"),
-            "538249": ("capacity-gbp", "capacity-rate", "capacity-kwh"),
+            "538249": (
+                "cm-settlement-levy-gbp",
+                "cm-settlement-levy-rate",
+                "cm-settlement-levy-kwh",
+            ),
             "568307": ("capacity-gbp", "capacity-rate", "capacity-kwh"),
         },
     },
@@ -110,7 +114,7 @@ ELEMENT_MAP = {
             "122568": ("nrg-gsp-losses-gbp", "nrg-rate", "nrg-gsp-losses-kwh"),
         },
         "DUSTRN": {
-            "122568": ("nrg-nbp-losses-gbp", "nrg-rate", "nrg-bp-losses-kwh"),
+            "122568": ("nrg-nbp-losses-gbp", "nrg-rate", "nrg-nbp-losses-kwh"),
         },
     },
     "ELX": {
@@ -140,7 +144,7 @@ ELEMENT_MAP = {
     },
     "TUS": {
         "TNUOS": {
-            "012069": ("tnuos-gbp", "tnuos-rate", None),
+            "012069": ("triad-gbp", "triad-rate", "triad-kw"),
         },
     },
     "064305": ("fit-gbp", None, None),

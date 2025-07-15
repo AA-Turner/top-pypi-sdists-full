@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-datasets
-Version: 7.0.0
+Version: 8.0.0
 Summary: Kedro-Datasets is where you can find all of Kedro's data connectors.
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -9,7 +9,7 @@ Project-URL: Documentation, https://docs.kedro.org
 Project-URL: Tracker, https://github.com/kedro-org/kedro-plugins/issues
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: kedro>=0.19.7
+Requires-Dist: kedro<2.0.0,>=1.0.0rc1
 Requires-Dist: lazy_loader
 Provides-Extra: pandas-base
 Requires-Dist: pandas<3.0,>=1.3; extra == "pandas-base"
@@ -130,6 +130,10 @@ Provides-Extra: networkx-jsondataset
 Requires-Dist: kedro-datasets[networkx-base]; extra == "networkx-jsondataset"
 Provides-Extra: networkx
 Requires-Dist: kedro-datasets[networkx-base]; extra == "networkx"
+Provides-Extra: openxml-docxdataset
+Requires-Dist: python-docx; extra == "openxml-docxdataset"
+Provides-Extra: openxml
+Requires-Dist: kedro-datasets[openxml-docxdataset]; extra == "openxml"
 Provides-Extra: optuna-studydataset
 Requires-Dist: optuna; extra == "optuna-studydataset"
 Provides-Extra: optuna
@@ -138,7 +142,7 @@ Provides-Extra: pandas-csvdataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-csvdataset"
 Provides-Extra: pandas-deltatabledataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-deltatabledataset"
-Requires-Dist: deltalake>=0.10.0; extra == "pandas-deltatabledataset"
+Requires-Dist: deltalake<1.0.0,>=0.10.0; extra == "pandas-deltatabledataset"
 Provides-Extra: pandas-exceldataset
 Requires-Dist: kedro-datasets[pandas-base]; extra == "pandas-exceldataset"
 Requires-Dist: openpyxl<4.0,>=3.0.6; extra == "pandas-exceldataset"
@@ -194,11 +198,11 @@ Provides-Extra: polars-eagerpolarsdataset
 Requires-Dist: kedro-datasets[polars-base]; extra == "polars-eagerpolarsdataset"
 Requires-Dist: pyarrow>=4.0; extra == "polars-eagerpolarsdataset"
 Requires-Dist: xlsx2csv>=0.8.0; extra == "polars-eagerpolarsdataset"
-Requires-Dist: deltalake>=0.6.2; extra == "polars-eagerpolarsdataset"
+Requires-Dist: deltalake<1.0.0,>=0.6.2; extra == "polars-eagerpolarsdataset"
 Provides-Extra: polars-lazypolarsdataset
 Requires-Dist: kedro-datasets[polars-base]; extra == "polars-lazypolarsdataset"
 Requires-Dist: pyarrow>=4.0; extra == "polars-lazypolarsdataset"
-Requires-Dist: deltalake>=0.6.2; extra == "polars-lazypolarsdataset"
+Requires-Dist: deltalake<1.0.0,>=0.6.2; extra == "polars-lazypolarsdataset"
 Provides-Extra: polars
 Requires-Dist: kedro-datasets[polars-csvdataset,polars-eagerpolarsdataset,polars-lazypolarsdataset]; extra == "polars"
 Provides-Extra: redis-pickledataset
@@ -285,7 +289,15 @@ Requires-Dist: opencv-python~=4.5.5.64; extra == "video-videodataset"
 Provides-Extra: video
 Requires-Dist: kedro-datasets[video-videodataset]; extra == "video"
 Provides-Extra: docs
-Requires-Dist: kedro-sphinx-theme==2024.10.2; extra == "docs"
+Requires-Dist: mkdocs>=1.6.1; extra == "docs"
+Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
+Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
+Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
+Requires-Dist: mkdocs-autorefs>=1.4.1; extra == "docs"
+Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
+Requires-Dist: mkdocstrings>=0.29.1; extra == "docs"
+Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
+Requires-Dist: linkchecker>=10.2.1; extra == "docs"
 Requires-Dist: ipykernel<7.0,>=5.3; extra == "docs"
 Requires-Dist: Jinja2<3.2.0; extra == "docs"
 Provides-Extra: test
@@ -298,7 +310,7 @@ Requires-Dist: compress-pickle[lz4]~=2.1.0; extra == "test"
 Requires-Dist: coverage>=7.2.0; extra == "test"
 Requires-Dist: dask[complete]>=2021.10; extra == "test"
 Requires-Dist: delta-spark<3.0,>=1.0; extra == "test"
-Requires-Dist: deltalake>=0.10.0; extra == "test"
+Requires-Dist: deltalake<1.0.0,>=0.10.0; extra == "test"
 Requires-Dist: dill~=0.3.1; extra == "test"
 Requires-Dist: filelock<4.0,>=3.4.0; extra == "test"
 Requires-Dist: fiona<2.0,>=1.8; extra == "test"
@@ -322,7 +334,7 @@ Requires-Dist: pandas-gbq>=0.12.0; extra == "test"
 Requires-Dist: pandas>=2.0; extra == "test"
 Requires-Dist: Pillow~=10.0; extra == "test"
 Requires-Dist: plotly<6.0,>=4.8.0; extra == "test"
-Requires-Dist: polars[deltalake,xlsx2csv]<1.25.2,>=1.0; extra == "test"
+Requires-Dist: polars[deltalake,xlsx2csv]>=1.0; extra == "test"
 Requires-Dist: pyarrow>=1.0; python_version < "3.11" and extra == "test"
 Requires-Dist: pyarrow>=7.0; python_version >= "3.11" and extra == "test"
 Requires-Dist: pyodbc~=5.0; extra == "test"
@@ -332,6 +344,7 @@ Requires-Dist: pytest-cov~=3.0; extra == "test"
 Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "test"
 Requires-Dist: pytest~=7.2; extra == "test"
+Requires-Dist: python-docx; extra == "test"
 Requires-Dist: redis~=4.1; extra == "test"
 Requires-Dist: requests-mock~=1.6; extra == "test"
 Requires-Dist: requests~=2.20; extra == "test"
@@ -359,7 +372,7 @@ Requires-Dist: detect-secrets~=1.5.0; extra == "lint"
 Requires-Dist: import-linter[toml]==1.2.6; extra == "lint"
 Requires-Dist: mypy~=1.0; extra == "lint"
 Requires-Dist: pre-commit>=2.9.2; extra == "lint"
-Requires-Dist: ruff~=0.0.290; extra == "lint"
+Requires-Dist: ruff~=0.12.1; extra == "lint"
 Requires-Dist: types-cachetools; extra == "lint"
 Requires-Dist: types-PyYAML; extra == "lint"
 Requires-Dist: types-redis; extra == "lint"
@@ -435,7 +448,7 @@ These data connectors are supported with the APIs of `pandas`, `spark`, `network
 
 [The Data Catalog](https://docs.kedro.org/en/stable/data/data_catalog.html) allows you to work with a range of file formats on local file systems, network file systems, cloud object stores, and Hadoop.
 
-Here is a full list of [supported data connectors and APIs](https://docs.kedro.org/projects/kedro-datasets/en/kedro-datasets-2.0.0/api/kedro_datasets.html).
+Here is a full list of [supported data connectors and APIs](https://docs.kedro.org/projects/kedro-datasets/en/stable/api/kedro_datasets.html).
 
 ## How can I create my own `AbstractDataset` implementation?
 Take a look at our [instructions on how to create your own `AbstractDataset` implementation](https://docs.kedro.org/en/stable/data/how_to_create_a_custom_dataset.html).

@@ -83,11 +83,12 @@ class BcastClientSide(Redis):
         self._expire_for_recently_update = 5
         self._listen_started = asyncio.Event()
         self.__listen_stop = asyncio.Event()
-        super().__init__(*args, suppress=suppress, **kwargs)
+        kwargs["suppress"] = suppress
+        super().__init__(*args, **kwargs)
 
     async def init(self):
-        self._listen_started = asyncio.Event()
-        self.__listen_stop = asyncio.Event()
+        self._listen_started.clear()
+        self.__listen_stop.clear()
         await self._local_cache.init()
         await self._recently_update.init()
         await super().init()
@@ -201,7 +202,7 @@ class BcastClientSide(Redis):
             expire=expire,
         )
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         async for key in super().scan(self._add_prefix(pattern), batch_size=batch_size):
             yield self._remove_prefix(key)
 
@@ -226,7 +227,7 @@ class BcastClientSide(Redis):
                 await self._local_cache.set(key, _empty_in_redis)
         return tuple(missed.get(key, value) for key, value in values.items())
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)

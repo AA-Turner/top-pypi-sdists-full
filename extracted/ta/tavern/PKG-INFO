@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tavern
-Version: 2.15.0
+Version: 2.16.0
 Summary: Simple testing of RESTful APIs
 Keywords: testing,pytest
 Author: Michael Boulton
@@ -31,7 +31,7 @@ Requires-Dist: stevedore>=4,<5
 Requires-Dist: Faker ; extra == "dev"
 Requires-Dist: allure-pytest ; extra == "dev"
 Requires-Dist: colorlog ; extra == "dev"
-Requires-Dist: flask>=2.2.3 ; extra == "dev"
+Requires-Dist: flask>=3,<4 ; extra == "dev"
 Requires-Dist: fluent-logger ; extra == "dev"
 Requires-Dist: itsdangerous ; extra == "dev"
 Requires-Dist: coverage[toml] ; extra == "dev"

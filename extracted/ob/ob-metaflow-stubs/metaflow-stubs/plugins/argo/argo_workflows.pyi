@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.652192                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.846991                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.graph
     import metaflow.exception
+    import metaflow.graph
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current
@@ -107,7 +107,7 @@ class ArgoWorkflowsSchedulingException(metaflow.exception.MetaflowException, met
     ...
 
 class ArgoWorkflows(object, metaclass=type):
-    def __init__(self, name, graph: metaflow.graph.FlowGraph, flow, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, workflow_priority = None, auto_emit_argo_events = False, notify_on_error = False, notify_on_success = False, notify_slack_webhook_url = None, notify_pager_duty_integration_key = None, notify_incident_io_api_key = None, incident_io_alert_source_config_id = None, incident_io_metadata: typing.List[str] = None, enable_heartbeat_daemon = True, enable_error_msg_capture = False):
+    def __init__(self, name, graph: metaflow.graph.FlowGraph, flow, code_package_metadata, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, workflow_priority = None, auto_emit_argo_events = False, notify_on_error = False, notify_on_success = False, notify_slack_webhook_url = None, notify_pager_duty_integration_key = None, notify_incident_io_api_key = None, incident_io_alert_source_config_id = None, incident_io_metadata: typing.List[str] = None, enable_heartbeat_daemon = True, enable_error_msg_capture = False):
         ...
     def __str__(self):
         ...

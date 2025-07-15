@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-experimental
-Version: 0.11.0
+Version: 0.12.0
 Summary: Experimental components and features for the Haystack LLM framework.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack-experimental/actions
 Project-URL: GitHub: issues, https://github.com/deepset-ai/haystack-experimental/issues
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
+Requires-Dist: docstring-parser
 Requires-Dist: filetype
 Requires-Dist: haystack-ai>=2.15.0
 Description-Content-Type: text/markdown

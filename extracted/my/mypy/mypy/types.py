@@ -84,6 +84,9 @@ if TYPE_CHECKING:
         TypeVisitor as TypeVisitor,
     )
 
+TUPLE_NAMES: Final = ("builtins.tuple", "typing.Tuple")
+TYPE_NAMES: Final = ("builtins.type", "typing.Type")
+
 TYPE_VAR_LIKE_NAMES: Final = (
     "typing.TypeVar",
     "typing_extensions.TypeVar",
@@ -458,6 +461,11 @@ class TypeGuardedType(Type):
     def __repr__(self) -> str:
         return f"TypeGuard({self.type_guard})"
 
+    # This may hide some real bugs, but it is convenient for various "synthetic"
+    # visitors, similar to RequiredType and ReadOnlyType below.
+    def accept(self, visitor: TypeVisitor[T]) -> T:
+        return self.type_guard.accept(visitor)
+
 
 class RequiredType(Type):
     """Required[T] or NotRequired[T]. Only usable at top-level of a TypedDict definition."""
@@ -606,6 +614,11 @@ class TypeVarLikeType(ProperType):
     def has_default(self) -> bool:
         t = get_proper_type(self.default)
         return not (isinstance(t, AnyType) and t.type_of_any == TypeOfAny.from_omitted_generics)
+
+    def values_or_bound(self) -> ProperType:
+        if isinstance(self, TypeVarType) and self.values:
+            return UnionType(self.values)
+        return get_proper_type(self.upper_bound)
 
 
 class TypeVarType(TypeVarLikeType):
@@ -3455,12 +3468,11 @@ class TypeStrVisitor(SyntheticTypeVisitor[str]):
 
     def visit_tuple_type(self, t: TupleType, /) -> str:
         s = self.list_str(t.items) or "()"
-        tuple_name = "tuple" if self.options.use_lowercase_names() else "Tuple"
         if t.partial_fallback and t.partial_fallback.type:
             fallback_name = t.partial_fallback.type.fullname
             if fallback_name != "builtins.tuple":
-                return f"{tuple_name}[{s}, fallback={t.partial_fallback.accept(self)}]"
-        return f"{tuple_name}[{s}]"
+                return f"tuple[{s}, fallback={t.partial_fallback.accept(self)}]"
+        return f"tuple[{s}]"
 
     def visit_typeddict_type(self, t: TypedDictType, /) -> str:
         def item_str(name: str, typ: str) -> str:
@@ -3489,8 +3501,9 @@ class TypeStrVisitor(SyntheticTypeVisitor[str]):
         return f"Literal[{t.value_repr()}]"
 
     def visit_union_type(self, t: UnionType, /) -> str:
-        s = self.list_str(t.items)
-        return f"Union[{s}]"
+        use_or_syntax = self.options.use_or_syntax()
+        s = self.list_str(t.items, use_or_syntax=use_or_syntax)
+        return s if use_or_syntax else f"Union[{s}]"
 
     def visit_partial_type(self, t: PartialType, /) -> str:
         if t.type is None:
@@ -3502,11 +3515,7 @@ class TypeStrVisitor(SyntheticTypeVisitor[str]):
         return "..."
 
     def visit_type_type(self, t: TypeType, /) -> str:
-        if self.options.use_lowercase_names():
-            type_name = "type"
-        else:
-            type_name = "Type"
-        return f"{type_name}[{t.item.accept(self)}]"
+        return f"type[{t.item.accept(self)}]"
 
     def visit_placeholder_type(self, t: PlaceholderType, /) -> str:
         return f"<placeholder {t.fullname}>"
@@ -3523,14 +3532,15 @@ class TypeStrVisitor(SyntheticTypeVisitor[str]):
     def visit_unpack_type(self, t: UnpackType, /) -> str:
         return f"Unpack[{t.type.accept(self)}]"
 
-    def list_str(self, a: Iterable[Type]) -> str:
+    def list_str(self, a: Iterable[Type], *, use_or_syntax: bool = False) -> str:
         """Convert items of an array to strings (pretty-print types)
         and join the results with commas.
         """
         res = []
         for t in a:
             res.append(t.accept(self))
-        return ", ".join(res)
+        sep = ", " if not use_or_syntax else " | "
+        return sep.join(res)
 
 
 class TrivialSyntheticTypeTranslator(TypeTranslator, SyntheticTypeVisitor[Type]):

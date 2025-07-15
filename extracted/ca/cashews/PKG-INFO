@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cashews
-Version: 7.4.0
+Version: 7.4.1
 Summary: cache tools with async power
 Home-page: https://github.com/Krukov/cashews/
 Author: Dmitry Kryukov
@@ -39,9 +39,11 @@ Requires-Dist: types-redis; extra == "lint"
 Provides-Extra: tests
 Requires-Dist: pytest==8.3.3; extra == "tests"
 Requires-Dist: pytest-asyncio==0.24.0; extra == "tests"
-Requires-Dist: pytest-cov==5.0.0; extra == "tests"
-Requires-Dist: pytest-rerunfailures==14.0; extra == "tests"
-Requires-Dist: hypothesis==6.115.3; extra == "tests"
+Requires-Dist: pytest-cov==6.0.0; extra == "tests"
+Requires-Dist: pytest-randomly==3.16.0; extra == "tests"
+Requires-Dist: pytest-rerunfailures==15.1; extra == "tests"
+Requires-Dist: hypothesis==6.135.29; extra == "tests"
+Dynamic: license-file
 
 <h1 align="center">🥔 CASHEWS 🥔</h1>
 

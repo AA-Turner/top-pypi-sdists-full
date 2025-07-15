@@ -10,6 +10,7 @@ from argparse import ArgumentParser, Namespace, RawDescriptionHelpFormatter
 from datetime import datetime, timezone
 from typing import Any
 
+from connector.ca_certs import is_windows, set_python_to_use_system_ca_certificates
 from connector.config import config
 from connector.httpx_rewrite import proxy_settings
 from connector.logging import set_logger_config
@@ -261,6 +262,8 @@ def run_integration(
     no_print: bool = False,
 ) -> None:
     set_logger_config(integration.app_id)
+    if is_windows():
+        set_python_to_use_system_ca_certificates()
     logger.info("Running command started at %s", datetime.now(timezone.utc))
     try:
         """Run a command from the CLI, integration version."""

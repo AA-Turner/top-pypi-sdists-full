@@ -23,7 +23,9 @@ from . import evaluation_pb2 as gateway_dot_evaluation__pb2
 from . import evaluator_pb2 as gateway_dot_evaluator__pb2
 from . import feature_flag_pb2 as gateway_dot_feature__flag__pb2
 from . import fine_tuning_job_pb2 as gateway_dot_fine__tuning__job__pb2
+from . import identity_provider_pb2 as gateway_dot_identity__provider__pb2
 from . import inference_log_pb2 as gateway_dot_inference__log__pb2
+from . import mcp_server_pb2 as gateway_dot_mcp__server__pb2
 from . import model_pb2 as gateway_dot_model__pb2
 from . import node_pool_binding_pb2 as gateway_dot_node__pool__binding__pb2
 from . import node_pool_pb2 as gateway_dot_node__pool__pb2
@@ -710,6 +712,16 @@ class GatewayStub(object):
                 request_serializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DeleteReinforcementFineTuningJobRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.ResumeReinforcementFineTuningJob = channel.unary_unary(
+                '/gateway.Gateway/ResumeReinforcementFineTuningJob',
+                request_serializer=gateway_dot_reinforcement__fine__tuning__job__pb2.ResumeReinforcementFineTuningJobRequest.SerializeToString,
+                response_deserializer=gateway_dot_reinforcement__fine__tuning__job__pb2.ReinforcementFineTuningJob.FromString,
+                _registered_method=True)
+        self.DebugReinforcementFineTuningJob = channel.unary_unary(
+                '/gateway.Gateway/DebugReinforcementFineTuningJob',
+                request_serializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobRequest.SerializeToString,
+                response_deserializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobResponse.FromString,
+                _registered_method=True)
         self.CreateReinforcementFineTuningEpoch = channel.unary_unary(
                 '/gateway.Gateway/CreateReinforcementFineTuningEpoch',
                 request_serializer=gateway_dot_reinforcement__fine__tuning__epoch__pb2.CreateReinforcementFineTuningEpochRequest.SerializeToString,
@@ -949,6 +961,56 @@ class GatewayStub(object):
                 '/gateway.Gateway/GetDeploymentPrerequisites',
                 request_serializer=gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.SerializeToString,
                 response_deserializer=gateway_dot_deployment__pb2.DeploymentPrerequisites.FromString,
+                _registered_method=True)
+        self.CreateIdentityProvider = channel.unary_unary(
+                '/gateway.Gateway/CreateIdentityProvider',
+                request_serializer=gateway_dot_identity__provider__pb2.CreateIdentityProviderRequest.SerializeToString,
+                response_deserializer=gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+                _registered_method=True)
+        self.GetIdentityProvider = channel.unary_unary(
+                '/gateway.Gateway/GetIdentityProvider',
+                request_serializer=gateway_dot_identity__provider__pb2.GetIdentityProviderRequest.SerializeToString,
+                response_deserializer=gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+                _registered_method=True)
+        self.ListIdentityProviders = channel.unary_unary(
+                '/gateway.Gateway/ListIdentityProviders',
+                request_serializer=gateway_dot_identity__provider__pb2.ListIdentityProvidersRequest.SerializeToString,
+                response_deserializer=gateway_dot_identity__provider__pb2.ListIdentityProvidersResponse.FromString,
+                _registered_method=True)
+        self.UpdateIdentityProvider = channel.unary_unary(
+                '/gateway.Gateway/UpdateIdentityProvider',
+                request_serializer=gateway_dot_identity__provider__pb2.UpdateIdentityProviderRequest.SerializeToString,
+                response_deserializer=gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+                _registered_method=True)
+        self.DeleteIdentityProvider = channel.unary_unary(
+                '/gateway.Gateway/DeleteIdentityProvider',
+                request_serializer=gateway_dot_identity__provider__pb2.DeleteIdentityProviderRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.CreateMcpServer = channel.unary_unary(
+                '/gateway.Gateway/CreateMcpServer',
+                request_serializer=gateway_dot_mcp__server__pb2.CreateMcpServerRequest.SerializeToString,
+                response_deserializer=gateway_dot_mcp__server__pb2.McpServer.FromString,
+                _registered_method=True)
+        self.GetMcpServer = channel.unary_unary(
+                '/gateway.Gateway/GetMcpServer',
+                request_serializer=gateway_dot_mcp__server__pb2.GetMcpServerRequest.SerializeToString,
+                response_deserializer=gateway_dot_mcp__server__pb2.McpServer.FromString,
+                _registered_method=True)
+        self.ListMcpServers = channel.unary_unary(
+                '/gateway.Gateway/ListMcpServers',
+                request_serializer=gateway_dot_mcp__server__pb2.ListMcpServersRequest.SerializeToString,
+                response_deserializer=gateway_dot_mcp__server__pb2.ListMcpServersResponse.FromString,
+                _registered_method=True)
+        self.UpdateMcpServer = channel.unary_unary(
+                '/gateway.Gateway/UpdateMcpServer',
+                request_serializer=gateway_dot_mcp__server__pb2.UpdateMcpServerRequest.SerializeToString,
+                response_deserializer=gateway_dot_mcp__server__pb2.McpServer.FromString,
+                _registered_method=True)
+        self.DeleteMcpServer = channel.unary_unary(
+                '/gateway.Gateway/DeleteMcpServer',
+                request_serializer=gateway_dot_mcp__server__pb2.DeleteMcpServerRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
 
 
@@ -1890,6 +1952,20 @@ class GatewayServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ResumeReinforcementFineTuningJob(self, request, context):
+        """Resume Reinforcement Fine-tuning Job
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DebugReinforcementFineTuningJob(self, request, context):
+        """Debug Reinforcement Fine-tuning Job
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateReinforcementFineTuningEpoch(self, request, context):
         """CRUD APIs for reinforcement learning fine-tuning epochs.
 
@@ -2050,20 +2126,22 @@ class GatewayServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def CreateBatchInferenceJob(self, request, context):
-        """CRUD APIs for batch inference jobs.
+        """Create Batch Inference Job
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetBatchInferenceJob(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Get Batch Inference Job
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListBatchInferenceJobs(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """List Batch Inference Jobs
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2075,7 +2153,8 @@ class GatewayServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def DeleteBatchInferenceJob(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Delete Batch Inference Job
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2202,6 +2281,80 @@ class GatewayServicer(object):
 
     def GetDeploymentPrerequisites(self, request, context):
         """GetDeploymentPrerequisites returns the validation criteria for creating a particular deployment
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateIdentityProvider(self, request, context):
+        """SSO / Identity Provider Management APIs
+
+        Create Identity Provider
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetIdentityProvider(self, request, context):
+        """Get Identity Provider
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListIdentityProviders(self, request, context):
+        """List Identity Providers
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateIdentityProvider(self, request, context):
+        """Update Identity Provider
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteIdentityProvider(self, request, context):
+        """Delete Identity Provider
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateMcpServer(self, request, context):
+        """CRUD APIs for MCP Servers
+
+        Create MCP Server
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetMcpServer(self, request, context):
+        """Get MCP Server
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListMcpServers(self, request, context):
+        """List MCP Servers
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateMcpServer(self, request, context):
+        """Update MCP Server
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteMcpServer(self, request, context):
+        """Delete MCP Server
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2850,6 +3003,16 @@ def add_GatewayServicer_to_server(servicer, server):
                     request_deserializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DeleteReinforcementFineTuningJobRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'ResumeReinforcementFineTuningJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResumeReinforcementFineTuningJob,
+                    request_deserializer=gateway_dot_reinforcement__fine__tuning__job__pb2.ResumeReinforcementFineTuningJobRequest.FromString,
+                    response_serializer=gateway_dot_reinforcement__fine__tuning__job__pb2.ReinforcementFineTuningJob.SerializeToString,
+            ),
+            'DebugReinforcementFineTuningJob': grpc.unary_unary_rpc_method_handler(
+                    servicer.DebugReinforcementFineTuningJob,
+                    request_deserializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobRequest.FromString,
+                    response_serializer=gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobResponse.SerializeToString,
+            ),
             'CreateReinforcementFineTuningEpoch': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateReinforcementFineTuningEpoch,
                     request_deserializer=gateway_dot_reinforcement__fine__tuning__epoch__pb2.CreateReinforcementFineTuningEpochRequest.FromString,
@@ -3089,6 +3252,56 @@ def add_GatewayServicer_to_server(servicer, server):
                     servicer.GetDeploymentPrerequisites,
                     request_deserializer=gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.FromString,
                     response_serializer=gateway_dot_deployment__pb2.DeploymentPrerequisites.SerializeToString,
+            ),
+            'CreateIdentityProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateIdentityProvider,
+                    request_deserializer=gateway_dot_identity__provider__pb2.CreateIdentityProviderRequest.FromString,
+                    response_serializer=gateway_dot_identity__provider__pb2.IdentityProvider.SerializeToString,
+            ),
+            'GetIdentityProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetIdentityProvider,
+                    request_deserializer=gateway_dot_identity__provider__pb2.GetIdentityProviderRequest.FromString,
+                    response_serializer=gateway_dot_identity__provider__pb2.IdentityProvider.SerializeToString,
+            ),
+            'ListIdentityProviders': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListIdentityProviders,
+                    request_deserializer=gateway_dot_identity__provider__pb2.ListIdentityProvidersRequest.FromString,
+                    response_serializer=gateway_dot_identity__provider__pb2.ListIdentityProvidersResponse.SerializeToString,
+            ),
+            'UpdateIdentityProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateIdentityProvider,
+                    request_deserializer=gateway_dot_identity__provider__pb2.UpdateIdentityProviderRequest.FromString,
+                    response_serializer=gateway_dot_identity__provider__pb2.IdentityProvider.SerializeToString,
+            ),
+            'DeleteIdentityProvider': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteIdentityProvider,
+                    request_deserializer=gateway_dot_identity__provider__pb2.DeleteIdentityProviderRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'CreateMcpServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateMcpServer,
+                    request_deserializer=gateway_dot_mcp__server__pb2.CreateMcpServerRequest.FromString,
+                    response_serializer=gateway_dot_mcp__server__pb2.McpServer.SerializeToString,
+            ),
+            'GetMcpServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMcpServer,
+                    request_deserializer=gateway_dot_mcp__server__pb2.GetMcpServerRequest.FromString,
+                    response_serializer=gateway_dot_mcp__server__pb2.McpServer.SerializeToString,
+            ),
+            'ListMcpServers': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMcpServers,
+                    request_deserializer=gateway_dot_mcp__server__pb2.ListMcpServersRequest.FromString,
+                    response_serializer=gateway_dot_mcp__server__pb2.ListMcpServersResponse.SerializeToString,
+            ),
+            'UpdateMcpServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateMcpServer,
+                    request_deserializer=gateway_dot_mcp__server__pb2.UpdateMcpServerRequest.FromString,
+                    response_serializer=gateway_dot_mcp__server__pb2.McpServer.SerializeToString,
+            ),
+            'DeleteMcpServer': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteMcpServer,
+                    request_deserializer=gateway_dot_mcp__server__pb2.DeleteMcpServerRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -6558,6 +6771,60 @@ class Gateway(object):
             _registered_method=True)
 
     @staticmethod
+    def ResumeReinforcementFineTuningJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ResumeReinforcementFineTuningJob',
+            gateway_dot_reinforcement__fine__tuning__job__pb2.ResumeReinforcementFineTuningJobRequest.SerializeToString,
+            gateway_dot_reinforcement__fine__tuning__job__pb2.ReinforcementFineTuningJob.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DebugReinforcementFineTuningJob(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/DebugReinforcementFineTuningJob',
+            gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobRequest.SerializeToString,
+            gateway_dot_reinforcement__fine__tuning__job__pb2.DebugReinforcementFineTuningJobResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def CreateReinforcementFineTuningEpoch(request,
             target,
             options=(),
@@ -7843,6 +8110,276 @@ class Gateway(object):
             '/gateway.Gateway/GetDeploymentPrerequisites',
             gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.SerializeToString,
             gateway_dot_deployment__pb2.DeploymentPrerequisites.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateIdentityProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/CreateIdentityProvider',
+            gateway_dot_identity__provider__pb2.CreateIdentityProviderRequest.SerializeToString,
+            gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetIdentityProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/GetIdentityProvider',
+            gateway_dot_identity__provider__pb2.GetIdentityProviderRequest.SerializeToString,
+            gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListIdentityProviders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ListIdentityProviders',
+            gateway_dot_identity__provider__pb2.ListIdentityProvidersRequest.SerializeToString,
+            gateway_dot_identity__provider__pb2.ListIdentityProvidersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateIdentityProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/UpdateIdentityProvider',
+            gateway_dot_identity__provider__pb2.UpdateIdentityProviderRequest.SerializeToString,
+            gateway_dot_identity__provider__pb2.IdentityProvider.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteIdentityProvider(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/DeleteIdentityProvider',
+            gateway_dot_identity__provider__pb2.DeleteIdentityProviderRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateMcpServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/CreateMcpServer',
+            gateway_dot_mcp__server__pb2.CreateMcpServerRequest.SerializeToString,
+            gateway_dot_mcp__server__pb2.McpServer.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetMcpServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/GetMcpServer',
+            gateway_dot_mcp__server__pb2.GetMcpServerRequest.SerializeToString,
+            gateway_dot_mcp__server__pb2.McpServer.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMcpServers(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ListMcpServers',
+            gateway_dot_mcp__server__pb2.ListMcpServersRequest.SerializeToString,
+            gateway_dot_mcp__server__pb2.ListMcpServersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateMcpServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/UpdateMcpServer',
+            gateway_dot_mcp__server__pb2.UpdateMcpServerRequest.SerializeToString,
+            gateway_dot_mcp__server__pb2.McpServer.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteMcpServer(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/DeleteMcpServer',
+            gateway_dot_mcp__server__pb2.DeleteMcpServerRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

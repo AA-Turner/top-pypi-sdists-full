@@ -1104,6 +1104,8 @@ class GenericModel(APIObject, BrowserMixin):
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
 
+        Only the top 1000 features are saved and can be returned.
+
         Elsewhere this technique is sometimes called 'Permutation Importance'.
 
         Requires that Feature Impact has already been computed with
@@ -1363,7 +1365,9 @@ class GenericModel(APIObject, BrowserMixin):
 
     def get_or_request_feature_impact(self, max_wait: int = DEFAULT_MAX_WAIT, **kwargs):
         """
-        Retrieve feature impact for the model, requesting a job if it hasn't been run previously
+        Retrieve feature impact for the model, requesting a job if it hasn't been run previously.
+
+        Only the top 1000 features are saved and can be returned.
 
         Parameters
         ----------
@@ -6456,6 +6460,8 @@ class DatetimeModel(Model):
         highest correlation with this feature. Note that redundancy detection is only available for
         jobs run after the addition of this feature. When retrieving data that predates this
         functionality, a NoRedundancyImpactAvailable warning will be used.
+
+        Only the top 1000 features are saved and can be returned.
 
         Else where this technique is sometimes called 'Permutation Importance'.
 

@@ -25,6 +25,7 @@ from cvxpy.reductions.solvers.conic_solvers.conic_solver import (
     ConicSolver,
     dims_to_solver_dict,
 )
+from cvxpy.utilities.citations import CITATION_DICT
 
 
 class GUROBI(ConicSolver):
@@ -34,6 +35,7 @@ class GUROBI(ConicSolver):
 
     # Solver capabilities.
     MIP_CAPABLE = True
+    BOUNDED_VARIABLES = True
     SUPPORTED_CONSTRAINTS = ConicSolver.SUPPORTED_CONSTRAINTS + [SOC]
     MI_SUPPORTED_CONSTRAINTS = SUPPORTED_CONSTRAINTS
 
@@ -152,10 +154,16 @@ class GUROBI(ConicSolver):
 
         c = data[s.C]
         b = data[s.B]
-        A = sp.csr_matrix(data[s.A])
+        A = sp.csr_array(data[s.A])
         dims = dims_to_solver_dict(data[s.DIMS])
+        lb = data[s.LOWER_BOUNDS]
+        ub = data[s.UPPER_BOUNDS]
 
         n = c.shape[0]
+        if lb is None:
+            lb = np.full(n, -gurobipy.GRB.INFINITY)
+        if ub is None:
+            ub = np.full(n, gurobipy.GRB.INFINITY)
 
         # Create a new model
         if 'env' in solver_opts:
@@ -185,9 +193,8 @@ class GUROBI(ConicSolver):
                     obj=c[i],
                     name="x_%d" % i,
                     vtype=vtype,
-                    # Gurobi's default LB is 0 (WHY???)
-                    lb=-gurobipy.GRB.INFINITY,
-                    ub=gurobipy.GRB.INFINITY)
+                    lb=lb[i],
+                    ub=ub[i])
             )
         model.update()
 
@@ -393,3 +400,13 @@ class GUROBI(ConicSolver):
         return (model.addQConstr(x_term <= t_term),
                 new_lin_constrs,
                 soc_vars)
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["GUROBI"]

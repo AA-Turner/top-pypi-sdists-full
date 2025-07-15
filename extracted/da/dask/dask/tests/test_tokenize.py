@@ -1205,6 +1205,18 @@ def test_tokenize_functions_main():
         return y + 1
 
     assert tokenize(inc2) != tokenize(inc)
+
+    # Test that redefining a function changes the token
+    def func(x):
+        return x + 1
+
+    result = tokenize(func)
+
+    def func(x):
+        return x + 2
+
+    result2 = tokenize(func)
+    assert result != result2
     """
     proc = subprocess.run([sys.executable, "-c", textwrap.dedent(script)])
     proc.check_returncode()
@@ -1504,7 +1516,7 @@ def test_tokenize_range_index():
     # It's difficult to assert what actually goes into the tokens
     # Therefore we just check if there is a string of the appropriate length in
     # the tokens below This check is to verify the assumption and to avoid hard
-    # coding a length. This seems to not be stable accross python versions or
+    # coding a length. This seems to not be stable across python versions or
     # platforms but there is a minimal length
     hex_hash_len = len(array_token[0])
     assert hex_hash_len >= 32

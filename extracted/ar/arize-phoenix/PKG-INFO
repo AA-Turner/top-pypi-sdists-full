@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 11.6.2
+Version: 11.7.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -40,7 +40,7 @@ Requires-Dist: opentelemetry-sdk
 Requires-Dist: opentelemetry-semantic-conventions
 Requires-Dist: pandas>=1.0
 Requires-Dist: prometheus-client
-Requires-Dist: protobuf<6.0,>=4.25.8
+Requires-Dist: protobuf>=4.25.8
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic>=2.1.0
@@ -65,13 +65,13 @@ Requires-Dist: fast-hdbscan>=0.2.0; extra == 'container'
 Requires-Dist: google-generativeai; extra == 'container'
 Requires-Dist: numba>=0.60.0; extra == 'container'
 Requires-Dist: openai>=1.0.0; extra == 'container'
-Requires-Dist: opentelemetry-exporter-otlp; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-fastapi; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-grpc; extra == 'container'
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy; extra == 'container'
-Requires-Dist: opentelemetry-proto>=1.12.0; extra == 'container'
-Requires-Dist: opentelemetry-sdk; extra == 'container'
-Requires-Dist: opentelemetry-semantic-conventions; extra == 'container'
+Requires-Dist: opentelemetry-exporter-otlp==1.33.1; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.54b1; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-grpc==0.54b1; extra == 'container'
+Requires-Dist: opentelemetry-instrumentation-sqlalchemy==0.54b1; extra == 'container'
+Requires-Dist: opentelemetry-proto==1.33.1; extra == 'container'
+Requires-Dist: opentelemetry-sdk==1.33.1; extra == 'container'
+Requires-Dist: opentelemetry-semantic-conventions==0.54b1; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
 Requires-Dist: strawberry-graphql[opentelemetry]==0.270.1; extra == 'container'

@@ -216,7 +216,7 @@ common_setup_kwargs = dict(
     maintainer_email="api-maintainer@datarobot.com",
     url="https://datarobot.com",
     project_urls={
-        "Documentation": "https://docs.datarobot.com/en/docs/api/reference/sdk/",
+        "Documentation": "https://docs.datarobot.com/en/docs/api/reference/sdk/index.html",
         "Changelog": "https://docs.datarobot.com/en/docs/api/reference/changelogs/py-changelog/index.html",
     },
     license="DataRobot Tool and Utility Agreement",

@@ -1,14 +1,12 @@
-from metaflow.user_configs.config_decorators import (
-    MutableFlow,
-    MutableStep,
-    CustomFlowDecorator,
-)
+from metaflow.user_decorators.user_flow_decorator import FlowMutator
+from metaflow.user_decorators.mutable_flow import MutableFlow
+from metaflow.user_decorators.mutable_step import MutableStep
 import os
 
 NEBIUS_ENDPOINT_URL = "https://storage.eu-north1.nebius.cloud:443"
 
 
-class nebius_checkpoints(CustomFlowDecorator):
+class nebius_checkpoints(FlowMutator):
 
     """
 
@@ -34,7 +32,7 @@ class nebius_checkpoints(CustomFlowDecorator):
     ```python
     from metaflow import checkpoint, step, FlowSpec, nebius_checkpoints
 
-    @nebius_checkpoints(secrets=[], bucket_path=None)
+    @nebius_checkpoints(secrets=[], bucket_path="s3://my-nebius-bucket/foo")
     class MyFlow(FlowSpec):
         @checkpoint
         @step
@@ -47,9 +45,6 @@ class nebius_checkpoints(CustomFlowDecorator):
             pass
     ```
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
     def init(self, *args, **kwargs):
         self.bucket_path = kwargs.get("bucket_path", None)
@@ -70,7 +65,7 @@ class nebius_checkpoints(CustomFlowDecorator):
                 "`secrets` keyword argument is required for the coreweave_datastore"
             )
 
-    def evaluate(self, mutable_flow: MutableFlow) -> None:
+    def pre_mutate(self, mutable_flow: MutableFlow) -> None:
         from metaflow import (
             checkpoint,
             model,

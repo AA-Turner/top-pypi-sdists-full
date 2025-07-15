@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-Pygments"
-version = "2.19.0.20250516"
+version = "2.19.0.20250715"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for Pygments"
@@ -34,11 +34,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
+mypy 1.16.1,
+pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`126768408a69b7a3a09b7d3992970b289f92937e`](https://github.com/python/typeshed/commit/126768408a69b7a3a09b7d3992970b289f92937e).
+[`84e41f2853d7af3d651d620f093031cba849bd1d`](https://github.com/python/typeshed/commit/84e41f2853d7af3d651d620f093031cba849bd1d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

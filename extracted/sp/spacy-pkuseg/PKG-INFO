@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: spacy_pkuseg
-Version: 1.0.0
+Version: 1.0.1
 Summary: Chinese word segmentation toolkit for spaCy (fork of pkuseg-python)
 Home-page: https://github.com/explosion/spacy-pkuseg
 Author: Explosion
@@ -16,20 +16,18 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<3.0.0,>=2.0.0; python_version < "3.9"
-Requires-Dist: numpy<3.0.0,>=2.0.0; python_version >= "3.9"
+Requires-Dist: numpy<3.0.0,>=1.19.0
 Requires-Dist: srsly<3.0.0,>=2.3.0
+Dynamic: license-file
 
 <a href="https://explosion.ai"><img src="https://explosion.ai/assets/img/logo.svg" width="125" height="125" align="right" /></a>
 

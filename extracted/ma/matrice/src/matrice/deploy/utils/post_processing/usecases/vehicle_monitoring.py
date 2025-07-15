@@ -565,7 +565,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
 
         total_vehicles = counting_summary.get("total_count", 0)
         total_vehicle_counts = counting_summary.get("total_vehicle_counts", {})
-        0cumulative_total = sum(total_vehicle_counts.values()) if total_vehicle_counts else 0
+        cumulative_total = sum(total_vehicle_counts.values()) if total_vehicle_counts else 0
         per_category_count = counting_summary.get("per_category_count", {})
 
 
@@ -595,6 +595,11 @@ class VehicleMonitoringUseCase(BaseProcessor):
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Vehicles Detected: {cumulative_total}")
+        # Add category-wise vehicle counts
+        if total_vehicle_counts:
+            for cat, count in total_vehicle_counts.items():
+                if count > 0:  # Only include categories with non-zero counts
+                    human_text_lines.append(f"\t- {cat}: {count}")
 
         human_text = "\n".join(human_text_lines)
 
@@ -884,4 +889,3 @@ class VehicleMonitoringUseCase(BaseProcessor):
     def _set_tracking_start_time(self) -> None:
         """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()
-

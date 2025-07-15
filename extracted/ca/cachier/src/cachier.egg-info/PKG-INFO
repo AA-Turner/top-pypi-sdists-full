@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachier
-Version: 3.4.1
+Version: 4.0.0
 Summary: Persistent, stale-free, local and cross-machine caching for Python functions.
 Author-email: Shay Palachy Affek <shay.palachy@gmail.com>
 License: MIT License
@@ -584,11 +584,72 @@ To run all tests EXCEPT memory core AND MongoDB core related tests, use:
 Running MongoDB tests against a live MongoDB instance
 -----------------------------------------------------
 
-**Note to developers:** By default, all MongoDB tests are run against a mocked MongoDB instance, provided by the ``pymongo_inmemory`` package. To run them against a live MongoDB instance, the ``CACHIER_TEST_VS_DOCKERIZED_MONGO`` environment variable is set to ``True`` in the ``test`` environment of this repository (and additional environment variables are populated with the appropriate credentials), used by the GitHub Action running tests on every commit and pull request.
+**Note to developers:** By default, all MongoDB tests are run against a mocked MongoDB instance, provided by the ``pymongo_inmemory`` package. To run them against a live MongoDB instance, you now have several options:
 
-Contributors are not expected to run these tests against a live MongoDB instance when developing, as credentials for the testing instance used will NOT be shared, but rather use the testing against the in-memory MongoDB instance as a good proxy.
+**Option 1: Using the test script (recommended)**
+
+.. code-block:: bash
+
+  # Test MongoDB only
+  ./scripts/test-local.sh mongo
+
+  # Test MongoDB with local backends
+  ./scripts/test-local.sh mongo memory pickle
+
+This script automatically handles Docker container lifecycle, environment variables, and cleanup. Additional options:
+
+- ``-v, --verbose``: Show verbose output
+- ``-k, --keep-running``: Keep containers running after tests
+- ``-h, --html-coverage``: Generate HTML coverage report
+
+**Option 2: Using Make**
+
+.. code-block:: bash
+
+  make test-mongo-local     # Run MongoDB tests with Docker
+  make test-all-local       # Run all backends with Docker
+  make test-mongo-inmemory  # Run with in-memory MongoDB (default)
+
+**Option 3: Manual setup**
+
+.. code-block:: bash
+
+  # Start MongoDB with Docker
+  docker run -d -p 27017:27017 --name cachier-test-mongo mongo:latest
+
+  # Run tests
+  CACHIER_TEST_HOST=localhost CACHIER_TEST_PORT=27017 CACHIER_TEST_VS_DOCKERIZED_MONGO=true pytest -m mongo
+
+  # Clean up
+  docker stop cachier-test-mongo && docker rm cachier-test-mongo
+
+**CI Environment:** The ``CACHIER_TEST_VS_DOCKERIZED_MONGO`` environment variable is set to ``True`` in the GitHub Actions CI environment, which runs tests against a real MongoDB instance on every commit and pull request.
+
+Contributors are encouraged to test against a real MongoDB instance before submitting PRs to ensure compatibility, though the in-memory MongoDB instance serves as a good proxy for most development.
 
 **HOWEVER, the tests run against a live MongoDB instance when you submit a PR are the determining tests for deciding whether your code functions correctly against MongoDB.**
+
+
+Testing all backends locally
+-----------------------------
+
+To test all cachier backends (MongoDB, Redis, SQL, Memory, Pickle) locally with Docker:
+
+.. code-block:: bash
+
+  # Test all backends at once
+  ./scripts/test-local.sh all
+
+  # Test only external backends (MongoDB, Redis, SQL)
+  ./scripts/test-local.sh external
+
+  # Test specific combinations
+  ./scripts/test-local.sh mongo redis
+
+  # Keep containers running for debugging
+  ./scripts/test-local.sh all -k
+
+The unified test script automatically manages Docker containers, installs required dependencies, and runs the appropriate test suites. See ``scripts/README-local-testing.md`` for detailed documentation.
 
 
 Adding documentation

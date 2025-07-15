@@ -264,9 +264,6 @@ def create_drconfig(
     default_config_path = _get_default_config_file()
     if default_config_path is not None:
         default_config = _config_from_file(default_config_path)
-    if not config.get("max_retries", None):
-        config["max_retries"] = Retry(backoff_factor=0.1, respect_retry_after_header=True)
-
     token, token_source = _get_value_and_source(
         token, config.get("token"), default_config.get("token")
     )

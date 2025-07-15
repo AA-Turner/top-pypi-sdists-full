@@ -431,6 +431,7 @@ ALL_MODULES = [
             cloud_commands.cloud_delete,
             cloud_commands.cloud_verify,
             cloud_commands.list_cloud,
+            cloud_commands.cloud_add_deployment,
             cloud_commands.cloud_config_update,
             cloud_commands.cloud_set_default,
             cloud_commands.add_collaborators,

@@ -21,7 +21,11 @@ from anyscale.cli_logger import CloudSetupLogger
 from anyscale.client.openapi_client.models import CloudAnalyticsEventCloudResource
 import anyscale.conf
 import anyscale.shared_anyscale_utils.conf as shared_anyscale_conf
-from anyscale.util import confirm, GCP_DEPLOYMENT_MANAGER_TIMEOUT_SECONDS_LONG
+from anyscale.util import (
+    confirm,
+    GCP_DEPLOYMENT_MANAGER_TIMEOUT_SECONDS_LONG,
+    SharedStorageType,
+)
 from anyscale.utils.gcp_utils import GCP_REQUIRED_APIS, GoogleCloudClientFactory
 
 
@@ -46,6 +50,57 @@ GCP_MEMORYSTORE_RESOURCE_CONFIG_TEMPLATE = """
   metadata:
    dependsOn:
      - subnet-${CLOUD_ID}"""
+
+
+GCP_FILESTORE_RESOURCE_CONFIG_TEMPLATE = """
+- name: filestore-${CLOUD_ID}
+  type: gcp-types/file-v1beta1:projects.locations.instances
+  properties:
+    instanceId: filestore-${CLOUD_ID}
+    parent: projects/${PROJECT_ID}/locations/${REGION}-${ZONE}
+    tier: STANDARD
+    networks:
+      - network: projects/${PROJECT_ID}/global/networks/$$(ref.vpc-${CLOUD_ID}.name)
+    fileShares:
+      - name: anyscale_vol
+        capacityGb: ${FILESHARE_CAPACITY_GB}
+    labels:
+      anyscale-cloud-id: ${CLOUD_ID_UNDERSCORE}
+  metadata:
+    dependsOn:
+      - vpc-${CLOUD_ID}"""
+
+
+GCP_FILESTORE_RESOURCE_CONFIG_TEMPLATE_OA = """
+- name: filestore-${CLOUD_ID}
+  type: gcp-types/file-v1beta1:projects.locations.instances
+  properties:
+    instanceId: filestore-${CLOUD_ID}
+    parent: projects/${PROJECT_ID}/locations/${REGION}-${ZONE}
+    tier: STANDARD
+    networks:
+      - network: projects/${PROJECT_ID}/global/networks/${VPC_NAME}
+    fileShares:
+      - name: anyscale_vol
+        capacityGb: ${FILESHARE_CAPACITY_GB}
+    labels:
+      anyscale-cloud-id: ${CLOUD_ID_UNDERSCORE}
+- name: allow-filestore-${CLOUD_ID}
+  type: compute.v1.firewall
+  properties:
+    direction: EGRESS
+    network: projects/${PROJECT_ID}/global/networks/${VPC_NAME}
+    allowed:
+    - IPProtocol: all
+    targetServiceAccounts:
+    - $$(ref.${CLOUD_ID}.email)
+    destinationRanges:
+    - $$(ref.filestore-${CLOUD_ID}.networks[0].reservedIpRange)
+    priority: 1000
+  metadata:
+    dependsOn:
+      - ${CLOUD_ID}
+      - filestore-${CLOUD_ID}"""
 
 
 class GCPDeployment(BaseModel):
@@ -312,6 +367,7 @@ def generate_deployment_manager_config(  # noqa: PLR0913
     zone: str = "b",  # some regions like us-east1 or europe-west1 don't have zone "a"
     fileshare_capacity_gb: int = 1024,
     control_plane_service_account_email: Optional[str] = None,
+    shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
 ) -> str:
     """
     Generate the deployment manager config for Anyscale cloud setup.
@@ -328,6 +384,15 @@ def generate_deployment_manager_config(  # noqa: PLR0913
 
     if enable_head_node_fault_tolerance:
         body += GCP_MEMORYSTORE_RESOURCE_CONFIG_TEMPLATE
+
+    if shared_storage == SharedStorageType.NFS:
+        if vpc_name:
+            # Organization admin template - use OA filestore template
+            body += GCP_FILESTORE_RESOURCE_CONFIG_TEMPLATE_OA
+        else:
+            # Regular template - use regular filestore template
+            body += GCP_FILESTORE_RESOURCE_CONFIG_TEMPLATE
+
     deployment_manager_config = Template(body)
 
     params = {

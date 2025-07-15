@@ -1,18 +1,5 @@
 resources:
 # No VPC/subnet creation for OA
-- name: filestore-${CLOUD_ID}
-  type: gcp-types/file-v1beta1:projects.locations.instances
-  properties:
-    instanceId: filestore-${CLOUD_ID}
-    parent: projects/${PROJECT_ID}/locations/${REGION}-${ZONE}
-    tier: STANDARD
-    networks:
-      - network: projects/${PROJECT_ID}/global/networks/${VPC_NAME}
-    fileShares:
-      - name: anyscale_vol
-        capacityGb: ${FILESHARE_CAPACITY_GB}
-    labels:
-      anyscale-cloud-id: ${CLOUD_ID_UNDERSCORE}
 - name: storage-bucket-${CLOUD_ID}
   type: storage.v1.bucket
   properties:
@@ -70,19 +57,3 @@ resources:
   metadata:
     dependsOn:
       - ${CLOUD_ID}
-- name: allow-filestore-${CLOUD_ID}
-  type: compute.v1.firewall
-  properties:
-    direction: EGRESS
-    network: projects/${PROJECT_ID}/global/networks/${VPC_NAME}
-    allowed:
-    - IPProtocol: all
-    targetServiceAccounts:
-    - $$(ref.${CLOUD_ID}.email)
-    destinationRanges:
-    - $$(ref.filestore-${CLOUD_ID}.networks[0].reservedIpRange)
-    priority: 1000
-  metadata:
-    dependsOn:
-      - ${CLOUD_ID}
-      - filestore-${CLOUD_ID}

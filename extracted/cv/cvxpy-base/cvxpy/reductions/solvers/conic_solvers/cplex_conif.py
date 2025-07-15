@@ -18,7 +18,7 @@ from collections import namedtuple
 from operator import attrgetter
 
 import numpy as np
-from scipy.sparse import dok_matrix
+from scipy.sparse import dok_array
 
 import cvxpy.settings as s
 from cvxpy.constraints import SOC
@@ -28,6 +28,7 @@ from cvxpy.reductions.solvers.conic_solvers.conic_solver import (
     ConicSolver,
     dims_to_solver_dict,
 )
+from cvxpy.utilities.citations import CITATION_DICT
 
 # Values used to distinguish between linear and quadratic constraints.
 _LIN, _QUAD = 0, 1
@@ -289,8 +290,8 @@ class CPLEX(ConicSolver):
 
         c = data[s.C]
         b = data[s.B]
-        A = dok_matrix(data[s.A])
-        # Save the dok_matrix.
+        A = dok_array(data[s.A])
+        # Save the dok_array.
         data[s.A] = A
         dims = dims_to_solver_dict(data[s.DIMS])
 
@@ -410,8 +411,9 @@ class CPLEX(ConicSolver):
         constr, lin_expr, rhs = [], [], []
         csr = mat.tocsr()
         for i in rows:
-            ind = [variables[x] for x in csr[i].indices]
-            val = [x for x in csr[i].data]
+            row = csr[[i], :]
+            ind = [variables[x] for x in row.indices]
+            val = [x for x in row.data]
             lin_expr.append([ind, val])
             rhs.append(vec[i])
         # For better performance, we add the constraints in a batch.
@@ -454,8 +456,9 @@ class CPLEX(ConicSolver):
         lin_expr_list, soc_vars, lin_rhs = [], [], []
         csr = mat.tocsr()
         for i in rows:
-            ind = [variables[x] for x in csr[i].indices]
-            val = [x for x in csr[i].data]
+            row = csr[[i], :]
+            ind = [variables[x] for x in row.indices]
+            val = [x for x in row.data]
             # Ignore empty constraints.
             if ind:
                 lin_expr_list.append((ind, val))
@@ -506,3 +509,13 @@ class CPLEX(ConicSolver):
             rhs=0.0,
             name="")
         return (qconstr, new_lin_constrs, soc_vars)
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["CPLEX"]

@@ -8,6 +8,7 @@
 use num_traits::ToPrimitive;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprNumberLiteral;
 use ruff_python_ast::ExprStringLiteral;
@@ -460,6 +461,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let right = self.expr_infer(v, errors);
                 self.narrow_is_not_instance(ty, &right)
             }
+            AtomicNarrowOp::TypeEq(v) => {
+                // If type(X) == Y then X can't be a subclass of Y
+                // We can't model that, so we narrow it exactly like isinstance(X, Y)
+                let right = self.expr_infer(v, errors);
+                self.narrow_isinstance(ty, &right)
+            }
+            // Even if type(X) != Y, X can still be a subclass of Y so we can't do any negative refinement
+            AtomicNarrowOp::TypeNotEq(_) => ty.clone(),
             AtomicNarrowOp::IsSubclass(v) => {
                 let right = self.expr_infer(v, errors);
                 self.narrow_issubclass(ty, &right, v.range())
@@ -615,6 +624,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::NumberLiteral(ExprNumberLiteral {
+                    node_index: AtomicNodeIndex::dummy(),
                     range,
                     value: Number::Int(Int::from(*idx as u64)),
                 });
@@ -644,8 +654,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // We synthesize a slice expression for the subscript here
                 // The range doesn't matter, since narrowing logic swallows type errors
                 let synthesized_slice = Expr::StringLiteral(ExprStringLiteral {
+                    node_index: AtomicNodeIndex::dummy(),
                     range,
                     value: StringLiteralValue::single(StringLiteral {
+                        node_index: AtomicNodeIndex::dummy(),
                         range,
                         value: key.clone().into_boxed_str(),
                         flags: StringLiteralFlags::empty(),

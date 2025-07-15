@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-docutils
-Version: 0.21.0.20250710
+Version: 0.21.0.20250715
 Summary: Typing stubs for docutils
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -44,4 +44,4 @@ mypy 1.16.1,
 pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`9317dc62bd4fb46b8b48ce5353286cab80308d47`](https://github.com/python/typeshed/commit/9317dc62bd4fb46b8b48ce5353286cab80308d47).
+[`84e41f2853d7af3d651d620f093031cba849bd1d`](https://github.com/python/typeshed/commit/84e41f2853d7af3d651d620f093031cba849bd1d).

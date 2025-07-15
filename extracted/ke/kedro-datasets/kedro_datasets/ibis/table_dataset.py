@@ -14,13 +14,12 @@ if TYPE_CHECKING:
 
 
 class TableDataset(ConnectionMixin, AbstractDataset[ir.Table, ir.Table]):
-    """``TableDataset`` loads/saves data from/to Ibis table expressions.
+    """`TableDataset` loads/saves data from/to Ibis table expressions.
 
-    Example usage for the
-    `YAML API <https://docs.kedro.org/en/stable/data/data_catalog_yaml_examples.html>`_:
+    Examples:
+        Using the [YAML API](https://docs.kedro.org/en/stable/data/data_catalog_yaml_examples.html):
 
-    .. code-block:: yaml
-
+        ```yaml
         cars:
           type: ibis.TableDataset
           table_name: cars
@@ -36,12 +35,9 @@ class TableDataset(ConnectionMixin, AbstractDataset[ir.Table, ir.Table]):
           connection:
             backend: duckdb
             database: company.db
+        ```
 
-    Example usage for the
-    `Python API <https://docs.kedro.org/en/stable/data/\
-    advanced_data_catalog_usage.html>`_:
-
-    .. code-block:: pycon
+        Using the [Python API](https://docs.kedro.org/en/stable/data/advanced_data_catalog_usage.html):
 
         >>> import ibis
         >>> from kedro_datasets.ibis import TableDataset
@@ -139,7 +135,7 @@ class TableDataset(ConnectionMixin, AbstractDataset[ir.Table, ir.Table]):
         self._materialized = self._save_args.pop("materialized")
 
     def _connect(self) -> BaseBackend:
-        import ibis
+        import ibis  # noqa: PLC0415
 
         config = deepcopy(self._connection_config)
         backend = getattr(ibis, config.pop("backend"))

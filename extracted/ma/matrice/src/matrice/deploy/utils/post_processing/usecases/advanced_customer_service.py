@@ -55,6 +55,73 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
             det['category'] = 'staff'
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
+    def _generate_per_frame_agg_summary(self, processed_data, analytics_results, config, context, stream_info=None):
+        """
+        Generate agg_summary dict with per-frame events and tracking_stats.
+        processed_data: dict of frame_id -> detections (list)
+        analytics_results: output of _compile_analytics_results 
+        """
+        import datetime
+        frame_events = {}
+        frame_tracking_stats = {}
+        # For total_frames_processed, use a counter or fallback to len(processed_data)
+        total_frames_processed = getattr(self, '_total_frames_processed', 0)
+        global_frame_offset = getattr(self, 'global_frame_offset', 0)
+        # For each frame, build event and tracking_stats dicts
+        for frame_id, detections in processed_data.items():
+            # Count staff/customers in this frame
+            staff_count = sum(1 for d in detections if d.get('category') == 'staff')
+            customer_count = sum(1 for d in detections if d.get('category') == 'customer')
+            total_people = staff_count + customer_count
+            # Event (match people_counting)
+            event = {
+                "type": "advanced_customer_service",
+                "stream_time": datetime.datetime.utcnow().strftime("%Y-%m-%d-%H:%M:%S UTC"),
+                "application_name": "Advanced Customer Service System",
+                "application_version": "1.0",
+                "location_info": None,
+                "human_text": f"EVENTS DETECTED:\n\t- Staff Detected: {staff_count}\n\t- Customers Detected: {customer_count}",
+                "frame_id": str(frame_id)
+            }
+            frame_events[str(frame_id)] = [event]
+            # Tracking stats (match people_counting fields)
+            # Use the full summary for each frame's human_text, but exclude queue_lengths_by_area, service_proximity_threshold, and real_time_occupancy
+            # Prepare a filtered analytics_results for summary
+            filtered_analytics = dict(analytics_results)
+            if "customer_queue_analytics" in filtered_analytics:
+                filtered_analytics["customer_queue_analytics"] = dict(filtered_analytics["customer_queue_analytics"])
+                filtered_analytics["customer_queue_analytics"].pop("queue_lengths_by_area", None)
+            if "service_area_analytics" in filtered_analytics:
+                filtered_analytics["service_area_analytics"] = dict(filtered_analytics["service_area_analytics"])
+                filtered_analytics["service_area_analytics"].pop("service_proximity_threshold", None)
+            filtered_analytics.pop("real_time_occupancy", None)
+            full_summary = self._generate_summary(filtered_analytics, [])
+            tracking_stat = {
+                "tracking_start_time": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+                "all_results_for_tracking": {
+                    "total_people": total_people,
+                    "staff_count": staff_count,
+                    "customer_count": customer_count,
+                    "detections": detections,
+                    "business_metrics": analytics_results.get("business_metrics", {}),
+                    "customer_queue_analytics": filtered_analytics.get("customer_queue_analytics", {}),
+                    "staff_management_analytics": analytics_results.get("staff_management_analytics", {}),
+                    "service_area_analytics": filtered_analytics.get("service_area_analytics", {}),
+                    "customer_journey_analytics": analytics_results.get("customer_journey_analytics", {}),
+                    # "real_time_occupancy": analytics_results.get("real_time_occupancy", {}),
+                    "service_times": analytics_results.get("service_times", []),
+                    "global_frame_offset": global_frame_offset,
+                    "local_frame_id": str(frame_id)
+                },
+                "human_text": full_summary,
+                "frame_id": str(frame_id),
+                "frames_in_this_call": 1,
+                "total_frames_processed": total_frames_processed + int(frame_id),
+                "current_frame_number": str(frame_id),
+                "global_frame_offset": global_frame_offset
+            }
+            frame_tracking_stats[str(frame_id)] = [tracking_stat]
+        return {"events": frame_events, "tracking_stats": frame_tracking_stats}
     # --- Chunk tracking for per-chunk analytics ---
     def _init_chunk_tracking(self):
         self._chunk_frame_count = 0
@@ -87,7 +154,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         """Initialize advanced customer service use case."""
         super().__init__("advanced_customer_service")
         self.category = "sales"
-        
+
         # Advanced tracking structures
         self.customer_occupancy = {}
         self.staff_occupancy = {}
@@ -98,25 +165,28 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         self.staff_availability = {}
         self.staff_service_count = defaultdict(int)
         self.staff_active_services = {}
-        
+
         # Persistent unique staff tracking
         self.global_staff_ids = set()
         self.global_staff_ids_by_area = defaultdict(set)
-        
+
         # Persistent unique customer tracking
         self.global_customer_ids = set()
-        
+
+        # Persistent staff ID memory (for cross-frame staff identity)
+        self.persistent_staff_ids = set()
+
         # Analytics
         self.queue_wait_times = defaultdict(list)
         self.service_times = defaultdict(list)
         self.staff_efficiency = defaultdict(list)
         self.peak_occupancy = defaultdict(int)
-        
+
         # Journey states
         self.JOURNEY_STATES = {
             'ENTERING': 'entering',
             'QUEUING': 'queuing',
-            'BEING_SERVED': 'being_served', 
+            'BEING_SERVED': 'being_served',
             'COMPLETED': 'completed',
             'LEFT': 'left'
         }
@@ -262,19 +332,10 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 context: Optional[ProcessingContext] = None, stream_info: Optional[dict] = None) -> ProcessingResult:
         """
         Process advanced customer service analytics.
-        
-        Args:
-            data: Raw model output (detection or tracking format)
-            config: Advanced customer service configuration
-            context: Processing context
-            
-        Returns:
-            ProcessingResult: Processing result with comprehensive customer service analytics
         """
         start_time = time.time()
-        
+
         try:
-            # Ensure we have the right config type
             if not isinstance(config, CustomerServiceConfig):
                 return self.create_error_result(
                     "Invalid configuration type for advanced customer service",
@@ -283,20 +344,16 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     context=context
                 )
 
-            # Attach stream_info to context if provided
             if stream_info is not None:
                 if context is None:
                     context = ProcessingContext()
                 context.stream_info = stream_info
 
-            # Initialize processing context if not provided
             if context is None:
                 context = ProcessingContext()
 
-            # Store service_proximity_threshold for use in instance methods
             self._service_proximity_threshold = config.service_proximity_threshold
 
-            # Detect input format
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
@@ -304,21 +361,17 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
 
             self.logger.info(f"Processing advanced customer service with format: {input_format.value}")
 
-            # Initialize area tracking
             self._initialize_areas(config.customer_areas, config.staff_areas, config.service_areas)
 
-            # Step 1: Apply confidence filtering
             processed_data = data
             if config.confidence_threshold is not None:
                 processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
                 self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
 
-            # Step 2: Apply category mapping if provided
             if hasattr(config, 'index_to_category') and config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
 
-            # Step 3: Extract detections and assign 'person' by area if needed
             detections = self._extract_detections(processed_data)
             assign_person_by_area(
                 detections,
@@ -330,49 +383,86 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             )
             self.logger.debug(f"Extracted {len(staff_detections)} staff and {len(customer_detections)} customer detections")
 
-
-            # --- Chunk tracking logic ---
             self._maybe_reset_chunk()
             self._update_chunk_tracking(customer_detections)
 
-            # Step 4: Process comprehensive analytics
             current_time = time.time()
             analytics_results = self._process_comprehensive_analytics(
                 staff_detections, customer_detections, config, current_time
             )
 
-            # Step 5: Generate insights and alerts
+            # --- FIX: Ensure agg_summary is top-level and events/tracking_stats are dicts ---
+            if isinstance(processed_data, dict):
+                agg_summary = self._generate_per_frame_agg_summary(processed_data, analytics_results, config, context, stream_info)
+            else:
+                agg_summary = {"events": {}, "tracking_stats": {}}
+
+            # --- FIX: Ensure raw_output is always a list ---
+            if not isinstance(analytics_results.get("raw_output", []), list):
+                analytics_results["raw_output"] = [analytics_results.get("raw_output", {})]
+
             insights = self._generate_insights(analytics_results, config)
             alerts = self._check_alerts(analytics_results, config)
-
-            # Step 6: Generate human-readable summary
             summary = self._generate_summary(analytics_results, alerts)
-
-            # Step 7: Extract predictions for API compatibility
             predictions = self._extract_predictions(processed_data)
 
-            # Mark processing as completed
             context.mark_completed()
 
-            # Create successful result
+
+
+            # --- REPLACE outer agg_summary with inner if present ---
+            # If analytics_results contains processed_data.agg_summary, use that as the output agg_summary
+            inner_agg_summary = None
+            if "processed_data" in analytics_results and isinstance(analytics_results["processed_data"], dict):
+                pd = analytics_results["processed_data"]
+                if "agg_summary" in pd and isinstance(pd["agg_summary"], dict):
+                    inner_agg_summary = pd["agg_summary"]
+            if inner_agg_summary:
+                agg_summary = inner_agg_summary
+
+            # Ensure tracking_stats and events are dicts keyed by frame_id
+            if "tracking_stats" in agg_summary and isinstance(agg_summary["tracking_stats"], list):
+                # If tracking_stats is a list with a dict containing tracking_stats, flatten
+                for item in agg_summary["tracking_stats"]:
+                    if isinstance(item, dict) and "tracking_stats" in item:
+                        agg_summary["tracking_stats"] = item["tracking_stats"]
+                        break
+
+            if "events" in agg_summary and isinstance(agg_summary["events"], list):
+                for item in agg_summary["events"]:
+                    if isinstance(item, dict) and "events" in item:
+                        agg_summary["events"] = item["events"]
+                        break
+
+            # Compose result data with flattened agg_summary
+            result_data = dict(analytics_results)
+            result_data["agg_summary"] = agg_summary
+
+
+            # Ensure raw_output is always a list, including inside model_output
+            if "model_output" in result_data:
+                mo = result_data["model_output"]
+                if isinstance(mo, dict) and "raw_output" in mo and not isinstance(mo["raw_output"], list):
+                    mo["raw_output"] = [mo["raw_output"]]
+            if not isinstance(result_data.get("raw_output", []), list):
+                result_data["raw_output"] = [result_data.get("raw_output", {})]
+
             result = self.create_result(
-                data=analytics_results,
+                data=result_data,
                 usecase=self.name,
                 category=self.category,
                 context=context
             )
 
-            # Add human-readable information
             result.summary = summary
             result.insights = insights
             result.predictions = predictions
             result.metrics = analytics_results.get("business_metrics", {})
 
-            # Add warnings for configuration issues
             if not config.customer_areas and not config.staff_areas:
                 result.add_warning("No customer or staff areas defined - using global analysis only")
 
-            if config.service_proximity_threshold > 200:
+            if config.service_proximity_threshold > 250:
                 result.add_warning(f"High service proximity threshold ({config.service_proximity_threshold}) may miss interactions")
 
             self.logger.info(f"Advanced customer service analysis completed successfully in {result.processing_time:.2f}s")
@@ -424,23 +514,32 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         
         return detections
     
-    def _categorize_detections(self, detections: List[Dict], staff_categories: List[str], 
+    def _categorize_detections(self, detections: List[Dict], staff_categories: List[str],
                               customer_categories: List[str]) -> Tuple[List[Dict], List[Dict]]:
-        """Categorize detections into staff and customers."""
+        """Categorize detections into staff and customers, with persistent staff ID logic."""
         staff_detections = []
         customer_detections = []
-        
+
         for detection in detections:
+            track_id = detection.get('track_id')
             category = detection.get('category', detection.get('class', ''))
-            
+
+            # If this track_id was ever staff, always treat as staff
+            if track_id is not None and track_id in self.persistent_staff_ids:
+                staff_detections.append(detection)
+                continue
+
+            # If currently detected as staff, add to persistent set
             if category in staff_categories:
                 staff_detections.append(detection)
+                if track_id is not None:
+                    self.persistent_staff_ids.add(track_id)
             elif category in customer_categories:
                 customer_detections.append(detection)
             else:
                 # Default to customer if category is unknown
                 customer_detections.append(detection)
-        
+
         return staff_detections, customer_detections
     
     def _process_comprehensive_analytics(self, staff_detections: List[Dict], customer_detections: List[Dict],
@@ -597,23 +696,39 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     })
     
     def _is_customer_being_served(self, customer_track_id: int, current_time: float) -> bool:
-        """Check if customer is currently being served by staff."""
+        """Check if customer is currently being served by staff or in overlapping service/customer area or proximity."""
         customer_journey = self.customer_journey.get(customer_track_id)
         if not customer_journey or not customer_journey['positions']:
             return False
 
         customer_center = customer_journey['positions'][-1]['center']
 
-        # Check if customer is inside any service area
+        # Get all customer areas the customer is in
+        customer_areas_in = set()
+        for area_name, polygon in self.customer_areas.items():
+            if point_in_polygon(customer_center, polygon):
+                customer_areas_in.add(area_name)
+
+        # Get all service areas the customer is in
+        service_areas_in = set()
         for area_name, polygon in self.service_areas.items():
             if point_in_polygon(customer_center, polygon):
-                return True
+                service_areas_in.add(area_name)
+
+        # If any area is both a customer area and a service area, consider being served
+        if customer_areas_in & service_areas_in:
+            return True
+
+        # If customer is inside any service area (legacy logic)
+        if service_areas_in:
+            return True
 
         # If not inside service area, check proximity to staff
         nearest_staff = self._find_nearest_staff(customer_center)
         if nearest_staff:
             staff_id, distance = nearest_staff
-            return distance <= self._service_proximity_threshold
+            if distance <= self._service_proximity_threshold:
+                return True
 
         return False
     
@@ -785,7 +900,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         return staff_analytics
     
     def _get_service_area_results(self) -> Dict[str, Any]:
-        """Get service area analytics (dynamic: polygon inclusion and proximity)."""
+        """Get service area analytics (dynamic: polygon inclusion, overlap, and proximity)."""
         service_analytics = {
             "service_areas_status": {},
             "total_active_services": 0
@@ -801,12 +916,11 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         for area_list in self.staff_occupancy.values():
             all_staff.extend(area_list)
 
-
         for area_name, polygon in self.service_areas.items():
             customers_in_area = set()
             staff_in_area = set()
 
-            # Customers: count if inside service area polygon OR within proximity threshold
+            # Customers: count if inside service area polygon OR within proximity threshold OR in overlapping area
             for occ in all_customers:
                 center = occ.get('center')
                 tid = occ.get('track_id')
@@ -817,10 +931,16 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 in_proximity = any(
                     math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
                 )
-                if in_polygon or in_proximity:
+                # Check if this area is also a customer area (overlap)
+                in_overlap = False
+                for cust_area_name, cust_polygon in self.customer_areas.items():
+                    if area_name == cust_area_name and point_in_polygon(center, cust_polygon):
+                        in_overlap = True
+                        break
+                if in_polygon or in_proximity or in_overlap:
                     customers_in_area.add(tid)
 
-            # Staff: count if inside service area polygon OR within proximity threshold
+            # Staff: count if inside service area polygon OR within proximity threshold OR in overlapping area
             for occ in all_staff:
                 center = occ.get('center')
                 tid = occ.get('track_id')
@@ -830,7 +950,13 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 in_proximity = any(
                     math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
                 )
-                if in_polygon or in_proximity:
+                # Check if this area is also a staff area (overlap)
+                in_overlap = False
+                for staff_area_name, staff_polygon in self.staff_areas.items():
+                    if area_name == staff_area_name and point_in_polygon(center, staff_polygon):
+                        in_overlap = True
+                        break
+                if in_polygon or in_proximity or in_overlap:
                     staff_in_area.add(tid)
 
             service_analytics["service_areas_status"][area_name] = {

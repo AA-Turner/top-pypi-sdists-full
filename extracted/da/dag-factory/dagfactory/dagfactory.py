@@ -8,10 +8,17 @@ from typing import Any, Dict, List, Optional, Union
 
 import yaml
 from airflow.configuration import conf as airflow_conf
-from airflow.models import DAG
+
+try:
+    from airflow.sdk.definitions.dag import DAG
+except ImportError:
+    from airflow.models import DAG
+from airflow.version import version as AIRFLOW_VERSION
+from packaging import version
 
 from dagfactory.dagbuilder import DagBuilder
 from dagfactory.exceptions import DagFactoryConfigException, DagFactoryException
+from dagfactory.utils import cast_with_type, update_yaml_structure
 
 # these are params that cannot be a dag name
 SYSTEM_PARAMS: List[str] = ["default", "task_groups"]
@@ -24,8 +31,12 @@ class DagFactory:
     :param config_filepath: the filepath of the DAG factory YAML config file.
         Must be absolute path to file. Cannot be used with `config`.
     :type config_filepath: str
-    :param config: DAG factory config dictionary. Cannot be user with `config_filepath`.
+    :param config: DAG factory config dictionary. Cannot be used with `config_filepath`.
     :type config: dict
+    :param default_args_config_path: The path to a file that contains the default arguments for that DAG.
+    :type default_args_config_path: str
+    :param default_args_config_dict: A dictionary of default arguments for that DAG, as an alternative to default_args_config_path.
+    :type default_args_config_dict: dict
     """
 
     def __init__(
@@ -33,21 +44,70 @@ class DagFactory:
         config_filepath: Optional[str] = None,
         config: Optional[dict] = None,
         default_args_config_path: str = airflow_conf.get("core", "dags_folder"),
+        default_args_config_dict: Optional[dict] = None,
     ) -> None:
+        # Handle the config(_filepath)
         assert bool(config_filepath) ^ bool(config), "Either `config_filepath` or `config` should be provided"
-        self.default_args_config_path = default_args_config_path
+
         if config_filepath:
             DagFactory._validate_config_filepath(config_filepath=config_filepath)
-            self.config: Dict[str, Any] = DagFactory._load_config(config_filepath=config_filepath)
+            self.config: Dict[str, Any] = self._load_dag_config(config_filepath=config_filepath)
         if config:
             self.config: Dict[str, Any] = config
 
+        # These default args are a bit different; these are not the "default" structure that is applied to certain DAGs.
+        # These are in-fact the "default" default_args
+        if default_args_config_dict:
+            # Log a warning if the default_args parameter is specified. If both the default_args and
+            # default_args_file_path are passed, we'll throw an exception.
+            logging.warning(
+                "Manually specifying `default_args_config_dict` will override the values in the `defaults.yml` file."
+            )
+
+            if default_args_config_path != airflow_conf.get("core", "dags_folder"):
+                raise DagFactoryException("Cannot pass both `default_args_config_dict` and `default_args_config_path`.")
+
+        # We'll still go ahead and set both values. They'll be referenced in _global_default_args.
+        self.default_args_config_path: str = default_args_config_path
+        self.default_args_config_dict: Optional[dict] = default_args_config_dict
+
+    def _load_yaml_config(self, config_filepath: str) -> Dict[str, Any]:
+        """For loading yaml config file, including DAG config and default args config."""
+
+        def __join(loader: yaml.FullLoader, node: yaml.Node) -> str:
+            seq = loader.construct_sequence(node)
+            return "".join([str(i) for i in seq])
+
+        def __or(loader: yaml.FullLoader, node: yaml.Node) -> str:
+            seq = loader.construct_sequence(node)
+            return " | ".join([f"({str(i)})" for i in seq])
+
+        def __and(loader: yaml.FullLoader, node: yaml.Node) -> str:
+            seq = loader.construct_sequence(node)
+            return " & ".join([f"({str(i)})" for i in seq])
+
+        yaml.add_constructor("!join", __join, yaml.FullLoader)
+        yaml.add_constructor("!or", __or, yaml.FullLoader)
+        yaml.add_constructor("!and", __and, yaml.FullLoader)
+
+        with open(config_filepath, "r", encoding="utf-8") as fp:
+            config_with_env = os.path.expandvars(fp.read())
+            config: Dict[str, Any] = yaml.load(stream=config_with_env, Loader=yaml.FullLoader)
+            config = cast_with_type(config)
+        return config
+
     def _global_default_args(self):
+        """
+        If self.default_args exists, use this as the global default_args (to be applied to each DAG). Otherwise, fall
+        back to the defaults.yml file.
+        """
+        if self.default_args_config_dict:
+            return self.default_args_config_dict
+
         default_args_yml = Path(self.default_args_config_path) / "defaults.yml"
 
         if default_args_yml.exists():
-            with open(default_args_yml, "r") as file:
-                return yaml.safe_load(file)
+            return self._load_yaml_config(default_args_yml)
 
     @staticmethod
     def _serialise_config_md(dag_name, dag_config, default_config):
@@ -78,35 +138,20 @@ class DagFactory:
         if not os.path.isabs(config_filepath):
             raise DagFactoryConfigException("DAG Factory `config_filepath` must be absolute path")
 
-    @staticmethod
-    def _load_config(config_filepath: str) -> Dict[str, Any]:
+    def _load_dag_config(self, config_filepath: str) -> Dict[str, Any]:
         """
-        Loads YAML config file to dictionary
+        Loads DAG config file to dictionary
 
         :returns: dict from YAML config file
         """
         # pylint: disable=consider-using-with
         try:
+            config = self._load_yaml_config(config_filepath)
+            # This will only invoke in the CI
+            # Make yaml DAG compatible for Airflow 3
+            if version.parse(AIRFLOW_VERSION) >= version.parse("3.0.0") and os.getenv("AUTO_CONVERT_TO_AF3"):
+                config = update_yaml_structure(config)
 
-            def __join(loader: yaml.FullLoader, node: yaml.Node) -> str:
-                seq = loader.construct_sequence(node)
-                return "".join([str(i) for i in seq])
-
-            def __or(loader: yaml.FullLoader, node: yaml.Node) -> str:
-                seq = loader.construct_sequence(node)
-                return " | ".join([f"({str(i)})" for i in seq])
-
-            def __and(loader: yaml.FullLoader, node: yaml.Node) -> str:
-                seq = loader.construct_sequence(node)
-                return " & ".join([f"({str(i)})" for i in seq])
-
-            yaml.add_constructor("!join", __join, yaml.FullLoader)
-            yaml.add_constructor("!or", __or, yaml.FullLoader)
-            yaml.add_constructor("!and", __and, yaml.FullLoader)
-
-            with open(config_filepath, "r", encoding="utf-8") as fp:
-                config_with_env = os.path.expandvars(fp.read())
-                config: Dict[str, Any] = yaml.load(stream=config_with_env, Loader=yaml.FullLoader)
         except Exception as err:
             raise DagFactoryConfigException("Invalid DAG Factory config file") from err
         return config
@@ -133,11 +178,16 @@ class DagFactory:
         global_default_args = self._global_default_args()
         default_config: Dict[str, Any] = self.get_default_config()
 
-        if global_default_args is not None:
-            if "default_args" in default_config and "default_args" in global_default_args:
-                default_config = {
-                    "default_args": {**global_default_args["default_args"], **default_config["default_args"]}
-                }
+        # If global_default_args is None, then default_config will remain as is. Otherwise, we'll (try) go ahead and
+        # update the default args using global_default_args
+        if isinstance(global_default_args, dict):
+            # Previously, default_config was being overwritten completely to only container the default_args
+            # key-value pair. This was updated as part of issue-295 to not overwrite the entire default_config
+            # dictionary, and instead update the default_args key-value pair of the default_config dictionary
+            default_config["default_args"] = {
+                **global_default_args.get("default_args", {}),
+                **default_config.get("default_args", {}),
+            }
 
         dags: Dict[str, Any] = {}
 
@@ -153,7 +203,7 @@ class DagFactory:
                 dag: Dict[str, Union[str, DAG]] = dag_builder.build()
                 dags[dag["dag_id"]]: DAG = dag["dag"]
             except Exception as err:
-                raise DagFactoryException(f"Failed to generate dag {dag_name}. verify config is correct") from err
+                raise DagFactoryException(f"Failed to generate dag {dag_name}: {err}") from err
 
         return dags
 
@@ -162,7 +212,7 @@ class DagFactory:
     def register_dags(dags: Dict[str, DAG], globals: Dict[str, Any]) -> None:
         """Adds `dags` to `globals` so Airflow can discover them.
 
-        :param: dags: Dict of DAGs to be registered.
+        :param dags: Dict of DAGs to be registered.
         :param globals: The globals() from the file used to generate DAGs. The dag_id
             must be passed into globals() for Airflow to import
         """

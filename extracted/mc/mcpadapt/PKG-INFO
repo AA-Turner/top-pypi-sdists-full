@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpadapt
-Version: 0.1.10
+Version: 0.1.11
 Summary: Adapt MCP servers to many agentic framework.
 Project-URL: Homepage, https://github.com/grll/mcpadapt
 Project-URL: Repository, https://github.com/grll/mcpadapt
@@ -18,9 +18,12 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: jsonref>=1.1.0
-Requires-Dist: mcp>=1.9.0
+Requires-Dist: mcp>=1.9.4
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: python-dotenv>=1.0.1
+Provides-Extra: audio
+Requires-Dist: soundfile>=0.13.1; extra == 'audio'
+Requires-Dist: torchaudio>=2.7.1; extra == 'audio'
 Provides-Extra: crewai
 Requires-Dist: crewai>=0.108.0; extra == 'crewai'
 Provides-Extra: google-genai
@@ -40,8 +43,11 @@ Requires-Dist: langchain-anthropic>=0.3.1; extra == 'test'
 Requires-Dist: langchain>=0.3.14; extra == 'test'
 Requires-Dist: langgraph>=0.2.62; extra == 'test'
 Requires-Dist: pytest-asyncio>=0.25.2; extra == 'test'
+Requires-Dist: pytest-datadir>=1.7.2; extra == 'test'
 Requires-Dist: pytest>=8.3.4; extra == 'test'
 Requires-Dist: smolagents>=1.2.2; extra == 'test'
+Requires-Dist: soundfile>=0.13.1; extra == 'test'
+Requires-Dist: torchaudio>=2.7.1; extra == 'test'
 Description-Content-Type: text/markdown
 
 # MCPAdapt

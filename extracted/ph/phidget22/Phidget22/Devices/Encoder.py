@@ -49,29 +49,6 @@ class Encoder(Phidget):
 
 			self._onPositionChange = fptr
 
-	def setEnabled(self, Enabled):
-		_Enabled = ctypes.c_int(Enabled)
-
-		__func = PhidgetSupport.getDll().PhidgetEncoder_setEnabled
-		__func.restype = ctypes.c_int32
-		result = __func(self.handle, _Enabled)
-
-		if result > 0:
-			raise PhidgetException(result)
-
-
-	def getEnabled(self):
-		_Enabled = ctypes.c_int()
-
-		__func = PhidgetSupport.getDll().PhidgetEncoder_getEnabled
-		__func.restype = ctypes.c_int32
-		result = __func(self.handle, ctypes.byref(_Enabled))
-
-		if result > 0:
-			raise PhidgetException(result)
-
-		return bool(_Enabled.value)
-
 	def getDataInterval(self):
 		_DataInterval = ctypes.c_uint32()
 
@@ -165,6 +142,29 @@ class Encoder(Phidget):
 			raise PhidgetException(result)
 
 		return _MaxDataRate.value
+
+	def getEnabled(self):
+		_Enabled = ctypes.c_int()
+
+		__func = PhidgetSupport.getDll().PhidgetEncoder_getEnabled
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, ctypes.byref(_Enabled))
+
+		if result > 0:
+			raise PhidgetException(result)
+
+		return bool(_Enabled.value)
+
+	def setEnabled(self, Enabled):
+		_Enabled = ctypes.c_int(Enabled)
+
+		__func = PhidgetSupport.getDll().PhidgetEncoder_setEnabled
+		__func.restype = ctypes.c_int32
+		result = __func(self.handle, _Enabled)
+
+		if result > 0:
+			raise PhidgetException(result)
+
 
 	def getIndexPosition(self):
 		_IndexPosition = ctypes.c_int64()

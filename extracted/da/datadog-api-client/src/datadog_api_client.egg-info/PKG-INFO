@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datadog-api-client
-Version: 2.39.0
+Version: 2.40.0
 Summary: Collection of all Datadog Public endpoints
 Home-page: https://github.com/DataDog/datadog-api-client-python
 Author: Datadog, Inc.
@@ -14,11 +14,10 @@ Platform: any
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE-3rdparty.csv
@@ -30,11 +29,11 @@ Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: apm
 Requires-Dist: ddtrace>=1.15.0; extra == "apm"
 Provides-Extra: async
-Requires-Dist: aiosonic==0.15.1; extra == "async"
+Requires-Dist: aiosonic==0.24.0; extra == "async"
 Provides-Extra: zstandard
 Requires-Dist: zstandard; extra == "zstandard"
 Provides-Extra: tests
-Requires-Dist: aiosonic==0.15.1; extra == "tests"
+Requires-Dist: aiosonic==0.24.0; extra == "tests"
 Requires-Dist: glom; extra == "tests"
 Requires-Dist: jinja2; extra == "tests"
 Requires-Dist: pytest<8.0.0; extra == "tests"
@@ -55,7 +54,7 @@ This repository contains a Python API client for the [Datadog API](https://docs.
 
 ## Requirements
 
-Building and using the API client library requires [Python 3.7+](https://www.python.org/downloads/).
+Building and using the API client library requires [Python 3.8+](https://www.python.org/downloads/).
 
 ## Installation
 

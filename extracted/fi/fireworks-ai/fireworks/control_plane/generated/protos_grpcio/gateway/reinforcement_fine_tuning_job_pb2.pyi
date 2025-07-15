@@ -17,7 +17,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ReinforcementFineTuningJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "wandb_config", "output_stats", "job_progress", "inference_parameters", "chunk_size", "output_stats_internal")
+    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "wandb_config", "output_stats", "job_progress", "inference_parameters", "chunk_size", "output_stats_internal", "output_metrics")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -36,6 +36,7 @@ class ReinforcementFineTuningJob(_message.Message):
     INFERENCE_PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     CHUNK_SIZE_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_STATS_INTERNAL_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_METRICS_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -54,7 +55,8 @@ class ReinforcementFineTuningJob(_message.Message):
     inference_parameters: _batch_inference_job_pb2.InferenceParameters
     chunk_size: int
     output_stats_internal: str
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ..., chunk_size: _Optional[int] = ..., output_stats_internal: _Optional[str] = ...) -> None: ...
+    output_metrics: str
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ..., chunk_size: _Optional[int] = ..., output_stats_internal: _Optional[str] = ..., output_metrics: _Optional[str] = ...) -> None: ...
 
 class GetReinforcementFineTuningJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")
@@ -65,16 +67,18 @@ class GetReinforcementFineTuningJobRequest(_message.Message):
     def __init__(self, name: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
 
 class CreateReinforcementFineTuningJobRequest(_message.Message):
-    __slots__ = ("parent", "reinforcement_fine_tuning_job", "debug", "reinforcement_fine_tuning_job_id")
+    __slots__ = ("parent", "reinforcement_fine_tuning_job", "debug", "reinforcement_fine_tuning_job_id", "skip_validations")
     PARENT_FIELD_NUMBER: _ClassVar[int]
     REINFORCEMENT_FINE_TUNING_JOB_FIELD_NUMBER: _ClassVar[int]
     DEBUG_FIELD_NUMBER: _ClassVar[int]
     REINFORCEMENT_FINE_TUNING_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    SKIP_VALIDATIONS_FIELD_NUMBER: _ClassVar[int]
     parent: str
     reinforcement_fine_tuning_job: ReinforcementFineTuningJob
     debug: bool
     reinforcement_fine_tuning_job_id: str
-    def __init__(self, parent: _Optional[str] = ..., reinforcement_fine_tuning_job: _Optional[_Union[ReinforcementFineTuningJob, _Mapping]] = ..., debug: bool = ..., reinforcement_fine_tuning_job_id: _Optional[str] = ...) -> None: ...
+    skip_validations: bool
+    def __init__(self, parent: _Optional[str] = ..., reinforcement_fine_tuning_job: _Optional[_Union[ReinforcementFineTuningJob, _Mapping]] = ..., debug: bool = ..., reinforcement_fine_tuning_job_id: _Optional[str] = ..., skip_validations: bool = ...) -> None: ...
 
 class ListReinforcementFineTuningJobsRequest(_message.Message):
     __slots__ = ("parent", "page_size", "page_token", "filter", "order_by", "read_mask")
@@ -107,3 +111,23 @@ class DeleteReinforcementFineTuningJobRequest(_message.Message):
     NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class ResumeReinforcementFineTuningJobRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class DebugReinforcementFineTuningJobRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class DebugReinforcementFineTuningJobResponse(_message.Message):
+    __slots__ = ("name", "failed_job_name")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FAILED_JOB_NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    failed_job_name: str
+    def __init__(self, name: _Optional[str] = ..., failed_job_name: _Optional[str] = ...) -> None: ...

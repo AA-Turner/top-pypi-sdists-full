@@ -15,8 +15,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
 
-use base64::Engine;
-use base64::engine::general_purpose;
 use clap::Parser;
 use clap::ValueEnum;
 use crossbeam_channel::Select;
@@ -47,6 +45,7 @@ use lsp_types::CompletionResponse;
 use lsp_types::ConfigurationItem;
 use lsp_types::ConfigurationParams;
 use lsp_types::Diagnostic;
+use lsp_types::DidChangeConfigurationParams;
 use lsp_types::DidChangeTextDocumentParams;
 use lsp_types::DidChangeWatchedFilesClientCapabilities;
 use lsp_types::DidChangeWatchedFilesParams;
@@ -104,6 +103,7 @@ use lsp_types::ServerCapabilities;
 use lsp_types::SignatureHelp;
 use lsp_types::SignatureHelpOptions;
 use lsp_types::SignatureHelpParams;
+use lsp_types::SymbolInformation;
 use lsp_types::TextDocumentContentChangeEvent;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::TextDocumentSyncCapability;
@@ -118,6 +118,7 @@ use lsp_types::WorkspaceClientCapabilities;
 use lsp_types::WorkspaceEdit;
 use lsp_types::WorkspaceFoldersServerCapabilities;
 use lsp_types::WorkspaceServerCapabilities;
+use lsp_types::WorkspaceSymbolResponse;
 use lsp_types::notification::Cancel;
 use lsp_types::notification::DidChangeConfiguration;
 use lsp_types::notification::DidChangeTextDocument;
@@ -146,6 +147,7 @@ use lsp_types::request::SemanticTokensRangeRequest;
 use lsp_types::request::SignatureHelpRequest;
 use lsp_types::request::UnregisterCapability;
 use lsp_types::request::WorkspaceConfiguration;
+use lsp_types::request::WorkspaceSymbolRequest;
 use path_absolutize::Absolutize;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
@@ -181,6 +183,7 @@ use crate::config::finder::ConfigFinder;
 use crate::config::util::ConfigOrigin;
 use crate::error::error::Error;
 use crate::error::kind::Severity;
+use crate::module::bundled::typeshed;
 use crate::module::module_info::ModuleInfo;
 use crate::module::module_info::TextRangeWithModuleInfo;
 use crate::state::handle::Handle;
@@ -192,6 +195,9 @@ use crate::state::state::State;
 use crate::state::state::Transaction;
 use crate::state::state::TransactionData;
 
+/// Pyrefly's indexing strategy for open projects when performing go-to-definition
+/// requests.
+#[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq, Default)]
 pub(crate) enum IndexingMode {
     /// Do not index anything. Features that depend on indexing (e.g. find-refs) will be disabled.
@@ -206,8 +212,11 @@ pub(crate) enum IndexingMode {
     LazyBlocking,
 }
 
+/// Arguments for LSP server
+#[deny(clippy::missing_docs_in_private_items)]
 #[derive(Debug, Parser, Clone)]
 pub struct Args {
+    /// Find the struct that contains this field and add the indexing mode used by the language server
     #[arg(long, value_enum, default_value_t, env = clap_env("INDEXING_MODE"))]
     pub(crate) indexing_mode: IndexingMode,
 }
@@ -282,7 +291,7 @@ enum ServerEvent {
     DidSaveTextDocument(DidSaveTextDocumentParams),
     DidChangeWatchedFiles(DidChangeWatchedFilesParams),
     DidChangeWorkspaceFolders(DidChangeWorkspaceFoldersParams),
-    DidChangeConfiguration,
+    DidChangeConfiguration(DidChangeConfigurationParams),
     LspResponse(Response),
     LspRequest(Request),
     Exit,
@@ -328,6 +337,8 @@ struct Server {
     indexing_mode: IndexingMode,
     state: Arc<State>,
     open_files: Arc<RwLock<HashMap<PathBuf, Arc<String>>>>,
+    /// A set of configs where we have already indexed all the files within the config.
+    indexed_configs: Mutex<HashSet<ArcId<ConfigFile>>>,
     cancellation_handles: Arc<Mutex<HashMap<RequestId, CancellationHandle>>>,
     workspaces: Arc<Workspaces>,
     outgoing_request_id: Arc<AtomicI32>,
@@ -580,14 +591,14 @@ fn dispatch_lsp_events(
                     queued_events_sender.send(ServerEvent::DidChangeWatchedFiles(params))
                 } else if let Some(params) = as_notification::<DidChangeWorkspaceFolders>(&x) {
                     queued_events_sender.send(ServerEvent::DidChangeWorkspaceFolders(params))
+                } else if let Some(params) = as_notification::<DidChangeConfiguration>(&x) {
+                    queued_events_sender.send(ServerEvent::DidChangeConfiguration(params))
                 } else if let Some(params) = as_notification::<Cancel>(&x) {
                     let id = match params.id {
                         NumberOrString::Number(i) => RequestId::from(i),
                         NumberOrString::String(s) => RequestId::from(s),
                     };
                     priority_events_sender.send(ServerEvent::CancelRequest(id))
-                } else if as_notification::<DidChangeConfiguration>(&x).is_some() {
-                    queued_events_sender.send(ServerEvent::DidChangeConfiguration)
                 } else if as_notification::<Exit>(&x).is_some() {
                     queued_events_sender.send(ServerEvent::Exit)
                 } else {
@@ -655,6 +666,7 @@ fn initialize_connection(
         hover_provider: Some(HoverProviderCapability::Simple(true)),
         inlay_hint_provider: Some(OneOf::Left(true)),
         document_symbol_provider: Some(OneOf::Left(true)),
+        workspace_symbol_provider: Some(OneOf::Left(true)),
         semantic_tokens_provider: if augments_syntax_tokens {
             // We currently only return partial tokens (e.g. no tokens for keywords right now).
             // If the client doesn't support `augments_syntax_tokens` to fallback baseline
@@ -778,52 +790,32 @@ impl Args {
 
 /// Convert to a path we can show to the user. The contents may not match the disk, but it has
 /// to be basically right.
-fn to_real_path(path: &ModulePath) -> Option<&Path> {
+fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
     match path.details() {
         ModulePathDetails::FileSystem(path)
         | ModulePathDetails::Memory(path)
-        | ModulePathDetails::Namespace(path) => Some(path),
-        ModulePathDetails::BundledTypeshed(_) => None,
+        | ModulePathDetails::Namespace(path) => Some(path.to_path_buf()),
+        ModulePathDetails::BundledTypeshed(path) => {
+            let typeshed = typeshed().ok()?;
+            let typeshed_path = typeshed.materialized_path_on_disk().ok()?;
+            Some(typeshed_path.join(path))
+        }
     }
 }
 
 fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
     let path = to_real_path(module_info.path())?;
     let abs_path = path.absolutize();
-    let abs_path = abs_path.as_deref().unwrap_or(path);
+    let abs_path = abs_path.as_deref().unwrap_or(&path);
     Some(Url::from_file_path(abs_path).unwrap())
-}
-
-/// VSCode exposes a textDocumentContentProvider API where language clients can define schemes
-/// for rendering read only content. We have defined a scheme `contentsAsUri` which encodes the
-/// entire file contents into the uri of the URL. Since a definition response only contains a URL,
-/// this is an easy way to send file contents to the language client to be displayed.
-fn module_info_to_uri_with_document_content_provider(module_info: &ModuleInfo) -> Option<Url> {
-    match module_info.path().details() {
-        ModulePathDetails::FileSystem(path)
-        | ModulePathDetails::Memory(path)
-        | ModulePathDetails::Namespace(path) => {
-            let abs_path = path.absolutize();
-            let abs_path = abs_path.as_deref().unwrap_or(path);
-            Some(Url::from_file_path(abs_path).unwrap())
-        }
-        ModulePathDetails::BundledTypeshed(path) => {
-            Url::parse(&format!(
-                // This is the URI displayed in the opened file - note the extra `/` to make it absolute,
-                // otherwise VSCode will not display it
-                "contentsAsUri:///{}?{}",
-                path.to_string_lossy().into_owned(),
-                general_purpose::STANDARD.encode(module_info.contents().as_str())
-            ))
-            .ok()
-        }
-    }
 }
 
 enum ProcessEvent {
     Continue,
     Exit,
 }
+
+const PYTHON_SECTION: &str = "python";
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -858,7 +850,7 @@ impl Server {
                 self.validate_in_memory(ide_transaction_manager)?;
             }
             ServerEvent::CancelRequest(id) => {
-                eprintln!("We should cancel request {:?}", id);
+                eprintln!("We should cancel request {id:?}");
                 if let Some(cancellation_handle) = self.cancellation_handles.lock().remove(&id) {
                     cancellation_handle.cancel();
                 }
@@ -882,8 +874,8 @@ impl Server {
             ServerEvent::DidChangeWorkspaceFolders(params) => {
                 self.workspace_folders_changed(params);
             }
-            ServerEvent::DidChangeConfiguration => {
-                self.change_workspace();
+            ServerEvent::DidChangeConfiguration(params) => {
+                self.did_change_configuration(ide_transaction_manager, params)?;
             }
             ServerEvent::LspResponse(x) => {
                 if let Some(request) = self.outgoing_requests.lock().remove(&x.id) {
@@ -1015,6 +1007,16 @@ impl Server {
                         )),
                     ));
                     ide_transaction_manager.save(transaction);
+                } else if let Some(params) = as_request::<WorkspaceSymbolRequest>(&x) {
+                    let transaction =
+                        ide_transaction_manager.non_commitable_transaction(&self.state);
+                    self.send_response(new_response(
+                        x.id,
+                        Ok(WorkspaceSymbolResponse::Flat(
+                            self.workspace_symbols(&transaction, &params.query),
+                        )),
+                    ));
+                    ide_transaction_manager.save(transaction);
                 } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
                     let transaction =
                         ide_transaction_manager.non_commitable_transaction(&self.state);
@@ -1063,6 +1065,7 @@ impl Server {
             indexing_mode,
             state: Arc::new(State::new(config_finder)),
             open_files: Arc::new(RwLock::new(HashMap::new())),
+            indexed_configs: Mutex::new(HashSet::new()),
             cancellation_handles: Arc::new(Mutex::new(HashMap::new())),
             workspaces,
             outgoing_request_id: Arc::new(AtomicI32::new(1)),
@@ -1126,8 +1129,8 @@ impl Server {
                 .state
                 .config_finder()
                 .python_file(ModuleName::unknown(), e.path());
-            if open_files.contains_key(path)
-                && !config.project_excludes.covers(path)
+            if open_files.contains_key(&path)
+                && !config.project_excludes.covers(&path)
                 && !self
                     .workspaces
                     .get_with(path.to_path_buf(), |w| w.disable_type_errors)
@@ -1136,10 +1139,12 @@ impl Server {
                     path.to_path_buf(),
                     Diagnostic {
                         range: e.lined_buffer().to_lsp_range(e.range()),
-                        severity: Some(match e.error_kind().severity() {
+                        severity: Some(match e.severity() {
                             Severity::Error => lsp_types::DiagnosticSeverity::ERROR,
                             Severity::Warn => lsp_types::DiagnosticSeverity::WARNING,
                             Severity::Info => lsp_types::DiagnosticSeverity::INFORMATION,
+                            // Ignored errors shouldn't be here
+                            Severity::Ignore => lsp_types::DiagnosticSeverity::INFORMATION,
                         }),
                         source: Some("Pyrefly".to_owned()),
                         message: e.msg().to_owned(),
@@ -1214,22 +1219,26 @@ impl Server {
             match self.indexing_mode {
                 IndexingMode::None => {}
                 IndexingMode::LazyNonBlockingBackground => {
-                    let state = self.state.dupe();
-                    let priority_events_sender = self.priority_events_sender.dupe();
-                    std::thread::spawn(move || {
-                        Self::populate_all_project_files_in_config(
-                            config,
-                            state,
-                            priority_events_sender,
-                        );
-                    });
+                    if self.indexed_configs.lock().insert(config.dupe()) {
+                        let state = self.state.dupe();
+                        let priority_events_sender = self.priority_events_sender.dupe();
+                        std::thread::spawn(move || {
+                            Self::populate_all_project_files_in_config(
+                                config,
+                                state,
+                                priority_events_sender,
+                            );
+                        });
+                    }
                 }
                 IndexingMode::LazyBlocking => {
-                    Self::populate_all_project_files_in_config(
-                        config,
-                        self.state.dupe(),
-                        self.priority_events_sender.dupe(),
-                    );
+                    if self.indexed_configs.lock().insert(config.dupe()) {
+                        Self::populate_all_project_files_in_config(
+                            config,
+                            self.state.dupe(),
+                            self.priority_events_sender.dupe(),
+                        );
+                    }
                 }
             }
         }
@@ -1475,6 +1484,30 @@ impl Server {
         self.configure(&added, &removed);
     }
 
+    fn did_change_configuration<'a>(
+        &'a self,
+        ide_transaction_manager: &mut IDETransactionManager<'a>,
+        params: DidChangeConfigurationParams,
+    ) -> anyhow::Result<()> {
+        if let Some(workspace) = &self.initialize_params.capabilities.workspace
+            && workspace.configuration == Some(true)
+        {
+            self.request_settings_for_all_workspaces();
+            return Ok(());
+        }
+
+        let mut modified = false;
+        if let Some(python) = params.settings.get(PYTHON_SECTION) {
+            let config: LspConfig = serde_json::from_value(python.clone())?;
+            self.apply_client_configuration(&mut modified, &None, config);
+        }
+
+        if modified {
+            self.validate_in_memory(ide_transaction_manager)?;
+        }
+        Ok(())
+    }
+
     /// Configure the server with a new set of workspace folders
     fn configure(&self, workspace_paths_added: &[PathBuf], workspace_paths_removed: &[PathBuf]) {
         let mut all_workspaces = Vec::new();
@@ -1498,7 +1531,7 @@ impl Server {
         let unknown = ModuleName::unknown();
         let config = state.config_finder().python_file(unknown, &path);
         let module_name = to_real_path(&path)
-            .and_then(|path| module_from_path(path, config.search_path()))
+            .and_then(|path| module_from_path(&path, config.search_path()))
             .unwrap_or(unknown);
         Handle::new(module_name, path, config.get_sys_info())
     }
@@ -1531,14 +1564,7 @@ impl Server {
             module_info: definition_module_info,
             range,
         } = location;
-        let uri = match &self.initialize_params.initialization_options {
-            Some(serde_json::Value::Object(map))
-                if (map.get("supportContentsAsUri") == Some(&serde_json::Value::Bool(true))) =>
-            {
-                module_info_to_uri_with_document_content_provider(definition_module_info)?
-            }
-            Some(_) | None => module_info_to_uri(definition_module_info)?,
-        };
+        let uri = module_info_to_uri(definition_module_info)?;
         Some(Location {
             uri,
             range: definition_module_info.lined_buffer().to_lsp_range(*range),
@@ -1719,7 +1745,7 @@ impl Server {
                     )));
                 }
                 Err(Cancelled) => {
-                    let message = format!("Find reference request {} is canceled", request_id);
+                    let message = format!("Find reference request {request_id} is canceled");
                     eprintln!("{message}");
                     connection.send(Message::Response(Response::new_err(
                         request_id,
@@ -1849,10 +1875,7 @@ impl Server {
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: format!(
-                    "```python\n{}{}\n```{}",
-                    kind_formatted, t, docstring_formatted
-                ),
+                value: format!("```python\n{kind_formatted}{t}\n```{docstring_formatted}",),
             }),
             range: None,
         })
@@ -1943,6 +1966,30 @@ impl Server {
         transaction.symbols(&handle)
     }
 
+    #[allow(deprecated)] // The `deprecated` field
+    fn workspace_symbols(
+        &self,
+        transaction: &Transaction<'_>,
+        query: &str,
+    ) -> Vec<SymbolInformation> {
+        transaction
+            .workspace_symbols(query)
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|(name, kind, location)| {
+                self.to_lsp_location(&location)
+                    .map(|location| SymbolInformation {
+                        name,
+                        kind,
+                        location,
+                        tags: None,
+                        deprecated: None,
+                        container_name: None,
+                    })
+            })
+            .collect()
+    }
+
     fn document_diagnostics(
         &self,
         transaction: &Transaction<'_>,
@@ -1966,10 +2013,6 @@ impl Server {
             },
             related_documents: None,
         })
-    }
-
-    fn change_workspace(&self) {
-        self.request_settings_for_all_workspaces();
     }
 
     fn get_pattern_to_watch(
@@ -2077,7 +2120,7 @@ impl Server {
                     .chain(once(None))
                     .map(|url| ConfigurationItem {
                         scope_uri: url,
-                        section: Some("python".to_owned()),
+                        section: Some(PYTHON_SECTION.to_owned()),
                     })
                     .collect::<Vec<_>>(),
             });
@@ -2100,31 +2143,40 @@ impl Server {
                 } else {
                     continue;
                 };
-
-                if let Some(python_path) = config.python_path {
-                    self.update_pythonpath(&mut modified, &id.scope_uri, &python_path);
-                }
-
-                if let Some(pyrefly) = config.pyrefly {
-                    if let Some(extra_paths) = pyrefly.extra_paths {
-                        self.update_search_paths(&mut modified, &id.scope_uri, extra_paths);
-                    }
-                    if let Some(disable_language_services) = pyrefly.disable_language_services {
-                        self.update_disable_language_services(
-                            &id.scope_uri,
-                            disable_language_services,
-                        );
-                    }
-                    if let Some(disable_type_errors) = pyrefly.disable_type_errors {
-                        self.update_disable_type_errors(&id.scope_uri, disable_type_errors);
-                    }
-                }
+                self.apply_client_configuration(&mut modified, &id.scope_uri, config);
             }
             if modified {
                 return self.validate_in_memory(ide_transaction_manager);
             }
         }
         Ok(())
+    }
+
+    /// Applies the LSP client configuration to the `scope_uri` (workspace) given.
+    ///
+    /// The `modified` flag is changed to `true` when the configuration gets applied to the
+    /// `scope_uri` matching a valid workspace
+    fn apply_client_configuration(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        config: LspConfig,
+    ) {
+        if let Some(python_path) = config.python_path {
+            self.update_pythonpath(modified, scope_uri, &python_path);
+        }
+
+        if let Some(pyrefly) = config.pyrefly {
+            if let Some(extra_paths) = pyrefly.extra_paths {
+                self.update_search_paths(modified, scope_uri, extra_paths);
+            }
+            if let Some(disable_language_services) = pyrefly.disable_language_services {
+                self.update_disable_language_services(scope_uri, disable_language_services);
+            }
+            if let Some(disable_type_errors) = pyrefly.disable_type_errors {
+                self.update_disable_type_errors(modified, scope_uri, disable_type_errors);
+            }
+        }
     }
 
     /// Update disableLanguageServices setting for scope_uri, None if default workspace
@@ -2148,15 +2200,24 @@ impl Server {
     }
 
     /// Update typeCheckingMode setting for scope_uri, None if default workspace
-    fn update_disable_type_errors(&self, scope_uri: &Option<Url>, disable_type_errors: bool) {
+    fn update_disable_type_errors(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        disable_type_errors: bool,
+    ) {
         let mut workspaces = self.workspaces.workspaces.write();
         match scope_uri {
             Some(scope_uri) => {
                 if let Some(workspace) = workspaces.get_mut(&scope_uri.to_file_path().unwrap()) {
+                    *modified = true;
                     workspace.disable_type_errors = disable_type_errors;
                 }
             }
-            None => self.workspaces.default.write().disable_type_errors = disable_type_errors,
+            None => {
+                *modified = true;
+                self.workspaces.default.write().disable_type_errors = disable_type_errors
+            }
         }
     }
 
@@ -2294,7 +2355,7 @@ where
             result: None,
             error: Some(ResponseError {
                 code: 0,
-                message: format!("{:#?}", e),
+                message: format!("{e:#?}"),
                 data: None,
             }),
         },

@@ -18,7 +18,7 @@ import logging
 from typing import Any, Dict, Tuple
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_array
 
 import cvxpy.settings as s
 from cvxpy import Zero
@@ -27,6 +27,7 @@ from cvxpy.reductions.dcp2cone.cone_matrix_stuffing import ParamConeProg
 from cvxpy.reductions.solution import Solution, failure_solution
 from cvxpy.reductions.solvers import utilities
 from cvxpy.reductions.solvers.conic_solvers.conic_solver import ConicSolver
+from cvxpy.utilities.citations import CITATION_DICT
 from cvxpy.utilities.versioning import Version
 
 log = logging.getLogger(__name__)
@@ -74,7 +75,7 @@ class PDLP(ConicSolver):
 
         # Min c'x + d such that Ax + b = s, s \in cones.
         c, d, A, b = problem.apply_parameters()
-        A = csr_matrix(A)
+        A = csr_array(A)
         data["num_constraints"], data["num_vars"] = A.shape
 
         model = pdlp.QuadraticProgram()
@@ -203,3 +204,13 @@ class PDLP(ConicSolver):
                       TerminationReason.Name(status),
                       solve_log.termination_string)
             return s.SOLVER_ERROR
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["PDLP"]

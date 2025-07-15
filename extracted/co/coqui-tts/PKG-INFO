@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqui-tts
-Version: 0.26.2
+Version: 0.27.0
 Summary: Deep learning for Text to Speech.
 Project-URL: Homepage, https://github.com/idiap/coqui-ai-TTS
 Project-URL: Documentation, https://coqui-tts.readthedocs.io
@@ -30,7 +30,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.13,>=3.10
 Requires-Dist: anyascii>=0.3.0
 Requires-Dist: coqpit-config<0.3.0,>=0.2.0
-Requires-Dist: coqui-tts-trainer<0.3.0,>=0.2.0
+Requires-Dist: coqui-tts-trainer<0.4.0,>=0.3.0
 Requires-Dist: cython>=3.0.0
 Requires-Dist: einops>=0.6.0
 Requires-Dist: encodec>=0.1.1
@@ -41,16 +41,16 @@ Requires-Dist: librosa>=0.11.0
 Requires-Dist: matplotlib>=3.8.4
 Requires-Dist: monotonic-alignment-search>=0.1.0
 Requires-Dist: num2words>=0.5.14
-Requires-Dist: numpy>=2
+Requires-Dist: numpy>=1.26.0
 Requires-Dist: packaging>=23.1
 Requires-Dist: pysbd>=0.3.4
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: scipy>=1.13.0
 Requires-Dist: soundfile>=0.12.0
-Requires-Dist: torch>=2.3
-Requires-Dist: torchaudio>=2.3.0
+Requires-Dist: torch>=2.1
+Requires-Dist: torchaudio>=2.1.0
 Requires-Dist: tqdm>=4.64.1
-Requires-Dist: transformers<4.52,>=4.47.0
+Requires-Dist: transformers>=4.52.1
 Requires-Dist: typing-extensions>=4.10
 Provides-Extra: all
 Requires-Dist: bangla>=0.0.2; extra == 'all'
@@ -59,24 +59,22 @@ Requires-Dist: bnunicodenormalizer>=0.1.0; extra == 'all'
 Requires-Dist: bokeh>=3.0.3; extra == 'all'
 Requires-Dist: cutlet>=0.2.0; extra == 'all'
 Requires-Dist: flask>=3.0.0; extra == 'all'
+Requires-Dist: fugashi[unidic-lite]>=1.3.0; extra == 'all'
 Requires-Dist: g2pkk>=0.1.1; extra == 'all'
 Requires-Dist: hangul-romanize>=0.1.0; extra == 'all'
 Requires-Dist: jamo>=0.4.1; extra == 'all'
 Requires-Dist: jieba>=0.42.1; extra == 'all'
-Requires-Dist: mecab-python3>=1.0.6; extra == 'all'
 Requires-Dist: pandas<3.0,>=1.4; extra == 'all'
 Requires-Dist: pip>=22.2; extra == 'all'
 Requires-Dist: pypinyin>=0.40.0; extra == 'all'
 Requires-Dist: umap-learn>=0.5.1; extra == 'all'
-Requires-Dist: unidic-lite==1.0.8; extra == 'all'
 Provides-Extra: bn
 Requires-Dist: bangla>=0.0.2; extra == 'bn'
 Requires-Dist: bnnumerizer>=0.0.2; extra == 'bn'
 Requires-Dist: bnunicodenormalizer>=0.1.0; extra == 'bn'
 Provides-Extra: ja
 Requires-Dist: cutlet>=0.2.0; extra == 'ja'
-Requires-Dist: mecab-python3>=1.0.6; extra == 'ja'
-Requires-Dist: unidic-lite==1.0.8; extra == 'ja'
+Requires-Dist: fugashi[unidic-lite]>=1.3.0; extra == 'ja'
 Provides-Extra: ko
 Requires-Dist: g2pkk>=0.1.1; extra == 'ko'
 Requires-Dist: hangul-romanize>=0.1.0; extra == 'ko'
@@ -87,14 +85,13 @@ Requires-Dist: bangla>=0.0.2; extra == 'languages'
 Requires-Dist: bnnumerizer>=0.0.2; extra == 'languages'
 Requires-Dist: bnunicodenormalizer>=0.1.0; extra == 'languages'
 Requires-Dist: cutlet>=0.2.0; extra == 'languages'
+Requires-Dist: fugashi[unidic-lite]>=1.3.0; extra == 'languages'
 Requires-Dist: g2pkk>=0.1.1; extra == 'languages'
 Requires-Dist: hangul-romanize>=0.1.0; extra == 'languages'
 Requires-Dist: jamo>=0.4.1; extra == 'languages'
 Requires-Dist: jieba>=0.42.1; extra == 'languages'
-Requires-Dist: mecab-python3>=1.0.6; extra == 'languages'
 Requires-Dist: pip>=22.2; extra == 'languages'
 Requires-Dist: pypinyin>=0.40.0; extra == 'languages'
-Requires-Dist: unidic-lite==1.0.8; extra == 'languages'
 Provides-Extra: notebooks
 Requires-Dist: bokeh>=3.0.3; extra == 'notebooks'
 Requires-Dist: pandas<3.0,>=1.4; extra == 'notebooks'
@@ -284,9 +281,9 @@ python3 TTS/server/server.py --list_models #To get the list of available models
 python3 TTS/server/server.py --model_name tts_models/en/vctk/vits # To start a server
 ```
 
-You can then enjoy the TTS server [here](http://[::1]:5002/)
-More details about the docker images (like GPU support) can be found
-[here](https://coqui-tts.readthedocs.io/en/latest/docker_images.html)
+You can then enjoy the TTS server [here](http://localhost:5002/). More details,
+like GPU support and a Docker Compose configuration, can be found [in the
+documentation](https://coqui-tts.readthedocs.io/en/latest/docker_images.html).
 
 
 ## Synthesizing speech by 🐸TTS
@@ -331,6 +328,10 @@ tts.tts_to_file(
 )
 ```
 
+From version 0.27.0 you can [cache cloned
+voices](https://coqui-tts.readthedocs.io/en/latest/cloning.html) with a custom
+`speaker` ID, so you only need to pass audio files in `speaker_wav` once.
+
 #### Single speaker model
 
 ```python
@@ -359,8 +360,8 @@ Other available voice conversion models:
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v1`
 - `voice_conversion_models/multilingual/multi-dataset/openvoice_v2`
 
-For more details, see the
-[documentation](https://coqui-tts.readthedocs.io/en/latest/vc.html).
+For more details, see this
+[dedicated page](https://coqui-tts.readthedocs.io/en/latest/vc.html).
 
 #### Voice cloning by combining single speaker TTS model with the default VC model
 

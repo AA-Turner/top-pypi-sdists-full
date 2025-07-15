@@ -1,7 +1,8 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.1
 Name: django-types
-Version: 0.21.0
+Version: 0.22.0
 Summary: Type stubs for Django
+Home-page: https://github.com/sbdchd/django-types
 License: MIT
 Keywords: django,types,mypy,stubs
 Author: Steve Dignam
@@ -12,7 +13,6 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: types-psycopg2 (>=2.9.21.13)
 Project-URL: Repository, https://github.com/sbdchd/django-types
 Description-Content-Type: text/markdown

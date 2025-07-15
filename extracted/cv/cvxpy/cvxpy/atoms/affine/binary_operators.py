@@ -21,7 +21,6 @@ from typing import List, Tuple
 import numpy as np
 import scipy.sparse as sp
 
-import cvxpy.interface as intf
 import cvxpy.lin_ops.lin_op as lo
 import cvxpy.lin_ops.lin_utils as lu
 import cvxpy.utilities as u
@@ -109,12 +108,16 @@ class MulExpression(BinaryOperator):
     def numeric(self, values):
         """Matrix multiplication.
         """
-        if values[0].shape == () or values[1].shape == () or \
-           intf.is_sparse(values[0]) or intf.is_sparse(values[1]):
+        if values[0].shape == () or values[1].shape == ():
             return values[0] * values[1]
         else:
-            return np.matmul(values[0], values[1])
+            return values[0] @ values[1]
 
+    def validate_arguments(self):
+        """Validate that the arguments can be multiplied together."""
+        if self.args[0].ndim > 2 or self.args[1].ndim > 2:
+            raise ValueError("Multiplication with N-d arrays is not yet supported")
+    
     def shape_from_args(self) -> Tuple[int, ...]:
         """Returns the (row, col) shape of the expression.
         """
@@ -193,10 +196,10 @@ class MulExpression(BinaryOperator):
         # DX = [diag(Y11), diag(Y12), ...]
         #      [diag(Y21), diag(Y22), ...]
         #      [   ...        ...     ...]
-        DX = sp.dok_matrix((DX_rows, cols))
+        DX = sp.dok_array((DX_rows, cols))
         for k in range(self.args[0].shape[0]):
             DX[k::self.args[0].shape[0], k::self.args[0].shape[0]] = Y
-        DX = sp.csc_matrix(DX)
+        DX = sp.csc_array(DX)
         cols = 1 if len(self.args[1].shape) == 1 else self.args[1].shape[1]
         DY = sp.block_diag([X.T for k in range(cols)], 'csc')
 
@@ -481,10 +484,10 @@ def outer(x, y):
     """
     x = Expression.cast_to_const(x)
     if x.ndim > 1:
-        raise ValueError("x must be a vector.")
+        raise ValueError("x must be a 1-d array.")
     y = Expression.cast_to_const(y)
     if y.ndim > 1:
-        raise ValueError("y must be a vector.")
+        raise ValueError("y must be a 1-d array.")
     
     x = reshape(x, (x.size, 1), order='F')
     y = reshape(y, (1, y.size), order='F')

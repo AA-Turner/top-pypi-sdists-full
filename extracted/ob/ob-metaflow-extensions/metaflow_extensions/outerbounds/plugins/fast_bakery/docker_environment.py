@@ -351,12 +351,16 @@ class DockerEnvironment(MetaflowEnvironment):
         config.append("--disable=F0401")
         return config
 
-    def get_package_commands(self, codepackage_url, datastore_type):
+    def get_package_commands(
+        self, codepackage_url, datastore_type, code_package_metadata=None
+    ):
         # we must set the skip install flag at this stage in order to skip package downloads,
         # doing so in bootstrap_commands is too late in the lifecycle.
         return [
             "export METAFLOW_SKIP_INSTALL_DEPENDENCIES=$FASTBAKERY_IMAGE",
-        ] + super().get_package_commands(codepackage_url, datastore_type)
+        ] + super().get_package_commands(
+            codepackage_url, datastore_type, code_package_metadata=code_package_metadata
+        )
 
     def bootstrap_commands(self, step_name, datastore_type):
         if step_name in self.skipped_steps:

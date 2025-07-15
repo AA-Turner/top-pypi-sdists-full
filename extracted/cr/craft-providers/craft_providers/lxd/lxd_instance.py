@@ -25,14 +25,17 @@ import shutil
 import subprocess
 import tempfile
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from craft_providers.const import RETRY_WAIT, TIMEOUT_SIMPLE
 from craft_providers.errors import details_from_called_process_error
 from craft_providers.executor import Executor, get_instance_name
 from craft_providers.lxd.errors import LXDError
 from craft_providers.lxd.lxc import LXC
-from craft_providers.lxd.lxd_instance_status import LXDInstanceState
+from craft_providers.lxd.lxd_instance_status import (
+    LXDInstanceState,
+    ProviderInstanceStatus,
+)
 from craft_providers.util import env_cmd, retry
 
 logger = logging.getLogger(__name__)
@@ -52,10 +55,10 @@ class LXDInstance(Executor):
         self,
         *,
         name: str,
-        default_command_environment: Optional[Dict[str, Optional[str]]] = None,
+        default_command_environment: dict[str, str | None] | None = None,
         project: str = "default",
         remote: str = "local",
-        lxc: Optional[LXC] = None,
+        lxc: LXC | None = None,
         intercept_mknod: bool = True,
     ) -> None:
         """Create an LXD executor.
@@ -92,10 +95,10 @@ class LXDInstance(Executor):
 
     def _finalize_lxc_command(
         self,
-        command: List[str],
+        command: list[str],
         *,
-        env: Optional[Dict[str, Optional[str]]] = None,
-    ) -> List[str]:
+        env: dict[str, str | None] | None = None,
+    ) -> list[str]:
         """Wrap a command to run as root with specified environment.
 
         LXD will run commands as root.
@@ -187,11 +190,11 @@ class LXDInstance(Executor):
 
     def execute_popen(
         self,
-        command: List[str],
+        command: list[str],
         *,
-        cwd: Optional[pathlib.PurePath] = None,
-        env: Optional[Dict[str, Optional[str]]] = None,
-        timeout: Optional[float] = None,
+        cwd: pathlib.PurePath | None = None,
+        env: dict[str, str | None] | None = None,
+        timeout: float | None = None,
         **kwargs,
     ) -> subprocess.Popen:
         """Execute a command in instance, using subprocess.Popen().
@@ -223,11 +226,11 @@ class LXDInstance(Executor):
 
     def execute_run(
         self,
-        command: List[str],
+        command: list[str],
         *,
-        cwd: Optional[pathlib.PurePath] = None,
-        env: Optional[Dict[str, Optional[str]]] = None,
-        timeout: Optional[float] = None,
+        cwd: pathlib.PurePath | None = None,
+        env: dict[str, str | None] | None = None,
+        timeout: float | None = None,
         check: bool = False,
         **kwargs,
     ) -> subprocess.CompletedProcess:
@@ -272,7 +275,7 @@ class LXDInstance(Executor):
         """
         return self._get_instance_information() is not None
 
-    def _get_disk_devices(self) -> Dict[str, Any]:
+    def _get_disk_devices(self) -> dict[str, Any]:
         """Query instance and return dictionary of disk devices."""
         devices = self.lxc.config_device_show(
             instance_name=self.instance_name, project=self.project, remote=self.remote
@@ -292,7 +295,7 @@ class LXDInstance(Executor):
 
         return disks
 
-    def _get_instance_information(self) -> Optional[Dict[str, Any]]:
+    def _get_instance_information(self) -> dict[str, Any] | None:
         """Get information for a LXD instance.
 
         :returns: A dictionary of all information for an instance, including the
@@ -361,7 +364,7 @@ class LXDInstance(Executor):
         image_remote: str,
         map_user_uid: bool = False,
         ephemeral: bool = False,
-        uid: Optional[int] = None,
+        uid: int | None = None,
     ) -> None:
         """Launch instance.
 
@@ -507,12 +510,49 @@ class LXDInstance(Executor):
             uid=0,
         )
 
+    def _shutdown(self, delay_mins: int) -> None:
+        """Shutdown instance from inside the instance with a given delay.
+
+        :param delay_mins: How long to delay the shutdown.
+        """
+        if delay_mins < 0:
+            raise ValueError("Cannot delay for a negative amount of time.")
+        self.execute_run(
+            [
+                "shutdown",
+                f"+{delay_mins}",
+                "Shutdown triggered by craft-providers.",
+            ],
+            capture_output=True,
+            check=True,
+        )
+
+    def _cancel_shutdown(self) -> None:
+        """Cancel any scheduled shutdown on the instance."""
+        self.execute_run(["shutdown", "-c"])
+
     def start(self) -> None:
         """Start the instance.
 
         :raises LXDError: If the instance fails to start.
         """
         logger.info("Starting instance")
+        if self.info().get("Status") == LXDInstanceState.RUNNING.value:
+            if (
+                state := self.config_get("user.craft_providers.status")
+            ) == ProviderInstanceStatus.FINISHED.value:
+                logger.debug("Instance already running but available.")
+                self.config_set(
+                    "user.craft_providers.status", ProviderInstanceStatus.IN_USE.value
+                )
+                self._cancel_shutdown()
+                return
+            raise LXDError(
+                "Instance is already running but not available.",
+                details=f"Instance state is {state}",
+                resolution="The same instance cannot be used by multiple processes.",
+            )
+
         self.lxc.start(
             instance_name=self.instance_name, project=self.project, remote=self.remote
         )
@@ -530,6 +570,9 @@ class LXDInstance(Executor):
             retry_wait=RETRY_WAIT,
             func=_is_running,
             error=LXDError(brief="Instance failed to start."),
+        )
+        self.config_set(
+            "user.craft_providers.status", ProviderInstanceStatus.IN_USE.value
         )
 
     def restart(self) -> None:
@@ -556,11 +599,23 @@ class LXDInstance(Executor):
             error=LXDError(brief="Instance failed to restart."),
         )
 
-    def stop(self) -> None:
+    def stop(self, delay_mins: int | None = None) -> None:
         """Stop the instance.
 
+        :param delay_mins: minutes to delay the instance shutdown.
         :raises LXDError: If the instance fails to stop.
+
+        If delay_mins is 0 (the default), this method waits for the shutdown to finish.
+        If it's nonzero, the method returns after preparing the shutdown.
         """
+        if delay_mins is not None:
+            logger.debug(f"Shutting down after {delay_mins} minutes")
+            self.config_set(
+                "user.craft_providers.status", ProviderInstanceStatus.FINISHED.value
+            )
+            self._shutdown(delay_mins)
+            return
+
         self.lxc.stop(
             instance_name=self.instance_name, project=self.project, remote=self.remote
         )
@@ -580,6 +635,10 @@ class LXDInstance(Executor):
             func=_is_stopped,
             error=LXDError(brief="Instance failed to stop."),
         )
+        if self.exists():
+            self.config_set(
+                "user.craft_providers.status", ProviderInstanceStatus.FINISHED.value
+            )
 
     def supports_mount(self) -> bool:
         """Check if instance supports mounting from host.
@@ -666,7 +725,7 @@ class LXDInstance(Executor):
             remote=self.remote,
         )
 
-    def info(self) -> Dict[str, Any]:
+    def info(self) -> dict[str, Any]:
         """Get info for an instance."""
         return self.lxc.info(
             instance_name=self.instance_name,

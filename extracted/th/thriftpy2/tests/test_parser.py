@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import sys
 import threading
 
 import pytest
@@ -36,8 +36,26 @@ def test_constants():
 
 def test_include():
     thrift = load('parser-cases/include.thrift', include_dirs=[
-        './parser-cases'])
+        './parser-cases'], module_name='include_thrift')
     assert thrift.datetime == 1422009523
+    assert sys.modules['include_thrift'] is not None
+    assert sys.modules['included_thrift'] is not None
+    assert sys.modules['include.included_1_thrift'] is not None
+    assert sys.modules['include.included_2_thrift'] is not None
+
+
+def test_include_with_module_name_prefix():
+    load('parser-cases/include.thrift', module_name='parser_cases.include_thrift')
+    assert sys.modules['parser_cases.include_thrift'] is not None
+    assert sys.modules['parser_cases.included_thrift'] is not None
+    assert sys.modules['parser_cases.include.included_1_thrift'] is not None
+    assert sys.modules['parser_cases.include.included_2_thrift'] is not None
+
+
+def test_include_conflict():
+    with pytest.raises(ThriftParserError) as excinfo:
+        load('parser-cases/foo.bar.thrift', module_name='foo.bar_thrift')
+    assert 'Module name conflict between' in str(excinfo.value)
 
 
 def test_cpp_include():
@@ -185,6 +203,14 @@ def test_structs():
         recver=thrift.Person(name='chao', address='chao@gmail.com'),
         metadata=thrift.MetaData(tags=set())
     )
+    assert thrift.Dog.thrift_spec == {
+        -1: (TType.STRING, 'name', False),
+        1: (TType.I32, 'age', False),
+        -2: (TType.STRING, 'nickname', False)
+    }
+    assert thrift.Cat.thrift_spec == {
+        -1: (TType.STRING, 'name', False),
+    }
 
 
 def test_e_structs():
@@ -201,7 +227,7 @@ def test_e_structs():
 
 def test_service():
     thrift = load('parser-cases/service.thrift')
-    assert thrift.EmailService.thrift_services == ['ping', 'send']
+    assert thrift.EmailService.thrift_services == ['ping', 'send', 'receive', 'empty']
     assert thrift.EmailService.ping_args.thrift_spec == {}
     assert thrift.EmailService.ping_args.default_spec == []
     assert thrift.EmailService.ping_result.thrift_spec == {
@@ -225,6 +251,13 @@ def test_service():
     assert thrift.EmailService.send_result.default_spec == [
         ('success', None), ('network_error', None)
     ]
+    assert thrift.EmailService.receive_args.thrift_spec == {
+        -1: (TType.STRUCT, 'recver', thrift.Email, False),
+        12: (TType.STRUCT, 'user', thrift.User, False),
+    }
+    assert thrift.EmailService.empty_args.thrift_spec == {
+        -1: (TType.STRUCT, 'recver', thrift.Email, False),
+    }
 
 
 def test_service_extends():
@@ -247,7 +280,7 @@ def test_e_dead_include():
 def test_e_grammar_error_at_eof():
     with pytest.raises(ThriftGrammarError) as excinfo:
         load('parser-cases/e_grammar_error_at_eof.thrift')
-    assert str(excinfo.value) == 'Grammar error at EOF'
+    assert str(excinfo.value) == "Grammar error at EOF of the file 'parser-cases/e_grammar_error_at_eof.thrift'"
 
 
 def test_e_use_thrift_reserved_keywords():
@@ -295,6 +328,9 @@ def test_thrift_meta():
 
 
 def test_load_fp():
+    from thriftpy2.parser import threadlocal
+    threadlocal.__dict__.clear()
+
     thrift = None
     with open('parser-cases/shared.thrift') as thrift_fp:
         thrift = load_fp(thrift_fp, 'shared_thrift')

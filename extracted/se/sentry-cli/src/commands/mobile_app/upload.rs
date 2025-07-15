@@ -34,7 +34,8 @@ pub fn make_command(command: Command) -> Command {
                 .value_name("PATH")
                 .help("The path to the mobile app files to upload. Supported files include Apk, Aab or XCArchive.")
                 .num_args(1..)
-                .action(ArgAction::Append),
+                .action(ArgAction::Append)
+                .required(true),
         )
         .arg(
             Arg::new("sha")
@@ -251,7 +252,9 @@ fn normalize_directory(path: &Path) -> Result<TempFile> {
         .filter(|entry| entry.path().is_file())
         .map(|entry| {
             let entry_path = entry.into_path();
-            let relative_path = entry_path.strip_prefix(path)?.to_owned();
+            let relative_path = entry_path.strip_prefix(
+                path.parent().ok_or_else(|| anyhow!("Cannot determine parent directory for path: {}", path.display()))?
+            )?.to_owned();
             Ok((entry_path, relative_path))
         })
         .collect::<Result<Vec<_>>>()?
@@ -301,14 +304,12 @@ fn upload_file(
         build_configuration.unwrap_or("unknown")
     );
 
-    let chunk_upload_options = api
-        .get_chunk_upload_options(org)?
-        .ok_or_else(|| {
-            anyhow!(
-                "The Sentry server lacks chunked uploading support, which \
+    let chunk_upload_options = api.get_chunk_upload_options(org)?.ok_or_else(|| {
+        anyhow!(
+            "The Sentry server lacks chunked uploading support, which \
                 is required for mobile app uploads. {SELF_HOSTED_ERROR_HINT}"
-            )
-        })?;
+        )
+    })?;
 
     if !chunk_upload_options.supports(ChunkUploadCapability::PreprodArtifacts) {
         bail!(
@@ -401,4 +402,28 @@ fn poll_assemble(
     }
 
     Ok(())
+}
+
+#[cfg(not(windows))]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use zip::ZipArchive;
+
+    #[test]
+    fn test_normalize_directory_preserves_top_level_directory_name() -> Result<()> {
+        let temp_dir = crate::utils::fs::TempDir::create()?;
+        let test_dir = temp_dir.path().join("MyApp.xcarchive");
+        fs::create_dir_all(test_dir.join("Products"))?;
+        fs::write(test_dir.join("Products").join("app.txt"), "test content")?;
+
+        let result_zip = normalize_directory(&test_dir)?;
+        let zip_file = fs::File::open(result_zip.path())?;
+        let mut archive = ZipArchive::new(zip_file)?;
+        let file = archive.by_index(0)?;
+        let file_path = file.name();
+        assert_eq!(file_path, "MyApp.xcarchive/Products/app.txt");
+        Ok(())
+    }
 }

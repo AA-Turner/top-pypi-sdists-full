@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.510338                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.696712                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.unbounded_foreach
-    import metaflow.datastore.inputs
     import metaflow.exception
+    import metaflow.datastore.inputs
     import typing
     import metaflow.flowspec
 
@@ -23,10 +23,10 @@ from .exception import MissingInMergeArtifactsException as MissingInMergeArtifac
 from .exception import MetaflowInternalError as MetaflowInternalError
 from .exception import UnhandledInMergeArtifactsException as UnhandledInMergeArtifactsException
 from .user_configs.config_parameters import ConfigValue as ConfigValue
-from .user_configs.config_decorators import CustomFlowDecorator as CustomFlowDecorator
-from .user_configs.config_decorators import CustomStepDecorator as CustomStepDecorator
-from .user_configs.config_decorators import MutableFlow as MutableFlow
-from .user_configs.config_decorators import MutableStep as MutableStep
+from .user_decorators.mutable_flow import MutableFlow as MutableFlow
+from .user_decorators.mutable_step import MutableStep as MutableStep
+from .user_decorators.user_flow_decorator import FlowMutator as FlowMutator
+from .user_decorators.user_step_decorator import StepMutator as StepMutator
 
 TYPE_CHECKING: bool
 

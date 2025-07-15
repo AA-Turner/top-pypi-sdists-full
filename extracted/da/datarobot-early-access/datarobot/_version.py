@@ -9,5 +9,5 @@
 # affiliates.
 #
 # Released under the terms of DataRobot Tool and Utility Agreement.
-__version__ = "3.8.0b0"
+__version__ = "3.9.0b0"
 __expected_server_version__ = "2.37"

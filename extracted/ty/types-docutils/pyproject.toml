@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-docutils"
-version = "0.21.0.20250710"
+version = "0.21.0.20250715"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for docutils"
@@ -38,7 +38,7 @@ mypy 1.16.1,
 pyright 1.1.403,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`9317dc62bd4fb46b8b48ce5353286cab80308d47`](https://github.com/python/typeshed/commit/9317dc62bd4fb46b8b48ce5353286cab80308d47).
+[`84e41f2853d7af3d651d620f093031cba849bd1d`](https://github.com/python/typeshed/commit/84e41f2853d7af3d651d620f093031cba849bd1d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

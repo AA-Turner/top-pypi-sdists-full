@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: idutils
-Version: 1.4.5
+Version: 1.5.0
 Summary: "Small library for persistent identifiers used in scholarly communication."
 Home-page: https://github.com/inveniosoftware/idutils
 Author: Invenio Software
@@ -89,6 +89,10 @@ The IDUtils package is on PyPI so all you need is:
 
 Changes
 =======
+
+Version v1.5.0 (released 2025-07-14)
+
+- chores: replaced importlib_metadata with importlib.metadata
 
 Version 1.4.5 (2025-06-05)
 

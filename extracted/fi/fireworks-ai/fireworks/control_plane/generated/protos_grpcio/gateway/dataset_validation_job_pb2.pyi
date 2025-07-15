@@ -22,6 +22,7 @@ class DatasetValidationFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     DATASET_VALIDATION_FORMAT_RLOR: _ClassVar[DatasetValidationFormat]
     DATASET_VALIDATION_FORMAT_BATCH_INFERENCE_STRICT: _ClassVar[DatasetValidationFormat]
     DATASET_VALIDATION_FORMAT_BATCH_INFERENCE_ALLOW_TRAILING_ASSISTANT: _ClassVar[DatasetValidationFormat]
+    DATASET_VALIDATION_FORMAT_BATCH_INFERENCE: _ClassVar[DatasetValidationFormat]
 
 class DatasetValidationJobResult(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -34,6 +35,7 @@ DATASET_VALIDATION_FORMAT_CHAT_RELAXED: DatasetValidationFormat
 DATASET_VALIDATION_FORMAT_RLOR: DatasetValidationFormat
 DATASET_VALIDATION_FORMAT_BATCH_INFERENCE_STRICT: DatasetValidationFormat
 DATASET_VALIDATION_FORMAT_BATCH_INFERENCE_ALLOW_TRAILING_ASSISTANT: DatasetValidationFormat
+DATASET_VALIDATION_FORMAT_BATCH_INFERENCE: DatasetValidationFormat
 DATASET_VALIDATION_JOB_RESULT_UNSPECIFIED: DatasetValidationJobResult
 DATASET_VALIDATION_JOB_RESULT_SUCCESS: DatasetValidationJobResult
 DATASET_VALIDATION_JOB_RESULT_FAILURE: DatasetValidationJobResult

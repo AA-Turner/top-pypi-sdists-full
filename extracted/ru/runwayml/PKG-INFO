@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runwayml
-Version: 3.6.4
+Version: 3.6.5
 Summary: The official Python library for the runwayml API
 Project-URL: Homepage, https://github.com/runwayml/sdk-python
 Project-URL: Repository, https://github.com/runwayml/sdk-python
@@ -30,12 +30,13 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # RunwayML Python API library
 
-[![PyPI version](https://github.com/runwayml/sdk-python/tree/main/<https://img.shields.io/pypi/v/runwayml.svg?label=pypi%20(stable)>)](https://pypi.org/project/runwayml/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/runwayml.svg?label=pypi%20(stable))](https://pypi.org/project/runwayml/)
 
 The RunwayML Python library provides convenient access to the RunwayML REST API from any Python 3.8+
 application. The library includes type definitions for all request params and response fields,

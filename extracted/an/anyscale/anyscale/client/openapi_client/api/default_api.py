@@ -36,6 +36,131 @@ class DefaultApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
+    def add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put(self, cloud_id, cloud_deployment, **kwargs):  # noqa: E501
+        """Add Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put(cloud_id, cloud_deployment, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param CloudDeployment cloud_deployment: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: object
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put_with_http_info(cloud_id, cloud_deployment, **kwargs)  # noqa: E501
+
+    def add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put_with_http_info(self, cloud_id, cloud_deployment, **kwargs):  # noqa: E501
+        """Add Cloud Deployment  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put_with_http_info(cloud_id, cloud_deployment, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str cloud_id: (required)
+        :param CloudDeployment cloud_deployment: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(object, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'cloud_id',
+            'cloud_deployment'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'cloud_id' is set
+        if self.api_client.client_side_validation and ('cloud_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_id` when calling `add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put`")  # noqa: E501
+        # verify the required parameter 'cloud_deployment' is set
+        if self.api_client.client_side_validation and ('cloud_deployment' not in local_var_params or  # noqa: E501
+                                                        local_var_params['cloud_deployment'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `cloud_deployment` when calling `add_cloud_deployment_api_v2_clouds_cloud_id_add_deployment_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'cloud_id' in local_var_params:
+            path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'cloud_deployment' in local_var_params:
+            body_params = local_var_params['cloud_deployment']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/clouds/{cloud_id}/add_deployment', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='object',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def add_to_waitlist_api_v2_aioa_cloud_waitlist_post(self, create_aioa_cloud_waitlist, **kwargs):  # noqa: E501
         """Add To Waitlist  # noqa: E501
 
@@ -30233,18 +30358,19 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def search_machine_pools_api_v2_machine_pools_search_get(self, **kwargs):  # noqa: E501
+    def search_machine_pools_api_v2_machine_pools_search_post(self, **kwargs):  # noqa: E501
         """Search Machine Pools  # noqa: E501
 
         Search machine pools.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_get(async_req=True)
+        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_post(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str paging_token:
         :param int count:
+        :param MachinePoolSearchQuery machine_pool_search_query:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -30257,20 +30383,21 @@ class DefaultApi(object):
                  returns the request thread.
         """
         kwargs['_return_http_data_only'] = True
-        return self.search_machine_pools_api_v2_machine_pools_search_get_with_http_info(**kwargs)  # noqa: E501
+        return self.search_machine_pools_api_v2_machine_pools_search_post_with_http_info(**kwargs)  # noqa: E501
 
-    def search_machine_pools_api_v2_machine_pools_search_get_with_http_info(self, **kwargs):  # noqa: E501
+    def search_machine_pools_api_v2_machine_pools_search_post_with_http_info(self, **kwargs):  # noqa: E501
         """Search Machine Pools  # noqa: E501
 
         Search machine pools.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_get_with_http_info(async_req=True)
+        >>> thread = api.search_machine_pools_api_v2_machine_pools_search_post_with_http_info(async_req=True)
         >>> result = thread.get()
 
         :param async_req bool: execute request asynchronously
         :param str paging_token:
         :param int count:
+        :param MachinePoolSearchQuery machine_pool_search_query:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -30289,7 +30416,8 @@ class DefaultApi(object):
 
         all_params = [
             'paging_token',
-            'count'
+            'count',
+            'machine_pool_search_query'
         ]
         all_params.extend(
             [
@@ -30304,15 +30432,15 @@ class DefaultApi(object):
             if key not in all_params:
                 raise ApiTypeError(
                     "Got an unexpected keyword argument '%s'"
-                    " to method search_machine_pools_api_v2_machine_pools_search_get" % key
+                    " to method search_machine_pools_api_v2_machine_pools_search_post" % key
                 )
             local_var_params[key] = val
         del local_var_params['kwargs']
 
         if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_get`, must be a value less than or equal to `1000`")  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_post`, must be a value less than or equal to `1000`")  # noqa: E501
         if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
-            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_get`, must be a value greater than or equal to `0`")  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `search_machine_pools_api_v2_machine_pools_search_post`, must be a value greater than or equal to `0`")  # noqa: E501
         collection_formats = {}
 
         path_params = {}
@@ -30329,15 +30457,21 @@ class DefaultApi(object):
         local_var_files = {}
 
         body_params = None
+        if 'machine_pool_search_query' in local_var_params:
+            body_params = local_var_params['machine_pool_search_query']
         # HTTP header `Accept`
         header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
             ['application/json'])  # noqa: E501
 
         # Authentication setting
         auth_settings = []  # noqa: E501
 
         return self.api_client.call_api(
-            '/api/v2/machine_pools/search', 'GET',
+            '/api/v2/machine_pools/search', 'POST',
             path_params,
             query_params,
             header_params,
@@ -34162,6 +34296,111 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='UpdatemachinepoolresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def update_payment_info_api_v2_organization_billing_update_payment_info_post(self, **kwargs):  # noqa: E501
+        """Update Payment Info  # noqa: E501
+
+        Adds payment info for the first time or updates existing payment info.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_payment_info_api_v2_organization_billing_update_payment_info_post(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: UpdatePaymentInfo
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_payment_info_api_v2_organization_billing_update_payment_info_post_with_http_info(**kwargs)  # noqa: E501
+
+    def update_payment_info_api_v2_organization_billing_update_payment_info_post_with_http_info(self, **kwargs):  # noqa: E501
+        """Update Payment Info  # noqa: E501
+
+        Adds payment info for the first time or updates existing payment info.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_payment_info_api_v2_organization_billing_update_payment_info_post_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(UpdatePaymentInfo, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_payment_info_api_v2_organization_billing_update_payment_info_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organization_billing/update_payment_info', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='UpdatePaymentInfo',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

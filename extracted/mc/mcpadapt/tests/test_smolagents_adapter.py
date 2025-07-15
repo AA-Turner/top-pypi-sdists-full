@@ -1,3 +1,4 @@
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -187,3 +188,74 @@ def test_tool_name_with_keyword():
         assert len(tools) == 1
         assert tools[0].name == "def_"
         assert tools[0](text="hello") == "Echo: hello"
+
+
+@pytest.fixture
+def shared_datadir():
+    return Path(__file__).parent / "data"
+
+
+def test_image_tool(shared_datadir):
+    mcp_server_script = dedent(
+        f"""
+        import os
+        from mcp.server.fastmcp import FastMCP, Image
+
+        mcp = FastMCP("Image Server")
+
+        @mcp.tool("test_image")
+        def test_image() -> Image:
+            path = os.path.join("{shared_datadir}", "random_image.png")
+            return Image(path=path, format='png')
+
+        mcp.run()
+        """
+    )
+    with MCPAdapt(
+        StdioServerParameters(
+            command="uv", args=["run", "python", "-c", mcp_server_script]
+        ),
+        SmolAgentsAdapter(),
+    ) as tools:
+        from PIL.ImageFile import ImageFile
+
+        assert len(tools) == 1
+        assert tools[0].name == "test_image"
+        image_content = tools[0]()
+        assert isinstance(image_content, ImageFile)
+        assert image_content.size == (256, 256)
+
+
+def test_audio_tool(shared_datadir):
+    mcp_server_script = dedent(
+        f"""
+        import os
+        import base64
+        from mcp.server.fastmcp import FastMCP
+        from mcp.types import AudioContent
+
+        mcp = FastMCP("Audio Server")
+
+        @mcp.tool("test_audio")
+        def test_audio() -> AudioContent:
+            path = os.path.join("{shared_datadir}", "white_noise.wav")
+            with open(path, "rb") as f:
+                wav_bytes = f.read()
+        
+            return AudioContent(type="audio", data=base64.b64encode(wav_bytes).decode(), mimeType="audio/wav")
+
+        mcp.run()
+        """
+    )
+    with MCPAdapt(
+        StdioServerParameters(
+            command="uv", args=["run", "python", "-c", mcp_server_script]
+        ),
+        SmolAgentsAdapter(),
+    ) as tools:
+        from torch import Tensor  # type: ignore
+
+        assert len(tools) == 1
+        assert tools[0].name == "test_audio"
+        audio_content = tools[0]()
+        assert isinstance(audio_content, Tensor)

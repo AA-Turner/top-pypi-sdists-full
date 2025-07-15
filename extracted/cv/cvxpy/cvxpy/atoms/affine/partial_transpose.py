@@ -51,7 +51,7 @@ def _term(expr, i: int, j: int, dims: Tuple[int], axis: Optional[int] = 0):
             v = sp.coo_matrix(([1], ([i], [j])), shape=(dim, dim))
             a = sp.kron(a, v)
         else:
-            eye_mat = sp.eye(dim)
+            eye_mat = sp.eye_array(dim)
             a = sp.kron(a, eye_mat)
     return a @ expr @ a
 
@@ -79,7 +79,7 @@ def partial_transpose(expr, dims: Tuple[int, ...], axis: Optional[int] = 0):
     """
     expr = Atom.cast_to_const(expr)
     if expr.ndim < 2 or expr.shape[0] != expr.shape[1]:
-        raise ValueError("Only supports square matrices.")
+        raise ValueError("partial_transpose only supports 2-d square arrays.")
     if axis < 0 or axis >= len(dims):
         raise ValueError(
             f"Invalid axis argument, should be between 0 and {len(dims)}, got {axis}."

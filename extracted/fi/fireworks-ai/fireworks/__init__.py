@@ -2,6 +2,7 @@ from .llm import LLM
 from .dataset import Dataset
 from .evaluator import Evaluator
 from .supervised_fine_tuning_job import SupervisedFineTuningJob
+from .batch_inference_job import BatchInferenceJob
 import importlib.metadata
 from reward_kit import reward_function
 from openai.types.chat.chat_completion import ChatCompletion
@@ -21,6 +22,7 @@ __all__ = [
     "Dataset",
     "Evaluator",
     "SupervisedFineTuningJob",
+    "BatchInferenceJob",
     "FireworksPlatform",
     "fw",
     "__version__",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-mcp
-Version: 0.3.6
+Version: 0.3.7
 Summary: Automatic MCP server generator for FastAPI applications - converts FastAPI endpoints to MCP tools for LLM integration
 Project-URL: Homepage, https://github.com/tadata-org/fastapi_mcp
 Project-URL: Documentation, https://github.com/tadata-org/fastapi_mcp#readme

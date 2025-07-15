@@ -15,6 +15,7 @@ from anyscale.commands.util import AnyscaleCommand, OptionPromptNull
 from anyscale.controllers.cloud_controller import CloudController
 from anyscale.util import (
     allow_optional_file_storage,
+    SharedStorageType,
     validate_non_negative_arg,
 )
 
@@ -152,6 +153,14 @@ def default_region(provider: str) -> str:
         "disable this and instead manually grant users permissions to the cloud."
     ),
 )
+@click.option(
+    "--shared-storage",
+    required=False,
+    type=click.Choice([e.value for e in SharedStorageType], case_sensitive=False),
+    default=SharedStorageType.OBJECT_STORAGE.value,
+    show_default=True,
+    help="The type of shared storage to use for the cloud. Use 'object-storage' for cloud bucket-based storage (e.g., S3, GCS), or 'nfs' for network file systems.",
+)
 def setup_cloud(  # noqa: PLR0913
     provider: str,
     region: str,
@@ -162,8 +171,12 @@ def setup_cloud(  # noqa: PLR0913
     enable_head_node_fault_tolerance: bool,
     yes: bool,
     disable_auto_add_user: bool,
+    shared_storage: str,
 ) -> None:
     # TODO (congding): remove `anyscale_managed` in the future, now keeping it for compatibility
+
+    # Convert string to enum for type safety
+    shared_storage_type = SharedStorageType(shared_storage)
     if provider == "aws":
         CloudController().setup_managed_cloud(
             provider=provider,
@@ -174,6 +187,7 @@ def setup_cloud(  # noqa: PLR0913
             enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
             yes=yes,
             auto_add_user=(not disable_auto_add_user),
+            shared_storage=shared_storage_type,
         )
     elif provider == "gcp":
         if not project_id:
@@ -193,6 +207,7 @@ def setup_cloud(  # noqa: PLR0913
             enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
             yes=yes,
             auto_add_user=(not disable_auto_add_user),
+            shared_storage=shared_storage_type,
         )
 
 
@@ -232,6 +247,32 @@ def list_cloud(name: Optional[str], cloud_id: Optional[str], max_items: int,) ->
 @cloud_cli.group("config", help="Manage the configuration for a cloud.")
 def cloud_config_group() -> None:
     pass
+
+
+@cloud_cli.command(
+    name="add-deployment",
+    help="Add a new cloud deployment to an existing cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_ADD_DEPLOYMENT_EXAMPLE,
+)
+@click.option(
+    "--cloud-name",
+    "-n",
+    help="The name of the cloud to add the new deployment to.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--file", "-f", help="YAML file containing the deployment spec.", required=True,
+)
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
+)
+def cloud_add_deployment(cloud_name: str, file: str, yes: bool,) -> None:
+    try:
+        CloudController().add_cloud_deployment(cloud_name, file, yes)
+    except click.ClickException as e:
+        print(e)
 
 
 @cloud_cli.command(
@@ -294,7 +335,10 @@ def cloud_update(  # noqa: PLR0913
     file: Optional[str],
 ) -> None:
     if file:
-        CloudController().update_cloud_deployments(file)
+        try:
+            CloudController().update_cloud_deployments(file)
+        except click.ClickException as e:
+            print(e)
         return
 
     if cloud_name and name and cloud_name != name:

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.528537                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.715806                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,15 +9,16 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.user_configs.config_decorators
+    import metaflow.user_decorators.mutable_flow
+    import metaflow.user_decorators.user_flow_decorator
 
-from .....user_configs.config_decorators import MutableFlow as MutableFlow
-from .....user_configs.config_decorators import MutableStep as MutableStep
-from .....user_configs.config_decorators import CustomFlowDecorator as CustomFlowDecorator
+from .....user_decorators.user_flow_decorator import FlowMutator as FlowMutator
+from .....user_decorators.mutable_flow import MutableFlow as MutableFlow
+from .....user_decorators.mutable_step import MutableStep as MutableStep
 
 OBP_ASSUME_ROLE_ARN_ENV_VAR: str
 
-class assume_role(metaflow.user_configs.config_decorators.CustomFlowDecorator, metaclass=type):
+class assume_role(metaflow.user_decorators.user_flow_decorator.FlowMutator, metaclass=metaflow.user_decorators.user_flow_decorator.FlowMutatorMeta):
     """
     Flow-level decorator for assuming AWS IAM roles.
     
@@ -41,12 +42,15 @@ class assume_role(metaflow.user_configs.config_decorators.CustomFlowDecorator, m
     """
     def init(self, *args, **kwargs):
         ...
-    def evaluate(self, mutable_flow: metaflow.user_configs.config_decorators.MutableFlow):
+    def pre_mutate(self, mutable_flow: metaflow.user_decorators.mutable_flow.MutableFlow):
         """
         This method is called by Metaflow to apply the decorator to the flow.
         It sets up environment variables that will be used by the AWS client
         to automatically assume the specified role.
         """
+        ...
+    @classmethod
+    def __init_subclass__(cls_, **_kwargs):
         ...
     ...
 

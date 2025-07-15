@@ -3,7 +3,7 @@ import random
 import time
 from simple_parsing import parse
 from dataclasses import dataclass
-from redis_command_generator.BaseGen import BaseGen
+from redis_command_generator.BaseGen import BaseGen, cg_method
 from redis.commands.core import HashDataPersistOptions
 
 @dataclass
@@ -14,54 +14,31 @@ class HashGen(BaseGen):
     incrby_min: int = -1000
     incrby_max: int = 1000
     
-    def hset(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="hash", can_create_key=True)
+    def hset(self, pipe: redis.client.Pipeline, key: str) -> None:
         fields = {self._rand_str(self.subkey_size): self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_subelements))}
         pipe.hset(key, mapping=fields)
     
-    def hincrby(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="hash", can_create_key=True)
+    def hincrby(self, pipe: redis.client.Pipeline, key: str) -> None:
         field = self._rand_str(self.def_key_size)
         increment = random.randint(self.incrby_min, self.incrby_max)
         pipe.hincrby(key, field, increment)
     
-    def hdel(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "hash")
-        if not key: return
-        
+    @cg_method(cmd_type="hash", can_create_key=False)
+    def hdel(self, pipe: redis.client.Pipeline, key: str) -> None:
         fields = [self._rand_str(self.subkey_size) for _ in range(random.randint(1, self.max_subelements))]
         pipe.hdel(key, *fields)
     
-    def hgetdel(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
+    @cg_method(cmd_type="hash", can_create_key=False)
+    def hgetdel(self, pipe: redis.client.Pipeline, key: str) -> None:
         redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "hash")
-        if not key: return
-        
         fields = redis_obj.hkeys(key)
-        
         pipe.hgetdel(key, *fields)
     
-    def hgetex(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
+    @cg_method(cmd_type="hash", can_create_key=False)
+    def hgetex(self, pipe: redis.client.Pipeline, key: str) -> None:
         redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "hash")
-        if not key: return
-        
         fields = redis_obj.hkeys(key)
         
         # Choose a random expiry option
@@ -86,11 +63,8 @@ class HashGen(BaseGen):
         
         pipe.hgetex(key, *fields, **kwargs)
     
-    def hsetex(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="hash", can_create_key=True)
+    def hsetex(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Choose a random expiry option
         expiry_option = random.choice(['EX', 'PX', 'EXAT', 'PXAT', 'KEEPTTL'])
         

@@ -355,7 +355,10 @@ class Future(TaskRef):
         str
             The status
         """
-        return self._state.status
+        if self._state:
+            return self._state.status
+        else:
+            return None
 
     def done(self):
         """Returns whether or not the computation completed.
@@ -554,7 +557,10 @@ class Future(TaskRef):
     @property
     def type(self):
         """Returns the type"""
-        return self._state.type
+        if self._state:
+            return self._state.type
+        else:
+            return None
 
     def release(self):
         """
@@ -1078,6 +1084,8 @@ class Client(SyncMethodMixin):
         if deserializers is None:
             deserializers = serializers
         self._deserializers = deserializers
+        if direct_to_workers is None:
+            direct_to_workers = dask.config.get("distributed.client.direct-to-workers")
         self.direct_to_workers = direct_to_workers
         self._previous_as_current = None
 

@@ -2,7 +2,7 @@ import redis
 import random
 from simple_parsing import parse
 from dataclasses import dataclass
-from redis_command_generator.BaseGen import BaseGen
+from redis_command_generator.BaseGen import BaseGen, cg_method
 
 @dataclass
 class StringGen(BaseGen):
@@ -10,35 +10,20 @@ class StringGen(BaseGen):
     incrby_min: int = -1000
     incrby_max: int = 1000
     
-    def set(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="string", can_create_key=True)
+    def set(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.set(key, self._rand_str(self.subval_size))
     
-    def append(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="string", can_create_key=True)
+    def append(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.append(key, self._rand_str(self.subval_size))
     
-    def incrby(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: additive
-        if key is None:
-            key = self._rand_key()
-        
+    @cg_method(cmd_type="string", can_create_key=True)
+    def incrby(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.incrby(key, random.randint(self.incrby_min, self.incrby_max))
     
-    def delete(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        # Classification: removal
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = self._scan_rand_key(redis_obj, "string")
-        if not key: return
-        
+    @cg_method(cmd_type="string", can_create_key=False)
+    def delete(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.delete(key)
 
 if __name__ == "__main__":

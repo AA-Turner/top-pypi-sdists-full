@@ -337,19 +337,20 @@ def decode_asset_condition(var: dict[str, Any]) -> BaseAsset:
     raise ValueError(f"deserialization not implemented for DAT {dat!r}")
 
 
+def smart_decode_trigger_kwargs(d):
+    """
+    Slightly clean up kwargs for display or execution.
+
+    This detects one level of BaseSerialization and tries to deserialize the
+    content, removing some __type __var ugliness when the value is displayed
+    in UI to the user and/or while execution.
+    """
+    if not isinstance(d, dict) or Encoding.TYPE not in d:
+        return d
+    return BaseSerialization.deserialize(d)
+
+
 def decode_asset(var: dict[str, Any]):
-    def _smart_decode_trigger_kwargs(d):
-        """
-        Slightly clean up kwargs for display.
-
-        This detects one level of BaseSerialization and tries to deserialize the
-        content, removing some __type __var ugliness when the value is displayed
-        in UI to the user.
-        """
-        if not isinstance(d, dict) or Encoding.TYPE not in d:
-            return d
-        return BaseSerialization.deserialize(d)
-
     watchers = var.get("watchers", [])
     return Asset(
         name=var["name"],
@@ -361,7 +362,7 @@ def decode_asset(var: dict[str, Any]):
                 name=watcher["name"],
                 trigger={
                     "classpath": watcher["trigger"]["classpath"],
-                    "kwargs": _smart_decode_trigger_kwargs(watcher["trigger"]["kwargs"]),
+                    "kwargs": smart_decode_trigger_kwargs(watcher["trigger"]["kwargs"]),
                 },
             )
             for watcher in watchers
@@ -2177,16 +2178,14 @@ class LazyDeserializedDAG(pydantic.BaseModel):
                     if isinstance(obj, of_type):
                         yield task["task_id"], obj
 
-    def get_run_data_interval(self, run: DagRun) -> DataInterval:
+    def get_run_data_interval(self, run: DagRun) -> DataInterval | None:
         """Get the data interval of this run."""
         if run.dag_id is not None and run.dag_id != self.dag_id:
             raise ValueError(f"Arguments refer to different DAGs: {self.dag_id} != {run.dag_id}")
 
         data_interval = _get_model_data_interval(run, "data_interval_start", "data_interval_end")
-        # the older implementation has call to infer_automated_data_interval if data_interval is None, do we want to keep that or raise
-        # an exception?
-        if data_interval is None:
-            raise ValueError(f"Cannot calculate data interval for run {run}")
+        if data_interval is None and run.logical_date is not None:
+            data_interval = self._real_dag.timetable.infer_manual_data_interval(run_after=run.logical_date)
 
         return data_interval
 

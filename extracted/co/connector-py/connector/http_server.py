@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 
+from connector.ca_certs import is_windows, set_python_to_use_system_ca_certificates
 from connector.generated.models.app_info_response import AppInfoResponse
 from connector.httpx_rewrite import proxy_settings
 from connector.logging import set_logger_config
@@ -67,6 +68,8 @@ def create_app() -> FastAPI:
 
     integration = load_integration(integration_id)
     set_logger_config(integration.app_id)
+    if is_windows():
+        set_python_to_use_system_ca_certificates()
     app = FastAPI()
 
     def get_schema():

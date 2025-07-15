@@ -145,21 +145,21 @@ class Leaf(expression.Expression):
             self.integer_idx = integer
         if sparsity:
             self.sparse_idx = self._validate_indices(sparsity)
+            self._sparse_high_fill_in = (len(self.sparse_idx[0]) / np.prod(self.shape) <= 0.25)
         else:
             self.sparse_idx = None
-        # Only one attribute be True (except can be boolean and integer).
-        true_attr = sum(1 for k, v in self.attributes.items() if v)
-        # HACK we should remove this feature or allow multiple attributes in general.
-        if boolean and integer:
-            true_attr -= 1
-        if true_attr > 1:
-            raise ValueError("Cannot set more than one special attribute in %s."
-                             % self.__class__.__name__)
-        if value is not None:
-            self.value = value
-
+        # count number of attributes
+        self.num_attributes = sum(1 for k, v in self.attributes.items() if v)
+        dim_reducing_attr = ['diag', 'symmetric', 'PSD', 'NSD', 'hermitian', 'sparsity']
+        if sum(1 for k in dim_reducing_attr if self.attributes[k]) > 1:
+            raise ValueError(
+                "A CVXPY Variable cannot have more than one of the following attributes: "
+                f"{dim_reducing_attr}"
+            )
         self.args = []
         self.bounds = self._ensure_valid_bounds(bounds)
+        if value is not None:
+            self.value = value
 
     def _validate_indices(self, indices: list[tuple[int]] | tuple[np.ndarray]) -> tuple[np.ndarray]:
         """
@@ -329,9 +329,9 @@ class Leaf(expression.Expression):
         """
         if self.attributes['nonneg'] or self.attributes['pos']:
             constraints.append(term >= 0)
-        elif self.attributes['nonpos'] or self.attributes['neg']:
+        if self.attributes['nonpos'] or self.attributes['neg']:
             constraints.append(term <= 0)
-        elif self.attributes['bounds']:
+        if self.attributes['bounds']:
             bounds = self.bounds
             lower_bounds, upper_bounds = bounds
             # Create masks if -inf or inf is present in the bounds
@@ -384,11 +384,11 @@ class Leaf(expression.Expression):
         numeric type
             The value rounded to the attribute type.
         """
-        # Only one attribute can be active at once (besides real,
-        # nonpos/nonneg, and bool/int).
         if not self.is_complex():
             val = np.real(val)
-
+        # Skip the projection operation for more than one attribute
+        if self.num_attributes > 1:
+            return val
         if self.attributes['nonpos'] and self.attributes['nonneg']:
             return 0*val
         elif self.attributes['nonpos'] or self.attributes['neg']:
@@ -402,19 +402,21 @@ class Leaf(expression.Expression):
         elif self.attributes['complex']:
             return val.astype(complex)
         elif self.attributes['boolean']:
-            # TODO(akshayka): respect the boolean indices.
-            return np.round(np.clip(val, 0., 1.))
+            if hasattr(self, "boolean_idx"):
+                new_val = val.copy()
+                new_val[self.boolean_idx] = np.round(np.clip(val[self.boolean_idx], 0., 1.))
+                return new_val
         elif self.attributes['integer']:
-            # TODO(akshayka): respect the integer indices.
-            # also, a variable may be integer in some indices and
-            # boolean in others.
-            return np.round(val)
+            if hasattr(self, "integer_idx"):
+                new_val = val.copy()
+                new_val[self.integer_idx] = np.round(val[self.integer_idx])
+                return new_val
         elif self.attributes['diag']:
             if intf.is_sparse(val):
                 val = val.diagonal()
             else:
                 val = np.diag(val)
-            return sp.diags([val], [0])
+            return sp.diags_array([val], offsets=[0])
         elif self.attributes['hermitian']:
             return (val + np.conj(val).T)/2.
         elif any([self.attributes[key] for
@@ -468,13 +470,13 @@ class Leaf(expression.Expression):
                           ' Use `.value_sparse` instead', RuntimeWarning, 1)
             if self._value is None:
                 return None
-            val = np.zeros(self.shape)
+            val = np.zeros(self.shape, dtype=self._value.dtype)
             val[self.sparse_idx] = self._value.data
             return val
 
     @value.setter
     def value(self, val) -> None:
-        if self.sparse_idx is not None:
+        if self.sparse_idx is not None and self._sparse_high_fill_in:
             warnings.warn('Writing to a sparse CVXPY expression via `.value` is discouraged.'
                           ' Use `.value_sparse` instead', RuntimeWarning, 1)
         self.save_value(self._validate_value(val))
@@ -548,7 +550,7 @@ class Leaf(expression.Expression):
             # ^ might be a numpy array, scipy matrix, or sparse scipy matrix.
             if intf.is_sparse(delta):
                 # ^ based on current implementation of project(...),
-                #   is is not possible for this Leaf to be PSD/NSD *and*
+                #   it is not possible for this Leaf to be PSD/NSD *and*
                 #   a sparse matrix.
                 close_enough = np.allclose(delta.data, 0,
                                            atol=SPARSE_PROJECTION_TOL)

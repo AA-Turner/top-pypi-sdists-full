@@ -1,3 +1,4 @@
+import inspect
 import io
 import pathlib
 import warnings
@@ -117,7 +118,10 @@ class _map_schema_uproot(_map_schema_base):
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
             branch_forms[field] = _lazify_form(
-                iform, f"{field},!load", docstr=iform["parameters"]["__doc__"]
+                iform,
+                f"{field},!load",
+                docstr=iform["parameters"]["__doc__"],
+                typestr=iform["parameters"]["typename"],
             )
         lform = {
             "class": "RecordArray",
@@ -129,6 +133,7 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
             self,
@@ -206,6 +211,9 @@ class _map_schema_parquet(_map_schema_base):
         return awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form)
 
 
+_allowed_modes = frozenset(["eager", "virtual", "dask"])
+
+
 class NanoEventsFactory:
     """
     A factory class to build NanoEvents objects.
@@ -214,8 +222,10 @@ class NanoEventsFactory:
     the constructor args are properly set.
     """
 
-    def __init__(self, schema, mapping, partition_key, cache=None, is_dask=False):
-        self._is_dask = is_dask
+    def __init__(self, schema, mapping, partition_key, cache=None, mode="eager"):
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
+        self._mode = mode
         self._schema = schema
         self._mapping = mapping
         self._partition_key = partition_key
@@ -252,10 +262,11 @@ class NanoEventsFactory:
         access_log=None,
         iteritems_options={},
         use_ak_forth=True,
-        delayed=True,
+        mode="virtual",
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
+        delayed=uproot._util.unset,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -289,8 +300,8 @@ class NanoEventsFactory:
                 Pass a list instance to record which branches were lazily accessed by this instance
             use_ak_forth:
                 Toggle using awkward_forth to interpret branches in root file.
-            delayed:
-                Nanoevents will use dask as a backend to construct a delayed task graph representing your analysis.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
             known_base_form:
                 If the base form of the input file is known ahead of time we can skip opening a single file and parsing metadata.
             decompression_executor (None or Executor with a ``submit`` method):
@@ -303,6 +314,18 @@ class NanoEventsFactory:
             out: NanoEventsFactory
                 A NanoEventsFactory instance built from the file at `file`.
         """
+        if delayed is not uproot._util.unset:
+            msg = """
+            NanoEventsFactory.from_root() behavior has changed.
+            The default behavior is that now it reads the input root file using
+            the newly developed virtual arrays backend of awkward instead of dask.
+            The backend choice is controlled by the `mode` argument of the method
+            which can be set to "eager", "virtual", or "dask".
+            The new default is "virtual" while the `delayed` argument has been removed.
+            The old `delayed=True` is now equivalent to `mode="dask"`.
+            The old `delayed=False` is now equivalent to `mode="eager"`.
+            """
+            raise TypeError(inspect.cleandoc(msg))
 
         if treepath is not uproot._util.unset and not isinstance(
             file, uproot.reading.ReadOnlyDirectory
@@ -313,7 +336,10 @@ class NanoEventsFactory:
             """
             )
 
-        if delayed and steps_per_file is not uproot._util.unset:
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
+
+        if mode == "dask" and steps_per_file is not uproot._util.unset:
             warnings.warn(
                 f"""You have set steps_per_file to {steps_per_file}, this should only be used for a
                 small number of inputs (e.g. for early-stage/exploratory analysis) since it does not
@@ -326,7 +352,7 @@ class NanoEventsFactory:
             )
 
         if (
-            delayed
+            mode == "dask"
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
@@ -340,13 +366,12 @@ class NanoEventsFactory:
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
                 to_open = file[treepath]
-
             opener = partial(
                 uproot.dask,
                 to_open,
                 full_paths=True,
                 open_files=False,
-                ak_add_doc=True,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_branch=_remove_not_interpretable,
                 steps_per_file=steps_per_file,
                 known_base_form=known_base_form,
@@ -355,12 +380,14 @@ class NanoEventsFactory:
                 **uproot_options,
             )
 
-            return cls(map_schema, opener, None, cache=None, is_dask=True)
-        elif delayed and not schemaclass.__dask_capable__:
+            return cls(map_schema, opener, None, cache=None, mode="dask")
+        elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
-                f"{schemaclass} is not dask capable despite requesting delayed mode, generating non-dask nanoevents",
+                f"{schemaclass} is not dask capable despite requesting dask mode, generating non-dask nanoevents",
                 RuntimeWarning,
             )
+            # fall through to virtual mode
+            mode = "virtual"
 
         if isinstance(file, uproot.reading.ReadOnlyDirectory):
             tree = file[treepath]
@@ -371,6 +398,9 @@ class NanoEventsFactory:
             )
         else:
             tree = uproot.open(file, **uproot_options)
+
+        # Get the typenames
+        typenames = tree.typenames()
 
         if entry_start is None or entry_start < 0:
             entry_start = 0
@@ -390,12 +420,14 @@ class NanoEventsFactory:
             cache={},
             access_log=access_log,
             use_ak_forth=use_ak_forth,
+            virtual=mode == "virtual",
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 
         base_form = mapping._extract_base_form(
             tree, iteritems_options=iteritems_options
         )
+        base_form["typenames"] = typenames
 
         return cls._from_mapping(
             mapping,
@@ -405,6 +437,7 @@ class NanoEventsFactory:
             persistent_cache,
             schemaclass,
             metadata,
+            mode=mode,
         )
 
     @classmethod
@@ -421,7 +454,7 @@ class NanoEventsFactory:
         parquet_options={},
         skyhook_options={},
         access_log=None,
-        delayed=True,
+        mode="virtual",
     ):
         """Quickly build NanoEvents from a parquet file
 
@@ -450,8 +483,8 @@ class NanoEventsFactory:
                 Any options to pass to ``pyarrow.parquet.ParquetFile``
             access_log : list, optional
                 Pass a list instance to record which branches were lazily accessed by this instance
-            delayed:
-                Nanoevents will use dask as a backend to construct a delayed task graph representing your analysis.
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         Returns
         -------
@@ -471,8 +504,11 @@ class NanoEventsFactory:
             io.IOBase,
         )
 
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
+
         if (
-            delayed
+            mode == "dask"
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
@@ -490,8 +526,8 @@ class NanoEventsFactory:
                 )
             else:
                 raise TypeError("Invalid file type (%s)" % (str(type(file))))
-            return cls(map_schema, opener, None, cache=None, is_dask=True)
-        elif delayed and not schemaclass.__dask_capable__:
+            return cls(map_schema, opener, None, cache=None, mode="dask")
+        elif mode == "dask" and not schemaclass.__dask_capable__:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
@@ -528,6 +564,7 @@ class NanoEventsFactory:
             entry_start,
             entry_stop,
             access_log=access_log,
+            virtual=mode == "virtual",
         )
 
         format_ = "parquet"
@@ -558,6 +595,7 @@ class NanoEventsFactory:
             persistent_cache,
             schemaclass,
             metadata,
+            mode,
         )
 
     @classmethod
@@ -640,6 +678,7 @@ class NanoEventsFactory:
             persistent_cache,
             schemaclass,
             metadata,
+            mode="eager",
         )
 
     @classmethod
@@ -652,6 +691,7 @@ class NanoEventsFactory:
         persistent_cache,
         schemaclass,
         metadata,
+        mode,
     ):
         """Quickly build NanoEvents from a root file
 
@@ -674,6 +714,8 @@ class NanoEventsFactory:
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
                 Arbitrary metadata to add to the `base.NanoEvents` object
+            mode:
+                Nanoevents will use "eager", "virtual", or "dask" as a backend.
 
         """
         if persistent_cache is not None:
@@ -690,7 +732,7 @@ class NanoEventsFactory:
             mapping,
             tuple_to_key(partition_key),
             cache=runtime_cache,
-            is_dask=False,
+            mode=mode,
         )
 
     def __len__(self):
@@ -705,13 +747,13 @@ class NanoEventsFactory:
         Returns
         -------
             out:
-                If the NanoEventsFactory is running in delayed mode (Dask), this is
+                If the NanoEventsFactory is running in dask mode, this is
                 a Dask awkward array of the events. If the mapping also produces a
                 report, the output will be a tuple (events, report).
-                If the factory is not running in delayed mode, this is an awkward
+                If the factory is running in virtual or eager mode, this is an awkward
                 array of the events.
         """
-        if self._is_dask:
+        if self._mode == "dask":
             events = self._mapping(form_mapping=self._schema)
             report = None
             if isinstance(events, tuple):
@@ -730,6 +772,7 @@ class NanoEventsFactory:
                 buffer_key=partial(_key_formatter, self._partition_key),
                 behavior=self._schema.behavior(),
                 attrs={"@events_factory": self},
+                allow_noncanonical_form=True,
             )
             self._events = weakref.ref(events)
 

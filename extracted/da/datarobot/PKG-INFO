@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.8.0
+Version: 3.8.1
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -8,7 +8,7 @@ Author-email: api-maintainer@datarobot.com
 Maintainer: datarobot
 Maintainer-email: api-maintainer@datarobot.com
 License: DataRobot Tool and Utility Agreement
-Project-URL: Documentation, https://docs.datarobot.com/en/docs/api/reference/sdk/
+Project-URL: Documentation, https://docs.datarobot.com/en/docs/api/reference/sdk/index.html
 Project-URL: Changelog, https://docs.datarobot.com/en/docs/api/reference/changelogs/py-changelog/index.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

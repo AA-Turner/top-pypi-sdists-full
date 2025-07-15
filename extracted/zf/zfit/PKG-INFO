@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zfit
-Version: 0.27.0
+Version: 0.27.1
 Summary: scalable pythonic model fitting for high energy physics
 Project-URL: Homepage, https://github.com/zfit/zfit
 Author-email: Jonas Eschle <Jonas.Eschle@cern.ch>, Albert Puig <apuignav@gmail.com>, Rafael Silva Coutinho <rsilvaco@cern.ch>, Matthieu Marinangeli <matthieu.marinangeli@cern.ch>
@@ -53,6 +53,8 @@ Provides-Extra: all
 Requires-Dist: asdf<4.0.0; extra == 'all'
 Requires-Dist: awkward-pandas; extra == 'all'
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'all'
+Requires-Dist: matplotlib; extra == 'all'
+Requires-Dist: mplhep; extra == 'all'
 Requires-Dist: nlopt>=2.7.1; (sys_platform == 'linux' or sys_platform == 'darwin' and platform_machine != 'arm64' or sys_platform == 'win32') and extra == 'all'
 Provides-Extra: alldev
 Requires-Dist: asdf<4.0.0; extra == 'alldev'
@@ -198,6 +200,9 @@ Provides-Extra: ipyopt
 Requires-Dist: ipyopt>=0.12; (sys_platform == 'linux') and extra == 'ipyopt'
 Provides-Extra: nlopt
 Requires-Dist: nlopt>=2.7.1; (sys_platform == 'linux' or sys_platform == 'darwin' and platform_machine != 'arm64' or sys_platform == 'win32') and extra == 'nlopt'
+Provides-Extra: plot
+Requires-Dist: matplotlib; extra == 'plot'
+Requires-Dist: mplhep; extra == 'plot'
 Provides-Extra: test
 Requires-Dist: asdf<4.0.0; extra == 'test'
 Requires-Dist: awkward-pandas; extra == 'test'

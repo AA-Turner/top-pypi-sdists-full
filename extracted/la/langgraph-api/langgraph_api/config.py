@@ -6,6 +6,8 @@ import orjson
 from starlette.config import Config, undefined
 from starlette.datastructures import CommaSeparatedStrings
 
+from langgraph_api import traceblock
+
 # types
 
 
@@ -372,3 +374,5 @@ if not os.getenv("LANGCHAIN_REVISION_ID") and (
     # This is respected by the langsmith SDK env inference
     # https://github.com/langchain-ai/langsmith-sdk/blob/1b93e4c13b8369d92db891ae3babc3e2254f0e56/python/langsmith/env/_runtime_env.py#L190
     os.environ["LANGCHAIN_REVISION_ID"] = ref_sha
+
+traceblock.patch_requests()

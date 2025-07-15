@@ -312,6 +312,7 @@ async def create_valid_run(
     after_seconds = payload.get("after_seconds", 0)
     configurable["__after_seconds__"] = after_seconds
     put_time_start = time.time()
+    if_not_exists = payload.get("if_not_exists", "reject")
     run_coro = Runs.put(
         conn,
         assistant_id,
@@ -337,7 +338,7 @@ async def create_valid_run(
         multitask_strategy=multitask_strategy,
         prevent_insert_if_inflight=prevent_insert_if_inflight,
         after_seconds=after_seconds,
-        if_not_exists=payload.get("if_not_exists", "reject"),
+        if_not_exists=if_not_exists,
     )
     run_ = await run_coro
 
@@ -364,7 +365,7 @@ async def create_valid_run(
             stream_mode=stream_mode,
             temporary=temporary,
             after_seconds=after_seconds,
-            if_not_exists=payload.get("if_not_exists", "reject"),
+            if_not_exists=if_not_exists,
             run_create_ms=(
                 int(time.time() * 1_000) - request_start_time
                 if request_start_time

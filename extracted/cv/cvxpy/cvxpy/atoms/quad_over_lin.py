@@ -27,8 +27,7 @@ from cvxpy.expressions.constants.parameter import is_param_free
 
 
 class quad_over_lin(Atom):
-    """ :math:`(sum_{ij}X^2_{ij})/y`
-
+    """:math:`(sum_{ij}X^2_{ij})/y`
     """
     _allow_complex = True
 
@@ -71,10 +70,10 @@ class quad_over_lin(Atom):
             else:
                 Dy = -np.square(X).sum()/np.square(y)
 
-            Dy = sp.csc_matrix(Dy)
+            Dy = sp.csc_array([[Dy]])
             DX = 2.0*X/y
             DX = np.reshape(DX, (self.args[0].size, 1))
-            DX = scipy.sparse.csc_matrix(DX)
+            DX = scipy.sparse.csc_array(DX)
             return [DX, Dy]
 
     def shape_from_args(self) -> Tuple[int, ...]:

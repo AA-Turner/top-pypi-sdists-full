@@ -9,8 +9,21 @@ from simple_parsing import parse
 from dataclasses import dataclass
 from contextlib import contextmanager
 from pathlib import Path
+from functools import wraps
 
 JSON_PATH = str(Path(__file__).parent / "distributions.json")
+
+def cg_method(cmd_type, can_create_key):
+    """Decorator for command-generator methods that sets required attributes."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+        
+        setattr(wrapper, 'type', cmd_type)
+        setattr(wrapper, 'can_create_key', can_create_key)
+        return wrapper
+    return decorator
 
 @contextmanager
 def exception_wrapper():
@@ -65,7 +78,7 @@ class BaseGen():
     logfile: str = None  # Optional log file path to write debug information to
     maxmemory_bytes: int = None  # Override INFO's maxmemory (useful when unavailable, for e.g. in cluster mode)
     print_prefix: str = "COMMAND GENERATOR: "
-    identical_values_across_hosts: bool = False  # Flag to control if values should be identical across hosts
+    identical_values_across_hosts: bool = False  # Generate identical commands across connections, or allow value conflicts
     
     ttl_low: int = 15
     ttl_high: int = 300
@@ -73,12 +86,18 @@ class BaseGen():
     ########################################
     ######## Internal use methods ##########
     ########################################
+    
+    UNSCANNABLE_TYPES = ["hll", "bit", "geo"]
 
     def _rand_str(self, str_size: int) -> str:
         return "".join(random.choices(string.ascii_letters + string.digits, k = str_size))
     
-    def _rand_key(self) -> str:
-        return self.def_key_pref + self._rand_str(self.def_key_size)
+    def _rand_key(self, type: str) -> str:
+        prefix = self.def_key_pref
+        # The following types can't be directly scanned, so we must add a prefix to distinguish them
+        prefix += f"{type}:" if type in self.UNSCANNABLE_TYPES else ""
+        
+        return prefix + self._rand_str(self.def_key_size)
     
     def _scan_rand_key(self, redis_obj: redis.Redis, type: str) -> str | None:
         if not hasattr(self, 'scan_cursors'):
@@ -91,7 +110,11 @@ class BaseGen():
         if type not in self.scan_cursors[conn]:
             self.scan_cursors[conn][type] = 0
 
-        cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], _type=type)
+        if type not in self.UNSCANNABLE_TYPES:
+            cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], _type=type)
+        else:
+            scan_match = f"{self.def_key_pref}{type}:*"
+            cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], match=scan_match)
         self.scan_cursors[conn][type] = cursor
         return random.choice(keys) if keys else None
     
@@ -167,27 +190,32 @@ class BaseGen():
                     if self._check_mem_cap(r):
                         return
                 
-                # Generate a single key for all hosts
-                key = self._rand_key()
+                key = None
+                should_expire = False  # Whether generated key should have a TTL
                 cmd_name = random.choices(list(self.distributions.keys()), weights=list(self.distributions.values()))[0]
                 cmd = getattr(self, cmd_name)
-
-                should_expire = False
-                if random.randint(0, 99) < self.expire_precentage:
-                    should_expire = True
-
-                # Set a common seed for all hosts if identical_values_across_hosts is True
-                if self.identical_values_across_hosts:
-                    # Use a deterministic seed based on the iteration and command
-                    seed = time.time()
-
-                if cmd_name in ['tsalter', 'tsdel', 'tsdelkey']:
-                    temp_obj = self._pipe_to_redis(redis_pipes[0])
-                    key = self._scan_rand_key(temp_obj, "TSDB-TYPE")
+                
+                # Generate a single key for all hosts. In case the command can add keys, we'd prefer to generate
+                # a new keyname to increase DBSIZE. Otherwise, we'd prefer to act upon an existing key
+                if cmd.can_create_key:
+                    key = self._rand_key(cmd.type)
+                    
+                    if random.randint(0, 99) < self.expire_precentage:
+                        should_expire = True
+                else:
+                    r = random.choice(rl)  # Randomly select a connection for scanning
+                    if cmd.type != "base":
+                        key = self._scan_rand_key(r, cmd.type)
+                    else:
+                        key = r.randomkey()
+                        
                     if not key:
-                        continue
-                elif cmd_name in ['tsadd', 'tscreate', 'tsqueryindex', 'tsmget', 'tsmrange_tsmrevrange']:
-                    key = self._rand_key()
+                        continue  # Skip if no key found, e.g. in case of empty DB or no keys of the requested type
+
+                # Generate command with common seed accross hosts if `identical_values_across_hosts`
+                if self.identical_values_across_hosts:
+                    seed = time.time()
+                
                 for pipe in redis_pipes:
                     if self.identical_values_across_hosts:
                         random.seed(seed)
@@ -228,22 +256,12 @@ class BaseGen():
     ######## Redis command methods #########
     ########################################
     
-    def expire(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = redis_obj.randomkey()
-        if not key: return
-        
+    @cg_method("base", False)
+    def expire(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.expire(key, random.randrange(self.ttl_low, self.ttl_high))
     
-    def persist(self, pipe: redis.client.Pipeline, key: str = None, replace_nonexist: bool = True) -> None:
-        redis_obj = self._pipe_to_redis(pipe)
-        
-        if key is None or (replace_nonexist and not redis_obj.exists(key)):
-            key = redis_obj.randomkey()
-        if not key: return
-        
+    @cg_method("base", False)
+    def persist(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.persist(key)
 
 if __name__ == "__main__":

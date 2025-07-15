@@ -1,4 +1,5 @@
 import sys
+import threading
 from typing import Callable, List, Literal, Optional, Union
 
 import flask_sock
@@ -17,14 +18,18 @@ from abstra_internals.utils import serialize
 
 class StdioController:
     listeners: List[flask_sock.Server] = []
+    _lock = threading.Lock()
 
     @classmethod
     def register(cls, listener: flask_sock.Server):
-        cls.listeners.append(listener)
+        with cls._lock:
+            cls.listeners.append(listener)
 
     @classmethod
     def unregister(cls, listener: flask_sock.Server):
-        cls.listeners.remove(listener)
+        with cls._lock:
+            if listener in cls.listeners:
+                cls.listeners.remove(listener)
 
     @classmethod
     def broadcast(
@@ -99,12 +104,8 @@ class StdioController:
         if not execution:
             return
 
-        self.execution_logs_repository.insert_stdio(execution.id, std_type, text)
-        self.broadcast(
-            type=std_type,
-            log=text,
-            execution_id=execution.id,
-            stage_id=execution.stage_id,
+        self.execution_logs_repository.insert_stdio(
+            execution.id, execution.stage_id, std_type, text
         )
 
     def mask(self, raw: str) -> str:

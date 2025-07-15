@@ -40,6 +40,7 @@ class StepFunctions(object):
         name,
         graph,
         flow,
+        code_package_metadata,
         code_package_sha,
         code_package_url,
         production_token,
@@ -59,6 +60,7 @@ class StepFunctions(object):
         self.name = name
         self.graph = graph
         self.flow = flow
+        self.code_package_metadata = code_package_metadata
         self.code_package_sha = code_package_sha
         self.code_package_url = code_package_url
         self.production_token = production_token
@@ -853,6 +855,7 @@ class StepFunctions(object):
                     node, input_paths, self.code_package_url, user_code_retries
                 ),
                 task_spec=task_spec,
+                code_package_metadata=self.code_package_metadata,
                 code_package_sha=self.code_package_sha,
                 code_package_url=self.code_package_url,
                 code_package_ds=self.flow_datastore.TYPE,
@@ -913,7 +916,7 @@ class StepFunctions(object):
             "with": [
                 decorator.make_decorator_spec()
                 for decorator in node.decorators
-                if not decorator.statically_defined
+                if not decorator.statically_defined and decorator.inserted_by is None
             ]
         }
         # FlowDecorators can define their own top-level options. They are

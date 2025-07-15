@@ -12,6 +12,7 @@ import re
 # Attempt to initialize it using SparkSessionProxy for serverless
 try:
     from server_rest import SparkSessionProxy
+
     spark = SparkSessionProxy.get_instance()
 except Exception as e:
     print(f"Failed to initialize 'spark' instance. Error: {e}")
@@ -315,7 +316,7 @@ from pyspark.sql.types import (
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 import json
-import base64
+import base64 as base64_std
 
 try:
     import msgspec
@@ -410,7 +411,7 @@ class DataSampleLoader:
         elif isinstance(obj, UUID):
             return str(obj)
         elif isinstance(obj, (bytes, bytearray)):
-            return base64.b64encode(obj).decode("utf-8")
+            return base64_std.b64encode(obj).decode("utf-8")
         elif isinstance(obj, complex):
             return {"real": obj.real, "imag": obj.imag}
         elif isinstance(obj, (list, tuple)):
@@ -619,7 +620,7 @@ class DataSampleLoader:
             elif isinstance(field_type, IntegerType):
                 return int(value)
             elif isinstance(field_type, BinaryType):
-                base64.b64decode(value.encode("utf-8"))
+                base64_std.b64decode(value.encode("utf-8"))
             elif isinstance(field_type, ArrayType):
                 return [
                     cls._convert_to_schema_type(item, field_type.elementType)
@@ -748,21 +749,23 @@ class DataSampleLoader:
         exact JSON payload your code receives through the DBX Commands API.
         """
 
-        
-
         def to_ddl(dt: DataType) -> str:
             _valid_ident = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
             def quote_ident(name: str) -> str:
-                return name if _valid_ident.fullmatch(name) else f"`{name.replace('`', '``')}`"
-            
+                return (
+                    name
+                    if _valid_ident.fullmatch(name)
+                    else f"`{name.replace('`', '``')}`"
+                )
+
             if isinstance(dt, ArrayType):
                 return f"array<{to_ddl(dt.elementType)}>"
             if isinstance(dt, MapType):
                 return f"map<{to_ddl(dt.keyType)},{to_ddl(dt.valueType)}>"
             if isinstance(dt, StructType):
                 inner = ",".join(
-                    f"{quote_ident(f.name)}:{to_ddl(f.dataType)}"
-                    for f in dt.fields
+                    f"{quote_ident(f.name)}:{to_ddl(f.dataType)}" for f in dt.fields
                 )
                 return f"struct<{inner}>"
             return dt.simpleString()
@@ -793,9 +796,7 @@ class DataSampleLoader:
                 serialized = cls._json_serialize(display_res)
                 if isinstance(serialized, bytes):
                     serialized = serialized.decode("utf-8")
-                Path(OUTPUT_FILE).write_text(
-                    serialized, encoding="utf-8"
-                )
+                Path(OUTPUT_FILE).write_text(serialized, encoding="utf-8")
                 logging.info(
                     f"Successfully wrote display_res: {serialized} to {OUTPUT_FILE}"
                 )
@@ -864,7 +865,6 @@ class ComprehensiveJSONEncoder(json.JSONEncoder):
 
 
 def preprocess_data(obj):
-    import base64
     import math
     from decimal import Decimal
     from datetime import datetime, date, timedelta
@@ -891,7 +891,7 @@ def preprocess_data(obj):
     elif isinstance(obj, UUID):
         return str(obj)
     elif isinstance(obj, (bytes, bytearray)):
-        return base64.b64encode(obj).decode("utf-8")
+        return base64_std.b64encode(obj).decode("utf-8")
     elif isinstance(obj, complex):
         return {"real": obj.real, "imag": obj.imag}
     elif isinstance(obj, (list, tuple)):
@@ -1085,9 +1085,9 @@ class PyProphecy:
 
     @staticmethod
     def encode(s):
-        import gzip, base64
+        import gzip
 
-        return base64.encodebytes(gzip.compress(bytes(s, "utf-8"))).decode("utf-8")
+        return base64_std.encodebytes(gzip.compress(bytes(s, "utf-8"))).decode("utf-8")
 
     backticked_name_pattern = re.compile("`(.*?)`")
     simple_name_pattern = re.compile("([a-zA-Z][a-zA-Z_0-9]*)")
@@ -1407,7 +1407,7 @@ class PyProphecy:
 
     @staticmethod
     def fs_list(path: str):
-        import gzip, base64
+        import gzip
 
         def _get_entities(path):
             match = re.match(PyProphecy._dbfs_volume_pattern, path)
@@ -1457,7 +1457,9 @@ class PyProphecy:
                     for file_info in files_list
                 ]
             )
-        _out = base64.encodebytes(gzip.compress(bytes(listed, "utf-8"))).decode("utf-8")
+        _out = base64_std.encodebytes(gzip.compress(bytes(listed, "utf-8"))).decode(
+            "utf-8"
+        )
 
         def output_data():
             if len(_out) < 48000:

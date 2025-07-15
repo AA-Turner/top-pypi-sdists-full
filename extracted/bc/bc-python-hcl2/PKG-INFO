@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bc-python-hcl2
-Version: 0.4.2
+Version: 0.4.3
 Summary: A parser for HCL2
 Home-page: https://github.com/bridgecrewio/python-hcl2
 Author: bridgecrew

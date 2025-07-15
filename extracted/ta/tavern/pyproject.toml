@@ -21,7 +21,7 @@ keywords = ["testing", "pytest"]
 
 name = "tavern"
 description = "Simple testing of RESTful APIs"
-version = "2.15.0"
+version = "2.16.0"
 
 dependencies = [
     "PyYAML>=6.0.1,<7",
@@ -68,7 +68,7 @@ dev = [
     "Faker",
     "allure-pytest",
     "colorlog",
-    "flask>=2.2.3",
+    "flask>=3,<4",
     "fluent-logger",
     "itsdangerous",
     "coverage[toml]",
@@ -164,6 +164,10 @@ norecursedirs = [
     "example",
     "example/grpc/server"
 ]
+markers = [
+    "slow: A test marker to check if markers work with custom markers",
+    "xdist_group('group1'): A test marker to check if markers work with args",
+]
 
 [tool.ruff]
 target-version = "py310"
@@ -197,7 +201,7 @@ exclude = ["*_pb2.py", "*_pb2_grpc.py", "*_pb2.pyi"]
 docstring-code-format = true
 
 [tool.tbump.version]
-current = "2.15.0"
+current = "2.16.0"
 
 regex = '''
   (?P<major>\d+)

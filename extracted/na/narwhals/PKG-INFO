@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: narwhals
-Version: 1.46.0
+Version: 1.47.0
 Summary: Extremely lightweight compatibility layer between dataframe libraries
 Project-URL: Homepage, https://github.com/narwhals-dev/narwhals
 Project-URL: Documentation, https://narwhals-dev.github.io/narwhals/
@@ -32,7 +32,7 @@ Requires-Dist: pandas>=1.1.3; extra == 'pandas'
 Provides-Extra: polars
 Requires-Dist: polars>=0.20.4; extra == 'polars'
 Provides-Extra: pyarrow
-Requires-Dist: pyarrow>=11.0.0; extra == 'pyarrow'
+Requires-Dist: pyarrow>=13.0.0; extra == 'pyarrow'
 Provides-Extra: pyspark
 Requires-Dist: pyspark>=3.5.0; extra == 'pyspark'
 Provides-Extra: pyspark-connect
@@ -214,6 +214,7 @@ Join the party!
 - [altair](https://github.com/vega/altair/)
 - [bokeh](https://github.com/bokeh/bokeh)
 - [darts](https://github.com/unit8co/darts)
+- [formulaic](https://github.com/matthewwardrop/formulaic)
 - [hierarchicalforecast](https://github.com/Nixtla/hierarchicalforecast)
 - [marimo](https://github.com/marimo-team/marimo)
 - [metalearners](https://github.com/Quantco/metalearners)

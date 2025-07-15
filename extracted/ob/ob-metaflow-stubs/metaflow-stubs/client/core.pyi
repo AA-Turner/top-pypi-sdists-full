@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.521930                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.709285                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,11 +10,11 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import tarfile
-    import tempfile
     import datetime
-    import metaflow.client.core
     import typing
     import metaflow.events
+    import tempfile
+    import metaflow.client.core
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger
@@ -23,6 +23,7 @@ from ..exception import MetaflowInvalidPathspec as MetaflowInvalidPathspec
 from ..exception import MetaflowNamespaceMismatch as MetaflowNamespaceMismatch
 from ..exception import MetaflowNotFound as MetaflowNotFound
 from ..includefile import IncludedFile as IncludedFile
+from ..packaging_sys import ContentType as ContentType
 from .filecache import FileCache as FileCache
 
 TYPE_CHECKING: bool
@@ -36,8 +37,6 @@ ENVIRONMENTS: list
 METADATA_PROVIDERS: list
 
 CONTROL_TASK_TAG: str
-
-INFO_FILE: str
 
 class Metadata(tuple, metaclass=type):
     """

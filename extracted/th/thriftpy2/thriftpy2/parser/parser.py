@@ -8,6 +8,7 @@ IDL Ref:
 from __future__ import absolute_import
 
 import collections
+import itertools
 import os
 import threading
 import types
@@ -25,10 +26,12 @@ threadlocal = threading.local()
 
 
 def p_error(p):
+    thrift = threadlocal.thrift_stack[-1]
     if p is None:
-        raise ThriftGrammarError('Grammar error at EOF')
-    raise ThriftGrammarError('Grammar error %r at line %d' %
-                             (p.value, p.lineno))
+        raise ThriftGrammarError("Grammar error at EOF of the file '%s'" % thrift.__thrift_file__)
+
+    raise ThriftGrammarError("Grammar error %r at line %d of the file '%s'" %
+                             (p.value, p.lineno, thrift.__thrift_file__))
 
 
 def p_start(p):
@@ -62,7 +65,21 @@ def p_include(p):
     for include_dir in replace_include_dirs:
         path = os.path.join(include_dir, p[2])
         if os.path.exists(path):
-            child = parse(path)
+            thrift_file_name_module = os.path.basename(thrift.__thrift_file__)
+            if thrift_file_name_module.endswith(".thrift"):
+                thrift_file_name_module = thrift_file_name_module[:-7] + "_thrift"
+            module_prefix = str(thrift.__name__).rstrip(thrift_file_name_module)
+
+            child_rel_path = os.path.relpath(str(path), os.path.dirname(thrift.__thrift_file__))
+            child_module_name = str(child_rel_path).replace(os.sep, ".").replace(".thrift", "_thrift")
+            child_module_name = module_prefix + child_module_name
+
+            child = parse(path, module_name=child_module_name)
+            child_include_module_name = os.path.basename(path)
+            if child_include_module_name.endswith(".thrift"):
+                child_include_module_name = child_include_module_name[:-7]
+            setattr(child, '__name__', child_include_module_name)
+            setattr(child, '__thrift_module_name__', child_module_name)
             setattr(thrift, child.__name__, child)
             _add_thrift_meta('includes', child)
             return
@@ -334,6 +351,7 @@ def p_field_seq(p):
     '''field_seq : field sep field_seq
                  | field field_seq
                  |'''
+    threadlocal.field_seq_implicit_id = itertools.count(start=-1, step=-1)
     _parse_seq(p)
 
 
@@ -361,8 +379,12 @@ def p_field(p):
 
 
 def p_field_id(p):
-    '''field_id : INTCONSTANT ':' '''
-    p[0] = p[1]
+    '''field_id : INTCONSTANT ':'
+                |'''
+    if len(p) == 1:
+        p[0] = next(threadlocal.field_seq_implicit_id)
+    else:
+        p[0] = p[1]
 
 
 def p_field_req(p):
@@ -542,6 +564,7 @@ def parse(path, module_name=None, include_dirs=None, include_dir=None,
         threadlocal.include_dirs_ = ['.']
         threadlocal.thrift_cache = {}
         threadlocal.incomplete_type = CurrentIncompleteType()
+        threadlocal.field_seq_implicit_id = itertools.count(start=-1, step=-1)
         threadlocal.initialized = True
 
     # dead include checking on current stack
@@ -628,6 +651,7 @@ def parse_fp(source, module_name, lexer=None, parser=None, enable_cache=True):
         threadlocal.include_dirs_ = ['.']
         threadlocal.thrift_cache = {}
         threadlocal.incomplete_type = CurrentIncompleteType()
+        threadlocal.field_seq_implicit_id = itertools.count(start=-1, step=-1)
         threadlocal.initialized = True
 
     if not module_name.endswith('_thrift'):

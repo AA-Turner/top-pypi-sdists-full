@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: deltalake
-Version: 1.0.2
+Version: 1.1.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -12,13 +12,13 @@ Requires-Dist: pandas ; extra == 'pandas'
 Requires-Dist: pyarrow >=16 ; extra == 'pyarrow'
 Provides-Extra: pandas
 Provides-Extra: pyarrow
-License-File: deltalake_license.txt
+License-File: LICENSE.txt
 Summary: Native Delta Lake Python binding based on delta-rs with Pandas integration
 Keywords: deltalake,delta,datalake,pandas,arrow
 Home-Page: https://github.com/delta-io/delta-rs
 Author: Qingping Hou <dave2008713@gmail.com>, Will Jones <willjones127@gmail.com>
 Author-email: Qingping Hou <dave2008713@gmail.com>, Will Jones <willjones127@gmail.com>
-License: Apache-2.0
+License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: documentation, https://delta-io.github.io/delta-rs/

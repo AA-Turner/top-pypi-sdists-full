@@ -8,10 +8,12 @@ repository.workspace = true
 license.workspace = true
 readme = "README.md"
 
+[package.metadata.cargo-shear]
+ignored = ["textwrap"]  # Used in `toml_text_assert_eq` macro
+
 [dependencies]
 chrono.workspace = true
 dirs.workspace = true
-futures.workspace = true
 indexmap.workspace = true
 itertools.workspace = true
 serde.workspace = true
@@ -21,13 +23,11 @@ tokio.workspace = true
 tombi-ast.workspace = true
 tombi-config.workspace = true
 tombi-date-time.workspace = true
-tombi-diagnostic.workspace = true
 tombi-document.workspace = true
 tombi-document-tree.workspace = true
 tombi-formatter.workspace = true
 tombi-parser.workspace = true
 tombi-schema-store.workspace = true
-tombi-text.workspace = true
 tombi-toml-text.workspace = true
 tombi-toml-version.workspace = true
 tombi-url.workspace = true
@@ -36,7 +36,6 @@ typed-builder.workspace = true
 url.workspace = true
 
 [dev-dependencies]
-maplit.workspace = true
 pretty_assertions.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 tombi-test-lib.workspace = true

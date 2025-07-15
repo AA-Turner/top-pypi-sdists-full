@@ -5,8 +5,8 @@ class LEDArrayAnimationType:
 	ANIMATION_TYPE_FORWARD_SCROLL = 1
 	# Move the pattern in a decrementing direction
 	ANIMATION_TYPE_REVERSE_SCROLL = 2
-	# Randomize LED RGB values based on the specified array
-	ANIMATION_TYPE_POPCORN = 3
+	# Fades LEDs between colors in the supplied pattern, chosen at random.
+	ANIMATION_TYPE_RANDOMIZE = 3
 	# Flip the pattern and move it in a positively incrementing direction, starting from the animation end point
 	ANIMATION_TYPE_FORWARD_SCROLL_MIRROR = 4
 	# Flip the pattern and move it in a decrementing direction, starting from the animation end point
@@ -18,8 +18,8 @@ class LEDArrayAnimationType:
 			return "ANIMATION_TYPE_FORWARD_SCROLL"
 		if val == self.ANIMATION_TYPE_REVERSE_SCROLL:
 			return "ANIMATION_TYPE_REVERSE_SCROLL"
-		if val == self.ANIMATION_TYPE_POPCORN:
-			return "ANIMATION_TYPE_POPCORN"
+		if val == self.ANIMATION_TYPE_RANDOMIZE:
+			return "ANIMATION_TYPE_RANDOMIZE"
 		if val == self.ANIMATION_TYPE_FORWARD_SCROLL_MIRROR:
 			return "ANIMATION_TYPE_FORWARD_SCROLL_MIRROR"
 		if val == self.ANIMATION_TYPE_REVERSE_SCROLL_MIRROR:

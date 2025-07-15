@@ -24,6 +24,7 @@ from cvxpy.expressions.expression import Expression
 from cvxpy.reductions.solution import Solution, failure_solution
 from cvxpy.reductions.solvers import utilities
 from cvxpy.reductions.solvers.conic_solvers.conic_solver import ConicSolver
+from cvxpy.utilities.citations import CITATION_DICT
 
 
 def dims_to_solver_cones(cone_dims):
@@ -192,14 +193,14 @@ class CLARABEL(ConicSolver):
         val_arr = val_arr[np.nonzero(val_arr)]
 
         shape = (entries, rows*cols)
-        scaled_upper_tri = sp.csc_matrix((val_arr, (row_arr, col_arr)), shape)
+        scaled_upper_tri = sp.csc_array((val_arr, (row_arr, col_arr)), shape)
 
         idx = np.arange(rows * cols)
         val_symm = 0.5 * np.ones(2 * rows * cols)
         K = idx.reshape((rows, cols))
         row_symm = np.append(idx, np.ravel(K, order='F'))
         col_symm = np.append(idx, np.ravel(K.T, order='F'))
-        symm_matrix = sp.csc_matrix((val_symm, (row_symm, col_symm)))
+        symm_matrix = sp.csc_array((val_symm, (row_symm, col_symm)))
 
         return scaled_upper_tri @ symm_matrix
 
@@ -306,7 +307,7 @@ class CLARABEL(ConicSolver):
             P = data[s.P]
         else:
             nvars = q.size
-            P = sp.csc_matrix((nvars, nvars))
+            P = sp.csc_array((nvars, nvars))
 
         P = sp.triu(P).tocsc()
 
@@ -354,3 +355,13 @@ class CLARABEL(ConicSolver):
             solver_cache[self.name()] = solver
 
         return results
+    
+    def cite(self, data):
+        """Returns bibtex citation for the solver.
+
+        Parameters
+        ----------
+        data : dict
+            Data generated via an apply call.
+        """
+        return CITATION_DICT["CLARABEL"]

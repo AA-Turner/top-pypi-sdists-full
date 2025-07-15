@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.597494                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.790622                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -122,6 +122,9 @@ class PackageConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins
     """
     def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
         ...
+    ...
+
+def everything_is_string(*args):
     ...
 
 class BasicAppValidations(object, metaclass=type):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cxxheaderparser
-Version: 1.5.2
+Version: 1.5.4
 Summary: Parse C++ header files and generate a data structure representing the class
 Home-page: https://github.com/robotpy/cxxheaderparser
 Author: Dustin Spicuzza

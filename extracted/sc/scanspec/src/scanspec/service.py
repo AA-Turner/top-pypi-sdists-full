@@ -14,7 +14,7 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 
-from scanspec.core import AxesPoints, Frames, Path
+from scanspec.core import AxesPoints, Dimension, Path, stack2dimension
 
 from .specs import Line, Spec
 
@@ -258,7 +258,7 @@ def smallest_step(
 #
 
 
-def _to_chunk(request: PointsRequest) -> tuple[Frames[str], int]:
+def _to_chunk(request: PointsRequest) -> tuple[Dimension[str], int]:
     spec = Spec.deserialize(request.spec)
     dims = spec.calculate()  # Grab dimensions from spec
     path = Path(dims)  # Convert to a path
@@ -272,8 +272,11 @@ def _to_chunk(request: PointsRequest) -> tuple[Frames[str], int]:
     if max_frames and (max_frames < len(path)):
         # Cap the frames by the max limit
         path = _reduce_frames(dims, max_frames)
+
+    lengths = np.array([len(f) for f in path.stack])
+    indices = np.arange(0, int(np.prod(lengths)))
     # WARNING: path object is consumed after this statement
-    return path.consume(max_frames), total_frames
+    return stack2dimension(path.stack, indices, lengths), total_frames
 
 
 def _format_axes_points(
@@ -305,11 +308,11 @@ def _format_axes_points(
         raise KeyError(f"Unknown format: {format}")
 
 
-def _reduce_frames(stack: list[Frames[str]], max_frames: int) -> Path[str]:
+def _reduce_frames(stack: list[Dimension[str]], max_frames: int) -> Path[str]:
     """Removes frames from a spec so len(path) < max_frames.
 
     Args:
-        stack: A stack of Frames created by a spec
+        stack: A stack of Dimension created by a spec
         max_frames: The maximum number of frames the user wishes to be returned
 
     """
@@ -325,11 +328,11 @@ def _reduce_frames(stack: list[Frames[str]], max_frames: int) -> Path[str]:
     return Path(sub_frames)
 
 
-def _sub_sample(frames: Frames[str], ratio: float) -> Frames[str]:
-    """Provides a sub-sample Frames object whilst preserving its core structure.
+def _sub_sample(frames: Dimension[str], ratio: float) -> Dimension[str]:
+    """Provides a sub-sample Dimension object whilst preserving its core structure.
 
     Args:
-        frames: the Frames object to be reduced
+        frames: the Dimension object to be reduced
         ratio: the reduction ratio of the dimension
 
     """

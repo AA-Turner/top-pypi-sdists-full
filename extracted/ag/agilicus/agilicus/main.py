@@ -2538,6 +2538,7 @@ def get_token(ctx, **kwargs):
 @click.option("--scope", type=str, multiple=True)
 @click.option("--inherit-session", type=bool, default=False)
 @click.option("--create-refresh-token", is_flag=True)
+@click.option("--get-user", is_flag=True)
 @click.pass_context
 def create_token(
     ctx, user_id, org_id, role, duration, aud, scope, inherit_session, **kwargs

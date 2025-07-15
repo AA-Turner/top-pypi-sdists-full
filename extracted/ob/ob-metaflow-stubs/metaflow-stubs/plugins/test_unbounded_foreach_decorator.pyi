@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.545148                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.738110                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ class InternalTestUnboundedForeachInput(metaflow.unbounded_foreach.UnboundedFore
     ...
 
 class InternalTestUnboundedForeachDecorator(metaflow.decorators.StepDecorator, metaclass=type):
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def step_init(self, flow, graph, step_name, decorators, environment, flow_datastore, logger):
         ...

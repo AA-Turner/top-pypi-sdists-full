@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.15
+Version: 0.6.16
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
@@ -38,7 +38,7 @@ License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -64,12 +64,12 @@ Requires-Dist: black==25.1.0
 Requires-Dist: boto3==1.35.53
 Requires-Dist: chromadb==0.6.3
 Requires-Dist: colbert-ai==0.2.21
+Requires-Dist: cryptography
+Requires-Dist: ddgs==9.0.0
 Requires-Dist: docker~=7.1.0
 Requires-Dist: docx2txt==0.8
-Requires-Dist: duckduckgo-search==8.0.2
 Requires-Dist: einops==0.8.1
 Requires-Dist: elasticsearch==9.0.1
-Requires-Dist: extract-msg
 Requires-Dist: fake-useragent==2.1.0
 Requires-Dist: fastapi==0.115.7
 Requires-Dist: faster-whisper==1.1.1
@@ -84,8 +84,9 @@ Requires-Dist: google-cloud-storage==2.19.0
 Requires-Dist: google-genai==1.15.0
 Requires-Dist: google-generativeai==0.8.5
 Requires-Dist: googleapis-common-protos==1.63.2
-Requires-Dist: langchain-community==0.3.23
-Requires-Dist: langchain==0.3.24
+Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
+Requires-Dist: langchain-community==0.3.26
+Requires-Dist: langchain==0.3.26
 Requires-Dist: langfuse==2.44.0
 Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
@@ -107,7 +108,8 @@ Requires-Dist: pinecone==6.0.2
 Requires-Dist: playwright==1.49.1
 Requires-Dist: psutil
 Requires-Dist: psycopg2-binary==2.9.9
-Requires-Dist: pydantic==2.10.6
+Requires-Dist: pycrdt==0.12.25
+Requires-Dist: pydantic==2.11.7
 Requires-Dist: pydub
 Requires-Dist: pyjwt[crypto]==2.10.1
 Requires-Dist: pymdown-extensions==10.14.2
@@ -124,7 +126,7 @@ Requires-Dist: python-pptx==1.0.2
 Requires-Dist: python-socketio==5.13.0
 Requires-Dist: pytube==15.0.0
 Requires-Dist: pyxlsb==1.0.10
-Requires-Dist: qdrant-client~=1.12.0
+Requires-Dist: qdrant-client==1.14.3
 Requires-Dist: rank-bm25==0.2.2
 Requires-Dist: rapidocr-onnxruntime==1.4.4
 Requires-Dist: redis
@@ -158,6 +160,8 @@ Description-Content-Type: text/markdown
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/tjbck)
 
 **Open WebUI is an [extensible](https://docs.openwebui.com/features/plugin/), feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with **built-in inference engine** for RAG, making it a **powerful AI deployment solution**.
+
+Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
 
 ![Open WebUI Demo](./demo.gif)
 
@@ -221,16 +225,6 @@ Want to learn more about Open WebUI's features? Check out our [Open WebUI docume
     </td>
     <td>
       <a href="https://n8n.io/">n8n</a> • Does your interface have a backend yet?<br>Try <a href="https://n8n.io/">n8n</a>
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <a href="https://warp.dev/open-webui" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/warp.png" alt="Warp" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://warp.dev/open-webui">Warp</a> • The intelligent terminal for developers
     </td>
   </tr>
   <tr>

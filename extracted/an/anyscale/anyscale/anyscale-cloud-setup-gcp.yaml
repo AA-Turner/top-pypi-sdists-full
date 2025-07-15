@@ -20,22 +20,6 @@ resources:
     parentId: projects/${PROJECT_ID}/regions/${REGION}
     name: firewall-policy-${CLOUD_ID}
     description: "firewall policy for Anyscale cloud ${CLOUD_ID}"
-- name: filestore-${CLOUD_ID}
-  type: gcp-types/file-v1beta1:projects.locations.instances
-  properties:
-    instanceId: filestore-${CLOUD_ID}
-    parent: projects/${PROJECT_ID}/locations/${REGION}-${ZONE}
-    tier: STANDARD
-    networks:
-      - network: projects/${PROJECT_ID}/global/networks/$$(ref.vpc-${CLOUD_ID}.name)
-    fileShares:
-      - name: anyscale_vol
-        capacityGb: ${FILESHARE_CAPACITY_GB}
-    labels:
-      anyscale-cloud-id: ${CLOUD_ID_UNDERSCORE}
-  metadata:
-    dependsOn:
-      - vpc-${CLOUD_ID}
 - name: storage-bucket-${CLOUD_ID}
   type: storage.v1.bucket
   properties:

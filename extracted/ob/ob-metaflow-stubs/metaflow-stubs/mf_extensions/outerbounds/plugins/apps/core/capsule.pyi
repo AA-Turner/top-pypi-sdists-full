@@ -1,17 +1,17 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.561256                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.753553                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import typing
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
 
 from .utils import TODOException as TODOException
 from .utils import safe_requests_wrapper as safe_requests_wrapper
@@ -23,6 +23,7 @@ from ._state_machine import CapsuleWorkerSemanticStatus as CapsuleWorkerSemantic
 from ._state_machine import WorkerStatus as WorkerStatus
 from ._state_machine import CapsuleStatus as CapsuleStatus
 from ._state_machine import DEPLOYMENT_READY_CONDITIONS as DEPLOYMENT_READY_CONDITIONS
+from ._state_machine import LogLine as LogLine
 
 CAPSULE_DEBUG: bool
 
@@ -167,7 +168,9 @@ class CapsuleApi(object, metaclass=type):
         ...
     def get_workers(self, capsule_id: str) -> typing.List[typing.Dict[str, typing.Any]]:
         ...
-    def logs(self, capsule_id: str, worker_id: str, previous: bool = False) -> typing.List[str]:
+    def logs(self, capsule_id: str, worker_id: str, previous: bool = False) -> typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.LogLine]:
+        ...
+    def patch(self, capsule_id: str, patch_input: dict):
         ...
     ...
 

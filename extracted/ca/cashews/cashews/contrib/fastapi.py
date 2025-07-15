@@ -119,7 +119,7 @@ def _get_max_age(cache_control_value: str) -> int | None:
     for cc_value_item in cache_control_value.split(","):
         cc_value_item = cc_value_item.strip()
         try:
-            key, value = cc_value_item.split("=")
+            key, value = cc_value_item.split("=", maxsplit=1)
             if key == _MAX_AGE[:-1]:
                 return int(value)
         except (ValueError, TypeError):
@@ -154,7 +154,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
                 _data = None
             else:
                 _key = calls[0][0]
-                _data = calls[0][1][0]["value"]
+                _data = calls[0][1]["value"]
             _etag = await self._set_etag(_key, _data)
             return self._response_etag(response, _etag, request_etag)
 
@@ -192,7 +192,7 @@ def _get_etag(cached_data: Any) -> str:
 
 
 def _is_early_cache(data: Any) -> bool:
-    return isinstance(data, list) and isinstance(data[0], datetime)
+    return bool(isinstance(data, list) and data and isinstance(data[0], datetime))
 
 
 class CacheDeleteMiddleware(BaseHTTPMiddleware):

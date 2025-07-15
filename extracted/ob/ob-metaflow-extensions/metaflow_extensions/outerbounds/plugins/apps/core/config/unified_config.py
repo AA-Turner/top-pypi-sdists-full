@@ -527,6 +527,10 @@ class PackageConfig(metaclass=ConfigMeta):
     )
 
 
+def everything_is_string(*args):
+    return all(isinstance(arg, str) for arg in args)
+
+
 class BasicAppValidations:
     @staticmethod
     def name(name):
@@ -534,7 +538,7 @@ class BasicAppValidations:
             return True
         regex = r"^[a-z0-9-]+$"  # Only allow lowercase letters, numbers, and hyphens
         validator = BasicValidations(CoreConfig, "name")
-        return validator.length_validation(20, name) and validator.regex_validation(
+        return validator.length_validation(15, name) and validator.regex_validation(
             regex, name
         )
 
@@ -548,12 +552,19 @@ class BasicAppValidations:
     def tags(tags):
         if tags is None:
             return True
-        if not all(isinstance(tag, dict) and len(tag) == 1 for tag in tags):
+        if not all(
+            isinstance(tag, dict)
+            and len(tag) == 1
+            and all(
+                [everything_is_string(*tag.keys()), everything_is_string(*tag.values())]
+            )
+            for tag in tags
+        ):
             raise ConfigValidationFailedException(
                 field_name="tags",
                 field_info=CoreConfig._get_field(CoreConfig, "tags"),  # type: ignore
                 current_value=tags,
-                message="Tags must be a list of dictionaries with one key. Currently they are set to %s "
+                message="Tags must be a list of dictionaries with one key and the value must be a string. Currently they are set to %s "
                 % (str(tags)),
             )
         return True

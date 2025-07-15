@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.581139                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.771264                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -12,10 +12,7 @@ if typing.TYPE_CHECKING:
     import metaflow.decorators
 
 from ...metadata_provider.metadata import MetaDatum as MetaDatum
-
-EXT_PKG: str
-
-INFO_FILE: str
+from ...packaging_sys import ContentType as ContentType
 
 class CondaStepDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     """
@@ -39,7 +36,7 @@ class CondaStepDecorator(metaflow.decorators.StepDecorator, metaclass=type):
     disabled : bool, default False
         If set to True, disables @conda.
     """
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def init(self):
         ...
@@ -79,7 +76,7 @@ class CondaFlowDecorator(metaflow.decorators.FlowDecorator, metaclass=type):
     disabled : bool, default False
         If set to True, disables Conda.
     """
-    def __init__(self, attributes = None, statically_defined = False):
+    def __init__(self, attributes = None, statically_defined = False, inserted_by = None):
         ...
     def init(self):
         ...

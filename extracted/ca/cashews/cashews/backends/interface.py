@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, 
 
 from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
+from cashews.serialize import Serializer
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import Default, Key, OnRemoveCallback, Value
@@ -145,7 +146,9 @@ class _BackendInterface(metaclass=ABCMeta):
     async def unlock(self, key: Key, value: Value) -> bool: ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float, wait: bool = True) -> AsyncGenerator[None, None]:
+    async def lock(
+        self, key: Key, expire: float, wait: bool = True, check_interval: float = 0
+    ) -> AsyncGenerator[None, None]:
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)
@@ -162,7 +165,7 @@ class _BackendInterface(metaclass=ABCMeta):
                     return
 
                 if wait:
-                    await asyncio.sleep(0)
+                    await asyncio.sleep(check_interval)
                     continue
                 raise LockedError(f"Key {key} is already locked")
             try:
@@ -226,8 +229,10 @@ class ControlMixin:
 
 
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, serializer: Serializer | None = None, **kwargs) -> None:
         super().__init__()
+        self._id = uuid.uuid4().hex
+        self._serializer = serializer
         self._on_remove_callbacks: list[OnRemoveCallback] = []
 
     def on_remove_callback(self, callback: OnRemoveCallback) -> None:

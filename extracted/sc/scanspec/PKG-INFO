@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scanspec
-Version: 0.7.8
+Version: 0.8.0
 Summary: Specify step and flyscan paths in a serializable, efficient and Pythonic way
 Author-email: Tom Cobb <tom.cobb@diamond.ac.uk>
 License:                                  Apache License
@@ -243,6 +243,7 @@ Requires-Dist: sphinx-design; extra == "dev"
 Requires-Dist: sphinxcontrib-openapi; extra == "dev"
 Requires-Dist: tox-direct; extra == "dev"
 Requires-Dist: types-mock; extra == "dev"
+Dynamic: license-file
 
 <img src="https://raw.githubusercontent.com/bluesky/scanspec/main/docs/images/scanspec-logo.svg"
      style="background: none" width="120px" height="120px" align="right">

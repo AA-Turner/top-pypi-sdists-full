@@ -13,13 +13,14 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Reservation(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "region", "accelerator_type", "reserved_count", "start_time", "end_time", "contract", "update_time")
+    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "region", "multi_region", "accelerator_type", "reserved_count", "start_time", "end_time", "contract", "update_time")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
+    MULTI_REGION_FIELD_NUMBER: _ClassVar[int]
     ACCELERATOR_TYPE_FIELD_NUMBER: _ClassVar[int]
     RESERVED_COUNT_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -32,13 +33,14 @@ class Reservation(_message.Message):
     create_time: _timestamp_pb2.Timestamp
     created_by: str
     region: _deployment_pb2.Region
+    multi_region: _deployment_pb2.MultiRegion
     accelerator_type: _deployment_pb2.AcceleratorType
     reserved_count: int
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     contract: str
     update_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., reserved_count: _Optional[int] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., contract: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., multi_region: _Optional[_Union[_deployment_pb2.MultiRegion, str]] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., reserved_count: _Optional[int] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., contract: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class GetReservationRequest(_message.Message):
     __slots__ = ("name", "read_mask")

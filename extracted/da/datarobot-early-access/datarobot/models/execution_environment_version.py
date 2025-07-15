@@ -11,13 +11,11 @@
 # Released under the terms of DataRobot Tool and Utility Agreement.
 from __future__ import annotations
 
-from io import BufferedReader
 import os
 import shutil
 import tempfile
-from tempfile import _TemporaryFileWrapper
 import time
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple
 
 import trafaret as t
 
@@ -29,14 +27,20 @@ from datarobot.utils.pagination import unpaginate
 
 
 class ExecutionEnvironmentVersionType(TypedDict):
+    """
+    Class to define ExecutionEnvironmentVersion type.
+    """
+
     id: str
     environment_id: str
     build_status: str
+    image_id: str
     label: Optional[str]
     description: Optional[str]
     created_at: Optional[str]
     docker_context_size: Optional[int]
     docker_image_size: Optional[int]
+    docker_image_uri: Optional[str]
 
 
 class ExecutionEnvironmentVersion(APIObject):
@@ -52,6 +56,8 @@ class ExecutionEnvironmentVersion(APIObject):
         the id of the execution environment the version belongs to
     build_status: str
         the status of the execution environment version build
+    image_id: str
+        The Docker image ID of the environment version.
     label: Optional[str]
         the label of the execution environment version
     description: Optional[str]
@@ -62,6 +68,9 @@ class ExecutionEnvironmentVersion(APIObject):
         The size of the uploaded Docker context in bytes if available or None if not
     docker_image_size: Optional[int]
         The size of the built Docker image in bytes if available or None if not
+    docker_image_uri: Optional[str]
+        The URI that the source Docker image execution environment version is based on.
+        Set to None if there is not one provided.
     """
 
     _path = "executionEnvironments/{}/versions/"
@@ -70,6 +79,7 @@ class ExecutionEnvironmentVersion(APIObject):
             t.Key("id"): String(),
             t.Key("environment_id"): String(),
             t.Key("build_status"): String(),
+            t.Key("image_id"): String(),
             t.Key("label", optional=True): t.Or(String(max_length=50, allow_blank=True), t.Null()),
             t.Key("description", optional=True): t.Or(
                 String(max_length=10000, allow_blank=True), t.Null()
@@ -77,6 +87,8 @@ class ExecutionEnvironmentVersion(APIObject):
             t.Key("created", optional=True) >> "created_at": String(),
             t.Key("docker_context_size", optional=True): t.Or(Int(), t.Null()),
             t.Key("docker_image_size", optional=True): t.Or(Int(), t.Null()),
+            t.Key("source_docker_image_uri", optional=True)
+            >> "docker_image_uri": t.Or(String(allow_blank=True), t.Null()),
         }
     ).ignore_extra("*")
 
@@ -93,26 +105,31 @@ class ExecutionEnvironmentVersion(APIObject):
         id: str,
         environment_id: str,
         build_status: str,
+        image_id: str,
         label: Optional[str] = None,
         description: Optional[str] = None,
         created_at: Optional[str] = None,
         docker_context_size: Optional[int] = None,
         docker_image_size: Optional[int] = None,
+        docker_image_uri: Optional[str] = None,
     ) -> None:
         self.id = id
         self.environment_id = environment_id
         self.build_status = build_status
+        self.image_id = image_id
         self.label = label
         self.description = description
         self.created_at = created_at
         self.docker_context_size = docker_context_size
         self.docker_image_size = docker_image_size
+        self.docker_image_uri = docker_image_uri
 
     @classmethod
     def create(
         cls,
         execution_environment_id: str,
-        docker_context_path: str,
+        docker_context_path: Optional[str] = None,
+        docker_image_uri: Optional[str] = None,
         label: Optional[str] = None,
         description: Optional[str] = None,
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
@@ -125,10 +142,16 @@ class ExecutionEnvironmentVersion(APIObject):
         ----------
         execution_environment_id: str
             the id of the execution environment
-        docker_context_path: str
-            the path to a docker context archive or folder
+        docker_context_path: Optional[str]
+            The path to a Docker context archive or folder. This parameter has lower priority
+            than `docker_image_uri` if they are both provided.
+        docker_image_uri: Optional[str]
+            The `docker_image_uri` to be used as an environment.
+            It has priority over the `docker_context_path`. If both are provided,
+            the environment is created from `docker_image_uri`, and context is uploaded for
+            information purposes.
         label: Optional[str]
-            short human readable string to label the version
+            A human-readable string to label the version.
         description: Optional[str]
             execution environment version description
         max_wait: Optional[int]
@@ -149,43 +172,56 @@ class ExecutionEnvironmentVersion(APIObject):
         datarobot.errors.ServerError
             if the server responded with 5xx status
         """
-        docker_context_file: Union[_TemporaryFileWrapper[bytes], BufferedReader]
-        if os.path.isdir(docker_context_path):
-            docker_context_file = tempfile.NamedTemporaryFile(suffix=".zip")
-            shutil.make_archive(
-                os.path.splitext(docker_context_file.name)[0], "zip", docker_context_path
-            )
+
+        if not docker_context_path and not docker_image_uri:
+            raise ValueError("Either docker_context_path or docker_image_url must be provided.")
+
+        url = cls._path.format(execution_environment_id)
+        payload = {"label": label, "description": description}
+        if docker_image_uri:
+            payload["dockerImageUri"] = docker_image_uri
+
+        should_cleanup = False
+
+        if docker_context_path:
+            if os.path.isdir(docker_context_path):
+                with tempfile.NamedTemporaryFile(
+                    prefix="docker_context_", suffix=".zip"
+                ) as temp_zip_file:
+                    temp_zip_file_path = temp_zip_file.name
+                archive_base_name = os.path.splitext(temp_zip_file_path)[0]
+                archive_path = shutil.make_archive(archive_base_name, "zip", docker_context_path)
+                should_cleanup = True
+            else:
+                archive_path = docker_context_path
+
+            try:
+                with open(archive_path, "rb") as docker_context_file:
+                    response = cls._client.build_request_with_file(
+                        form_data=payload,
+                        fname=os.path.basename(archive_path),
+                        file_field_name="docker_context",
+                        filelike=docker_context_file,
+                        url=url,
+                        method="post",
+                    )
+            finally:
+                if should_cleanup and archive_path and os.path.exists(archive_path):
+                    os.remove(archive_path)
         else:
-            docker_context_file = open(  # pylint: disable=consider-using-with
-                docker_context_path, "rb"
-            )
+            response = cls._client.post(url, data=payload)
 
-        try:
-            url = cls._path.format(execution_environment_id)
+        version_id = response.json()["id"]
 
-            response = cls._client.build_request_with_file(
-                form_data={"label": label, "description": description},
-                fname="docker_context",
-                file_field_name="docker_context",
-                filelike=docker_context_file,
-                url=url,
-                method="post",
-            )
-
-            version_id = response.json()["id"]
-
-            if max_wait is None:
-                return cls.get(execution_environment_id, version_id)
-            return cls._await_final_build_status(execution_environment_id, version_id, max_wait)
-        finally:
-            docker_context_file.close()
+        if max_wait is None:
+            return cls.get(execution_environment_id, version_id)
+        return cls._await_final_build_status(execution_environment_id, version_id, max_wait)
 
     @classmethod
     def list(
         cls, execution_environment_id: str, build_status: Optional[str] = None
     ) -> List["ExecutionEnvironmentVersion"]:
         """List execution environment versions available to the user.
-
         .. versionadded:: v2.21
 
         Parameters

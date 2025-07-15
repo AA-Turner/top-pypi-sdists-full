@@ -424,7 +424,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // so that we can easily peek at and pop from the end.
         let mut rparams = params.items().iter().cloned().rev().collect::<Vec<_>>();
         let mut num_positional_params = 0;
-        let mut num_positional_args = 0;
+        let mut num_extra_positional_args = 0;
         let mut seen_names = SmallMap::new();
         let mut extra_arg_pos = None;
         let mut unpacked_vararg = None;
@@ -453,7 +453,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         for arg in iargs {
             let mut arg_pre = arg.pre_eval(self, arg_errors);
             while arg_pre.step() {
-                num_positional_args += 1;
                 let param = if let Some(p) = rparams.last() {
                     PosParam::new(p)
                 } else if let Some(var) = paramspec {
@@ -521,8 +520,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ),
                     None => {
                         arg_pre.post_infer(self, arg_errors);
-                        if arg_pre.is_star() {
-                            num_positional_args -= 1;
+                        if !arg_pre.is_star() {
+                            num_extra_positional_args += 1;
                         }
                         if extra_arg_pos.is_none() && !arg_pre.is_star() {
                             extra_arg_pos = Some(arg.range());
@@ -597,26 +596,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
         if let Some(arg_range) = extra_arg_pos {
-            let (expected, actual) = if self_arg.is_none() {
-                (
-                    count(num_positional_params as usize, "positional argument"),
-                    num_positional_args.to_string(),
-                )
-            } else if num_positional_params < 1 {
+            let (expected, actual) = if self_arg.is_some() && num_positional_params == 0 {
                 (
                     "0 positional arguments".to_owned(),
-                    format!("{} (including implicit `self`)", num_positional_args),
+                    format!("{num_extra_positional_args} (including implicit `self`)"),
                 )
             } else {
+                let num_positional_params = num_positional_params - (self_arg.is_some() as usize);
                 (
-                    count(num_positional_params as usize - 1, "positional argument"),
-                    (num_positional_args - 1).to_string(),
+                    count(num_positional_params, "positional argument"),
+                    (num_positional_params + num_extra_positional_args).to_string(),
                 )
             };
             error(
                 call_errors,
                 arg_range,
-                ErrorKind::BadArgumentType,
+                ErrorKind::BadArgumentCount,
                 format!("Expected {expected}, got {actual}"),
             );
         }
@@ -674,14 +669,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     call_errors,
                     range,
                     ErrorKind::UnexpectedKeyword,
-                    format!("Expected argument `{}` to be positional", name),
+                    format!("Expected argument `{name}` to be positional"),
                 );
             } else {
                 error(
                     call_errors,
                     range,
                     ErrorKind::UnexpectedKeyword,
-                    format!("Unexpected keyword argument `{}`", name),
+                    format!("Unexpected keyword argument `{name}`"),
                 );
             }
         };
@@ -698,7 +693,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     call_errors,
                                     kw.range,
                                     ErrorKind::BadKeywordArgument,
-                                    format!("Multiple values for argument `{}`", name),
+                                    format!("Multiple values for argument `{name}`"),
                                 );
                                 hint = Some(ty.clone());
                             } else if let Some((ty, required)) = kwparams.get(name) {
@@ -708,7 +703,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                         call_errors,
                                         kw.range,
                                         ErrorKind::MissingArgument,
-                                        format!("Expected key `{}` to be required", name),
+                                        format!("Expected key `{name}` to be required"),
                                     );
                                 }
                                 hint = Some(ty.clone())
@@ -857,7 +852,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         call_errors,
                         range,
                         ErrorKind::MissingArgument,
-                        format!("Missing argument `{}`", name),
+                        format!("Missing argument `{name}`"),
                     );
                 }
                 for (ty, range) in &splat_kwargs {

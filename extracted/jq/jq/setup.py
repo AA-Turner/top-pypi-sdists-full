@@ -27,8 +27,8 @@ def _read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
-jq_lib_tarball_path = _dep_source_path("jq-1.8.0.tar.gz")
-jq_lib_dir = _dep_build_path("jq-1.8.0")
+jq_lib_tarball_path = _dep_source_path("jq-1.8.1.tar.gz")
+jq_lib_dir = _dep_build_path("jq-1.8.1")
 
 class jq_with_deps_build_ext(build_ext):
     def finalize_options(self):
@@ -47,7 +47,6 @@ class jq_with_deps_build_ext(build_ext):
             tarball_path=jq_lib_tarball_path,
             lib_dir=jq_lib_dir,
             commands=[
-                ["patch", "-i", _dep_source_path("jq-1.8.0-Makefile.patch")],
                 ["./configure", "CFLAGS=-fPIC -pthread", "--disable-maintainer-mode", "--with-oniguruma=builtin"],
                 ["make"],
             ])
@@ -109,7 +108,7 @@ jq_extension = Extension(
 
 setup(
     name='jq',
-    version='1.9.1',
+    version='1.10.0',
     description='jq is a lightweight and flexible JSON processor.',
     long_description=_read("README.rst"),
     author='Michael Williamson',

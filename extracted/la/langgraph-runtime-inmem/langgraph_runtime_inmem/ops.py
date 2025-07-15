@@ -1066,6 +1066,16 @@ class Threads(Authenticated):
         return empty_iterator()
 
     @staticmethod
+    async def _delete_with_run(
+        conn: InMemConnectionProto,
+        thread_id: UUID,
+        run_id: UUID,
+    ) -> AsyncIterator[UUID]:
+        """Delete a thread by ID."""
+        # We don't really care about "optimal" here.
+        return await Threads.delete(conn, thread_id)
+
+    @staticmethod
     async def copy(
         conn: InMemConnectionProto,
         thread_id: UUID,

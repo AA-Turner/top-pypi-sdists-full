@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from copy import deepcopy
 import datetime
+from enum import Enum
 import ipaddress
 import json
 import logging
@@ -141,6 +142,13 @@ class AnyscaleJSONEncoder(json.JSONEncoder):
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
     return None if yes else click.confirm(msg, abort=True)
+
+
+class SharedStorageType(str, Enum):
+    """Enum for shared storage types."""
+
+    OBJECT_STORAGE = "object-storage"
+    NFS = "nfs"
 
 
 class AnyscaleEndpointFormatter:
@@ -842,6 +850,7 @@ def prepare_cloudformation_template(
     enable_head_node_fault_tolerance: bool,
     boto3_session: Optional[boto3.Session] = None,
     is_anyscale_hosted: bool = False,
+    shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
 ) -> str:
     if is_anyscale_hosted:
         with open(f"{anyscale.conf.ROOT_DIR_PATH}/anyscale-cloud-setup-oa.yaml") as f:
@@ -896,7 +905,7 @@ def prepare_cloudformation_template(
             f'{{"subnet_id": !Ref Subnet{i}, "availability_zone": !GetAtt Subnet{i}.AvailabilityZone}}'
         )
 
-        if not is_anyscale_hosted:
+        if not is_anyscale_hosted and shared_storage == SharedStorageType.NFS:
             efs_mount_targets.append(
                 f"""
   EFSMountTarget{i}:
@@ -918,6 +927,21 @@ def prepare_cloudformation_template(
     )
     if not is_anyscale_hosted:
         body = body.replace("$EFSMountTargets", "\n".join(efs_mount_targets))
+
+        # Only include EFS mount target output if mount targets are actually created
+        if efs_mount_targets and shared_storage == SharedStorageType.NFS:
+            efs_mount_target_output = """
+  EFSMountTargetIP:
+    Description: Anyscale managed EFS mount target
+    Value: !GetAtt
+      - EFSMountTarget0
+      - IpAddress"""
+            body = body.replace("$EFS_MOUNT_TARGET_OUTPUT", efs_mount_target_output)
+        else:
+            body = body.replace("$EFS_MOUNT_TARGET_OUTPUT", "")
+    else:
+        # For anyscale hosted, remove the EFS mount target output placeholder
+        body = body.replace("$EFS_MOUNT_TARGET_OUTPUT", "")
 
     iam_policy_parameters = [
         generate_inline_policy_parameter(policy) for policy in ANYSCALE_IAM_POLICIES

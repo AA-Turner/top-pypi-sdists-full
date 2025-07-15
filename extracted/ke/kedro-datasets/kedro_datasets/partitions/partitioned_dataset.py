@@ -14,13 +14,13 @@ from warnings import warn
 
 import fsspec
 from cachetools import Cache, cachedmethod
+from kedro.io.catalog_config_resolver import CREDENTIALS_KEY
 from kedro.io.core import (
     VERSION_KEY,
     AbstractDataset,
     DatasetError,
     parse_dataset_definition,
 )
-from kedro.io.data_catalog import CREDENTIALS_KEY
 
 KEY_PROPAGATION_WARNING = (
     "Top-level %(keys)s will not propagate into the %(target)s since "
@@ -48,34 +48,28 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
     underlying dataset definition. For filesystem level operations it uses `fsspec`:
     https://github.com/intake/filesystem_spec.
 
-    It also supports advanced features like
-    `lazy saving <https://docs.kedro.org/en/stable/data/\
-    kedro_io.html#partitioned-dataset-lazy-saving>`_.
+    It also supports advanced features like [lazy saving](https://docs.kedro.org/en/stable/data/kedro_io.html#partitioned-dataset-lazy-saving).
 
-    Example usage for the
-    `YAML API <https://docs.kedro.org/en/stable/data/\
-    data_catalog_yaml_examples.html>`_:
+    Examples:
+        Using the [YAML API](https://docs.kedro.org/en/stable/data/data_catalog_yaml_examples.html):
 
-    .. code-block:: yaml
+        ```yaml
 
         station_data:
           type: partitions.PartitionedDataset
           path: data/03_primary/station_data
           dataset:
-            type: pandas.CSVDataset
-            load_args:
-              sep: '\\t'
-            save_args:
-              sep: '\\t'
-              index: true
+          type: pandas.CSVDataset
+          load_args:
+            sep: '\\t'
+          save_args:
+            sep: '\\t'
+            index: true
           filename_suffix: '.dat'
           save_lazily: True
+        ```
 
-    Example usage for the
-    `Python API <https://docs.kedro.org/en/stable/data/\
-    advanced_data_catalog_usage.html>`_:
-
-    .. code-block:: pycon
+        Using the [Python API](https://docs.kedro.org/en/stable/data/advanced_data_catalog_usage.html):
 
         >>> import pandas as pd
         >>> from kedro_datasets.partitions import PartitionedDataset
@@ -111,10 +105,8 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
         >>> # Add the processing logic for individual partition HERE
         >>> # print(partition_data)
 
-    You can also load multiple partitions from a remote storage and combine them
-    like this:
-
-    .. code-block:: pycon
+        You can also load multiple partitions from a remote storage and combine them
+        like this:
 
         >>> import pandas as pd
         >>> from kedro_datasets.partitions import PartitionedDataset
@@ -204,7 +196,8 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
         Raises:
             DatasetError: If versioning is enabled for the underlying dataset.
         """
-        from fsspec.utils import infer_storage_options  # for performance reasons
+        # for performance reasons
+        from fsspec.utils import infer_storage_options  # noqa: PLC0415
 
         super().__init__()
 
@@ -228,9 +221,9 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
             else:
                 self._dataset_config[CREDENTIALS_KEY] = deepcopy(credentials)
 
-        self._credentials = deepcopy(credentials) or {}
+        self._credentials = deepcopy(credentials or {})
 
-        self._fs_args = deepcopy(fs_args) or {}
+        self._fs_args = deepcopy(fs_args or {})
         if self._fs_args:
             if "fs_args" in self._dataset_config:
                 self._logger.warning(
@@ -247,7 +240,7 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
                 f"definition as it will be overwritten by partition path"
             )
 
-        self._load_args = deepcopy(load_args) or {}
+        self._load_args = deepcopy(load_args or {})
         self._sep = self._filesystem.sep
         # since some filesystem implementations may implement a global cache
         self._invalidate_caches()
@@ -294,14 +287,18 @@ class PartitionedDataset(AbstractDataset[dict[str, Any], dict[str, Callable[[], 
         return path
 
     def load(self) -> dict[str, Callable[[], Any]]:
+        self._invalidate_caches()  # Invalidate cache before listing partitions
+
         partitions = {}
 
-        for partition in self._list_partitions():
+        # The _list_partitions() call will now always perform a fresh scan
+        # because its cache was just cleared.
+        for partition_file_path in self._list_partitions():
             kwargs = deepcopy(self._dataset_config)
             # join the protocol back since PySpark may rely on it
-            kwargs[self._filepath_arg] = self._join_protocol(partition)
+            kwargs[self._filepath_arg] = self._join_protocol(partition_file_path)
             dataset = self._dataset_type(**kwargs)  # type: ignore
-            partition_id = self._path_to_partition(partition)
+            partition_id = self._path_to_partition(partition_file_path)
             partitions[partition_id] = dataset.load
 
         if not partitions:

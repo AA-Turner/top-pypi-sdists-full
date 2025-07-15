@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 import json
 import gzip
-import base64
+import base64 as base64_std
 import re
 from typing import Dict, Any
 
@@ -275,7 +275,7 @@ def compress(s: str) -> str:
     compressed_bytes = gzip.compress(string_bytes)
 
     # Encode to Base64
-    base64_bytes = base64.b64encode(compressed_bytes)
+    base64_bytes = base64_std.b64encode(compressed_bytes)
 
     # Convert back to string
     return base64_bytes.decode("ascii")

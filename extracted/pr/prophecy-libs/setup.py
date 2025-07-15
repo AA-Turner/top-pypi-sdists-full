@@ -2,9 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="prophecy-libs",
-    version="2.0.6",
+    version="2.0.8",
     url="https://github.com/SimpleDataLabsInc/prophecy-python-libs",
     packages=find_packages(exclude=["test.*", "test"]),
+    package_data={
+        "prophecy": ["dbxsless/requirements.dbxserverless_sandbox.txt"],
+    },
+    include_package_data=True,
     description="Helper library for prophecy generated code",
     long_description=open("README.md").read(),
     install_requires=[

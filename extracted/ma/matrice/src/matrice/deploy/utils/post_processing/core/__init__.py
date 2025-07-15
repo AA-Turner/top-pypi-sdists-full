@@ -15,6 +15,7 @@ from ..usecases.ppe_compliance import PPEComplianceUseCase, PPEComplianceConfig
 from ..usecases.vehicle_monitoring import VehicleMonitoringConfig, VehicleMonitoringUseCase
 from ..usecases.fire_detection import FireSmokeConfig, FireSmokeUseCase
 from ..usecases.flare_analysis import FlareAnalysisConfig,FlareAnalysisUseCase
+from ..usecases.pothole_segmentation import PotholeConfig, PotholeSegmentationUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -26,8 +27,10 @@ __all__ = [
     'PPEComplianceUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
+    'PotholeSegmentationUseCase',
     'FlareAnalysisUseCase',
     'PeopleCountingConfig',
+    'PotholeConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',
     'PPEComplianceConfig',

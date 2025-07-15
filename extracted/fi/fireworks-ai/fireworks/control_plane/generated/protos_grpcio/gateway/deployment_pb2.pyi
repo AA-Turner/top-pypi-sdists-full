@@ -155,7 +155,7 @@ SERVERLESS_TOKENS_GENERATED_LIMIT_PER_ACCOUNT: Metrics
 SERVERLESS_TOKENS_GENERATED_RATE_MIRROR_PER_ACCOUNT: Metrics
 
 class Deployment(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "expire_time", "purge_time", "delete_time", "created_by", "state", "status", "annotations", "min_replica_count", "max_replica_count", "replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "precision", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "cluster", "enable_addons", "live_merge", "draft_token_count", "draft_model", "ngram_speculation_length", "max_peft_batch_size", "kv_cache_memory_pct", "enable_session_affinity", "direct_route_api_keys", "image_tag", "num_peft_device_cached", "direct_route_type", "direct_route_handle", "deployment_template", "auto_tune", "placement", "region", "disable_accounting", "extra_args", "max_context_length", "extra_values", "engine", "update_time", "for_training", "disable_deployment_size_validation")
+    __slots__ = ("name", "display_name", "description", "create_time", "expire_time", "purge_time", "delete_time", "created_by", "state", "status", "annotations", "min_replica_count", "max_replica_count", "replica_count", "autoscaling_policy", "base_model", "accelerator_count", "accelerator_type", "precision", "world_size", "generator_count", "disaggregated_prefill_count", "disaggregated_prefill_world_size", "max_batch_size", "cluster", "enable_addons", "draft_token_count", "draft_model", "ngram_speculation_length", "max_peft_batch_size", "kv_cache_memory_pct", "enable_session_affinity", "direct_route_api_keys", "image_tag", "num_peft_device_cached", "direct_route_type", "direct_route_handle", "deployment_template", "auto_tune", "placement", "region", "disable_accounting", "extra_args", "max_context_length", "extra_values", "engine", "update_time", "for_training", "disable_deployment_size_validation")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Deployment.State]
@@ -186,7 +186,7 @@ class Deployment(_message.Message):
         FP8_MM_KV_ATTN_V2: _ClassVar[Deployment.Precision]
         NF4: _ClassVar[Deployment.Precision]
         FP4: _ClassVar[Deployment.Precision]
-        BFP16: _ClassVar[Deployment.Precision]
+        BF16: _ClassVar[Deployment.Precision]
     PRECISION_UNSPECIFIED: Deployment.Precision
     FP16: Deployment.Precision
     FP8: Deployment.Precision
@@ -199,7 +199,7 @@ class Deployment(_message.Message):
     FP8_MM_KV_ATTN_V2: Deployment.Precision
     NF4: Deployment.Precision
     FP4: Deployment.Precision
-    BFP16: Deployment.Precision
+    BF16: Deployment.Precision
     class Engine(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         ENGINE_UNSPECIFIED: _ClassVar[Deployment.Engine]
@@ -250,7 +250,6 @@ class Deployment(_message.Message):
     MAX_BATCH_SIZE_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     ENABLE_ADDONS_FIELD_NUMBER: _ClassVar[int]
-    LIVE_MERGE_FIELD_NUMBER: _ClassVar[int]
     DRAFT_TOKEN_COUNT_FIELD_NUMBER: _ClassVar[int]
     DRAFT_MODEL_FIELD_NUMBER: _ClassVar[int]
     NGRAM_SPECULATION_LENGTH_FIELD_NUMBER: _ClassVar[int]
@@ -300,7 +299,6 @@ class Deployment(_message.Message):
     max_batch_size: int
     cluster: str
     enable_addons: bool
-    live_merge: bool
     draft_token_count: int
     draft_model: str
     ngram_speculation_length: int
@@ -324,7 +322,7 @@ class Deployment(_message.Message):
     update_time: _timestamp_pb2.Timestamp
     for_training: bool
     disable_deployment_size_validation: bool
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., purge_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., delete_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Deployment.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[AcceleratorType, str]] = ..., precision: _Optional[_Union[Deployment.Precision, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., cluster: _Optional[str] = ..., enable_addons: bool = ..., live_merge: bool = ..., draft_token_count: _Optional[int] = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_session_affinity: bool = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., image_tag: _Optional[str] = ..., num_peft_device_cached: _Optional[int] = ..., direct_route_type: _Optional[_Union[DirectRouteType, str]] = ..., direct_route_handle: _Optional[str] = ..., deployment_template: _Optional[str] = ..., auto_tune: _Optional[_Union[AutoTune, _Mapping]] = ..., placement: _Optional[_Union[Placement, _Mapping]] = ..., region: _Optional[_Union[Region, str]] = ..., disable_accounting: bool = ..., extra_args: _Optional[_Iterable[str]] = ..., max_context_length: _Optional[int] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., engine: _Optional[_Union[Deployment.Engine, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., for_training: bool = ..., disable_deployment_size_validation: bool = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., purge_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., delete_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Deployment.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., annotations: _Optional[_Mapping[str, str]] = ..., min_replica_count: _Optional[int] = ..., max_replica_count: _Optional[int] = ..., replica_count: _Optional[int] = ..., autoscaling_policy: _Optional[_Union[AutoscalingPolicy, _Mapping]] = ..., base_model: _Optional[str] = ..., accelerator_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[AcceleratorType, str]] = ..., precision: _Optional[_Union[Deployment.Precision, str]] = ..., world_size: _Optional[int] = ..., generator_count: _Optional[int] = ..., disaggregated_prefill_count: _Optional[int] = ..., disaggregated_prefill_world_size: _Optional[int] = ..., max_batch_size: _Optional[int] = ..., cluster: _Optional[str] = ..., enable_addons: bool = ..., draft_token_count: _Optional[int] = ..., draft_model: _Optional[str] = ..., ngram_speculation_length: _Optional[int] = ..., max_peft_batch_size: _Optional[int] = ..., kv_cache_memory_pct: _Optional[int] = ..., enable_session_affinity: bool = ..., direct_route_api_keys: _Optional[_Iterable[str]] = ..., image_tag: _Optional[str] = ..., num_peft_device_cached: _Optional[int] = ..., direct_route_type: _Optional[_Union[DirectRouteType, str]] = ..., direct_route_handle: _Optional[str] = ..., deployment_template: _Optional[str] = ..., auto_tune: _Optional[_Union[AutoTune, _Mapping]] = ..., placement: _Optional[_Union[Placement, _Mapping]] = ..., region: _Optional[_Union[Region, str]] = ..., disable_accounting: bool = ..., extra_args: _Optional[_Iterable[str]] = ..., max_context_length: _Optional[int] = ..., extra_values: _Optional[_Mapping[str, str]] = ..., engine: _Optional[_Union[Deployment.Engine, str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., for_training: bool = ..., disable_deployment_size_validation: bool = ...) -> None: ...
 
 class Placement(_message.Message):
     __slots__ = ("region", "multi_region", "regions")

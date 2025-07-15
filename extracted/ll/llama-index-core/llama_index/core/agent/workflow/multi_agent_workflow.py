@@ -1,6 +1,10 @@
 from abc import ABCMeta
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union, cast
+import inspect
+import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union, Type, cast
+from pydantic import BaseModel
 
+from llama_index.core.agent.utils import generate_structured_response
 from llama_index.core.agent.workflow.base_agent import (
     BaseWorkflowAgent,
     DEFAULT_AGENT_NAME,
@@ -87,6 +91,10 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
         handoff_output_prompt: Optional[Union[str, BasePromptTemplate]] = None,
         state_prompt: Optional[Union[str, BasePromptTemplate]] = None,
         timeout: Optional[float] = None,
+        output_cls: Optional[Type[BaseModel]] = None,
+        structured_output_fn: Optional[
+            Callable[[List[ChatMessage]], Dict[str, Any]]
+        ] = None,
         **workflow_kwargs: Any,
     ):
         super().__init__(timeout=timeout, **workflow_kwargs)
@@ -153,6 +161,11 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
             ):
                 raise ValueError("State prompt must contain {state} and {msg}")
         self.state_prompt = state_prompt
+
+        self.output_cls = output_cls
+        self.structured_output_fn = structured_output_fn
+        if output_cls is not None and structured_output_fn is not None:
+            self.structured_output_fn = None
 
     def _get_prompts(self) -> PromptDictType:
         """Get prompts."""
@@ -402,7 +415,7 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
     @step
     async def parse_agent_output(
         self, ctx: Context, ev: AgentOutput
-    ) -> Union[StopEvent, ToolCall, None]:
+    ) -> Union[StopEvent, AgentInput, ToolCall, None]:
         max_iterations = await ctx.store.get(
             "max_iterations", default=DEFAULT_MAX_ITERATIONS
         )
@@ -416,16 +429,59 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
                 "increase the max iterations with `.run(.., max_iterations=...)`"
             )
 
+        memory: BaseMemory = await ctx.store.get("memory")
+
+        if ev.retry_messages:
+            # Retry with the given messages to let the LLM fix potential errors
+            history = await memory.aget()
+            user_msg_str = await ctx.store.get("user_msg_str")
+            agent_name: str = await ctx.store.get("current_agent_name")
+
+            return AgentInput(
+                input=[
+                    *history,
+                    ChatMessage(role="user", content=user_msg_str),
+                    *ev.retry_messages,
+                ],
+                current_agent_name=agent_name,
+            )
+
         if not ev.tool_calls:
             agent = self.agents[ev.current_agent_name]
-            memory: BaseMemory = await ctx.store.get("memory")
+            memory = await ctx.store.get("memory")
+            # important: messages should always be fetched after calling finalize, otherwise they do not contain the agent's response
             output = await agent.finalize(ctx, ev, memory)
+            messages = await memory.aget()
 
             cur_tool_calls: List[ToolCallResult] = await ctx.store.get(
                 "current_tool_calls", default=[]
             )
             output.tool_calls.extend(cur_tool_calls)  # type: ignore
             await ctx.store.set("current_tool_calls", [])
+
+            if self.structured_output_fn is not None:
+                try:
+                    if inspect.iscoroutinefunction(self.structured_output_fn):
+                        output.structured_response = await self.structured_output_fn(
+                            messages
+                        )
+                    else:
+                        output.structured_response = cast(
+                            Dict[str, Any], self.structured_output_fn(messages)
+                        )
+                except Exception as e:
+                    warnings.warn(
+                        f"There was a problem with the generation of the structured output: {e}"
+                    )
+            if self.output_cls is not None:
+                try:
+                    output.structured_response = await generate_structured_response(
+                        messages=messages, llm=agent.llm, output_cls=self.output_cls
+                    )
+                except Exception as e:
+                    warnings.warn(
+                        f"There was a problem with the generation of the structured output: {e}"
+                    )
 
             return StopEvent(result=output)
 

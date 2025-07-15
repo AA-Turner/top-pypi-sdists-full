@@ -31,7 +31,7 @@ from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mas
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12gateway/user.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdc\x04\n\x04User\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\'\n\nfirst_name\x18\t \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12&\n\tlast_name\x18\n \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12(\n\x0bstated_role\x18\x0b \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12\x36\n\x0b\x63reate_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x12\n\x04role\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\x12\"\n\x05\x65mail\x18\x04 \x01(\tB\x13\xe2\x41\x02\x02\x05\xb2\xf1\x04\nuser_email\x12)\n\x05state\x18\x06 \x01(\x0e\x32\x13.gateway.User.StateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\x07 \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12\x35\n\x0bupdate_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\"S\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x43REATING\x10\x01\x12\t\n\x05READY\x10\x02\x12\x0c\n\x08UPDATING\x10\x03\x12\x0c\n\x08\x44\x45LETING\x10\x04:Y\xea\x41I\n\x15\x61pi.fireworks.ai/User\x12#accounts/{AccountId}/users/{UserId}*\x05users2\x04user\x82\xf1\x04\t\n\x07\x41\x63\x63ount\"c\n\x11\x43reateUserRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12!\n\x04user\x18\x02 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x02\x12\x15\n\x07user_id\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\"Y\n\x0eGetUserRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xbe\x01\n\x10ListUsersRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"^\n\x11ListUsersResponse\x12\x1c\n\x05users\x18\x01 \x03(\x0b\x32\r.gateway.User\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"m\n\x11UpdateUserRequest\x12!\n\x04user\x18\x01 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x02\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\'\n\x11\x44\x65leteUserRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x12gateway/user.proto\x12\x07gateway\x1a\x15gateway/options.proto\x1a\x14gateway/status.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/api/visibility.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfc\x04\n\x04User\x12\x13\n\x04name\x18\x01 \x01(\tB\x05\xe2\x41\x02\x03\x05\x12\x1a\n\x0c\x64isplay_name\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\'\n\nfirst_name\x18\t \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12&\n\tlast_name\x18\n \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12(\n\x0bstated_role\x18\x0b \x01(\tB\x13\xe2\x41\x01\x01\xfa\xd2\xe4\x93\x02\t\x12\x07UI_ONLY\x12\x1e\n\x0fservice_account\x18\x0c \x01(\x08\x42\x05\xe2\x41\x02\x01\x05\x12\x36\n\x0b\x63reate_time\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x05\xe2\x41\x02\x03\x05\x12\x12\n\x04role\x18\x02 \x01(\tB\x04\xe2\x41\x01\x02\x12\"\n\x05\x65mail\x18\x04 \x01(\tB\x13\xe2\x41\x02\x01\x05\xb2\xf1\x04\nuser_email\x12)\n\x05state\x18\x06 \x01(\x0e\x32\x13.gateway.User.StateB\x05\xe2\x41\x02\x03\x05\x12&\n\x06status\x18\x07 \x01(\x0b\x32\x0f.gateway.StatusB\x05\xe2\x41\x02\x03\x05\x12\x35\n\x0bupdate_time\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampB\x04\xe2\x41\x01\x03\"S\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x43REATING\x10\x01\x12\t\n\x05READY\x10\x02\x12\x0c\n\x08UPDATING\x10\x03\x12\x0c\n\x08\x44\x45LETING\x10\x04:Y\xea\x41I\n\x15\x61pi.fireworks.ai/User\x12#accounts/{AccountId}/users/{UserId}*\x05users2\x04user\x82\xf1\x04\t\n\x07\x41\x63\x63ount\"c\n\x11\x43reateUserRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12!\n\x04user\x18\x02 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x02\x12\x15\n\x07user_id\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\"Y\n\x0eGetUserRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x33\n\tread_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\xbe\x01\n\x10ListUsersRequest\x12\x14\n\x06parent\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x12\x17\n\tpage_size\x18\x02 \x01(\x05\x42\x04\xe2\x41\x01\x01\x12\x18\n\npage_token\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x66ilter\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x08order_by\x18\x05 \x01(\tB\x04\xe2\x41\x01\x01\x12\x33\n\tread_mask\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"^\n\x11ListUsersResponse\x12\x1c\n\x05users\x18\x01 \x03(\x0b\x32\r.gateway.User\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\x12\x12\n\ntotal_size\x18\x03 \x01(\x05\"m\n\x11UpdateUserRequest\x12!\n\x04user\x18\x01 \x01(\x0b\x32\r.gateway.UserB\x04\xe2\x41\x01\x02\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xe2\x41\x01\x01\"\'\n\x11\x44\x65leteUserRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -49,12 +49,14 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_USER'].fields_by_name['last_name']._serialized_options = b'\342A\001\001\372\322\344\223\002\t\022\007UI_ONLY'
   _globals['_USER'].fields_by_name['stated_role']._loaded_options = None
   _globals['_USER'].fields_by_name['stated_role']._serialized_options = b'\342A\001\001\372\322\344\223\002\t\022\007UI_ONLY'
+  _globals['_USER'].fields_by_name['service_account']._loaded_options = None
+  _globals['_USER'].fields_by_name['service_account']._serialized_options = b'\342A\002\001\005'
   _globals['_USER'].fields_by_name['create_time']._loaded_options = None
   _globals['_USER'].fields_by_name['create_time']._serialized_options = b'\342A\002\003\005'
   _globals['_USER'].fields_by_name['role']._loaded_options = None
   _globals['_USER'].fields_by_name['role']._serialized_options = b'\342A\001\002'
   _globals['_USER'].fields_by_name['email']._loaded_options = None
-  _globals['_USER'].fields_by_name['email']._serialized_options = b'\342A\002\002\005\262\361\004\nuser_email'
+  _globals['_USER'].fields_by_name['email']._serialized_options = b'\342A\002\001\005\262\361\004\nuser_email'
   _globals['_USER'].fields_by_name['state']._loaded_options = None
   _globals['_USER'].fields_by_name['state']._serialized_options = b'\342A\002\003\005'
   _globals['_USER'].fields_by_name['status']._loaded_options = None
@@ -92,19 +94,19 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_DELETEUSERREQUEST'].fields_by_name['name']._loaded_options = None
   _globals['_DELETEUSERREQUEST'].fields_by_name['name']._serialized_options = b'\342A\001\002'
   _globals['_USER']._serialized_start=233
-  _globals['_USER']._serialized_end=837
-  _globals['_USER_STATE']._serialized_start=663
-  _globals['_USER_STATE']._serialized_end=746
-  _globals['_CREATEUSERREQUEST']._serialized_start=839
-  _globals['_CREATEUSERREQUEST']._serialized_end=938
-  _globals['_GETUSERREQUEST']._serialized_start=940
-  _globals['_GETUSERREQUEST']._serialized_end=1029
-  _globals['_LISTUSERSREQUEST']._serialized_start=1032
-  _globals['_LISTUSERSREQUEST']._serialized_end=1222
-  _globals['_LISTUSERSRESPONSE']._serialized_start=1224
-  _globals['_LISTUSERSRESPONSE']._serialized_end=1318
-  _globals['_UPDATEUSERREQUEST']._serialized_start=1320
-  _globals['_UPDATEUSERREQUEST']._serialized_end=1429
-  _globals['_DELETEUSERREQUEST']._serialized_start=1431
-  _globals['_DELETEUSERREQUEST']._serialized_end=1470
+  _globals['_USER']._serialized_end=869
+  _globals['_USER_STATE']._serialized_start=695
+  _globals['_USER_STATE']._serialized_end=778
+  _globals['_CREATEUSERREQUEST']._serialized_start=871
+  _globals['_CREATEUSERREQUEST']._serialized_end=970
+  _globals['_GETUSERREQUEST']._serialized_start=972
+  _globals['_GETUSERREQUEST']._serialized_end=1061
+  _globals['_LISTUSERSREQUEST']._serialized_start=1064
+  _globals['_LISTUSERSREQUEST']._serialized_end=1254
+  _globals['_LISTUSERSRESPONSE']._serialized_start=1256
+  _globals['_LISTUSERSRESPONSE']._serialized_end=1350
+  _globals['_UPDATEUSERREQUEST']._serialized_start=1352
+  _globals['_UPDATEUSERREQUEST']._serialized_end=1461
+  _globals['_DELETEUSERREQUEST']._serialized_start=1463
+  _globals['_DELETEUSERREQUEST']._serialized_end=1502
 # @@protoc_insertion_point(module_scope)

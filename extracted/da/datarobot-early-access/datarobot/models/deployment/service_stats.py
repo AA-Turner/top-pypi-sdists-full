@@ -200,14 +200,10 @@ class ServiceStatsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
 
     Attributes
     ----------
-    model_id : str
-        the model used to retrieve accuracy metric
     metric : str
         the service stat metric being retrieved
     buckets : dict
         how the service stat metric changes over time
-    summary : dict
-        summary for the service stat metric
     """
 
     _path = "deployments/{}/serviceStatsOverTime/"

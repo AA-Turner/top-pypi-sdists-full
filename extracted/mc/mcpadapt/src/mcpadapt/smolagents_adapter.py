@@ -4,22 +4,29 @@ SmolAgents do not support async tools, so this adapter will only work with the s
 context manager.
 
 Example Usage:
->>> with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentAdapter()) as tools:
+>>> with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentsAdapter()) as tools:
 >>>     print(tools)
 """
 
-import logging
+import base64
 import keyword
+import logging
 import re
-from typing import Any, Callable, Coroutine
+from io import BytesIO
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Union
 
 import jsonref  # type: ignore
 import mcp
 import smolagents  # type: ignore
+from smolagents.utils import _is_package_available  # type: ignore
 
 from mcpadapt.core import ToolAdapter
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import torch
+    from PIL.Image import Image as PILImage
 
 
 def _sanitize_function_name(name):
@@ -85,7 +92,9 @@ class SmolAgentsAdapter(ToolAdapter):
                 self.is_initialized = True
                 self.skip_forward_signature_validation = True
 
-            def forward(self, *args, **kwargs) -> str:
+            def forward(
+                self, *args, **kwargs
+            ) -> Union[str, "PILImage", "torch.Tensor"]:
                 if len(args) > 0:
                     if len(args) == 1 and isinstance(args[0], dict) and not kwargs:
                         mcp_output = func(args[0])
@@ -104,12 +113,35 @@ class SmolAgentsAdapter(ToolAdapter):
                         f"tool {self.name} returned multiple content, using the first one"
                     )
 
-                if not isinstance(mcp_output.content[0], mcp.types.TextContent):
-                    raise ValueError(
-                        f"tool {self.name} returned a non-text content: `{type(mcp_output.content[0])}`"
-                    )
+                content = mcp_output.content[0]
 
-                return mcp_output.content[0].text  # type: ignore
+                if isinstance(content, mcp.types.TextContent):
+                    return content.text
+
+                if isinstance(content, mcp.types.ImageContent):
+                    from PIL import Image
+
+                    image_data = base64.b64decode(content.data)
+                    image = Image.open(BytesIO(image_data))
+                    return image
+
+                if isinstance(content, mcp.types.AudioContent):
+                    if not _is_package_available("torchaudio"):
+                        raise ValueError(
+                            "Audio content requires the torchaudio package to be installed. "
+                            "Please install it with `uv add mcpadapt[smolagents,audio]`.",
+                        )
+                    else:
+                        import torchaudio  # type: ignore
+
+                        audio_data = base64.b64decode(content.data)
+                        audio_io = BytesIO(audio_data)
+                        audio_tensor, _ = torchaudio.load(audio_io)
+                        return audio_tensor
+
+                raise ValueError(
+                    f"tool {self.name} returned an unsupported content type: {type(content)}"
+                )
 
         # make sure jsonref are resolved
         input_schema = {
@@ -129,7 +161,7 @@ class SmolAgentsAdapter(ToolAdapter):
             name=mcp_tool.name,
             description=mcp_tool.description or "",
             inputs=input_schema["properties"],
-            output_type="string",
+            output_type="object",
         )
 
         return tool

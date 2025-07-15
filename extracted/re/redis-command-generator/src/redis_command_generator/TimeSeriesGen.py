@@ -4,7 +4,7 @@ import random
 import time
 from simple_parsing import parse
 from dataclasses import dataclass
-from redis_command_generator.BaseGen import BaseGen
+from redis_command_generator.BaseGen import BaseGen, cg_method
 
 @dataclass
 class TimeSeriesGen(BaseGen):
@@ -33,15 +33,12 @@ class TimeSeriesGen(BaseGen):
             "tsdelkey": False
         }
 
-    def tscreate(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: addition
-        key = "ts-" + key
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=True)
+    def tscreate(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.ts().create(key)
 
-    def tsadd(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: addition
-        key = "ts-" + key
-
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=True)
+    def tsadd(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Ensure key_timestamps exists
         if not hasattr(self, 'key_timestamps'):
             self.key_timestamps = {}
@@ -49,14 +46,12 @@ class TimeSeriesGen(BaseGen):
         # Pre-generate all timestamps and values
         timestamp = random.randint(0, 1000000)
         value = random.uniform(1, self.max_float)
-
         
         # Add all values to the time series
         pipe.ts().add(key=key, timestamp=timestamp, value=value, duplicate_policy="last")
 
-    def tsalter(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: alteration
-
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsalter(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Generate labels and retention
         label1 = random.choice(list(self.labels_dict.keys()))
         label2 = random.choice([l for l in self.labels_dict.keys() if l != label1])
@@ -71,14 +66,13 @@ class TimeSeriesGen(BaseGen):
 
         pipe.ts().alter(key, retention_msecs=retention, labels=labels)
 
-    def tsqueryindex(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: retrieval
-        # Generate a filter
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsqueryindex(self, pipe: redis.client.Pipeline, key: str) -> None:
         filter_expr = self._generate_filter()
         pipe.ts().queryindex(filter_expr)
 
-    def tsmget(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: retrieval
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsmget(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Generate filter and other parameters
         filter_expr = self._generate_filter()
         latest = random.choice([True, False])
@@ -87,8 +81,8 @@ class TimeSeriesGen(BaseGen):
         
         pipe.ts().mget(filters=filter_expr, latest=latest, with_labels=withlabels, select_labels=select_labels)
 
-    def tsmrange_tsmrevrange(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: range-query
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsmrange_tsmrevrange(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Generate parameters
         filter_expr = self._generate_filter()
         from_timestamp = random.randint(0, 500000)
@@ -111,12 +105,12 @@ class TimeSeriesGen(BaseGen):
                          bucket_size_msec=bucket_size_msec, count=count, with_labels=with_labels, filters=filter_expr,
                          groupby=group_by, latest=latest)
 
-    def tsdel(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: removal-value
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsdel(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.ts().delete(key, 0, int(1e12))
 
-    def tsdelkey(self, pipe: redis.client.Pipeline, key: str = None) -> None:
-        # Classification: removal-key
+    @cg_method(cmd_type="TSDB-TYPE", can_create_key=False)
+    def tsdelkey(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.delete(key)
 
     def _generate_filter(self):
@@ -147,7 +141,6 @@ class TimeSeriesGen(BaseGen):
                 filter.append(f"{filter_label2}{equal_filter_2}")
 
         return filter
-
 
 if __name__ == "__main__":
     ts_gen = parse(TimeSeriesGen)

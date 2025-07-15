@@ -58,16 +58,18 @@ class GetRlorTrainerJobRequest(_message.Message):
     def __init__(self, name: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
 
 class CreateRlorTrainerJobRequest(_message.Message):
-    __slots__ = ("parent", "rlor_trainer_job", "debug", "rlor_trainer_job_id")
+    __slots__ = ("parent", "rlor_trainer_job", "debug", "rlor_trainer_job_id", "skip_validations")
     PARENT_FIELD_NUMBER: _ClassVar[int]
     RLOR_TRAINER_JOB_FIELD_NUMBER: _ClassVar[int]
     DEBUG_FIELD_NUMBER: _ClassVar[int]
     RLOR_TRAINER_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    SKIP_VALIDATIONS_FIELD_NUMBER: _ClassVar[int]
     parent: str
     rlor_trainer_job: RlorTrainerJob
     debug: bool
     rlor_trainer_job_id: str
-    def __init__(self, parent: _Optional[str] = ..., rlor_trainer_job: _Optional[_Union[RlorTrainerJob, _Mapping]] = ..., debug: bool = ..., rlor_trainer_job_id: _Optional[str] = ...) -> None: ...
+    skip_validations: bool
+    def __init__(self, parent: _Optional[str] = ..., rlor_trainer_job: _Optional[_Union[RlorTrainerJob, _Mapping]] = ..., debug: bool = ..., rlor_trainer_job_id: _Optional[str] = ..., skip_validations: bool = ...) -> None: ...
 
 class ListRlorTrainerJobsRequest(_message.Message):
     __slots__ = ("parent", "page_size", "page_token", "filter", "order_by", "read_mask")

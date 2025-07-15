@@ -734,6 +734,7 @@ def test_corrected_jets_factory(optimization_enabled):
         events = NanoEventsFactory.from_root(
             {os.path.abspath("tests/samples/nano_dy.root"): "Events"},
             metadata={},
+            mode="dask",
         ).events()
 
         jec_stack_names = [
@@ -919,6 +920,9 @@ def test_corrected_jets_factory(optimization_enabled):
         name_map["JetPhi"] = "phi"
         name_map["UnClusteredEnergyDeltaX"] = "MetUnclustEnUpDeltaX"
         name_map["UnClusteredEnergyDeltaY"] = "MetUnclustEnUpDeltaY"
+        assert name_map["JetPt"] + "_orig" in corrected_jets.fields
+        assert name_map["JetPt"] + "_orig" in corrected_jets.JES_AbsoluteStat.up.fields
+        assert name_map["JetPt"] + "_orig" in corrected_jets.JER.up.fields
 
         tic = time.time()
         met_factory = CorrectedMETFactory(name_map)

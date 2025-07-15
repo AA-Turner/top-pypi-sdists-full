@@ -18,11 +18,12 @@ import dateutil
 import pandas as pd
 import trafaret as t
 
-from datarobot._compat import Int, String
+from datarobot._compat import String
 from datarobot.enums import ACCURACY_METRIC, BUCKET_SIZE
 from datarobot.models.api_object import APIObject
 from datarobot.models.deployment.mixins import MonitoringDataQueryBuilderMixin
 from datarobot.utils import from_api
+from datarobot.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
     from datarobot._compat import TypedDict
@@ -32,9 +33,13 @@ if TYPE_CHECKING:
         end: datetime
 
     class Metric(TypedDict):
+        model_id: str
+        metric_name: str
         value: int
-        percent_change: int
+        sample_size: int
         baseline_value: int
+        baseline_sample_size: int
+        percent_change: int
 
     class Summary(TypedDict, total=False):
         period: Period
@@ -103,23 +108,31 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
                     t.Key("end"): String >> dateutil.parser.parse,
                 }
             ),
-            t.Key("model_id"): t.String(),
-            t.Key("metrics"): t.Dict().allow_extra("*"),
+            t.Key("data"): t.List(t.Dict().allow_extra("*")),
+            t.Key("model_id", optional=True): t.Or(t.String(), t.Null),
+            t.Key("metrics", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
         }
     ).allow_extra("*")
 
     def __init__(
         self,
         period: Optional[Period] = None,
+        data: Optional[List[Metric]] = None,
         metrics: Optional[Dict[str, Metric]] = None,
         model_id: Optional[str] = None,
     ) -> None:
-        self.period: Period = period if period is not None else {}
-        self.metrics: Dict[str, Metric] = metrics if metrics is not None else {}
-        self.model_id = model_id
+        self.period = period
+        self.data = data
+        self._metrics = metrics
+        self._model_id = model_id
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.model_id} | {self.period.get('start')} - {self.period.get('end')})"
+        if self.period:
+            start = self.period.get("start")
+            end = self.period.get("end")
+        else:
+            start, end = "Unknown", "Unknown"  # type: ignore [assignment]
+        return f"{self.__class__.__name__}({start} - {end})"
 
     def __getitem__(self, item: str) -> Optional[int]:
         if self.metrics and item in self.metrics.keys():
@@ -130,12 +143,14 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
     def get(
         cls,
         deployment_id: str,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         target_classes: Optional[List[str]] = None,
         segment_attribute: Optional[str] = None,
         segment_value: Optional[str] = None,
+        metric: Optional[str] = None,
+        baseline_model_id: Optional[str] = None,
     ) -> Accuracy:
         """Retrieve values of accuracy metrics over a certain time period.
 
@@ -145,7 +160,7 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
         ----------
         deployment_id : str
             the id of the deployment
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -157,7 +172,11 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
             (New in Version v3.6) the segment attribute
         segment_value : Optional[str]
             (New in Version v3.6) the segment value
-
+        metric : str
+            (New in Version v3.9) the metric value to retrieve,
+            must be provided when querying for multiple models
+        baseline_model_id : str
+            (New in Version v3.9) the id of the baseline model when calculating percentage change
 
         Returns
         -------
@@ -187,19 +206,44 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
             target_class=target_classes,
             segment_attribute=segment_attribute,
             segment_value=segment_value,
+            metric=metric,
+            baseline_model_id=baseline_model_id,
         )
         data = cls._client.get(path, params=params).json()
 
         # we don't want to convert keys of the metrics object
-        metrics = data.pop("metrics")
-        for metric, value in metrics.items():
-            metrics[metric] = from_api(value, keep_null_keys=True)
+        metrics = data.pop("metrics", {})
+        for metric_name, value in metrics.items():
+            metrics[metric_name] = from_api(value, keep_null_keys=True)
 
         data = from_api(data, keep_null_keys=True)
         data["metrics"] = metrics  # type: ignore[call-overload]
         return cls.from_data(data)
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`metrics` is deprecated, use `data` instead.",
+    )
+    def metrics(self) -> Optional[Dict[str, Metric]]:
+        return self._metrics
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`model_id` is deprecated, inspect `model_id` inside `data` instead.",
+    )
+    def model_id(self) -> Optional[str]:
+        return self._model_id
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`metric_values` is deprecated, inspect `value` inside `data` instead.",
+    )
     def metric_values(self) -> Dict[str, Optional[int]]:
         """The value for all metrics, keyed by metric name.
 
@@ -211,6 +255,11 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
         return {name: value.get("value") for name, value in self.metrics.items()}
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`metric_baselines` is deprecated, inspect `baseline_value` inside `data` instead.",
+    )
     def metric_baselines(self) -> Dict[str, Optional[int]]:
         """The baseline value for all metrics, keyed by metric name.
 
@@ -222,6 +271,11 @@ class Accuracy(APIObject, MonitoringDataQueryBuilderMixin):
         return {name: value.get("baseline_value") for name, value in self.metrics.items()}
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`percent_changes` is deprecated, inspect `percent_change` inside `data` instead.",
+    )
     def percent_changes(self) -> Dict[str, Optional[int]]:
         """The percent change of value over baseline for all metrics, keyed by metric name.
 
@@ -238,16 +292,12 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
 
     Attributes
     ----------
-    model_id : str
-        the model used to retrieve accuracy metric
     metric : str
         the accuracy metric being retrieved
-    buckets : dict
+    buckets : list
         how the accuracy metric changes over time
-    summary : dict
-        summary for the accuracy metric
-    baseline : dict
-        baseline for the accuracy metric
+    baselines : list
+        baselines for the accuracy metric
     """
 
     _path = "deployments/{}/accuracyOverTime/"
@@ -257,20 +307,15 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             t.Key("end"): String >> dateutil.parser.parse,
         }
     )
-    _bucket = t.Dict(
-        {
-            t.Key("period"): t.Or(_period, t.Null),
-            t.Key("value"): t.Or(t.Float, t.Null),
-            t.Key("sample_size"): t.Or(Int, t.Null),
-        }
-    ).allow_extra("*")
+    _bucket = t.Dict({t.Key("period"): t.Or(_period, t.Null)}).allow_extra("*")
     _converter = t.Dict(
         {
             t.Key("buckets"): t.List(_bucket),
-            t.Key("summary"): _bucket,
-            t.Key("baseline"): _bucket,
+            t.Key("summary", optional=True): t.Or(_bucket, t.Null),
+            t.Key("baseline", optional=True): t.Or(_bucket, t.Null),
+            t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
             t.Key("metric"): String(),
-            t.Key("model_id"): t.Or(String(), t.Null),
+            t.Key("model_id", optional=True): t.Or(String(), t.Null),
             t.Key("segment_attribute", optional=True): t.String(),
             t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
         }
@@ -281,35 +326,35 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         buckets: Optional[List[Bucket]] = None,
         summary: Optional[Summary] = None,
         baseline: Optional[Bucket] = None,
+        baselines: Optional[Bucket] = None,
         metric: Optional[str] = None,
         model_id: Optional[str] = None,
         segment_attribute: Optional[str] = None,
         segment_value: Optional[str] = None,
     ):
         self.buckets = buckets if buckets is not None else []
-        self.summary = summary if summary is not None else {}
-        self.baseline = baseline
+        self._summary = summary
+        self._baseline = baseline
+        self.baselines = baselines if baselines is not None else []
         self.metric = metric
-        self.model_id = model_id
+        self._model_id = model_id
         self.segment_attribute = segment_attribute
         self.segment_value = segment_value
 
     def __repr__(self) -> str:
-        period = self.summary.get("period", {}) or {}
-        return "{}({} | {} | {} - {})".format(
-            self.__class__.__name__,
-            self.model_id,
-            self.metric,
-            period.get("start"),
-            period.get("end"),
-        )
+        if self.buckets:
+            start = self.buckets[0]["period"]["start"]
+            end = self.buckets[-1]["period"]["end"]
+        else:
+            start, end = "Unknown", "Unknown"  # type: ignore [assignment]
+        return f"{self.__class__.__name__}({self.metric} | {start} - {end})"
 
     @classmethod
     def get(
         cls,
         deployment_id: str,
         metric: Optional[ACCURACY_METRIC] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -327,7 +372,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             the id of the deployment
         metric : ACCURACY_METRIC
             the accuracy metric to retrieve
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -380,7 +425,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         cls,
         deployment_id: str,
         metrics: Optional[List[Optional[ACCURACY_METRIC]]] = None,
-        model_id: Optional[str] = None,
+        model_id: Optional[str | List[str]] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         bucket_size: Optional[str] = None,
@@ -397,7 +442,7 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             the id of the deployment
         metrics : [ACCURACY_METRIC]
             the accuracy metrics to retrieve
-        model_id : str
+        model_id : Optional[str | List[str]]
             the id of the model
         start_time : datetime
             start of the time period
@@ -416,28 +461,59 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
                     "Metrics must be a list of ACCURACY_METRIC or None, but cannot be an empty list"
                 )
             metrics = [None]
-        metric_names = []
-        metric_dataframes = []
-        for metric_name in metrics:
+        series = {}
+        for metric in metrics:
             fetched = AccuracyOverTime.get(
                 deployment_id,
                 model_id=model_id,
-                metric=metric_name,
+                metric=metric,
                 start_time=start_time,
                 end_time=end_time,
                 bucket_size=bucket_size,
             )
-            dataframe = pd.DataFrame.from_dict(fetched.bucket_values, orient="index")
-            metric_names.append(fetched.metric)
-            metric_dataframes.append(dataframe)
-        combined = pd.concat(metric_dataframes, axis="columns")
-        if combined.empty:
-            return pd.DataFrame(columns=metric_names)
+            if not fetched.buckets:
+                continue
+            dataframe = pd.json_normalize(fetched.buckets)
+            dataframe.set_index(["model_id", "period.start"], drop=True, inplace=True)
+            series[fetched.metric] = dataframe["value"]
+        if series:
+            return pd.DataFrame.from_dict(series)
         else:
-            combined.columns = metric_names
-            return combined
+            return pd.DataFrame()
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`summary` is deprecated, use `Deployment.get_accuracy` instead.",
+    )
+    def summary(self) -> Optional[Summary]:
+        return self._summary
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`baseline` is deprecated, inspect `baselines` instead.",
+    )
+    def baseline(self) -> Optional[Bucket]:
+        return self._baseline
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`model_id` is deprecated, inspect `model_id` inside `buckets` instead.",
+    )
+    def model_id(self) -> Optional[str]:
+        return self._model_id
+
+    @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`bucket_values` is deprecated, inspect `value` inside `buckets` instead.",
+    )
     def bucket_values(self) -> Dict[datetime, int]:
         """The metric value for all time buckets, keyed by start time of the bucket.
 
@@ -454,6 +530,11 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         return {}
 
     @property
+    @deprecated(
+        deprecated_since_version="v3.9",
+        will_remove_version="v3.12",
+        message="`bucket_values` is deprecated, inspect `sample_size` inside `buckets` instead.",
+    )
     def bucket_sample_sizes(self) -> Dict[datetime, int]:
         """The sample size for all time buckets, keyed by start time of the bucket.
 

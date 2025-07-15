@@ -50,7 +50,7 @@ def insert_book_to_notion(books, index, bookId,status):
     if not cover or not cover.strip() or not cover.startswith("http"):
         cover = BOOK_ICON_URL
     book["封面"] = cover
-    if bookId not in notion_books:
+    if book.get("bookId") not in notion_books:
         book["书名"] = book.get("title")
         book["BookId"] = book.get("bookId")
         book["ISBN"] = book.get("isbn")
@@ -81,9 +81,9 @@ def insert_book_to_notion(books, index, bookId,status):
     )
     parent = {"database_id": notion_helper.book_database_id, "type": "database_id"}
     result = None
-    if bookId in notion_books:
+    if book.get("bookId") in notion_books:
         result = notion_helper.update_page(
-            page_id=notion_books.get(bookId).get("pageId"),
+            page_id=notion_books.get(book.get("bookId")).get("pageId"),
             properties=properties,
             cover=utils.get_icon(cover),
         )
@@ -159,9 +159,6 @@ def main():
         elif book.get("markStatus") in [2, 3]:
             book["status"] = "在读"
     bookshelf_books_dict = {x.get("bookId"):x for x in books}
-    import json
-    with open("notion_books.json", "w", encoding="utf-8") as f:
-        json.dump(notion_books, f, ensure_ascii=False, indent=2)
     not_need_sync = []
     for key, value in bookshelf_books_dict.items():
         if ((key in notion_books) and (value.get("status") == notion_books.get(key).get("status"))):

@@ -1,13 +1,14 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.1+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-11T23:29:18.543993                                                            #
+# MF version: 2.16.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-07-15T03:12:46.736978                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 
+from ..packaging_sys import MetaflowCodeContent as MetaflowCodeContent
 from .utils import check_process_exited as check_process_exited
 
 def kill_processes_and_descendants(pids: typing.List[str], termination_timeout: float):

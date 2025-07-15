@@ -428,6 +428,14 @@ class ConfigManager:
             return FireSmokeConfig
         except ImportError:
             return None
+
+    def _get_pothole_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.pothole_segmentation import PotholeConfig
+            return PotholeConfig
+        except ImportError:
+            return None
         
     def flare_analysis_config_class(self):
         """Register a configuration class for a use case."""
@@ -555,6 +563,23 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+
+        elif usecase == "pothole_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.pothole_segmentation import PotholeConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = PotholeConfig(
+                category=category or "normal",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
 
         elif usecase == "flare_analysis":
             # Import here to avoid circular import
@@ -749,6 +774,13 @@ class ConfigManager:
             from ..usecases.fire_detection import FireSmokeConfig
             default_config = FireSmokeConfig()
             return default_config.to_dict()
+
+        elif usecase == "pothole_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.pothole_segmentation import PotholeConfig
+            default_config = PotholeConfig()
+            return default_config.to_dict()
+
         elif usecase == "vehicle_monitoring":
             # Import here to avoid circular import
             from ..usecases.vehicle_monitoring import VehicleMonitoringConfig
