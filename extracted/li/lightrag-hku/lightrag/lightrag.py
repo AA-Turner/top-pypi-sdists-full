@@ -22,8 +22,15 @@ from typing import (
     Dict,
 )
 from lightrag.constants import (
-    DEFAULT_MAX_TOKEN_SUMMARY,
+    DEFAULT_MAX_GLEANING,
     DEFAULT_FORCE_LLM_SUMMARY_ON_MERGE,
+    DEFAULT_TOP_K,
+    DEFAULT_CHUNK_TOP_K,
+    DEFAULT_MAX_ENTITY_TOKENS,
+    DEFAULT_MAX_RELATION_TOKENS,
+    DEFAULT_MAX_TOTAL_TOKENS,
+    DEFAULT_COSINE_THRESHOLD,
+    DEFAULT_RELATED_CHUNK_NUMBER,
 )
 from lightrag.utils import get_env_value
 
@@ -50,7 +57,7 @@ from .base import (
     StoragesStatus,
     DeletionResult,
 )
-from .namespace import NameSpace, make_namespace
+from .namespace import NameSpace
 from .operate import (
     chunking_by_token_size,
     extract_entities,
@@ -60,7 +67,7 @@ from .operate import (
     query_with_keywords,
     _rebuild_knowledge_from_chunks,
 )
-from .prompt import GRAPH_FIELD_SEP
+from .constants import GRAPH_FIELD_SEP
 from .utils import (
     Tokenizer,
     TiktokenTokenizer,
@@ -96,9 +103,7 @@ class LightRAG:
     # Directory
     # ---
 
-    working_dir: str = field(
-        default=f"./lightrag_cache_{datetime.now().strftime('%Y-%m-%d-%H:%M:%S')}"
-    )
+    working_dir: str = field(default="./rag_storage")
     """Directory where cache and temporary files are stored."""
 
     # Storage
@@ -116,20 +121,60 @@ class LightRAG:
     doc_status_storage: str = field(default="JsonDocStatusStorage")
     """Storage type for tracking document processing statuses."""
 
+    # Workspace
+    # ---
+
+    workspace: str = field(default_factory=lambda: os.getenv("WORKSPACE", ""))
+    """Workspace for data isolation. Defaults to empty string if WORKSPACE environment variable is not set."""
+
     # Logging (Deprecated, use setup_logger in utils.py instead)
     # ---
     log_level: int | None = field(default=None)
     log_file_path: str | None = field(default=None)
 
+    # Query parameters
+    # ---
+
+    top_k: int = field(default=get_env_value("TOP_K", DEFAULT_TOP_K, int))
+    """Number of entities/relations to retrieve for each query."""
+
+    chunk_top_k: int = field(
+        default=get_env_value("CHUNK_TOP_K", DEFAULT_CHUNK_TOP_K, int)
+    )
+    """Maximum number of chunks in context."""
+
+    max_entity_tokens: int = field(
+        default=get_env_value("MAX_ENTITY_TOKENS", DEFAULT_MAX_ENTITY_TOKENS, int)
+    )
+    """Maximum number of tokens for entity in context."""
+
+    max_relation_tokens: int = field(
+        default=get_env_value("MAX_RELATION_TOKENS", DEFAULT_MAX_RELATION_TOKENS, int)
+    )
+    """Maximum number of tokens for relation in context."""
+
+    max_total_tokens: int = field(
+        default=get_env_value("MAX_TOTAL_TOKENS", DEFAULT_MAX_TOTAL_TOKENS, int)
+    )
+    """Maximum total tokens in context (including system prompt, entities, relations and chunks)."""
+
+    cosine_threshold: int = field(
+        default=get_env_value("COSINE_THRESHOLD", DEFAULT_COSINE_THRESHOLD, int)
+    )
+    """Cosine threshold of vector DB retrieval for entities, relations and chunks."""
+
+    related_chunk_number: int = field(
+        default=get_env_value("RELATED_CHUNK_NUMBER", DEFAULT_RELATED_CHUNK_NUMBER, int)
+    )
+    """Number of related chunks to grab from single entity or relation."""
+
     # Entity extraction
     # ---
 
-    entity_extract_max_gleaning: int = field(default=1)
-    """Maximum number of entity extraction attempts for ambiguous content."""
-
-    summary_to_max_tokens: int = field(
-        default=get_env_value("MAX_TOKEN_SUMMARY", DEFAULT_MAX_TOKEN_SUMMARY, int)
+    entity_extract_max_gleaning: int = field(
+        default=get_env_value("MAX_GLEANING", DEFAULT_MAX_GLEANING, int)
     )
+    """Maximum number of entity extraction attempts for ambiguous content."""
 
     force_llm_summary_on_merge: int = field(
         default=get_env_value(
@@ -194,11 +239,11 @@ class LightRAG:
     embedding_func: EmbeddingFunc | None = field(default=None)
     """Function for computing text embeddings. Must be set before use."""
 
-    embedding_batch_num: int = field(default=int(os.getenv("EMBEDDING_BATCH_NUM", 32)))
+    embedding_batch_num: int = field(default=int(os.getenv("EMBEDDING_BATCH_NUM", 10)))
     """Batch size for embedding computations."""
 
     embedding_func_max_async: int = field(
-        default=int(os.getenv("EMBEDDING_FUNC_MAX_ASYNC", 16))
+        default=int(os.getenv("EMBEDDING_FUNC_MAX_ASYNC", 8))
     )
     """Maximum number of concurrent embedding function calls."""
 
@@ -224,7 +269,7 @@ class LightRAG:
     llm_model_name: str = field(default="gpt-4o-mini")
     """Name of the LLM model used for generating responses."""
 
-    llm_model_max_token_size: int = field(default=int(os.getenv("MAX_TOKENS", 32768)))
+    llm_model_max_token_size: int = field(default=int(os.getenv("MAX_TOKENS", 32000)))
     """Maximum number of tokens allowed per LLM response."""
 
     llm_model_max_async: int = field(default=int(os.getenv("MAX_ASYNC", 4)))
@@ -233,15 +278,17 @@ class LightRAG:
     llm_model_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional keyword arguments passed to the LLM model function."""
 
+    # Rerank Configuration
+    # ---
+
+    rerank_model_func: Callable[..., object] | None = field(default=None)
+    """Function for reranking retrieved documents. All rerank configurations (model name, API keys, top_k, etc.) should be included in this function. Optional."""
+
     # Storage
     # ---
 
     vector_db_storage_cls_kwargs: dict[str, Any] = field(default_factory=dict)
     """Additional parameters for vector database storage."""
-
-    # TODO：deprecated, remove in the future, use WORKSPACE instead
-    namespace_prefix: str = field(default="")
-    """Prefix for namespacing stored data across different environments."""
 
     enable_llm_cache: bool = field(default=True)
     """Enables caching for LLM responses to avoid redundant computations."""
@@ -254,6 +301,9 @@ class LightRAG:
 
     max_parallel_insert: int = field(default=int(os.getenv("MAX_PARALLEL_INSERT", 2)))
     """Maximum number of parallel insert operations."""
+
+    max_graph_nodes: int = field(default=get_env_value("MAX_GRAPH_NODES", 1000, int))
+    """Maximum number of graph nodes to return in knowledge graph queries."""
 
     addon_params: dict[str, Any] = field(
         default_factory=lambda: {
@@ -346,6 +396,7 @@ class LightRAG:
 
         # Fix global_config now
         global_config = asdict(self)
+
         _print_config = ",\n  ".join([f"{k} = {v}" for k, v in global_config.items()])
         logger.debug(f"LightRAG init with param:\n  {_print_config}\n")
 
@@ -378,61 +429,53 @@ class LightRAG:
         self.doc_status_storage_cls = self._get_storage_class(self.doc_status_storage)
 
         self.llm_response_cache: BaseKVStorage = self.key_string_value_json_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.KV_STORE_LLM_RESPONSE_CACHE
-            ),
-            global_config=asdict(
-                self
-            ),  # Add global_config to ensure cache works properly
+            namespace=NameSpace.KV_STORE_LLM_RESPONSE_CACHE,
+            workspace=self.workspace,
+            global_config=global_config,
             embedding_func=self.embedding_func,
         )
 
         self.full_docs: BaseKVStorage = self.key_string_value_json_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.KV_STORE_FULL_DOCS
-            ),
+            namespace=NameSpace.KV_STORE_FULL_DOCS,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
         )
 
-        # TODO: deprecating, text_chunks is redundant with chunks_vdb
         self.text_chunks: BaseKVStorage = self.key_string_value_json_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.KV_STORE_TEXT_CHUNKS
-            ),
+            namespace=NameSpace.KV_STORE_TEXT_CHUNKS,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
         )
+
         self.chunk_entity_relation_graph: BaseGraphStorage = self.graph_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.GRAPH_STORE_CHUNK_ENTITY_RELATION
-            ),
+            namespace=NameSpace.GRAPH_STORE_CHUNK_ENTITY_RELATION,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
         )
 
         self.entities_vdb: BaseVectorStorage = self.vector_db_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.VECTOR_STORE_ENTITIES
-            ),
+            namespace=NameSpace.VECTOR_STORE_ENTITIES,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
             meta_fields={"entity_name", "source_id", "content", "file_path"},
         )
         self.relationships_vdb: BaseVectorStorage = self.vector_db_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.VECTOR_STORE_RELATIONSHIPS
-            ),
+            namespace=NameSpace.VECTOR_STORE_RELATIONSHIPS,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
             meta_fields={"src_id", "tgt_id", "source_id", "content", "file_path"},
         )
         self.chunks_vdb: BaseVectorStorage = self.vector_db_storage_cls(  # type: ignore
-            namespace=make_namespace(
-                self.namespace_prefix, NameSpace.VECTOR_STORE_CHUNKS
-            ),
+            namespace=NameSpace.VECTOR_STORE_CHUNKS,
+            workspace=self.workspace,
             embedding_func=self.embedding_func,
             meta_fields={"full_doc_id", "content", "file_path"},
         )
 
         # Initialize document status storage
         self.doc_status: DocStatusStorage = self.doc_status_storage_cls(
-            namespace=make_namespace(self.namespace_prefix, NameSpace.DOC_STATUS),
+            namespace=NameSpace.DOC_STATUS,
+            workspace=self.workspace,
             global_config=global_config,
             embedding_func=None,
         )
@@ -447,6 +490,14 @@ class LightRAG:
                 **self.llm_model_kwargs,
             )
         )
+
+        # Init Rerank
+        if self.rerank_model_func:
+            logger.info("Rerank model initialized for improved retrieval quality")
+        else:
+            logger.warning(
+                "Rerank is enabled but no rerank_model_func provided. Reranking will be skipped."
+            )
 
         self._storages_status = StoragesStatus.CREATED
 
@@ -530,18 +581,24 @@ class LightRAG:
         self,
         node_label: str,
         max_depth: int = 3,
-        max_nodes: int = 1000,
+        max_nodes: int = None,
     ) -> KnowledgeGraph:
         """Get knowledge graph for a given label
 
         Args:
             node_label (str): Label to get knowledge graph for
             max_depth (int): Maximum depth of graph
-            max_nodes (int, optional): Maximum number of nodes to return. Defaults to 1000.
+            max_nodes (int, optional): Maximum number of nodes to return. Defaults to self.max_graph_nodes.
 
         Returns:
             KnowledgeGraph: Knowledge graph containing nodes and edges
         """
+        # Use self.max_graph_nodes as default if max_nodes is None
+        if max_nodes is None:
+            max_nodes = self.max_graph_nodes
+        else:
+            # Limit max_nodes to not exceed self.max_graph_nodes
+            max_nodes = min(max_nodes, self.max_graph_nodes)
 
         return await self.chunk_entity_relation_graph.get_knowledge_graph(
             node_label, max_depth, max_nodes
@@ -895,9 +952,15 @@ class LightRAG:
                 # Get first document's file path and total count for job name
                 first_doc_id, first_doc = next(iter(to_process_docs.items()))
                 first_doc_path = first_doc.file_path
-                path_prefix = first_doc_path[:20] + (
-                    "..." if len(first_doc_path) > 20 else ""
-                )
+
+                # Handle cases where first_doc_path is None
+                if first_doc_path:
+                    path_prefix = first_doc_path[:20] + (
+                        "..." if len(first_doc_path) > 20 else ""
+                    )
+                else:
+                    path_prefix = "unknown_source"
+
                 total_files = len(to_process_docs)
                 job_name = f"{path_prefix}[{total_files} files]"
                 pipeline_status["job_name"] = job_name
@@ -949,6 +1012,7 @@ class LightRAG:
                                     **dp,
                                     "full_doc_id": doc_id,
                                     "file_path": file_path,  # Add file path to each chunk
+                                    "llm_cache_list": [],  # Initialize empty LLM cache list for each chunk
                                 }
                                 for dp in self.chunking_func(
                                     self.tokenizer,
@@ -960,14 +1024,20 @@ class LightRAG:
                                 )
                             }
 
-                            # Process document (text chunks and full docs) in parallel
-                            # Create tasks with references for potential cancellation
+                            if not chunks:
+                                logger.warning("No document chunks to process")
+
+                            # Process document in two stages
+                            # Stage 1: Process text chunks and docs (parallel execution)
                             doc_status_task = asyncio.create_task(
                                 self.doc_status.upsert(
                                     {
                                         doc_id: {
                                             "status": DocStatus.PROCESSING,
                                             "chunks_count": len(chunks),
+                                            "chunks_list": list(
+                                                chunks.keys()
+                                            ),  # Save chunks list
                                             "content": status_doc.content,
                                             "content_summary": status_doc.content_summary,
                                             "content_length": status_doc.content_length,
@@ -983,11 +1053,6 @@ class LightRAG:
                             chunks_vdb_task = asyncio.create_task(
                                 self.chunks_vdb.upsert(chunks)
                             )
-                            entity_relation_task = asyncio.create_task(
-                                self._process_entity_relation_graph(
-                                    chunks, pipeline_status, pipeline_status_lock
-                                )
-                            )
                             full_docs_task = asyncio.create_task(
                                 self.full_docs.upsert(
                                     {doc_id: {"content": status_doc.content}}
@@ -996,14 +1061,26 @@ class LightRAG:
                             text_chunks_task = asyncio.create_task(
                                 self.text_chunks.upsert(chunks)
                             )
-                            tasks = [
+
+                            # First stage tasks (parallel execution)
+                            first_stage_tasks = [
                                 doc_status_task,
                                 chunks_vdb_task,
-                                entity_relation_task,
                                 full_docs_task,
                                 text_chunks_task,
                             ]
-                            await asyncio.gather(*tasks)
+                            entity_relation_task = None
+
+                            # Execute first stage tasks
+                            await asyncio.gather(*first_stage_tasks)
+
+                            # Stage 2: Process entity relation graph (after text_chunks are saved)
+                            entity_relation_task = asyncio.create_task(
+                                self._process_entity_relation_graph(
+                                    chunks, pipeline_status, pipeline_status_lock
+                                )
+                            )
+                            await entity_relation_task
                             file_extraction_stage_ok = True
 
                         except Exception as e:
@@ -1018,14 +1095,14 @@ class LightRAG:
                                 )
                                 pipeline_status["history_messages"].append(error_msg)
 
-                                # Cancel other tasks as they are no longer meaningful
-                                for task in [
-                                    chunks_vdb_task,
-                                    entity_relation_task,
-                                    full_docs_task,
-                                    text_chunks_task,
-                                ]:
-                                    if not task.done():
+                                # Cancel tasks that are not yet completed
+                                all_tasks = first_stage_tasks + (
+                                    [entity_relation_task]
+                                    if entity_relation_task
+                                    else []
+                                )
+                                for task in all_tasks:
+                                    if task and not task.done():
                                         task.cancel()
 
                             # Persistent llm cache
@@ -1050,83 +1127,89 @@ class LightRAG:
                                 }
                             )
 
-                    # Semphore released, concurrency controlled by graph_db_lock in merge_nodes_and_edges instead
-
-                    if file_extraction_stage_ok:
-                        try:
-                            # Get chunk_results from entity_relation_task
-                            chunk_results = await entity_relation_task
-                            await merge_nodes_and_edges(
-                                chunk_results=chunk_results,  # result collected from entity_relation_task
-                                knowledge_graph_inst=self.chunk_entity_relation_graph,
-                                entity_vdb=self.entities_vdb,
-                                relationships_vdb=self.relationships_vdb,
-                                global_config=asdict(self),
-                                pipeline_status=pipeline_status,
-                                pipeline_status_lock=pipeline_status_lock,
-                                llm_response_cache=self.llm_response_cache,
-                                current_file_number=current_file_number,
-                                total_files=total_files,
-                                file_path=file_path,
-                            )
-
-                            await self.doc_status.upsert(
-                                {
-                                    doc_id: {
-                                        "status": DocStatus.PROCESSED,
-                                        "chunks_count": len(chunks),
-                                        "content": status_doc.content,
-                                        "content_summary": status_doc.content_summary,
-                                        "content_length": status_doc.content_length,
-                                        "created_at": status_doc.created_at,
-                                        "updated_at": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
-                                        "file_path": file_path,
-                                    }
-                                }
-                            )
-
-                            # Call _insert_done after processing each file
-                            await self._insert_done()
-
-                            async with pipeline_status_lock:
-                                log_message = f"Completed processing file {current_file_number}/{total_files}: {file_path}"
-                                logger.info(log_message)
-                                pipeline_status["latest_message"] = log_message
-                                pipeline_status["history_messages"].append(log_message)
-
-                        except Exception as e:
-                            # Log error and update pipeline status
-                            logger.error(traceback.format_exc())
-                            error_msg = f"Merging stage failed in document {current_file_number}/{total_files}: {file_path}"
-                            logger.error(error_msg)
-                            async with pipeline_status_lock:
-                                pipeline_status["latest_message"] = error_msg
-                                pipeline_status["history_messages"].append(
-                                    traceback.format_exc()
+                        # Concurrency is controlled by graph db lock for individual entities and relationships
+                        if file_extraction_stage_ok:
+                            try:
+                                # Get chunk_results from entity_relation_task
+                                chunk_results = await entity_relation_task
+                                await merge_nodes_and_edges(
+                                    chunk_results=chunk_results,  # result collected from entity_relation_task
+                                    knowledge_graph_inst=self.chunk_entity_relation_graph,
+                                    entity_vdb=self.entities_vdb,
+                                    relationships_vdb=self.relationships_vdb,
+                                    global_config=asdict(self),
+                                    pipeline_status=pipeline_status,
+                                    pipeline_status_lock=pipeline_status_lock,
+                                    llm_response_cache=self.llm_response_cache,
+                                    current_file_number=current_file_number,
+                                    total_files=total_files,
+                                    file_path=file_path,
                                 )
-                                pipeline_status["history_messages"].append(error_msg)
 
-                            # Persistent llm cache
-                            if self.llm_response_cache:
-                                await self.llm_response_cache.index_done_callback()
-
-                            # Update document status to failed
-                            await self.doc_status.upsert(
-                                {
-                                    doc_id: {
-                                        "status": DocStatus.FAILED,
-                                        "error": str(e),
-                                        "content": status_doc.content,
-                                        "content_summary": status_doc.content_summary,
-                                        "content_length": status_doc.content_length,
-                                        "created_at": status_doc.created_at,
-                                        "updated_at": datetime.now().isoformat(),
-                                        "file_path": file_path,
+                                await self.doc_status.upsert(
+                                    {
+                                        doc_id: {
+                                            "status": DocStatus.PROCESSED,
+                                            "chunks_count": len(chunks),
+                                            "chunks_list": list(
+                                                chunks.keys()
+                                            ),  # 保留 chunks_list
+                                            "content": status_doc.content,
+                                            "content_summary": status_doc.content_summary,
+                                            "content_length": status_doc.content_length,
+                                            "created_at": status_doc.created_at,
+                                            "updated_at": datetime.now(
+                                                timezone.utc
+                                            ).isoformat(),
+                                            "file_path": file_path,
+                                        }
                                     }
-                                }
-                            )
+                                )
+
+                                # Call _insert_done after processing each file
+                                await self._insert_done()
+
+                                async with pipeline_status_lock:
+                                    log_message = f"Completed processing file {current_file_number}/{total_files}: {file_path}"
+                                    logger.info(log_message)
+                                    pipeline_status["latest_message"] = log_message
+                                    pipeline_status["history_messages"].append(
+                                        log_message
+                                    )
+
+                            except Exception as e:
+                                # Log error and update pipeline status
+                                logger.error(traceback.format_exc())
+                                error_msg = f"Merging stage failed in document {current_file_number}/{total_files}: {file_path}"
+                                logger.error(error_msg)
+                                async with pipeline_status_lock:
+                                    pipeline_status["latest_message"] = error_msg
+                                    pipeline_status["history_messages"].append(
+                                        traceback.format_exc()
+                                    )
+                                    pipeline_status["history_messages"].append(
+                                        error_msg
+                                    )
+
+                                # Persistent llm cache
+                                if self.llm_response_cache:
+                                    await self.llm_response_cache.index_done_callback()
+
+                                # Update document status to failed
+                                await self.doc_status.upsert(
+                                    {
+                                        doc_id: {
+                                            "status": DocStatus.FAILED,
+                                            "error": str(e),
+                                            "content": status_doc.content,
+                                            "content_summary": status_doc.content_summary,
+                                            "content_length": status_doc.content_length,
+                                            "created_at": status_doc.created_at,
+                                            "updated_at": datetime.now().isoformat(),
+                                            "file_path": file_path,
+                                        }
+                                    }
+                                )
 
                 # Create processing tasks for all documents
                 doc_tasks = []
@@ -1193,6 +1276,7 @@ class LightRAG:
                 pipeline_status=pipeline_status,
                 pipeline_status_lock=pipeline_status_lock,
                 llm_response_cache=self.llm_response_cache,
+                text_chunks_storage=self.text_chunks,
             )
             return chunk_results
         except Exception as e:
@@ -1683,15 +1767,7 @@ class LightRAG:
 
         This method orchestrates a comprehensive deletion process for a given document ID.
         It ensures that not only the document itself but also all its derived and associated
-        data across different storage layers are removed. This includes:
-        1.  **Document and Status**: Deletes the document from `full_docs` and its status from `doc_status`.
-        2.  **Chunks**: Removes all associated text chunks from `chunks_vdb`.
-        3.  **Graph Data**:
-            - Deletes related entities from `entities_vdb`.
-            - Deletes related relationships from `relationships_vdb`.
-            - Removes corresponding nodes and edges from the `chunk_entity_relation_graph`.
-        4.  **Graph Reconstruction**: If entities or relationships are partially affected, it triggers
-            a reconstruction of their data from the remaining chunks to ensure consistency.
+        data across different storage layers are removed. If entities or relationships are partially affected, it triggers.
 
         Args:
             doc_id (str): The unique identifier of the document to be deleted.
@@ -1702,55 +1778,71 @@ class LightRAG:
                 - `doc_id` (str): The ID of the document attempted to be deleted.
                 - `message` (str): A summary of the operation's result.
                 - `status_code` (int): HTTP status code (e.g., 200, 404, 500).
+                - `file_path` (str | None): The file path of the deleted document, if available.
         """
+        deletion_operations_started = False
+        original_exception = None
+
+        # Get pipeline status shared data and lock for status updates
+        pipeline_status = await get_namespace_data("pipeline_status")
+        pipeline_status_lock = get_pipeline_status_lock()
+
+        async with pipeline_status_lock:
+            log_message = f"Starting deletion process for document {doc_id}"
+            logger.info(log_message)
+            pipeline_status["latest_message"] = log_message
+            pipeline_status["history_messages"].append(log_message)
+
         try:
             # 1. Get the document status and related data
-            if not await self.doc_status.get_by_id(doc_id):
+            doc_status_data = await self.doc_status.get_by_id(doc_id)
+            file_path = doc_status_data.get("file_path") if doc_status_data else None
+            if not doc_status_data:
                 logger.warning(f"Document {doc_id} not found")
                 return DeletionResult(
                     status="not_found",
                     doc_id=doc_id,
                     message=f"Document {doc_id} not found.",
                     status_code=404,
+                    file_path="",
                 )
 
-            logger.info(f"Starting optimized deletion for document {doc_id}")
+            # 2. Get chunk IDs from document status
+            chunk_ids = set(doc_status_data.get("chunks_list", []))
 
-            # 2. Get all chunks related to this document
-            all_chunks = await self.text_chunks.get_all()
-            related_chunks = {
-                chunk_id: chunk_data
-                for chunk_id, chunk_data in all_chunks.items()
-                if isinstance(chunk_data, dict)
-                and chunk_data.get("full_doc_id") == doc_id
-            }
-
-            if not related_chunks:
+            if not chunk_ids:
                 logger.warning(f"No chunks found for document {doc_id}")
-                # Still need to delete the doc status and full doc
-                await self.full_docs.delete([doc_id])
-                await self.doc_status.delete([doc_id])
+                # Mark that deletion operations have started
+                deletion_operations_started = True
+                try:
+                    # Still need to delete the doc status and full doc
+                    await self.full_docs.delete([doc_id])
+                    await self.doc_status.delete([doc_id])
+                    logger.info(f"Deleted document {doc_id} with no associated chunks")
+                except Exception as e:
+                    logger.error(
+                        f"Failed to delete document {doc_id} with no chunks: {e}"
+                    )
+                    raise Exception(f"Failed to delete document entry: {e}") from e
+
+                async with pipeline_status_lock:
+                    log_message = (
+                        f"Document {doc_id} is deleted without associated chunks."
+                    )
+                    logger.info(log_message)
+                    pipeline_status["latest_message"] = log_message
+                    pipeline_status["history_messages"].append(log_message)
+
                 return DeletionResult(
                     status="success",
                     doc_id=doc_id,
-                    message=f"Document {doc_id} found but had no associated chunks. Document entry deleted.",
+                    message=log_message,
                     status_code=200,
+                    file_path=file_path,
                 )
 
-            chunk_ids = set(related_chunks.keys())
-            logger.info(f"Found {len(chunk_ids)} chunks to delete")
-
-            # # 3. **OPTIMIZATION 1**: Clear LLM cache for related chunks
-            # logger.info("Clearing LLM cache for related chunks...")
-            # cache_cleared = await self.llm_response_cache.drop_cache_by_chunk_ids(
-            #     list(chunk_ids)
-            # )
-            # if cache_cleared:
-            #     logger.info(f"Successfully cleared cache for {len(chunk_ids)} chunks")
-            # else:
-            #     logger.warning(
-            #         "Failed to clear chunk cache or cache clearing not supported"
-            #     )
+            # Mark that deletion operations have started
+            deletion_operations_started = True
 
             # 4. Analyze entities and relationships that will be affected
             entities_to_delete = set()
@@ -1761,145 +1853,191 @@ class LightRAG:
             # Use graph database lock to ensure atomic merges and updates
             graph_db_lock = get_graph_db_lock(enable_logging=False)
             async with graph_db_lock:
-                # Process entities
-                # TODO There is performance when iterating get_all_labels for PostgresSQL
-                all_labels = await self.chunk_entity_relation_graph.get_all_labels()
-                for node_label in all_labels:
-                    node_data = await self.chunk_entity_relation_graph.get_node(
-                        node_label
+                try:
+                    # Get all affected nodes and edges in batch
+                    # logger.info(
+                    #     f"Analyzing affected entities and relationships for {len(chunk_ids)} chunks"
+                    # )
+                    affected_nodes = (
+                        await self.chunk_entity_relation_graph.get_nodes_by_chunk_ids(
+                            list(chunk_ids)
+                        )
                     )
-                    if node_data and "source_id" in node_data:
-                        # Split source_id using GRAPH_FIELD_SEP
-                        sources = set(node_data["source_id"].split(GRAPH_FIELD_SEP))
-                        remaining_sources = sources - chunk_ids
 
-                        if not remaining_sources:
-                            entities_to_delete.add(node_label)
-                            logger.debug(
-                                f"Entity {node_label} marked for deletion - no remaining sources"
-                            )
-                        elif remaining_sources != sources:
-                            # Entity needs to be rebuilt from remaining chunks
-                            entities_to_rebuild[node_label] = remaining_sources
-                            logger.debug(
-                                f"Entity {node_label} will be rebuilt from {len(remaining_sources)} remaining chunks"
-                            )
-
-                # Process relationships
-                # TODO There is performance when iterating get_all_labels for PostgresSQL
-                for node_label in all_labels:
-                    node_edges = await self.chunk_entity_relation_graph.get_node_edges(
-                        node_label
+                    affected_edges = (
+                        await self.chunk_entity_relation_graph.get_edges_by_chunk_ids(
+                            list(chunk_ids)
+                        )
                     )
-                    if node_edges:
-                        for src, tgt in node_edges:
-                            # To avoid processing the same edge twice in an undirected graph
-                            if (tgt, src) in relationships_to_delete or (
-                                tgt,
-                                src,
-                            ) in relationships_to_rebuild:
+
+                except Exception as e:
+                    logger.error(f"Failed to analyze affected graph elements: {e}")
+                    raise Exception(f"Failed to analyze graph dependencies: {e}") from e
+
+                try:
+                    # Process entities
+                    for node_data in affected_nodes:
+                        node_label = node_data.get("entity_id")
+                        if node_label and "source_id" in node_data:
+                            sources = set(node_data["source_id"].split(GRAPH_FIELD_SEP))
+                            remaining_sources = sources - chunk_ids
+
+                            if not remaining_sources:
+                                entities_to_delete.add(node_label)
+                            elif remaining_sources != sources:
+                                entities_to_rebuild[node_label] = remaining_sources
+
+                    async with pipeline_status_lock:
+                        log_message = (
+                            f"Found {len(entities_to_rebuild)} affected entities"
+                        )
+                        logger.info(log_message)
+                        pipeline_status["latest_message"] = log_message
+                        pipeline_status["history_messages"].append(log_message)
+
+                    # Process relationships
+                    for edge_data in affected_edges:
+                        src = edge_data.get("source")
+                        tgt = edge_data.get("target")
+
+                        if src and tgt and "source_id" in edge_data:
+                            edge_tuple = tuple(sorted((src, tgt)))
+                            if (
+                                edge_tuple in relationships_to_delete
+                                or edge_tuple in relationships_to_rebuild
+                            ):
                                 continue
 
-                            edge_data = await self.chunk_entity_relation_graph.get_edge(
-                                src, tgt
-                            )
-                            if edge_data and "source_id" in edge_data:
-                                # Split source_id using GRAPH_FIELD_SEP
-                                sources = set(
-                                    edge_data["source_id"].split(GRAPH_FIELD_SEP)
-                                )
-                                remaining_sources = sources - chunk_ids
+                            sources = set(edge_data["source_id"].split(GRAPH_FIELD_SEP))
+                            remaining_sources = sources - chunk_ids
 
-                                if not remaining_sources:
-                                    relationships_to_delete.add((src, tgt))
-                                    logger.debug(
-                                        f"Relationship {src}-{tgt} marked for deletion - no remaining sources"
-                                    )
-                                elif remaining_sources != sources:
-                                    # Relationship needs to be rebuilt from remaining chunks
-                                    relationships_to_rebuild[(src, tgt)] = (
-                                        remaining_sources
-                                    )
-                                    logger.debug(
-                                        f"Relationship {src}-{tgt} will be rebuilt from {len(remaining_sources)} remaining chunks"
-                                    )
+                            if not remaining_sources:
+                                relationships_to_delete.add(edge_tuple)
+                            elif remaining_sources != sources:
+                                relationships_to_rebuild[edge_tuple] = remaining_sources
+
+                    async with pipeline_status_lock:
+                        log_message = (
+                            f"Found {len(relationships_to_rebuild)} affected relations"
+                        )
+                        logger.info(log_message)
+                        pipeline_status["latest_message"] = log_message
+                        pipeline_status["history_messages"].append(log_message)
+
+                except Exception as e:
+                    logger.error(f"Failed to process graph analysis results: {e}")
+                    raise Exception(f"Failed to process graph dependencies: {e}") from e
 
                 # 5. Delete chunks from storage
                 if chunk_ids:
-                    await self.chunks_vdb.delete(chunk_ids)
-                    await self.text_chunks.delete(chunk_ids)
-                    logger.info(f"Deleted {len(chunk_ids)} chunks from storage")
+                    try:
+                        await self.chunks_vdb.delete(chunk_ids)
+                        await self.text_chunks.delete(chunk_ids)
+
+                        async with pipeline_status_lock:
+                            log_message = f"Successfully deleted {len(chunk_ids)} chunks from storage"
+                            logger.info(log_message)
+                            pipeline_status["latest_message"] = log_message
+                            pipeline_status["history_messages"].append(log_message)
+
+                    except Exception as e:
+                        logger.error(f"Failed to delete chunks: {e}")
+                        raise Exception(f"Failed to delete document chunks: {e}") from e
 
                 # 6. Delete entities that have no remaining sources
                 if entities_to_delete:
-                    # Delete from vector database
-                    entity_vdb_ids = [
-                        compute_mdhash_id(entity, prefix="ent-")
-                        for entity in entities_to_delete
-                    ]
-                    await self.entities_vdb.delete(entity_vdb_ids)
+                    try:
+                        # Delete from vector database
+                        entity_vdb_ids = [
+                            compute_mdhash_id(entity, prefix="ent-")
+                            for entity in entities_to_delete
+                        ]
+                        await self.entities_vdb.delete(entity_vdb_ids)
 
-                    # Delete from graph
-                    await self.chunk_entity_relation_graph.remove_nodes(
-                        list(entities_to_delete)
-                    )
-                    logger.info(f"Deleted {len(entities_to_delete)} entities")
+                        # Delete from graph
+                        await self.chunk_entity_relation_graph.remove_nodes(
+                            list(entities_to_delete)
+                        )
+
+                        async with pipeline_status_lock:
+                            log_message = f"Successfully deleted {len(entities_to_delete)} entities"
+                            logger.info(log_message)
+                            pipeline_status["latest_message"] = log_message
+                            pipeline_status["history_messages"].append(log_message)
+
+                    except Exception as e:
+                        logger.error(f"Failed to delete entities: {e}")
+                        raise Exception(f"Failed to delete entities: {e}") from e
 
                 # 7. Delete relationships that have no remaining sources
                 if relationships_to_delete:
-                    # Delete from vector database
-                    rel_ids_to_delete = []
-                    for src, tgt in relationships_to_delete:
-                        rel_ids_to_delete.extend(
-                            [
-                                compute_mdhash_id(src + tgt, prefix="rel-"),
-                                compute_mdhash_id(tgt + src, prefix="rel-"),
-                            ]
+                    try:
+                        # Delete from vector database
+                        rel_ids_to_delete = []
+                        for src, tgt in relationships_to_delete:
+                            rel_ids_to_delete.extend(
+                                [
+                                    compute_mdhash_id(src + tgt, prefix="rel-"),
+                                    compute_mdhash_id(tgt + src, prefix="rel-"),
+                                ]
+                            )
+                        await self.relationships_vdb.delete(rel_ids_to_delete)
+
+                        # Delete from graph
+                        await self.chunk_entity_relation_graph.remove_edges(
+                            list(relationships_to_delete)
                         )
-                    await self.relationships_vdb.delete(rel_ids_to_delete)
 
-                    # Delete from graph
-                    await self.chunk_entity_relation_graph.remove_edges(
-                        list(relationships_to_delete)
-                    )
-                    logger.info(f"Deleted {len(relationships_to_delete)} relationships")
+                        async with pipeline_status_lock:
+                            log_message = f"Successfully deleted {len(relationships_to_delete)} relations"
+                            logger.info(log_message)
+                            pipeline_status["latest_message"] = log_message
+                            pipeline_status["history_messages"].append(log_message)
 
-                # 8. **OPTIMIZATION 2**: Rebuild entities and relationships from remaining chunks
+                    except Exception as e:
+                        logger.error(f"Failed to delete relationships: {e}")
+                        raise Exception(f"Failed to delete relationships: {e}") from e
+
+                # 8. Rebuild entities and relationships from remaining chunks
                 if entities_to_rebuild or relationships_to_rebuild:
-                    logger.info(
-                        f"Rebuilding {len(entities_to_rebuild)} entities and {len(relationships_to_rebuild)} relationships..."
-                    )
-                    await _rebuild_knowledge_from_chunks(
-                        entities_to_rebuild=entities_to_rebuild,
-                        relationships_to_rebuild=relationships_to_rebuild,
-                        knowledge_graph_inst=self.chunk_entity_relation_graph,
-                        entities_vdb=self.entities_vdb,
-                        relationships_vdb=self.relationships_vdb,
-                        text_chunks=self.text_chunks,
-                        llm_response_cache=self.llm_response_cache,
-                        global_config=asdict(self),
-                    )
+                    try:
+                        await _rebuild_knowledge_from_chunks(
+                            entities_to_rebuild=entities_to_rebuild,
+                            relationships_to_rebuild=relationships_to_rebuild,
+                            knowledge_graph_inst=self.chunk_entity_relation_graph,
+                            entities_vdb=self.entities_vdb,
+                            relationships_vdb=self.relationships_vdb,
+                            text_chunks_storage=self.text_chunks,
+                            llm_response_cache=self.llm_response_cache,
+                            global_config=asdict(self),
+                            pipeline_status=pipeline_status,
+                            pipeline_status_lock=pipeline_status_lock,
+                        )
+
+                    except Exception as e:
+                        logger.error(f"Failed to rebuild knowledge from chunks: {e}")
+                        raise Exception(
+                            f"Failed to rebuild knowledge graph: {e}"
+                        ) from e
 
             # 9. Delete original document and status
-            await self.full_docs.delete([doc_id])
-            await self.doc_status.delete([doc_id])
+            try:
+                await self.full_docs.delete([doc_id])
+                await self.doc_status.delete([doc_id])
+            except Exception as e:
+                logger.error(f"Failed to delete document and status: {e}")
+                raise Exception(f"Failed to delete document and status: {e}") from e
 
-            # 10. Ensure all indexes are updated
-            await self._insert_done()
-
-            success_message = f"""Successfully deleted document {doc_id}.
-Deleted: {len(entities_to_delete)} entities, {len(relationships_to_delete)} relationships.
-Rebuilt: {len(entities_to_rebuild)} entities, {len(relationships_to_rebuild)} relationships."""
-
-            logger.info(success_message)
             return DeletionResult(
                 status="success",
                 doc_id=doc_id,
-                message=success_message,
+                message=log_message,
                 status_code=200,
+                file_path=file_path,
             )
 
         except Exception as e:
+            original_exception = e
             error_message = f"Error while deleting document {doc_id}: {e}"
             logger.error(error_message)
             logger.error(traceback.format_exc())
@@ -1908,7 +2046,34 @@ Rebuilt: {len(entities_to_rebuild)} entities, {len(relationships_to_rebuild)} re
                 doc_id=doc_id,
                 message=error_message,
                 status_code=500,
+                file_path=file_path,
             )
+
+        finally:
+            # ALWAYS ensure persistence if any deletion operations were started
+            if deletion_operations_started:
+                try:
+                    await self._insert_done()
+                except Exception as persistence_error:
+                    persistence_error_msg = f"Failed to persist data after deletion attempt for {doc_id}: {persistence_error}"
+                    logger.error(persistence_error_msg)
+                    logger.error(traceback.format_exc())
+
+                    # If there was no original exception, this persistence error becomes the main error
+                    if original_exception is None:
+                        return DeletionResult(
+                            status="fail",
+                            doc_id=doc_id,
+                            message=f"Deletion completed but failed to persist changes: {persistence_error}",
+                            status_code=500,
+                            file_path=file_path,
+                        )
+                    # If there was an original exception, log the persistence error but don't override the original error
+                    # The original error result was already returned in the except block
+            else:
+                logger.debug(
+                    f"No deletion operations were started for document {doc_id}, skipping persistence"
+                )
 
     async def adelete_by_entity(self, entity_name: str) -> DeletionResult:
         """Asynchronously delete an entity and all its relationships.

@@ -47,7 +47,7 @@ class Filter(ConnectAgent):
             if c != "all":
                 c = c - 1
             if c in self._label_filters_dict:
-                self._connect_error(f"More than one filter for dimension {c+1}.")
+                self._connect_error(f"More than one label filter for dimension {c+1}.")
             self._label_filters_dict[c] = f
 
     def _filter_labels(self, df, f, c):
@@ -125,7 +125,8 @@ class Filter(ConnectAgent):
             for c in value_columns:
                 df = self._filter_values(df, f, c, True)
         else:
-            df = eval(f"df.loc[({rule})]", {"df": df, "gt": gt})
+            if not df.empty:
+                df = eval(f"df.loc[({rule})]", {"df": df, "gt": gt})
         return df
 
     def execute(self):
@@ -162,7 +163,7 @@ class Filter(ConnectAgent):
                 self._sym.domain,
             )
         else:
-            self._connect_error("Data type not supported.")
+            self._connect_error("Symbol type not supported.")
 
         df = self._sym_records_no_none(self._sym).copy(deep=True)
 

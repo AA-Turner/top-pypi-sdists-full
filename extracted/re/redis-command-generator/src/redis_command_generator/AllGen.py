@@ -10,9 +10,15 @@ from redis_command_generator.HashGen import HashGen
 from redis_command_generator.GeoGen import GeoGen
 from redis_command_generator.BitmapGen import BitmapGen
 from redis_command_generator.TimeSeriesGen import TimeSeriesGen
+from redis_command_generator.JsonGen import JsonGen
+from redis_command_generator.BloomGen import BloomGen
+from redis_command_generator.CuckooGen import CuckooGen
+from redis_command_generator.CmsGen import CmsGen
+from redis_command_generator.TopKGen import TopKGen
+from redis_command_generator.TDigestGen import TDigestGen
 
 @dataclass
-class AllGen(SetGen, ZSetGen, StringGen, StreamGen, ListGen, HyperLogLogGen, HashGen, GeoGen, BitmapGen, TimeSeriesGen):
+class AllGen(SetGen, ZSetGen, StringGen, StreamGen, ListGen, HyperLogLogGen, HashGen, GeoGen, BitmapGen, TimeSeriesGen, BloomGen, CuckooGen, CmsGen, TopKGen, TDigestGen, JsonGen):
     pass
 
 if __name__ == "__main__":

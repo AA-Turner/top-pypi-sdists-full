@@ -46,14 +46,14 @@ documentation = "https://doc.sagemath.org"
 "tracker" = "https://github.com/passagemath/passagemath/issues"
 
 [project.optional-dependencies]
-conf      = ['passagemath-conf ~= 10.5.45.0',]           # sage.env can optionally use sage_conf
-docbuild  = ['passagemath-docbuild ~= 10.5.45.0',]       # For "sage --docbuild"
-sage      = ['passagemath-standard ~= 10.5.45.0',]             # For "sage", "sage -t", ...
+conf      = ['passagemath-conf ~= 10.5.46.0',]           # sage.env can optionally use sage_conf
+docbuild  = ['passagemath-docbuild ~= 10.5.46.0',]       # For "sage --docbuild"
+sage      = ['passagemath-standard ~= 10.5.46.0',]             # For "sage", "sage -t", ...
 cython    = ['cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',]              # For "sage --cython"
 pytest    = ['pytest',]              # For "sage --pytest"
 rst2ipynb = ['rst2ipynb >=0.2.2',]           # For "sage --rst2ipynb"
 tox       = ['tox >= 4.11',]                 # For "sage --tox"
-sws2rst   = ['passagemath-sws2rst ~= 10.5.45.0',]        # For "sage --sws2rst"
+sws2rst   = ['passagemath-sws2rst ~= 10.5.46.0',]        # For "sage --sws2rst"
 
 [project.readme]
 file = "README.rst"

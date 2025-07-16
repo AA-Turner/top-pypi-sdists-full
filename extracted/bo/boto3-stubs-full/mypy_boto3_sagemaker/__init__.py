@@ -79,6 +79,7 @@ Usage::
         ListPipelineExecutionStepsPaginator,
         ListPipelineExecutionsPaginator,
         ListPipelineParametersForExecutionPaginator,
+        ListPipelineVersionsPaginator,
         ListPipelinesPaginator,
         ListProcessingJobsPaginator,
         ListResourceCatalogsPaginator,
@@ -184,6 +185,7 @@ Usage::
     list_pipeline_execution_steps_paginator: ListPipelineExecutionStepsPaginator = client.get_paginator("list_pipeline_execution_steps")
     list_pipeline_executions_paginator: ListPipelineExecutionsPaginator = client.get_paginator("list_pipeline_executions")
     list_pipeline_parameters_for_execution_paginator: ListPipelineParametersForExecutionPaginator = client.get_paginator("list_pipeline_parameters_for_execution")
+    list_pipeline_versions_paginator: ListPipelineVersionsPaginator = client.get_paginator("list_pipeline_versions")
     list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
     list_processing_jobs_paginator: ListProcessingJobsPaginator = client.get_paginator("list_processing_jobs")
     list_resource_catalogs_paginator: ListResourceCatalogsPaginator = client.get_paginator("list_resource_catalogs")
@@ -269,6 +271,7 @@ from .paginator import (
     ListPipelineExecutionStepsPaginator,
     ListPipelineParametersForExecutionPaginator,
     ListPipelinesPaginator,
+    ListPipelineVersionsPaginator,
     ListProcessingJobsPaginator,
     ListResourceCatalogsPaginator,
     ListSpacesPaginator,
@@ -376,6 +379,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginator",
     "ListPipelineExecutionsPaginator",
     "ListPipelineParametersForExecutionPaginator",
+    "ListPipelineVersionsPaginator",
     "ListPipelinesPaginator",
     "ListProcessingJobsPaginator",
     "ListResourceCatalogsPaginator",

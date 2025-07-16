@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+import pathlib
 import re
 from typing import TYPE_CHECKING
 
@@ -8,12 +10,12 @@ import zarr.storage
 
 if TYPE_CHECKING:
     import pathlib
+    from collections.abc import Callable
 
     from zarr.abc.store import Store
     from zarr.core.common import JSON, MemoryOrder, ZarrFormat
 
 import contextlib
-import warnings
 from typing import Literal
 
 import numpy as np
@@ -260,7 +262,7 @@ def test_save_errors() -> None:
         save_group("data/group.zarr")
     with pytest.raises(TypeError):
         # no array provided
-        save_array("data/group.zarr")
+        save_array("data/group.zarr")  # type: ignore[call-arg]
     with pytest.raises(ValueError):
         # no arrays provided
         save("data/group.zarr")
@@ -1113,40 +1115,6 @@ def test_tree() -> None:
 #             copy(source["foo"], dest, dry_run=True, log=True)
 
 
-def test_open_positional_args_deprecated() -> None:
-    store = MemoryStore()
-    with pytest.warns(FutureWarning, match="pass"):
-        zarr.api.synchronous.open(store, "w", shape=(1,))
-
-
-def test_save_array_positional_args_deprecated() -> None:
-    store = MemoryStore()
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="zarr_version is deprecated", category=DeprecationWarning
-        )
-        with pytest.warns(FutureWarning, match="pass"):
-            save_array(
-                store,
-                np.ones(
-                    1,
-                ),
-                3,
-            )
-
-
-def test_group_positional_args_deprecated() -> None:
-    store = MemoryStore()
-    with pytest.warns(FutureWarning, match="pass"):
-        group(store, True)
-
-
-def test_open_group_positional_args_deprecated() -> None:
-    store = MemoryStore()
-    with pytest.warns(FutureWarning, match="pass"):
-        open_group(store, "w")
-
-
 def test_open_falls_back_to_open_group() -> None:
     # https://github.com/zarr-developers/zarr-python/issues/2309
     store = MemoryStore()
@@ -1177,9 +1145,9 @@ def test_open_modes_creates_group(tmp_path: pathlib.Path, mode: str) -> None:
     if mode in ["r", "r+"]:
         # Expect FileNotFoundError to be raised if 'r' or 'r+' mode
         with pytest.raises(FileNotFoundError):
-            zarr.open(store=zarr_dir, mode=mode)
+            zarr.open(store=zarr_dir, mode=mode)  # type: ignore[arg-type]
     else:
-        group = zarr.open(store=zarr_dir, mode=mode)
+        group = zarr.open(store=zarr_dir, mode=mode)  # type: ignore[arg-type]
         assert isinstance(group, Group)
 
 
@@ -1214,6 +1182,43 @@ def test_open_array_with_mode_r_plus(store: Store, zarr_format: ZarrFormat) -> N
     assert isinstance(result, NDArrayLike)
     assert (result == 1).all()
     z2[:] = 3
+
+
+@pytest.mark.parametrize(
+    ("a_func", "b_func"),
+    [
+        (zarr.api.asynchronous.create_array, zarr.api.synchronous.create_array),
+        (zarr.api.asynchronous.save, zarr.api.synchronous.save),
+        (zarr.api.asynchronous.save_array, zarr.api.synchronous.save_array),
+        (zarr.api.asynchronous.save_group, zarr.api.synchronous.save_group),
+        (zarr.api.asynchronous.open_group, zarr.api.synchronous.open_group),
+        (zarr.api.asynchronous.create, zarr.api.synchronous.create),
+    ],
+)
+def test_consistent_signatures(
+    a_func: Callable[[object], object], b_func: Callable[[object], object]
+) -> None:
+    """
+    Ensure that pairs of functions have the same signature
+    """
+    base_sig = inspect.signature(a_func)
+    test_sig = inspect.signature(b_func)
+    wrong: dict[str, list[object]] = {
+        "missing_from_test": [],
+        "missing_from_base": [],
+        "wrong_type": [],
+    }
+    for key, value in base_sig.parameters.items():
+        if key not in test_sig.parameters:
+            wrong["missing_from_test"].append((key, value))
+    for key, value in test_sig.parameters.items():
+        if key not in base_sig.parameters:
+            wrong["missing_from_base"].append((key, value))
+        if base_sig.parameters[key] != value:
+            wrong["wrong_type"].append({key: {"test": value, "base": base_sig.parameters[key]}})
+    assert wrong["missing_from_base"] == []
+    assert wrong["missing_from_test"] == []
+    assert wrong["wrong_type"] == []
 
 
 def test_api_exports() -> None:
@@ -1372,3 +1377,10 @@ def test_auto_chunks(f: Callable[..., Array]) -> None:
 
     a = f(**kwargs)
     assert a.chunks == (500, 500)
+
+
+@pytest.mark.parametrize("kwarg_name", ["synchronizer", "chunk_store", "cache_attrs", "meta_array"])
+def test_unimplemented_kwarg_warnings(kwarg_name: str) -> None:
+    kwargs = {kwarg_name: 1}
+    with pytest.warns(RuntimeWarning, match=".* is not yet implemented"):
+        zarr.create(shape=(1,), **kwargs)  # type: ignore[arg-type]

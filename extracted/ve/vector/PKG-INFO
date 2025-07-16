@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector
-Version: 1.6.2
+Version: 1.6.3
 Summary: Vector classes and utilities
 Project-URL: Bug Tracker, https://github.com/scikit-hep/vector/issues
 Project-URL: Changelog, https://vector.readthedocs.io/en/latest/changelog.html
@@ -38,7 +38,7 @@ Provides-Extra: dev
 Requires-Dist: awkward>=2; extra == 'dev'
 Requires-Dist: dask-awkward; extra == 'dev'
 Requires-Dist: nox; extra == 'dev'
-Requires-Dist: numba>=0.57; (python_version < '3.13') and extra == 'dev'
+Requires-Dist: numba>=0.57; (python_version < '3.14') and extra == 'dev'
 Requires-Dist: papermill>=2.4; extra == 'dev'
 Requires-Dist: pytest-cov>=3; extra == 'dev'
 Requires-Dist: pytest-doctestplus; extra == 'dev'
@@ -55,7 +55,7 @@ Requires-Dist: sphinx-math-dollar; extra == 'docs'
 Requires-Dist: sphinx>=4; extra == 'docs'
 Requires-Dist: sympy; extra == 'docs'
 Provides-Extra: numba
-Requires-Dist: numba>=0.57; (python_version < '3.13') and extra == 'numba'
+Requires-Dist: numba>=0.57; (python_version < '3.14') and extra == 'numba'
 Provides-Extra: sympy
 Requires-Dist: sympy; extra == 'sympy'
 Provides-Extra: test
@@ -74,19 +74,22 @@ Description-Content-Type: text/markdown
 
 # Vector: arrays of 2D, 3D, and Lorentz vectors
 
+[![DOI][zenodo-badge]][zenodo-link]
+[![DOI][joss-badge]][joss-link]
+[![Scikit-HEP][sk-badge]][sk-link]
+
 [![Actions Status][actions-badge]][actions-link]
 [![Documentation Status][rtd-badge]][rtd-link]
 [![pre-commit.ci status][pre-commit-badge]][pre-commit-link]
 [![codecov percentage][codecov-badge]][codecov-link]
-[![GitHub Discussion][github-discussions-badge]][github-discussions-link]
-[![Gitter][gitter-badge]][gitter-link]
 
 [![PyPI platforms][pypi-platforms]][pypi-link]
 [![PyPI version][pypi-version]][pypi-link]
 [![Conda latest release][conda-version]][conda-link]
-[![DOI][zenodo-badge]][zenodo-link]
+
 [![LICENSE][license-badge]][license-link]
-[![Scikit-HEP][sk-badge]][sk-link]
+[![GitHub Discussion][github-discussions-badge]][github-discussions-link]
+[![Gitter][gitter-badge]][gitter-link]
 
 ## Installation
 
@@ -158,6 +161,24 @@ pip install -e .
 
 Refer to [CONTRIBUTING.md](https://github.com/scikit-hep/vector/blob/main/.github/CONTRIBUTING.md) for more.
 
+## Citing Vector
+
+To cite Vector, please use [![DOI][joss-badge]][joss-link]
+
+```bib
+@article{Chopra2025,
+doi = {10.21105/joss.07791},
+url = {https://doi.org/10.21105/joss.07791},
+year = {2025}, publisher = {The Open Journal},
+volume = {10},
+number = {109},
+pages = {7791},
+author = {Saransh Chopra and Henry Schreiner and Eduardo Rodrigues and Jonas Eschle and Jim Pivarski},
+title = {Vector: JIT-compilable mathematical manipulations of ragged Lorentz vectors},
+journal = {Journal of Open Source Software}
+}
+```
+
 ## Documentation
 
 ### Tutorials
@@ -187,7 +208,7 @@ Refer to [CONTRIBUTING.md](https://github.com/scikit-hep/vector/blob/main/.githu
 
 ### More ways to learn
 
-- [Presentations about Vector](https://vector.readthedocs.io/en/latest/src/talks.html)
+- [Papers and talks](https://vector.readthedocs.io/en/latest/src/talks.html)
 
 ## Contributors
 
@@ -197,18 +218,21 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
 <table>
-  <tr>
-    <td align="center"><a href="https://github.com/jpivarski"><img src="https://avatars.githubusercontent.com/u/1852447?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jim Pivarski</b></sub></a><br /><a href="#maintenance-jpivarski" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=jpivarski" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=jpivarski" title="Documentation">📖</a></td>
-    <td align="center"><a href="https://github.com/henryiii"><img src="https://avatars.githubusercontent.com/u/4616906?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Henry Schreiner</b></sub></a><br /><a href="#maintenance-henryiii" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=henryiii" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=henryiii" title="Documentation">📖</a></td>
-    <td align="center"><a href="https://github.com/eduardo-rodrigues"><img src="https://avatars.githubusercontent.com/u/5013581?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Eduardo Rodrigues</b></sub></a><br /><a href="#maintenance-eduardo-rodrigues" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=eduardo-rodrigues" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=eduardo-rodrigues" title="Documentation">📖</a></td>
-    <td align="center"><a href="http://lovelybuggies.com.cn/"><img src="https://avatars.githubusercontent.com/u/29083689?v=4?s=100" width="100px;" alt=""/><br /><sub><b>N!no</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=LovelyBuggies" title="Documentation">📖</a></td>
-    <td align="center"><a href="https://github.com/pfackeldey"><img src="https://avatars.githubusercontent.com/u/18463582?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Peter Fackeldey</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=pfackeldey" title="Documentation">📖</a></td>
-    <td align="center"><a href="https://github.com/kreczko"><img src="https://avatars.githubusercontent.com/u/1213276?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Luke Kreczko</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=kreczko" title="Code">💻</a></td>
-    <td align="center"><a href="https://github.com/nsmith-"><img src="https://avatars.githubusercontent.com/u/6587412?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Nicholas Smith</b></sub></a><br /><a href="#ideas-nsmith-" title="Ideas, Planning, & Feedback">🤔</a></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="https://github.com/mayou36"><img src="https://avatars.githubusercontent.com/u/17454848?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jonas Eschle</b></sub></a><br /><a href="#ideas-mayou36" title="Ideas, Planning, & Feedback">🤔</a></td>
-  </tr>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jpivarski"><img src="https://avatars.githubusercontent.com/u/1852447?v=4?s=100" width="100px;" alt="Jim Pivarski"/><br /><sub><b>Jim Pivarski</b></sub></a><br /><a href="#maintenance-jpivarski" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=jpivarski" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=jpivarski" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/henryiii"><img src="https://avatars.githubusercontent.com/u/4616906?v=4?s=100" width="100px;" alt="Henry Schreiner"/><br /><sub><b>Henry Schreiner</b></sub></a><br /><a href="#maintenance-henryiii" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=henryiii" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=henryiii" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/eduardo-rodrigues"><img src="https://avatars.githubusercontent.com/u/5013581?v=4?s=100" width="100px;" alt="Eduardo Rodrigues"/><br /><sub><b>Eduardo Rodrigues</b></sub></a><br /><a href="#maintenance-eduardo-rodrigues" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=eduardo-rodrigues" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=eduardo-rodrigues" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="http://lovelybuggies.com.cn/"><img src="https://avatars.githubusercontent.com/u/29083689?v=4?s=100" width="100px;" alt="N!no"/><br /><sub><b>N!no</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=LovelyBuggies" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/pfackeldey"><img src="https://avatars.githubusercontent.com/u/18463582?v=4?s=100" width="100px;" alt="Peter Fackeldey"/><br /><sub><b>Peter Fackeldey</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=pfackeldey" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/kreczko"><img src="https://avatars.githubusercontent.com/u/1213276?v=4?s=100" width="100px;" alt="Luke Kreczko"/><br /><sub><b>Luke Kreczko</b></sub></a><br /><a href="https://github.com/scikit-hep/vector/commits?author=kreczko" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/nsmith-"><img src="https://avatars.githubusercontent.com/u/6587412?v=4?s=100" width="100px;" alt="Nicholas Smith"/><br /><sub><b>Nicholas Smith</b></sub></a><br /><a href="#ideas-nsmith-" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mayou36"><img src="https://avatars.githubusercontent.com/u/17454848?v=4?s=100" width="100px;" alt="Jonas Eschle"/><br /><sub><b>Jonas Eschle</b></sub></a><br /><a href="#ideas-mayou36" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://saransh-cpp.github.io/"><img src="https://avatars.githubusercontent.com/u/74055102?v=4?s=100" width="100px;" alt="Saransh Chopra"/><br /><sub><b>Saransh Chopra</b></sub></a><br /><a href="#maintenance-Saransh-cpp" title="Maintenance">🚧</a> <a href="https://github.com/scikit-hep/vector/commits?author=Saransh-cpp" title="Code">💻</a> <a href="https://github.com/scikit-hep/vector/commits?author=Saransh-cpp" title="Documentation">📖</a></td>
+    </tr>
+  </tbody>
 </table>
 
 <!-- markdownlint-restore -->
@@ -238,6 +262,8 @@ Support for this work was provided by the National Science Foundation cooperativ
 [github-discussions-link]: https://github.com/scikit-hep/vector/discussions
 [gitter-badge]: https://badges.gitter.im/Scikit-HEP/vector.svg
 [gitter-link]: https://gitter.im/Scikit-HEP/vector?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
+[joss-badge]: https://joss.theoj.org/papers/10.21105/joss.07791/status.svg
+[joss-link]: https://doi.org/10.21105/joss.07791
 [license-badge]: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
 [license-link]: https://opensource.org/licenses/BSD-3-Clause
 [pre-commit-badge]: https://results.pre-commit.ci/badge/github/scikit-hep/vector/main.svg
@@ -249,5 +275,5 @@ Support for this work was provided by the National Science Foundation cooperativ
 [rtd-link]: https://vector.readthedocs.io/en/latest/?badge=latest
 [sk-badge]: https://scikit-hep.org/assets/images/Scikit--HEP-Project-blue.svg
 [sk-link]: https://scikit-hep.org/
-[zenodo-badge]: https://zenodo.org/badge/DOI/10.5281/zenodo.7054478.svg
-[zenodo-link]: https://doi.org/10.5281/zenodo.7054478
+[zenodo-badge]: https://zenodo.org/badge/DOI/10.5281/zenodo.15263860.svg
+[zenodo-link]: https://zenodo.org/records/15263860

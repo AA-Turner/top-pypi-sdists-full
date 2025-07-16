@@ -41,12 +41,14 @@ __all__ = (
     "EncodingTypeType",
     "EventType",
     "ExistingObjectReplicationStatusType",
+    "ExpirationStateType",
     "ExpirationStatusType",
     "ExpressionTypeType",
     "FileHeaderInfoType",
     "FilterRuleNameType",
     "IntelligentTieringAccessTierType",
     "IntelligentTieringStatusType",
+    "InventoryConfigurationStateType",
     "InventoryFormatType",
     "InventoryFrequencyType",
     "InventoryIncludedObjectVersionsType",
@@ -93,12 +95,14 @@ __all__ = (
     "ResourceServiceName",
     "RestoreRequestTypeType",
     "S3ServiceName",
+    "S3TablesBucketTypeType",
     "ServerSideEncryptionType",
     "ServiceName",
     "SessionModeType",
     "SseKmsEncryptedObjectsStatusType",
     "StorageClassAnalysisSchemaVersionType",
     "StorageClassType",
+    "TableSseAlgorithmType",
     "TaggingDirectiveType",
     "TierType",
     "TransitionDefaultMinimumObjectSizeType",
@@ -188,12 +192,14 @@ EventType = Literal[
     "s3:Replication:OperationReplicatedAfterThreshold",
 ]
 ExistingObjectReplicationStatusType = Literal["Disabled", "Enabled"]
+ExpirationStateType = Literal["DISABLED", "ENABLED"]
 ExpirationStatusType = Literal["Disabled", "Enabled"]
 ExpressionTypeType = Literal["SQL"]
 FileHeaderInfoType = Literal["IGNORE", "NONE", "USE"]
 FilterRuleNameType = Literal["prefix", "suffix"]
 IntelligentTieringAccessTierType = Literal["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
 IntelligentTieringStatusType = Literal["Disabled", "Enabled"]
+InventoryConfigurationStateType = Literal["DISABLED", "ENABLED"]
 InventoryFormatType = Literal["CSV", "ORC", "Parquet"]
 InventoryFrequencyType = Literal["Daily", "Weekly"]
 InventoryIncludedObjectVersionsType = Literal["All", "Current"]
@@ -273,6 +279,7 @@ ReplicationTimeStatusType = Literal["Disabled", "Enabled"]
 RequestChargedType = Literal["requester"]
 RequestPayerType = Literal["requester"]
 RestoreRequestTypeType = Literal["SELECT"]
+S3TablesBucketTypeType = Literal["aws", "customer"]
 ServerSideEncryptionType = Literal["AES256", "aws:fsx", "aws:kms", "aws:kms:dsse"]
 SessionModeType = Literal["ReadOnly", "ReadWrite"]
 SseKmsEncryptedObjectsStatusType = Literal["Disabled", "Enabled"]
@@ -291,6 +298,7 @@ StorageClassType = Literal[
     "STANDARD",
     "STANDARD_IA",
 ]
+TableSseAlgorithmType = Literal["AES256", "aws:kms"]
 TaggingDirectiveType = Literal["COPY", "REPLACE"]
 TierType = Literal["Bulk", "Expedited", "Standard"]
 TransitionDefaultMinimumObjectSizeType = Literal[
@@ -637,6 +645,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

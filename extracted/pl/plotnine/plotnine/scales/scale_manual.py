@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import KW_ONLY, InitVar, dataclass
 from typing import Any, Sequence
 from warnings import warn
@@ -21,11 +22,16 @@ class _scale_manual(scale_discrete):
     """
 
     def __post_init__(self, values):
-        from collections.abc import Sized
+        from collections.abc import Iterable, Sized
 
         super().__post_init__()
 
-        if isinstance(self.breaks, Sized) and len(self.breaks) == len(values):
+        if (
+            isinstance(self.breaks, Iterable)
+            and isinstance(self.breaks, Sized)
+            and len(self.breaks) == len(values)
+            and not isinstance(values, Mapping)
+        ):
             values = dict(zip(self.breaks, values))
 
         def palette(n):

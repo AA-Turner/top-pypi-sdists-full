@@ -34,7 +34,7 @@ def rename_log(logfile, thread_num):
 @dataclass
 class GenRunner(AllGen):
     num_threads: int = cpu_count() - 1  # Number of threads to run, default is number of CPU cores - 1
-    include_gens: tuple = ("SetGen", "ZSetGen", "StringGen", "StreamGen", "ListGen", "HyperLogLogGen", "HashGen", "GeoGen", "BitmapGen", "TimeSeriesGen")
+    include_gens: tuple = ("SetGen", "ZSetGen", "StringGen", "StreamGen", "ListGen", "HyperLogLogGen", "HashGen", "GeoGen", "BitmapGen", "TimeSeriesGen", "BloomGen", "CuckooGen", "CmsGen", "TopKGen", "TDigestGen", "JsonGen")
     exclude_gens: tuple = ()
     
     def __post_init__(self):

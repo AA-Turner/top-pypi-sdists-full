@@ -29,8 +29,8 @@ include(CMakeDependentOption)
 
 # Define Manifold version
 set(MANIFOLD_VERSION_MAJOR 3)
-set(MANIFOLD_VERSION_MINOR 1)
-set(MANIFOLD_VERSION_PATCH 1)
+set(MANIFOLD_VERSION_MINOR 2)
+set(MANIFOLD_VERSION_PATCH 0)
 set(
   MANIFOLD_VERSION
   "${MANIFOLD_VERSION_MAJOR}.${MANIFOLD_VERSION_MINOR}.${MANIFOLD_VERSION_PATCH}"
@@ -103,9 +103,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Various Compiler Flags
 if(MANIFOLD_FUZZ)
-  if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    message(FATAL_ERROR "fuzztest only supports clang")
-  endif()
   # we should enable debug checks
   set(MANIFOLD_DEBUG ON)
   # enable fuzztest fuzzing mode
@@ -183,6 +180,20 @@ else()
   endif()
   if("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
     list(APPEND MANIFOLD_FLAGS -fno-omit-frame-pointer)
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # disable fp math optimizations, e.g. FMA for supported architectures, as
+    # this changes floating-point results
+    # clang defaults to -ffp-contract=off so we don't have to set that
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag(-ffp-contract=off HAS_FP_CONTRACT)
+    check_cxx_compiler_flag(-fexcess-precision=standard HAS_FP_PRECISION)
+    if(HAS_FP_CONTRACT)
+      list(APPEND MANIFOLD_FLAGS -ffp-contract=off)
+    endif()
+    if(HAS_FP_PRECISION)
+      list(APPEND MANIFOLD_FLAGS -fexcess-precision=standard)
+    endif()
   endif()
   if(CODE_COVERAGE)
     list(

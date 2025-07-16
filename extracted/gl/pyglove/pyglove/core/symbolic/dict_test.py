@@ -11,16 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for pyglove.Dict."""
-
 import copy
 import inspect
 import io
 import pickle
 import unittest
 
-from pyglove.core import object_utils
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.symbolic import base
 from pyglove.core.symbolic import flags
 from pyglove.core.symbolic import inferred
@@ -31,7 +29,7 @@ from pyglove.core.symbolic.pure_symbolic import NonDeterministic
 from pyglove.core.symbolic.pure_symbolic import PureSymbolic
 
 
-MISSING_VALUE = object_utils.MISSING_VALUE
+MISSING_VALUE = utils.MISSING_VALUE
 
 
 class DictTest(unittest.TestCase):
@@ -44,14 +42,14 @@ class DictTest(unittest.TestCase):
     self.assertEqual(len(sd), 0)
 
     # Schemaless dict created from a regular dict.
-    sd = Dict({'a': 1})
+    sd = Dict({'a': 1, 1: 1})
     self.assertIsNone(sd.value_spec)
-    self.assertEqual(sd, dict(a=1))
+    self.assertEqual(sd, {'a': 1, 1: 1})
 
     # Schemaless dict created from key value pairs.
-    sd = Dict((('a', 1),))
+    sd = Dict((('a', 1), (1, 1)))
     self.assertIsNone(sd.value_spec)
-    self.assertEqual(sd, dict(a=1))
+    self.assertEqual(sd, {'a': 1, 1: 1})
 
     # Schemaless dict created from keyword args.
     sd = Dict(a=1)
@@ -59,9 +57,9 @@ class DictTest(unittest.TestCase):
     self.assertEqual(sd, dict(a=1))
 
     # Schemaless dict created from both a regular dict and keyword args.
-    sd = Dict({'a': 1}, a=2)
+    sd = Dict({'a': 1, 1: 1}, a=2)
     self.assertIsNone(sd.value_spec)
-    self.assertEqual(sd, dict(a=2))
+    self.assertEqual(sd, {'a': 2, 1: 1})
 
     # Schematized dict.
     vs = pg_typing.Dict([('a', pg_typing.Int())])
@@ -305,8 +303,8 @@ class DictTest(unittest.TestCase):
       with self.assertRaisesRegex(
           base.WritePermissionError, 'Cannot modify field of a sealed Dict.'):
         sd['b'] = 1
-    with self.assertRaisesRegex(KeyError, 'Key must be string type'):
-      sd[0] = 1
+    with self.assertRaisesRegex(KeyError, 'Key must be string or int type'):
+      sd[0.5] = 1
 
     # Set item in a schematized dict.
     sd = Dict(value_spec=pg_typing.Dict([('a', pg_typing.Int(default=0))]))
@@ -786,35 +784,45 @@ class DictTest(unittest.TestCase):
         sd.missing_values(flatten=False), {'a': MISSING_VALUE})
 
     # A non-schematized dict has a schematized child.
-    sd = Dict(x=sd)
+    sd = Dict({'x': sd, 1: sd})
     self.assertIsNone(sd.value_spec)
-    self.assertEqual(sd.missing_values(), {'x.a': MISSING_VALUE})
+    self.assertEqual(
+        sd.missing_values(), {'x.a': MISSING_VALUE, '[1].a': MISSING_VALUE}
+    )
 
   def test_sym_has(self):
-    sd = Dict(x=1, y=Dict(z=2))
+    sd = Dict({'x': 1, 1: dict(a=3), 'y': Dict({'z': 2, 2: 3})})
     self.assertTrue(sd.sym_has('x'))
+    self.assertTrue(sd.sym_has(1))
     self.assertTrue(sd.sym_has('y.z'))
-    self.assertTrue(sd.sym_has(object_utils.KeyPath.parse('y.z')))
+    self.assertTrue(sd.sym_has('[1].a'))
+    self.assertTrue(sd.sym_has('y[2]'))
+    self.assertTrue(sd.sym_has(utils.KeyPath.parse('y.z')))
     self.assertFalse(sd.sym_has('x.z'))
 
   def test_sym_get(self):
-    sd = Dict(x=1, y=Dict(z=2))
+    sd = Dict({'x': 1, 1: dict(a=3), 'y': Dict({'z': 2, 2: 3})})
     self.assertEqual(sd.sym_get('x'), 1)
+    self.assertEqual(sd.sym_get(1), dict(a=3))
     self.assertEqual(sd.sym_get('y.z'), 2)
+    self.assertEqual(sd.sym_get('[1].a'), 3)
+    self.assertEqual(sd.sym_get('y[2]'), 3)
     self.assertIsNone(sd.sym_get('x.z', None))
     with self.assertRaisesRegex(
         KeyError, 'Cannot query sub-key \'z\' of object.'):
       sd.sym_get('x.z')
 
   def test_sym_hasattr(self):
-    sd = Dict(x=1, y=Dict(z=2))
+    sd = Dict({'x': 1, 1: dict(a=3), 'y': Dict({'z': 2, 2: 3})})
     self.assertTrue(sd.sym_hasattr('x'))
+    self.assertTrue(sd.sym_hasattr(1))
     self.assertFalse(sd.sym_hasattr('y.z'))
     self.assertFalse(sd.sym_hasattr('a'))
 
   def test_sym_getattr(self):
-    sd = Dict(x=1, y=Dict(z=2))
+    sd = Dict({'x': 1, 1: dict(a=3), 'y': Dict({'z': 2, 2: 3})})
     self.assertEqual(sd.sym_getattr('x'), 1)
+    self.assertEqual(sd.sym_getattr(1), dict(a=3))
     self.assertIsNone(sd.sym_getattr('a', None))
     with self.assertRaisesRegex(
         AttributeError,
@@ -832,8 +840,9 @@ class DictTest(unittest.TestCase):
     with self.assertRaisesRegex(AttributeError, 'z'):
       _ = sd.sym_inferred('z')
 
-    sd = Dict(y=1, x=Dict(x=Dict(y=inferred.ValueFromParentChain())))
+    sd = Dict(y=1, x={'x': Dict(y=inferred.ValueFromParentChain()), 1: 2})
     self.assertEqual(sd.x.x.y, 1)
+    self.assertEqual(sd.x[1], 2)
 
   def test_sym_field(self):
     sd = Dict(x=1, y=Dict(z=2))
@@ -859,9 +868,9 @@ class DictTest(unittest.TestCase):
     self.assertIs(sd.sym_attr_field('x'), spec.schema.get_field('x'))
 
   def test_sym_keys(self):
-    sd = Dict(x=1, y=2)
+    sd = Dict({'x': 1, 'y': 2, 1: 3})
     self.assertEqual(next(sd.sym_keys()), 'x')
-    self.assertEqual(list(sd.sym_keys()), ['x', 'y'])
+    self.assertEqual(list(sd.sym_keys()), ['x', 'y', 1])
 
     sd = Dict(x=1, z=3, y=2, value_spec=pg_typing.Dict([
         (pg_typing.StrKey(), pg_typing.Int())
@@ -874,9 +883,9 @@ class DictTest(unittest.TestCase):
     self.assertEqual(list(sd.sym_keys()), ['x', 'y'])
 
   def test_sym_values(self):
-    sd = Dict(x=1, y=2)
+    sd = Dict({'x': 1, 'y': 2, 1: 3})
     self.assertEqual(next(sd.sym_values()), 1)
-    self.assertEqual(list(sd.sym_values()), [1, 2])
+    self.assertEqual(list(sd.sym_values()), [1, 2, 3])
 
     sd = Dict(x=1, z=3, y=2, value_spec=pg_typing.Dict([
         (pg_typing.StrKey(), pg_typing.Int())
@@ -891,9 +900,9 @@ class DictTest(unittest.TestCase):
     )
 
   def test_sym_items(self):
-    sd = Dict(x=1, y=2)
+    sd = Dict({'x': 1, 'y': 2, 1: 3})
     self.assertEqual(next(sd.sym_items()), ('x', 1))
-    self.assertEqual(list(sd.sym_items()), [('x', 1), ('y', 2)])
+    self.assertEqual(list(sd.sym_items()), [('x', 1), ('y', 2), (1, 3)])
 
     sd = Dict(x=1, z=3, y=2, value_spec=pg_typing.Dict([
         (pg_typing.StrKey(), pg_typing.Int())
@@ -917,9 +926,9 @@ class DictTest(unittest.TestCase):
 
   def test_sym_rebind(self):
     # Refer to RebindTest for more detailed tests.
-    sd = Dict(x=1, y=2)
-    sd.sym_rebind(x=2)
-    self.assertEqual(sd, dict(x=2, y=2))
+    sd = Dict({'x': 1, 'y': 2, 1: 3})
+    sd.sym_rebind({1: 4}, x=2)
+    self.assertEqual(sd, {'x': 2, 'y': 2, 1: 4})
 
   def test_sym_clone(self):
     class A:
@@ -996,6 +1005,12 @@ class DictTest(unittest.TestCase):
     class B(pg_object.Object):
       y: int = 1
       use_symbolic_comparison = True
+
+    sd = Dict({'x': A(2), 1: B(2)})
+    self.assertEqual(sd.sym_nondefault(), {'x.x': 2, '[1].y': 2})
+
+    sd = Dict({'x': A(1), 1: B(1)})
+    self.assertEqual(sd.sym_nondefault(), {'x.x': 1})
 
     sd = Dict(x=1, y=dict(a1=A(1)), value_spec=pg_typing.Dict([
         ('x', pg_typing.Int(default=0)),
@@ -1080,7 +1095,7 @@ class DictTest(unittest.TestCase):
     self.assertTrue(Dict().sym_eq(Dict()))
     self.assertTrue(base.eq(Dict(), Dict()))
 
-    self.assertEqual(Dict(a=1), Dict(a=1))
+    self.assertEqual(Dict({'a': 1, 1: 2}), Dict({'a': 1, 1: 2}))
     self.assertTrue(Dict(a=1).sym_eq(Dict(a=1)))
     self.assertTrue(base.eq(Dict(a=1), Dict(a=1)))
     self.assertTrue(
@@ -1130,6 +1145,8 @@ class DictTest(unittest.TestCase):
     self.assertTrue(base.ne(Dict(), 1))
     self.assertNotEqual(Dict(), Dict(a=1))
     self.assertTrue(base.ne(Dict(), Dict(a=1)))
+    self.assertNotEqual(Dict({1: 1}), Dict({'1': 1}))
+    self.assertTrue(base.ne(Dict({1: 1}), Dict({'1': 1})))
     self.assertNotEqual(Dict(a=0), Dict(a=1))
     self.assertTrue(base.ne(Dict(a=0), Dict(a=1)))
 
@@ -1192,6 +1209,7 @@ class DictTest(unittest.TestCase):
     self.assertEqual(hash(Dict(a=1)), hash(Dict(a=1)))
     self.assertEqual(hash(Dict(a=dict(x=1))), hash(Dict(a=dict(x=1))))
     self.assertNotEqual(hash(Dict()), hash(Dict(a=1)))
+    self.assertNotEqual(hash(Dict({'1': 1})), hash(Dict({1: 1})))
     self.assertNotEqual(hash(Dict(a=1)), hash(Dict(a=2)))
 
     class A:
@@ -1247,7 +1265,7 @@ class DictTest(unittest.TestCase):
     self.assertEqual(sd.x.a.sym_path, 'x.a')
     self.assertEqual(sd.y[0].b.sym_path, 'y[0].b')
 
-    sd.sym_setpath(object_utils.KeyPath('a'))
+    sd.sym_setpath(utils.KeyPath('a'))
     self.assertEqual(sd.sym_path, 'a')
     self.assertEqual(sd.x.sym_path, 'a.x')
     self.assertEqual(sd.x.a.sym_path, 'a.x.a')
@@ -1704,96 +1722,112 @@ class RebindTest(unittest.TestCase):
         'd': 'foo',  # Unchanged.
         'e': 'bar'
     })
-    self.assertEqual(updates, [
-        {  # Notification to `sd.c[0]`.
-            'p': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].p'),
-                target=sd.c[0],
-                field=None,
-                old_value=1,
-                new_value=MISSING_VALUE),
-            'q': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].q'),
-                target=sd.c[0],
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=2),
-        },
-        {  # Notification to `sd.c`.
-            '[0].p': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].p'),
-                target=sd.c[0],
-                field=None,
-                old_value=1,
-                new_value=MISSING_VALUE),
-            '[0].q': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].q'),
-                target=sd.c[0],
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=2),
-        },
-        {  # Notification to `sd.b.y`.
-            'z': base.FieldUpdate(
-                object_utils.KeyPath.parse('b.y.z'),
-                target=sd.b.y,
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=1),
-        },
-        {  # Notification to `sd.b`.
-            'x': base.FieldUpdate(
-                object_utils.KeyPath.parse('b.x'),
-                target=sd.b,
-                field=None,
-                old_value=1,
-                new_value=2),
-            'y.z': base.FieldUpdate(
-                object_utils.KeyPath.parse('b.y.z'),
-                target=sd.b.y,
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=1),
-        },
-        {  # Notification to `sd`.
-            'a': base.FieldUpdate(
-                object_utils.KeyPath.parse('a'),
-                target=sd,
-                field=None,
-                old_value=1,
-                new_value=2),
-            'b.x': base.FieldUpdate(
-                object_utils.KeyPath.parse('b.x'),
-                target=sd.b,
-                field=None,
-                old_value=1,
-                new_value=2),
-            'b.y.z': base.FieldUpdate(
-                object_utils.KeyPath.parse('b.y.z'),
-                target=sd.b.y,
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=1),
-            'c[0].p': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].p'),
-                target=sd.c[0],
-                field=None,
-                old_value=1,
-                new_value=MISSING_VALUE),
-            'c[0].q': base.FieldUpdate(
-                object_utils.KeyPath.parse('c[0].q'),
-                target=sd.c[0],
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value=2),
-            'e': base.FieldUpdate(
-                object_utils.KeyPath.parse('e'),
-                target=sd,
-                field=None,
-                old_value=MISSING_VALUE,
-                new_value='bar')
-        }
-    ])
+    self.assertEqual(
+        updates,
+        [
+            {  # Notification to `sd.c[0]`.
+                'p': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].p'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=1,
+                    new_value=MISSING_VALUE,
+                ),
+                'q': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].q'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=2,
+                ),
+            },
+            {  # Notification to `sd.c`.
+                '[0].p': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].p'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=1,
+                    new_value=MISSING_VALUE,
+                ),
+                '[0].q': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].q'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=2,
+                ),
+            },
+            {  # Notification to `sd.b.y`.
+                'z': base.FieldUpdate(
+                    utils.KeyPath.parse('b.y.z'),
+                    target=sd.b.y,
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=1,
+                ),
+            },
+            {  # Notification to `sd.b`.
+                'x': base.FieldUpdate(
+                    utils.KeyPath.parse('b.x'),
+                    target=sd.b,
+                    field=None,
+                    old_value=1,
+                    new_value=2,
+                ),
+                'y.z': base.FieldUpdate(
+                    utils.KeyPath.parse('b.y.z'),
+                    target=sd.b.y,
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=1,
+                ),
+            },
+            {  # Notification to `sd`.
+                'a': base.FieldUpdate(
+                    utils.KeyPath.parse('a'),
+                    target=sd,
+                    field=None,
+                    old_value=1,
+                    new_value=2,
+                ),
+                'b.x': base.FieldUpdate(
+                    utils.KeyPath.parse('b.x'),
+                    target=sd.b,
+                    field=None,
+                    old_value=1,
+                    new_value=2,
+                ),
+                'b.y.z': base.FieldUpdate(
+                    utils.KeyPath.parse('b.y.z'),
+                    target=sd.b.y,
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=1,
+                ),
+                'c[0].p': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].p'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=1,
+                    new_value=MISSING_VALUE,
+                ),
+                'c[0].q': base.FieldUpdate(
+                    utils.KeyPath.parse('c[0].q'),
+                    target=sd.c[0],
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value=2,
+                ),
+                'e': base.FieldUpdate(
+                    utils.KeyPath.parse('e'),
+                    target=sd,
+                    field=None,
+                    old_value=MISSING_VALUE,
+                    new_value='bar',
+                ),
+            },
+        ],
+    )
 
   def test_rebind_with_fn(self):
     sd = Dict(a=1, b=dict(x=2, y='foo', z=[0, 1, 2]))
@@ -1846,10 +1880,6 @@ class RebindTest(unittest.TestCase):
       Dict().rebind({})
 
     with self.assertRaisesRegex(
-        KeyError, 'Key must be string type. Encountered 1'):
-      Dict().rebind({1: 1})
-
-    with self.assertRaisesRegex(
         ValueError, 'Required value is not specified.'):
       Dict(a=1, value_spec=pg_typing.Dict([('a', pg_typing.Int())])).rebind({
           'a': MISSING_VALUE})
@@ -1859,13 +1889,17 @@ class SerializationTest(unittest.TestCase):
   """Dedicated tests for `pg.Dict` serialization."""
 
   def test_schemaless(self):
-    sd = Dict()
+    sd = Dict({1: 2})
     sd.b = 0
     sd.c = None
     sd.a = 'foo'
 
     # Key order is preserved.
-    self.assertEqual(sd.to_json_str(), '{"b": 0, "c": null, "a": "foo"}')
+    self.assertEqual(
+        sd.to_json_str(),
+        '{"n_:1": 2, "b": 0, "c": null, "a": "foo"}'
+    )
+    self.assertEqual(base.from_json_str(sd.to_json_str()), sd)
 
   def test_schematized(self):
     sd = Dict.partial(
@@ -1906,6 +1940,36 @@ class SerializationTest(unittest.TestCase):
 
     self.assertEqual(sd.to_json_str(), '{"x": 1, "y": 2.0}')
     self.assertEqual(base.from_json_str(sd.to_json_str(), value_spec=spec), sd)
+
+  def test_hide_frozen(self):
+
+    class A(pg_object.Object):
+      x: pg_typing.Int().freeze(1)
+
+    sd = Dict.partial(
+        a=A(),
+        value_spec=pg_typing.Dict([
+            ('a', pg_typing.Object(A)),
+            ('b', pg_typing.Bool(True).freeze()),
+        ]))
+    self.assertEqual(
+        sd.to_json(),
+        {
+            'a': {
+                '_type': A.__type_name__
+            },
+        }
+    )
+    self.assertEqual(
+        sd.to_json(hide_frozen=False),
+        {
+            'a': {
+                '_type': A.__type_name__,
+                'x': 1,
+            },
+            'b': True
+        }
+    )
 
   def test_hide_default_values(self):
 
@@ -2046,39 +2110,53 @@ class FormatTest(unittest.TestCase):
 
   def test_compact_python_format(self):
     self.assertEqual(
-        self._dict.format(compact=True, python_format=True),
-        '{\'a1\': 1, \'a2\': {\'b1\': {\'c1\': [{\'d1\': MISSING_VALUE, '
-        '\'d2\': True, \'d3\': A(x=2, y=MISSING_VALUE, z={\'p\': [None, True], '
-        '\'q\': \'foo\', \'t\': \'foo\'})}]}}}')
+        utils.format(
+            self._dict, compact=True, python_format=True, markdown=True
+        ),
+        "`{'a1': 1, 'a2': {'b1': {'c1': [{'d1': MISSING_VALUE, "
+        "'d2': True, 'd3': A(x=2, y=MISSING_VALUE, z={'p': [None, True], "
+        "'q': 'foo', 't': 'foo'})}]}}}`",
+    )
 
   def test_noncompact_python_format(self):
     self.assertEqual(
-        self._dict.format(compact=False, verbose=False, python_format=True),
-        inspect.cleandoc("""{
-          'a1': 1,
-          'a2': {
-            'b1': {
-              'c1': [
-                {
-                  'd1': MISSING_VALUE(Str()),
-                  'd2': True,
-                  'd3': A(
-                    x=2,
-                    y=MISSING_VALUE(Str()),
-                    z={
-                      'p': [
-                        None,
-                        True
-                      ],
-                      'q': 'foo',
-                      't': 'foo'
+        utils.format(
+            self._dict,
+            compact=False,
+            verbose=False,
+            python_format=True,
+            markdown=True,
+        ),
+        inspect.cleandoc("""
+            ```
+            {
+              'a1': 1,
+              'a2': {
+                'b1': {
+                  'c1': [
+                    {
+                      'd1': MISSING_VALUE(Str()),
+                      'd2': True,
+                      'd3': A(
+                        x=2,
+                        y=MISSING_VALUE(Str()),
+                        z={
+                          'p': [
+                            None,
+                            True
+                          ],
+                          'q': 'foo',
+                          't': 'foo'
+                        }
+                      )
                     }
-                  )
+                  ]
                 }
-              ]
+              }
             }
-          }
-        }"""))
+            ```
+            """),
+    )
 
   def test_noncompact_nonverbose(self):
     self.assertEqual(
@@ -2147,6 +2225,7 @@ class FormatTest(unittest.TestCase):
         }"""))
 
   def test_noncompact_verbose_with_extra_blankline_for_field_docstr(self):
+    self.maxDiff = None
     self.assertEqual(
         self._dict.format(
             compact=False, verbose=True, extra_blankline_for_field_docstr=True),
@@ -2245,6 +2324,43 @@ class FormatTest(unittest.TestCase):
             }
           }
         """),
+    )
+
+  def test_hide_frozen(self):
+    d = Dict(x=1, value_spec=pg_typing.Dict([
+        ('x', pg_typing.Int()),
+        ('y', pg_typing.Bool(True).freeze()),
+        ('z', pg_typing.Dict([
+            ('v', pg_typing.Int(1)),
+            ('w', pg_typing.Bool().freeze(True)),
+        ]))
+    ]))
+    self.assertEqual(
+        d.format(compact=True),
+        '{x=1, z={v=1}}'
+    )
+    self.assertEqual(
+        d.format(compact=False, hide_frozen=False),
+        '{\n  x = 1,\n  y = True,\n  z = {\n    v = 1,\n    w = True\n  }\n}'
+    )
+
+  def test_compact_int_key(self):
+    d = Dict({1: 1, '1': 2})
+    self.assertEqual(d.format(compact=True), '{[1]=1, 1=2}')
+    self.assertEqual(
+        d.format(compact=True, python_format=True),
+        '{1: 1, \'1\': 2}'
+    )
+
+  def test_non_compact_int_key(self):
+    d = Dict({1: 1, '1': 2})
+    self.assertEqual(
+        d.format(compact=False, verbose=False),
+        '{\n  [1] = 1,\n  1 = 2\n}'
+    )
+    self.assertEqual(
+        d.format(compact=False, python_format=True),
+        '{\n  1: 1,\n  \'1\': 2\n}'
     )
 
 

@@ -1,6 +1,8 @@
 import os
 
+import matplotlib as mpl
 import pytest
+from packaging import version
 
 from plotnine import (
     aes,
@@ -12,6 +14,7 @@ from plotnine import (
     geom_point,
     ggplot,
     labs,
+    lims,
     theme,
     theme_538,
     theme_bw,
@@ -28,6 +31,9 @@ from plotnine import (
     theme_xkcd,
 )
 from plotnine.data import mtcars
+
+LT_MPL310 = version.parse(mpl.__version__) < version.parse("3.10")
+IS_CI = bool(os.environ.get("CI"))
 
 
 def test_add_complete_complete():
@@ -249,18 +255,42 @@ def test_theme_void():
     assert p == "theme_void"
 
 
+@pytest.mark.skipif(IS_CI, reason="Don't run on CI (Github Actions)")
+@pytest.mark.skipif(LT_MPL310, reason="Fails for older versions of matplotlib")
 def test_theme_xkcd():
     p = (
         g
-        + labs(title="Theme Xkcd")
+        + labs(title="Theme XKCD")
         + theme_xkcd()
         # High likely hood of Comic Sans being available
         + theme(text=element_text(family=["Comic Sans MS"]))
     )
 
-    if os.environ.get("CI") or os.environ.get("TRAVIS"):
-        # Github Actions and Travis do not have the fonts,
-        # we still check to catch any other errors
-        assert p != "theme_gray"
-    else:
-        assert p == "theme_xkcd"
+    assert p == "theme_xkcd"
+
+
+@pytest.mark.skipif(not IS_CI, reason="Only runs on CI (Github Actions)")
+@pytest.mark.skipif(LT_MPL310, reason="Fails for older versions of matplotlib")
+def test_theme_xkcd_ci():
+    p = (
+        g
+        + labs(title="Theme XKCD")
+        + theme_xkcd()
+        # MPL ships with DejaVu Sans
+        + theme(text=element_text(family=["DejaVu Sans"]))
+    )
+
+    assert p == "theme_xkcd_ci"
+
+
+def test_override_axis_text():
+    p = (
+        ggplot()
+        + lims(x=(0, 100), y=(0, 100))
+        + theme(
+            axis_text=element_blank(),
+            axis_text_x=element_text(color="purple", margin={"t": 4}),
+        )
+    )
+
+    assert p == "override_axis_text"

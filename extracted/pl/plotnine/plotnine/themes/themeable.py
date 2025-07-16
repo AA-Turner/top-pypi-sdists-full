@@ -17,7 +17,7 @@ from warnings import warn
 
 import numpy as np
 
-from .._utils import to_rgba
+from .._utils import has_alpha_channel, to_rgba
 from .._utils.registry import RegistryHierarchyMeta
 from ..exceptions import PlotnineError, deprecated_themeable_name
 from .elements import element_blank
@@ -377,6 +377,36 @@ class Themeables(dict[str, themeable]):
 
         return default
 
+    def get_ha(self, name: str) -> float:
+        """
+        Get the horizontal alignement of themeable as a float
+
+        The themeable should be and element_text
+        """
+        lookup = {"left": 0.0, "center": 0.5, "right": 1.0}
+        ha: str | float = self.getp((name, "ha"), "center")
+        if isinstance(ha, str):
+            ha = lookup[ha]
+        return ha
+
+    def get_va(self, name) -> float:
+        """
+        Get the vertical alignement of themeable as a float
+
+        The themeable should be and element_text
+        """
+        lookup = {
+            "bottom": 0.0,
+            "center": 0.5,
+            "baseline": 0.5,
+            "center_baseline": 0.5,
+            "top": 1.0,
+        }
+        va: str | float = self.getp((name, "va"), "center")
+        if isinstance(va, str):
+            va = lookup[va]
+        return va
+
     def property(self, name: str, key: str = "value") -> Any:
         """
         Get the value a specific themeable(s) property
@@ -472,6 +502,25 @@ class MixinSequenceOfValues(themeable):
         for name, values in sequence_props.items():
             for a, value in zip(artists, values):
                 a.set(**{name: value})
+
+
+def blend_alpha(
+    properties: dict[str, Any], key: str = "color"
+) -> dict[str, Any]:
+    """
+    Blend color with alpha
+
+    When setting color property values of matplotlib objects,
+    for a color with an alpha channel, we don't want the alpha
+    property if any to have any effect on that color.
+    """
+    if (color := properties.get(key)) is not None:
+        if "alpha" in properties:
+            properties[key] = to_rgba(color, properties["alpha"])
+            properties["alpha"] = None
+        elif has_alpha_channel(color):
+            properties["alpha"] = None
+    return properties
 
 
 # element_text themeables
@@ -719,6 +768,100 @@ class plot_caption(themeable):
             text.set_visible(False)
 
 
+class plot_tag(themeable):
+    """
+    Plot tag
+
+    Parameters
+    ----------
+    theme_element : element_text
+
+    Notes
+    -----
+    The `ha` & `va` of element_text have no effect in some cases. e.g.
+    if [](:class:`~plotnine.themes.themeable.plot_tag_position`) is "margin"
+    and the tag is at the top it cannot be vertically aligned.
+
+    Also `ha` & `va` can be floats if it makes sense to justify the tag
+    over a span. e.g. along the panel or plot, or when aligning with
+    other tags in a composition.
+    """
+
+    _omit = ["margin"]
+
+    def apply_figure(self, figure: Figure, targets: ThemeTargets):
+        super().apply_figure(figure, targets)
+        props = self.properties
+
+        if "va" in props and not isinstance(props["va"], str):
+            del props["va"]
+
+        if "ha" in props and not isinstance(props["ha"], str):
+            del props["ha"]
+
+        if text := targets.plot_tag:
+            text.set(**props)
+
+    def blank_figure(self, figure: Figure, targets: ThemeTargets):
+        super().blank_figure(figure, targets)
+        if text := targets.plot_tag:
+            text.set_visible(False)
+
+
+class plot_title_position(themeable):
+    """
+    How to align the plot title and plot subtitle
+
+    Parameters
+    ----------
+    theme_element : Literal["panel", "plot"], default = "panel"
+        If "panel", the title / subtitle are aligned with respect
+        to the panels. If "plot", they are aligned with the plot,
+        excluding the margin space
+    """
+
+
+class plot_caption_position(themeable):
+    """
+    How to align the plot caption
+
+    Parameters
+    ----------
+    theme_element : Literal["panel", "plot"], default = "panel"
+        If "panel", the caption is aligned with respect to the
+        panels. If "plot", it is aligned with the plot, excluding
+        the margin space.
+    """
+
+
+class plot_tag_location(themeable):
+    """
+    The area where the tag will be positioned
+
+    Parameters
+    ----------
+    theme_element : Literal["margin", "plot", "panel"], default = "margin"
+        If "margin", it is placed within the plot_margin.
+        If "plot", it is placed in the figure, ignoring any margins.
+        If "panel", it is placed within the panel area.
+    """
+
+
+class plot_tag_position(themeable):
+    """
+    Position of the tag
+
+    Parameters
+    ----------
+    theme_element : Literal["topleft", "top", "topright", "left" \
+                    "right", "bottomleft", "bottom", "bottomleft"] \
+                    | tuple[float, float], default = "topleft"
+        If the value is a string, the tag will be managed by the layout
+        manager. If it is a tuple of (x, y) coordinates, they should be
+        in figure space and the tag will be ignored by the layout manager.
+    """
+
+
 class strip_text_x(MixinSequenceOfValues):
     """
     Facet labels along the horizontal axis
@@ -728,7 +871,7 @@ class strip_text_x(MixinSequenceOfValues):
     theme_element : element_text
     """
 
-    _omit = ["margin"]
+    _omit = ["margin", "ha", "va"]
 
     def apply_figure(self, figure: Figure, targets: ThemeTargets):
         super().apply_figure(figure, targets)
@@ -751,7 +894,7 @@ class strip_text_y(MixinSequenceOfValues):
     theme_element : element_text
     """
 
-    _omit = ["margin"]
+    _omit = ["margin", "ha", "va"]
 
     def apply_figure(self, figure: Figure, targets: ThemeTargets):
         super().apply_figure(figure, targets)
@@ -775,7 +918,9 @@ class strip_text(strip_text_x, strip_text_y):
     """
 
 
-class title(axis_title, legend_title, plot_title, plot_subtitle, plot_caption):
+class title(
+    axis_title, legend_title, plot_title, plot_subtitle, plot_caption, plot_tag
+):
     """
     All titles on the plot
 
@@ -792,19 +937,45 @@ class axis_text_x(MixinSequenceOfValues):
     Parameters
     ----------
     theme_element : element_text
+
+    Notes
+    -----
+    Use the `margin` to control the gap between the ticks and the
+    text. e.g.
+
+    ```python
+    theme(axis_text_x=element_text(margin={"t": 5, "units": "pt"}))
+    ```
+
+    creates a margin of 5 points.
     """
 
-    _omit = ["margin"]
+    _omit = ["margin", "va"]
 
     def apply_ax(self, ax: Axes):
         super().apply_ax(ax)
-        self.set(ax.get_xticklabels())
+
+        # TODO: Remove this code when the minimum matplotlib >= 3.10.0,
+        # and use the commented one below it
+        import matplotlib as mpl
+        from packaging import version
+
+        vinstalled = version.parse(mpl.__version__)
+        v310 = version.parse("3.10.0")
+        name = "labelbottom" if vinstalled >= v310 else "labelleft"
+        if not ax.xaxis.get_tick_params()[name]:
+            return
+
+        # if not ax.xaxis.get_tick_params()["labelbottom"]:
+        #     return
+
+        labels = [t.label1 for t in ax.xaxis.get_major_ticks()]
+        self.set(labels)
 
     def blank_ax(self, ax: Axes):
         super().blank_ax(ax)
-        ax.xaxis.set_tick_params(
-            which="both", labelbottom=False, labeltop=False
-        )
+        for t in ax.xaxis.get_major_ticks():
+            t.label1.set_visible(False)
 
 
 class axis_text_y(MixinSequenceOfValues):
@@ -814,19 +985,34 @@ class axis_text_y(MixinSequenceOfValues):
     Parameters
     ----------
     theme_element : element_text
+
+    Notes
+    -----
+    Use the `margin` to control the gap between the ticks and the
+    text. e.g.
+
+    ```python
+    theme(axis_text_y=element_text(margin={"r": 5, "units": "pt"}))
+    ```
+
+    creates a margin of 5 points.
     """
 
-    _omit = ["margin"]
+    _omit = ["margin", "ha"]
 
     def apply_ax(self, ax: Axes):
         super().apply_ax(ax)
-        self.set(ax.get_yticklabels())
+
+        if not ax.yaxis.get_tick_params()["labelleft"]:
+            return
+
+        labels = [t.label1 for t in ax.yaxis.get_major_ticks()]
+        self.set(labels)
 
     def blank_ax(self, ax: Axes):
         super().blank_ax(ax)
-        ax.yaxis.set_tick_params(
-            which="both", labelleft=False, labelright=False
-        )
+        for t in ax.yaxis.get_major_ticks():
+            t.label1.set_visible(False)
 
 
 class axis_text(axis_text_x, axis_text_y):
@@ -836,6 +1022,17 @@ class axis_text(axis_text_x, axis_text_y):
     Parameters
     ----------
     theme_element : element_text
+
+    Notes
+    -----
+    Use the `margin` to control the gap between the ticks and the
+    text. e.g.
+
+    ```python
+    theme(axis_text=element_text(margin={"t": 5, "r": 5, "units": "pt"}))
+    ```
+
+    creates a margin of 5 points.
     """
 
 
@@ -962,7 +1159,7 @@ class axis_ticks_minor_x(MixinSequenceOfValues):
         # to invisible. Theming should not change those artists to visible,
         # so we return early.
         params = ax.xaxis.get_tick_params(which="minor")
-        if not params.get("left", False):
+        if not params.get("bottom", False):
             return
 
         # We have to use both
@@ -1188,7 +1385,7 @@ class panel_grid_major_x(themeable):
 
     def apply_ax(self, ax: Axes):
         super().apply_ax(ax)
-        ax.xaxis.grid(which="major", **self.properties)
+        ax.xaxis.grid(which="major", **blend_alpha(self.properties))
 
     def blank_ax(self, ax: Axes):
         super().blank_ax(ax)
@@ -1206,7 +1403,7 @@ class panel_grid_major_y(themeable):
 
     def apply_ax(self, ax: Axes):
         super().apply_ax(ax)
-        ax.yaxis.grid(which="major", **self.properties)
+        ax.yaxis.grid(which="major", **blend_alpha(self.properties))
 
     def blank_ax(self, ax: Axes):
         super().blank_ax(ax)
@@ -1330,8 +1527,13 @@ class legend_key(MixinSequenceOfValues):
     def apply_figure(self, figure: Figure, targets: ThemeTargets):
         super().apply_figure(figure, targets)
         properties = self.properties
+        edgecolor = properties.get("edgecolor", None)
+
+        if isinstance(self, rect) and edgecolor:
+            del properties["edgecolor"]
+
         # Prevent invisible strokes from having any effect
-        if properties.get("edgecolor") in ("none", "None"):
+        if edgecolor in ("none", "None"):
             properties["linewidth"] = 0
 
         rects = [da.patch for da in targets.legend_key]
@@ -1415,7 +1617,7 @@ class legend_box_background(themeable):
     """
 
 
-class panel_background(themeable):
+class panel_background(legend_key):
     """
     Panel background
 
@@ -1424,13 +1626,12 @@ class panel_background(themeable):
     theme_element : element_rect
     """
 
+    def apply_figure(self, figure: Figure, targets: ThemeTargets):
+        super().apply_figure(figure, targets)
+
     def apply_ax(self, ax: Axes):
         super().apply_ax(ax)
-        d = self.properties
-        if "facecolor" in d and "alpha" in d:
-            d["facecolor"] = to_rgba(d["facecolor"], d["alpha"])
-            del d["alpha"]
-
+        d = blend_alpha(self.properties, "facecolor")
         d["edgecolor"] = "none"
         d["linewidth"] = 0
         ax.patch.set(**d)
@@ -1456,15 +1657,11 @@ class panel_border(MixinSequenceOfValues):
         if not (rects := targets.panel_border):
             return
 
-        d = self.properties
+        d = blend_alpha(self.properties, "edgecolor")
 
         with suppress(KeyError):
             if d["edgecolor"] == "none" or d["size"] == 0:
                 return
-
-        if "edgecolor" in d and "alpha" in d:
-            d["edgecolor"] = to_rgba(d["edgecolor"], d["alpha"])
-            del d["alpha"]
 
         self.set(rects, d)
 
@@ -1485,11 +1682,13 @@ class plot_background(themeable):
 
     def apply_figure(self, figure: Figure, targets: ThemeTargets):
         super().apply_figure(figure, targets)
-        figure.patch.set(**self.properties)
+        if targets.plot_background:
+            targets.plot_background.set(**self.properties)
 
     def blank_figure(self, figure: Figure, targets: ThemeTargets):
         super().blank_figure(figure, targets)
-        figure.patch.set_visible(False)
+        if targets.plot_background:
+            targets.plot_background.set_visible(False)
 
 
 class strip_background_x(MixinSequenceOfValues):
@@ -1543,7 +1742,6 @@ class strip_background(strip_background_x, strip_background_y):
 
 
 class rect(
-    legend_key,
     legend_frame,
     legend_background,
     panel_background,
@@ -1723,156 +1921,6 @@ class axis_ticks_length(axis_ticks_length_major, axis_ticks_length_minor):
         Value in points. A negative value creates the ticks
         inside the plot panel. A complex value (e.g. `3j`)
         creates ticks that span both in and out of the panel.
-    """
-
-
-class axis_ticks_pad_major_x(themeable):
-    """
-    x-axis major-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-        Value in points.
-    """
-
-    def apply_ax(self, ax: Axes):
-        super().apply_ax(ax)
-        val = self.properties["value"]
-
-        for t in ax.xaxis.get_major_ticks():
-            _val = val if t.tick1line.get_visible() else 0
-            t.set_pad(_val)
-
-
-class axis_ticks_pad_major_y(themeable):
-    """
-    y-axis major-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-        Value in points.
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks_major_y`) are
-    blank, but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length_major_y`)
-    is zero.
-    """
-
-    def apply_ax(self, ax: Axes):
-        super().apply_ax(ax)
-        val = self.properties["value"]
-
-        for t in ax.yaxis.get_major_ticks():
-            _val = val if t.tick1line.get_visible() else 0
-            t.set_pad(_val)
-
-
-class axis_ticks_pad_major(axis_ticks_pad_major_x, axis_ticks_pad_major_y):
-    """
-    Axis major-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-        Value in points.
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks_major`) are blank,
-    but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length_major`) is zero.
-    """
-
-
-class axis_ticks_pad_minor_x(themeable):
-    """
-    x-axis minor-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks_minor_x`) are
-    blank, but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length_minor_x`) is zero.
-    """
-
-    def apply_ax(self, ax: Axes):
-        super().apply_ax(ax)
-        val = self.properties["value"]
-
-        for t in ax.xaxis.get_minor_ticks():
-            _val = val if t.tick1line.get_visible() else 0
-            t.set_pad(_val)
-
-
-class axis_ticks_pad_minor_y(themeable):
-    """
-    y-axis minor-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks_minor_y`) are
-    blank, but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length_minor_y`)
-    is zero.
-    """
-
-    def apply_ax(self, ax: Axes):
-        super().apply_ax(ax)
-        val = self.properties["value"]
-
-        for t in ax.yaxis.get_minor_ticks():
-            _val = val if t.tick1line.get_visible() else 0
-            t.set_pad(_val)
-
-
-class axis_ticks_pad_minor(axis_ticks_pad_minor_x, axis_ticks_pad_minor_y):
-    """
-    Axis minor-tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks_minor`) are
-    blank, but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length_minor`) is zero.
-    """
-
-
-class axis_ticks_pad(axis_ticks_pad_major, axis_ticks_pad_minor):
-    """
-    Axis tick padding
-
-    Parameters
-    ----------
-    theme_element : float
-        Value in points.
-
-    Note
-    ----
-    Padding is not applied when the
-    [](`~plotnine.theme.themeables.axis_ticks`) are blank,
-    but it does apply when the
-    [](`~plotnine.theme.themeables.axis_ticks_length`) is zero.
     """
 
 
@@ -2535,3 +2583,166 @@ class axis_ticks_direction(axis_ticks_direction_x, axis_ticks_direction_y):
         `in` for ticks inside the panel.
         `out` for ticks outside the panel.
     """
+
+
+class axis_ticks_pad_major_x(themeable):
+    """
+    x-axis major-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+        Value in points.
+    """
+
+    def apply_ax(self, ax: Axes):
+        super().apply_ax(ax)
+        val = self.properties["value"]
+
+        for t in ax.xaxis.get_major_ticks():
+            _val = val if t.tick1line.get_visible() else 0
+            t.set_pad(_val)
+
+
+class axis_ticks_pad_major_y(themeable):
+    """
+    y-axis major-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+        Value in points.
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks_major_y`) are
+    blank, but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length_major_y`)
+    is zero.
+    """
+
+    def apply_ax(self, ax: Axes):
+        super().apply_ax(ax)
+        val = self.properties["value"]
+
+        for t in ax.yaxis.get_major_ticks():
+            _val = val if t.tick1line.get_visible() else 0
+            t.set_pad(_val)
+
+
+class axis_ticks_pad_major(axis_ticks_pad_major_x, axis_ticks_pad_major_y):
+    """
+    Axis major-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+        Value in points.
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks_major`) are blank,
+    but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length_major`) is zero.
+    """
+
+
+class axis_ticks_pad_minor_x(themeable):
+    """
+    x-axis minor-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks_minor_x`) are
+    blank, but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length_minor_x`) is zero.
+    """
+
+    def apply_ax(self, ax: Axes):
+        super().apply_ax(ax)
+        val = self.properties["value"]
+
+        for t in ax.xaxis.get_minor_ticks():
+            _val = val if t.tick1line.get_visible() else 0
+            t.set_pad(_val)
+
+
+class axis_ticks_pad_minor_y(themeable):
+    """
+    y-axis minor-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks_minor_y`) are
+    blank, but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length_minor_y`)
+    is zero.
+    """
+
+    def apply_ax(self, ax: Axes):
+        super().apply_ax(ax)
+        val = self.properties["value"]
+
+        for t in ax.yaxis.get_minor_ticks():
+            _val = val if t.tick1line.get_visible() else 0
+            t.set_pad(_val)
+
+
+class axis_ticks_pad_minor(axis_ticks_pad_minor_x, axis_ticks_pad_minor_y):
+    """
+    Axis minor-tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks_minor`) are
+    blank, but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length_minor`) is zero.
+    """
+
+
+class axis_ticks_pad(axis_ticks_pad_major, axis_ticks_pad_minor):
+    """
+    Axis tick padding
+
+    Parameters
+    ----------
+    theme_element : float
+        Value in points.
+
+    Note
+    ----
+    Padding is not applied when the
+    [](`~plotnine.theme.themeables.axis_ticks`) are blank,
+    but it does apply when the
+    [](`~plotnine.theme.themeables.axis_ticks_length`) is zero.
+    """
+
+    def __init__(self, theme_element):
+        x = theme_element
+        msg = (
+            f"Themeable '{self.__class__.__name__}' is deprecated and"
+            "will be removed in a future version. "
+            "Use the margin parameter of axis_text. e.g.\n"
+            f"axis_text_x(margin={{'t': {x}}})\n"
+            f"axis_text_y(margin={{'r': {x}}})\n"
+            f"axis_text(margin={{'t': {x}, 'r': {x}}})"
+        )
+        warn(msg, FutureWarning, stacklevel=1)
+        super().__init__(theme_element)

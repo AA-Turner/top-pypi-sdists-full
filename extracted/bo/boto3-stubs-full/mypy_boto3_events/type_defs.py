@@ -30,7 +30,9 @@ from .literals import (
     ConnectionStateType,
     EndpointStateType,
     EventSourceStateType,
+    IncludeDetailType,
     LaunchTypeType,
+    LevelType,
     PlacementConstraintTypeType,
     PlacementStrategyTypeType,
     ReplayStateType,
@@ -175,6 +177,7 @@ __all__ = (
     "ListTargetsByRuleRequestPaginateTypeDef",
     "ListTargetsByRuleRequestTypeDef",
     "ListTargetsByRuleResponseTypeDef",
+    "LogConfigTypeDef",
     "NetworkConfigurationOutputTypeDef",
     "NetworkConfigurationTypeDef",
     "NetworkConfigurationUnionTypeDef",
@@ -422,6 +425,11 @@ class ReplicationConfigTypeDef(TypedDict):
 
 class DeadLetterConfigTypeDef(TypedDict):
     Arn: NotRequired[str]
+
+
+class LogConfigTypeDef(TypedDict):
+    IncludeDetail: NotRequired[IncludeDetailType]
+    Level: NotRequired[LevelType]
 
 
 class TagTypeDef(TypedDict):
@@ -1089,6 +1097,7 @@ class CreateEventBusResponseTypeDef(TypedDict):
     Description: str
     KmsKeyIdentifier: str
     DeadLetterConfig: DeadLetterConfigTypeDef
+    LogConfig: LogConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1099,6 +1108,7 @@ class DescribeEventBusResponseTypeDef(TypedDict):
     KmsKeyIdentifier: str
     DeadLetterConfig: DeadLetterConfigTypeDef
     Policy: str
+    LogConfig: LogConfigTypeDef
     CreationTime: datetime
     LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1109,6 +1119,7 @@ class UpdateEventBusRequestTypeDef(TypedDict):
     KmsKeyIdentifier: NotRequired[str]
     Description: NotRequired[str]
     DeadLetterConfig: NotRequired[DeadLetterConfigTypeDef]
+    LogConfig: NotRequired[LogConfigTypeDef]
 
 
 class UpdateEventBusResponseTypeDef(TypedDict):
@@ -1117,6 +1128,7 @@ class UpdateEventBusResponseTypeDef(TypedDict):
     KmsKeyIdentifier: str
     Description: str
     DeadLetterConfig: DeadLetterConfigTypeDef
+    LogConfig: LogConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1126,6 +1138,7 @@ class CreateEventBusRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     KmsKeyIdentifier: NotRequired[str]
     DeadLetterConfig: NotRequired[DeadLetterConfigTypeDef]
+    LogConfig: NotRequired[LogConfigTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 

@@ -39,11 +39,13 @@ from .literals import (
     DeleteMarkerReplicationStatusType,
     EventType,
     ExistingObjectReplicationStatusType,
+    ExpirationStateType,
     ExpirationStatusType,
     FileHeaderInfoType,
     FilterRuleNameType,
     IntelligentTieringAccessTierType,
     IntelligentTieringStatusType,
+    InventoryConfigurationStateType,
     InventoryFormatType,
     InventoryFrequencyType,
     InventoryIncludedObjectVersionsType,
@@ -70,10 +72,12 @@ from .literals import (
     ReplicationRuleStatusType,
     ReplicationStatusType,
     ReplicationTimeStatusType,
+    S3TablesBucketTypeType,
     ServerSideEncryptionType,
     SessionModeType,
     SseKmsEncryptedObjectsStatusType,
     StorageClassType,
+    TableSseAlgorithmType,
     TaggingDirectiveType,
     TierType,
     TransitionDefaultMinimumObjectSizeType,
@@ -151,6 +155,7 @@ __all__ = (
     "CopySourceOrStrTypeDef",
     "CopySourceTypeDef",
     "CreateBucketConfigurationTypeDef",
+    "CreateBucketMetadataConfigurationRequestTypeDef",
     "CreateBucketMetadataTableConfigurationRequestTypeDef",
     "CreateBucketOutputTypeDef",
     "CreateBucketRequestBucketCreateTypeDef",
@@ -172,6 +177,7 @@ __all__ = (
     "DeleteBucketLifecycleRequestBucketLifecycleConfigurationDeleteTypeDef",
     "DeleteBucketLifecycleRequestBucketLifecycleDeleteTypeDef",
     "DeleteBucketLifecycleRequestTypeDef",
+    "DeleteBucketMetadataConfigurationRequestTypeDef",
     "DeleteBucketMetadataTableConfigurationRequestTypeDef",
     "DeleteBucketMetricsConfigurationRequestTypeDef",
     "DeleteBucketOwnershipControlsRequestTypeDef",
@@ -199,6 +205,7 @@ __all__ = (
     "DeletePublicAccessBlockRequestTypeDef",
     "DeleteTypeDef",
     "DeletedObjectTypeDef",
+    "DestinationResultTypeDef",
     "DestinationTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionConfigurationTypeDef",
@@ -231,6 +238,9 @@ __all__ = (
     "GetBucketLocationRequestTypeDef",
     "GetBucketLoggingOutputTypeDef",
     "GetBucketLoggingRequestTypeDef",
+    "GetBucketMetadataConfigurationOutputTypeDef",
+    "GetBucketMetadataConfigurationRequestTypeDef",
+    "GetBucketMetadataConfigurationResultTypeDef",
     "GetBucketMetadataTableConfigurationOutputTypeDef",
     "GetBucketMetadataTableConfigurationRequestTypeDef",
     "GetBucketMetadataTableConfigurationResultTypeDef",
@@ -309,8 +319,14 @@ __all__ = (
     "InventoryS3BucketDestinationOutputTypeDef",
     "InventoryS3BucketDestinationTypeDef",
     "InventoryScheduleTypeDef",
+    "InventoryTableConfigurationResultTypeDef",
+    "InventoryTableConfigurationTypeDef",
+    "InventoryTableConfigurationUpdatesTypeDef",
     "JSONInputTypeDef",
     "JSONOutputTypeDef",
+    "JournalTableConfigurationResultTypeDef",
+    "JournalTableConfigurationTypeDef",
+    "JournalTableConfigurationUpdatesTypeDef",
     "LambdaFunctionConfigurationOutputTypeDef",
     "LambdaFunctionConfigurationTypeDef",
     "LambdaFunctionConfigurationUnionTypeDef",
@@ -360,9 +376,12 @@ __all__ = (
     "LoggingEnabledOutputTypeDef",
     "LoggingEnabledTypeDef",
     "LoggingEnabledUnionTypeDef",
+    "MetadataConfigurationResultTypeDef",
+    "MetadataConfigurationTypeDef",
     "MetadataEntryTypeDef",
     "MetadataTableConfigurationResultTypeDef",
     "MetadataTableConfigurationTypeDef",
+    "MetadataTableEncryptionConfigurationTypeDef",
     "MetricsAndOperatorOutputTypeDef",
     "MetricsAndOperatorTypeDef",
     "MetricsConfigurationOutputTypeDef",
@@ -467,6 +486,7 @@ __all__ = (
     "QueueConfigurationOutputTypeDef",
     "QueueConfigurationTypeDef",
     "QueueConfigurationUnionTypeDef",
+    "RecordExpirationTypeDef",
     "RecordsEventTypeDef",
     "RedirectAllRequestsToTypeDef",
     "RedirectTypeDef",
@@ -537,6 +557,8 @@ __all__ = (
     "TransitionOutputTypeDef",
     "TransitionTypeDef",
     "TransitionUnionTypeDef",
+    "UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef",
+    "UpdateBucketMetadataJournalTableConfigurationRequestTypeDef",
     "UploadPartCopyOutputTypeDef",
     "UploadPartCopyRequestMultipartUploadPartCopyFromTypeDef",
     "UploadPartCopyRequestTypeDef",
@@ -792,6 +814,10 @@ class DeleteBucketLifecycleRequestTypeDef(TypedDict):
     Bucket: str
     ExpectedBucketOwner: NotRequired[str]
 
+class DeleteBucketMetadataConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    ExpectedBucketOwner: NotRequired[str]
+
 class DeleteBucketMetadataTableConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     ExpectedBucketOwner: NotRequired[str]
@@ -862,6 +888,11 @@ class DeletePublicAccessBlockRequestTypeDef(TypedDict):
     Bucket: str
     ExpectedBucketOwner: NotRequired[str]
 
+class DestinationResultTypeDef(TypedDict):
+    TableBucketType: NotRequired[S3TablesBucketTypeType]
+    TableBucketArn: NotRequired[str]
+    TableNamespace: NotRequired[str]
+
 class EncryptionConfigurationTypeDef(TypedDict):
     ReplicaKmsKeyID: NotRequired[str]
 
@@ -929,6 +960,10 @@ class GetBucketLocationRequestTypeDef(TypedDict):
     ExpectedBucketOwner: NotRequired[str]
 
 class GetBucketLoggingRequestTypeDef(TypedDict):
+    Bucket: str
+    ExpectedBucketOwner: NotRequired[str]
+
+class GetBucketMetadataConfigurationRequestTypeDef(TypedDict):
     Bucket: str
     ExpectedBucketOwner: NotRequired[str]
 
@@ -1117,8 +1152,16 @@ class InventoryScheduleTypeDef(TypedDict):
 class SSEKMSTypeDef(TypedDict):
     KeyId: str
 
+class MetadataTableEncryptionConfigurationTypeDef(TypedDict):
+    SseAlgorithm: TableSseAlgorithmType
+    KmsKeyArn: NotRequired[str]
+
 class JSONOutputTypeDef(TypedDict):
     RecordDelimiter: NotRequired[str]
+
+class RecordExpirationTypeDef(TypedDict):
+    Expiration: ExpirationStateType
+    Days: NotRequired[int]
 
 class LifecycleExpirationOutputTypeDef(TypedDict):
     Date: NotRequired[datetime]
@@ -2372,6 +2415,13 @@ class DeleteObjectsOutputTypeDef(TypedDict):
     Errors: List[ErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class InventoryTableConfigurationResultTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    TableStatus: NotRequired[str]
+    Error: NotRequired[ErrorDetailsTypeDef]
+    TableName: NotRequired[str]
+    TableArn: NotRequired[str]
+
 class S3KeyFilterOutputTypeDef(TypedDict):
     FilterRules: NotRequired[List[FilterRuleTypeDef]]
 
@@ -2507,9 +2557,31 @@ class InventoryEncryptionTypeDef(TypedDict):
     SSES3: NotRequired[Mapping[str, Any]]
     SSEKMS: NotRequired[SSEKMSTypeDef]
 
+class InventoryTableConfigurationTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+
+class InventoryTableConfigurationUpdatesTypeDef(TypedDict):
+    ConfigurationState: InventoryConfigurationStateType
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+
 class OutputSerializationTypeDef(TypedDict):
     CSV: NotRequired[CSVOutputTypeDef]
     JSON: NotRequired[JSONOutputTypeDef]
+
+class JournalTableConfigurationResultTypeDef(TypedDict):
+    TableStatus: str
+    TableName: str
+    RecordExpiration: RecordExpirationTypeDef
+    Error: NotRequired[ErrorDetailsTypeDef]
+    TableArn: NotRequired[str]
+
+class JournalTableConfigurationTypeDef(TypedDict):
+    RecordExpiration: RecordExpirationTypeDef
+    EncryptionConfiguration: NotRequired[MetadataTableEncryptionConfigurationTypeDef]
+
+class JournalTableConfigurationUpdatesTypeDef(TypedDict):
+    RecordExpiration: RecordExpirationTypeDef
 
 class RuleOutputTypeDef(TypedDict):
     Prefix: str
@@ -3099,6 +3171,13 @@ class InventoryS3BucketDestinationTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Encryption: NotRequired[InventoryEncryptionTypeDef]
 
+class UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    InventoryTableConfiguration: InventoryTableConfigurationUpdatesTypeDef
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
+
 class SelectObjectContentRequestTypeDef(TypedDict):
     Bucket: str
     Key: str
@@ -3117,6 +3196,22 @@ class SelectParametersTypeDef(TypedDict):
     ExpressionType: Literal["SQL"]
     Expression: str
     OutputSerialization: OutputSerializationTypeDef
+
+class MetadataConfigurationResultTypeDef(TypedDict):
+    DestinationResult: DestinationResultTypeDef
+    JournalTableConfigurationResult: NotRequired[JournalTableConfigurationResultTypeDef]
+    InventoryTableConfigurationResult: NotRequired[InventoryTableConfigurationResultTypeDef]
+
+class MetadataConfigurationTypeDef(TypedDict):
+    JournalTableConfiguration: JournalTableConfigurationTypeDef
+    InventoryTableConfiguration: NotRequired[InventoryTableConfigurationTypeDef]
+
+class UpdateBucketMetadataJournalTableConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    JournalTableConfiguration: JournalTableConfigurationUpdatesTypeDef
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
 
 class GetBucketLifecycleOutputTypeDef(TypedDict):
     Rules: List[RuleOutputTypeDef]
@@ -3422,6 +3517,16 @@ class InventoryDestinationOutputTypeDef(TypedDict):
 class InventoryDestinationTypeDef(TypedDict):
     S3BucketDestination: InventoryS3BucketDestinationTypeDef
 
+class GetBucketMetadataConfigurationResultTypeDef(TypedDict):
+    MetadataConfigurationResult: MetadataConfigurationResultTypeDef
+
+class CreateBucketMetadataConfigurationRequestTypeDef(TypedDict):
+    Bucket: str
+    MetadataConfiguration: MetadataConfigurationTypeDef
+    ContentMD5: NotRequired[str]
+    ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
+    ExpectedBucketOwner: NotRequired[str]
+
 class GetBucketMetadataTableConfigurationOutputTypeDef(TypedDict):
     GetBucketMetadataTableConfigurationResult: GetBucketMetadataTableConfigurationResultTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3585,6 +3690,10 @@ class InventoryConfigurationTypeDef(TypedDict):
     Schedule: InventoryScheduleTypeDef
     Filter: NotRequired[InventoryFilterTypeDef]
     OptionalFields: NotRequired[Sequence[InventoryOptionalFieldType]]
+
+class GetBucketMetadataConfigurationOutputTypeDef(TypedDict):
+    GetBucketMetadataConfigurationResult: GetBucketMetadataConfigurationResultTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ReplicationConfigurationOutputTypeDef(TypedDict):
     Role: str

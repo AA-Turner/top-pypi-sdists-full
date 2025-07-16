@@ -19,33 +19,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
         run: |
-          uv pip install ".[extra,test]"
+          uv run uv pip install ".[extra,test]"
           uv pip install --upgrade git+https://github.com/matplotlib/matplotlib
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       - name: Run Tests
-        run: |
-          make test
+        run: make test
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: result-images
@@ -63,34 +53,25 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
 
       - name: Install Packages
         run: |
-          uv pip install ".[extra,test]"
+          uv run uv pip install ".[extra,test]"
           uv pip install --upgrade git+https://github.com/pandas-dev/pandas
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       # to do: think about catching deprecations earlier
       - name: Run Tests
-        run: |
-          make test
+        run: make test
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: result-images
@@ -119,33 +100,23 @@ jobs:
         with:
           ref: ${{ steps.latestrelease.outputs.latestrelease }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
         run: |
-          uv pip install --upgrade git+https://github.com/matplotlib/matplotlib
+          uv run uv pip install --upgrade git+https://github.com/matplotlib/matplotlib
           uv pip install ".[extra,test]"
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       - name: Run Tests
-        run: |
-          make test
+        run: make test
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: result-images
@@ -174,34 +145,24 @@ jobs:
         with:
           ref: ${{ steps.latestrelease.outputs.latestrelease }}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
         run: |
-          uv pip install --upgrade git+https://github.com/pandas-dev/pandas
+          uv run uv pip install --upgrade git+https://github.com/pandas-dev/pandas
           uv pip install ".[extra,test]"
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       # to do: think about catching deprecations earlier
       - name: Run Tests
-        run: |
-          make test
+        run: make test
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: result-images
@@ -221,31 +182,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
         run: |
-          uv pip install ".[extra,typing]"
+          uv run uv pip install ".[extra,typing]"
           uv pip install --upgrade git+https://github.com/matplotlib/matplotlib
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       - name: Run Tests
-        run: |
-          make typecheck
+        run: make typecheck
 
   # Should mark this as can fail when feature is implemented
   # https://github.com/actions/runner/issues/2347
@@ -260,34 +211,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
         run: |
-          uv pip install ".[extra,typing]"
+          uv run uv pip install ".[extra,typing]"
           uv pip install --upgrade git+https://github.com/pandas-dev/pandas
 
       - name: Environment Information
-        run: |
-          uv pip list
+        run: uv pip list
 
       # to do: think about catching deprecations earlier
       - name: Run Tests
-        run: |
-          make typecheck
+        run: make typecheck
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: result-images

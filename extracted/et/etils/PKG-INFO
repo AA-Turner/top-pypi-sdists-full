@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: etils
-Version: 1.12.2
+Version: 1.13.0
 Summary: Collection of common python utils
 Keywords: utils,jax,tensorflow,tf,machine learning,deep learning
 Author-email: Conchylicultor <etils@google.com>

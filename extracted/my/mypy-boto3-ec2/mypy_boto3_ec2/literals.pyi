@@ -319,6 +319,7 @@ __all__ = (
     "ImageStateType",
     "ImageTypeValuesType",
     "ImdsSupportValuesType",
+    "InitializationTypeType",
     "InstanceAttributeNameType",
     "InstanceAutoRecoveryStateType",
     "InstanceBandwidthWeightingType",
@@ -1147,6 +1148,7 @@ ImageStateType = Literal[
 ]
 ImageTypeValuesType = Literal["kernel", "machine", "ramdisk"]
 ImdsSupportValuesType = Literal["v2.0"]
+InitializationTypeType = Literal["default", "provisioned-rate"]
 InstanceAttributeNameType = Literal[
     "blockDeviceMapping",
     "disableApiStop",
@@ -2737,7 +2739,7 @@ VolumeInUseWaiterName = Literal["volume_in_use"]
 VolumeModificationStateType = Literal["completed", "failed", "modifying", "optimizing"]
 VolumeStateType = Literal["available", "creating", "deleted", "deleting", "error", "in-use"]
 VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok"]
-VolumeStatusNameType = Literal["io-enabled", "io-performance"]
+VolumeStatusNameType = Literal["initialization-state", "io-enabled", "io-performance"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 VpcAttributeNameType = Literal[
     "enableDnsHostnames", "enableDnsSupport", "enableNetworkAddressUsageMetrics"
@@ -3137,6 +3139,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

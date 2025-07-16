@@ -53,6 +53,10 @@ class stat_bin(stat):
     pad : bool, default=False
         If `True`{.py}, adds empty bins at either side of x.
         This ensures that frequency polygons touch 0.
+
+    See Also
+    --------
+    plotnine.histogram : The default `geom` for this `stat`.
     """
 
     _aesthetics_doc = """
@@ -100,7 +104,6 @@ class stat_bin(stat):
             and params["binwidth"] is None
             and params["bins"] is None
         ):
-            params = params.copy()
             params["bins"] = freedman_diaconis_bins(data["x"])
             msg = (
                 "'stat_bin()' using 'bins = {}'. "
@@ -108,10 +111,8 @@ class stat_bin(stat):
             )
             warn(msg.format(params["bins"]), PlotnineWarning)
 
-        return params
-
-    @classmethod
-    def compute_group(cls, data, scales, **params):
+    def compute_group(self, data, scales):
+        params = self.params
         if params["breaks"] is not None:
             breaks = np.asarray(params["breaks"])
             if hasattr(scales.x, "transform"):

@@ -3,8 +3,8 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.5.45.0',
-    'passagemath-environment ~= 10.5.45.0',
+    'passagemath-setup ~= 10.5.46.0',
+    'passagemath-environment ~= 10.5.46.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'memory_allocator',
     'cysignals >=1.11.2, != 1.12.0',
@@ -57,12 +57,15 @@ documentation = "https://doc.sagemath.org"
 file = "README.rst"
 content-type = "text/x-rst"
 
+[project.optional-dependencies]
+test = [
+    "passagemath-repl",
+    "passagemath-graphs",
+    "passagemath-cliquer",
+]
+
 [tool.setuptools]
-packages = ["sage.graphs"]
 include-package-data = false
 
 [tool.setuptools.dynamic]
 version = {file = ["VERSION.txt"]}
-
-[tool.setuptools.package-data]
-"sage.graphs" = ["mcqd.pxd"]

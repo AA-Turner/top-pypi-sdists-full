@@ -3801,7 +3801,7 @@ class IntegTestCaseStack(
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
         :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param synthesizer: Synthesis method to use while deploying this stack. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. If not specified, the ``defaultStackSynthesizer`` from ``App`` will be used. If that is not specified, ``DefaultStackSynthesizer`` is used if ``@aws-cdk/core:newStyleStackSynthesis`` is set to ``true`` or the CDK major version is v2. In CDK v1 ``LegacyStackSynthesizer`` is the default if no other synthesizer is specified. Default: - The synthesizer specified on ``App``, or ``DefaultStackSynthesizer`` otherwise.
-        :param tags: Stack tags that will be applied to all the taggable resources and the stack itself. Default: {}
+        :param tags: Tags that will be applied to the Stack. These tags are applied to the CloudFormation Stack itself. They will not appear in the CloudFormation template. However, at deployment time, CloudFormation will apply these tags to all resources in the stack that support tagging. You will not be able to exempt resources from tagging (using the ``excludeResourceTypes`` property of ``Tags.of(...).add()``) for tags applied in this way. Default: {}
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
 
         :stability: experimental
@@ -3928,7 +3928,7 @@ class IntegTestCaseStackProps(
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
         :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param synthesizer: Synthesis method to use while deploying this stack. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. If not specified, the ``defaultStackSynthesizer`` from ``App`` will be used. If that is not specified, ``DefaultStackSynthesizer`` is used if ``@aws-cdk/core:newStyleStackSynthesis`` is set to ``true`` or the CDK major version is v2. In CDK v1 ``LegacyStackSynthesizer`` is the default if no other synthesizer is specified. Default: - The synthesizer specified on ``App``, or ``DefaultStackSynthesizer`` otherwise.
-        :param tags: Stack tags that will be applied to all the taggable resources and the stack itself. Default: {}
+        :param tags: Tags that will be applied to the Stack. These tags are applied to the CloudFormation Stack itself. They will not appear in the CloudFormation template. However, at deployment time, CloudFormation will apply these tags to all resources in the stack that support tagging. You will not be able to exempt resources from tagging (using the ``excludeResourceTypes`` property of ``Tags.of(...).add()``) for tags applied in this way. Default: {}
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
 
         :stability: experimental
@@ -4256,7 +4256,15 @@ class IntegTestCaseStackProps(
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Stack tags that will be applied to all the taggable resources and the stack itself.
+        '''Tags that will be applied to the Stack.
+
+        These tags are applied to the CloudFormation Stack itself. They will not
+        appear in the CloudFormation template.
+
+        However, at deployment time, CloudFormation will apply these tags to all
+        resources in the stack that support tagging. You will not be able to exempt
+        resources from tagging (using the ``excludeResourceTypes`` property of
+        ``Tags.of(...).add()``) for tags applied in this way.
 
         :default: {}
         '''
@@ -5113,6 +5121,7 @@ class WaiterStateMachineOptions:
                     data_output_prefix="regularPrefix",
                     error_output_prefix="errorPrefix",
                     file_extension=".log.gz",
+                    time_zone=cdk.TimeZone.ASIA_TOKYO,
                     buffering_interval=cdk.Duration.seconds(60),
                     buffering_size=cdk.Size.mebibytes(1),
                     encryption_key=key,

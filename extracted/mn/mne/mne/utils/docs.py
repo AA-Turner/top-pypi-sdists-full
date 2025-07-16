@@ -1013,32 +1013,36 @@ cross_talk : str | None
 
 _dB = """
 dB : bool
-    Whether to plot on a decibel-like scale. If ``True``, plots
-    10 × log₁₀({quantity}){caveat}.{extra}
+    Whether to plot on a decibel scale. If ``True``, plots
+    10 × log₁₀({quantity}){ampl}{caveat}.{extra}
 """
-_ignored_if_normalize = " Ignored if ``normalize=True``."
-_psd = "spectral power"
+_psd = "spectral_power/Hz"
 
+# for the legacy func/methods:
 docdict["dB_plot_psd"] = """\
 dB : bool
-    Plot Power Spectral Density (PSD), in units (amplitude**2/Hz (dB)) if
-    ``dB=True``, and ``estimate='power'`` or ``estimate='auto'``. Plot PSD
-    in units (amplitude**2/Hz) if ``dB=False`` and,
-    ``estimate='power'``. Plot Amplitude Spectral Density (ASD), in units
-    (amplitude/sqrt(Hz)), if ``dB=False`` and ``estimate='amplitude'`` or
-    ``estimate='auto'``. Plot ASD, in units (amplitude/sqrt(Hz) (dB)), if
-    ``dB=True`` and ``estimate='amplitude'``.
+    Plot power spectral density (PSD) in units (dB/Hz) if ``dB=True`` and
+    ``estimate='power'``. Plot PSD in units (amplitude**2/Hz) if
+    ``dB=False`` and ``estimate='power'``. Plot amplitude spectral density (ASD) in
+    units (amplitude/sqrt(Hz)) if ``dB=False`` and ``estimate='amplitude'``.
+    Plot ASD in units (dB/sqrt(Hz)) if ``dB=True`` and ``estimate='amplitude'``.
 """
 docdict["dB_plot_topomap"] = _dB.format(
     quantity=_psd,
-    caveat=" following the application of ``agg_fun``",
-    extra=_ignored_if_normalize,
+    ampl="",
+    caveat=", following the application of ``agg_fun``",
+    extra=" Ignored if ``normalize=True``.",
 )
-docdict["dB_spectrum_plot"] = _dB.format(quantity=_psd, caveat="", extra="")
+docdict["dB_spectrum_plot"] = _dB.format(
+    quantity=_psd,
+    ampl=", or 20 × log₁₀(spectral amplitude/√Hz) if ``amplitude=True``",
+    caveat="",
+    extra="",
+)
 docdict["dB_spectrum_plot_topo"] = _dB.format(
-    quantity=_psd, caveat="", extra=_ignored_if_normalize
+    quantity=_psd, ampl="", caveat="", extra=""
 )
-docdict["dB_tfr_plot_topo"] = _dB.format(quantity="data", caveat="", extra="")
+docdict["dB_tfr_plot"] = _dB.format(quantity="data", ampl="", caveat="", extra="")
 
 _data_template = """
 data : ndarray, shape ({})
@@ -1494,19 +1498,22 @@ fmt : 'auto' | 'brainvision' | 'edf' | 'eeglab'
 
 docdict["export_fmt_support_epochs"] = """\
 Supported formats:
-    - EEGLAB (``.set``, uses :mod:`eeglabio`)
+
+- EEGLAB (``.set``, uses :mod:`eeglabio`)
 """
 
 docdict["export_fmt_support_evoked"] = """\
 Supported formats:
-    - MFF (``.mff``, uses :func:`mne.export.export_evokeds_mff`)
+
+- MFF (``.mff``, uses :func:`mne.export.export_evokeds_mff`)
 """
 
 docdict["export_fmt_support_raw"] = """\
 Supported formats:
-    - BrainVision (``.vhdr``, ``.vmrk``, ``.eeg``, uses `pybv <https://github.com/bids-standard/pybv>`_)
-    - EEGLAB (``.set``, uses :mod:`eeglabio`)
-    - EDF (``.edf``, uses `edfio <https://github.com/the-siesta-group/edfio>`_)
+
+- BrainVision (``.vhdr``, ``.vmrk``, ``.eeg``, uses `pybv <https://github.com/bids-standard/pybv>`_)
+- EEGLAB (``.set``, uses :mod:`eeglabio`)
+- EDF (``.edf``, uses `edfio <https://github.com/the-siesta-group/edfio>`_)
 """  # noqa: E501
 
 docdict["export_warning"] = """\
@@ -2006,6 +2013,13 @@ head_source : str | list of str
     :func:`mne.get_head_surf` for more information.
 """
 
+docdict["helmet_upsampling"] = """
+upsampling : int
+    The upsampling factor to use for the helmet mesh. The default (1) does no
+    upsampling. Larger integers lead to more densely sampled helmet surfaces, and
+    the number of vertices increases as a factor of ``4**(upsampling-1)``.
+"""
+
 docdict["hitachi_fname"] = """
 fname : list | str
     Path(s) to the Hitachi CSV file(s). This should only be a list for
@@ -2023,7 +2037,7 @@ or :func:`mne.channels.make_dig_montage` like (for a 3x5/ETG-7000 example):
 >>> mon = mne.channels.make_standard_montage('standard_1020')
 >>> need = 'S1 D1 S2 D2 S3 D3 S4 D4 S5 D5 S6 D6 S7 D7 S8'.split()
 >>> have = 'F3 FC3 C3 CP3 P3 F5 FC5 C5 CP5 P5 F7 FT7 T7 TP7 P7'.split()
->>> mon.rename_channels(dict(zip(have, need)))
+>>> mon.rename_channels(dict(zip(have, need)))  # doctest: +SKIP
 >>> raw.set_montage(mon)  # doctest: +SKIP
 
 The 3x3 (ETG-100) is laid out as two separate layouts::
@@ -2546,6 +2560,15 @@ max_step : int
     :func:`mne.channels.find_ch_adjacency`), and not via sensors **and**
     further dimensions such as time points (e.g., via an additional call of
     :func:`mne.stats.combine_adjacency`).
+"""
+
+docdict["maxwell_mc_interp"] = """
+mc_interp : str
+    Interpolation to use between adjacent time points in movement
+    compensation. Can be "zero" (default in 1.10; used by MaxFilter),
+    "linear", or "hann" (default in 1.11).
+
+    .. versionadded:: 1.10
 """
 
 docdict["measure"] = """
@@ -4610,7 +4633,7 @@ time_format : str | None
     remain as float values in seconds. If ``'ms'``, time values will be rounded
     to the nearest millisecond and converted to integers. If ``'timedelta'``,
     time values will be converted to :class:`pandas.Timedelta` values. {}
-    Default is ``None``.
+    Default is ``None`` unless specified otherwise.
 """
 
 docdict["time_format_df"] = _time_format_df_base.format("")
@@ -4656,6 +4679,12 @@ title : str | None
     The title of the generated figure. If ``None`` (default), no title is
     displayed.
 """
+
+docdict["title_stc"] = """
+title : str | None
+    Title for the figure window. If ``None``, the subject name will be used.
+"""
+
 docdict["title_tfr_plot"] = """
 title : str | 'auto' | None
     Title for the plot. If ``"auto"``, will use the channel name (if ``combine`` is
@@ -5006,6 +5035,18 @@ weight_norm : str | None
         3. Does not satisfy the second requirement that ``w @ G.T = θI``,
            which arguably does not make sense for a rotation-invariant
            solution.
+"""
+
+docdict["weights_tfr_array"] = """
+weights : array, shape (n_tapers, n_freqs) | None
+    The weights for each taper. Must be provided if ``data`` has a taper dimension, such
+    as for complex or phase multitaper data.
+
+    .. versionadded:: 1.10.0
+"""
+docdict["weights_tfr_attr"] = """
+weights : array, shape (n_tapers, n_freqs) | None
+    The weights used for each taper in the time-frequency estimates.
 """
 
 docdict["window_psd"] = """\

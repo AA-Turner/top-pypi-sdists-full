@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -257,6 +257,11 @@ class _GPath(abstract_path.Path):
     gfile = self._backend.open(self._path_str, mode)
     gfile = typing.cast(typing.IO[Union[str, bytes]], gfile)
     return gfile
+
+  def relative_to(self: _P, other: PathLike) -> _P:
+    """Returns the current path relative to `other`."""
+    other_path = self._new(other)
+    return super().relative_to(other_path)
 
   def rename(self: _P, target: PathLike) -> _P:
     """Rename file or directory to the given target."""

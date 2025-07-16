@@ -1,5 +1,32 @@
 from oxapy import serializer, SessionStore, Response, jwt  # type: ignore
+from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
+from sqlalchemy import ForeignKey
 import pytest  # type: ignore
+import time
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Dog(Base):
+    __tablename__ = "dogs"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False)
+    owner: Mapped[str] = mapped_column(ForeignKey("users.id"))
+
+    user: Mapped["User"] = relationship(back_populates="dog")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(nullable=False)
+    password: Mapped[str] = mapped_column(nullable=False)
+
+    dog: Mapped["Dog"] = relationship(back_populates="user", uselist=False)
 
 
 def test_serializer():
@@ -22,8 +49,8 @@ def test_serializer():
     }
 
     cred_serializer.is_valid()
-    assert cred_serializer.validate_data["email"] == "test@gmail.com"
-    assert cred_serializer.validate_data["password"] == "password"
+    assert cred_serializer.validated_data["email"] == "test@gmail.com"
+    assert cred_serializer.validated_data["password"] == "password"
 
     with pytest.raises(serializer.ValidationException):
         cred_serializer.raw_data = '{"email": "test", "password": "password"}'
@@ -33,14 +60,16 @@ def test_serializer():
 def test_nested_serializer():
     class Dog(serializer.Serializer):
         name = serializer.CharField()
+        toys = serializer.CharField(many=True, nullable=True)
 
     class User(serializer.Serializer):
         email = serializer.EmailField()
         password = serializer.CharField(min_length=8)
-        dog = Dog()
+        dog = Dog(nullable=True)  # type: ignore
 
     nested_serializer = User(
-        '{"email": "test@gmail.com", "password": "password", "dog" :{"name": "boby"}}'  # type: ignore
+        # type: ignore
+        '{"email": "test@gmail.com", "password": "password", "dog" :{"name": "boby", "toys": null}}'
     )
 
     assert nested_serializer.schema() == {
@@ -52,9 +81,13 @@ def test_nested_serializer():
                 "additionalProperties": False,
                 "properties": {
                     "name": {"type": "string"},
+                    "toys": {
+                        "items": {"type": ["string", "null"]},
+                        "type": ["array", "null"],
+                    },
                 },
-                "required": ["name"],
-                "type": "object",
+                "required": ["name", "toys"],
+                "type": ["object", "null"],
             },
         },
         "required": ["dog", "email", "password"],
@@ -62,6 +95,26 @@ def test_nested_serializer():
     }
 
     nested_serializer.is_valid()
+
+
+def test_serializer_read_and_write_only():
+    class UserSerializer(serializer.Serializer):
+        id = serializer.CharField(read_only=True, nullable=True, required=False)  # type: ignore
+        name = serializer.CharField()
+        password = serializer.CharField(write_only=True)  # type: ignore
+
+    user_serializer = UserSerializer(
+        # type: ignore
+        '{"id": null, "name": "joe", "password": "password"}'
+    )
+    user_serializer.is_valid()
+
+    user = User(id="abcd1234", name="joe", password="password")
+
+    assert user_serializer.validated_data == {"name": "joe", "password": "password"}
+
+    new_user_serializer = UserSerializer(instance=user)  # type: ignore
+    assert new_user_serializer.data == {"id": "abcd1234", "name": "joe"}
 
 
 def test_session_store_usage():
@@ -93,3 +146,39 @@ def test_mult_cookie():
         ("set-cookie", "userId=abcd123;Path=/"),
         ("set-cookie", "theme=dark;Path=/"),
     ]
+
+
+def test_serializer_bench():
+    class DogSerializer(serializer.Serializer):
+        id = serializer.CharField(read_only=True, nullable=True, required=False)  # type: ignore
+        name = serializer.CharField()
+
+    class UserSerializer(serializer.Serializer):
+        id = serializer.CharField(read_only=True, nullable=True, required=False)  # type: ignore
+        name = serializer.CharField()
+        password = serializer.CharField(write_only=True)  # type: ignore
+        dog = DogSerializer(read_only=True)
+
+    user = User(id="abcd1234", name="joe", password="password")
+    user.dog = Dog(id="efgh5678", name="boby", owner="abcd1234")
+
+    user_serializer = UserSerializer(instance=user)  # type: ignore
+    start = time.perf_counter()
+    data = user_serializer.data
+    end = time.perf_counter()
+
+    assert end - start < 0.00012
+
+    assert data == {
+        "id": "abcd1234",
+        "name": "joe",
+        "dog": {"id": "efgh5678", "name": "boby"},
+    }
+
+
+def test_bench_create_response():
+    start = time.perf_counter()
+    response: Response = Response({"message": "User is created"})
+    end = time.perf_counter()
+    assert end - start < 0.000013
+    assert response.body == '{"message":"User is created"}'

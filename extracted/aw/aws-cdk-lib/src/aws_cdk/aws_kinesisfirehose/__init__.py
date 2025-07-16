@@ -105,11 +105,14 @@ will be used for files successfully delivered to S3. `errorOutputPrefix` will be
 failed records before writing them to S3.
 
 ```python
+from aws_cdk import TimeZone
 # bucket: s3.Bucket
 
 s3_destination = firehose.S3Bucket(bucket,
     data_output_prefix="myFirehose/DeliveredYear=!{timestamp:yyyy}/anyMonth/rand=!{firehose:random-string}",
-    error_output_prefix="myFirehoseFailures/!{firehose:error-output-type}/!{timestamp:yyyy}/anyMonth/!{timestamp:dd}"
+    error_output_prefix="myFirehoseFailures/!{firehose:error-output-type}/!{timestamp:yyyy}/anyMonth/!{timestamp:dd}",
+    # The time zone of timestamps (default UTC)
+    time_zone=TimeZone.ASIA_TOKYO
 )
 ```
 
@@ -500,6 +503,7 @@ delivery_stream = firehose.DeliveryStream(stack, "DeliveryStream",
         data_output_prefix="regularPrefix",
         error_output_prefix="errorPrefix",
         file_extension=".log.gz",
+        time_zone=cdk.TimeZone.ASIA_TOKYO,
         buffering_interval=cdk.Duration.seconds(60),
         buffering_size=cdk.Size.mebibytes(1),
         encryption_key=key,
@@ -689,6 +693,7 @@ from .. import (
     Resource as _Resource_45bc6135,
     Size as _Size_7b441c34,
     TagManager as _TagManager_0a598cb3,
+    TimeZone as _TimeZone_cdd72ac9,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..aws_cloudwatch import (
@@ -11751,6 +11756,7 @@ class S3Bucket(
         bucket: _IBucket_42e086fd,
         *,
         file_extension: typing.Optional[builtins.str] = None,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
         buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
         buffering_size: typing.Optional[_Size_7b441c34] = None,
         compression: typing.Optional[Compression] = None,
@@ -11765,6 +11771,7 @@ class S3Bucket(
         '''
         :param bucket: -
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
+        :param time_zone: The time zone you prefer. Default: - UTC
         :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) Maximum: Duration.seconds(900) Default: Duration.seconds(300)
         :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) Maximum: Size.mebibytes(128) Default: Size.mebibytes(5)
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
@@ -11781,6 +11788,7 @@ class S3Bucket(
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         props = S3BucketProps(
             file_extension=file_extension,
+            time_zone=time_zone,
             buffering_interval=buffering_interval,
             buffering_size=buffering_size,
             compression=compression,
@@ -11826,6 +11834,7 @@ class S3Bucket(
         "role": "role",
         "s3_backup": "s3Backup",
         "file_extension": "fileExtension",
+        "time_zone": "timeZone",
     },
 )
 class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
@@ -11843,6 +11852,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         role: typing.Optional[_IRole_235f5d8e] = None,
         s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
         file_extension: typing.Optional[builtins.str] = None,
+        time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
     ) -> None:
         '''Props for defining an S3 destination of an Amazon Data Firehose delivery stream.
 
@@ -11857,6 +11867,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
         :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
+        :param time_zone: The time zone you prefer. Default: - UTC
 
         :exampleMetadata: infused
 
@@ -11897,6 +11908,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument s3_backup", value=s3_backup, expected_type=type_hints["s3_backup"])
             check_type(argname="argument file_extension", value=file_extension, expected_type=type_hints["file_extension"])
+            check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if buffering_interval is not None:
             self._values["buffering_interval"] = buffering_interval
@@ -11920,6 +11932,8 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             self._values["s3_backup"] = s3_backup
         if file_extension is not None:
             self._values["file_extension"] = file_extension
+        if time_zone is not None:
+            self._values["time_zone"] = time_zone
 
     @builtins.property
     def buffering_interval(self) -> typing.Optional[_Duration_4839e8c3]:
@@ -12045,6 +12059,17 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         '''
         result = self._values.get("file_extension")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def time_zone(self) -> typing.Optional[_TimeZone_cdd72ac9]:
+        '''The time zone you prefer.
+
+        :default: - UTC
+
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#timestamp-namespace
+        '''
+        result = self._values.get("time_zone")
+        return typing.cast(typing.Optional[_TimeZone_cdd72ac9], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13766,6 +13791,7 @@ def _typecheckingstub__a2eaf455255fc260033aa24d456779f4b21172e8b4cf2c51f6355f415
     bucket: _IBucket_42e086fd,
     *,
     file_extension: typing.Optional[builtins.str] = None,
+    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
     buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
     buffering_size: typing.Optional[_Size_7b441c34] = None,
     compression: typing.Optional[Compression] = None,
@@ -13799,6 +13825,7 @@ def _typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b52
     role: typing.Optional[_IRole_235f5d8e] = None,
     s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
     file_extension: typing.Optional[builtins.str] = None,
+    time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
 ) -> None:
     """Type checking stubs"""
     pass

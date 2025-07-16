@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: matrix-synapse
-Version: 1.133.0
+Version: 1.134.0
 Summary: Homeserver for the Matrix decentralised comms protocol
-Home-page: https://github.com/element-hq/synapse
 License: AGPL-3.0-or-later
 Author: Matrix.org Team and Contributors
 Author-email: packages@matrix.org
@@ -29,7 +28,6 @@ Provides-Extra: sentry
 Provides-Extra: systemd
 Provides-Extra: test
 Provides-Extra: url-preview
-Provides-Extra: user-search
 Requires-Dist: Jinja2 (>=3.0)
 Requires-Dist: Pillow (>=10.0.1)
 Requires-Dist: PyYAML (>=5.3)
@@ -64,7 +62,6 @@ Requires-Dist: pyOpenSSL (>=16.0.0)
 Requires-Dist: pyasn1 (>=0.1.9)
 Requires-Dist: pyasn1-modules (>=0.0.7)
 Requires-Dist: pydantic (>=1.7.4,<3)
-Requires-Dist: pyicu (>=2.10.2) ; extra == "user-search" or extra == "all"
 Requires-Dist: pymacaroons (>=0.13.0)
 Requires-Dist: pysaml2 (>=4.5.0) ; extra == "saml2" or extra == "all"
 Requires-Dist: python-multipart (>=0.0.9)

@@ -15,16 +15,15 @@
 
 import abc
 import copy
-import functools
 import inspect
 import sys
 import types
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Type, Union
 
-from pyglove.core import object_utils
+from pyglove.core import utils
 
 
-class KeySpec(object_utils.Formattable, object_utils.JSONConvertible):
+class KeySpec(utils.Formattable, utils.JSONConvertible):
   """Interface for key specifications.
 
   A key specification determines what keys are acceptable for a symbolic
@@ -95,12 +94,12 @@ class KeySpec(object_utils.Formattable, object_utils.JSONConvertible):
     assert False, 'Overridden in `key_specs.py`.'
 
 
-class ForwardRef(object_utils.Formattable):
+class ForwardRef(utils.Formattable):
   """Forward type reference."""
 
-  def __init__(self, module: types.ModuleType, name: str):
+  def __init__(self, module: types.ModuleType, qualname: str):
     self._module = module
-    self._name = name
+    self._qualname = qualname
 
   @property
   def module(self) -> types.ModuleType:
@@ -110,66 +109,94 @@ class ForwardRef(object_utils.Formattable):
   @property
   def name(self) -> str:
     """Returns the name of the type reference."""
-    return self._name
+    return self._qualname.split('.')[-1]
 
   @property
   def qualname(self) -> str:
     """Returns the qualified name of the reference."""
-    return f'{self.module.__name__}.{self.name}'
+    return self._qualname
+
+  @property
+  def type_id(self) -> str:
+    """Returns the type id of the reference."""
+    return f'{self.module.__name__}.{self.qualname}'
 
   def as_annotation(self) -> Union[Type[Any], str]:
     """Returns the forward reference as an annotation."""
-    return self.cls if self.resolved else self.name
+    return self.cls if self.resolved else self.qualname
 
   @property
   def resolved(self) -> bool:
     """Returns True if the symbol for the name is resolved.."""
-    return hasattr(self.module, self.name)
+    return self._resolve() is not None
 
-  @functools.cached_property
+  def _resolve(self) -> Optional[Any]:
+    names = self._qualname.split('.')
+    parent_obj = self.module
+    for name in names:
+      parent_obj = getattr(parent_obj, name, utils.MISSING_VALUE)
+      if parent_obj == utils.MISSING_VALUE:
+        return None
+    if not inspect.isclass(parent_obj):
+      raise TypeError(
+          f'{self.qualname!r} from module {self.module.__name__!r} '
+          'is not a class.'
+      )
+    return parent_obj
+
+  @property
   def cls(self) -> Type[Any]:
     """Returns the resolved reference class.."""
-    reference = getattr(self.module, self.name, None)
+    reference = self._resolve()
     if reference is None:
       raise TypeError(
-          f'{self.name!r} does not exist in module {self.module.__name__!r}'
-      )
-    elif not inspect.isclass(reference):
-      raise TypeError(
-          f'{self.name!r} from module {self.module.__name__!r} is not a class.'
+          f'{self.qualname!r} does not exist in '
+          f'module {self.module.__name__!r}'
       )
     return reference
 
-  def format(self, *args, **kwargs) -> str:
+  def format(
+      self,
+      compact: bool = False,
+      verbose: bool = True,
+      root_indent: int = 0,
+      **kwargs
+  ) -> str:
     """Format this object."""
-    details = object_utils.kvlist_str([
-        ('module', self.module.__name__, None),
-        ('name', self.name, None),
-    ])
-    return f'{self.__class__.__name__}({details})'
+    return utils.kvlist_str(
+        [
+            ('module', self.module.__name__, None),
+            ('name', self.qualname, None),
+        ],
+        label=self.__class__.__name__,
+        compact=compact,
+        verbose=verbose,
+        root_indent=root_indent,
+        **kwargs,
+    )
 
   def __eq__(self, other: Any) -> bool:
     """Operator==."""
     if self is other:
       return True
     elif isinstance(other, ForwardRef):
-      return self.module is other.module and self.name == other.name
+      return self.module is other.module and self.qualname == other.qualname
     elif inspect.isclass(other):
-      return self.resolved and self.cls is other
+      return self.resolved and self.cls is other  # pytype: disable=bad-return-type
 
   def __ne__(self, other: Any) -> bool:
     """Operator!=."""
     return not self.__eq__(other)
 
   def __hash__(self) -> int:
-    return hash((self.module, self.name))
+    return hash((self.module, self.qualname))
 
   def __deepcopy__(self, memo) -> 'ForwardRef':
     """Override deep copy to avoid copying module."""
-    return ForwardRef(self.module, self.name)
+    return ForwardRef(self.module, self.qualname)
 
 
-class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
+class ValueSpec(utils.Formattable, utils.JSONConvertible):
   """Interface for value specifications.
 
   A value specification defines what values are acceptable for a symbolic
@@ -333,13 +360,20 @@ class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
       Tuple[Type[Any], ...]]:  # pyformat: disable
     """Returns acceptable (resolved) value type(s)."""
 
+  @abc.abstractmethod
+  def __call__(self, *args, **kwargs) -> Any:
+    """Instantiates a value based on the spec.."""
+
   @property
   @abc.abstractmethod
   def forward_refs(self) -> Set[ForwardRef]:
     """Returns forward referenes used by the value spec."""
 
   @abc.abstractmethod
-  def noneable(self) -> 'ValueSpec':
+  def noneable(
+      self,
+      is_noneable=True,
+      use_none_as_default: bool = True) -> 'ValueSpec':
     """Marks none-able and returns `self`."""
 
   @property
@@ -348,15 +382,19 @@ class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
     """Returns True if current value spec accepts None."""
 
   @abc.abstractmethod
-  def set_default(self,
-                  default: Any,
-                  use_default_apply: bool = True) -> 'ValueSpec':
+  def set_default(
+      self,
+      default: Any,
+      use_default_apply: bool = True,
+      root_path: Optional[utils.KeyPath] = None,
+  ) -> 'ValueSpec':
     """Sets the default value and returns `self`.
 
     Args:
       default: Default value.
       use_default_apply: If True, invoke `apply` to the value, otherwise use
         default value as is.
+      root_path: (Optional) The path of the field.
 
     Returns:
       ValueSpec itself.
@@ -379,13 +417,14 @@ class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
   @property
   def has_default(self) -> bool:
     """Returns True if the default value is provided."""
-    return self.default != object_utils.MISSING_VALUE
+    return self.default != utils.MISSING_VALUE
 
   @abc.abstractmethod
   def freeze(
       self,
-      permanent_value: Any = object_utils.MISSING_VALUE,
-      apply_before_use: bool = True) -> 'ValueSpec':
+      permanent_value: Any = utils.MISSING_VALUE,
+      apply_before_use: bool = True,
+  ) -> 'ValueSpec':
     """Sets the default value using a permanent value and freezes current spec.
 
     A frozen value spec will not accept any value that is not the default
@@ -452,10 +491,11 @@ class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
       self,
       value: Any,
       allow_partial: bool = False,
-      child_transform: Optional[Callable[
-          [object_utils.KeyPath, 'Field', Any], Any]] = None,
-      root_path: Optional[object_utils.KeyPath] = None,
-      ) -> Any:
+      child_transform: Optional[
+          Callable[[utils.KeyPath, 'Field', Any], Any]
+      ] = None,
+      root_path: Optional[utils.KeyPath] = None,
+  ) -> Any:
     """Validates, completes and transforms the input value.
 
     Here is the procedure of ``apply``::
@@ -523,14 +563,27 @@ class ValueSpec(object_utils.Formattable, object_utils.JSONConvertible):
   def from_annotation(
       cls,
       annotation: Any,
-      auto_typing=False,
-      accept_value_as_annotation=False) -> 'ValueSpec':
+      auto_typing: bool = False,
+      accept_value_as_annotation: bool = False,
+      parent_module: Optional[types.ModuleType] = None
+      ) -> 'ValueSpec':
     """Gets a concrete ValueSpec from annotation."""
-    del annotation
+    del annotation, auto_typing, accept_value_as_annotation, parent_module
     assert False, 'Overridden in `annotation_conversion.py`.'
 
+  def to_json_schema(
+      self,
+      include_type_name: bool = True,
+      include_subclasses: bool = False,
+      inline_nested_refs: bool = False,
+      **kwargs
+  ) -> Dict[str, Any]:
+    """Converts this field to JSON schema."""
+    del include_type_name, include_subclasses, inline_nested_refs, kwargs
+    assert False, 'Overridden in `json_schema.py`.'
 
-class Field(object_utils.Formattable, object_utils.JSONConvertible):
+
+class Field(utils.Formattable, utils.JSONConvertible):
   """Class that represents the definition of one or a group of attributes.
 
   ``Field`` is held by a :class:`pyglove.Schema` object for defining the
@@ -570,7 +623,9 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
       key_spec: Union[KeySpec, str],
       value_spec: ValueSpec,
       description: Optional[str] = None,
-      metadata: Optional[Dict[str, Any]] = None):
+      metadata: Optional[Dict[str, Any]] = None,
+      origin: Optional[Type[Any]] = None,
+  ) -> None:
     """Constructor.
 
     Args:
@@ -579,6 +634,7 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
       value_spec: Value specification of the field.
       description: Description of the field.
       metadata: A dict of objects as metadata for the field.
+      origin: The class that this field originates from.
 
     Raises:
       ValueError: metadata is not a dict.
@@ -589,6 +645,7 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
     self._key = key_spec
     self._value = value_spec
     self._description = description
+    self._origin = origin
 
     if metadata and not isinstance(metadata, dict):
       raise ValueError('metadata must be a dict.')
@@ -601,9 +658,11 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
       annotation: Any,
       description: Optional[str] = None,
       metadata: Optional[Dict[str, Any]] = None,
-      auto_typing=True) -> 'Field':
+      auto_typing=True,
+      parent_module: Optional[types.ModuleType] = None
+      ) -> 'Field':
     """Gets a Field from annotation."""
-    del key, annotation, description, metadata, auto_typing
+    del key, annotation, description, metadata, auto_typing, parent_module
     assert False, 'Overridden in `annotation_conversion.py`.'
 
   @property
@@ -644,6 +703,15 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
     """
     return self._metadata
 
+  @property
+  def origin(self) -> Optional[Type[Any]]:
+    """The class that this field originates from."""
+    return self._origin
+
+  def set_origin(self, origin: Type[Any]) -> None:
+    """Sets the origin (source class) of this field."""
+    self._origin = origin
+
   def extend(self, base_field: 'Field') -> 'Field':
     """Extend current field based on a base field."""
     self.key.extend(base_field.key)
@@ -660,9 +728,11 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
       self,
       value: Any,
       allow_partial: bool = False,
-      transform_fn: Optional[Callable[
-          [object_utils.KeyPath, 'Field', Any], Any]] = None,
-      root_path: Optional[object_utils.KeyPath] = None) -> Any:
+      transform_fn: Optional[
+          Callable[[utils.KeyPath, 'Field', Any], Any]
+      ] = None,
+      root_path: Optional[utils.KeyPath] = None,
+  ) -> Any:
     """Apply current field to a value, which validate and complete the value.
 
     Args:
@@ -689,7 +759,8 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
         value,
         allow_partial=allow_partial,
         child_transform=transform_fn,
-        root_path=root_path)
+        root_path=root_path
+    )
 
     if transform_fn:
       value = transform_fn(root_path, self, value)
@@ -705,35 +776,28 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
     """Returns True if current field's value is frozen."""
     return self._value.frozen
 
-  def format(self,
-             compact: bool = False,
-             verbose: bool = True,
-             root_indent: int = 0,
-             **kwargs) -> str:
+  def format(
+      self,
+      compact: bool = False,
+      verbose: bool = True,
+      root_indent: int = 0,
+      **kwargs,
+  ) -> str:
     """Format this field into a string."""
-    description = self._description
-    if not verbose and self._description and len(self._description) > 20:
-      description = self._description[:20] + '...'
-
-    metadata = object_utils.format(
-        self._metadata,
+    return utils.kvlist_str(
+        [
+            ('key', self._key, None),
+            ('value', self._value, None),
+            ('description', self._description, None),
+            ('metadata', self._metadata, {}),
+            ('origin', self._origin, None),
+        ],
+        label=self.__class__.__name__,
         compact=compact,
         verbose=verbose,
-        root_indent=root_indent + 1,
-        **kwargs)
-    if not verbose and len(metadata) > 24:
-      metadata = '{...}'
-    attr_str = object_utils.kvlist_str([
-        ('key', self._key, None),
-        ('value', self._value.format(
-            compact=compact,
-            verbose=verbose,
-            root_indent=root_indent + 1,
-            **kwargs), None),
-        ('description', object_utils.quote_if_str(description), None),
-        ('metadata', metadata, '{}')
-    ])
-    return f'Field({attr_str})'
+        root_indent=root_indent,
+        **kwargs,
+    )
 
   def to_json(self, **kwargs: Any) -> Dict[str, Any]:
     return self.to_json_dict(
@@ -761,7 +825,7 @@ class Field(object_utils.Formattable, object_utils.JSONConvertible):
     return not self.__eq__(other)
 
 
-class Schema(object_utils.Formattable, object_utils.JSONConvertible):
+class Schema(utils.Formattable, utils.JSONConvertible):
   """Class that represents a schema.
 
   PyGlove's runtime type system is based on the concept of ``Schema`` (
@@ -851,7 +915,9 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
       description: Optional[str] = None,
       *,
       allow_nonconst_keys: bool = False,
-      metadata: Optional[Dict[str, Any]] = None):
+      metadata: Optional[Dict[str, Any]] = None,
+      for_cls: Optional[Type[Any]] = None,
+  ):
     """Constructor.
 
     Args:
@@ -864,6 +930,7 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
       description: Optional str as the description for the schema.
       allow_nonconst_keys: Whether immediate fields can use non-const keys.
       metadata: Optional dict of user objects as schema-level metadata.
+      for_cls: Optional class that this schema applies to.
 
     Raises:
       TypeError: Argument `fields` is not a list.
@@ -885,6 +952,11 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
     self._description = description
     self._metadata = metadata or {}
 
+    if for_cls is not None:
+      for f in fields:
+        if f.origin is None:
+          f.set_origin(for_cls)
+
     self._dynamic_field = None
     for f in fields:
       if not f.key.is_const:
@@ -892,14 +964,56 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
         break
 
     if base_schema_list:
-      # Extend base schema from the nearest ancestor to the farthest.
-      for base in reversed(base_schema_list):
-        self.extend(base)
+      base = Schema.merge(base_schema_list)
+      self.extend(base)
 
     if not allow_nonconst_keys and self._dynamic_field is not None:
       raise ValueError(
           f'NonConstKey is not allowed in schema. '
           f'Encountered \'{self._dynamic_field.key}\'.')
+
+  @classmethod
+  def merge(
+      cls,
+      schema_list: Sequence['Schema'],
+      name: Optional[str] = None,
+      description: Optional[str] = None
+    ) -> 'Schema':
+    """Merge multiple schemas into one.
+
+    For fields shared by multiple schemas, the first appeared onces will be
+    used in the merged schema.
+
+    Args:
+      schema_list: A list of schemas to merge.
+      name: (Optional) name of the merged schema.
+      description: (Optinoal) description of the schema.
+
+    Returns:
+      The merged schema.
+    """
+    fields = {}
+    kw_field = None
+    for schema in schema_list:
+      for key, field in schema.fields.items():
+        if key.is_const:
+          if key not in fields or (
+              field.origin is not None
+              and fields[key].origin is not None
+              and issubclass(field.origin, fields[key].origin)
+          ):
+            fields[key] = field
+        elif kw_field is None:
+          kw_field = field
+
+    if kw_field is not None:
+      fields[kw_field.key] = kw_field
+    return Schema(
+        list(fields.values()),
+        name=name,
+        description=description,
+        allow_nonconst_keys=True
+    )
 
   def extend(self, base: 'Schema') -> 'Schema':
     """Extend current schema based on a base schema."""
@@ -909,13 +1023,12 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
         parent_field: Field,
         child_field: Field) -> Field:
       """Merge function on field with the same key."""
-      if parent_field != object_utils.MISSING_VALUE:
-        if object_utils.MISSING_VALUE == child_field:
+      if parent_field != utils.MISSING_VALUE:
+        if utils.MISSING_VALUE == child_field:
           if (not self._allow_nonconst_keys and not parent_field.key.is_const):
-            hints = object_utils.kvlist_str([
-                ('base', object_utils.quote_if_str(base.name), None),
-                ('path', path, None)
-            ])
+            hints = utils.kvlist_str(
+                [('base', base.name, None), ('path', path, None)]
+            )
             raise ValueError(
                 f'Non-const key {parent_field.key} is not allowed to be '
                 f'added to the schema. ({hints})')
@@ -924,16 +1037,15 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
           try:
             child_field.extend(parent_field)
           except Exception as e:  # pylint: disable=broad-except
-            hints = object_utils.kvlist_str([
-                ('base', object_utils.quote_if_str(base.name), None),
-                ('path', path, None)
-            ])
+            hints = utils.kvlist_str(
+                [('base', base.name, None), ('path', path, None)]
+            )
             raise e.__class__(f'{e} ({hints})').with_traceback(
                 sys.exc_info()[2])
       return child_field
 
-    self._fields = object_utils.merge([base.fields, self.fields], _merge_field)
-    self._metadata = object_utils.merge([base.metadata, self.metadata])
+    self._fields = utils.merge([base.fields, self.fields], _merge_field)
+    self._metadata = utils.merge([base.metadata, self.metadata])
 
     # Inherit dynamic field from base if it's not present in the child.
     if self._dynamic_field is None:
@@ -1056,8 +1168,8 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
       dict_obj: Dict[str, Any],
       allow_partial: bool = False,
       child_transform: Optional[Callable[
-          [object_utils.KeyPath, Field, Any], Any]] = None,
-      root_path: Optional[object_utils.KeyPath] = None,
+          [utils.KeyPath, Field, Any], Any]] = None,
+      root_path: Optional[utils.KeyPath] = None,
   ) -> Dict[str, Any]:  # pyformat: disable
     # pyformat: disable
     """Apply this schema to a dict object, validate and transform it.
@@ -1104,7 +1216,8 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
     if unmatched_keys:
       raise KeyError(
           f'Keys {unmatched_keys} are not allowed in Schema. '
-          f'(parent=\'{root_path}\')')
+          f'(parent=\'{root_path}\')'
+      )
 
     for key_spec, keys in matched_keys.items():
       field = self._fields[key_spec]
@@ -1113,19 +1226,19 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
         keys.append(str(key_spec))
       for key in keys:
         if dict_obj:
-          value = dict_obj.get(key, object_utils.MISSING_VALUE)
+          value = dict_obj.get(key, utils.MISSING_VALUE)
         else:
-          value = object_utils.MISSING_VALUE
+          value = utils.MISSING_VALUE
         # NOTE(daiyip): field.default_value may be MISSING_VALUE too
         # or partial.
-        if object_utils.MISSING_VALUE == value:
+        if utils.MISSING_VALUE == value:
           value = copy.deepcopy(field.default_value)
-
         new_value = field.apply(
             value,
             allow_partial=allow_partial,
             transform_fn=child_transform,
-            root_path=object_utils.KeyPath(key, root_path))
+            root_path=utils.KeyPath(key, root_path),
+        )
 
         # NOTE(daiyip): `pg.Dict.__getitem__`` has special logics in handling
         # `pg.Contextual`` values. Therefore, we user `dict.__getitem__()`` to
@@ -1138,10 +1251,12 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
           dict_obj[key] = new_value
     return dict_obj
 
-  def validate(self,
-               dict_obj: Dict[str, Any],
-               allow_partial: bool = False,
-               root_path: Optional[object_utils.KeyPath] = None) -> None:
+  def validate(
+      self,
+      dict_obj: Dict[str, Any],
+      allow_partial: bool = False,
+      root_path: Optional[utils.KeyPath] = None,
+  ) -> None:
     """Validates whether dict object is conformed with the schema."""
     self.apply(
         copy.deepcopy(dict_obj),
@@ -1204,48 +1319,28 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
       compact: bool = False,
       verbose: bool = True,
       root_indent: int = 0,
+      *,
       cls_name: Optional[str] = None,
-      bracket_type: object_utils.BracketType = object_utils.BracketType.ROUND,
-      **kwargs) -> str:
+      bracket_type: utils.BracketType = utils.BracketType.ROUND,
+      fields_only: bool = False,
+      **kwargs,
+  ) -> str:
     """Format current Schema into nicely printed string."""
-    if cls_name is None:
-      cls_name = 'Schema'
-
-    def _indent(text, indent):
-      return ' ' * 2 * indent + text
-
-    def _format_child(child):
-      return child.format(
-          compact=compact,
-          verbose=verbose,
-          root_indent=root_indent + 1,
-          **kwargs)
-
-    open_bracket, close_bracket = object_utils.bracket_chars(bracket_type)
-    if compact:
-      s = [f'{cls_name}{open_bracket}']
-      s.append(', '.join([
-          f'{f.key}={_format_child(f.value)}'
-          for f in self.fields.values()
-      ]))
-      s.append(close_bracket)
-    else:
-      s = [f'{cls_name}{open_bracket}\n']
-      last_field_show_description = False
-      for i, f in enumerate(self.fields.values()):
-        this_field_show_description = verbose and f.description
-        if i != 0:
-          s.append(',\n')
-          if last_field_show_description or this_field_show_description:
-            s.append('\n')
-        if this_field_show_description:
-          s.append(_indent(f'# {f.description}\n', root_indent + 1))
-        last_field_show_description = this_field_show_description
-        s.append(
-            _indent(f'{f.key} = {_format_child(f.value)}', root_indent + 1))
-      s.append('\n')
-      s.append(_indent(close_bracket, root_indent))
-    return ''.join(s)
+    return utils.kvlist_str(
+        [
+            ('name', self.name, None),
+            ('description', self.description, None),
+            ('fields', list(self.fields.values()), []),
+            ('allow_nonconst_keys', self.allow_nonconst_keys, True),
+            ('metadata', self.metadata, {}),
+        ],
+        label=cls_name or self.__class__.__name__,
+        bracket_type=bracket_type,
+        compact=compact,
+        verbose=verbose,
+        root_indent=root_indent,
+        **kwargs,
+    )
 
   def to_json(self, **kwargs) -> Dict[str, Any]:
     return self.to_json_dict(
@@ -1260,6 +1355,18 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
         **kwargs,
     )
 
+  def to_json_schema(
+      self,
+      *,
+      include_type_name: bool = True,
+      include_subclasses: bool = False,
+      inline_nested_refs: bool = False,
+      **kwargs
+  ) -> Dict[str, Any]:
+    """Converts this field to JSON schema."""
+    del include_type_name, include_subclasses, inline_nested_refs, kwargs
+    assert False, 'Overridden in `json_schema.py`.'
+
   def __eq__(self, other: Any) -> bool:
     if self is other:
       return True
@@ -1269,15 +1376,41 @@ class Schema(object_utils.Formattable, object_utils.JSONConvertible):
     return not self.__eq__(other)
 
 
+FieldDef = Union[
+    # Key, Value spec/annotation.
+    Tuple[Union[str, KeySpec], Any],
+
+    # Key, Value spec/annotation, field docstr.
+    Tuple[Union[str, KeySpec], Any, str],
+
+    # Key, Value spec/annotation, field docstr, field metadata.
+    Tuple[Union[str, KeySpec], Any, str, Dict[str, Any]],
+]
+
+FieldKeyDef = Union[str, KeySpec]
+
+FieldValueDef = Union[
+    # Value spec/annotation.
+    Any,
+
+    # Value spec/annotation, field docstr.
+    Tuple[Any, str],
+
+    # Value spec/annotation, field docstr, field metadata.
+    Tuple[Any, str, Dict[str, Any]]
+]
+
+
 def create_field(
-    maybe_field: Union[Field, Tuple],   # pylint: disable=g-bare-generic
+    field_or_def: Union[Field, FieldDef],
     auto_typing: bool = True,
-    accept_value_as_annotation: bool = True
+    accept_value_as_annotation: bool = True,
+    parent_module: Optional[types.ModuleType] = None
 ) -> Field:
   """Creates ``Field`` from its equivalence.
 
   Args:
-    maybe_field: a ``Field`` object or its equivalence, which is a tuple of
+    field_or_def: a ``Field`` object or its equivalence, which is a tuple of
       2 - 4 elements:
       `(<key>, <value>, [description], [metadata])`.
       `key` can be a KeySpec subclass object or string. `value` can be a
@@ -1290,31 +1423,34 @@ def create_field(
       ``pg.typing.Any()`` will be used.
     accept_value_as_annotation: If True, allow default values to be used as
       annotations when creating the value spec.
+    parent_module: (Optional) parent module for defining this field, which will
+      be used for forward reference lookup.
 
   Returns:
     A ``Field`` object.
   """
-  if isinstance(maybe_field, Field):
-    return maybe_field
+  if isinstance(field_or_def, Field):
+    return field_or_def
 
-  if not isinstance(maybe_field, tuple):
+  if not isinstance(field_or_def, tuple):
     raise TypeError(
         f'Field definition should be tuples with 2 to 4 elements. '
-        f'Encountered: {maybe_field}.')
+        f'Encountered: {field_or_def}.')
 
-  if len(maybe_field) == 4:
-    maybe_key_spec, maybe_value_spec, description, field_metadata = maybe_field
-  elif len(maybe_field) == 3:
-    maybe_key_spec, maybe_value_spec, description = maybe_field
+  field_def = list(field_or_def)
+  if len(field_def) == 4:
+    maybe_key_spec, maybe_value_spec, description, field_metadata = field_def
+  elif len(field_def) == 3:
+    maybe_key_spec, maybe_value_spec, description = field_def
     field_metadata = {}
-  elif len(maybe_field) == 2:
-    maybe_key_spec, maybe_value_spec = maybe_field
+  elif len(field_def) == 2:
+    maybe_key_spec, maybe_value_spec = field_def
     description = None
     field_metadata = {}
   else:
     raise TypeError(
         f'Field definition should be tuples with 2 to 4 elements. '
-        f'Encountered: {maybe_field}.')
+        f'Encountered: {field_or_def}.')
 
   if isinstance(maybe_key_spec, (str, KeySpec)):
     key = maybe_key_spec
@@ -1322,10 +1458,14 @@ def create_field(
     raise TypeError(
         f'The 1st element of field definition should be of '
         f'<class \'str\'> or KeySpec. Encountered: {maybe_key_spec}.')
+
   value = ValueSpec.from_annotation(
       maybe_value_spec,
       auto_typing=auto_typing,
-      accept_value_as_annotation=accept_value_as_annotation)
+      accept_value_as_annotation=accept_value_as_annotation,
+      parent_module=parent_module,
+  )
+
   if (description is not None and
       not isinstance(description, str)):
     raise TypeError(f'Description (the 3rd element) of field definition '
@@ -1339,14 +1479,16 @@ def create_field(
 
 def create_schema(
     fields: Union[
-        Dict[str, Any],
-        List[Union[Field, Tuple]]   # pylint: disable=g-bare-generic
+        Dict[str, FieldValueDef],
+        List[Union[Field, FieldDef]]   # pylint: disable=g-bare-generic
     ],
     name: Optional[str] = None,
     base_schema_list: Optional[List[Schema]] = None,
     allow_nonconst_keys: bool = False,
     metadata: Optional[Dict[str, Any]] = None,
     description: Optional[str] = None,
+    for_cls: Optional[Type[Any]] = None,
+    parent_module: Optional[types.ModuleType] = None
 ) -> Schema:
   """Creates ``Schema`` from a list of ``Field``s or equivalences.
 
@@ -1387,6 +1529,9 @@ def create_schema(
     allow_nonconst_keys: Whether to allow non const keys in schema.
     metadata: Optional dict of user objects as schema-level metadata.
     description: Optional description of the schema.
+    for_cls: (Optional) the class that this schema applies to.
+    parent_module: (Optional) parent module for defining this schema, which will
+      be used for forward reference lookup.
 
   Returns:
     Schema object.
@@ -1394,30 +1539,43 @@ def create_schema(
   Raises:
     TypeError: If input type is incorrect.
   """
-  if isinstance(fields, dict):
-    normalized_fields = []
-    for k, v in fields.items():
-      if not isinstance(v, (tuple, list)):
-        v = (v,)
-      normalized_fields.append(tuple([k] + list(v)))
-    fields = normalized_fields
-
-  if not isinstance(fields, list):
-    raise TypeError(
-        'Schema definition should be a dict of field names to their '
-        'definitions, a list of `pg.typing.Field` objects or a list of tuples '
-        'in format (key, value, description, metadata).')
-
+  fields = _normalize_field_defs(fields)
   metadata = metadata or {}
   if not isinstance(metadata, dict):
     raise TypeError(f'Metadata of schema should be a dict. '
                     f'Encountered: {metadata}.')
 
   return Schema(
-      fields=[create_field(maybe_field) for maybe_field in fields],
+      fields=[create_field(field_or_def, parent_module=parent_module)
+              for field_or_def in fields],
       name=name,
       base_schema_list=base_schema_list,
       allow_nonconst_keys=allow_nonconst_keys,
       metadata=metadata,
       description=description,
+      for_cls=for_cls,
   )
+
+
+def _normalize_field_defs(
+    fields: Union[
+        Dict[str, FieldValueDef],
+        List[Union[Field, FieldDef]]   # pylint: disable=g-bare-generic
+    ]
+) -> List[Union[Field, FieldDef]]:
+  """Normalizes field definitions."""
+  if isinstance(fields, dict):
+    normalized_fields = []
+    for k, v in fields.items():
+      if not isinstance(v, (tuple, list)):
+        v = (v,)
+      normalized_fields.append(tuple([k] + list(v)))
+    return normalized_fields    # pytype: disable=bad-return-type
+  elif not isinstance(fields, list):
+    raise TypeError(
+        'Schema definition should be a dict of field names to their '
+        'definitions, a list of `pg.typing.Field` objects or a list of tuples '
+        'in format (key, value, description, metadata). '
+        f'Encountered: {fields}.'
+    )
+  return fields

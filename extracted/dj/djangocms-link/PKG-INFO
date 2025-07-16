@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangocms-link
-Version: 5.0.1
+Version: 5.1.0
 Summary: Adds a link plugin to django CMS
 Author-email: Divio AG <info@divio.ch>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>
@@ -12,10 +12,12 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django CMS
 Classifier: Framework :: Django CMS :: 3.11
 Classifier: Framework :: Django CMS :: 4.0
 Classifier: Framework :: Django CMS :: 4.1
+Classifier: Framework :: Django CMS :: 5.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -41,7 +43,7 @@ Dynamic: license-file
 django CMS Link
 ===============
 
-|pypi| |coverage| |python| |django| |djangocms| |djangocms4|
+|pypi| |coverage| |python| |django| |djangocms|
 
 **django CMS Link** is a plugin for `django CMS <https://django-cms.org>`_ that
 allows you to add links on your site.
@@ -191,8 +193,18 @@ The default is 50::
     # Show 100 results per "page"
     DJANGOCMS_LINK_PAGINATE_BY = 100
 
-Note, that in the admin paginated search results repeat the modle verbose name.
+Note, that in the admin paginated search results repeat the model's verbose name.
 
+
+Site-selectors
+..............
+
+For multi-site installations, django CMS Link provides a site selector. It can be
+switched on or off by setting the ``DJANGOCMS_LINK_SITE_SELECTOR`` setting to
+``True`` or ``False``. The default is ``True``::
+
+    # Enable the site selector
+    DJANGOCMS_LINK_SITE_SELECTOR = True
 
 Non-standard hostnames
 ......................
@@ -265,6 +277,21 @@ cached.)::
     obj = MyModel.objects.first()
     url = obj.link.url
 
+Link models
+-----------
+
+The ``to_url`` template filter and the ``get_obj_link`` helper function can be used to
+get the full url for any Django model instance. This is useful on multi-site installations.
+``to_url`` assumes that the model instance's site is found in its ``site`` property. If the
+model belongs to a different site than the current, it prepends the domain name of that site.
+
+Example::
+
+    {% load djangocms_link_tags %}
+
+    {% if obj %}
+        <a href="{{ obj|to_url }}">Link to object</a>  {# will include the site domain if needed #}
+    {% endif %}
 
 Running Tests
 -------------
@@ -304,15 +331,18 @@ the database. If you encounter any issues, please report them on
 
 .. |pypi| image:: https://badge.fury.io/py/djangocms-link.svg
     :target: http://badge.fury.io/py/djangocms-link
+
 .. |coverage| image:: https://codecov.io/gh/django-cms/djangocms-link/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/django-cms/djangocms-link
 
-.. |python| image:: https://img.shields.io/badge/python-3.10+-blue.svg
+.. |python| image:: https://img.shields.io/pypi/pyversions/djangocms-link
+    :alt: PyPI - Python Version
     :target: https://pypi.org/project/djangocms-link/
-.. |django| image:: https://img.shields.io/badge/django-4.2,%205.0,%205.1-blue.svg
-    :target: https://www.djangoproject.com/
-.. |djangocms| image:: https://img.shields.io/badge/django%20CMS-3.11%2B-blue.svg
-    :target: https://www.django-cms.org/
-.. |djangocms4| image:: https://img.shields.io/badge/django%20CMS-4-blue.svg
-    :target: https://www.django-cms.org/
 
+.. |django| image:: https://img.shields.io/pypi/frameworkversions/django/djangocms-link
+    :alt: PyPI - Django Versions from Framework Classifiers
+    :target: https://www.djangoproject.com/
+
+.. |djangocms| image:: https://img.shields.io/pypi/frameworkversions/django-cms/djangocms-link
+    :alt: PyPI - django CMS Versions from Framework Classifiers
+    :target: https://www.django-cms.org/

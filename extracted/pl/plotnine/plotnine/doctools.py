@@ -71,7 +71,7 @@ STAT_SIGNATURE_TPL = """
 
 common_params_doc = {
     "mapping": """\
-Aesthetic mappings created with [aes](:class:`plotnine.mapping.aes`). If \
+Aesthetic mappings created with [aes](:class:`plotnine.mapping.aes.aes`). If \
 specified and `inherit_aes=True`{.py}, it is combined with the default \
 mapping for the plot. You must supply mapping if there is no plot mapping.""",
     "data": """\
@@ -103,7 +103,7 @@ the final image is in vector format.""",
 
 
 GEOM_PARAMS_TPL = """
-mapping : ~plotnine.mapping.aes, default=None
+mapping : ~plotnine.mapping.aes.aes, default=None
     {mapping}
     {_aesthetics_doc}
 data : ~pandas.DataFrame, default=None
@@ -124,7 +124,7 @@ raster : bool, default={default_raster}
 """
 
 STAT_PARAMS_TPL = """
-mapping : ~plotnine.mapping.aes, default=None
+mapping : ~plotnine.mapping.aes.aes, default=None
     {mapping}
     {_aesthetics_doc}
 data : ~pandas.DataFrame, default=None
@@ -188,7 +188,7 @@ def dict_to_table(header: tuple[str, str], contents: dict[str, str]) -> str:
     fill       `None`
     """
     rows = [
-        (name, value if value == "" else f"`{value!r}`" "{.py}")
+        (name, value if value == "" else f"`{value!r}`{{.py}}")
         for name, value in contents.items()
     ]
     return table_function(rows, headers=header, tablefmt="grid")
@@ -451,7 +451,7 @@ def document_geom(geom: type[geom]) -> type[geom]:
     table = dict_to_table(("Aesthetic", "Default value"), contents)
     aesthetics_table = AESTHETICS_TABLE_TPL.format(table=table)
     tpl = dedent(geom._aesthetics_doc).strip()
-    aesthetics_doc = tpl.format(aesthetics_table=aesthetics_table)
+    aesthetics_doc = tpl.replace("{aesthetics_table}", aesthetics_table)
     aesthetics_doc = indent(aesthetics_doc, " " * 4)
 
     # common_parameters

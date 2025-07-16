@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
     from plotnine import theme
     from plotnine.scales.scale import scale
-    from plotnine.typing import SidePosition
+    from plotnine.typing import Side
 
 
 @dataclass
@@ -75,8 +75,8 @@ class guide_colorbar(guide):
             self.nbin = 300  # if self.display == "gradient" else 300
 
     def train(self, scale: scale, aesthetic=None):
-        self.nbin = cast(int, self.nbin)
-        self.title = cast(str, self.title)
+        self.nbin = cast("int", self.nbin)
+        self.title = cast("str", self.title)
 
         if not isinstance(scale, scale_continuous):
             warn("colorbar guide needs continuous scales", PlotnineWarning)
@@ -213,7 +213,7 @@ class guide_colorbar(guide):
         auxbox = DPICorAuxTransformBox(IdentityTransform())
 
         # title
-        title = cast(str, self.title)
+        title = cast("str", self.title)
         props = {"ha": elements.title.ha, "va": elements.title.va}
         title_box = TextArea(title, textprops=props)
         targets.legend_title = title_box._text  # type: ignore
@@ -242,7 +242,7 @@ class guide_colorbar(guide):
         targets.legend_frame = frame
 
         # title + colorbar(with labels)
-        lookup: dict[SidePosition, tuple[type[PackerBase], slice]] = {
+        lookup: dict[Side, tuple[type[PackerBase], slice]] = {
             "right": (HPacker, reverse),
             "left": (HPacker, obverse),
             "bottom": (VPacker, reverse),
@@ -495,7 +495,7 @@ class GuideElementsColorbar(GuideElements):
         )
 
     @cached_property
-    def text_position(self) -> SidePosition:
+    def text_position(self) -> Side:
         if not (position := self.theme.getp("legend_text_position")):
             position = "right" if self.is_vertical else "bottom"
 

@@ -20,10 +20,11 @@ import math
 import pennylane as qml
 import pytest
 from conftest import LightningDevice as ld
-from conftest import LightningException, device_name
+from conftest import LightningException, device_name, get_random_matrix, get_random_normalized_state
 from pennylane import QNode
 from pennylane import numpy as np
 from pennylane import qchem, qnode
+from pennylane.exceptions import QuantumFunctionError
 from scipy.stats import unitary_group
 
 I, X, Y, Z = (
@@ -45,8 +46,10 @@ if device_name == "lightning.kokkos":
 
     kokkos_args += [InitializationSettings().set_num_threads(2)]
 
-fixture_params = itertools.product(
-    [np.complex64, np.complex128], kokkos_args, [None, 3]  # c_dtype x kokkos_args x wires
+fixture_params = list(
+    itertools.product(
+        [np.complex64, np.complex128], kokkos_args, [None, 3]  # c_dtype x kokkos_args x wires
+    )
 )
 
 
@@ -111,9 +114,7 @@ class TestAdjointJacobian:
 
         method = dev.compute_derivatives
 
-        with pytest.raises(
-            qml.QuantumFunctionError, match="Adjoint differentiation method does not"
-        ):
+        with pytest.raises(QuantumFunctionError, match="Adjoint differentiation method does not"):
             method(tape)
 
         with qml.tape.QuantumTape() as tape:
@@ -121,7 +122,7 @@ class TestAdjointJacobian:
             qml.state()
 
         with pytest.raises(
-            qml.QuantumFunctionError,
+            QuantumFunctionError,
             match="Adjoint differentiation method does not support measurement StateMP.",
         ):
             method(tape)
@@ -134,7 +135,7 @@ class TestAdjointJacobian:
         tape = qml.tape.QuantumScript([], [qml.expval(qml.PauliZ(0))], shots=1)
 
         with pytest.raises(
-            qml.QuantumFunctionError,
+            QuantumFunctionError,
             match="Requested adjoint differentiation to be computed with finite shots.",
         ):
             dev.compute_derivatives(tape)
@@ -556,7 +557,7 @@ class TestAdjointJacobian:
         method = dev.compute_derivatives
 
         with pytest.raises(
-            qml.QuantumFunctionError,
+            QuantumFunctionError,
             match="Adjoint differentiation method does not support measurement StateMP.",
         ):
             method(tape)
@@ -567,7 +568,12 @@ class TestAdjointJacobianQNode:
 
     @pytest.fixture(params=fixture_params)
     def dev(self, request):
-        return qml.device(device_name, wires=request.param[1], c_dtype=request.param[0])
+        params = request.param
+        if device_name == "lightning.kokkos":
+            return qml.device(
+                device_name, wires=params[2], c_dtype=params[0], kokkos_args=params[1]
+            )
+        return qml.device(device_name, wires=params[2], c_dtype=params[0])
 
     def test_qnode(self, mocker, dev):
         """Test that specifying diff_method allows the adjoint method to be selected"""
@@ -635,12 +641,10 @@ class TestAdjointJacobianQNode:
         par = np.array([0.1234, par, 0.5678])
         dev = qml.device(device_name, wires=n_qubits)
         dqu = qml.device("default.qubit", wires=n_qubits)
-        np.random.seed(1337)
-        init_state = np.random.rand(2**n_qubits) + 1.0j * np.random.rand(2**n_qubits)
-        init_state /= np.linalg.norm(init_state)
+        init_state = get_random_normalized_state(2**n_qubits)
         init_state = np.array(init_state, requires_grad=False)
 
-        num_wires = max(operation.num_wires, 1)
+        num_wires = max(operation.num_wires, 1) if operation.num_wires else 1
         if num_wires > n_qubits:
             return
 
@@ -700,12 +704,10 @@ class TestAdjointJacobianQNode:
         par = np.array([0.1234, par, 0.5678])
         dev = qml.device(device_name, wires=n_qubits)
         dqu = qml.device("default.qubit", wires=n_qubits)
-        np.random.seed(1337)
-        init_state = np.random.rand(2**n_qubits) + 1.0j * np.random.rand(2**n_qubits)
-        init_state /= np.linalg.norm(init_state)
+        init_state = get_random_normalized_state(2**n_qubits)
         init_state = np.array(init_state, requires_grad=False)
 
-        num_wires = max(operation.num_wires, 1)
+        num_wires = max(operation.num_wires, 1) if operation.num_wires else 1
         if num_wires > n_qubits:
             return
 
@@ -763,11 +765,9 @@ class TestAdjointJacobianQNode:
         par = np.array([0.1234, par, 0.5678])
         dev = qml.device(device_name, wires=n_qubits)
         dqu = qml.device("default.qubit", wires=n_qubits)
-        np.random.seed(1337)
-        init_state = np.random.rand(2**n_qubits) + 1.0j * np.random.rand(2**n_qubits)
-        init_state /= np.linalg.norm(init_state)
+        init_state = get_random_normalized_state(2**n_qubits)
         init_state = np.array(init_state, requires_grad=False)
-        num_wires = max(operation.num_wires, 1)
+        num_wires = max(operation.num_wires, 1) if operation.num_wires else 1
         if num_wires > n_qubits:
             return
 
@@ -989,6 +989,31 @@ class TestAdjointJacobianQNode:
 
         assert np.allclose(grad_adjoint, grad_fd, atol=tol)
 
+    def test_torch_amplitude_embedding(self, dev):
+        """Test that the adjoint Jacobian works with AmplitudeEmbedding in a TorchLayer"""
+
+        torch = pytest.importorskip("torch")
+
+        # Define a simple circuit with AmplitudeEmbedding and BasicEntanglerLayers
+        n_qubits = 3
+        qml.AmplitudeEmbedding.ndim_params = (1,)
+
+        @qml.qnode(dev)
+        def qnode(inputs, weights):
+            qml.AmplitudeEmbedding(inputs, wires=range(n_qubits), normalize=True)
+            qml.BasicEntanglerLayers(weights, wires=range(n_qubits))
+            return [qml.expval(qml.PauliZ(wires=i)) for i in range(n_qubits)]
+
+        n_layers = 1
+        weight_shapes = {"weights": (n_layers, n_qubits)}
+
+        qlayer = qml.qnn.TorchLayer(qnode, weight_shapes)
+        clayer_1 = torch.nn.Linear(2, 8)
+        xs_test = torch.tensor([[-0.7380, 0.3596], [-0.1870, 0.9423]])
+
+        t = clayer_1(xs_test)
+        qlayer(t)
+
 
 def circuit_ansatz(params, wires):
     """Circuit ansatz containing all the parametrized gates"""
@@ -1079,6 +1104,7 @@ def test_tape_qchem_sparse(tol):
 custom_wires = ["alice", 3.14, -1, 0]
 
 
+@pytest.mark.local_salt(42)
 @pytest.mark.parametrize(
     "returns",
     [
@@ -1105,7 +1131,7 @@ custom_wires = ["alice", 3.14, -1, 0]
         ),
     ],
 )
-def test_adjoint_SparseHamiltonian(returns):
+def test_adjoint_SparseHamiltonian(returns, seed):
     """Integration tests that compare to default.qubit for a large circuit containing parametrized
     operations and when using custom wire labels"""
 
@@ -1117,8 +1143,8 @@ def test_adjoint_SparseHamiltonian(returns):
         return qml.expval(returns)
 
     n_params = 30
-    np.random.seed(1337)
-    params = np.random.rand(n_params)
+    rng = np.random.default_rng(seed)
+    params = rng.random(n_params)
 
     qnode = qml.QNode(circuit, dev, diff_method="adjoint")
     qnode_default = qml.QNode(circuit, dev_default, diff_method="parameter-shift")
@@ -1252,6 +1278,7 @@ def test_integration_custom_wires(returns):
     assert np.allclose(j_def, j_lightning)
 
 
+@pytest.mark.local_salt(42)
 @pytest.mark.skipif(
     device_name not in ("lightning.qubit", "lightning.gpu"),
     reason="Tests only for lightning.qubit and lightning.gpu",
@@ -1275,7 +1302,7 @@ def test_integration_custom_wires(returns):
         (qml.PauliZ(custom_wires[0]) @ qml.PauliY(custom_wires[3]), qml.PauliZ(custom_wires[1])),
     ],
 )
-def test_integration_custom_wires_batching(returns):
+def test_integration_custom_wires_batching(returns, seed):
     """Integration tests that compare to default.qubit for a large circuit containing parametrized
     operations and when using custom wire labels"""
 
@@ -1287,8 +1314,8 @@ def test_integration_custom_wires_batching(returns):
         return [qml.expval(r) for r in returns] + [qml.expval(qml.PauliY(custom_wires[1]))]
 
     n_params = 30
-    np.random.seed(1337)
-    params = np.random.rand(n_params)
+    rng = np.random.default_rng(seed)
+    params = rng.random(n_params)
 
     qnode_gpu = qml.QNode(circuit, dev_gpu, diff_method="adjoint")
     qnode_def = qml.QNode(circuit, dev_def)
@@ -1305,6 +1332,7 @@ def test_integration_custom_wires_batching(returns):
     assert np.allclose(j_gpu, j_def, atol=1e-7)
 
 
+@pytest.mark.local_salt(42)
 @pytest.mark.skipif(
     device_name not in ("lightning.qubit", "lightning.gpu"),
     reason="Tests only for lightning.qubit and lightning.gpu",
@@ -1340,7 +1368,7 @@ def test_integration_custom_wires_batching(returns):
         ),
     ],
 )
-def test_batching_H(returns):
+def test_batching_H(returns, seed):
     """Integration tests that compare to default.qubit for a large circuit containing parametrized
     operations and when using custom wire labels"""
 
@@ -1353,8 +1381,8 @@ def test_batching_H(returns):
         return qml.math.hstack([qml.expval(r) for r in returns])
 
     n_params = 30
-    np.random.seed(1337)
-    params = np.random.rand(n_params)
+    rng = np.random.default_rng(seed)
+    params = rng.random(n_params)
 
     qnode_cpu = qml.QNode(circuit, dev_cpu, diff_method="parameter-shift")
     qnode_gpu = qml.QNode(circuit, dev_gpu, diff_method="adjoint")
@@ -1393,10 +1421,10 @@ def create_xyz_file(tmp_path_factory):
 
 
 @pytest.mark.parametrize("batches", [False, True, 1, 2, 3, 4])
-def test_integration_H2_Hamiltonian(create_xyz_file, batches):
+def test_integration_H2_Hamiltonian(create_xyz_file, batches, seed):
     _ = pytest.importorskip("openfermionpyscf")
     n_electrons = 2
-    np.random.seed(1337)
+    np.random.seed(seed)
 
     str_path = create_xyz_file
     symbols, coordinates = qml.qchem.read_structure(str(str_path), outpath=str(str_path.parent))
@@ -1448,24 +1476,23 @@ def test_integration_H2_Hamiltonian(create_xyz_file, batches):
     assert np.allclose(jacs, jacs_comp)
 
 
+@pytest.mark.local_salt(42)
 @pytest.mark.parametrize("n_targets", range(1, 6))
-def test_qubit_unitary(n_targets):
+def test_qubit_unitary(n_targets, seed):
     """Tests that ``qml.QubitUnitary`` can be included in circuits differentiated with the adjoint method."""
     n_wires = 6
     dev = qml.device(device_name, wires=n_wires)
     dev_def = qml.device("default.qubit", wires=n_wires)
 
-    np.random.seed(1337)
-    init_state = np.random.rand(2**n_wires) + 1j * np.random.rand(2**n_wires)
-    init_state /= np.linalg.norm(init_state)
-    init_state = np.array(init_state, requires_grad=False)
-    U = np.random.rand(2**n_targets, 2**n_targets) + 1j * np.random.rand(2**n_targets, 2**n_targets)
+    init_state = get_random_normalized_state(2**n_wires)
+    U = get_random_matrix(2**n_targets)
     U, _ = np.linalg.qr(U)
     U = np.array(U, requires_grad=False)
 
     obs = qml.prod(*(qml.PauliZ(i) for i in range(n_wires)))
 
-    par = 2 * np.pi * np.random.rand(n_wires)
+    rng = np.random.default_rng(seed)
+    par = 2 * np.pi * rng.random(n_wires)
 
     def circuit(x):
         qml.StatePrep(init_state, wires=range(n_wires))
@@ -1489,25 +1516,25 @@ def test_qubit_unitary(n_targets):
     assert np.allclose(jac, jac_def)
 
 
+@pytest.mark.local_salt(42)
 @pytest.mark.parametrize("n_targets", [1, 2])
-def test_diff_qubit_unitary(n_targets):
+def test_diff_qubit_unitary(n_targets, seed):
     """Tests that ``qml.QubitUnitary`` can be differentiated with the adjoint method."""
     n_wires = 6
     dev = qml.device(device_name, wires=n_wires)
     dev_def = qml.device("default.qubit", wires=n_wires)
     _, h = get_tolerance_and_stepsize(dev, step_size=True)
 
-    np.random.seed(1337)
-    init_state = np.random.rand(2**n_wires) + 1j * np.random.rand(2**n_wires)
-    init_state /= np.linalg.norm(init_state)
+    init_state = get_random_normalized_state(2**n_wires)
     init_state = np.array(init_state, requires_grad=False)
-    U = np.random.rand(2**n_targets, 2**n_targets) + 1j * np.random.rand(2**n_targets, 2**n_targets)
+    U = get_random_matrix(2**n_targets)
     U, _ = np.linalg.qr(U)
     U = np.array(U, requires_grad=False)
 
     obs = qml.prod(*(qml.PauliZ(i) for i in range(n_wires)))
 
-    par = 2 * np.pi * np.random.rand(n_wires)
+    rng = np.random.default_rng(seed)
+    par = 2 * np.pi * rng.random(n_wires)
 
     def circuit(x, u_mat):
         qml.StatePrep(init_state, wires=range(n_wires))

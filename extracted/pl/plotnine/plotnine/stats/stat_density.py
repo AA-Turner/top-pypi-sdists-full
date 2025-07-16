@@ -85,7 +85,7 @@ class stat_density(stat):
 
     See Also
     --------
-    plotnine.geom_density
+    plotnine.geom_density : The default `geom` for this `stat`.
     statsmodels.nonparametric.kde.KDEUnivariate
     statsmodels.nonparametric.kde.KDEUnivariate.fit
     """
@@ -102,9 +102,9 @@ class stat_density(stat):
                 # useful for stacked density plots
 
     'scaled'    # density estimate, scaled to maximum of 1
+    'n'         # Number of observations at a position
     ```
 
-        'n'         # Number of observations at a position
 
     """
     REQUIRED_AES = {"x"}
@@ -126,7 +126,7 @@ class stat_density(stat):
     CREATES = {"density", "count", "scaled", "n"}
 
     def setup_params(self, data):
-        params = self.params.copy()
+        params = self.params
         lookup = {
             "biweight": "biw",
             "cosine": "cos",
@@ -148,21 +148,18 @@ class stat_density(stat):
             )
             raise PlotnineError(msg)
 
-        return params
-
-    @classmethod
-    def compute_group(cls, data, scales, **params):
+    def compute_group(self, data, scales):
         weight = data.get("weight")
 
-        if params["trim"]:
+        if self.params["trim"]:
             range_x = data["x"].min(), data["x"].max()
         else:
             range_x = scales.x.dimension()
 
-        return compute_density(data["x"], weight, range_x, **params)
+        return compute_density(data["x"], weight, range_x, self.params)
 
 
-def compute_density(x, weight, range, **params):
+def compute_density(x, weight, range, params):
     """
     Compute density
     """
@@ -171,7 +168,7 @@ def compute_density(x, weight, range, **params):
     x = np.asarray(x, dtype=float)
     not_nan = ~np.isnan(x)
     x = x[not_nan]
-    bw = cast(str | float, params["bw"])
+    bw = cast("str | float", params["bw"])
     kernel = params["kernel"]
     bounds = params["bounds"]
     has_bounds = not (np.isneginf(bounds[0]) and np.isposinf(bounds[1]))

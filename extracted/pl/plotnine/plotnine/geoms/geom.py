@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import typing
 from abc import ABC
+from contextlib import suppress
 from copy import deepcopy
 from itertools import chain, repeat
 
+import numpy as np
+
 from .._utils import (
     data_mapping_as_kwargs,
-    is_list_like,
     remove_missing,
 )
 from .._utils.registry import Register, Registry
 from ..exceptions import PlotnineError
 from ..layer import layer
-from ..mapping.aes import is_valid_aesthetic, rename_aesthetics
+from ..mapping.aes import rename_aesthetics
 from ..mapping.evaluation import evaluate
 from ..positions.position import position
 from ..stats.stat import stat
@@ -171,6 +173,26 @@ class geom(ABC, metaclass=Register):
 
         return result
 
+    def setup_params(self, data: pd.DataFrame):
+        """
+        Override this method to verify and/or adjust parameters
+
+        Parameters
+        ----------
+        data :
+            Data
+        """
+
+    def setup_aes_params(self, data: pd.DataFrame):
+        """
+        Override this method to verify and/or adjust aesthetic parameters
+
+        Parameters
+        ----------
+        data :
+            Data
+        """
+
     def setup_data(self, data: pd.DataFrame) -> pd.DataFrame:
         """
         Modify the data before drawing takes place
@@ -224,6 +246,9 @@ class geom(ABC, metaclass=Register):
         :
             Data used for drawing the geom.
         """
+        from plotnine.mapping import _atomic as atomic
+        from plotnine.mapping._atomic import ae_value
+
         missing_aes = (
             self.DEFAULT_AES.keys()
             - self.aes_params.keys()
@@ -240,30 +265,39 @@ class geom(ABC, metaclass=Register):
             data[ae] = evaled[ae]
 
         num_panels = len(data["PANEL"].unique()) if "PANEL" in data else 1
+        across_panels = num_panels > 1 and not self.params["inherit_aes"]
 
-        # Aesthetics set as parameters to the geom/stat
+        # Aesthetics set as parameters in the geom/stat
         for ae, value in self.aes_params.items():
-            try:
+            if isinstance(value, (str, int, float, np.integer, np.floating)):
                 data[ae] = value
-            except ValueError as e:
-                # sniff out the special cases, like custom
-                # tupled linetypes, shapes and colors
-                if is_valid_aesthetic(value, ae):
-                    data[ae] = [value] * len(data)
-                elif num_panels > 1 and is_list_like(value):
-                    data[ae] = list(chain(*repeat(value, num_panels)))
-                else:
-                    msg = (
-                        f"'{value}' does not look like a "
-                        f"valid value for `{ae}`"
-                    )
+            elif isinstance(value, ae_value):
+                data[ae] = value * len(data)
+            elif across_panels:
+                value = list(chain(*repeat(value, num_panels)))
+                data[ae] = value
+            else:
+                # Try to make sense of aesthetics whose values can be tuples
+                # or sequences of sorts.
+                ae_value_cls: type[ae_value] | None = getattr(atomic, ae, None)
+                if ae_value_cls:
+                    with suppress(ValueError):
+                        data[ae] = ae_value_cls(value) * len(data)
+                        continue
+
+                # This should catch the aesthetic assignments to
+                # non-numeric or non-string values or sequence of values.
+                # e.g. x=datetime, x=Sequence[datetime],
+                #      x=Sequence[float], shape=Sequence[str]
+                try:
+                    data[ae] = value
+                except ValueError as e:
+                    msg = f"'{ae}={value}' does not look like a valid value"
                     raise PlotnineError(msg) from e
 
         return data
 
-    def draw_layer(
-        self, data: pd.DataFrame, layout: Layout, coord: coord, **params: Any
-    ):
+    def draw_layer(self, data: pd.DataFrame, layout: Layout, coord: coord):
         """
         Draw layer across all panels
 
@@ -289,7 +323,7 @@ class geom(ABC, metaclass=Register):
             ploc = pdata["PANEL"].iloc[0] - 1
             panel_params = layout.panel_params[ploc]
             ax = layout.axs[ploc]
-            self.draw_panel(pdata, panel_params, coord, ax, **params)
+            self.draw_panel(pdata, panel_params, coord, ax)
 
     def draw_panel(
         self,
@@ -297,7 +331,6 @@ class geom(ABC, metaclass=Register):
         panel_params: panel_view,
         coord: coord,
         ax: Axes,
-        **params: Any,
     ):
         """
         Plot all groups
@@ -331,7 +364,7 @@ class geom(ABC, metaclass=Register):
         """
         for _, gdata in data.groupby("group"):
             gdata.reset_index(inplace=True, drop=True)
-            self.draw_group(gdata, panel_params, coord, ax, **params)
+            self.draw_group(gdata, panel_params, coord, ax, self.params)
 
     @staticmethod
     def draw_group(
@@ -339,7 +372,7 @@ class geom(ABC, metaclass=Register):
         panel_params: panel_view,
         coord: coord,
         ax: Axes,
-        **params: Any,
+        params: dict[str, Any],
     ):
         """
         Plot data belonging to a group.
@@ -376,7 +409,7 @@ class geom(ABC, metaclass=Register):
         panel_params: panel_view,
         coord: coord,
         ax: Axes,
-        **params: Any,
+        params: dict[str, Any],
     ):
         """
         Plot data belonging to a unit.
@@ -426,7 +459,7 @@ class geom(ABC, metaclass=Register):
         msg = "The geom should implement this method."
         raise NotImplementedError(msg)
 
-    def __radd__(self, plot: ggplot) -> ggplot:
+    def __radd__(self, other: ggplot) -> ggplot:
         """
         Add layer representing geom object on the right
 
@@ -440,8 +473,8 @@ class geom(ABC, metaclass=Register):
         :
             ggplot object with added layer.
         """
-        plot += self.to_layer()  # Add layer
-        return plot
+        other += self.to_layer()  # Add layer
+        return other
 
     def to_layer(self) -> layer:
         """

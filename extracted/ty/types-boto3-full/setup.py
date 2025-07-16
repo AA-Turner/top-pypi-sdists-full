@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.39.4",
+    version="1.39.5",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -349,6 +349,7 @@ setup(
         "types_boto3_s3control",
         "types_boto3_s3outposts",
         "types_boto3_s3tables",
+        "types_boto3_s3vectors",
         "types_boto3_sagemaker",
         "types_boto3_sagemaker_a2i_runtime",
         "types_boto3_sagemaker_edge",
@@ -428,7 +429,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.39.4 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.39.5 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -787,6 +788,7 @@ setup(
         "types_boto3_s3control": ["py.typed", "*.pyi"],
         "types_boto3_s3outposts": ["py.typed", "*.pyi"],
         "types_boto3_s3tables": ["py.typed", "*.pyi"],
+        "types_boto3_s3vectors": ["py.typed", "*.pyi"],
         "types_boto3_sagemaker": ["py.typed", "*.pyi"],
         "types_boto3_sagemaker_a2i_runtime": ["py.typed", "*.pyi"],
         "types_boto3_sagemaker_edge": ["py.typed", "*.pyi"],

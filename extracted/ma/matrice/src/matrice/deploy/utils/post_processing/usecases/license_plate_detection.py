@@ -44,6 +44,7 @@ class LicensePlateConfig(BaseConfig):
         3: "truck"
     })
 
+
 class LicensePlateUseCase(BaseProcessor):
     """
     License Plate Detection Use Case — structured similarly to PPEComplianceUseCase.
@@ -76,7 +77,6 @@ class LicensePlateUseCase(BaseProcessor):
         # Track start time for "TOTAL SINCE" calculation
         self._tracking_start_time = None
 
-        
         # ------------------------------------------------------------------ #
         # Canonical tracking aliasing to avoid duplicate counts              #
         # ------------------------------------------------------------------ #
@@ -88,7 +88,7 @@ class LicensePlateUseCase(BaseProcessor):
         self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
         # Tunable parameters – adjust if necessary for specific scenarios
         self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
-        self._track_merge_time_window: float = 7.0    # seconds within which to merge
+        self._track_merge_time_window: float = 7.0  # seconds within which to merge
 
     def _update_tracking_state(self, detections: List[Dict[str, Any]]) -> None:
         """
@@ -134,14 +134,14 @@ class LicensePlateUseCase(BaseProcessor):
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        
+
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
+
         # if is_video_chunk:
         #     # For video chunks, use video_timestamp from stream_info
         #     video_timestamp = stream_info.get("video_timestamp", 0.0)
         #     return self._format_timestamp_for_video(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
             return stream_time_str[:8]
@@ -166,13 +166,13 @@ class LicensePlateUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        
+
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
+
         if is_video_chunk:
             # For video chunks, start from 00:00:00
             return "00:00:00"
-        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
@@ -191,7 +191,7 @@ class LicensePlateUseCase(BaseProcessor):
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
-            
+
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
@@ -208,8 +208,8 @@ class LicensePlateUseCase(BaseProcessor):
         self._total_license_plate_track_ids.update(frame_track_ids)
 
         return {
-            "frame_track_ids": list(frame_track_ids),  # ✅ JSON-serializable
-            "total_unique_track_ids": list(self._total_license_plate_track_ids),  # ✅ JSON-serializable
+            "frame_track_ids": list(frame_track_ids),  #  JSON-serializable
+            "total_unique_track_ids": list(self._total_license_plate_track_ids),  #  JSON-serializable
             "frame_track_ids_count": len(frame_track_ids),
             "total_unique_count": len(self._total_license_plate_track_ids),
         }
@@ -313,7 +313,8 @@ class LicensePlateUseCase(BaseProcessor):
         summary = self._generate_summary(counting_summary, alerts)
 
         events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,
+                                                            stream_info)
 
         events = events_list[0] if events_list else {}
         tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
@@ -357,7 +358,6 @@ class LicensePlateUseCase(BaseProcessor):
         self._track_aliases.clear()
         self._canonical_tracks.clear()
         self.logger.info("License plate tracking state reset")
-
 
     def reset_all_tracking(self) -> None:
         """
@@ -413,7 +413,6 @@ class LicensePlateUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats with frame-based keys, including per-frame and cumulative counts."""
-
 
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
@@ -652,4 +651,3 @@ class LicensePlateUseCase(BaseProcessor):
     def _set_tracking_start_time(self) -> None:
         """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()
-

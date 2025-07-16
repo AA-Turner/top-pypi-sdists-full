@@ -1,4 +1,0 @@
-_subdirectory: template
-_jinja_extensions:
-  - copier_templates_extensions.TemplateExtensionLoader
-  - extensions/ctx.py:Success

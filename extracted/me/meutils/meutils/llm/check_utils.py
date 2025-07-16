@@ -172,7 +172,7 @@ async def check_token_for_gemini(api_key):
 @retrying()
 async def check_token_for_ppinfra(api_key, threshold: float = 1):
     if not isinstance(api_key, str):
-        return await check_tokens(api_key, check_token_for_ppinfra)
+        return await check_tokens(api_key, partial(check_token_for_ppinfra, threshold=threshold))
     try:
         client = AsyncOpenAI(base_url="https://api.ppinfra.com/v3/user", api_key=api_key)
         data = await client.get("", cast_to=object)
@@ -274,6 +274,14 @@ async def check_token_for_zhipu(api_key, threshold: float = 1, resource_package_
         return False
 
 
+# curl 'https://bigmodel.cn/api/biz/product/createPreOrder' \
+#   -H 'accept: application/json, text/plain, */*' \
+#   -H 'accept-language: zh' \
+#   -H 'authorization: eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyX3R5cGUiOiJQRVJTT05BTCIsInVzZXJfaWQiOjIyNDAwNDUsInVzZXJfa2V5IjoiNTZmNjkxODUtOTBhMS00NDYyLWFhNWYtYTljNjhmMGY0Njc3IiwiY3VzdG9tZXJfaWQiOiI2MTQ2MTc1MjExNDcxMTYwNSIsInVzZXJuYW1lIjoia2JieHYxMDYifQ.3zLefwa8lzQLyNYz0DVqkgdOgm1_ljPEoihza44Wv1r-pEPS08kQFeZm-v2CY3qhslgHh2I3d1LN_mr-9bhQjw' \
+#   -
+#   -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36' \
+#   --data-raw '{"channelCode":"BALANCE","isMobile":false,"num":1,"payPrice":0,"productId":"product-e6e499"}'
+
 @retrying()
 @rcache(ttl=1 * 24 * 3600, skip_cache_func=skip_cache_func)
 async def check_token_for_fal(token, threshold: float = 0):
@@ -292,6 +300,28 @@ async def check_token_for_fal(token, threshold: float = 0):
         return True
     except Exception as exc:
         logger.error(exc)
+        return False
+
+
+@retrying()
+@rcache(ttl=1 * 24 * 3600, skip_cache_func=skip_cache_func)
+async def check_token_for_gitee(api_key, threshold: float = 1):
+    if not isinstance(api_key, str):
+        return await check_tokens(api_key, check_token_for_volc)
+
+    try:
+        base_url = "https://ai.gitee.com/v1"
+        client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        _ = await client.embeddings.create(
+            model="Qwen3-Embedding-0.6B",
+            input="hi"
+        )
+        return True
+    except TimeoutException as e:
+        raise
+
+    except Exception as e:
+        logger.error(f"Error: {e}\n{api_key}")
         return False
 
 
@@ -331,6 +361,8 @@ if __name__ == '__main__':
     # arun(check_token_for_ppinfra("sk_F0kgPyCMTzmOH_-VCEJucOK8HIrbnLGYm_IWxBToHZQ"))
 
     # arun(check_token_for_volc("f1f394db-59e9-4cdd-9d12-b11d50173efc"))
+    # arun(check_token_for_volc("279749bd-ba5e-4962-9c65-eb6604b65594"))
+
     # arun(check_token_for_ppinfra("sk_mCb5sRGTi6GXkSRp5F679Rbs0V_Hfee3p85lccGXCOo"))
 
     # arun(check_token_for_zhipu(api_key="e130b903ab684d4fad0d35e411162e99.PqyXq4QBjfTdhyCh",
@@ -338,4 +370,6 @@ if __name__ == '__main__':
 
     # arun(check_token_for_fal("56d8a95e-2fe6-44a6-8f7d-f7f9c83eec24:537f06b6044770071f5d86fc7fcd6d6f"))
 
-    arun(check_token_for_ppinfra("sk_NdGt2jb_QSEW_1cauXnWK-qShGIJ_irWgtG-DEBVs4A"))
+    arun(check_token_for_ppinfra("sk_IeM4wjPIsgQFpfGqIOdMpHNF28qGLu1wxvh_vy3DiWM", threshold=1))
+
+    # arun(check_token_for_gitee("NWVXUPI38OQVXZGOEL3D23I9YUQWZPV23GVVBW1X"))

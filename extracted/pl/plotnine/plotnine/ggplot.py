@@ -6,7 +6,14 @@ from io import BytesIO
 from itertools import chain
 from pathlib import Path
 from types import SimpleNamespace as NS
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Optional,
+    cast,
+)
 from warnings import warn
 
 from ._utils import (
@@ -44,6 +51,8 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from plotnine import watermark
+    from plotnine._mpl.gridspec import p9GridSpec
+    from plotnine.composition import Compose
     from plotnine.coords.coord import coord
     from plotnine.facets.facet import facet
     from plotnine.layer import layer
@@ -54,7 +63,7 @@ if TYPE_CHECKING:
         Object that can be added to a ggplot object
         """
 
-        def __radd__(self, plot: ggplot) -> ggplot:
+        def __radd__(self, other: ggplot) -> ggplot:
             """
             Add to ggplot object
 
@@ -95,9 +104,7 @@ class ggplot:
 
     figure: Figure
     axs: list[Axes]
-    theme: theme
-    facet: facet
-    coordinates: coord
+    _gridspec: p9GridSpec
 
     def __init__(
         self,
@@ -110,7 +117,7 @@ class ggplot:
         data, mapping = order_as_data_mapping(data, mapping)
         self.data = data
         self.mapping = mapping if mapping is not None else aes()
-        self.facet = facet_null()
+        self.facet: facet = facet_null()
         self.labels = make_labels(self.mapping)
         self.layers = Layers()
         self.guides = guides()
@@ -147,6 +154,11 @@ class ggplot:
         Users should prefer this method instead of printing or repring
         the object.
         """
+        # Prevent against any modifications to the users
+        # ggplot object. Do the copy here as we may/may not
+        # assign a default theme
+        self = deepcopy(self)
+
         if is_inline_backend() or is_quarto_environment():
             # Take charge of the display because we have to make
             # adjustments for retina output.
@@ -167,18 +179,15 @@ class ggplot:
         format = get_option("figure_format") or ip.config.InlineBackend.get(
             "figure_format", "retina"
         )
-        save_format = format
-
         # While jpegs can be displayed as retina, we restrict the output
         # of "retina" to png
         if format == "retina":
             self = copy(self)
             self.theme = self.theme.to_retina()
-            save_format = "png"
 
-        figure_size_px = self.theme._figure_size_px
         buf = BytesIO()
-        self.save(buf, format=save_format, verbose=False)
+        self.save(buf, "png" if format == "retina" else format, verbose=False)
+        figure_size_px = self.theme._figure_size_px
         display_func = get_display_function(format, figure_size_px)
         display_func(buf.getvalue())
 
@@ -193,7 +202,7 @@ class ggplot:
         new = result.__dict__
 
         # don't make a deepcopy of data
-        shallow = {"data", "figure", "_build_objs"}
+        shallow = {"data", "figure", "gs", "_build_objs"}
         for key, item in old.items():
             if key in shallow:
                 new[key] = item
@@ -220,9 +229,12 @@ class ggplot:
             other.__radd__(self)
         return self
 
-    def __add__(self, other: PlotAddable | list[PlotAddable] | None) -> ggplot:
+    def __add__(
+        self,
+        rhs: PlotAddable | list[PlotAddable] | None,
+    ) -> ggplot:
         """
-        Add to ggplot from a list
+        Add to ggplot
 
         Parameters
         ----------
@@ -231,7 +243,31 @@ class ggplot:
             itself to a ggplot, or a list of such objects.
         """
         self = deepcopy(self)
-        return self.__iadd__(other)
+        return self.__iadd__(rhs)
+
+    def __or__(self, rhs: ggplot | Compose) -> Compose:
+        """
+        Compose 2 plots columnwise
+        """
+        from .composition import Beside
+
+        return Beside([self, rhs])
+
+    def __truediv__(self, rhs: ggplot | Compose) -> Compose:
+        """
+        Compose 2 plots rowwise
+        """
+        from .composition import Stack
+
+        return Stack([self, rhs])
+
+    def __sub__(self, rhs: ggplot | Compose) -> Compose:
+        """
+        Compose 2 plots columnwise
+        """
+        from .composition import Beside
+
+        return Beside([self, rhs])
 
     def __rrshift__(self, other: DataLike) -> ggplot:
         """
@@ -248,7 +284,7 @@ class ggplot:
             raise TypeError(msg.format(type(other)))
         return self
 
-    def draw(self, show: bool = False) -> Figure:
+    def draw(self, *, show: bool = False) -> Figure:
         """
         Render the complete plot
 
@@ -262,23 +298,17 @@ class ggplot:
         :
             Matplotlib figure
         """
-        from ._mpl.layout_engine import PlotnineLayoutEngine
+        from ._mpl.layout_manager import PlotnineLayoutEngine
 
-        # Do not draw if drawn already.
-        # This prevents a needless error when reusing
-        # figure & axes in the jupyter notebook.
-        if hasattr(self, "figure"):
-            return self.figure
-
-        # Prevent against any modifications to the users
-        # ggplot object. Do the copy here as we may/may not
-        # assign a default theme
-        self = deepcopy(self)
         with plot_context(self, show=show):
+            if not hasattr(self, "figure"):
+                self._create_figure()
+            figure = self.figure
+
             self._build()
 
             # setup
-            self.figure, self.axs = self.facet.setup(self)
+            self.axs = self.facet.setup(self)
             self.guides._setup(self)
             self.theme.setup(self)
 
@@ -289,51 +319,24 @@ class ggplot:
             self.guides.draw()
             self._draw_figure_texts()
             self._draw_watermarks()
+            self._draw_figure_background()
 
             # Artist object theming
             self.theme.apply()
-            self.figure.set_layout_engine(PlotnineLayoutEngine(self))
+            figure.set_layout_engine(PlotnineLayoutEngine(self))
 
-        return self.figure
+        return figure
 
-    def _draw_using_figure(self, figure: Figure, axs: list[Axes]) -> ggplot:
+    def _create_figure(self):
         """
-        Draw onto already created figure and axes
-
-        This is can be used to draw animation frames,
-        or inset plots. It is intended to be used
-        after the key plot has been drawn.
-
-        Parameters
-        ----------
-        figure :
-            Matplotlib figure
-        axs :
-            Array of Axes onto which to draw the plots
+        Create gridspec for the panels
         """
-        from ._mpl.layout_engine import PlotnineLayoutEngine
+        import matplotlib.pyplot as plt
 
-        self = deepcopy(self)
-        self.figure = figure
-        self.axs = axs
-        with plot_context(self):
-            self._build()
+        from ._mpl.gridspec import p9GridSpec
 
-            # setup
-            self.figure, self.axs = self.facet.setup(self)
-            self.guides._setup(self)
-            self.theme.setup(self)
-
-            # drawing
-            self._draw_layers()
-            self._draw_breaks_and_labels()
-            self.guides.draw()
-
-            # artist theming
-            self.theme.apply()
-            self.figure.set_layout_engine(PlotnineLayoutEngine(self))
-
-        return self
+        self.figure = plt.figure()
+        self._gridspec = p9GridSpec(1, 1, self.figure)
 
     def _build(self):
         """
@@ -491,6 +494,7 @@ class ggplot:
         title = self.labels.get("title", "")
         subtitle = self.labels.get("subtitle", "")
         caption = self.labels.get("caption", "")
+        tag = self.labels.get("tag", "")
 
         # Get the axis labels (default or specified by user)
         # and let the coordinate modify them e.g. flip
@@ -508,6 +512,9 @@ class ggplot:
         if caption:
             targets.plot_caption = figure.text(0, 0, caption)
 
+        if tag:
+            targets.plot_tag = figure.text(0, 0, tag)
+
         if labels.x:
             targets.axis_title_x = figure.text(0, 0, labels.x)
 
@@ -520,6 +527,14 @@ class ggplot:
         """
         for wm in self.watermarks:
             wm.draw(self.figure)
+
+    def _draw_figure_background(self):
+        from matplotlib.patches import Rectangle
+
+        rect = Rectangle((0, 0), 0, 0, facecolor="none", zorder=-1000)
+        self.figure.add_artist(rect)
+        self._gridspec.patch = rect
+        self.theme.targets.plot_background = rect
 
     def _save_filename(self, ext: str) -> Path:
         """
@@ -572,7 +587,7 @@ class ggplot:
         fig_kwargs: Dict[str, Any] = {"format": format, **kwargs}
 
         if limitsize is None:
-            limitsize = cast(bool, get_option("limitsize"))
+            limitsize = cast("bool", get_option("limitsize"))
 
         # filename, depends on the object
         if filename is None:
@@ -598,7 +613,7 @@ class ggplot:
             raise PlotnineError("You must specify both width and height")
         else:
             width, height = cast(
-                tuple[float, float], self.theme.getp("figure_size")
+                "tuple[float, float]", self.theme.getp("figure_size")
             )
 
         if limitsize and (width > 25 or height > 25):

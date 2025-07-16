@@ -404,6 +404,7 @@ from ..aws_sqs import IQueue as _IQueue_7ed6f679
     name_mapping={
         "api_destination_arn": "apiDestinationArn",
         "connection": "connection",
+        "api_destination_arn_for_policy": "apiDestinationArnForPolicy",
     },
 )
 class ApiDestinationAttributes:
@@ -412,11 +413,13 @@ class ApiDestinationAttributes:
         *,
         api_destination_arn: builtins.str,
         connection: "IConnection",
+        api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''The properties to import an existing Api Destination.
 
         :param api_destination_arn: The ARN of the Api Destination.
         :param connection: The Connection to associate with the Api Destination.
+        :param api_destination_arn_for_policy: The Amazon Resource Name (ARN) of an API destination in resource format. Default: undefined - Imported API destination does not have ARN in resource format
 
         :exampleMetadata: infused
 
@@ -424,8 +427,13 @@ class ApiDestinationAttributes:
 
             connection = events.Connection.from_event_bus_arn(self, "Connection", "arn:aws:events:us-east-1:123456789012:event-bus/EventBusName", "arn:aws:secretsmanager:us-east-1:123456789012:secret:SecretName-f3gDy9")
             
-            api_destination_arn = "arn:aws:events:us-east-1:123456789012:api-destination/DestinationName"
-            destination = events.ApiDestination.from_api_destination_attributes(self, "Destination", api_destination_arn=api_destination_arn, connection=connection)
+            api_destination_arn = "arn:aws:events:us-east-1:123456789012:api-destination/DestinationName/11111111-1111-1111-1111-111111111111"
+            api_destination_arn_for_policy = "arn:aws:events:us-east-1:123456789012:api-destination/DestinationName"
+            destination = events.ApiDestination.from_api_destination_attributes(self, "Destination",
+                api_destination_arn=api_destination_arn,
+                connection=connection,
+                api_destination_arn_for_policy=api_destination_arn_for_policy
+            )
             
             rule = events.Rule(self, "OtherRule",
                 schedule=events.Schedule.rate(Duration.minutes(10)),
@@ -436,10 +444,13 @@ class ApiDestinationAttributes:
             type_hints = typing.get_type_hints(_typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f61949617c8303)
             check_type(argname="argument api_destination_arn", value=api_destination_arn, expected_type=type_hints["api_destination_arn"])
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
+            check_type(argname="argument api_destination_arn_for_policy", value=api_destination_arn_for_policy, expected_type=type_hints["api_destination_arn_for_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "api_destination_arn": api_destination_arn,
             "connection": connection,
         }
+        if api_destination_arn_for_policy is not None:
+            self._values["api_destination_arn_for_policy"] = api_destination_arn_for_policy
 
     @builtins.property
     def api_destination_arn(self) -> builtins.str:
@@ -454,6 +465,15 @@ class ApiDestinationAttributes:
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
         return typing.cast("IConnection", result)
+
+    @builtins.property
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format.
+
+        :default: undefined - Imported API destination does not have ARN in resource format
+        '''
+        result = self._values.get("api_destination_arn_for_policy")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9477,6 +9497,16 @@ class IApiDestination(_IResource_c80c4260, typing_extensions.Protocol):
         '''
         ...
 
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
+        :attribute: true
+        '''
+        ...
+
 
 class _IApiDestinationProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
@@ -9502,6 +9532,16 @@ class _IApiDestinationProxy(
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "apiDestinationName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format, so it can be used in the Resource element of IAM permission policy statements.
+
+        :see: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazoneventbridge.html#amazoneventbridge-resources-for-iam-policies
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApiDestination).__jsii_proxy_class__ = lambda : _IApiDestinationProxy
@@ -11758,6 +11798,7 @@ class ApiDestination(
         *,
         api_destination_arn: builtins.str,
         connection: IConnection,
+        api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
     ) -> "ApiDestination":
         '''Create an Api Destination construct from an existing Api Destination ARN.
 
@@ -11765,13 +11806,16 @@ class ApiDestination(
         :param id: The construct's id.
         :param api_destination_arn: The ARN of the Api Destination.
         :param connection: The Connection to associate with the Api Destination.
+        :param api_destination_arn_for_policy: The Amazon Resource Name (ARN) of an API destination in resource format. Default: undefined - Imported API destination does not have ARN in resource format
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110fa18cb55)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = ApiDestinationAttributes(
-            api_destination_arn=api_destination_arn, connection=connection
+            api_destination_arn=api_destination_arn,
+            connection=connection,
+            api_destination_arn_for_policy=api_destination_arn_for_policy,
         )
 
         return typing.cast("ApiDestination", jsii.sinvoke(cls, "fromApiDestinationAttributes", [scope, id, attrs]))
@@ -11805,6 +11849,15 @@ class ApiDestination(
     def connection(self) -> IConnection:
         '''The Connection to associate with Api Destination.'''
         return typing.cast(IConnection, jsii.get(self, "connection"))
+
+    @builtins.property
+    @jsii.member(jsii_name="apiDestinationArnForPolicy")
+    def api_destination_arn_for_policy(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an API destination in resource format.
+
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiDestinationArnForPolicy"))
 
 
 @jsii.data_type(
@@ -12401,6 +12454,7 @@ def _typecheckingstub__803612bfb0a8da2a8e0ca427792d066e933032d6f722156869f619496
     *,
     api_destination_arn: builtins.str,
     connection: IConnection,
+    api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13801,6 +13855,7 @@ def _typecheckingstub__e49376311071a64effa3b8c1dd1bd3ee0e1b2ef0514b800dd0053110f
     *,
     api_destination_arn: builtins.str,
     connection: IConnection,
+    api_destination_arn_for_policy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

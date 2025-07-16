@@ -2,6 +2,7 @@ import pytest
 
 from strands import Agent, tool
 from strands.multiagent.graph import GraphBuilder
+from strands.types.content import ContentBlock
 
 
 @tool
@@ -23,7 +24,6 @@ def math_agent():
         model="us.amazon.nova-pro-v1:0",
         system_prompt="You are a mathematical assistant. Always provide clear, step-by-step calculations.",
         tools=[calculate_sum, multiply_numbers],
-        load_tools_from_directory=False,
     )
 
 
@@ -33,7 +33,6 @@ def analysis_agent():
     return Agent(
         model="us.amazon.nova-pro-v1:0",
         system_prompt="You are a data analysis expert. Provide insights and interpretations of numerical results.",
-        load_tools_from_directory=False,
     )
 
 
@@ -43,7 +42,6 @@ def summary_agent():
     return Agent(
         model="us.amazon.nova-lite-v1:0",
         system_prompt="You are a summarization expert. Create concise, clear summaries of complex information.",
-        load_tools_from_directory=False,
     )
 
 
@@ -53,7 +51,16 @@ def validation_agent():
     return Agent(
         model="us.amazon.nova-pro-v1:0",
         system_prompt="You are a validation expert. Check results for accuracy and completeness.",
-        load_tools_from_directory=False,
+    )
+
+
+@pytest.fixture
+def image_analysis_agent():
+    """Create an agent specialized in image analysis."""
+    return Agent(
+        system_prompt=(
+            "You are an image analysis expert. Describe what you see in images and provide detailed analysis."
+        )
     )
 
 
@@ -74,7 +81,7 @@ def nested_computation_graph(math_agent, analysis_agent):
 
 
 @pytest.mark.asyncio
-async def test_graph_execution(math_agent, summary_agent, validation_agent, nested_computation_graph):
+async def test_graph_execution_with_string(math_agent, summary_agent, validation_agent, nested_computation_graph):
     # Define conditional functions
     def should_validate(state):
         """Condition to determine if validation should run."""
@@ -86,12 +93,17 @@ async def test_graph_execution(math_agent, summary_agent, validation_agent, nest
 
     builder = GraphBuilder()
 
+    summary_agent_duplicate = Agent(
+        model="us.amazon.nova-lite-v1:0",
+        system_prompt="You are a summarization expert. Create concise, clear summaries of complex information.",
+    )
+
     # Add various node types
     builder.add_node(nested_computation_graph, "computation_subgraph")  # Nested Graph node
     builder.add_node(math_agent, "secondary_math")  # Agent node
     builder.add_node(validation_agent, "validator")  # Agent node with condition
     builder.add_node(summary_agent, "primary_summary")  # Agent node
-    builder.add_node(summary_agent, "secondary_summary")  # Another Agent node
+    builder.add_node(summary_agent_duplicate, "secondary_summary")  # Another Agent node
 
     # Add edges with various configurations
     builder.add_edge("computation_subgraph", "secondary_math")  # Graph -> Agent
@@ -108,7 +120,7 @@ async def test_graph_execution(math_agent, summary_agent, validation_agent, nest
         "Calculate 15 + 27 and 8 * 6, analyze both results, perform additional calculations, validate everything, "
         "and provide a comprehensive summary"
     )
-    result = await graph.execute_async(task)
+    result = await graph.invoke_async(task)
 
     # Verify results
     assert result.status.value == "completed"
@@ -131,3 +143,43 @@ async def test_graph_execution(math_agent, summary_agent, validation_agent, nest
     # Verify nested graph execution
     nested_result = result.results["computation_subgraph"].result
     assert nested_result.status.value == "completed"
+
+
+@pytest.mark.asyncio
+async def test_graph_execution_with_image(image_analysis_agent, summary_agent, yellow_img):
+    """Test graph execution with multi-modal image input."""
+    builder = GraphBuilder()
+
+    # Add agents to graph
+    builder.add_node(image_analysis_agent, "image_analyzer")
+    builder.add_node(summary_agent, "summarizer")
+
+    # Connect them sequentially
+    builder.add_edge("image_analyzer", "summarizer")
+    builder.set_entry_point("image_analyzer")
+
+    graph = builder.build()
+
+    # Create content blocks with text and image
+    content_blocks: list[ContentBlock] = [
+        {"text": "Analyze this image and describe what you see:"},
+        {"image": {"format": "png", "source": {"bytes": yellow_img}}},
+    ]
+
+    # Execute the graph with multi-modal input
+    result = await graph.invoke_async(content_blocks)
+
+    # Verify results
+    assert result.status.value == "completed"
+    assert result.total_nodes == 2
+    assert result.completed_nodes == 2
+    assert result.failed_nodes == 0
+    assert len(result.results) == 2
+
+    # Verify execution order
+    execution_order_ids = [node.node_id for node in result.execution_order]
+    assert execution_order_ids == ["image_analyzer", "summarizer"]
+
+    # Verify both nodes completed
+    assert "image_analyzer" in result.results
+    assert "summarizer" in result.results

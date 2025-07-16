@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 import atexit
 import os
 import sys
+
+from etils.epy.adhoc_utils import dm_backend  # pylint: disable=g-import-not-at-top  # pytype: disable=import-error
 
 
 def is_ipython_subprocess() -> bool:

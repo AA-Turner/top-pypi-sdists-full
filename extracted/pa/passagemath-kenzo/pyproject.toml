@@ -4,10 +4,10 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-setup ~= 10.5.45.0',
-    'passagemath-categories ~= 10.5.45.0',
-    'passagemath-environment ~= 10.5.45.0',
-    'passagemath-objects ~= 10.5.45.0',
+    'passagemath-setup ~= 10.5.46.0',
+    'passagemath-categories ~= 10.5.46.0',
+    'passagemath-environment ~= 10.5.46.0',
+    'passagemath-objects ~= 10.5.46.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'cysignals >=1.11.2, != 1.12.0',
 ]
@@ -17,9 +17,9 @@ build-backend = "setuptools.build_meta"
 name = "passagemath-kenzo"
 description = "passagemath: Topological spaces and homology groups with kenzo"
 dependencies = [
-    'passagemath-ecl ~= 10.5.45.0',
-    'passagemath-graphs ~= 10.5.45.0',
-    'passagemath-modules ~= 10.5.45.0',
+    'passagemath-ecl ~= 10.5.46.0',
+    'passagemath-graphs ~= 10.5.46.0',
+    'passagemath-modules ~= 10.5.46.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"

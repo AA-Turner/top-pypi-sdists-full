@@ -13,6 +13,12 @@ class BlueprintBuildParameters(BaseModel):
     name: str
     """Name of the Blueprint."""
 
+    base_blueprint_id: Optional[str] = None
+    """
+    (Optional) ID of previously built blueprint to use as a base blueprint for this
+    build.
+    """
+
     code_mounts: Optional[List[CodeMountParameters]] = None
     """A list of code mounts to be included in the Blueprint."""
 
@@ -20,7 +26,7 @@ class BlueprintBuildParameters(BaseModel):
     """Dockerfile contents to be used to build the Blueprint."""
 
     file_mounts: Optional[Dict[str, str]] = None
-    """(Optional) Map of paths and file contents to write before setup.."""
+    """(Optional) Map of paths and file contents to write before setup."""
 
     launch_parameters: Optional[LaunchParameters] = None
     """Parameters to configure your Devbox at launch time."""

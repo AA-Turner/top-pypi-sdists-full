@@ -1,10 +1,13 @@
-from unittest.mock import AsyncMock, MagicMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
 from strands.agent import Agent, AgentResult
+from strands.hooks import AgentInitializedEvent
+from strands.hooks.registry import HookProvider, HookRegistry
 from strands.multiagent.base import MultiAgentBase, MultiAgentResult, NodeResult
-from strands.multiagent.graph import GraphBuilder, GraphEdge, GraphNode, GraphResult, GraphState, Status
+from strands.multiagent.graph import Graph, GraphBuilder, GraphEdge, GraphNode, GraphResult, GraphState, Status
+from strands.session.session_manager import SessionManager
 
 
 def create_mock_agent(name, response_text="Default response", metrics=None, agent_id=None):
@@ -12,6 +15,8 @@ def create_mock_agent(name, response_text="Default response", metrics=None, agen
     agent = Mock(spec=Agent)
     agent.name = name
     agent.id = agent_id or f"{name}_id"
+    agent._session_manager = None
+    agent.hooks = HookRegistry()
 
     if metrics is None:
         metrics = Mock(
@@ -29,10 +34,10 @@ def create_mock_agent(name, response_text="Default response", metrics=None, agen
     agent.return_value = mock_result
     agent.__call__ = Mock(return_value=mock_result)
 
-    async def mock_stream_async(*args, **kwargs):
-        yield {"result": mock_result}
+    async def mock_invoke_async(*args, **kwargs):
+        return mock_result
 
-    agent.stream_async = MagicMock(side_effect=mock_stream_async)
+    agent.invoke_async = MagicMock(side_effect=mock_invoke_async)
 
     return agent
 
@@ -58,7 +63,7 @@ def create_mock_multi_agent(name, response_text="Multi-agent response"):
         execution_count=1,
         execution_time=150,
     )
-    multi_agent.execute_async = AsyncMock(return_value=mock_result)
+    multi_agent.invoke_async = AsyncMock(return_value=mock_result)
     multi_agent.execute = Mock(return_value=mock_result)
     return multi_agent
 
@@ -102,6 +107,22 @@ def string_content_agent():
 
 
 @pytest.fixture
+def mock_strands_tracer():
+    with patch("strands.multiagent.graph.get_tracer") as mock_get_tracer:
+        mock_tracer_instance = MagicMock()
+        mock_span = MagicMock()
+        mock_tracer_instance.start_multiagent_span.return_value = mock_span
+        mock_get_tracer.return_value = mock_tracer_instance
+        yield mock_tracer_instance
+
+
+@pytest.fixture
+def mock_use_span():
+    with patch("strands.multiagent.graph.trace_api.use_span") as mock_use_span:
+        yield mock_use_span
+
+
+@pytest.fixture
 def mock_graph(mock_agents, string_content_agent):
     """Create a graph for testing various scenarios."""
 
@@ -138,8 +159,9 @@ def mock_graph(mock_agents, string_content_agent):
 
 
 @pytest.mark.asyncio
-async def test_graph_execution(mock_graph, mock_agents, string_content_agent):
+async def test_graph_execution(mock_strands_tracer, mock_use_span, mock_graph, mock_agents, string_content_agent):
     """Test comprehensive graph execution with diverse nodes and conditional edges."""
+
     # Test graph structure
     assert len(mock_graph.nodes) == 8
     assert len(mock_graph.edges) == 8
@@ -166,7 +188,7 @@ async def test_graph_execution(mock_graph, mock_agents, string_content_agent):
     start_node = mock_graph.nodes["start_agent"]
     assert conditional_edge.should_traverse(GraphState(completed_nodes={start_node}))
 
-    result = await mock_graph.execute_async("Test comprehensive execution")
+    result = await mock_graph.invoke_async("Test comprehensive execution")
 
     # Verify execution results
     assert result.status == Status.COMPLETED
@@ -177,14 +199,14 @@ async def test_graph_execution(mock_graph, mock_agents, string_content_agent):
     assert result.execution_order[0].node_id == "start_agent"
 
     # Verify agent calls
-    mock_agents["start_agent"].stream_async.assert_called_once()
-    mock_agents["multi_agent"].execute_async.assert_called_once()
-    mock_agents["conditional_agent"].stream_async.assert_called_once()
-    mock_agents["final_agent"].stream_async.assert_called_once()
-    mock_agents["no_metrics_agent"].stream_async.assert_called_once()
-    mock_agents["partial_metrics_agent"].stream_async.assert_called_once()
-    string_content_agent.stream_async.assert_called_once()
-    mock_agents["blocked_agent"].stream_async.assert_not_called()
+    mock_agents["start_agent"].invoke_async.assert_called_once()
+    mock_agents["multi_agent"].invoke_async.assert_called_once()
+    mock_agents["conditional_agent"].invoke_async.assert_called_once()
+    mock_agents["final_agent"].invoke_async.assert_called_once()
+    mock_agents["no_metrics_agent"].invoke_async.assert_called_once()
+    mock_agents["partial_metrics_agent"].invoke_async.assert_called_once()
+    string_content_agent.invoke_async.assert_called_once()
+    mock_agents["blocked_agent"].invoke_async.assert_not_called()
 
     # Verify metrics aggregation
     assert result.accumulated_usage["totalTokens"] > 0
@@ -214,9 +236,12 @@ async def test_graph_execution(mock_graph, mock_agents, string_content_agent):
     assert len(result.entry_points) == 1
     assert result.entry_points[0].node_id == "start_agent"
 
+    mock_strands_tracer.start_multiagent_span.assert_called()
+    mock_use_span.assert_called_once()
+
 
 @pytest.mark.asyncio
-async def test_graph_unsupported_node_type():
+async def test_graph_unsupported_node_type(mock_strands_tracer, mock_use_span):
     """Test unsupported executor type error handling."""
 
     class UnsupportedExecutor:
@@ -227,23 +252,28 @@ async def test_graph_unsupported_node_type():
     graph = builder.build()
 
     with pytest.raises(ValueError, match="Node 'unsupported_node' of type.*is not supported"):
-        await graph.execute_async("test task")
+        await graph.invoke_async("test task")
+
+    mock_strands_tracer.start_multiagent_span.assert_called()
+    mock_use_span.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_graph_execution_with_failures():
+async def test_graph_execution_with_failures(mock_strands_tracer, mock_use_span):
     """Test graph execution error handling and failure propagation."""
     failing_agent = Mock(spec=Agent)
     failing_agent.name = "failing_agent"
     failing_agent.id = "fail_node"
     failing_agent.__call__ = Mock(side_effect=Exception("Simulated failure"))
 
-    # Create a proper failing async generator for stream_async
-    async def mock_stream_failure(*args, **kwargs):
-        raise Exception("Simulated failure")
-        yield  # This will never be reached
+    # Add required attributes for validation
+    failing_agent._session_manager = None
+    failing_agent.hooks = HookRegistry()
 
-    failing_agent.stream_async = mock_stream_failure
+    async def mock_invoke_failure(*args, **kwargs):
+        raise Exception("Simulated failure")
+
+    failing_agent.invoke_async = mock_invoke_failure
 
     success_agent = create_mock_agent("success_agent", "Success")
 
@@ -256,15 +286,17 @@ async def test_graph_execution_with_failures():
     graph = builder.build()
 
     with pytest.raises(Exception, match="Simulated failure"):
-        await graph.execute_async("Test error handling")
+        await graph.invoke_async("Test error handling")
 
     assert graph.state.status == Status.FAILED
     assert any(node.node_id == "fail_node" for node in graph.state.failed_nodes)
     assert len(graph.state.completed_nodes) == 0
+    mock_strands_tracer.start_multiagent_span.assert_called()
+    mock_use_span.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_graph_edge_cases():
+async def test_graph_edge_cases(mock_strands_tracer, mock_use_span):
     """Test specific edge cases for coverage."""
     # Test entry node execution without dependencies
     entry_agent = create_mock_agent("entry_agent", "Entry response")
@@ -273,11 +305,13 @@ async def test_graph_edge_cases():
     builder.add_node(entry_agent, "entry_only")
     graph = builder.build()
 
-    result = await graph.execute_async("Original task")
+    result = await graph.invoke_async([{"text": "Original task"}])
 
     # Verify entry node was called with original task
-    entry_agent.stream_async.assert_called_once_with("Original task")
+    entry_agent.invoke_async.assert_called_once_with([{"text": "Original task"}])
     assert result.status == Status.COMPLETED
+    mock_strands_tracer.start_multiagent_span.assert_called()
+    mock_use_span.assert_called_once()
 
 
 def test_graph_builder_validation():
@@ -293,6 +327,23 @@ def test_graph_builder_validation():
     builder.add_node(agent1, "duplicate_id")
     with pytest.raises(ValueError, match="Node 'duplicate_id' already exists"):
         builder.add_node(agent2, "duplicate_id")
+
+    # Test duplicate node instances in GraphBuilder.add_node
+    builder = GraphBuilder()
+    same_agent = create_mock_agent("same_agent")
+    builder.add_node(same_agent, "node1")
+    with pytest.raises(ValueError, match="Duplicate node instance detected"):
+        builder.add_node(same_agent, "node2")  # Same agent instance, different node_id
+
+    # Test duplicate node instances in Graph.__init__
+    from strands.multiagent.graph import Graph, GraphNode
+
+    duplicate_agent = create_mock_agent("duplicate_agent")
+    node1 = GraphNode("node1", duplicate_agent)
+    node2 = GraphNode("node2", duplicate_agent)  # Same agent instance
+    nodes = {"node1": node1, "node2": node2}
+    with pytest.raises(ValueError, match="Duplicate node instance detected"):
+        Graph(nodes=nodes, edges=set(), entry_points=set())
 
     # Test edge validation with non-existent nodes
     builder = GraphBuilder()
@@ -415,7 +466,7 @@ def test_graph_dataclasses_and_enums():
     assert len(node.dependencies) == 0
 
 
-def test_graph_synchronous_execution(mock_agents):
+def test_graph_synchronous_execution(mock_strands_tracer, mock_use_span, mock_agents):
     """Test synchronous graph execution using execute method."""
     builder = GraphBuilder()
     builder.add_node(mock_agents["start_agent"], "start_agent")
@@ -426,7 +477,7 @@ def test_graph_synchronous_execution(mock_agents):
     graph = builder.build()
 
     # Test synchronous execution
-    result = graph.execute("Test synchronous execution")
+    result = graph("Test synchronous execution")
 
     # Verify execution results
     assert result.status == Status.COMPLETED
@@ -438,9 +489,60 @@ def test_graph_synchronous_execution(mock_agents):
     assert result.execution_order[1].node_id == "final_agent"
 
     # Verify agent calls
-    mock_agents["start_agent"].stream_async.assert_called_once()
-    mock_agents["final_agent"].stream_async.assert_called_once()
+    mock_agents["start_agent"].invoke_async.assert_called_once()
+    mock_agents["final_agent"].invoke_async.assert_called_once()
 
     # Verify return type is GraphResult
     assert isinstance(result, GraphResult)
     assert isinstance(result, MultiAgentResult)
+
+    mock_strands_tracer.start_multiagent_span.assert_called()
+    mock_use_span.assert_called_once()
+
+
+def test_graph_validate_unsupported_features():
+    """Test Graph validation for session persistence and callbacks."""
+    # Test with normal agent (should work)
+    normal_agent = create_mock_agent("normal_agent")
+    normal_agent._session_manager = None
+    normal_agent.hooks = HookRegistry()
+
+    builder = GraphBuilder()
+    builder.add_node(normal_agent)
+    graph = builder.build()
+    assert len(graph.nodes) == 1
+
+    # Test with session manager (should fail in GraphBuilder.add_node)
+    mock_session_manager = Mock(spec=SessionManager)
+    agent_with_session = create_mock_agent("agent_with_session")
+    agent_with_session._session_manager = mock_session_manager
+    agent_with_session.hooks = HookRegistry()
+
+    builder = GraphBuilder()
+    with pytest.raises(ValueError, match="Session persistence is not supported for Graph agents yet"):
+        builder.add_node(agent_with_session)
+
+    # Test with callbacks (should fail in GraphBuilder.add_node)
+    class TestHookProvider(HookProvider):
+        def register_hooks(self, registry, **kwargs):
+            registry.add_callback(AgentInitializedEvent, lambda e: None)
+
+    agent_with_hooks = create_mock_agent("agent_with_hooks")
+    agent_with_hooks._session_manager = None
+    agent_with_hooks.hooks = HookRegistry()
+    agent_with_hooks.hooks.add_hook(TestHookProvider())
+
+    builder = GraphBuilder()
+    with pytest.raises(ValueError, match="Agent callbacks are not supported for Graph agents yet"):
+        builder.add_node(agent_with_hooks)
+
+    # Test validation in Graph constructor (when nodes are passed directly)
+    # Test with session manager in Graph constructor
+    node_with_session = GraphNode("node_with_session", agent_with_session)
+    with pytest.raises(ValueError, match="Session persistence is not supported for Graph agents yet"):
+        Graph(nodes={"node_with_session": node_with_session}, edges=set(), entry_points=set())
+
+    # Test with callbacks in Graph constructor
+    node_with_hooks = GraphNode("node_with_hooks", agent_with_hooks)
+    with pytest.raises(ValueError, match="Agent callbacks are not supported for Graph agents yet"):
+        Graph(nodes={"node_with_hooks": node_with_hooks}, edges=set(), entry_points=set())

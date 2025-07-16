@@ -48,6 +48,18 @@ class PatcherTest(unittest.TestCase):
         TypeError, 'The 1st argument of .* must be a symbolic type'):
       set_value1(k='a').patch(1)  # pylint: disable=not-callable, no-value-for-parameter
 
+  def test_patcher_with_auto_typing(self):
+    @rule_based.patcher(auto_typing=True)
+    def set_value2(unused_src, k: str, v: int):
+      return {
+          k: v
+      }
+    self.assert_patch_equal(symbolic.Dict(), set_value2(k='a', v=1), {'a': 1})  # pylint: disable=no-value-for-parameter
+    self.assert_patch_equal(symbolic.Dict(), 'set_value2?a&1', {'a': 1})
+    self.assert_patch_equal(symbolic.Dict(), 'set_value2?a&v=1', {'a': 1})
+    self.assert_patch_equal(symbolic.Dict(), 'set_value2?k=a&v=1', {'a': 1})
+    self.assertIn('set_value2', rule_based.patcher_names())
+
   def test_patcher_with_typing(self):
     @rule_based.patcher([
         ('k', pg_typing.Str()),
@@ -375,10 +387,21 @@ class PatcherHelpersTest(unittest.TestCase):
     signature = pg_typing.Signature(
         pg_typing.CallableType.FUNCTION, 'foo', '__main__',
         [
-            pg_typing.Argument('src', pg_typing.Any()),
-            pg_typing.Argument('x', pg_typing.Int()),
-            pg_typing.Argument('y', pg_typing.List(
-                pg_typing.Float(min_value=0.0, max_value=1.0)))
+            pg_typing.Argument(
+                'src',
+                pg_typing.Argument.Kind.POSITIONAL_OR_KEYWORD,
+                pg_typing.Any()
+            ),
+            pg_typing.Argument(
+                'x',
+                pg_typing.Argument.Kind.POSITIONAL_OR_KEYWORD,
+                pg_typing.Int()
+            ),
+            pg_typing.Argument(
+                'y',
+                pg_typing.Argument.Kind.POSITIONAL_OR_KEYWORD,
+                pg_typing.List(pg_typing.Float(min_value=0.0, max_value=1.0))
+            )
         ])
     args, kwargs = rule_based.parse_args(signature, ['0'], {'y': '0.1:0.5'})
     self.assertEqual(args, [0])

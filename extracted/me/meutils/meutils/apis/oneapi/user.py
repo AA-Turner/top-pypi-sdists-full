@@ -73,7 +73,7 @@ async def get_user_money(api_key):
 
     logger.debug(onelog)
 
-
+# 补偿
 async def put_user(payload, add_money: float = 0):
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
         payload['quota'] = max(payload['quota'] + add_money * 500000, 0)  # 1块钱对应50万
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     # arun(get_api_key_log("sk-2KedjhqS6uubaONCS1Dxyq28Tc1P4AtQk3WFfBpzy4enyalH"))
 
     # arun(get_api_key_log('sk-iPNbgHSRkQ9VUb6iAcCa7a4539D74255A6462d29619d6519'))
-    arun(get_user_money("sk-iPNbgHSRkQ9VUb6iAcCa7a4539D74255A6462d29619d6519"))
+    arun(get_user_money("sk-DmIQQe32ortrlLUPTQi8PeId27pAFEy8ewhN7KyVhRHv1prM"))
     # arun(get_user_from_api_key('sk-'))
 
     # arun(get_user_for_quota("sk-2KedjhqS6uubaONCS1Dxyq28Tc1P4AtQk3WFfBpzy4enyalH"))

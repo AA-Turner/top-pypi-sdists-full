@@ -1844,6 +1844,26 @@ db_from_lookup = rds.DatabaseInstance.from_lookup(self, "dbFromLookup",
 db_from_lookup.grant_connect(my_user_role, "my-user-id")
 ```
 
+## Importing existing DatabaseCluster
+
+### Lookup DatabaseCluster by clusterIdentifier
+
+You can lookup an existing DatabaseCluster by its clusterIdentifier using `DatabaseCluster.fromLookup()`. This method returns an `IDatabaseCluster`.
+
+Here's how `DatabaseCluster.fromLookup()` can be used:
+
+```python
+# my_user_role: iam.Role
+
+
+cluster_from_lookup = rds.DatabaseCluster.from_lookup(self, "ClusterFromLookup",
+    cluster_identifier="my-cluster-id"
+)
+
+# Grant a connection
+cluster_from_lookup.grant_connect(my_user_role, "my-user-id")
+```
+
 ## Limitless Database Cluster
 
 Amazon Aurora [PostgreSQL Limitless Database](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/limitless.html) provides automated horizontal scaling to process millions of write transactions per second and manages petabytes of data while maintaining the simplicity of operating inside a single database.
@@ -4360,6 +4380,12 @@ class AuroraPostgresEngineVersion(
     def VER_17_4(cls) -> "AuroraPostgresEngineVersion":
         '''Version "17.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_5")
+    def VER_17_5(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "17.5".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
@@ -9093,6 +9119,7 @@ class CfnDBInstance(
             auto_minor_version_upgrade=False,
             availability_zone="availabilityZone",
             backup_retention_period=123,
+            backup_target="backupTarget",
             ca_certificate_identifier="caCertificateIdentifier",
             certificate_rotation_restart=False,
             character_set_name="characterSetName",
@@ -9190,6 +9217,7 @@ class CfnDBInstance(
         auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         backup_retention_period: typing.Optional[jsii.Number] = None,
+        backup_target: typing.Optional[builtins.str] = None,
         ca_certificate_identifier: typing.Optional[builtins.str] = None,
         certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         character_set_name: typing.Optional[builtins.str] = None,
@@ -9274,6 +9302,7 @@ class CfnDBInstance(
         :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the DB instance during the maintenance window. By default, minor engine upgrades are applied automatically.
         :param availability_zone: The Availability Zone (AZ) where the database will be created. For information on AWS Regions and Availability Zones, see `Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ . For Amazon Aurora, each Aurora DB cluster hosts copies of its storage in three separate Availability Zones. Specify one of these Availability Zones. Aurora automatically chooses an appropriate Availability Zone if you don't specify one. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Constraints: - The ``AvailabilityZone`` parameter can't be specified if the DB instance is a Multi-AZ deployment. - The specified Availability Zone must be in the same AWS Region as the current endpoint. Example: ``us-east-1d``
         :param backup_retention_period: The number of days for which automated backups are retained. Setting this parameter to a positive number enables backups. Setting this parameter to 0 disables automated backups. *Amazon Aurora* Not applicable. The retention period for automated backups is managed by the DB cluster. Default: 1 Constraints: - Must be a value from 0 to 35 - Can't be set to 0 if the DB instance is a source to read replicas
+        :param backup_target: 
         :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance. For more information, see `Using SSL/TLS to encrypt a connection to a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon RDS User Guide* and `Using SSL/TLS to encrypt a connection to a DB cluster <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon Aurora User Guide* .
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, follow the appropriate instructions for your DB engine to rotate your SSL/TLS certificate: - For more information about rotating your SSL/TLS certificate for RDS DB engines, see `Rotating Your SSL/TLS Certificate. <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon RDS User Guide.* - For more information about rotating your SSL/TLS certificate for Aurora DB engines, see `Rotating Your SSL/TLS Certificate <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon Aurora User Guide* . This setting doesn't apply to RDS Custom DB instances.
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
@@ -9315,7 +9344,7 @@ class CfnDBInstance(
         :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance. For more information about this setting, including limitations that apply to it, see `Managing capacity automatically with Amazon RDS storage autoscaling <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.StorageTypes.html#USER_PIOPS.Autoscaling>`_ in the *Amazon RDS User Guide* . This setting doesn't apply to the following DB instances: - Amazon Aurora (Storage is managed by the DB cluster.) - RDS Custom
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance. To disable collection of Enhanced Monitoring metrics, specify ``0`` . If ``MonitoringRoleArn`` is specified, then you must set ``MonitoringInterval`` to a value other than ``0`` . This setting doesn't apply to RDS Custom DB instances. Valid Values: ``0 | 1 | 5 | 10 | 15 | 30 | 60`` Default: ``0``
         :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs. For example, ``arn:aws:iam:123456789012:role/emaccess`` . For information on creating a monitoring role, see `Setting Up and Enabling Enhanced Monitoring <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.OS.html#USER_Monitoring.OS.Enabling>`_ in the *Amazon RDS User Guide* . If ``MonitoringInterval`` is set to a value other than ``0`` , then you must supply a ``MonitoringRoleArn`` value. This setting doesn't apply to RDS Custom DB instances.
-        :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment. This setting doesn't apply to the following DB instances: - Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.) - RDS Custom
+        :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment. This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         :param nchar_character_set_name: The name of the NCHAR character set for the Oracle DB instance. This setting doesn't apply to RDS Custom DB instances.
         :param network_type: The network type of the DB instance. Valid values: - ``IPV4`` - ``DUAL`` The network type is determined by the ``DBSubnetGroup`` specified for the DB instance. A ``DBSubnetGroup`` can support only the IPv4 protocol or the IPv4 and IPv6 protocols ( ``DUAL`` ). For more information, see `Working with a DB instance in a VPC <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html>`_ in the *Amazon RDS User Guide.*
         :param option_group_name: Indicates that the DB instance should be associated with the specified option group. Permanent options, such as the TDE option for Oracle Advanced Security TDE, can't be removed from an option group. Also, that option group can't be removed from a DB instance once it is associated with a DB instance.
@@ -9360,6 +9389,7 @@ class CfnDBInstance(
             auto_minor_version_upgrade=auto_minor_version_upgrade,
             availability_zone=availability_zone,
             backup_retention_period=backup_retention_period,
+            backup_target=backup_target,
             ca_certificate_identifier=ca_certificate_identifier,
             certificate_rotation_restart=certificate_rotation_restart,
             character_set_name=character_set_name,
@@ -9756,6 +9786,18 @@ class CfnDBInstance(
             type_hints = typing.get_type_hints(_typecheckingstub__fd3e9f688b875610637e10e82f5815bcffe370acaf10d2173ec8c9703912f28b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="backupTarget")
+    def backup_target(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupTarget"))
+
+    @backup_target.setter
+    def backup_target(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d01b6bd3366a70d949ce4b76b7922f17c0009fda45951b31e9665ddfed4729e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupTarget", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="caCertificateIdentifier")
@@ -11191,6 +11233,7 @@ class CfnDBInstance(
         "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
         "availability_zone": "availabilityZone",
         "backup_retention_period": "backupRetentionPeriod",
+        "backup_target": "backupTarget",
         "ca_certificate_identifier": "caCertificateIdentifier",
         "certificate_rotation_restart": "certificateRotationRestart",
         "character_set_name": "characterSetName",
@@ -11277,6 +11320,7 @@ class CfnDBInstanceProps:
         auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         backup_retention_period: typing.Optional[jsii.Number] = None,
+        backup_target: typing.Optional[builtins.str] = None,
         ca_certificate_identifier: typing.Optional[builtins.str] = None,
         certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         character_set_name: typing.Optional[builtins.str] = None,
@@ -11360,6 +11404,7 @@ class CfnDBInstanceProps:
         :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the DB instance during the maintenance window. By default, minor engine upgrades are applied automatically.
         :param availability_zone: The Availability Zone (AZ) where the database will be created. For information on AWS Regions and Availability Zones, see `Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ . For Amazon Aurora, each Aurora DB cluster hosts copies of its storage in three separate Availability Zones. Specify one of these Availability Zones. Aurora automatically chooses an appropriate Availability Zone if you don't specify one. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Constraints: - The ``AvailabilityZone`` parameter can't be specified if the DB instance is a Multi-AZ deployment. - The specified Availability Zone must be in the same AWS Region as the current endpoint. Example: ``us-east-1d``
         :param backup_retention_period: The number of days for which automated backups are retained. Setting this parameter to a positive number enables backups. Setting this parameter to 0 disables automated backups. *Amazon Aurora* Not applicable. The retention period for automated backups is managed by the DB cluster. Default: 1 Constraints: - Must be a value from 0 to 35 - Can't be set to 0 if the DB instance is a source to read replicas
+        :param backup_target: 
         :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance. For more information, see `Using SSL/TLS to encrypt a connection to a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon RDS User Guide* and `Using SSL/TLS to encrypt a connection to a DB cluster <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon Aurora User Guide* .
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, follow the appropriate instructions for your DB engine to rotate your SSL/TLS certificate: - For more information about rotating your SSL/TLS certificate for RDS DB engines, see `Rotating Your SSL/TLS Certificate. <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon RDS User Guide.* - For more information about rotating your SSL/TLS certificate for Aurora DB engines, see `Rotating Your SSL/TLS Certificate <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon Aurora User Guide* . This setting doesn't apply to RDS Custom DB instances.
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
@@ -11401,7 +11446,7 @@ class CfnDBInstanceProps:
         :param max_allocated_storage: The upper limit in gibibytes (GiB) to which Amazon RDS can automatically scale the storage of the DB instance. For more information about this setting, including limitations that apply to it, see `Managing capacity automatically with Amazon RDS storage autoscaling <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PIOPS.StorageTypes.html#USER_PIOPS.Autoscaling>`_ in the *Amazon RDS User Guide* . This setting doesn't apply to the following DB instances: - Amazon Aurora (Storage is managed by the DB cluster.) - RDS Custom
         :param monitoring_interval: The interval, in seconds, between points when Enhanced Monitoring metrics are collected for the DB instance. To disable collection of Enhanced Monitoring metrics, specify ``0`` . If ``MonitoringRoleArn`` is specified, then you must set ``MonitoringInterval`` to a value other than ``0`` . This setting doesn't apply to RDS Custom DB instances. Valid Values: ``0 | 1 | 5 | 10 | 15 | 30 | 60`` Default: ``0``
         :param monitoring_role_arn: The ARN for the IAM role that permits RDS to send enhanced monitoring metrics to Amazon CloudWatch Logs. For example, ``arn:aws:iam:123456789012:role/emaccess`` . For information on creating a monitoring role, see `Setting Up and Enabling Enhanced Monitoring <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.OS.html#USER_Monitoring.OS.Enabling>`_ in the *Amazon RDS User Guide* . If ``MonitoringInterval`` is set to a value other than ``0`` , then you must supply a ``MonitoringRoleArn`` value. This setting doesn't apply to RDS Custom DB instances.
-        :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment. This setting doesn't apply to the following DB instances: - Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.) - RDS Custom
+        :param multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment. This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         :param nchar_character_set_name: The name of the NCHAR character set for the Oracle DB instance. This setting doesn't apply to RDS Custom DB instances.
         :param network_type: The network type of the DB instance. Valid values: - ``IPV4`` - ``DUAL`` The network type is determined by the ``DBSubnetGroup`` specified for the DB instance. A ``DBSubnetGroup`` can support only the IPv4 protocol or the IPv4 and IPv6 protocols ( ``DUAL`` ). For more information, see `Working with a DB instance in a VPC <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html>`_ in the *Amazon RDS User Guide.*
         :param option_group_name: Indicates that the DB instance should be associated with the specified option group. Permanent options, such as the TDE option for Oracle Advanced Security TDE, can't be removed from an option group. Also, that option group can't be removed from a DB instance once it is associated with a DB instance.
@@ -11454,6 +11499,7 @@ class CfnDBInstanceProps:
                 auto_minor_version_upgrade=False,
                 availability_zone="availabilityZone",
                 backup_retention_period=123,
+                backup_target="backupTarget",
                 ca_certificate_identifier="caCertificateIdentifier",
                 certificate_rotation_restart=False,
                 character_set_name="characterSetName",
@@ -11547,6 +11593,7 @@ class CfnDBInstanceProps:
             check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
             check_type(argname="argument backup_retention_period", value=backup_retention_period, expected_type=type_hints["backup_retention_period"])
+            check_type(argname="argument backup_target", value=backup_target, expected_type=type_hints["backup_target"])
             check_type(argname="argument ca_certificate_identifier", value=ca_certificate_identifier, expected_type=type_hints["ca_certificate_identifier"])
             check_type(argname="argument certificate_rotation_restart", value=certificate_rotation_restart, expected_type=type_hints["certificate_rotation_restart"])
             check_type(argname="argument character_set_name", value=character_set_name, expected_type=type_hints["character_set_name"])
@@ -11638,6 +11685,8 @@ class CfnDBInstanceProps:
             self._values["availability_zone"] = availability_zone
         if backup_retention_period is not None:
             self._values["backup_retention_period"] = backup_retention_period
+        if backup_target is not None:
+            self._values["backup_target"] = backup_target
         if ca_certificate_identifier is not None:
             self._values["ca_certificate_identifier"] = ca_certificate_identifier
         if certificate_rotation_restart is not None:
@@ -11987,6 +12036,14 @@ class CfnDBInstanceProps:
         '''
         result = self._values.get("backup_retention_period")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def backup_target(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-backuptarget
+        '''
+        result = self._values.get("backup_target")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ca_certificate_identifier(self) -> typing.Optional[builtins.str]:
@@ -12890,10 +12947,7 @@ class CfnDBInstanceProps:
 
         You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment.
 
-        This setting doesn't apply to the following DB instances:
-
-        - Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.)
-        - RDS Custom
+        This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-multiaz
         '''
@@ -22349,6 +22403,57 @@ class DatabaseClusterFromSnapshotProps:
 
     def __repr__(self) -> str:
         return "DatabaseClusterFromSnapshotProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rds.DatabaseClusterLookupOptions",
+    jsii_struct_bases=[],
+    name_mapping={"cluster_identifier": "clusterIdentifier"},
+)
+class DatabaseClusterLookupOptions:
+    def __init__(self, *, cluster_identifier: builtins.str) -> None:
+        '''Properties for looking up an existing DatabaseCluster.
+
+        :param cluster_identifier: The cluster identifier of the DatabaseCluster.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_user_role: iam.Role
+            
+            
+            cluster_from_lookup = rds.DatabaseCluster.from_lookup(self, "ClusterFromLookup",
+                cluster_identifier="my-cluster-id"
+            )
+            
+            # Grant a connection
+            cluster_from_lookup.grant_connect(my_user_role, "my-user-id")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87588f52192df76e2f82453b5ba55840986615a954d2a6865cc65bf5b83b9cf0)
+            check_type(argname="argument cluster_identifier", value=cluster_identifier, expected_type=type_hints["cluster_identifier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_identifier": cluster_identifier,
+        }
+
+    @builtins.property
+    def cluster_identifier(self) -> builtins.str:
+        '''The cluster identifier of the DatabaseCluster.'''
+        result = self._values.get("cluster_identifier")
+        assert result is not None, "Required property 'cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatabaseClusterLookupOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -47488,19 +47593,18 @@ class DatabaseCluster(
         # vpc: ec2.Vpc
         
         cluster = rds.DatabaseCluster(self, "Database",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(version=rds.AuroraMysqlEngineVersion.VER_3_01_0),
-            credentials=rds.Credentials.from_generated_secret("clusteradmin"),  # Optional - will default to 'admin' username and generated password
-            writer=rds.ClusterInstance.provisioned("writer",
-                publicly_accessible=False
+            engine=rds.DatabaseClusterEngine.aurora_mysql(
+                version=rds.AuroraMysqlEngineVersion.VER_3_03_0
             ),
-            readers=[
-                rds.ClusterInstance.provisioned("reader1", promotion_tier=1),
-                rds.ClusterInstance.serverless_v2("reader2")
-            ],
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS
-            ),
+            writer=rds.ClusterInstance.provisioned("writer"),
             vpc=vpc
+        )
+        
+        proxy = rds.DatabaseProxy(self, "Proxy",
+            proxy_target=rds.ProxyTarget.from_cluster(cluster),
+            secrets=[cluster.secret],
+            vpc=vpc,
+            client_password_auth_type=rds.ClientPasswordAuthType.MYSQL_NATIVE_PASSWORD
         )
     '''
 
@@ -47739,6 +47843,29 @@ class DatabaseCluster(
         )
 
         return typing.cast(IDatabaseCluster, jsii.sinvoke(cls, "fromDatabaseClusterAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromLookup")
+    @builtins.classmethod
+    def from_lookup(
+        cls,
+        scope: _constructs_77d1e7e8.Construct,
+        id: builtins.str,
+        *,
+        cluster_identifier: builtins.str,
+    ) -> IDatabaseCluster:
+        '''Lookup an existing DatabaseCluster using clusterIdentifier.
+
+        :param scope: -
+        :param id: -
+        :param cluster_identifier: The cluster identifier of the DatabaseCluster.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6aab9826e2a2cfbf0083d7663ae5f4bed5c3539c635512cbafd5e42752054c11)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        options = DatabaseClusterLookupOptions(cluster_identifier=cluster_identifier)
+
+        return typing.cast(IDatabaseCluster, jsii.sinvoke(cls, "fromLookup", [scope, id, options]))
 
     @jsii.member(jsii_name="addRotationMultiUser")
     def add_rotation_multi_user(
@@ -48589,6 +48716,7 @@ __all__ = [
     "DatabaseClusterEngine",
     "DatabaseClusterFromSnapshot",
     "DatabaseClusterFromSnapshotProps",
+    "DatabaseClusterLookupOptions",
     "DatabaseClusterProps",
     "DatabaseInsightsMode",
     "DatabaseInstance",
@@ -49496,6 +49624,7 @@ def _typecheckingstub__255b0779ca741853674876540bf77279f6293bea05de2cd18724d2b92
     auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
     backup_retention_period: typing.Optional[jsii.Number] = None,
+    backup_target: typing.Optional[builtins.str] = None,
     ca_certificate_identifier: typing.Optional[builtins.str] = None,
     certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     character_set_name: typing.Optional[builtins.str] = None,
@@ -49638,6 +49767,12 @@ def _typecheckingstub__2e158ac3f914684014bad2a96a64f29bf9a9be0671712af053302bafb
 
 def _typecheckingstub__fd3e9f688b875610637e10e82f5815bcffe370acaf10d2173ec8c9703912f28b(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d01b6bd3366a70d949ce4b76b7922f17c0009fda45951b31e9665ddfed4729e(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -50115,6 +50250,7 @@ def _typecheckingstub__3bddb1be0bd1f1699e3a084c5859d94d8879ff15011f2f2eaac29ec16
     auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
     backup_retention_period: typing.Optional[jsii.Number] = None,
+    backup_target: typing.Optional[builtins.str] = None,
     ca_certificate_identifier: typing.Optional[builtins.str] = None,
     certificate_rotation_restart: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     character_set_name: typing.Optional[builtins.str] = None,
@@ -51413,6 +51549,13 @@ def _typecheckingstub__1e44b5aef872ca17869a17181382f06cd0166bdbe07e2c33701d3bf1e
     vpc: typing.Optional[_IVpc_f30d5663] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
     writer: typing.Optional[IClusterInstance] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87588f52192df76e2f82453b5ba55840986615a954d2a6865cc65bf5b83b9cf0(
+    *,
+    cluster_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -53254,6 +53397,15 @@ def _typecheckingstub__d7cb0d9ec8799a7f25049acfbf2838c0699426663debfac03fac47054
     reader_endpoint_address: typing.Optional[builtins.str] = None,
     secret: typing.Optional[_ISecret_6e020e6a] = None,
     security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6aab9826e2a2cfbf0083d7663ae5f4bed5c3539c635512cbafd5e42752054c11(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

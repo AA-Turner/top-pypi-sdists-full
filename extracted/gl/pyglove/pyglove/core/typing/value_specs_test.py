@@ -11,33 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for pyglove.core.typing.value_specs."""
-
 import contextlib
+import datetime
+import inspect
 import sys
 import typing
 import unittest
 
-from pyglove.core import object_utils
+from pyglove.core import utils
 from pyglove.core.typing import annotation_conversion   # pylint: disable=unused-import
 from pyglove.core.typing import callable_signature
 from pyglove.core.typing import class_schema
 from pyglove.core.typing import custom_typing
-from pyglove.core.typing import inspect as pg_inspect
-from pyglove.core.typing import typed_missing
 from pyglove.core.typing import key_specs as ks
+from pyglove.core.typing import typed_missing
 from pyglove.core.typing import value_specs as vs
+
+
+Argument = callable_signature.Argument
+Signature = callable_signature.Signature
 
 
 class ValueSpecTest(unittest.TestCase):
   """Base class for value spec test."""
 
   def assert_json_conversion(self, v):
-    self.assertEqual(object_utils.from_json(v.to_json()), v)
+    self.assertEqual(utils.from_json(v.to_json()), v)
 
   def assert_json_conversion_key(self, v, key):
-    self.assertEqual(
-        v.to_json()[object_utils.JSONConvertible.TYPE_NAME_KEY], key)
+    self.assertEqual(v.to_json()[utils.JSONConvertible.TYPE_NAME_KEY], key)
 
 
 class BoolTest(ValueSpecTest):
@@ -59,16 +61,20 @@ class BoolTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Bool().is_noneable)
     self.assertTrue(vs.Bool().noneable().is_noneable)
+    self.assertIsNone(vs.Bool().noneable().default)
+    self.assertFalse(vs.Bool().noneable(use_none_as_default=False).has_default)
+    self.assertFalse(vs.Bool().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Bool().noneable().noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Bool()), 'Bool()')
-    self.assertEqual(str(vs.Bool(True)), 'Bool(default=True)')
-    self.assertEqual(str(vs.Bool(True).freeze()),
+  def test_repr(self):
+    self.assertEqual(repr(vs.Bool()), 'Bool()')
+    self.assertEqual(repr(vs.Bool(True)), 'Bool(default=True)')
+    self.assertEqual(repr(vs.Bool(True).freeze()),
                      'Bool(default=True, frozen=True)')
     self.assertEqual(
-        str(vs.Bool().noneable()), 'Bool(default=None, noneable=True)')
+        repr(vs.Bool().noneable()), 'Bool(default=None, noneable=True)')
     self.assertEqual(
-        str(vs.Bool(True).noneable()), 'Bool(default=True, noneable=True)')
+        repr(vs.Bool(True).noneable()), 'Bool(default=True, noneable=True)')
 
   def test_annotation(self):
     self.assertEqual(vs.Bool().annotation, bool)
@@ -96,6 +102,13 @@ class BoolTest(ValueSpecTest):
     with self.assertRaisesRegex(ValueError, 'Value cannot be None'):
       vs.Bool().apply(None)
 
+  def test_instantiation(self):
+    self.assertTrue(vs.Bool()(True))
+    self.assertFalse(vs.Bool()(False))
+    self.assertIsNone(vs.Bool().noneable()())
+    self.assertFalse(vs.Bool()())
+    self.assertTrue(vs.Bool().freeze(True)(False))
+
   def test_is_compatible(self):
     v = vs.Bool()
     self.assertTrue(v.is_compatible(v))
@@ -114,6 +127,12 @@ class BoolTest(ValueSpecTest):
     # Child may extend a noneable base into non-noneable.
     self.assertFalse(vs.Bool().extend(vs.Bool().noneable()).is_noneable)
 
+    # A frozen child may extend a enum with its value as candidate.
+    self.assertEqual(
+        vs.Bool().freeze(True).extend(vs.Enum(2, [2, True])),
+        vs.Enum(True, [2, True]).freeze(),
+    )
+
     # Child cannot extend a base with different type.
     with self.assertRaisesRegex(
         TypeError, '.* cannot extend .*: incompatible type.'):
@@ -123,6 +142,11 @@ class BoolTest(ValueSpecTest):
     with self.assertRaisesRegex(
         TypeError, '.* cannot extend .*: None is not allowed in base spec.'):
       vs.Bool().noneable().extend(vs.Bool())
+
+    # Child cannot extend a non-noneable base to noneable.
+    with self.assertRaisesRegex(
+        TypeError, '.* cannot extend .* with incompatible frozen value'):
+      vs.Bool().freeze(True).extend(vs.Enum(False, [2, False]))
 
   def test_freeze(self):
     self.assertFalse(vs.Bool().frozen)
@@ -141,7 +165,7 @@ class BoolTest(ValueSpecTest):
     self.assertTrue(v.default)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Bool().extend(v)
 
     with self.assertRaisesRegex(
@@ -192,15 +216,19 @@ class StrTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Str().is_noneable)
     self.assertTrue(vs.Str().noneable().is_noneable)
+    self.assertIsNone(vs.Str().noneable().default)
+    self.assertFalse(vs.Str().noneable(use_none_as_default=False).has_default)
+    self.assertFalse(vs.Str().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Str().noneable().noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Str()), 'Str()')
+  def test_repr(self):
+    self.assertEqual(repr(vs.Str()), 'Str()')
     self.assertEqual(
-        str(vs.Str().noneable()), 'Str(default=None, noneable=True)')
-    self.assertEqual(str(vs.Str('a')), 'Str(default=\'a\')')
-    self.assertEqual(str(vs.Str('a').freeze()),
+        repr(vs.Str().noneable()), 'Str(default=None, noneable=True)')
+    self.assertEqual(repr(vs.Str('a')), 'Str(default=\'a\')')
+    self.assertEqual(repr(vs.Str('a').freeze()),
                      'Str(default=\'a\', frozen=True)')
-    self.assertEqual(str(vs.Str(regex='.*')), 'Str(regex=\'.*\')')
+    self.assertEqual(repr(vs.Str(regex='.*')), 'Str(regex=\'.*\')')
 
   def test_annotation(self):
     self.assertEqual(vs.Str().annotation, str)
@@ -220,6 +248,12 @@ class StrTest(ValueSpecTest):
     self.assertNotEqual(vs.Str('a'), vs.Str('b'))
     self.assertNotEqual(vs.Str(), vs.Str(regex='.*'))
     self.assertNotEqual(vs.Str(regex='a'), vs.Str(regex='.*'))
+
+  def test_instantiation(self):
+    self.assertEqual(vs.Str()('abc'), 'abc')
+    self.assertIsNone(vs.Str().noneable()())
+    self.assertEqual(vs.Str()(), '')
+    self.assertEqual(vs.Str().freeze('abc')('def'), 'abc')
 
   def test_apply(self):
     self.assertEqual(vs.Str().apply('a'), 'a')
@@ -263,6 +297,12 @@ class StrTest(ValueSpecTest):
     # Child may extend a noneable base into non-noneable.
     self.assertFalse(vs.Str().extend(vs.Str().noneable()).is_noneable)
 
+    # A frozen child may extend a enum with its value as candidate.
+    self.assertEqual(
+        vs.Str().freeze('a').extend(vs.Enum(2, [2, 'a'])),
+        vs.Enum('a', [2, 'a']).freeze(),
+    )
+
     # Child cannot extend a base of different type.
     with self.assertRaisesRegex(
         TypeError, '.* cannot extend .*: incompatible type.'):
@@ -272,6 +312,11 @@ class StrTest(ValueSpecTest):
     with self.assertRaisesRegex(
         TypeError, '.* cannot extend .*: None is not allowed in base spec.'):
       vs.Str().noneable().extend(vs.Str())
+
+    # Child cannot extend a non-noneable base to noneable.
+    with self.assertRaisesRegex(
+        TypeError, '.* cannot extend .* with incompatible frozen value'):
+      vs.Str().freeze('b').extend(vs.Enum('a', ['a', False]))
 
   def test_freeze(self):
     self.assertFalse(vs.Str().frozen)
@@ -290,7 +335,7 @@ class StrTest(ValueSpecTest):
     self.assertEqual(v.default, 'foo')
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Str().extend(v)
 
     with self.assertRaisesRegex(
@@ -303,6 +348,7 @@ class StrTest(ValueSpecTest):
     self.assert_json_conversion(vs.Str('a', '.*').noneable())
     self.assert_json_conversion(vs.Str().noneable().freeze('abc'))
     self.assert_json_conversion_key(vs.Str(), 'pyglove.typing.Str')
+
 
 class IntTest(ValueSpecTest):
   """Tests for `Int`."""
@@ -333,18 +379,22 @@ class IntTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Int().is_noneable)
     self.assertTrue(vs.Int().noneable().is_noneable)
+    self.assertIsNone(vs.Int().noneable().default)
+    self.assertFalse(vs.Int().noneable(use_none_as_default=False).has_default)
+    self.assertFalse(vs.Int().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Int().noneable().noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Int()), 'Int()')
-    self.assertEqual(str(vs.Int(1)), 'Int(default=1)')
-    self.assertEqual(str(vs.Int(1).freeze()),
+  def test_repr(self):
+    self.assertEqual(repr(vs.Int()), 'Int()')
+    self.assertEqual(repr(vs.Int(1)), 'Int(default=1)')
+    self.assertEqual(repr(vs.Int(1).freeze()),
                      'Int(default=1, frozen=True)')
     self.assertEqual(
-        str(vs.Int().noneable()), 'Int(default=None, noneable=True)')
+        repr(vs.Int().noneable()), 'Int(default=None, noneable=True)')
     self.assertEqual(
-        str(vs.Int(1).noneable()), 'Int(default=1, noneable=True)')
+        repr(vs.Int(1).noneable()), 'Int(default=1, noneable=True)')
     self.assertEqual(
-        str(vs.Int(min_value=0, max_value=1)), 'Int(min=0, max=1)')
+        repr(vs.Int(min_value=0, max_value=1)), 'Int(min=0, max=1)')
 
   def test_annotation(self):
     self.assertEqual(vs.Int().annotation, int)
@@ -373,6 +423,16 @@ class IntTest(ValueSpecTest):
     with self.assertRaisesRegex(
         ValueError, '"max_value" must be equal or greater than "min_value".'):
       vs.Int(min_value=1, max_value=0)
+
+  def test_instantiation(self):
+    self.assertEqual(vs.Int()(1), 1)
+    self.assertEqual(vs.Int()(), 0)
+    self.assertIsNone(vs.Int().noneable()())
+    self.assertEqual(vs.Int().freeze(1)(0), 1)
+    with self.assertRaisesRegex(
+        ValueError, 'Value .* is out of range'
+    ):
+      vs.Int(min_value=1)()
 
   def test_apply(self):
     self.assertEqual(vs.Int().apply(1), 1)
@@ -431,6 +491,12 @@ class IntTest(ValueSpecTest):
         vs.Int(min_value=1),
     )
 
+    # A frozen child may extend a enum with its value as candidate.
+    self.assertEqual(
+        vs.Int().freeze(2).extend(vs.Enum(2, [2, 'a'])),
+        vs.Enum(2, [2, 'a']).freeze(),
+    )
+
     with self.assertRaisesRegex(TypeError,
                                 '.* cannot extend .*: incompatible type.'):
       vs.Int().extend(vs.Bool())
@@ -463,6 +529,11 @@ class IntTest(ValueSpecTest):
         TypeError, '.* cannot extend .*: no compatible type found in Union.'):
       vs.Int().extend(vs.Union([vs.Bool(), vs.Str()]))
 
+    # Child cannot extend a non-noneable base to noneable.
+    with self.assertRaisesRegex(
+        TypeError, '.* cannot extend .* with incompatible frozen value'):
+      vs.Int().freeze(1).extend(vs.Enum('a', ['a', False]))
+
   def test_freeze(self):
     self.assertFalse(vs.Int().frozen)
 
@@ -480,7 +551,7 @@ class IntTest(ValueSpecTest):
     self.assertEqual(v.default, 1)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Int().extend(v)
 
     with self.assertRaisesRegex(
@@ -525,17 +596,21 @@ class FloatTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Float().is_noneable)
     self.assertTrue(vs.Float().noneable().is_noneable)
+    self.assertIsNone(vs.Float().noneable().default)
+    self.assertFalse(vs.Float().noneable(use_none_as_default=False).has_default)
+    self.assertFalse(vs.Float().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Float().noneable().noneable(False).has_default)
 
-  def test_str(self):
+  def test_repr(self):
     self.assertEqual(str(vs.Float()), 'Float()')
     self.assertEqual(
-        str(vs.Float().noneable()), 'Float(default=None, noneable=True)')
+        repr(vs.Float().noneable()), 'Float(default=None, noneable=True)')
     self.assertEqual(
-        str(vs.Float(1.0).freeze()), 'Float(default=1.0, frozen=True)')
+        repr(vs.Float(1.0).freeze()), 'Float(default=1.0, frozen=True)')
     self.assertEqual(
-        str(vs.Float(1.0).noneable()), 'Float(default=1.0, noneable=True)')
+        repr(vs.Float(1.0).noneable()), 'Float(default=1.0, noneable=True)')
     self.assertEqual(
-        str(vs.Float(default=1., min_value=0., max_value=1.).noneable()),
+        repr(vs.Float(default=1., min_value=0., max_value=1.).noneable()),
         'Float(default=1.0, min=0.0, max=1.0, noneable=True)')
 
   def test_annotation(self):
@@ -567,6 +642,16 @@ class FloatTest(ValueSpecTest):
     with self.assertRaisesRegex(
         ValueError, '"max_value" must be equal or greater than "min_value".'):
       vs.Float(min_value=1., max_value=0.)
+
+  def test_instantiation(self):
+    self.assertEqual(vs.Float()(1), 1.0)
+    self.assertEqual(vs.Float()(), 0.0)
+    self.assertIsNone(vs.Float().noneable()())
+    self.assertEqual(vs.Float().freeze(1.0)(0), 1.0)
+    with self.assertRaisesRegex(
+        ValueError, 'Value .* is out of range'
+    ):
+      vs.Float(min_value=1)()
 
   def test_apply(self):
     self.assertEqual(vs.Float().apply(1.), 1.)
@@ -614,6 +699,12 @@ class FloatTest(ValueSpecTest):
     # Child may extend a noneable base into non-noneable.
     self.assertFalse(vs.Float().extend(vs.Float().noneable()).is_noneable)
 
+    # A frozen child may extend a enum with its value as candidate.
+    self.assertEqual(
+        vs.Float().freeze(2.5).extend(vs.Enum(2.5, [2.5, 'a'])),
+        vs.Enum(2.5, [2.5, 'a']).freeze(),
+    )
+
     with self.assertRaisesRegex(
         TypeError, '.* cannot extend .*: incompatible type.'):
       vs.Float().extend(vs.Int())
@@ -642,6 +733,11 @@ class FloatTest(ValueSpecTest):
         'min_value .* is greater than max_value .* after extension'):
       vs.Float(min_value=1.).extend(vs.Float(max_value=0.))
 
+    # Child cannot extend a non-noneable base to noneable.
+    with self.assertRaisesRegex(
+        TypeError, '.* cannot extend .* with incompatible frozen value'):
+      vs.Float().freeze(1.0).extend(vs.Enum('a', ['a', False]))
+
   def test_freeze(self):
     self.assertFalse(vs.Float().frozen)
 
@@ -659,7 +755,7 @@ class FloatTest(ValueSpecTest):
     self.assertEqual(v.default, 1.0)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Float().extend(v)
 
     with self.assertRaisesRegex(
@@ -729,14 +825,26 @@ class EnumTest(ValueSpecTest):
     self.assertEqual(
         vs.Enum('a', ['a', 'b']).noneable(),
         vs.Enum('a', ['a', 'b', None]))
-
-  def test_str(self):
     self.assertEqual(
-        str(vs.Enum('a', ['a', 'b', 'c'])),
+        vs.Enum('a', ['a', 'b']).noneable().default,
+        'a'
+    )
+    self.assertEqual(
+        vs.Enum('a', ['a', None]).noneable(False),
+        vs.Enum('a', ['a'])
+    )
+    self.assertEqual(
+        vs.Enum(None, [None, 'a']).noneable(False),
+        vs.Enum(typed_missing.MISSING_VALUE, ['a'])
+    )
+
+  def test_repr(self):
+    self.assertEqual(
+        repr(vs.Enum('a', ['a', 'b', 'c'])),
         'Enum(default=\'a\', values=[\'a\', \'b\', \'c\'])')
 
     self.assertEqual(
-        str(vs.Enum('a', ['a', 'b', 'c']).freeze()),
+        repr(vs.Enum('a', ['a', 'b', 'c']).freeze()),
         'Enum(default=\'a\', values=[\'a\', \'b\', \'c\'], frozen=True)')
 
   def test_annotation(self):
@@ -765,6 +873,11 @@ class EnumTest(ValueSpecTest):
         ValueError, 'Enum default value \'a\' is not in candidate list.'):
       vs.Enum('a', ['b'])
 
+  def test_instantiation(self):
+    self.assertEqual(vs.Enum(1, [1, 2, 3])(), 1)
+    self.assertEqual(vs.Enum(1, [1, 2, 3])(2), 2)
+    self.assertEqual(vs.Enum(1, [1, 2, 3]).freeze(2)(3), 2)
+
   def test_apply(self):
     self.assertEqual(vs.Enum('a', ['a']).apply('a'), 'a')
     self.assertIsNone(vs.Enum('a', ['a', None]).apply(None))
@@ -781,6 +894,8 @@ class EnumTest(ValueSpecTest):
     self.assertTrue(
         vs.Enum(0, [0, 1]).is_compatible(vs.Enum(0, [0, 1])))
     self.assertTrue(vs.Enum(0, [0, 1]).is_compatible(vs.Enum(0, [0])))
+    self.assertTrue(vs.Enum(0, [0, 'a']).is_compatible(vs.Int().freeze(0)))
+    self.assertTrue(vs.Enum(0, [0, 'a']).is_compatible(vs.Str().freeze('a')))
     self.assertFalse(vs.Enum(0, [0]).is_compatible(vs.Enum(0, [0, 1])))
     self.assertFalse(vs.Enum(0, [0]).is_compatible(vs.Int()))
 
@@ -791,7 +906,7 @@ class EnumTest(ValueSpecTest):
 
     # Child cannot extend a non-noneable base to noneable.
     with self.assertRaisesRegex(
-        TypeError, '.* cannot extend .*: values in base should be super set.'):
+        TypeError, '.* cannot extend .*: \'b\' is not an acceptable value.'):
       vs.Enum('a', ['a', 'b']).extend(vs.Enum('a', ['a']))
 
   def test_freeze(self):
@@ -811,7 +926,7 @@ class EnumTest(ValueSpecTest):
     self.assertEqual(v.default, 'a')
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Enum('c', ['a', 'b', 'c']).extend(v)
 
   def test_json_conversion(self):
@@ -873,6 +988,12 @@ class ListTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.List(vs.Int()).is_noneable)
     self.assertTrue(vs.List(vs.Int()).noneable().is_noneable)
+    self.assertIsNone(vs.List(vs.Int()).noneable().default)
+    self.assertFalse(
+        vs.List(vs.Int()).noneable(use_none_as_default=False).has_default
+    )
+    self.assertFalse(vs.List(vs.Int()).noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.List(vs.Int()).noneable().noneable(False).has_default)
 
   def test_str(self):
     self.assertEqual(
@@ -939,15 +1060,21 @@ class ListTest(ValueSpecTest):
         'Either "size" or "min_size"/"max_size" pair can be specified.'):
       vs.List(vs.Int(), size=5, min_size=1)
 
+  def test_instantiation(self):
+    self.assertEqual(vs.List(vs.Int())([1]), [1])
+    self.assertEqual(vs.List(vs.Int())(), [])
+    self.assertIsNone(vs.List(vs.Int()).noneable()())
+    self.assertEqual(vs.List(vs.Int()).freeze([0])([]), [0])
+
   def test_apply(self):
     self.assertEqual(vs.List(vs.Int()).apply([]), [])
     self.assertEqual(vs.List(vs.Int()).apply([1]), [1])
     self.assertEqual(vs.List(vs.Int().noneable()).apply([1, None]), [1, None])
     # Automatic conversion: str -> KeyPath is a registered conversion.
     # See 'type_conversion.py'.
-    l = vs.List(vs.Object(object_utils.KeyPath)).apply(['a.b.c'])
-    self.assertIsInstance(l[0], object_utils.KeyPath)
-    self.assertEqual(l, [object_utils.KeyPath.parse('a.b.c')])
+    l = vs.List(vs.Object(utils.KeyPath)).apply(['a.b.c'])
+    self.assertIsInstance(l[0], utils.KeyPath)
+    self.assertEqual(l, [utils.KeyPath.parse('a.b.c')])
     self.assertEqual(
         vs.List(vs.Int()).apply(
             typed_missing.MISSING_VALUE, allow_partial=True),
@@ -1104,7 +1231,7 @@ class ListTest(ValueSpecTest):
     self.assertEqual(v.default, [1])
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.List(vs.Int()).extend(v)
 
     with self.assertRaisesRegex(
@@ -1175,6 +1302,12 @@ class TupleTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Tuple([vs.Int()]).is_noneable)
     self.assertTrue(vs.Tuple([vs.Int()]).noneable().is_noneable)
+    self.assertFalse(
+        vs.Tuple([vs.Int()]).noneable().noneable(False).is_noneable
+    )
+    self.assertFalse(
+        vs.Tuple([vs.Int()]).noneable().noneable(False).has_default
+    )
 
   def test_fixed_length(self):
     self.assertFalse(vs.Tuple(vs.Int()).fixed_length)
@@ -1297,6 +1430,12 @@ class TupleTest(ValueSpecTest):
         TypeError, 'Expect <(type|class) \'tuple\'> but encountered '
         '<(type|class) \'int\'>.'):
       vs.Tuple([vs.Int()], default=1)
+
+  def test_instantiation(self):
+    self.assertEqual(vs.Tuple(vs.Int())([1]), (1,))
+    self.assertEqual(vs.Tuple(vs.Int())(), ())
+    self.assertIsNone(vs.Tuple(vs.Int()).noneable()())
+    self.assertEqual(vs.Tuple(vs.Int()).freeze((0,))((1, 2)), (0,))
 
   def test_apply(self):
     self.assertEqual(vs.Tuple(vs.Int()).apply(tuple()), tuple())
@@ -1530,7 +1669,7 @@ class TupleTest(ValueSpecTest):
     self.assertEqual(v.default, (1,))
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Tuple(vs.Int()).extend(v)
 
     with self.assertRaisesRegex(
@@ -1573,6 +1712,9 @@ class DictTest(ValueSpecTest):
         ('y', vs.Str(), 'field y.'),
         ('z', vs.Int(min_value=0, max_value=None), 'field z.', dict(foo=1))
     ]))
+
+    self.assertEqual(vs.Dict(vs.Int()), vs.Dict([(ks.StrKey(), vs.Int())]))
+    self.assertEqual(vs.Dict(int), vs.Dict([(ks.StrKey(), vs.Int())]))
 
     with self.assertRaisesRegex(
         TypeError,
@@ -1648,6 +1790,12 @@ class DictTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Dict().is_noneable)
     self.assertTrue(vs.Dict().noneable().is_noneable)
+    self.assertFalse(vs.Dict().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Dict().noneable().noneable(False).has_default)
+    self.assertEqual(
+        vs.Dict({'x': vs.Int(default=1)}).noneable().noneable(False).default,
+        {'x': 1}
+    )
 
   def test_repr(self):
     self.assertEqual(repr(vs.Dict()), 'Dict()')
@@ -1657,7 +1805,12 @@ class DictTest(ValueSpecTest):
                 ('b', 1, 'field 1'),
                 ('a', vs.Str(), 'field 2'),
             ]).noneable()),
-        'Dict({b=Int(default=1), a=Str()}, noneable=True)')
+        (
+            'Dict(fields=[Field(key=b, value=Int(default=1), '
+            'description=\'field 1\'), Field(key=a, value=Str(), '
+            'description=\'field 2\')], noneable=True)'
+        )
+    )
 
     self.assertEqual(
         repr(
@@ -1665,7 +1818,42 @@ class DictTest(ValueSpecTest):
                 ('b', 1, 'field 1'),
                 ('a', vs.Str('abc'), 'field 2'),
             ]).freeze()),
-        'Dict({b=Int(default=1), a=Str(default=\'abc\')}, frozen=True)')
+        (
+            'Dict(fields=[Field(key=b, value=Int(default=1), '
+            'description=\'field 1\'), Field(key=a, '
+            'value=Str(default=\'abc\'), description=\'field 2\')], '
+            'frozen=True)'
+        )
+    )
+
+  def test_str(self):
+    self.assertEqual(str(vs.Dict()), 'Dict()')
+    self.assertEqual(
+        str(
+            vs.Dict([
+                ('b', 1, 'field 1'),
+                ('a', vs.Str(), 'field 2'),
+            ]).noneable()),
+        inspect.cleandoc('''
+        Dict(
+          fields=[
+            Field(
+              key=b,
+              value=Int(
+                default=1
+              ),
+              description='field 1'
+            ),
+            Field(
+              key=a,
+              value=Str(),
+              description='field 2'
+            )
+          ],
+          noneable=True
+        )
+        ''')
+    )
 
   def test_annotation(self):
     self.assertEqual(vs.Dict().annotation, typing.Dict[str, typing.Any])
@@ -1696,11 +1884,6 @@ class DictTest(ValueSpecTest):
         vs.Dict([('a', vs.Int())]))
 
     with self.assertRaisesRegex(
-        TypeError,
-        'Schema definition should be a dict .* a list .*'):
-      vs.Dict(int)
-
-    with self.assertRaisesRegex(
         TypeError, 'The 1st element of field definition should be of '
         '<(type|class) \'str\'>'):
       vs.Dict([(1, 1, 'field 1')])
@@ -1714,6 +1897,12 @@ class DictTest(ValueSpecTest):
         TypeError, 'Metadata \\(the 4th element\\) of field definition '
         'should be a dict of objects.'):
       vs.Dict([('key', 1, 'field 1', 123)])
+
+  def test_instantiation(self):
+    self.assertEqual(vs.Dict()(), {})
+    self.assertEqual(vs.Dict()({'x': 1, 2: 2}), {'x': 1, 2: 2})
+    self.assertEqual(vs.Dict()(x=1), dict(x=1))
+    self.assertEqual(vs.Dict({'a': int, 'b': 1})(a=1), dict(a=1, b=1))
 
   def test_apply(self):
     self.assertEqual(vs.Dict().apply({'a': 1}), {'a': 1})
@@ -1902,7 +2091,7 @@ class DictTest(ValueSpecTest):
     x = vs.Dict([
         ('a', int, 'field 1', dict(x=1)),
     ]).freeze(dict(a=1))
-    y = object_utils.from_json(x.to_json())
+    y = utils.from_json(x.to_json())
     self.assert_json_conversion(
         vs.Dict([
             ('a', int, 'field 1', dict(x=1)),
@@ -1945,7 +2134,7 @@ class ObjectTest(ValueSpecTest):
     class C(A):
       pass
 
-    class D(C, object_utils.MaybePartial):
+    class D(C, utils.MaybePartial):
 
       def missing_values(self):
         return {'SOME_KEY': 'SOME_VALUE'}
@@ -2001,6 +2190,8 @@ class ObjectTest(ValueSpecTest):
   def test_forward_refs(self):
     self.assertEqual(vs.Object(self.A).forward_refs, set())
     self.assertEqual(vs.Object('Foo').forward_refs, set([forward_ref('Foo')]))
+    self.assertEqual(
+        vs.Object(forward_ref('Foo')).forward_refs, set([forward_ref('Foo')]))
 
   def test_default(self):
     self.assertEqual(vs.Object(self.A).default, typed_missing.MISSING_VALUE)
@@ -2011,15 +2202,17 @@ class ObjectTest(ValueSpecTest):
     self.assertFalse(vs.Object(self.A).is_noneable)
     self.assertTrue(vs.Object(self.A).noneable().is_noneable)
     self.assertTrue(vs.Object('Foo').noneable().is_noneable)
+    self.assertFalse(vs.Object(self.A).noneable(False).is_noneable)
+    self.assertFalse(vs.Object(self.A).noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Object(self.A)), 'Object(A)')
-    self.assertEqual(str(vs.Object('Foo')), 'Object(Foo)')
+  def test_repr(self):
+    self.assertEqual(repr(vs.Object(self.A)), 'Object(A)')
+    self.assertEqual(repr(vs.Object('Foo')), 'Object(Foo)')
     self.assertEqual(
-        str(vs.Object(self.A).noneable()),
+        repr(vs.Object(self.A).noneable()),
         'Object(A, default=None, noneable=True)')
     self.assertEqual(
-        str(vs.Object(self.A).noneable().freeze()),
+        repr(vs.Object(self.A).noneable().freeze()),
         'Object(A, default=None, noneable=True, frozen=True)')
 
   def test_annotation(self):
@@ -2064,6 +2257,10 @@ class ObjectTest(ValueSpecTest):
     with self.assertRaisesRegex(
         TypeError, '<(type|class) \'object\'> is too general for Object spec.'):
       vs.Object(object)
+
+  def test_instantiation(self):
+    self.assertIsInstance(vs.Object(self.A)(), self.A)
+    self.assertIsInstance(vs.Object(self.B)(1), self.B)
 
   def test_apply(self):
     a = self.A()
@@ -2187,7 +2384,7 @@ class ObjectTest(ValueSpecTest):
     self.assertIs(v.default, b)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Object(self.A).extend(v)
 
     with self.assertRaisesRegex(
@@ -2228,7 +2425,7 @@ class CallableTest(ValueSpecTest):
 
   def test_value_type(self):
     self.assertIsNone(vs.Callable().value_type)
-    self.assertEqual(vs.Functor().annotation, object_utils.Functor)
+    self.assertEqual(vs.Functor().annotation, utils.Functor)
 
   def test_forward_refs(self):
     self.assertEqual(vs.Callable().forward_refs, set())
@@ -2267,11 +2464,13 @@ class CallableTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Callable().is_noneable)
     self.assertTrue(vs.Callable().noneable().is_noneable)
+    self.assertFalse(vs.Callable().noneable().noneable(False).is_noneable)
+    self.assertFalse(vs.Callable().noneable().noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Callable()), 'Callable()')
+  def test_repr(self):
+    self.assertEqual(repr(vs.Callable()), 'Callable()')
     self.assertEqual(
-        str(
+        repr(
             vs.Callable(
                 args=[vs.Int(), vs.Int()],
                 kw=[('a', vs.Str().noneable())],
@@ -2279,7 +2478,7 @@ class CallableTest(ValueSpecTest):
         'Callable(args=[Int(), Int()], kw=[(\'a\', '
         'Str(default=None, noneable=True))], returns=Int())')
     self.assertEqual(
-        str(
+        repr(
             vs.Callable(
                 args=[vs.Int(), vs.Int()],
                 kw=[('a', vs.Str().noneable())],
@@ -2384,6 +2583,10 @@ class CallableTest(ValueSpecTest):
         TypeError, '.* only take 0 positional arguments, while 1 is required'):
       vs.Callable([vs.Int()]).apply(f)
 
+  def test_instantiation(self):
+    with self.assertRaisesRegex(TypeError, '.* cannot be instantiated'):
+      vs.Callable()()
+
   def test_apply_on_callable_object(self):
 
     class CallableObject:
@@ -2430,15 +2633,15 @@ class CallableTest(ValueSpecTest):
 
   def test_apply_on_functor(self):
 
-    class FunctorWithRegularArgs(object_utils.Functor):
+    class FunctorWithRegularArgs(utils.Functor):
 
-      __signature__ = callable_signature.Signature(
+      __signature__ = Signature(
           callable_type=callable_signature.CallableType.FUNCTION,
           name='foo',
           module_name='__main__',
           args=[
-              callable_signature.Argument('a', vs.Int()),
-              callable_signature.Argument('b', vs.Str())
+              Argument('a', Argument.Kind.POSITIONAL_OR_KEYWORD, vs.Int()),
+              Argument('b', Argument.Kind.POSITIONAL_OR_KEYWORD, vs.Str()),
           ])
 
       def __init__(self, value):
@@ -2476,18 +2679,28 @@ class CallableTest(ValueSpecTest):
 
   def test_apply_on_functor_with_varargs(self):
 
-    class FunctorWithVarArgs(object_utils.Functor):
+    class FunctorWithVarArgs(utils.Functor):
 
-      __signature__ = callable_signature.Signature(
+      __signature__ = Signature(
           callable_type=callable_signature.CallableType.FUNCTION,
           name='foo',
           module_name='__main__',
           args=[
-              callable_signature.Argument('a', vs.Int()),
-              callable_signature.Argument('b', vs.Str())
+              Argument(
+                  'a', Argument.Kind.POSITIONAL_OR_KEYWORD, vs.Int()
+              ),
+              Argument(
+                  'b', Argument.Kind.POSITIONAL_OR_KEYWORD, vs.Str()
+              )
           ],
-          varargs=callable_signature.Argument('args', vs.Int()),
-          varkw=callable_signature.Argument('kwargs', vs.Int()),
+          varargs=Argument(
+              'args', Argument.Kind.VAR_POSITIONAL, vs.List(vs.Int())
+          ),
+          varkw=Argument(
+              'kwargs',
+              Argument.Kind.VAR_KEYWORD,
+              vs.Dict([(ks.StrKey(), vs.Int())])
+          ),
           return_value=vs.Object(ValueError))
 
       def __init__(self, value):
@@ -2599,7 +2812,7 @@ class CallableTest(ValueSpecTest):
     self.assertIs(v.default, f)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Callable().extend(v)
 
     with self.assertRaisesRegex(
@@ -2617,7 +2830,7 @@ class CallableTest(ValueSpecTest):
         )
     )
     x = vs.Callable([vs.Int()], default=lambda x: x + 1).noneable()
-    y = object_utils.from_json(x.to_json())
+    y = utils.from_json(x.to_json())
     self.assert_json_conversion(
         vs.Callable([vs.Int()], default=lambda x: x + 1).noneable()
     )
@@ -2698,15 +2911,19 @@ class TypeTest(ValueSpecTest):
   def test_noneable(self):
     self.assertFalse(vs.Type(Exception).is_noneable)
     self.assertTrue(vs.Type(Exception).noneable().is_noneable)
+    self.assertFalse(vs.Type(Exception).noneable(False).is_noneable)
+    self.assertFalse(vs.Type(Exception).noneable(False).has_default)
 
-  def test_str(self):
-    self.assertEqual(str(vs.Type(Exception)), 'Type(<class \'Exception\'>)')
+  def test_repr(self):
+    self.assertEqual(repr(vs.Type(Exception)), 'Type(<class \'Exception\'>)')
     self.assertEqual(
-        str(vs.Type(Exception).noneable()),
-        'Type(<class \'Exception\'>, default=None, noneable=True)')
+        repr(vs.Type(Exception).noneable()),
+        'Type(<class \'Exception\'>, default=None, noneable=True)'
+    )
     self.assertEqual(
-        str(vs.Type(Exception).noneable().freeze()),
-        'Type(<class \'Exception\'>, default=None, noneable=True, frozen=True)')
+        repr(vs.Type(Exception).noneable().freeze()),
+        'Type(<class \'Exception\'>, default=None, noneable=True, frozen=True)'
+    )
 
   def test_annotation(self):
     self.assertEqual(vs.Type(Exception).annotation, typing.Type[Exception])
@@ -2741,6 +2958,9 @@ class TypeTest(ValueSpecTest):
         vs.Type(Exception).noneable())
     self.assertNotEqual(
         vs.Type(Exception), vs.Type(Exception, default=ValueError))
+
+  def test_instantiate(self):
+    self.assertIs(vs.Type[str](), str)
 
   def test_apply(self):
     self.assertEqual(vs.Type(Exception).apply(Exception), Exception)
@@ -2849,7 +3069,7 @@ class TypeTest(ValueSpecTest):
     self.assertIs(v.default, e)
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Type(Exception).extend(v)
 
     with self.assertRaisesRegex(
@@ -2955,6 +3175,41 @@ class UnionTest(ValueSpecTest):
     )
     self.assertTrue(
         vs.Union([vs.Int().noneable(), vs.Bool()]).is_noneable)
+    self.assertFalse(
+        vs.Union([vs.Int().noneable(), vs.Bool()]).has_default)
+    self.assertTrue(
+        vs.Union([vs.Int().noneable(), vs.Bool()]).candidates[0].has_default
+    )
+    self.assertIsNone(
+        vs.Union(
+            [vs.Int(), vs.Bool()]
+        ).noneable().default
+    )
+    self.assertFalse(
+        vs.Union(
+            [vs.Int(), vs.Bool()]
+        ).noneable(use_none_as_default=False).has_default
+    )
+    self.assertTrue(
+        vs.Union(
+            [vs.Int(), vs.Bool()]
+        ).noneable().candidates[0].is_noneable
+    )
+    self.assertFalse(
+        vs.Union(
+            [vs.Int(), vs.Bool()]
+        ).noneable().candidates[0].has_default
+    )
+    self.assertFalse(
+        vs.Union(
+            [vs.Int().noneable(), vs.Bool()]
+        ).noneable(False).candidates[0].is_noneable
+    )
+    self.assertFalse(
+        vs.Union(
+            [vs.Int().noneable(), vs.Bool()]
+        ).noneable(False).candidates[0].has_default
+    )
 
   def test_str(self):
     self.assertEqual(
@@ -2964,8 +3219,8 @@ class UnionTest(ValueSpecTest):
         'Union([Int(), Bool()], default=1, frozen=True)')
     self.assertEqual(
         repr(vs.Union([vs.Int(), vs.Bool()], default=1).noneable()),
-        'Union([Int(default=None, noneable=True), '
-        'Bool(default=None, noneable=True)], default=1, noneable=True)')
+        'Union([Int(noneable=True), '
+        'Bool(noneable=True)], default=1, noneable=True)')
 
   def test_annotation(self):
     self.assertEqual(
@@ -3056,6 +3311,12 @@ class UnionTest(ValueSpecTest):
         vs.Union([vs.Callable(), vs.Int()]).get_candidate(vs.Any()),
         vs.Callable())
 
+  def test_instantiate(self):
+    with self.assertRaisesRegex(
+        TypeError, '.* cannot be instantiated'
+    ):
+      vs.Union[int, str]()
+
   def test_apply(self):
     self.assertEqual(vs.Union([vs.Int(), vs.Str()]).apply(1), 1)
     self.assertEqual(
@@ -3085,6 +3346,15 @@ class UnionTest(ValueSpecTest):
       with self.assertRaisesRegex(TypeError, 'Expect .* but encountered .*'):
         _ = v.apply('foo')
 
+    # Union with strong-type and non-strong-type candidates.
+    self.assertEqual(
+        vs.Union([typing.Callable[[int], int], str]).apply('foo'), 'foo'
+    )
+    # Union with type conversion.
+    self.assertIsInstance(
+        vs.Union([int, str]).apply(datetime.datetime.now()), int
+    )
+
     # Bad cases.
     with self.assertRaisesRegex(ValueError, 'Value cannot be None'):
       vs.Union([vs.Int(), vs.Str()]).apply(None)
@@ -3092,6 +3362,11 @@ class UnionTest(ValueSpecTest):
     with self.assertRaisesRegex(
         TypeError, 'Expect \\(.*\\) but encountered <(type|class) \'list\'>.'):
       vs.Union([vs.Int(), vs.Str()]).apply([])
+
+    with self.assertRaisesRegex(
+        TypeError, '1 does not match any candidate of .*'
+    ):
+      vs.Union([typing.Callable[[int], int], str]).apply(1)
 
   def test_is_compatible(self):
     self.assertTrue(
@@ -3160,7 +3435,7 @@ class UnionTest(ValueSpecTest):
 
     # Test enum of different values cannot be extended.
     with self.assertRaisesRegex(
-        TypeError, '.* cannot extend .*: values in base should be super set.'):
+        TypeError, '.* cannot extend .*: 1 is not an acceptable value'):
       vs.Union([vs.Enum(1, [1, 2]), vs.Int()]).extend(
           vs.Union([vs.Enum('a', ['a', 'b']), vs.Int()]))
 
@@ -3192,7 +3467,7 @@ class UnionTest(ValueSpecTest):
     self.assertEqual(v.default, 'foo')
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec.'):
       vs.Str().extend(v)
 
     with self.assertRaisesRegex(
@@ -3248,11 +3523,23 @@ class AnyTest(ValueSpecTest):
 
   def test_noneable(self):
     self.assertTrue(vs.Any().is_noneable)
+    self.assertFalse(vs.Any().has_default)
+    self.assertTrue(vs.Any().noneable().is_noneable)
+    self.assertTrue(vs.Any().noneable().has_default)
+    self.assertFalse(vs.Any().noneable(False).is_noneable)
+    self.assertFalse(vs.Any().noneable().noneable(False).has_default)
+
+  def test_repr(self):
+    self.assertEqual(repr(vs.Any()), 'Any()')
+    self.assertEqual(repr(vs.Any(1)), 'Any(default=1)')
+    self.assertEqual(repr(vs.Any(1).freeze()), 'Any(default=1, frozen=True)')
 
   def test_str(self):
     self.assertEqual(str(vs.Any()), 'Any()')
-    self.assertEqual(str(vs.Any(1)), 'Any(default=1)')
-    self.assertEqual(str(vs.Any(1).freeze()), 'Any(default=1, frozen=True)')
+    self.assertEqual(str(vs.Any(1)), 'Any(\n  default=1\n)')
+    self.assertEqual(
+        str(vs.Any(1).freeze()), 'Any(\n  default=1,\n  frozen=True\n)'
+    )
 
   def test_annotation(self):
     self.assertEqual(vs.Any().annotation, typed_missing.MISSING_VALUE)
@@ -3266,6 +3553,10 @@ class AnyTest(ValueSpecTest):
     self.assertEqual(vs.Any(True), vs.Any(True))
     self.assertNotEqual(vs.Any(), vs.Int())
     self.assertNotEqual(vs.Any(True), vs.Any())
+
+  def test_instantiate(self):
+    with self.assertRaisesRegex(TypeError, '.* cannot be instantiated'):
+      vs.Any()()
 
   def test_apply(self):
     self.assertEqual(vs.Any().apply(True), True)
@@ -3316,7 +3607,7 @@ class AnyTest(ValueSpecTest):
     self.assertEqual(v.default, 'foo')
 
     with self.assertRaisesRegex(
-        TypeError, 'Cannot extend a frozen value spec.'):
+        TypeError, '.* cannot extend a frozen value spec'):
       vs.Any().extend(v)
 
     with self.assertRaisesRegex(
@@ -3385,6 +3676,45 @@ def simulate_forward_declaration(*module_level_symbols):
 
 def forward_ref(name):
   return class_schema.ForwardRef(sys.modules[__name__], name)
+
+
+class EnsureValueSpecTest(unittest.TestCase):
+  """Tests for `ensure_value_spec`."""
+
+  def test_basics(self):
+    self.assertEqual(
+        vs.ensure_value_spec(
+            vs.Int(min_value=1), vs.Int()),
+        vs.Int(min_value=1)
+    )
+
+    self.assertEqual(
+        vs.ensure_value_spec(
+            vs.Int(min_value=1), vs.Number(int)
+        ),
+        vs.Int(min_value=1)
+    )
+
+    with self.assertRaisesRegex(
+        TypeError, 'Source spec .* is not compatible with destination spec'):
+      vs.ensure_value_spec(vs.Int(min_value=1), vs.Bool())
+
+  def test_union(self):
+    self.assertEqual(
+        vs.ensure_value_spec(
+            vs.Union([vs.Int(), vs.Str(regex='a.*')]),
+            vs.Str()), vs.Str(regex='a.*')
+    )
+
+    with self.assertRaisesRegex(
+        TypeError, 'Source spec .* is not compatible with destination spec'):
+      vs.ensure_value_spec(
+          vs.Union([vs.Int(), vs.Str()]),
+          vs.Bool()
+      )
+
+  def test_any(self):
+    self.assertIsNone(vs.ensure_value_spec(vs.Any(), vs.Int()))
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 0.3.0
+Version: 1.0.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -32,18 +32,18 @@ Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk[sql]>=0.2.11; extra == 'a2a'
-Requires-Dist: fastapi>=0.115.12; extra == 'a2a'
-Requires-Dist: httpx>=0.28.1; extra == 'a2a'
-Requires-Dist: starlette>=0.46.2; extra == 'a2a'
-Requires-Dist: uvicorn>=0.34.2; extra == 'a2a'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'a2a'
+Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'a2a'
+Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'a2a'
+Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'a2a'
+Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
-Requires-Dist: a2a-sdk[sql]>=0.2.11; extra == 'all'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
-Requires-Dist: fastapi>=0.115.12; extra == 'all'
+Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
 Requires-Dist: hatch<2.0.0,>=1.0.0; extra == 'all'
-Requires-Dist: httpx>=0.28.1; extra == 'all'
+Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
 Requires-Dist: litellm<1.73.0,>=1.72.6; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: mistralai>=1.8.2; extra == 'all'
@@ -61,8 +61,8 @@ Requires-Dist: ruff<0.5.0,>=0.4.4; extra == 'all'
 Requires-Dist: sphinx-autodoc-typehints<2.0.0,>=1.12.0; extra == 'all'
 Requires-Dist: sphinx-rtd-theme<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<6.0.0,>=5.0.0; extra == 'all'
-Requires-Dist: starlette>=0.46.2; extra == 'all'
-Requires-Dist: uvicorn>=0.34.2; extra == 'all'
+Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'all'
+Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'anthropic'
 Provides-Extra: dev
@@ -153,7 +153,7 @@ agent = Agent(tools=[calculator])
 agent("What is the square root of 1764")
 ```
 
-> **Note**: For the default Amazon Bedrock model provider, you'll need AWS credentials configured and model access enabled for Claude 3.7 Sonnet in the us-west-2 region. See the [Quickstart Guide](https://strandsagents.com/) for details on configuring other model providers.
+> **Note**: For the default Amazon Bedrock model provider, you'll need AWS credentials configured and model access enabled for Claude 4 Sonnet in the us-west-2 region. See the [Quickstart Guide](https://strandsagents.com/) for details on configuring other model providers.
 
 ## Installation
 
@@ -293,8 +293,3 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
-## ⚠️ Preview Status
-
-Strands Agents is currently in public preview. During this period:
-- APIs may change as we refine the SDK
-- We welcome feedback and contributions

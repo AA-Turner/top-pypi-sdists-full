@@ -210,6 +210,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         # Test valid versions
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.2.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.2"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.6"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0"))
@@ -364,7 +365,9 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client.security_group = "sg-12345678"
         self.remote_client.subnets = ["subnet-12345678"]
 
-        ecr_uri = "123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-embargoed-prod:3.0.0-reinvent2024-cpu"
+        ecr_uri = (
+            "123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:3.0.0-cpu"
+        )
         input = {"path": "s3://my-bucket/my-project/workflows/project-files", "file": "test.ipynb"}
         output = {"path": "s3://my-bucket/my-project/workflows/output", "file": "_test.ipynb"}
 
@@ -392,7 +395,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
                 "instance_type": "ml.m5.large",
                 "volume_size_in_gb": 50,
                 "image_details": {
-                    "image_name": "sagemaker-distribution-embargoed-prod",
+                    "image_name": "sagemaker-distribution-prod",
                     "image_version": "3.0.0",
                 },
             },
@@ -502,7 +505,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         call_args = mock_sagemaker_client.create_training_job.call_args[1]
 
         self.assertEqual(call_args["TrainingJobName"], "test-job-1234-5678-9012-3456")
-        default_ecr_uri = f"123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-embargoed-loadtest:{DEFAULT_IMAGE_VERSION}-reinvent2024-cpu"
+        default_ecr_uri = f"123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-loadtest:{DEFAULT_IMAGE_VERSION}-cpu"
         self.assertEqual(call_args["AlgorithmSpecification"]["TrainingImage"], default_ecr_uri)
         self.assertEqual(call_args["RoleArn"], self.remote_client.user_role_arn)
         self.assertEqual(call_args["OutputDataConfig"]["S3OutputPath"], output["path"])

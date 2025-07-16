@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 0.48.2
+Version: 0.50.0
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -30,7 +30,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Runloop Python API library
@@ -114,7 +114,6 @@ pip install runloop_api_client[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
-import os
 import asyncio
 from runloop_api_client import DefaultAioHttpClient
 from runloop_api_client import AsyncRunloop
@@ -122,7 +121,7 @@ from runloop_api_client import AsyncRunloop
 
 async def main() -> None:
     async with AsyncRunloop(
-        bearer_token=os.environ.get("RUNLOOP_API_KEY"),  # This is the default and can be omitted
+        bearer_token="My Bearer Token",
         http_client=DefaultAioHttpClient(),
     ) as client:
         devbox_view = await client.devboxes.create()

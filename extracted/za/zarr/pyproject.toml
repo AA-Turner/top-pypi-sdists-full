@@ -7,7 +7,6 @@ exclude = [
   "/.github",
   "/bench",
   "/docs",
-  "/notebooks"
 ]
 
 [project]
@@ -34,7 +33,7 @@ requires-python = ">=3.11"
 # If you add a new dependency here, please also add it to .pre-commit-config.yml
 dependencies = [
     'packaging>=22.0',
-    'numpy>=1.25',
+    'numpy>=1.26',
     'numcodecs[crc32c]>=0.14',
     'typing_extensions>=4.9',
     'donfig>=0.8',
@@ -81,6 +80,9 @@ test = [
     "mypy",
     "hypothesis",
     "pytest-xdist",
+    "packaging",
+    "tomlkit",
+    "uv"
 ]
 remote_tests = [
     'zarr[remote]',
@@ -107,7 +109,8 @@ docs = [
     'numcodecs[msgpack]',
     'rich',
     's3fs>=2023.10.0',
-    'astroid<4'
+    'astroid<4',
+    'pytest'
 ]
 
 
@@ -151,7 +154,7 @@ features = ["test"]
 
 [[tool.hatch.envs.test.matrix]]
 python = ["3.11", "3.12", "3.13"]
-numpy = ["1.25", "2.2"]
+numpy = ["1.26", "2.2"]
 deps = ["minimal", "optional"]
 
 [tool.hatch.envs.test.overrides]
@@ -187,7 +190,7 @@ features = ["test", "gpu"]
 
 [[tool.hatch.envs.gputest.matrix]]
 python = ["3.11", "3.12", "3.13"]
-numpy = ["1.25", "2.2"]
+numpy = ["1.26", "2.2"]
 version = ["minimal"]
 
 [tool.hatch.envs.gputest.scripts]
@@ -243,7 +246,7 @@ python = "3.11"
 dependencies = [
     'zarr[remote]',
     'packaging==22.*',
-    'numpy==1.25.*',
+    'numpy==1.26.*',
     'numcodecs==0.14.*',  # 0.14 needed for zarr3 codecs
     'fsspec==2023.10.0',
     's3fs==2023.10.0',
@@ -282,9 +285,9 @@ extend-exclude = [
     "buck-out",
     "build",
     "dist",
-    "notebooks", # temporary, until we achieve compatibility with ruff ≥ 0.6
     "venv",
     "docs",
+    "tests/test_regression/scripts/", # these are scripts that use a different version of python
     "src/zarr/v2/",
     "tests/v2/",
 ]
@@ -321,6 +324,8 @@ ignore = [
     "ANN401",
     "PT011",  # TODO: apply this rule
     "PT012",  # TODO: apply this rule
+    "PT030",  # TODO: apply this rule
+    "PT031",  # TODO: apply this rule
     "RET505",
     "RET506",
     "RUF005",
@@ -355,7 +360,6 @@ strict = true
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
-
 [[tool.mypy.overrides]]
 module = [
     "tests.package_with_entrypoint.*",
@@ -384,7 +388,7 @@ module = [
     "tests.test_indexing",
     "tests.test_properties",
     "tests.test_sync",
-    "tests.test_v2",
+    "tests.test_regression.scripts.*"
 ]
 ignore_errors = true
 

@@ -25,7 +25,7 @@ async def edit_channel(models, token: Optional[str] = None):
     token = token or os.environ.get("CHATFIRE_ONEAPI_TOKEN")
 
     models = ','.join(filter(lambda model: model.startswith(("api", "official-api", "ppu", "kling-v")), models))
-    models += ",suno-v3"
+    models += ",suno-v3,indextts-1.5,cosyvoice2,step-audio-tts-3b"
 
     payload = {
         "id": 289,
@@ -91,12 +91,22 @@ async def exist_channel(
         'rix-api-user': '1',
     }
     async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=100) as client:
-        response = await client.get("/api/channel/", params={"channel_id": request.id})
+        if "api.chatfire.cn" in base_url:
+            path = "/api/channel/"
+            params = {"channel_id": request.id}
+        else:
+            path = "/api/channel/search"
+            params = {"keyword": request.id}
+        response = await client.get(path, params=params)
         response.raise_for_status()
-        logger.debug(response.json())
+
+        # logger.debug(bjson(response.json()))
 
         if items := response.json()['data']['items']:
-            return items[0]
+            _ = [item for item in items if item['id'] == request.id]
+            logger.debug(_)
+
+            return _
         else:
             return False
 
@@ -231,15 +241,16 @@ if __name__ == '__main__':
     #
     base_url = "https://api.ffire.cc"
     # base_url = "https://usa.chatfire.cn"
-    #
+    base_url = "https://api.chatfire.cn"
+
     # tokens = arun(get_series(FEISHU_URL))  # [:5]
     # arun(create_or_update_channel(tokens, base_url))
     # arun(create_or_update_channel(tokens))
     # # arun(delete_channel(range(10000, 20000)))
     key = "KEY"
     request = ChannelInfo(name='', key=key)
-    request = ChannelInfo(id=20025, key=key, used_quota=0.001)
+    request = ChannelInfo(id=10029, key=key, used_quota=0.001)
 
-    arun(create_or_update_channel(request))
+    # arun(create_or_update_channel(request))
 
-    # arun(exist_channel(request))
+    arun(exist_channel(request, base_url=base_url))

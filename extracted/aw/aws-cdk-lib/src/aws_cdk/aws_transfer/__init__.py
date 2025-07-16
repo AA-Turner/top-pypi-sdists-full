@@ -1282,6 +1282,7 @@ class CfnConnector(
             logging_role="loggingRole",
             security_policy_name="securityPolicyName",
             sftp_config=transfer.CfnConnector.SftpConfigProperty(
+                max_concurrent_connections=123,
                 trusted_host_keys=["trustedHostKeys"],
                 user_secret_id="userSecretId"
             ),
@@ -1736,6 +1737,7 @@ class CfnConnector(
         jsii_type="aws-cdk-lib.aws_transfer.CfnConnector.SftpConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "max_concurrent_connections": "maxConcurrentConnections",
             "trusted_host_keys": "trustedHostKeys",
             "user_secret_id": "userSecretId",
         },
@@ -1744,11 +1746,13 @@ class CfnConnector(
         def __init__(
             self,
             *,
+            max_concurrent_connections: typing.Optional[jsii.Number] = None,
             trusted_host_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
             user_secret_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A structure that contains the parameters for an SFTP connector object.
 
+            :param max_concurrent_connections: Specifies the number of active connections that your connector can establish with the remote server at the same time. Default: - 1
             :param trusted_host_keys: The public portion of the host key, or keys, that are used to identify the external server to which you are connecting. You can use the ``ssh-keyscan`` command against the SFTP server to retrieve the necessary key. .. epigraph:: ``TrustedHostKeys`` is optional for ``CreateConnector`` . If not provided, you can use ``TestConnection`` to retrieve the server host key during the initial connection attempt, and subsequently update the connector with the observed host key. The three standard SSH public key format elements are ``<key type>`` , ``<body base64>`` , and an optional ``<comment>`` , with spaces between each element. Specify only the ``<key type>`` and ``<body base64>`` : do not enter the ``<comment>`` portion of the key. For the trusted host key, AWS Transfer Family accepts RSA and ECDSA keys. - For RSA keys, the ``<key type>`` string is ``ssh-rsa`` . - For ECDSA keys, the ``<key type>`` string is either ``ecdsa-sha2-nistp256`` , ``ecdsa-sha2-nistp384`` , or ``ecdsa-sha2-nistp521`` , depending on the size of the key you generated. Run this command to retrieve the SFTP server host key, where your SFTP server name is ``ftp.host.com`` . ``ssh-keyscan ftp.host.com`` This prints the public host key to standard output. ``ftp.host.com ssh-rsa AAAAB3Nza...<long-string-for-public-key`` Copy and paste this string into the ``TrustedHostKeys`` field for the ``create-connector`` command or into the *Trusted host keys* field in the console.
             :param user_secret_id: The identifier for the secret (in AWS Secrets Manager) that contains the SFTP user's private key, password, or both. The identifier must be the Amazon Resource Name (ARN) of the secret. .. epigraph:: - Required when creating an SFTP connector - Optional when updating an existing SFTP connector
 
@@ -1762,19 +1766,34 @@ class CfnConnector(
                 from aws_cdk import aws_transfer as transfer
                 
                 sftp_config_property = transfer.CfnConnector.SftpConfigProperty(
+                    max_concurrent_connections=123,
                     trusted_host_keys=["trustedHostKeys"],
                     user_secret_id="userSecretId"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f4f8d4be2ad63a06a458c41605c9c21318e1d9117d48f21b9ee2ea6bb109d2e8)
+                check_type(argname="argument max_concurrent_connections", value=max_concurrent_connections, expected_type=type_hints["max_concurrent_connections"])
                 check_type(argname="argument trusted_host_keys", value=trusted_host_keys, expected_type=type_hints["trusted_host_keys"])
                 check_type(argname="argument user_secret_id", value=user_secret_id, expected_type=type_hints["user_secret_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_concurrent_connections is not None:
+                self._values["max_concurrent_connections"] = max_concurrent_connections
             if trusted_host_keys is not None:
                 self._values["trusted_host_keys"] = trusted_host_keys
             if user_secret_id is not None:
                 self._values["user_secret_id"] = user_secret_id
+
+        @builtins.property
+        def max_concurrent_connections(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the number of active connections that your connector can establish with the remote server at the same time.
+
+            :default: - 1
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-connector-sftpconfig.html#cfn-transfer-connector-sftpconfig-maxconcurrentconnections
+            '''
+            result = self._values.get("max_concurrent_connections")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def trusted_host_keys(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1889,6 +1908,7 @@ class CfnConnectorProps:
                 logging_role="loggingRole",
                 security_policy_name="securityPolicyName",
                 sftp_config=transfer.CfnConnector.SftpConfigProperty(
+                    max_concurrent_connections=123,
                     trusted_host_keys=["trustedHostKeys"],
                     user_secret_id="userSecretId"
                 ),
@@ -2804,7 +2824,7 @@ class CfnServer(
 
             When you host your endpoint within your VPC, you can make your endpoint accessible only to resources within your VPC, or you can attach Elastic IP addresses and make your endpoint accessible to clients over the internet. Your VPC's default security groups are automatically assigned to your endpoint.
 
-            :param address_allocation_ids: A list of address allocation IDs that are required to attach an Elastic IP address to your server's endpoint. An address allocation ID corresponds to the allocation ID of an Elastic IP address. This value can be retrieved from the ``allocationId`` field from the Amazon EC2 `Address <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Address.html>`_ data type. One way to retrieve this value is by calling the EC2 `DescribeAddresses <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html>`_ API. This parameter is optional. Set this parameter if you want to make your VPC endpoint public-facing. For details, see `Create an internet-facing endpoint for your server <https://docs.aws.amazon.com/transfer/latest/userguide/create-server-in-vpc.html#create-internet-facing-endpoint>`_ . .. epigraph:: This property can only be set as follows: - ``EndpointType`` must be set to ``VPC`` - The Transfer Family server must be offline. - You cannot set this parameter for Transfer Family servers that use the FTP protocol. - The server must already have ``SubnetIds`` populated ( ``SubnetIds`` and ``AddressAllocationIds`` cannot be updated simultaneously). - ``AddressAllocationIds`` can't contain duplicates, and must be equal in length to ``SubnetIds`` . For example, if you have three subnet IDs, you must also specify three address allocation IDs. - Call the ``UpdateServer`` API to set or change this parameter.
+            :param address_allocation_ids: A list of address allocation IDs that are required to attach an Elastic IP address to your server's endpoint. An address allocation ID corresponds to the allocation ID of an Elastic IP address. This value can be retrieved from the ``allocationId`` field from the Amazon EC2 `Address <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_Address.html>`_ data type. One way to retrieve this value is by calling the EC2 `DescribeAddresses <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAddresses.html>`_ API. This parameter is optional. Set this parameter if you want to make your VPC endpoint public-facing. For details, see `Create an internet-facing endpoint for your server <https://docs.aws.amazon.com/transfer/latest/userguide/create-server-in-vpc.html#create-internet-facing-endpoint>`_ . .. epigraph:: This property can only be set as follows: - ``EndpointType`` must be set to ``VPC`` - The Transfer Family server must be offline. - You cannot set this parameter for Transfer Family servers that use the FTP protocol. - The server must already have ``SubnetIds`` populated ( ``SubnetIds`` and ``AddressAllocationIds`` cannot be updated simultaneously). - ``AddressAllocationIds`` can't contain duplicates, and must be equal in length to ``SubnetIds`` . For example, if you have three subnet IDs, you must also specify three address allocation IDs. - Call the ``UpdateServer`` API to set or change this parameter. - You can't set address allocation IDs for servers that have an ``IpAddressType`` set to ``DUALSTACK`` You can only set this property if ``IpAddressType`` is set to ``IPV4`` .
             :param security_group_ids: A list of security groups IDs that are available to attach to your server's endpoint. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC`` . You can edit the ``SecurityGroupIds`` property in the `UpdateServer <https://docs.aws.amazon.com/transfer/latest/userguide/API_UpdateServer.html>`_ API only if you are changing the ``EndpointType`` from ``PUBLIC`` or ``VPC_ENDPOINT`` to ``VPC`` . To change security groups associated with your server's VPC endpoint after creation, use the Amazon EC2 `ModifyVpcEndpoint <https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ModifyVpcEndpoint.html>`_ API.
             :param subnet_ids: A list of subnet IDs that are required to host your server endpoint in your VPC. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC`` .
             :param vpc_endpoint_id: The ID of the VPC endpoint. .. epigraph:: This property can only be set when ``EndpointType`` is set to ``VPC_ENDPOINT`` .
@@ -2863,6 +2883,7 @@ class CfnServer(
                - The server must already have ``SubnetIds`` populated ( ``SubnetIds`` and ``AddressAllocationIds`` cannot be updated simultaneously).
                - ``AddressAllocationIds`` can't contain duplicates, and must be equal in length to ``SubnetIds`` . For example, if you have three subnet IDs, you must also specify three address allocation IDs.
                - Call the ``UpdateServer`` API to set or change this parameter.
+               - You can't set address allocation IDs for servers that have an ``IpAddressType`` set to ``DUALSTACK`` You can only set this property if ``IpAddressType`` is set to ``IPV4`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-endpointdetails.html#cfn-transfer-server-endpointdetails-addressallocationids
             '''
@@ -7140,6 +7161,7 @@ def _typecheckingstub__328497a7bbb181a996e0747268f6105731221ad3f578e8a5ca68e405d
 
 def _typecheckingstub__f4f8d4be2ad63a06a458c41605c9c21318e1d9117d48f21b9ee2ea6bb109d2e8(
     *,
+    max_concurrent_connections: typing.Optional[jsii.Number] = None,
     trusted_host_keys: typing.Optional[typing.Sequence[builtins.str]] = None,
     user_secret_id: typing.Optional[builtins.str] = None,
 ) -> None:

@@ -17,6 +17,10 @@ class stat_sum(stat):
     Parameters
     ----------
     {common_parameters}
+
+    See Also
+    --------
+    plotnine.geom_point : The default `geom` for this `stat`.
     """
 
     _aesthetics_doc = """
@@ -35,8 +39,7 @@ class stat_sum(stat):
     DEFAULT_AES = {"size": after_stat("n"), "weight": 1}
     CREATES = {"n", "prop"}
 
-    @classmethod
-    def compute_panel(cls, data, scales, **params):
+    def compute_panel(self, data, scales):
         if "weight" not in data:
             data["weight"] = 1
 

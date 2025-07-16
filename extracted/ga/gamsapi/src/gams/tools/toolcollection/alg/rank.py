@@ -43,5 +43,9 @@ class Rank (ToolTemplate):
         sym, symIdx = self.posargs
         m = gt.Container(system_directory=self._system_directory)
         self.read_id_inputs(m, sym)
-        m.addParameter(symIdx,['*'], records=[(r[1],e+1) for e,r in enumerate(sorted((r[1],r[0]) for r in m[sym].toList()))])
+        recs = m[sym].toList()
+        if recs is None:
+            m.addParameter(symIdx,['*'])
+        else:
+            m.addParameter(symIdx,['*'], records=[(r[1],e+1) for e,r in enumerate(sorted((r[1],r[0]) for r in recs))])
         self.write_id_outputs(m, symIdx)

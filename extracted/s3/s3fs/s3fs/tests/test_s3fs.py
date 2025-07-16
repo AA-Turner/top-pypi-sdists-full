@@ -18,6 +18,7 @@ from itertools import chain
 import fsspec.core
 from dateutil.tz import tzutc
 
+import botocore
 import s3fs.core
 from s3fs.core import S3FileSystem
 from s3fs.utils import ignoring, SSEParams
@@ -2759,7 +2760,7 @@ def test_async_stream(s3_base):
         )
         await fs._mkdir(test_bucket_name)
         await fs._pipe(fn, data)
-        f = await fs.open_async(fn, mode="rb", block_seze=1000)
+        f = await fs.open_async(fn, mode="rb", block_size=1000)
         while True:
             got = await f.read(1000)
             assert f.size == len(data)
@@ -2888,7 +2889,14 @@ def test_exist_after_delete(s3):
     assert not s3.exists(test_dir)
 
 
-@pytest.mark.xfail(reason="moto doesn't support conditional MPU")
+# condition: True if running on botocore < 1.36.0
+# The below tests for exclusive writes will fail on older versions of botocore.
+old_botocore = version.parse(botocore.__version__) < version.parse("1.36.0")
+
+
+@pytest.mark.xfail(
+    reason="moto doesn't support IfNoneMatch for MPU when object created via MPU"
+)
 def test_pipe_exclusive_big(s3):
     chunksize = 5 * 2**20  # minimum allowed
     data = b"x" * chunksize * 3
@@ -2899,17 +2907,82 @@ def test_pipe_exclusive_big(s3):
     assert not s3.list_multipart_uploads(test_bucket_name)
 
 
-@pytest.mark.xfail(reason="moto doesn't support conditional MPU")
-def test_put_exclusive_big(s3, tempdir):
+@pytest.mark.xfail(
+    old_botocore, reason="botocore<1.33.0 lacks IfNoneMatch support", strict=True
+)
+def test_pipe_exclusive_big_after_small(s3):
+    """Test conditional MPU after creating object via put_object
+
+    This test is required because moto's implementation of IfNoneMatch for MPU
+    only works when the object is initially created via put_object and not via
+    MPU.
+    """
     chunksize = 5 * 2**20  # minimum allowed
-    data = b"x" * chunksize * 3
-    fn = f"{tempdir}/afile"
-    with open(fn, "wb") as f:
-        f.write(fn)
-    s3.put(fn, f"{test_bucket_name}/afile", data, mode="overwrite", chunksize=chunksize)
-    s3.put(fn, f"{test_bucket_name}/afile", data, mode="overwrite", chunksize=chunksize)
+
+    # First, create object via put_object (small upload)
+    s3.pipe(f"{test_bucket_name}/afile", b"small", mode="overwrite")
+
+    # Now try multipart upload with mode="create" (should fail)
     with pytest.raises(FileExistsError):
-        s3.put(
-            fn, f"{test_bucket_name}/afile", data, mode="create", chunksize=chunksize
+        s3.pipe(
+            f"{test_bucket_name}/afile",
+            b"c" * chunksize * 3,
+            mode="create",
+            chunksize=chunksize,
         )
+
+    assert not s3.list_multipart_uploads(test_bucket_name)
+
+
+@pytest.mark.xfail(
+    reason="moto doesn't support IfNoneMatch for MPU when object created via MPU"
+)
+def test_put_exclusive_big(s3, tmpdir):
+    chunksize = 5 * 2**20  # minimum allowed
+    fn = f"{tmpdir}/afile"
+    with open(fn, "wb") as f:
+        f.write(b"x" * chunksize * 3)
+    s3.put(fn, f"{test_bucket_name}/afile", mode="overwrite", chunksize=chunksize)
+    s3.put(fn, f"{test_bucket_name}/afile", mode="overwrite", chunksize=chunksize)
+    with pytest.raises(FileExistsError):
+        s3.put(fn, f"{test_bucket_name}/afile", mode="create", chunksize=chunksize)
+    assert not s3.list_multipart_uploads(test_bucket_name)
+
+
+@pytest.mark.xfail(
+    old_botocore, reason="botocore<1.33.0 lacks IfNoneMatch support", strict=True
+)
+def test_put_exclusive_big_after_small(s3, tmpdir):
+    """Test conditional MPU after creating object via put_object.
+
+    This test is required because moto's implementation of IfNoneMatch for MPU
+    only works when the object is initially created via put_object and not via
+    MPU.
+    """
+    chunksize = 5 * 2**20  # minimum allowed
+    fn = str(tmpdir.join("afile"))
+    with open(fn, "wb") as f:
+        f.write(b"x" * chunksize * 3)
+
+    # First, create object via put_object (small upload)
+    s3.pipe(f"{test_bucket_name}/afile", b"small", mode="overwrite")
+
+    # Now try multipart upload with mode="create" (should fail)
+    with pytest.raises(FileExistsError):
+        s3.put(fn, f"{test_bucket_name}/afile", mode="create", chunksize=chunksize)
+
+    assert not s3.list_multipart_uploads(test_bucket_name)
+
+
+@pytest.mark.xfail(
+    old_botocore, reason="botocore<1.33.0 lacks IfNoneMatch support", strict=True
+)
+def test_put_exclusive_small(s3, tmpdir):
+    fn = f"{tmpdir}/afile"
+    with open(fn, "wb") as f:
+        f.write(b"x")
+    s3.put(fn, f"{test_bucket_name}/afile", mode="overwrite")
+    s3.put(fn, f"{test_bucket_name}/afile", mode="overwrite")
+    with pytest.raises(FileExistsError):
+        s3.put(fn, f"{test_bucket_name}/afile", mode="create")
     assert not s3.list_multipart_uploads(test_bucket_name)

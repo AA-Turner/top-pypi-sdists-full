@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: jsonschema2md
-Version: 1.5.2
+Version: 1.6.0
 Summary: Convert JSON Schema to human-readable Markdown documentation
 License: Apache-2.0
 Keywords: JSON Schema,Markdown,Converter,Parser,Documentation
@@ -8,10 +8,9 @@ Author: Ralf Gabriels
 Author-email: ralfg@hotmail.be
 Maintainer: Stéphane Brunner
 Maintainer-email: stephane.brunner@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -22,8 +21,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
-Requires-Dist: PyYAML (==6.0.2)
-Requires-Dist: markdown (==3.7)
+Requires-Dist: PyYAML (>=6,<7)
+Requires-Dist: babel (>=2,<3)
+Requires-Dist: markdown (>=3,<4)
+Project-URL: Bug Tracker, https://github.com/sbrunner/jsonschema2md/issues
 Project-URL: Repository, https://github.com/sbrunner/jsonschema2md
 Description-Content-Type: text/markdown
 
@@ -71,6 +72,17 @@ will be converted to:
 >
 > - **`firstName`** _(string)_: The person's first name.
 > - **`lastName`** _(string)_: The person's last name.
+
+There's also the possibility to translate it to another language. For example, the same schema in French would result in:
+
+> # Person
+>
+> _JSON Schema for a person object._
+>
+> ## Propriétés
+>
+> - **`firstName`** _(chaîne de caractères)_: The person's first name.
+> - **`lastName`** _(chaîne de caractères)_: The person's last name.
 
 See the [examples](https://github.com/sbrunner/jsonschema2md/tree/master/examples)
 directory for more elaborate examples.
@@ -153,7 +165,13 @@ pip install pre-commit
 pre-commit install --allow-missing-config
 ```
 
-## Changelog
+## Showcase
 
-See [Changelog.md](https://github.com/sbrunner/jsonschema2md/blob/master/CHANGELOG.md).
+- [PrairieLearn's `infoCourse.json`](https://prairielearn.readthedocs.io/en/latest/schemas/infoCourse/), [source code](https://github.com/PrairieLearn/PrairieLearn/blob/ab1e0f1fc837a8da9cde3448eb785958ac42e309/docs/scripts/gen_jsonschemas.py).
+
+## Related projects:
+
+- [json-schema-for-humans](https://github.com/coveooss/json-schema-for-humans)
+- [jsonschema-markdown](https://github.com/elisiariocouto/jsonschema-markdown)
+- [adobe/jsonschema2md](https://github.com/adobe/jsonschema2md)
 

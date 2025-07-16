@@ -40,8 +40,13 @@ class Tool(BaseModel):
 
 class CompletionUsage(_CompletionUsage):
     prompt_tokens: int = 1000
-    completion_tokens: int = 1000
-    total_tokens: int = 2000
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+    def __init__(self, /, **data: Any):
+        super().__init__(**data)
+        self.completion_tokens = self.completion_tokens or 0
+        self.total_tokens = self.total_tokens or self.prompt_tokens + self.completion_tokens
 
 
 class ChatCompletionMessage(_ChatCompletionMessage):
@@ -440,9 +445,11 @@ class TTSRequest(BaseModel):
 
     speed: Optional[float] = None
 
-    response_format: Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "url"] = "mp3"
+    response_format:Union[str, Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "b64_json", "url"]] = "b64_json"
 
     class Config:
+        extra = "allow"
+
         json_schema_extra = {
             "examples": [
                 {

@@ -54,6 +54,13 @@ class TestDomain(unittest.TestCase):
             assert constant.get_index() is not None
             assert constant.get_name() in expected_constants
 
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'woodworking' / 'domain.pddl'
+        domain = Domain(domain_path)
+        assert str(domain) is not None
+        assert repr(domain) is not None
+        assert hash(domain) is not None
+
 
 class TestProblem(unittest.TestCase):
     def test_name(self):
@@ -144,6 +151,15 @@ class TestProblem(unittest.TestCase):
         for goal_literal in actual_goal_condition:
             assert goal_literal.get_polarity() is True
             assert str(goal_literal.get_atom()) in expected_goal_condition
+
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        assert str(problem) is not None
+        assert repr(problem) is not None
+        assert hash(problem) is not None
 
 
 class TestAction(unittest.TestCase):
@@ -249,6 +265,14 @@ class TestAction(unittest.TestCase):
             assert literal.get_index() is not None
             assert literal in literals
 
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        domain = Domain(domain_path)
+        action = domain.get_action('pickup')
+        assert str(action) is not None
+        assert repr(action) is not None
+        assert hash(action) is not None
+
 
 class TestState(unittest.TestCase):
     def test_get_initial_state(self):
@@ -259,17 +283,17 @@ class TestState(unittest.TestCase):
         initial_state = problem.get_initial_state()
         assert initial_state.get_index() is not None
 
-    def test_get_ground_atoms(self):
+    def test_get_atoms(self):
         domain_path = DATA_DIR / 'miconic-fulladl' / 'domain.pddl'
         problem_path = DATA_DIR / 'miconic-fulladl' / 'test_problem.pddl'
         domain = Domain(domain_path)
         problem = Problem(domain, problem_path)
         initial_state = problem.get_initial_state()
         assert initial_state.get_index() is not None
-        initial_atoms = initial_state.get_ground_atoms()
-        initial_static_atoms = initial_state.get_ground_atoms(ignore_fluent=True, ignore_derived=True)
-        initial_fluent_atoms = initial_state.get_ground_atoms(ignore_static=True, ignore_derived=True)
-        initial_derived_atoms = initial_state.get_ground_atoms(ignore_static=True, ignore_fluent=True)
+        initial_atoms = initial_state.get_atoms()
+        initial_static_atoms = initial_state.get_atoms(ignore_fluent=True, ignore_derived=True)
+        initial_fluent_atoms = initial_state.get_atoms(ignore_static=True, ignore_derived=True)
+        initial_derived_atoms = initial_state.get_atoms(ignore_static=True, ignore_fluent=True)
         assert len(initial_atoms) == 28
         assert len(initial_static_atoms) == 22
         assert len(initial_fluent_atoms) == 1
@@ -284,7 +308,7 @@ class TestState(unittest.TestCase):
         domain = Domain(domain_path)
         problem = Problem(domain, problem_path)
         initial_state = problem.get_initial_state()
-        assert initial_state.contains_all(initial_state.get_ground_atoms())
+        assert initial_state.contains_all(initial_state.get_atoms())
 
     def test_literal_holds(self):
         domain_path = DATA_DIR / 'miconic-fulladl' / 'domain.pddl'
@@ -309,6 +333,16 @@ class TestState(unittest.TestCase):
             assert action.get_precondition().holds(initial_state)
             successor_state =  action.apply(initial_state)
             assert successor_state.get_index() == (index + 1)  # Index 0 is the initial state
+
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        initial_state = problem.get_initial_state()
+        assert str(initial_state) is not None
+        assert repr(initial_state) is not None
+        assert hash(initial_state) is not None
 
 
 class TestGroundConjunctiveCondition(unittest.TestCase):
@@ -379,6 +413,17 @@ class TestGroundConjunctiveCondition(unittest.TestCase):
         ground_literals = [GroundLiteral.new(atom, True, problem) for atom in problem.get_initial_atoms(ignore_static=True, ignore_derived=True)]
         ground_condition = GroundConjunctiveCondition.new(ground_literals, problem)
         assert ground_condition.holds(problem.get_initial_state())
+
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        ground_literals = [GroundLiteral.new(atom, True, problem) for atom in problem.get_initial_atoms(ignore_static=True, ignore_derived=True)]
+        ground_condition = GroundConjunctiveCondition.new(ground_literals, problem)
+        assert str(ground_condition) is not None
+        assert repr(ground_condition) is not None
+        assert hash(ground_condition) is not None
 
 
 class TestSearchAlgorithms(unittest.TestCase):
@@ -492,6 +537,16 @@ class TestSearchAlgorithms(unittest.TestCase):
         assert heuristic.compute_value(initial_state, False) == 4.0
         assert len(heuristic.get_preferred_actions()) == 2
 
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        heuristic = FFHeuristic(problem)
+        assert str(heuristic) is not None
+        assert repr(heuristic) is not None
+        assert hash(heuristic) is not None
+
 
 class TestStateSpaceSampler(unittest.TestCase):
     def test_sample_state(self):
@@ -572,6 +627,16 @@ class TestStateSpaceSampler(unittest.TestCase):
         assert state_label.steps_to_goal >= 2_000_000_000
         dead_end_states = list(sampler.sample_dead_end_states(10))
         assert len(dead_end_states) == 10
+
+    def test_str_repr_hash(self):
+        domain_path = DATA_DIR / 'blocks_4' / 'domain.pddl'
+        problem_path = DATA_DIR / 'blocks_4' / 'test_problem.pddl'
+        domain = Domain(domain_path)
+        problem = Problem(domain, problem_path)
+        sampler = StateSpaceSampler.new(problem)
+        assert str(sampler) is not None
+        assert repr(sampler) is not None
+        assert hash(sampler) is not None
 
 
 if __name__ == '__main__':

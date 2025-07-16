@@ -38,7 +38,9 @@ __all__ = (
     "ContainerInstanceFieldType",
     "ContainerInstanceStatusType",
     "DeploymentControllerTypeType",
+    "DeploymentLifecycleHookStageType",
     "DeploymentRolloutStateType",
+    "DeploymentStrategyType",
     "DesiredStatusType",
     "DeviceCgroupPermissionType",
     "EBSResourceTypeType",
@@ -82,6 +84,7 @@ __all__ = (
     "ScaleUnitType",
     "SchedulingStrategyType",
     "ScopeType",
+    "ServiceDeploymentLifecycleStageType",
     "ServiceDeploymentRollbackMonitorsStatusType",
     "ServiceDeploymentStatusType",
     "ServiceFieldType",
@@ -135,7 +138,17 @@ ContainerInstanceStatusType = Literal[
     "ACTIVE", "DEREGISTERING", "DRAINING", "REGISTERING", "REGISTRATION_FAILED"
 ]
 DeploymentControllerTypeType = Literal["CODE_DEPLOY", "ECS", "EXTERNAL"]
+DeploymentLifecycleHookStageType = Literal[
+    "POST_PRODUCTION_TRAFFIC_SHIFT",
+    "POST_SCALE_UP",
+    "POST_TEST_TRAFFIC_SHIFT",
+    "PRE_SCALE_UP",
+    "PRODUCTION_TRAFFIC_SHIFT",
+    "RECONCILE_SERVICE",
+    "TEST_TRAFFIC_SHIFT",
+]
 DeploymentRolloutStateType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+DeploymentStrategyType = Literal["BLUE_GREEN", "ROLLING"]
 DesiredStatusType = Literal["PENDING", "RUNNING", "STOPPED"]
 DeviceCgroupPermissionType = Literal["mknod", "read", "write"]
 EBSResourceTypeType = Literal["volume"]
@@ -188,6 +201,18 @@ ResourceTypeType = Literal["GPU", "InferenceAccelerator"]
 ScaleUnitType = Literal["PERCENT"]
 SchedulingStrategyType = Literal["DAEMON", "REPLICA"]
 ScopeType = Literal["shared", "task"]
+ServiceDeploymentLifecycleStageType = Literal[
+    "BAKE_TIME",
+    "CLEAN_UP",
+    "POST_PRODUCTION_TRAFFIC_SHIFT",
+    "POST_SCALE_UP",
+    "POST_TEST_TRAFFIC_SHIFT",
+    "PRE_SCALE_UP",
+    "PRODUCTION_TRAFFIC_SHIFT",
+    "RECONCILE_SERVICE",
+    "SCALE_UP",
+    "TEST_TRAFFIC_SHIFT",
+]
 ServiceDeploymentRollbackMonitorsStatusType = Literal[
     "DISABLED", "MONITORING", "MONITORING_COMPLETE", "TRIGGERED"
 ]
@@ -595,6 +620,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

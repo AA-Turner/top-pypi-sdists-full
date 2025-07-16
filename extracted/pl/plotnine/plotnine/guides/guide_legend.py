@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
     from plotnine.geoms.geom import geom
     from plotnine.layer import layer
-    from plotnine.typing import SidePosition
+    from plotnine.typing import Side
 
 
 # See guides.py for terminology
@@ -171,21 +171,20 @@ class guide_legend(guide):
             # Modify aesthetics
 
             # When doing after_scale evaluations, we only consider those
-            # for the aesthetics of this legend. The reduces the spurious
-            # warnings where an evaluation of another aesthetic failed yet
-            # it is not needed.
+            # for the aesthetics that are valid for this layer/geom.
             aes_modifiers = {
-                ae: expr
-                for ae, expr in l.mapping._scaled.items()
-                if ae in matched_set
+                ae: l.mapping._scaled[ae]
+                for ae in l.geom.aesthetics() & l.mapping._scaled.keys()
             }
 
             try:
                 data = l.use_defaults(data, aes_modifiers)
             except PlotnineError:
                 warn(
-                    "Failed to apply `after_scale` modifications "
-                    "to the legend.",
+                    "Failed to apply `after_scale` modifications to the "
+                    "legend. This probably should not happen. Help us "
+                    "discover why, please open and issue at "
+                    "https://github.com/has2k1/plotnine/issues",
                     PlotnineWarning,
                 )
                 data = l.use_defaults(data, {})
@@ -226,10 +225,10 @@ class guide_legend(guide):
                 ncol = int(np.ceil(nbreak / 15))
 
         if nrow is None:
-            ncol = cast(int, ncol)
+            ncol = cast("int", ncol)
             nrow = int(np.ceil(nbreak / ncol))
         elif ncol is None:
-            nrow = cast(int, nrow)
+            nrow = cast("int", nrow)
             ncol = int(np.ceil(nbreak / nrow))
 
         return nrow, ncol
@@ -255,7 +254,7 @@ class guide_legend(guide):
         elements = self.elements
 
         # title
-        title = cast(str, self.title)
+        title = cast("str", self.title)
         title_box = TextArea(title)
         targets.legend_title = title_box._text  # type: ignore
 
@@ -282,7 +281,7 @@ class guide_legend(guide):
         targets.legend_key = drawings
 
         # Match Drawings with labels to create the entries
-        lookup: dict[SidePosition, tuple[type[PackerBase], slice]] = {
+        lookup: dict[Side, tuple[type[PackerBase], slice]] = {
             "right": (HPacker, reverse),
             "left": (HPacker, obverse),
             "bottom": (VPacker, reverse),
@@ -381,7 +380,7 @@ class GuideElementsLegend(GuideElements):
         )
 
     @cached_property
-    def text_position(self) -> SidePosition:
+    def text_position(self) -> Side:
         if not (pos := self.theme.getp("legend_text_position")):
             pos = "right"
         return pos
@@ -403,7 +402,7 @@ class GuideElementsLegend(GuideElements):
         dimensions are big enough.
         """
         #  Note the different height sizes for the entries
-        guide = cast(guide_legend, self.guide)
+        guide = cast("guide_legend", self.guide)
         min_size = (
             self.theme.getp("legend_key_width"),
             self.theme.getp("legend_key_height"),
@@ -452,7 +451,7 @@ class GuideElementsLegend(GuideElements):
         If legend is horizontal, then key heights must be equal, so we
         use the maximum
         """
-        hs = [h for h, _ in self._key_dimensions]
+        hs = [h for _, h in self._key_dimensions]
         if self.is_horizontal:
             return [max(hs)] * len(hs)
         return hs

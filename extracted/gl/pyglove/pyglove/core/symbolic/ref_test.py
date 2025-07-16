@@ -16,11 +16,13 @@
 import copy
 import inspect
 import pickle
+import typing
 from typing import Any
 import unittest
 
 from pyglove.core import typing as pg_typing
 from pyglove.core.symbolic import ref
+from pyglove.core.symbolic.base import contains
 from pyglove.core.symbolic.dict import Dict
 from pyglove.core.symbolic.object import Object
 
@@ -111,6 +113,11 @@ class RefTest(unittest.TestCase):
         TypeError, '.* cannot be serialized at the moment'):
       ref.Ref(A(1)).to_json()
 
+    self.assertEqual(
+        ref.Ref(A(1)).to_json(save_ref_value=True),
+        A(1).to_json()
+    )
+
   def test_pickle(self):
     with self.assertRaisesRegex(
         TypeError, '.* cannot be pickled at the moment'):
@@ -125,6 +132,92 @@ class RefTest(unittest.TestCase):
     x = ref.maybe_ref(b.x)
     self.assertIsInstance(x, ref.Ref)
     self.assertIs(x.value, a)
+
+  def test_deref(self):
+    class Foo(Object):
+      x: int
+      y: Any
+
+    # Deref on non-ref value.
+    a = Foo(1, 2)
+    self.assertIs(ref.deref(a), a)
+    self.assertEqual(ref.deref(a), Foo(1, 2))
+
+    # Deref top-level Ref.
+    a = ref.Ref(Foo(1, 2))
+    self.assertIs(ref.deref(a), a.value)
+
+    a = ref.Ref(Foo(1, ref.Ref(Foo(2, ref.Ref(Foo(3, 4))))))
+    self.assertTrue(contains(a, type=ref.Ref))
+    a_prime = ref.deref(a)
+    self.assertIs(a_prime, a.value)
+    self.assertIsInstance(a_prime.sym_getattr('y'), ref.Ref)
+    self.assertIsInstance(a_prime.y.sym_getattr('y'), ref.Ref)
+
+    # Deref entire tree.
+    a = ref.Ref(Foo(1, ref.Ref(Foo(2, ref.Ref(Foo(3, 4))))))
+    self.assertTrue(contains(a, type=ref.Ref))
+    a_prime = ref.deref(a, recursive=True)
+    self.assertIs(a_prime, a.value)
+    self.assertFalse(contains(a_prime, type=ref.Ref))
+
+  def test_to_html(self):
+
+    def assert_style(html, expected):
+      expected = inspect.cleandoc(expected).strip()
+      actual = html.style_section.strip()
+      if expected not in actual:
+        print(actual)
+      self.assertIn(expected, actual)
+
+    def assert_content(html, expected):
+      expected = inspect.cleandoc(expected).strip()
+      actual = html.content.strip()
+      if actual != expected:
+        print(actual)
+      self.assertEqual(actual.strip(), expected)
+
+    class Foo(Object):
+      x: Any
+
+    assert_style(
+        Foo(ref.Ref(Foo(1))).to_html(),
+        """
+        /* Ref styles. */
+        .ref.summary-title::before {
+          content: 'ref: ';
+          color: #aaa;
+        }
+        """
+    )
+    assert_content(
+        Foo(ref.Ref(Foo(1))).to_html(
+            extra_flags=dict(
+                use_inferred=False,
+            ),
+            enable_summary_tooltip=False,
+            enable_key_tooltip=False,
+        ),
+        """
+        <details open class="pyglove foo"><summary><div class="summary-title">Foo(...)</div></summary><div class="complex-value foo"><details class="pyglove ref"><summary><div class="summary-name ref">x</div><div class="summary-title ref">Foo(...)</div></summary><div class="complex-value foo"><details open class="pyglove int"><summary><div class="summary-name">x</div><div class="summary-title">int</div></summary><span class="simple-value int">1</span></details></div></details></div></details>
+        """
+    )
+
+  def test_annotation(self):
+    typing.TYPE_CHECKING = True
+    assert ref.Ref[ValueError] is ValueError
+    typing.TYPE_CHECKING = False
+
+    class Bar(Object):
+      x: int
+
+    class Foo(Object):
+      y: ref.Ref[Bar]
+
+    f = Foo(Bar(1))
+    self.assertIsInstance(f.sym_getattr('y'), ref.Ref)
+    self.assertEqual(f.y.sym_path, '')
+    self.assertIsInstance(ref.Ref[Bar](1), ref.Ref)
 
 
 if __name__ == '__main__':

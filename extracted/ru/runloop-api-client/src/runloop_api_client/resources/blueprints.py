@@ -55,6 +55,7 @@ class BlueprintsResource(SyncAPIResource):
         self,
         *,
         name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
         code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
@@ -78,11 +79,14 @@ class BlueprintsResource(SyncAPIResource):
         Args:
           name: Name of the Blueprint.
 
+          base_blueprint_id: (Optional) ID of previously built blueprint to use as a base blueprint for this
+              build.
+
           code_mounts: A list of code mounts to be included in the Blueprint.
 
           dockerfile: Dockerfile contents to be used to build the Blueprint.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: (Optional) Map of paths and file contents to write before setup.
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
@@ -103,6 +107,7 @@ class BlueprintsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "name": name,
+                    "base_blueprint_id": base_blueprint_id,
                     "code_mounts": code_mounts,
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
@@ -395,6 +400,7 @@ class BlueprintsResource(SyncAPIResource):
         self,
         *,
         name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
         code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
@@ -416,11 +422,14 @@ class BlueprintsResource(SyncAPIResource):
         Args:
           name: Name of the Blueprint.
 
+          base_blueprint_id: (Optional) ID of previously built blueprint to use as a base blueprint for this
+              build.
+
           code_mounts: A list of code mounts to be included in the Blueprint.
 
           dockerfile: Dockerfile contents to be used to build the Blueprint.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: (Optional) Map of paths and file contents to write before setup.
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
@@ -441,6 +450,7 @@ class BlueprintsResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "name": name,
+                    "base_blueprint_id": base_blueprint_id,
                     "code_mounts": code_mounts,
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
@@ -484,6 +494,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         self,
         *,
         name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
         code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
@@ -507,11 +518,14 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         Args:
           name: Name of the Blueprint.
 
+          base_blueprint_id: (Optional) ID of previously built blueprint to use as a base blueprint for this
+              build.
+
           code_mounts: A list of code mounts to be included in the Blueprint.
 
           dockerfile: Dockerfile contents to be used to build the Blueprint.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: (Optional) Map of paths and file contents to write before setup.
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
@@ -532,6 +546,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "name": name,
+                    "base_blueprint_id": base_blueprint_id,
                     "code_mounts": code_mounts,
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,
@@ -824,6 +839,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         self,
         *,
         name: str,
+        base_blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
         code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
         dockerfile: Optional[str] | NotGiven = NOT_GIVEN,
         file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
@@ -845,11 +861,14 @@ class AsyncBlueprintsResource(AsyncAPIResource):
         Args:
           name: Name of the Blueprint.
 
+          base_blueprint_id: (Optional) ID of previously built blueprint to use as a base blueprint for this
+              build.
+
           code_mounts: A list of code mounts to be included in the Blueprint.
 
           dockerfile: Dockerfile contents to be used to build the Blueprint.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: (Optional) Map of paths and file contents to write before setup.
 
           launch_parameters: Parameters to configure your Devbox at launch time.
 
@@ -870,6 +889,7 @@ class AsyncBlueprintsResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "name": name,
+                    "base_blueprint_id": base_blueprint_id,
                     "code_mounts": code_mounts,
                     "dockerfile": dockerfile,
                     "file_mounts": file_mounts,

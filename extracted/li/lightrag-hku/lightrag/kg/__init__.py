@@ -14,8 +14,9 @@ STORAGE_IMPLEMENTATIONS = {
             "NetworkXStorage",
             "Neo4JStorage",
             "PGGraphStorage",
+            "MongoGraphStorage",
+            "MemgraphStorage",
             # "AGEStorage",
-            # "MongoGraphStorage",
             # "TiDBGraphStorage",
             # "GremlinStorage",
         ],
@@ -25,11 +26,11 @@ STORAGE_IMPLEMENTATIONS = {
         "implementations": [
             "NanoVectorDBStorage",
             "MilvusVectorDBStorage",
-            "ChromaVectorDBStorage",
             "PGVectorStorage",
             "FaissVectorDBStorage",
             "QdrantVectorDBStorage",
             "MongoVectorDBStorage",
+            # "ChromaVectorDBStorage",
             # "TiDBVectorDBStorage",
         ],
         "required_methods": ["query", "upsert"],
@@ -37,6 +38,7 @@ STORAGE_IMPLEMENTATIONS = {
     "DOC_STATUS_STORAGE": {
         "implementations": [
             "JsonDocStatusStorage",
+            "RedisDocStatusStorage",
             "PGDocStatusStorage",
             "MongoDocStatusStorage",
         ],
@@ -56,6 +58,7 @@ STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
     "NetworkXStorage": [],
     "Neo4JStorage": ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"],
     "MongoGraphStorage": [],
+    "MemgraphStorage": ["MEMGRAPH_URI"],
     # "TiDBGraphStorage": ["TIDB_USER", "TIDB_PASSWORD", "TIDB_DATABASE"],
     "AGEStorage": [
         "AGE_POSTGRES_DB",
@@ -79,6 +82,7 @@ STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
     "MongoVectorDBStorage": [],
     # Document Status Storage Implementations
     "JsonDocStatusStorage": [],
+    "RedisDocStatusStorage": ["REDIS_URI"],
     "PGDocStatusStorage": ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DATABASE"],
     "MongoDocStatusStorage": [],
 }
@@ -96,6 +100,7 @@ STORAGES = {
     "MongoGraphStorage": ".kg.mongo_impl",
     "MongoVectorDBStorage": ".kg.mongo_impl",
     "RedisKVStorage": ".kg.redis_impl",
+    "RedisDocStatusStorage": ".kg.redis_impl",
     "ChromaVectorDBStorage": ".kg.chroma_impl",
     # "TiDBKVStorage": ".kg.tidb_impl",
     # "TiDBVectorDBStorage": ".kg.tidb_impl",
@@ -108,6 +113,7 @@ STORAGES = {
     "PGDocStatusStorage": ".kg.postgres_impl",
     "FaissVectorDBStorage": ".kg.faiss_impl",
     "QdrantVectorDBStorage": ".kg.qdrant_impl",
+    "MemgraphStorage": ".kg.memgraph_impl",
 }
 
 

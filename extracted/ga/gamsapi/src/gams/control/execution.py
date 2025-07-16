@@ -1660,7 +1660,8 @@ class GamsJob(object):
 
         poll_logs_sleep_time = 1
 
-        while True:
+        finished = False
+        while not finished:
             r = self._http.request(
                 "DELETE",
                 engine_configuration.host + "/jobs/" + self._p._token + "/unread-logs",
@@ -1676,7 +1677,34 @@ class GamsJob(object):
                 # job still in queue
                 time.sleep(poll_logs_sleep_time)
                 continue
-            elif r.status != 200:
+            elif r.status == 308:  # partial log not available -> not an error
+                response_data = json.loads(response_data)
+                stdout_data = response_data["message"]
+                r = self._http.request(
+                    "GET",
+                    engine_configuration.host + "/jobs/" + self._p._token,
+                    headers=request_headers,
+                    preload_content=False,
+                )
+                response_data = r.data.decode("utf-8", errors="replace")
+                if r.status == 200:
+                    response_data = json.loads(response_data)
+                    exitcode = response_data["process_status"]
+                    finished = True
+                else:
+                    raise gams.control.workspace.GamsException(
+                        "Getting logs failed with status code: "
+                        + str(r.status)
+                        + ". Message: "
+                        + response_data,
+                        self._workspace,
+                    )
+            elif r.status == 200:
+                response_data = json.loads(response_data)
+                stdout_data = response_data["message"]
+                exitcode = response_data["gams_return_code"]
+                finished = response_data["queue_finished"] is True
+            else:
                 raise gams.control.workspace.GamsException(
                     "Getting logs failed with status code: "
                     + str(r.status)
@@ -1684,9 +1712,8 @@ class GamsJob(object):
                     + response_data,
                     self._workspace,
                 )
-            response_data = json.loads(response_data)
+
             if capture_output:
-                stdout_data = response_data["message"]
                 if self._workspace._debug >= gams.control.workspace.DebugLevel.ShowLog:
                     if stdout_data != "":
                         print(stdout_data, end="")
@@ -1694,10 +1721,8 @@ class GamsJob(object):
                 else:
                     output.write(stdout_data)
                     output.flush()
-            if response_data["queue_finished"] is True:
-                exitcode = response_data["gams_return_code"]
-                break
-            time.sleep(poll_logs_sleep_time)
+            if not finished:
+                time.sleep(poll_logs_sleep_time)
 
         for attempt_number in range(self._max_request_attempts):
             r = self._http.request(

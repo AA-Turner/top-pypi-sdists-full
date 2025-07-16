@@ -24,7 +24,7 @@ class SourceInfo:
 class LqpNode:
     meta: Optional[SourceInfo]
 
-# Declaration := Def | Loop
+# Declaration := Def | Algorithm
 @dataclass(frozen=True)
 class Declaration(LqpNode):
     pass
@@ -36,11 +36,53 @@ class Def(Declaration):
     body: Abstraction
     attrs: Sequence[Attribute]
 
-# Loop(init::Def[], body::Declaration[])
+# Algorithm(globals::RelationId[], body::Script)
 @dataclass(frozen=True)
-class Loop(Declaration):
-    init: Sequence[Def]
-    body: Sequence[Declaration]
+class Algorithm(Declaration):
+    global_: Sequence[RelationId]
+    body: Script
+
+# Script := Construct[]
+@dataclass(frozen=True)
+class Script(LqpNode):
+    constructs: Sequence[Construct]
+
+# Construct := Loop | Instruction
+@dataclass(frozen=True)
+class Construct(LqpNode):
+    pass
+
+# Loop(init::Instruction[], body::Algorithm)
+@dataclass(frozen=True)
+class Loop(Construct):
+    init: Sequence[Instruction]
+    body: Script
+
+# Instruction := Assign | Break | Upsert
+@dataclass(frozen=True)
+class Instruction(Construct):
+    pass
+
+# Assign(name::RelationId, body::Abstraction, attrs::Attribute[])
+@dataclass(frozen=True)
+class Assign(Instruction):
+    name: RelationId
+    body: Abstraction
+    attrs: Sequence[Attribute]
+
+# Upsert(name::RelationId, body::Abstraction, attrs::Attribute[])
+@dataclass(frozen=True)
+class Upsert(Instruction):
+    name: RelationId
+    body: Abstraction
+    attrs: Sequence[Attribute]
+
+# Break(name::RelationId, body::Abstraction, attrs::Attribute[])
+@dataclass(frozen=True)
+class Break(Instruction):
+    name: RelationId
+    body: Abstraction
+    attrs: Sequence[Attribute]
 
 # Abstraction(vars::Binding[], value::Formula)
 @dataclass(frozen=True)
@@ -187,7 +229,6 @@ class PrimitiveType(Enum):
 
 class RelValueType(Enum):
     UNSPECIFIED = 0
-    DECIMAL = 1
     DATE = 2
     DATETIME = 3
     NANOSECOND = 4
@@ -265,16 +306,41 @@ class Output(LqpNode):
     name: Union[str, None]
     relation_id: RelationId
 
+# ExportCSVConfig
+@dataclass(frozen=True)
+class ExportCSVConfig(LqpNode):
+    path: str
+    data_columns: Sequence[ExportCSVColumn]
+    partition_size: Optional[int] = None
+    compression: Optional[str] = None
+
+    syntax_header_row: Optional[int] = None
+    syntax_missing_string: Optional[str] = None
+    syntax_delim: Optional[str] = None
+    syntax_quotechar: Optional[str] = None
+    syntax_escapechar: Optional[str] = None
+
+@dataclass(frozen=True)
+class ExportCSVColumn(LqpNode):
+    column_name: str
+    column_data: RelationId
+
+# Export(name::string, relation_id::RelationId)
+@dataclass(frozen=True)
+class Export(LqpNode):
+    # TODO: Once we add a JSON export, this should be union[ExportCSVConfig, ExportJSONConfig]
+    config: ExportCSVConfig
+
 # Abort(name::string?, relation_id::RelationId)
 @dataclass(frozen=True)
 class Abort(LqpNode):
     name: Union[str, None]
     relation_id: RelationId
 
-# Read := Demand | Output | WhatIf | Abort
+# Read := Demand | Output | Export | WhatIf | Abort
 @dataclass(frozen=True)
 class Read(LqpNode):
-    read_type: Union[Demand, Output, WhatIf, Abort]
+    read_type: Union[Demand, Output, Export, WhatIf, Abort]
 
 # Epoch(persistent_writes::Write[], local_writes::Write[], reads::Read[])
 @dataclass(frozen=True)

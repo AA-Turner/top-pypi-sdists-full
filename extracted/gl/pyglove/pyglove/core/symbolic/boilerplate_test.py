@@ -70,35 +70,37 @@ class BoilerplateClassTest(unittest.TestCase):
       pg_boilerplate_class('A', template_object, init_arg_list=['x', 'y'])
 
   def test_init_arg_list(self):
-    self.assertEqual(B.init_arg_list, ['a', 'b', 'c'])
+    self.assertEqual(B.init_arg_list, ['a'])
     self.assertEqual(C.init_arg_list, ['a', 'c', 'b'])
 
   def test_schema(self):
     # Boilerplate class' schema should carry the default value and be frozen.
     self.assertEqual(
-        B.__schema__,
-        pg_typing.create_schema([
-            ('a', pg_typing.Int()),
-            (
-                'b',
-                pg_typing.Union(
-                    [pg_typing.Int(), pg_typing.Str()], default='foo'
-                ).freeze(),
-            ),
-            (
-                'c',
-                pg_typing.Dict([(
-                    'd',
-                    pg_typing.List(
-                        pg_typing.Dict([
-                            ('e', pg_typing.Float()),
-                            ('f', pg_typing.Bool()),
-                        ]),
-                        default=List([Dict(e=1.0, f=True)]),
+        list(B.__schema__.fields.values()),
+        list(pg_typing.create_schema(
+            [
+                ('a', pg_typing.Int()),
+                (
+                    'b',
+                    pg_typing.Union(
+                        [pg_typing.Int(), pg_typing.Str()], default='foo'
                     ).freeze(),
-                )]).freeze(),
-            ),
-        ]),
+                ),
+                (
+                    'c',
+                    pg_typing.Dict([(
+                        'd',
+                        pg_typing.List(
+                            pg_typing.Dict([
+                                ('e', pg_typing.Float()),
+                                ('f', pg_typing.Bool()),
+                            ]),
+                            default=List([Dict(e=1.0, f=True)]),
+                        ).freeze(),
+                    )]).freeze(),
+                ),
+            ],
+        ).fields.values())
     )
 
     # Original class' schema should remain unchanged.

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Callable
 
 import pytest
 from hypothesis import given
 from hypothesis.strategies import text
 
-from failprint.formats import DEFAULT_CALLABLE_NAME, GT, LT, _get_callable_name, printable_command
-from failprint.runners import run
+from failprint._internal.formats import DEFAULT_CALLABLE_NAME, GT, LT, _get_callable_name, printable_command
+from failprint._internal.runners import run
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -54,7 +55,7 @@ def test_printable_command_with_string(cmd: str) -> None:
     assert printable_command(cmd) == cmd
 
 
-class Repr:  # noqa: D101 (missing docstring)
+class Repr:
     def __init__(self, value: str | int):  # noqa: D107 (missing docstring)
         self.value = value
 
@@ -104,10 +105,10 @@ def test_tap_format(capsys: pytest.CaptureFixture) -> None:
     Arguments:
         capsys: Pytest fixture to capture output.
     """
-    run(["true"], fmt="tap")
+    run([sys.executable, "-c", "import sys; sys.exit(0)"], fmt="tap")
     outerr = capsys.readouterr()
     assert "ok" in outerr.out
-    run(["false"], fmt="tap")
+    run([sys.executable, "-c", "import sys; sys.exit(1)"], fmt="tap")
     outerr = capsys.readouterr()
     assert "not ok" in outerr.out
 
@@ -146,7 +147,7 @@ def test_escaping_and_unescaping_command_and_output(capsys: pytest.CaptureFixtur
     Arguments:
         capsys: Pytest fixture to capture output.
     """
-    run(["test", "-z", "<l num=0>hello</l>"], fmt="pretty")
+    run([sys.executable, "-c", "print('<l num=0>hello</l>')"], fmt="pretty")
     outerr = capsys.readouterr()
     assert "<l num=0>hello</l>" in outerr.out
     assert LT not in outerr.out

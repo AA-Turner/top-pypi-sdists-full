@@ -37,6 +37,10 @@ class stat_function(stat):
         then the `xlim` must be provided.
     args : Optional[tuple[Any] | dict[str, Any]], default=None
         Arguments to pass to `fun`.
+
+    See Also
+    --------
+    plotnine.geom_path : The default `geom` for this `stat`.
     """
 
     _aesthetics_doc = """
@@ -82,14 +86,12 @@ class stat_function(stat):
                 "stat_function requires parameter 'fun' to be "
                 "a function or any other callable object"
             )
-        return self.params
 
-    @classmethod
-    def compute_group(cls, data, scales, **params):
-        old_fun: Callable[..., FloatArrayLike] = params["fun"]
-        n = params["n"]
-        args = params["args"]
-        xlim = params["xlim"]
+    def compute_group(self, data, scales):
+        old_fun: Callable[..., FloatArrayLike] = self.params["fun"]
+        n = self.params["n"]
+        args = self.params["args"]
+        xlim = self.params["xlim"]
         range_x = xlim or scales.x.dimension((0, 0))
 
         if isinstance(args, (list, tuple)):

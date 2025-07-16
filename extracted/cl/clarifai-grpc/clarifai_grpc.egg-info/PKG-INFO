@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clarifai-grpc
-Version: 11.6.1
+Version: 11.6.2
 Summary: Clarifai gRPC API Client
 Home-page: https://github.com/Clarifai/clarifai-python-grpc
 Author: Clarifai
@@ -15,7 +15,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio>=1.53.2; python_version < "3.13"
 Requires-Dist: grpcio>=1.68.0; python_version >= "3.13"
-Requires-Dist: protobuf>=3.20.3
+Requires-Dist: protobuf>=5.29.5
 Requires-Dist: googleapis-common-protos>=1.57.0
 Dynamic: author
 Dynamic: author-email

@@ -141,10 +141,10 @@ if __name__ == '__main__':
         resolution="768P",
     )
 
-    # r = arun(create_task(request, api_key=api_key))
+    r = arun(create_task(request, api_key=api_key))
 
     # arun(get_task("d8b048d0-5c54-42ef-a691-3feab31693fe"))
 
     # print(request.model_dump_json(exclude_none=True))
 
-    arun(get_task("959d759e-da77-42f9-95c5-c29cccc6a894"))
+    # arun(get_task("959d759e-da77-42f9-95c5-c29cccc6a894"))

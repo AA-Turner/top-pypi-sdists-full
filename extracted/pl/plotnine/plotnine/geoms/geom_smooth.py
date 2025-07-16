@@ -34,6 +34,10 @@ class geom_smooth(geom):
         How much (vertically) of the legend box should be filled by
         the color that indicates the confidence intervals. Should be
         in the range [0, 1].
+
+    See Also
+    --------
+    plotnine.stat_smooth : The default `stat` for this `geom`.
     """
 
     DEFAULT_AES = {
@@ -78,7 +82,7 @@ class geom_smooth(geom):
         panel_params: panel_view,
         coord: coord,
         ax: Axes,
-        **params: Any,
+        params: dict[str, Any],
     ):
         has_ribbon = "ymin" in data and "ymax" in data
         if has_ribbon:
@@ -86,10 +90,10 @@ class geom_smooth(geom):
             data2["color"] = "none"
             params2 = params.copy()
             params2["outline_type"] = "full"
-            geom_ribbon.draw_group(data2, panel_params, coord, ax, **params2)
+            geom_ribbon.draw_group(data2, panel_params, coord, ax, params2)
 
         data["alpha"] = 1
-        geom_line.draw_group(data, panel_params, coord, ax, **params)
+        geom_line.draw_group(data, panel_params, coord, ax, params)
 
     @staticmethod
     def draw_legend(

@@ -5,9 +5,11 @@ import multiprocessing as mp
 import os
 import sys
 import time
-
+import queue
+from concurrent.futures import ThreadPoolExecutor
 from logging import getLogger
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union, Callable
+import threading
 
 import snowflake.snowpark
 import snowflake.snowpark._internal.proto.generated.ast_pb2 as proto
@@ -44,6 +46,7 @@ from snowflake.snowpark._internal.type_utils import (
     ColumnOrName,
     convert_sf_to_sp_type,
     convert_sp_to_sf_type,
+    most_permissive_type,
 )
 from snowflake.snowpark._internal.udf_utils import get_types_from_type_hints
 from snowflake.snowpark._internal.utils import (
@@ -859,6 +862,8 @@ class DataFrameReader:
             - To parse the nested XML under a row tag, you can use dot notation ``.`` to query the nested fields in
               a DataFrame. See Example 13 in :class:`DataFrameReader`.
 
+            - ``compression`` is not supported for XML files when ``rowTag`` is specified.
+
             - When ``rowTag`` is specified, the following options are supported for reading XML files
               via :meth:`option()` or :meth:`options()`:
 
@@ -895,9 +900,12 @@ class DataFrameReader:
 
               + ``ignoreSurroundingWhitespace``: Whether or not whitespaces surrounding values should be skipped.
                 The default value is ``False``.
+
+              + ``rowValidationXSDPath``: The Snowflake stage path to the XSD file used for row validation.
+                Rows that do not match the XSD schema will be considered corrupt records and handled according to
+                the specified ``mode`` option.
         """
         df = self._read_semi_structured_file(path, "XML")
-
         # AST.
         if _emit_ast and self._ast is not None:
             stmt = self._session._ast_batch.bind()
@@ -974,6 +982,14 @@ class DataFrameReader:
         file_format_name = self._cur_options.get("FORMAT_NAME", temp_file_format_name)
         infer_schema_options = self._cur_options.get("INFER_SCHEMA_OPTIONS", {})
 
+        # When use_relaxed_types is true then ignore length or precision of infered types.
+        # Eg StringType(5) -> StringType or ShortType -> DoubleType
+        use_relaxed_types = infer_schema_options.pop("USE_RELAXED_TYPES", False)
+
+        # When try_cast is true attempt add try_cast to the schema_to_cast string so
+        # that files aren't dropped if individual rows fail to parse.
+        try_cast = self._cur_options.get("TRY_CAST", False)
+
         # When pattern is set we should only consider files that match the pattern during schema inference
         # If no files match fallback to trying to read all files.
         # snow:// paths are not yet supported
@@ -1044,20 +1060,27 @@ class DataFrameReader:
                     data_type = data_type_parts[0]
                     precision = int(data_type_parts[1].split(",")[0])
                     scale = int(data_type_parts[1].split(",")[1][:-1])
+                datatype = convert_sf_to_sp_type(
+                    data_type, precision, scale, 0, self._session._conn.max_string_size
+                )
+                if use_relaxed_types:
+                    datatype = most_permissive_type(datatype)
                 new_schema.append(
                     Attribute(
                         name,
-                        convert_sf_to_sp_type(
-                            data_type,
-                            precision,
-                            scale,
-                            0,
-                            self._session._conn.max_string_size,
-                        ),
+                        datatype,
                         r[2],
                     )
                 )
-                identifier = f"$1:{name}::{r[1]}" if format != "CSV" else r[3]
+
+                if try_cast:
+                    id = r[3].split(":")[0]
+                    identifier = f"TRY_CAST({id} AS {convert_sp_to_sf_type(datatype)})"
+                elif format == "CSV":
+                    identifier = r[3]
+                else:
+                    identifier = f"$1:{name}::{r[1]}"
+
                 schema_to_cast.append((identifier, r[0]))
                 transformations.append(sql_expr(identifier))
             self._user_schema = StructType._from_attributes(new_schema)
@@ -1262,6 +1285,7 @@ class DataFrameReader:
         session_init_statement: Optional[Union[str, List[str]]] = None,
         udtf_configs: Optional[dict] = None,
         fetch_merge_count: int = 1,
+        fetch_with_process: bool = False,
         _emit_ast: bool = True,
     ) -> DataFrame:
         """
@@ -1335,6 +1359,12 @@ class DataFrameReader:
                 before uploading it. This improves performance by reducing the number of
                 small Parquet files. Defaults to 1, meaning each `fetch_size` batch is written to its own
                 Parquet file and uploaded separately.
+            fetch_with_process: Whether to use multiprocessing for data fetching and Parquet file generation in local ingestion.
+                Default to `False`, which means multithreading is used to fetch data in parallel.
+                Setting this to `True` enables multiprocessing, which may improve performance for CPU-bound tasks
+                like Parquet file generation. When using multiprocessing, guard your script with
+                `if __name__ == "__main__":` and call `multiprocessing.freeze_support()` on Windows if needed.
+                This parameter has no effect in UDFT ingestion.
 
         Example::
             .. code-block:: python
@@ -1345,6 +1375,17 @@ class DataFrameReader:
                     return connection
 
                 df = session.read.dbapi(create_oracledb_connection, table=...)
+
+        Example::
+            .. code-block:: python
+
+                import oracledb
+                def create_oracledb_connection():
+                    connection = oracledb.connect(...)
+                    return connection
+
+                if __name__ == "__main__":
+                    df = session.read.dbapi(create_oracledb_connection, table=..., fetch_with_process=True)
         """
         if (not table and not query) or (table and query):
             raise SnowparkDataframeReaderException(
@@ -1423,18 +1464,19 @@ class DataFrameReader:
             statement_params=statements_params_for_telemetry, _emit_ast=False
         )
 
+        data_fetching_thread_pool_executor = None
+        data_fetching_thread_stop_event = None
+        workers = []
         try:
-            processes = []
-
-            # Determine the number of processes to use
-            max_workers = max_workers or mp.cpu_count()
-
+            # Determine the number of processes or threads to use
+            max_workers = max_workers or os.cpu_count()
+            queue_class = mp.Queue if fetch_with_process else queue.Queue
             # a queue of partitions to be processed, this is filled by the partitioner before starting the workers
-            partition_queue = mp.Queue()
+            partition_queue = queue_class()
             # a queue of parquet BytesIO objects to be uploaded
             # Set max size for parquet_queue to prevent overfilling when thread consumers are slower than process producers
             # process workers will block on this queue if it's full until the upload threads consume the BytesIO objects
-            parquet_queue = mp.Queue(_MAX_WORKER_SCALE * max_workers)
+            parquet_queue = queue_class(_MAX_WORKER_SCALE * max_workers)
             for partition_idx, query in enumerate(partitioned_queries):
                 partition_queue.put((partition_idx, query))
 
@@ -1442,33 +1484,61 @@ class DataFrameReader:
             logger.debug(
                 f"Starting {max_workers} worker processes to fetch data from the data source."
             )
-            for _worker_id in range(max_workers):
-                process = mp.Process(
-                    target=worker_process,
-                    args=(partition_queue, parquet_queue, partitioner.reader()),
+
+            if fetch_with_process:
+                for _worker_id in range(max_workers):
+                    process = mp.Process(
+                        target=worker_process,
+                        args=(partition_queue, parquet_queue, partitioner.reader()),
+                    )
+                    process.start()
+                    workers.append(process)
+            else:
+                data_fetching_thread_pool_executor = ThreadPoolExecutor(
+                    max_workers=max_workers
                 )
-                process.start()
-                processes.append(process)
+                data_fetching_thread_stop_event = threading.Event()
+                workers = [
+                    data_fetching_thread_pool_executor.submit(
+                        worker_process,
+                        partition_queue,
+                        parquet_queue,
+                        partitioner.reader(),
+                        data_fetching_thread_stop_event,
+                    )
+                    for _worker_id in range(max_workers)
+                ]
 
             # Process BytesIO objects from queue and upload them using utility method
             process_parquet_queue_with_threads(
                 session=self._session,
                 parquet_queue=parquet_queue,
-                processes=processes,
+                workers=workers,
                 total_partitions=len(partitioned_queries),
                 snowflake_stage_name=snowflake_stage_name,
                 snowflake_table_name=snowflake_table_name,
                 max_workers=max_workers,
                 statements_params=statements_params_for_telemetry,
                 on_error="abort_statement",
+                fetch_with_process=fetch_with_process,
             )
 
         except BaseException as exc:
-            # Graceful shutdown - terminate all processes
-            for process in processes:
-                if process.is_alive():
-                    process.terminate()
-                    process.join(timeout=5)
+            if fetch_with_process:
+                # Graceful shutdown - terminate all processes
+                for process in workers:
+                    if process.is_alive():
+                        process.terminate()
+                        process.join(timeout=5)
+            else:
+                if data_fetching_thread_stop_event:
+                    data_fetching_thread_stop_event.set()
+                for future in workers:
+                    if not future.done():
+                        future.cancel()
+                        logger.debug(
+                            f"Cancelled a remaining data fetching future {future} due to error in another thread."
+                        )
 
             if isinstance(exc, SnowparkDataframeReaderException):
                 raise exc
@@ -1476,6 +1546,9 @@ class DataFrameReader:
             raise SnowparkDataframeReaderException(
                 f"Error occurred while ingesting data from the data source: {exc!r}"
             )
+        finally:
+            if data_fetching_thread_pool_executor:
+                data_fetching_thread_pool_executor.shutdown(wait=True)
 
         logger.debug("All data has been successfully loaded into the Snowflake table.")
         self._session._conn._telemetry_client.send_data_source_perf_telemetry(

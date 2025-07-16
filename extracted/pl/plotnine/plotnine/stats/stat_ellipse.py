@@ -37,6 +37,10 @@ class stat_ellipse(stat):
         The confidence level at which to draw the ellipse.
     segments : int, default=51
         Number of segments to be used in drawing the ellipse.
+
+    See Also
+    --------
+    plotnine.geom_path : The default `geom` for this `stat`.
     """
 
     REQUIRED_AES = {"x", "y"}
@@ -49,14 +53,13 @@ class stat_ellipse(stat):
         "segments": 51,
     }
 
-    @classmethod
-    def compute_group(cls, data, scales, **params):
+    def compute_group(self, data, scales):
         import scipy.stats as stats
         from scipy import linalg
 
-        level = params["level"]
-        segments = params["segments"]
-        type_ = params["type"]
+        level = self.params["level"]
+        segments = self.params["segments"]
+        type_ = self.params["type"]
 
         dfn = 2
         dfd = len(data) - 1
@@ -203,7 +206,7 @@ def cov_trob(
         wt = wt[wt > 0]
         n, _ = x.shape
 
-    wt = wt[:, np.newaxis]
+    wt = wt[:, np.newaxis]  # pyright: ignore[reportCallIssue,reportArgumentType,reportOptionalSubscript]
 
     # loc
     use_loc = False

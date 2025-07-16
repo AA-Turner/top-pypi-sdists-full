@@ -29,6 +29,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "ShardFilterTypeType",
     "ShardIteratorTypeType",
     "StreamStatusType",
     "StreamViewTypeType",
@@ -37,6 +38,7 @@ __all__ = (
 
 KeyTypeType = Literal["HASH", "RANGE"]
 OperationTypeType = Literal["INSERT", "MODIFY", "REMOVE"]
+ShardFilterTypeType = Literal["CHILD_SHARDS"]
 ShardIteratorTypeType = Literal[
     "AFTER_SEQUENCE_NUMBER", "AT_SEQUENCE_NUMBER", "LATEST", "TRIM_HORIZON"
 ]
@@ -379,6 +381,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

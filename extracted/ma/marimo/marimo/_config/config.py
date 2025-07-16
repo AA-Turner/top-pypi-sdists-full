@@ -95,6 +95,14 @@ OnCellChangeType = Literal["lazy", "autorun"]
 ExecutionType = Literal["relaxed", "strict"]
 
 
+# TODO(akshayka): remove normal, migrate to compact
+# normal == compact
+WidthType = Literal["normal", "compact", "medium", "full", "columns"]
+Theme = Literal["light", "dark", "system"]
+ExportType = Literal["html", "markdown", "ipynb"]
+SqlOutputType = Literal["polars", "lazy-polars", "pandas", "native", "auto"]
+
+
 @mddoc
 @dataclass
 class RuntimeConfig(TypedDict):
@@ -133,6 +141,9 @@ class RuntimeConfig(TypedDict):
     - `default_sql_output`: the default output format for SQL queries. Can be one of:
         `"auto"`, `"native"`, `"polars"`, `"lazy-polars"`, or `"pandas"`.
         The default is `"auto"`.
+    - `default_auto_download`: an Optional list of export types to automatically snapshot your notebook as:
+       `html`, `markdown`, `ipynb`.
+       The default is None.
     """
 
     auto_instantiate: bool
@@ -145,13 +156,7 @@ class RuntimeConfig(TypedDict):
     pythonpath: NotRequired[list[str]]
     dotenv: NotRequired[list[str]]
     default_sql_output: SqlOutputType
-
-
-# TODO(akshayka): remove normal, migrate to compact
-# normal == compact
-WidthType = Literal["normal", "compact", "medium", "full", "columns"]
-Theme = Literal["light", "dark", "system"]
-SqlOutputType = Literal["polars", "lazy-polars", "pandas", "native", "auto"]
+    default_auto_download: NotRequired[list[ExportType]]
 
 
 @mddoc
@@ -167,6 +172,7 @@ class DisplayConfig(TypedDict):
     - `dataframes`: `"rich"` or `"plain"`
     - `custom_css`: list of paths to custom CSS files
     - `default_table_page_size`: default number of rows to display in tables
+    - `default_table_max_columns`: default maximum number of columns to display in tables
     - `reference_highlighting`: if `True`, highlight reactive variable references
     """
 
@@ -177,6 +183,7 @@ class DisplayConfig(TypedDict):
     dataframes: Literal["rich", "plain"]
     custom_css: NotRequired[list[str]]
     default_table_page_size: int
+    default_table_max_columns: int
     reference_highlighting: NotRequired[bool]
 
 
@@ -331,6 +338,18 @@ class PythonLanguageServerConfig(TypedDict, total=False):
 
 
 @dataclass
+class TyLanguageServerConfig(TypedDict, total=False):
+    """
+    Configuration options for Ty Language Server.
+
+    ty handles completion, hover, go-to-definition, and diagnostics,
+    but we only use it for diagnostics.
+    """
+
+    enabled: bool
+
+
+@dataclass
 class LanguageServersConfig(TypedDict, total=False):
     """Configuration options for language servers.
 
@@ -340,6 +359,7 @@ class LanguageServersConfig(TypedDict, total=False):
     """
 
     pylsp: PythonLanguageServerConfig
+    ty: TyLanguageServerConfig
 
 
 @dataclass
@@ -451,6 +471,7 @@ DEFAULT_CONFIG: MarimoConfig = {
         "default_width": "medium",
         "dataframes": "rich",
         "default_table_page_size": 10,
+        "default_table_max_columns": 50,
         "reference_highlighting": False,
     },
     "formatting": {"line_length": 79},

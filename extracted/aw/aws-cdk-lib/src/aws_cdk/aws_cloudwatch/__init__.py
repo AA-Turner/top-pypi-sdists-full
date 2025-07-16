@@ -872,6 +872,20 @@ dashboard.add_widgets(cloudwatch.LogQueryWidget(
 ))
 ```
 
+Log Insights QL is the default query language. You may specify an [alternate query language: OpenSearch PPL or SQL](https://aws.amazon.com/blogs/aws/new-amazon-cloudwatch-and-amazon-opensearch-service-launch-an-integrated-analytics-experience/), if desired:
+
+```python
+# dashboard: cloudwatch.Dashboard
+
+
+dashboard.add_widgets(cloudwatch.LogQueryWidget(
+    log_group_names=["my-log-group"],
+    view=cloudwatch.LogQueryVisualizationType.TABLE,
+    query_string="SELECT count(*) as count FROM 'my-log-group'",
+    query_language=cloudwatch.LogQueryLanguage.SQL
+))
+```
+
 ### Custom widget
 
 A `CustomWidget` shows the result of an AWS Lambda function:
@@ -8624,6 +8638,33 @@ class LegendPosition(enum.Enum):
     '''Add shading below the annotation.'''
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_cloudwatch.LogQueryLanguage")
+class LogQueryLanguage(enum.Enum):
+    '''Logs Query Language.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # dashboard: cloudwatch.Dashboard
+        
+        
+        dashboard.add_widgets(cloudwatch.LogQueryWidget(
+            log_group_names=["my-log-group"],
+            view=cloudwatch.LogQueryVisualizationType.TABLE,
+            query_string="SELECT count(*) as count FROM 'my-log-group'",
+            query_language=cloudwatch.LogQueryLanguage.SQL
+        ))
+    '''
+
+    LOGS_INSIGHTS = "LOGS_INSIGHTS"
+    '''Logs Insights QL.'''
+    SQL = "SQL"
+    '''OpenSearch SQL.'''
+    PPL = "PPL"
+    '''OpenSearch PPL.'''
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cloudwatch.LogQueryVisualizationType")
 class LogQueryVisualizationType(enum.Enum):
     '''Types of view.
@@ -8663,6 +8704,7 @@ class LogQueryVisualizationType(enum.Enum):
         "log_group_names": "logGroupNames",
         "account_id": "accountId",
         "height": "height",
+        "query_language": "queryLanguage",
         "query_lines": "queryLines",
         "query_string": "queryString",
         "region": "region",
@@ -8678,6 +8720,7 @@ class LogQueryWidgetProps:
         log_group_names: typing.Sequence[builtins.str],
         account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
+        query_language: typing.Optional[LogQueryLanguage] = None,
         query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -8690,6 +8733,7 @@ class LogQueryWidgetProps:
         :param log_group_names: Names of log groups to query.
         :param account_id: The AWS account ID where the log groups are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: 6
+        :param query_language: The query language to use for the query. Default: LogQueryLanguage.LOGS_INSIGHTS
         :param query_lines: A sequence of lines to use to build the query. The query will be built by joining the lines together using ``\\n|``. Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param query_string: Full query string for log insights. Be sure to prepend every new line with a newline and pipe character (``\\n|``). Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param region: The region the metrics of this widget should be taken from. Default: Current region
@@ -8717,6 +8761,7 @@ class LogQueryWidgetProps:
             check_type(argname="argument log_group_names", value=log_group_names, expected_type=type_hints["log_group_names"])
             check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
             check_type(argname="argument height", value=height, expected_type=type_hints["height"])
+            check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
             check_type(argname="argument query_lines", value=query_lines, expected_type=type_hints["query_lines"])
             check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -8730,6 +8775,8 @@ class LogQueryWidgetProps:
             self._values["account_id"] = account_id
         if height is not None:
             self._values["height"] = height
+        if query_language is not None:
+            self._values["query_language"] = query_language
         if query_lines is not None:
             self._values["query_lines"] = query_lines
         if query_string is not None:
@@ -8774,6 +8821,15 @@ class LogQueryWidgetProps:
         '''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def query_language(self) -> typing.Optional[LogQueryLanguage]:
+        '''The query language to use for the query.
+
+        :default: LogQueryLanguage.LOGS_INSIGHTS
+        '''
+        result = self._values.get("query_language")
+        return typing.cast(typing.Optional[LogQueryLanguage], result)
 
     @builtins.property
     def query_lines(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -15168,6 +15224,7 @@ class LogQueryWidget(
         log_group_names: typing.Sequence[builtins.str],
         account_id: typing.Optional[builtins.str] = None,
         height: typing.Optional[jsii.Number] = None,
+        query_language: typing.Optional[LogQueryLanguage] = None,
         query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
         query_string: typing.Optional[builtins.str] = None,
         region: typing.Optional[builtins.str] = None,
@@ -15179,6 +15236,7 @@ class LogQueryWidget(
         :param log_group_names: Names of log groups to query.
         :param account_id: The AWS account ID where the log groups are located. This enables cross-account functionality for CloudWatch dashboards. Before using this feature, ensure that proper cross-account sharing is configured between the monitoring account and source account. For more information, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html Default: - Current account
         :param height: Height of the widget. Default: 6
+        :param query_language: The query language to use for the query. Default: LogQueryLanguage.LOGS_INSIGHTS
         :param query_lines: A sequence of lines to use to build the query. The query will be built by joining the lines together using ``\\n|``. Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param query_string: Full query string for log insights. Be sure to prepend every new line with a newline and pipe character (``\\n|``). Default: - Exactly one of ``queryString``, ``queryLines`` is required.
         :param region: The region the metrics of this widget should be taken from. Default: Current region
@@ -15190,6 +15248,7 @@ class LogQueryWidget(
             log_group_names=log_group_names,
             account_id=account_id,
             height=height,
+            query_language=query_language,
             query_lines=query_lines,
             query_string=query_string,
             region=region,
@@ -16232,6 +16291,7 @@ __all__ = [
     "IVariable",
     "IWidget",
     "LegendPosition",
+    "LogQueryLanguage",
     "LogQueryVisualizationType",
     "LogQueryWidget",
     "LogQueryWidgetProps",
@@ -17266,6 +17326,7 @@ def _typecheckingstub__b7d4a308b1274696259a35b14b5ae833f34881f95eaba521bb47a74b3
     log_group_names: typing.Sequence[builtins.str],
     account_id: typing.Optional[builtins.str] = None,
     height: typing.Optional[jsii.Number] = None,
+    query_language: typing.Optional[LogQueryLanguage] = None,
     query_lines: typing.Optional[typing.Sequence[builtins.str]] = None,
     query_string: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,

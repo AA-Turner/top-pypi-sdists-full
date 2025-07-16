@@ -16,11 +16,11 @@
 import traceback
 from typing import Any, Callable, List, Optional
 
-from pyglove.core import object_utils
+from pyglove.core import utils
 from pyglove.core.symbolic import flags
 
 
-class Origin(object_utils.Formattable):
+class Origin(utils.Formattable):
   """Class that represents the origin of a symbolic value.
 
   Origin is used for debugging the creation chain of a symbolic value, as
@@ -147,23 +147,32 @@ class Origin(object_utils.Formattable):
       o = getattr(o.source, 'sym_origin', None)
     return origins
 
-  def format(self,
-             compact: bool = False,
-             verbose: bool = True,
-             root_indent: int = 0,
-             **kwargs) -> str:
+  def format(
+      self,
+      compact: bool = False,
+      verbose: bool = True,
+      root_indent: int = 0,
+      **kwargs,
+  ) -> str:
     """Formats this object."""
     if isinstance(self._source, (str, type(None))):
-      source_str = object_utils.quote_if_str(self._source)
+      source_str = self._source
     else:
-      source_info = object_utils.format(
-          self._source, compact, verbose, root_indent + 1, **kwargs)
-      source_str = f'{source_info} at 0x{id(self._source):8x}'
-    details = object_utils.kvlist_str([
-        ('tag', object_utils.quote_if_str(self._tag), None),
-        ('source', source_str, None),
-    ])
-    return f'{self.__class__.__name__}({details})'
+      source_info = utils.format(
+          self._source, compact, verbose, root_indent + 1, **kwargs
+      )
+      source_str = utils.RawText(f'{source_info} at 0x{id(self._source):8x}')
+
+    return utils.kvlist_str(
+        [
+            ('tag', self._tag, None),
+            ('source', source_str, None),
+        ],
+        label=self.__class__.__name__,
+        compact=compact,
+        verbose=verbose,
+        root_indent=root_indent,
+    )
 
   def __eq__(self, other: Any) -> bool:
     """Operator ==."""

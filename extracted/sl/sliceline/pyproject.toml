@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "sliceline"
-version = "0.2.18"
+version = "0.2.20"
 description = "✂️ Fast slice finding for Machine Learning model debugging."
 authors = ["Antoine de Daran"]
 readme = "README.rst"
@@ -15,10 +15,10 @@ documentation = "https://sliceline.readthedocs.io/en/stable/"
 [tool.poetry.dependencies]
 python = ">=3.10, <4"
 numpy = "^1.25"
-scikit-learn = "^1.5.0"
+scikit-learn = "^1.6.0"
 scipy = "^1.12"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = "^24"
 isort = "^6.0.1"
 flake8 = "^6"

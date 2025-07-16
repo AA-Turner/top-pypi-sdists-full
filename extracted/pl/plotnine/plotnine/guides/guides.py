@@ -35,7 +35,7 @@ if TYPE_CHECKING:
         NoGuide,
         Orientation,
         ScaledAestheticsName,
-        SidePosition,
+        Side,
         TextJustification,
     )
 
@@ -104,7 +104,7 @@ class guides:
             raise ValueError("Got a guide for color and colour, choose one.")
         rename_aesthetics(self)
 
-    def __radd__(self, plot: ggplot):
+    def __radd__(self, other: ggplot):
         """
         Add guides to the plot
 
@@ -120,9 +120,9 @@ class guides:
         """
         for f in fields(self):
             if (g := getattr(self, f.name)) is not None:
-                setattr(plot.guides, f.name, g)
+                setattr(other.guides, f.name, g)
 
-        return plot
+        return other
 
     def _build(self) -> Sequence[guide]:
         """
@@ -326,7 +326,7 @@ class guides:
 
         # Group together guides for each position
         groups: dict[
-            tuple[SidePosition, float]
+            tuple[Side, float]
             | tuple[tuple[float, float], tuple[float, float]],
             list[PackerBase],
         ] = defaultdict(list)
@@ -342,8 +342,8 @@ class guides:
             if isinstance(position, str) and isinstance(just, (float, int)):
                 setattr(legends, position, outside_legend(aob, just))
             else:
-                position = cast(tuple[float, float], position)
-                just = cast(tuple[float, float], just)
+                position = cast("tuple[float, float]", position)
+                just = cast("tuple[float, float]", just)
                 legends.inside.append(inside_legend(aob, just, position))
 
         return legends
@@ -369,7 +369,7 @@ class guides:
         # place the guides according to the guide.order
         default = max(g.order for g in gdefs) + 1
         orders = [default if g.order == 0 else g.order for g in gdefs]
-        idx: list[int] = list(np.argsort(orders))
+        idx = cast("Sequence[int]", np.argsort(orders))
         gdefs = [gdefs[i] for i in idx]
 
         # Draw each guide into a box
@@ -467,7 +467,7 @@ class GuidesElements:
             if just is None:
                 just = (0.5, 0.5)
             elif just in VALID_JUSTIFICATION_WORDS:
-                just = ensure_xy_location(just)  # pyright: ignore[reportArgumentType]
+                just = ensure_xy_location(just)
             elif isinstance(just, (float, int)):
                 just = (just, just)
             return just[idx]

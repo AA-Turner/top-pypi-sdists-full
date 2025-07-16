@@ -610,6 +610,7 @@ __all__ = (
     "CustomFilterConfigurationTypeDef",
     "CustomFilterListConfigurationOutputTypeDef",
     "CustomFilterListConfigurationTypeDef",
+    "CustomInstructionsTypeDef",
     "CustomNarrativeOptionsTypeDef",
     "CustomParameterValuesOutputTypeDef",
     "CustomParameterValuesTypeDef",
@@ -2919,6 +2920,10 @@ class ThemeAliasTypeDef(TypedDict):
     Arn: NotRequired[str]
     AliasName: NotRequired[str]
     ThemeVersionNumber: NotRequired[int]
+
+
+class CustomInstructionsTypeDef(TypedDict):
+    CustomInstructionsString: str
 
 
 class DecimalPlacesConfigurationTypeDef(TypedDict):
@@ -11714,6 +11719,7 @@ class DescribeTopicResponseTypeDef(TypedDict):
     Topic: TopicDetailsOutputTypeDef
     RequestId: str
     Status: int
+    CustomInstructions: CustomInstructionsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -12456,12 +12462,14 @@ class CreateTopicRequestTypeDef(TypedDict):
     Topic: TopicDetailsUnionTypeDef
     Tags: NotRequired[Sequence[TagTypeDef]]
     FolderArns: NotRequired[Sequence[str]]
+    CustomInstructions: NotRequired[CustomInstructionsTypeDef]
 
 
 class UpdateTopicRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
     Topic: TopicDetailsUnionTypeDef
+    CustomInstructions: NotRequired[CustomInstructionsTypeDef]
 
 
 AssetBundleImportJobOverrideParametersUnionTypeDef = Union[

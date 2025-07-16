@@ -14,12 +14,15 @@ license = "Apache-2.0"
 license-files = [
   "LICENSE",
 ]
+maintainers = [
+  { name = "Michael Seifert", email = "m.seifert@digitalernachschub.de" },
+]
 authors = [
-  { name = "Tin Tvrtković <tinchester@gmail.com>", email = "tinchester@gmail.com" },
+  { name = "Tin Tvrtković", email = "tinchester@gmail.com" },
 ]
 requires-python = ">=3.9"
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Framework :: AsyncIO",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
@@ -29,6 +32,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Testing",
   "Typing :: Typed",
 ]
@@ -37,6 +41,7 @@ dynamic = [
 ]
 
 dependencies = [
+  "backports-asyncio-runner>=1.1,<2; python_version<'3.11'",
   "pytest>=8.2,<9",
   "typing-extensions>=4.12; python_version<'3.10'",
 ]
@@ -63,6 +68,7 @@ include-package-data = true
 
 [tool.setuptools_scm]
 write_to = "pytest_asyncio/_version.py"
+local_scheme = "no-local-version"
 
 [tool.ruff]
 line-length = 88
@@ -105,6 +111,9 @@ lint.ignore = [
   "D404", # First word of the docstring should not be "This"
   "D415", # First line should end with a period, question mark, or exclamation point
 ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 python_files = [

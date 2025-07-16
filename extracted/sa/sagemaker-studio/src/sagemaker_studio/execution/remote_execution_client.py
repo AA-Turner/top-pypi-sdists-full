@@ -30,7 +30,7 @@ from sagemaker_studio.projects import ProjectService
 from sagemaker_studio.utils._internal import InternalUtils
 
 DEFAULT_INSTANCE_TYPE = "ml.m6i.xlarge"  # consistent with the default instance in the toolkit
-DEFAULT_IMAGE_VERSION = "2.2"  # consistent with default image version in Space
+DEFAULT_IMAGE_VERSION = "2.6"  # consistent with default image version in Space
 
 
 class RemoteExecutionClient(ExecutionClient):
@@ -178,6 +178,13 @@ class RemoteExecutionClient(ExecutionClient):
                     "S3ModelArtifacts", None
                 ),
                 "tags": execution_tags,
+                "metricDefinitions": (
+                    describe_training_job_response.get("AlgorithmSpecification", {}).get(
+                        "MetricDefinitions", []
+                    )
+                    if "AlgorithmSpecification" in describe_training_job_response
+                    else []
+                ),
             }
 
             if "FailureReason" in describe_training_job_response:
@@ -417,8 +424,8 @@ class RemoteExecutionClient(ExecutionClient):
                 "instance_type": "ml.c5.xlarge",
                 "image_details": {
                     # provide either ecr_uri or (image_name and image_version)
-                    "image_name": "sagemaker-distribution-embargoed-prod",
-                    "image_version": "2.2", // valid values - {2.2.0, 2.2, 2, 3.0.0, 3.0, 3}
+                    "image_name": "sagemaker-distribution-prod",
+                    "image_version": "2.6", // valid values - {2.6, 2, 3.0, 3}
                     "ecr_uri": "123456123456.dkr.ecr.us-west-2.amazonaws.com/ImageName:latest"
                 },
             tags={}
@@ -499,9 +506,9 @@ class RemoteExecutionClient(ExecutionClient):
             ecr_uri = image_details["ecr_uri"]
         else:
             if self.datazone_stage == "prod":
-                image_name_default = "sagemaker-distribution-embargoed-prod"
+                image_name_default = "sagemaker-distribution-prod"
             else:
-                image_name_default = "sagemaker-distribution-embargoed-loadtest"
+                image_name_default = "sagemaker-distribution-loadtest"
             image_name: str = image_details.get("image_name", image_name_default)
             image_version: str = image_details.get("image_version", DEFAULT_IMAGE_VERSION)
             instance_type = request.compute.get("instance_type", DEFAULT_INSTANCE_TYPE)
@@ -541,11 +548,10 @@ class RemoteExecutionClient(ExecutionClient):
                 if account_id == "":
                     raise InternalServerError("Account ID not found in SSM parameter store")
                 # construct ECR uri of this format: <ACCOUNT>.dkr.ecr.<REGION>.amazonaws.<TLD>/sagemaker-distribution-prod:<TAG>
-                # example: 123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:3.0.0-reinvent2024-cpu
+                # example: 123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:3.0.0-cpu
                 # get the region from the default environment
                 region = self.default_tooling_environment["awsAccountRegion"]
-                image_version_suffix = "reinvent2024"
-                ecr_uri = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:{image_version}-{image_version_suffix}-{image_variant}"
+                ecr_uri = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:{image_version}-{image_variant}"
 
         output_formats = (
             request.get("output_config", {})
@@ -578,6 +584,16 @@ class RemoteExecutionClient(ExecutionClient):
                     "TrainingInputMode": "File",
                     "EnableSageMakerMetricsTimeSeries": False,
                     "ContainerEntrypoint": ["amazon_sagemaker_scheduler"],
+                    "MetricDefinitions": [
+                        {
+                            "Name": "cells:complete",
+                            "Regex": r".*Executing:.*?\|.*?\|\s+(\d+)\/\d+\s+\[",
+                        },
+                        {
+                            "Name": "cells:total",
+                            "Regex": r".*Executing:.*?\|.*?\|\s+\d+\/(\d+)\s+\[",
+                        },
+                    ],
                 },
                 RoleArn=self.user_role_arn,
                 OutputDataConfig={"S3OutputPath": output["path"], **kms_key_id},
@@ -928,9 +944,11 @@ class RemoteExecutionClient(ExecutionClient):
             if parsed_version.major == 3:
                 return True
 
-            # Valid for 2.2.x versions and 2.2 or 2
+            # Valid for 2.2.x or 2.6.x versions and 2.2, 2.6 or 2
             if parsed_version.major == 2 and (
-                parsed_version.minor == 2 or parsed_version.base_version == "2"
+                parsed_version.minor == 2
+                or parsed_version.minor == 6
+                or parsed_version.base_version == "2"
             ):
                 return True
             return False

@@ -16,7 +16,7 @@ from post_office.fields import CommaSeparatedEmailField
 
 from .connections import connections
 from .logutils import setup_loghandlers
-from .settings import context_field_class, get_log_level, get_template_engine, get_override_recipients
+from .settings import context_field_class, get_file_storage, get_log_level, get_template_engine, get_override_recipients
 from .validators import validate_email_with_name, validate_template_syntax
 
 
@@ -25,6 +25,20 @@ logger = setup_loghandlers('INFO')
 
 PRIORITY = namedtuple('PRIORITY', 'low medium high now')._make(range(4))
 STATUS = namedtuple('STATUS', 'sent failed queued requeued')._make(range(4))
+
+
+class RecipientDeliveryStatus(models.IntegerChoices):
+    ACCEPTED = 10, _('Accepted')
+    DELIVERED = 20, _('Delivered')
+    OPENED = 30, _('Opened')
+    CLICKED = 40, _('Clicked')
+
+    DEFERRED = 50, _('Deferred')
+    SOFT_BOUNCED = 60, _('Soft Bounced')
+    HARD_BOUNCED = 70, _('Hard Bounced')
+
+    SPAM_COMPLAINT = 80, _('Spam Complaint')
+    UNSUBSCRIBED = 90, _('Unsubscribed')
 
 
 class Email(models.Model):
@@ -58,6 +72,9 @@ class Email(models.Model):
     whether it's successfully delivered.
     """
     status = models.PositiveSmallIntegerField(_('Status'), choices=STATUS_CHOICES, db_index=True, blank=True, null=True)
+    recipient_delivery_status = models.PositiveSmallIntegerField(
+        _('Recipient Delivery Status'), choices=RecipientDeliveryStatus.choices, blank=True, null=True
+    )
     priority = models.PositiveSmallIntegerField(_('Priority'), choices=PRIORITY_CHOICES, blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True, db_index=True)
     last_updated = models.DateTimeField(db_index=True, auto_now=True)
@@ -85,8 +102,11 @@ class Email(models.Model):
         super().__init__(*args, **kwargs)
         self._cached_email_message = None
 
+    def __repr__(self):
+        return '<%s: %s>' % (self.__class__.__name__, self.to)
+
     def __str__(self):
-        return '%s' % self.to
+        return f'{", ".join(self.to)}'
 
     def email_message(self):
         """
@@ -240,7 +260,7 @@ class Log(models.Model):
     A model to record sending email sending activities.
     """
 
-    STATUS_CHOICES = [(STATUS.sent, _('sent')), (STATUS.failed, _('failed'))]
+    STATUS_CHOICES = [(STATUS.sent, _('sent')), (STATUS.failed, _('failed'))] + RecipientDeliveryStatus.choices
 
     email = models.ForeignKey(
         Email, editable=False, related_name='logs', verbose_name=_('Email address'), on_delete=models.CASCADE
@@ -334,7 +354,7 @@ class Attachment(models.Model):
     A model describing an email attachment.
     """
 
-    file = models.FileField(_('File'), upload_to=get_upload_path)
+    file = models.FileField(_('File'), storage=get_file_storage, upload_to=get_upload_path)
     name = models.CharField(_('Name'), max_length=255, help_text=_('The original filename'))
     emails = models.ManyToManyField(Email, related_name='attachments', verbose_name=_('Emails'))
     mimetype = models.CharField(max_length=255, default='', blank=True)

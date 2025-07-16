@@ -224,6 +224,35 @@ async def markdown_base64_to_url(text, pattern=r'!\[Image_\d+\]\((.+?)\)'):
     return text
 
 
+async def get_file_duration(filename: str = ".mp4", url: Optional[str] = None, content: Optional[bytes] = None,
+                            headers: Optional[dict] = None):
+    # Path(url.split('?')[0]).name
+    headers = {
+        "Range": "bytes=0-8191"
+    }
+    async with httpx.AsyncClient(timeout=200) as client:
+        for i in range(2):
+            if url:
+                response = await client.get(url=url, headers=headers)
+                response.raise_for_status()
+
+                content = response.content
+            elif content is None:
+                raise ValueError("url or content is required")
+
+            from tinytag import TinyTag
+
+            tag = TinyTag.get(filename=filename, file_obj=io.BytesIO(content), ignore_errors=False)
+
+            logger.debug(tag.duration)
+            if tag.duration:
+                break
+            else:
+                headers = None
+
+        return int(np.ceil(tag.duration or 10))
+
+
 if __name__ == '__main__':
     # import tempfile
     #
@@ -281,7 +310,7 @@ if __name__ == '__main__':
     file = "/Users/betterme/PycharmProjects/AI/ppt.txt"
     # arun(to_url(Path(file).read_bytes(), filename='ppt.txt'))
 
-    arun(markdown_base64_to_url("![image](data:imagexxxxx)", pattern=r'!\[image\]\((.+?)\)'))
+    # arun(markdown_base64_to_url("![image](data:imagexxxxx)", pattern=r'!\[image\]\((.+?)\)'))
 
     # arun(to_bytes("https://oss.ffire.cc/files/kling_watermark.png"))
 
@@ -294,4 +323,11 @@ if __name__ == '__main__':
 
     # r = arun(to_bytes(url))
 
-    # print(mimetypes.guess_type(url)[0])
+    print(mimetypes.guess_type(url)[0])
+
+    url = "https://lmdbk.com/5.mp4"
+    # url = "https://v3.fal.media/files/kangaroo/y5-1YTGpun17eSeggZMzX_video-1733468228.mp4"
+    content = requests.get(url).content
+    with timer():
+        # arun(get_file_duration(content=content))
+        arun(get_file_duration(url=url))

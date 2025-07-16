@@ -1,12 +1,17 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 
-from ..doctools import document
 from .density import get_var_type, kde
 from .stat import stat
 
+if TYPE_CHECKING:
+    from plotnine.typing import FloatArrayLike
 
-@document
+
 class stat_density_2d(stat):
     """
     Compute 2D kernel density estimation
@@ -32,6 +37,7 @@ class stat_density_2d(stat):
 
     See Also
     --------
+    plotnine.geom_density_2d : The default `geom` for this `stat`.
     statsmodels.nonparametric.kernel_density.KDEMultivariate
     scipy.stats.gaussian_kde
     sklearn.neighbors.KernelDensity
@@ -66,7 +72,7 @@ class stat_density_2d(stat):
     CREATES = {"y"}
 
     def setup_params(self, data):
-        params = self.params.copy()
+        params = self.params
         if params["kde_params"] is None:
             params["kde_params"] = {}
 
@@ -78,10 +84,8 @@ class stat_density_2d(stat):
                 y_type = get_var_type(data["y"])
                 kde_params["var_type"] = f"{x_type}{y_type}"
 
-        return params
-
-    @classmethod
-    def compute_group(cls, data, scales, **params):
+    def compute_group(self, data, scales):
+        params = self.params
         package = params["package"]
         kde_params = params["kde_params"]
 
@@ -118,7 +122,7 @@ class stat_density_2d(stat):
         return data
 
 
-def contour_lines(X, Y, Z, levels):
+def contour_lines(X, Y, Z, levels: int | FloatArrayLike):
     """
     Calculate contour lines
     """

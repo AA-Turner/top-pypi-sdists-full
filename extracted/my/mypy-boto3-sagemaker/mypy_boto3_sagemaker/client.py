@@ -88,6 +88,7 @@ from .paginator import (
     ListPipelineExecutionStepsPaginator,
     ListPipelineParametersForExecutionPaginator,
     ListPipelinesPaginator,
+    ListPipelineVersionsPaginator,
     ListProcessingJobsPaginator,
     ListResourceCatalogsPaginator,
     ListSpacesPaginator,
@@ -593,6 +594,8 @@ from .type_defs import (
     ListPipelineParametersForExecutionResponseTypeDef,
     ListPipelinesRequestTypeDef,
     ListPipelinesResponseTypeDef,
+    ListPipelineVersionsRequestTypeDef,
+    ListPipelineVersionsResponseTypeDef,
     ListProcessingJobsRequestTypeDef,
     ListProcessingJobsResponseTypeDef,
     ListProjectsInputTypeDef,
@@ -739,6 +742,8 @@ from .type_defs import (
     UpdatePipelineExecutionResponseTypeDef,
     UpdatePipelineRequestTypeDef,
     UpdatePipelineResponseTypeDef,
+    UpdatePipelineVersionRequestTypeDef,
+    UpdatePipelineVersionResponseTypeDef,
     UpdateProjectInputTypeDef,
     UpdateProjectOutputTypeDef,
     UpdateSpaceRequestTypeDef,
@@ -3507,6 +3512,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_pipeline_parameters_for_execution)
         """
 
+    def list_pipeline_versions(
+        self, **kwargs: Unpack[ListPipelineVersionsRequestTypeDef]
+    ) -> ListPipelineVersionsResponseTypeDef:
+        """
+        Gets a list of all versions of the pipeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_pipeline_versions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_pipeline_versions)
+        """
+
     def list_pipelines(
         self, **kwargs: Unpack[ListPipelinesRequestTypeDef]
     ) -> ListPipelinesResponseTypeDef:
@@ -4368,6 +4383,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_pipeline_execution)
         """
 
+    def update_pipeline_version(
+        self, **kwargs: Unpack[UpdatePipelineVersionRequestTypeDef]
+    ) -> UpdatePipelineVersionResponseTypeDef:
+        """
+        Updates a pipeline version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_pipeline_version.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#update_pipeline_version)
+        """
+
     def update_project(
         self, **kwargs: Unpack[UpdateProjectInputTypeDef]
     ) -> UpdateProjectOutputTypeDef:
@@ -5114,6 +5139,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_pipeline_parameters_for_execution"]
     ) -> ListPipelineParametersForExecutionPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipeline_versions"]
+    ) -> ListPipelineVersionsPaginator:
         """
         Create a paginator for an operation.
 

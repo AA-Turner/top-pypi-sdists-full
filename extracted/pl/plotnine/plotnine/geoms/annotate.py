@@ -64,16 +64,16 @@ class annotate:
     def __init__(
         self,
         geom: str | type[geom_base_class],
-        x: float | None = None,
-        y: float | None = None,
-        xmin: float | None = None,
-        xmax: float | None = None,
-        xend: float | None = None,
-        xintercept: float | None = None,
-        ymin: float | None = None,
-        ymax: float | None = None,
-        yend: float | None = None,
-        yintercept: float | None = None,
+        x: float | list[float] | None = None,
+        y: float | list[float] | None = None,
+        xmin: float | list[float] | None = None,
+        xmax: float | list[float] | None = None,
+        xend: float | list[float] | None = None,
+        xintercept: float | list[float] | None = None,
+        ymin: float | list[float] | None = None,
+        ymax: float | list[float] | None = None,
+        yend: float | list[float] | None = None,
+        yintercept: float | list[float] | None = None,
         **kwargs: Any,
     ):
         variables = locals()
@@ -131,12 +131,12 @@ class annotate:
             **kwargs,
         )
 
-    def __radd__(self, plot: ggplot) -> ggplot:
+    def __radd__(self, other: ggplot) -> ggplot:
         """
         Add to ggplot
         """
-        plot += self.to_layer()  # Add layer
-        return plot
+        other += self.to_layer()  # Add layer
+        return other
 
     def to_layer(self) -> layer:
         """

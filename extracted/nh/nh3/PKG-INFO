@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nh3
-Version: 0.2.21
+Version: 0.2.22
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

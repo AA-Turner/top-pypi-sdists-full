@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nanobind
-Version: 2.7.0
+Version: 2.8.0
 Summary: nanobind: tiny and efficient C++/Python bindings
 Author-Email: Wenzel Jakob <wenzel.jakob@epfl.ch>
 Classifier: Intended Audience :: Developers

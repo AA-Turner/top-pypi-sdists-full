@@ -12,12 +12,12 @@ dependencies = [
     "tenacity!=8.4.0,<10.0.0,>=8.1.0",
     "jsonpatch<2.0,>=1.33",
     "PyYAML>=5.3",
-    "packaging<25,>=23.2",
     "typing-extensions>=4.7",
+    "packaging>=23.2",
     "pydantic>=2.7.4",
 ]
 name = "langchain-core"
-version = "0.3.68"
+version = "0.3.69"
 description = "Building applications with LLMs through composability"
 readme = "README.md"
 
@@ -31,7 +31,7 @@ repository = "https://github.com/langchain-ai/langchain"
 
 [dependency-groups]
 lint = [
-    "ruff<0.12.0,>=0.11.2",
+    "ruff<0.13,>=0.12.2",
 ]
 typing = [
     "mypy<1.16,>=1.15",
@@ -98,12 +98,19 @@ ignore = [
     "TC003",
     "TD002",
     "TD003",
-    "UP007",
     "ANN401",
     "BLE",
     "ERA",
+    "PLC0415",
     "PLR2004",
 ]
+unfixable = [
+    "PLW1510",
+]
+
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+mypy-init-return = true
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = [
@@ -111,14 +118,6 @@ runtime-evaluated-base-classes = [
     "langchain_core.load.serializable.Serializable",
     "langchain_core.runnables.base.RunnableSerializable",
 ]
-
-[tool.ruff.lint.flake8-annotations]
-allow-star-arg-any = true
-mypy-init-return = true
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-ignore-var-parameters = true
 
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = [
@@ -128,24 +127,22 @@ classmethod-decorators = [
     "pydantic.v1.root_validator",
 ]
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+ignore-var-parameters = true
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
 [tool.ruff.lint.per-file-ignores]
 "langchain_core/utils/mustache.py" = [
     "PLW0603",
-]
-"tests/unit_tests/prompts/test_chat.py" = [
-    "E501",
-]
-"tests/unit_tests/runnables/test_runnable.py" = [
-    "E501",
-]
-"tests/unit_tests/runnables/test_graph.py" = [
-    "E501",
 ]
 "tests/unit_tests/test_tools.py" = [
     "ARG",
 ]
 "tests/**" = [
-    "D",
+    "D1",
     "S",
     "SLF",
 ]

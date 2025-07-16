@@ -13,17 +13,18 @@
 # limitations under the License.
 """Symbolic differences."""
 
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Optional, Sequence, Tuple, Union
 
-from pyglove.core import object_utils
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.symbolic import base
 from pyglove.core.symbolic import list as pg_list
 from pyglove.core.symbolic import object as pg_object
 from pyglove.core.symbolic.pure_symbolic import PureSymbolic
+from pyglove.core.views.html import tree_view
 
 
-class Diff(PureSymbolic, pg_object.Object):
+class Diff(PureSymbolic, pg_object.Object, tree_view.HtmlTreeView.Extension):
   """A value diff between two objects: a 'left' object and a 'right' object.
 
   If one of them is missing, it may be represented by pg.Diff.MISSING
@@ -111,8 +112,7 @@ class Diff(PureSymbolic, pg_object.Object):
         return 'No diff'
       # When there is no diff, but the same value needs to be displayed
       # we simply return the value.
-      return object_utils.format(
-          self.value, compact, verbose, root_indent, **kwargs)
+      return utils.format(self.value, compact, verbose, root_indent, **kwargs)
     if self.is_leaf:
       exclude_keys = kwargs.pop('exclude_keys', None)
       exclude_keys = exclude_keys or set()
@@ -128,7 +128,9 @@ class Diff(PureSymbolic, pg_object.Object):
             verbose=verbose,
             root_indent=root_indent,
             cls_name='',
-            bracket_type=object_utils.BracketType.SQUARE)
+            bracket_type=utils.BracketType.SQUARE,
+            **kwargs,
+        )
       if self.left is self.right:
         cls_name = self.left.__name__
       else:
@@ -138,7 +140,197 @@ class Diff(PureSymbolic, pg_object.Object):
           verbose=verbose,
           root_indent=root_indent,
           cls_name=cls_name,
-          bracket_type=object_utils.BracketType.ROUND)
+          bracket_type=utils.BracketType.ROUND,
+          **kwargs,
+      )
+
+  # pytype: disable=annotation-type-mismatch
+  def _html_tree_view_summary(
+      self,
+      *,
+      view: tree_view.HtmlTreeView,
+      css_classes: Optional[Sequence[str]] = None,
+      title: Optional[str] = None,
+      max_summary_len_for_str: int = 80,
+      **kwargs,
+    ) -> Optional[tree_view.Html]:
+    # pytype: enable=annotation-type-mismatch
+    if not bool(self):
+      v = self.value
+      if (isinstance(v, (int, float, bool, type(None)))
+          or (isinstance(v, str) and len(v) <= max_summary_len_for_str)):
+        return None
+
+      if v == Diff.MISSING:
+        return view.summary(
+            self,
+            title=title or 'Diff',
+            css_classes=css_classes,
+            max_summary_len_for_str=max_summary_len_for_str,
+            **kwargs
+        )
+      return view.summary(
+          self.value,
+          title=title,
+          css_classes=css_classes,
+          max_summary_len_for_str=max_summary_len_for_str,
+          **kwargs
+      )
+    elif self.is_leaf:
+      return None
+    else:
+      assert isinstance(self.left, type), self.left
+      assert isinstance(self.right, type), self.right
+      if self.left is self.right:
+        diff_title = self.left.__name__
+      else:
+        diff_title = f'{self.left.__name__} | {self.right.__name__}'
+      return view.summary(
+          self,
+          title=title or diff_title,
+          css_classes=css_classes,
+          max_summary_len_for_str=max_summary_len_for_str,
+          **kwargs
+      )
+
+  def _html_tree_view_content(
+      self,
+      *,
+      view: tree_view.HtmlTreeView,
+      parent: Any = None,
+      root_path: Optional[utils.KeyPath] = None,
+      css_classes: Optional[Sequence[str]] = None,
+      **kwargs,
+  ) -> tree_view.Html:
+    root_path = root_path or utils.KeyPath()
+    if not bool(self):
+      if self.value == Diff.MISSING:
+        root = tree_view.Html.element(
+            'span',
+            # CSS class already defined in HtmlTreeView.
+            css_classes=['diff-empty']
+        )
+      else:
+        # When there is no diff, but the same value needs to be displayed
+        # we simply return the value.
+        root = view.content(
+            self.value, parent=parent, root_path=root_path,
+            css_classes=['no-diff', view.css_class_name(self.value)],
+            **kwargs,
+        )
+    elif self.is_leaf:
+      root = tree_view.Html.element(
+          'div',
+          [
+              view.render(   # pylint: disable=g-long-ternary
+                  self.left, root_path=root_path + 'left',
+                  css_classes=['diff-left'], **kwargs
+              ) if self.left != Diff.MISSING else None,
+              view.render(   # pylint: disable=g-long-ternary
+                  self.right, root_path=root_path + 'right',
+                  css_classes=['diff-right'], **kwargs
+              ) if self.right != Diff.MISSING else None,
+          ],
+          css_classes=['diff-value']
+      )
+    else:
+      assert isinstance(self.left, type)
+      assert isinstance(self.right, type)
+
+      if issubclass(self.left, list):
+        key_fn = int
+      else:
+        key_fn = lambda k: k
+
+      s = tree_view.Html()
+      for k, v in self.children.items():
+        k = key_fn(k)
+        child_path = root_path + k
+        has_diff = bool(v)
+        s.write('<tr><td>')
+        # Print Key.
+        s.write(
+            view.object_key(
+                child_path, value=v, parent=self,
+                css_classes=None if has_diff else ['no-diff'],
+            ),
+        )
+        # Print Value.
+        s.write(
+            '</td><td>',
+            view.render(
+                v, root_path=child_path, **kwargs
+            ),
+            '</td></tr>'
+        )
+      root = tree_view.Html.element(
+          'div',
+          [
+              '<table>', s, '</table>'
+          ],
+          css_classes=[
+              'complex-value', view.css_class_name(self.left), css_classes,
+          ]
+      )
+    return root
+
+  def _html_tree_view_config(self) -> dict[str, Any]:
+    return tree_view.HtmlTreeView.get_kwargs(
+        super()._html_tree_view_config(),
+        dict(
+            css_classes=[
+                'has-diff' if bool(self) else 'no-diff'
+            ]
+        )
+    )
+
+  @classmethod
+  def _html_tree_view_css_styles(cls) -> list[str]:
+    return super()._html_tree_view_css_styles() + [
+        """
+        /* Diff styles. */
+        .has-diff.summary-title::after {
+          content: ' (diff)';
+          color: #aaa;
+        }
+        .has-diff.summary-title {
+          background-color: yellow;
+        }
+        .no-diff.summary-title::after {
+          content: ' (no diff)';
+          font-style: italic;
+          font-weight: normal;
+          color: #aaa;
+        }
+        .no-diff {
+          opacity: 0.6;
+        }
+        .no-diff.simple_value::after {
+          content: '(no diff)';
+          margin-left: 0.5em;
+          color: #aaa;
+          font-style: italic;
+        }
+        .diff-empty::before {
+          content: '(empty)';
+          font-style: italic;
+          margin-left: 0.5em;
+          color: #aaa;
+        }
+        .diff-left.summary-title::before, .diff-left.simple-value::before{
+          content: '🇱';
+        }
+        .diff-left {
+          background-color: #ffcccc;
+        }
+        .diff-right.summary-title::before, .diff-right.simple-value::before{
+          content: '🇷';
+        }
+        .diff-right {
+          background-color: #ccffcc;
+        }
+        """
+    ]
 
 
 # NOTE(daiyip): we add the symbolic attribute to Diff after its declaration
@@ -160,7 +352,8 @@ def diff(
     right: Any,
     flatten: bool = False,
     collapse: Union[bool, str, Callable[[Any, Any], bool]] = 'same_type',
-    mode: str = 'diff') -> object_utils.Nestable[Diff]:
+    mode: str = 'diff',
+) -> utils.Nestable[Diff]:
   """Inspect the symbolic diff between two objects.
 
   For example::
@@ -286,7 +479,7 @@ def diff(
       assert isinstance(container, base.Symbolic)
       return container.sym_hasattr, container.sym_getattr, container.sym_items
 
-  def _diff(x, y) -> Tuple[object_utils.Nestable[Diff], bool]:
+  def _diff(x, y) -> Tuple[utils.Nestable[Diff], bool]:
     if x is y or x == y:
       return (Diff(x, y), False)
     if not _should_collapse(x, y):
@@ -340,5 +533,5 @@ def diff(
   if not has_diff and mode == 'diff':
     diff_value = Diff()
   if flatten:
-    diff_value = object_utils.flatten(diff_value)
+    diff_value = utils.flatten(diff_value)
   return diff_value

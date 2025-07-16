@@ -1,17 +1,17 @@
 [build-system]
-requires = ["cmake~=3.27.0", "ninja; platform_system!='Windows'", "setuptools>=42", "tomli"]
+requires = ["cmake", "ninja; platform_system!='Windows'", "setuptools>=75.8.1", "tomli"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "PennyLane_Lightning"
+name = "pennylane_lightning"
 description = "PennyLane-Lightning plugin"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.10"
+license = "Apache-2.0"
 classifiers = [ 
     "Development Status :: 4 - Beta", 
     "Environment :: Console", 
     "Intended Audience :: Science/Research", 
-    "License :: OSI Approved :: Apache Software License", 
     "Natural Language :: English", 
     "Operating System :: MacOS :: MacOS X", 
     "Operating System :: Microsoft :: Windows", 
@@ -31,9 +31,6 @@ dynamic = [ "version",]
 [[project.maintainers]]
 name = "Xanadu Quantum Technologies Inc."
 email = "software@xanadu.ai"
-
-[project.license]
-text = "Apache License 2.0"
 
 [project.optional-dependencies]
 gpu = [ "pennylane-lightning-gpu",]

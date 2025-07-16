@@ -249,6 +249,7 @@ KnowledgeBaseStorageTypeType = Literal[
     "PINECONE",
     "RDS",
     "REDIS_ENTERPRISE_CLOUD",
+    "S3_VECTORS",
 ]
 KnowledgeBaseTypeType = Literal["KENDRA", "SQL", "VECTOR"]
 ListAgentActionGroupsPaginatorName = Literal["list_agent_action_groups"]
@@ -638,6 +639,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

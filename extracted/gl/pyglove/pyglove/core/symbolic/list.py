@@ -18,8 +18,8 @@ import math
 import numbers
 import typing
 from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Tuple, Union
-from pyglove.core import object_utils
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.symbolic import base
 from pyglove.core.symbolic import flags
 
@@ -74,13 +74,16 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
   """
 
   @classmethod
-  def partial(cls,
-              items: Optional[Iterable[Any]] = None,
-              *,
-              value_spec: Optional[pg_typing.List] = None,
-              onchange_callback: Optional[Callable[
-                  [Dict[object_utils.KeyPath, base.FieldUpdate]], None]] = None,
-              **kwargs) -> 'List':
+  def partial(
+      cls,
+      items: Optional[Iterable[Any]] = None,
+      *,
+      value_spec: Optional[pg_typing.List] = None,
+      onchange_callback: Optional[
+          Callable[[Dict[utils.KeyPath, base.FieldUpdate]], None]
+      ] = None,
+      **kwargs,
+  ) -> 'List':
     """Class method that creates a partial List object."""
     return cls(items,
                value_spec=value_spec,
@@ -89,13 +92,15 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
                **kwargs)
 
   @classmethod
-  def from_json(cls,
-                json_value: Any,
-                *,
-                value_spec: Optional[pg_typing.List] = None,
-                allow_partial: bool = False,
-                root_path: Optional[object_utils.KeyPath] = None,
-                **kwargs) -> 'List':
+  def from_json(
+      cls,
+      json_value: Any,
+      *,
+      value_spec: Optional[pg_typing.List] = None,
+      allow_partial: bool = False,
+      root_path: Optional[utils.KeyPath] = None,
+      **kwargs,
+  ) -> 'List':
     """Class method that load an symbolic List from a JSON value.
 
     Example::
@@ -132,22 +137,34 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     Returns:
       A schema-less symbolic list, but its items maybe symbolic.
     """
-    return cls(json_value,
-               value_spec=value_spec,
-               allow_partial=allow_partial,
-               root_path=root_path)
+    return cls(
+        [
+            base.from_json(
+                v,
+                root_path=utils.KeyPath(i, root_path),
+                allow_partial=allow_partial,
+                **kwargs,
+            )
+            for i, v in enumerate(json_value)
+        ],
+        value_spec=value_spec,
+        root_path=root_path,
+        allow_partial=allow_partial,
+    )
 
   def __init__(
       self,
       items: Optional[Iterable[Any]] = None,
       *,
       value_spec: Optional[pg_typing.List] = None,
-      onchange_callback: Optional[Callable[
-          [Dict[object_utils.KeyPath, base.FieldUpdate]], None]] = None,
+      onchange_callback: Optional[
+          Callable[[Dict[utils.KeyPath, base.FieldUpdate]], None]
+      ] = None,
       allow_partial: bool = False,
       accessor_writable: bool = True,
       sealed: bool = False,
-      root_path: Optional[object_utils.KeyPath] = None):
+      root_path: Optional[utils.KeyPath] = None,
+  ):
     """Constructor.
 
     Args:
@@ -328,8 +345,8 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     return missing
 
   def _sym_rebind(
-      self, path_value_pairs: typing.Dict[object_utils.KeyPath, Any]
-      ) -> typing.List[base.FieldUpdate]:
+      self, path_value_pairs: typing.Dict[utils.KeyPath, Any]
+  ) -> typing.List[base.FieldUpdate]:
     """Subclass specific rebind implementation."""
     updates = []
 
@@ -369,14 +386,13 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     return self
 
   def _update_children_paths(
-      self,
-      old_path: object_utils.KeyPath,
-      new_path: object_utils.KeyPath) -> None:
+      self, old_path: utils.KeyPath, new_path: utils.KeyPath
+  ) -> None:
     """Update children paths according to root_path of current node."""
     del old_path
     for idx, item in self.sym_items():
       if isinstance(item, base.TopologyAware):
-        item.sym_setpath(object_utils.KeyPath(idx, new_path))
+        item.sym_setpath(utils.KeyPath(idx, new_path))
 
   def _set_item_without_permission_check(  # pytype: disable=signature-mismatch  # overriding-parameter-type-checks
       self, key: int, value: Any) -> Optional[base.FieldUpdate]:
@@ -423,13 +439,15 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     value = base.from_json(
         value,
         allow_partial=allow_partial,
-        root_path=object_utils.KeyPath(idx, self.sym_path))
+        root_path=utils.KeyPath(idx, self.sym_path),
+    )
     if self._value_spec and flags.is_type_check_enabled():
       value = self._value_spec.element.apply(
           value,
           allow_partial=allow_partial,
           transform_fn=base.symbolic_transform_fn(self._allow_partial),
-          root_path=object_utils.KeyPath(idx, self.sym_path))
+          root_path=utils.KeyPath(idx, self.sym_path),
+      )
     return self._relocate_if_symbolic(idx, value)
 
   @property
@@ -437,8 +455,7 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     """Returns True if current list subscribes field updates."""
     return self._onchange_callback is not None
 
-  def _on_change(self,
-                 field_updates: Dict[object_utils.KeyPath, base.FieldUpdate]):
+  def _on_change(self, field_updates: Dict[utils.KeyPath, base.FieldUpdate]):
     """On change event of List."""
     # Do nothing for now to handle changes of List.
 
@@ -454,7 +471,7 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     # Update paths for children.
     for idx, item in self.sym_items():
       if isinstance(item, base.TopologyAware) and item.sym_path.key != idx:
-        item.sym_setpath(object_utils.KeyPath(idx, self.sym_path))
+        item.sym_setpath(utils.KeyPath(idx, self.sym_path))
 
     if self._onchange_callback is not None:
       self._onchange_callback(field_updates)
@@ -714,11 +731,12 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
 
   def custom_apply(
       self,
-      path: object_utils.KeyPath,
+      path: utils.KeyPath,
       value_spec: pg_typing.ValueSpec,
       allow_partial: bool,
       child_transform: Optional[
-          Callable[[object_utils.KeyPath, pg_typing.Field, Any], Any]] = None
+          Callable[[utils.KeyPath, pg_typing.Field, Any], Any]
+      ] = None,
   ) -> Tuple[bool, 'List']:
     """Implement pg.typing.CustomTyping interface.
 
@@ -737,9 +755,12 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     if self._value_spec:
       if value_spec and not value_spec.is_compatible(self._value_spec):
         raise ValueError(
-            object_utils.message_on_path(
+            utils.message_on_path(
                 f'List (spec={self._value_spec!r}) cannot be assigned to an '
-                f'incompatible field (spec={value_spec!r}).', path))
+                f'incompatible field (spec={value_spec!r}).',
+                path,
+            )
+        )
       if self._allow_partial == allow_partial:
         proceed_with_standard_apply = False
       else:
@@ -749,9 +770,8 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
     return (proceed_with_standard_apply, self)
 
   def sym_jsonify(
-      self,
-      use_inferred: bool = False,
-      **kwargs) -> object_utils.JSONValueType:
+      self, use_inferred: bool = False, **kwargs
+  ) -> utils.JSONValueType:
     """Converts current list to a list of plain Python objects."""
     def json_item(idx):
       v = self.sym_getattr(idx)
@@ -769,24 +789,31 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
       python_format: bool = False,
       use_inferred: bool = False,
       cls_name: Optional[str] = None,
-      bracket_type: object_utils.BracketType = object_utils.BracketType.SQUARE,
-      **kwargs) -> str:
+      bracket_type: utils.BracketType = utils.BracketType.SQUARE,
+      **kwargs,
+  ) -> str:
     """Formats this List."""
 
     def _indent(text, indent):
       return ' ' * 2 * indent + text
 
     cls_name = cls_name or ''
-    open_bracket, close_bracket = object_utils.bracket_chars(bracket_type)
+    open_bracket, close_bracket = utils.bracket_chars(bracket_type)
     s = [f'{cls_name}{open_bracket}']
     if compact:
       kv_strs = []
       for idx, elem in self.sym_items():
         if use_inferred and isinstance(elem, base.Inferential):
           elem = self.sym_inferred(idx, default=elem)
-        v_str = object_utils.format(
-            elem, compact, verbose, root_indent + 1,
-            python_format=python_format, use_inferred=use_inferred, **kwargs)
+        v_str = utils.format(
+            elem,
+            compact,
+            verbose,
+            root_indent + 1,
+            python_format=python_format,
+            use_inferred=use_inferred,
+            **kwargs,
+        )
         if python_format:
           kv_strs.append(v_str)
         else:
@@ -802,9 +829,15 @@ class List(list, base.Symbolic, pg_typing.CustomTyping):
             s.append('\n')
           else:
             s.append(',\n')
-          v_str = object_utils.format(
-              elem, compact, verbose, root_indent + 1,
-              python_format=python_format, use_inferred=use_inferred, **kwargs)
+          v_str = utils.format(
+              elem,
+              compact,
+              verbose,
+              root_indent + 1,
+              python_format=python_format,
+              use_inferred=use_inferred,
+              **kwargs,
+          )
           if python_format:
             s.append(_indent(v_str, root_indent + 1))
           else:

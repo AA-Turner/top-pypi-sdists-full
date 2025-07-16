@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ def _maybe_better_error(self, type_, value, traceback, tb_offset=None):
   """Update the error message."""
 
   if (
-      type(value) is NameError  # pylint: disable=unidiomatic-typecheck
+      isinstance(value, NameError)  # isinstance to supports `epy.reraise`
       and len(value.args) == 1
       and _is_from_invalidate_module(value)
   ):

@@ -107,9 +107,11 @@ class facet_grid(facet):
         self.space = space
         self.margins = margins
 
-    def _make_figure(self):
-        import matplotlib.pyplot as plt
-        from matplotlib.gridspec import GridSpec
+    def _get_panels_gridspec(self):
+        """
+        Create gridspec for the panels
+        """
+        from plotnine._mpl.gridspec import p9GridSpec
 
         layout = self.layout
         space = self.space
@@ -155,7 +157,13 @@ class facet_grid(facet):
             ratios["width_ratios"] = self.space.get("x")
             ratios["height_ratios"] = self.space.get("y")
 
-        return plt.figure(), GridSpec(self.nrow, self.ncol, **ratios)
+        return p9GridSpec(
+            self.nrow,
+            self.ncol,
+            self.figure,
+            nest_into=self.plot._gridspec[0],
+            **ratios,
+        )
 
     def compute_layout(self, data: list[pd.DataFrame]) -> pd.DataFrame:
         if not self.rows and not self.cols:
@@ -302,7 +310,7 @@ def parse_grid_facets_old(
         "((var1, var2), (var3, var4))",
     ]
     error_msg_s = (
-        "Valid sequences for specifying 'facets' look like" f" {valid_seqs}"
+        f"Valid sequences for specifying 'facets' look like {valid_seqs}"
     )
 
     valid_forms = [
@@ -314,7 +322,7 @@ def parse_grid_facets_old(
         ". ~ func(var1) + func(var2)",
         ". ~ func(var1+var3) + func(var2)",
     ] + valid_seqs
-    error_msg_f = "Valid formula for 'facet_grid' look like" f" {valid_forms}"
+    error_msg_f = f"Valid formula for 'facet_grid' look like {valid_forms}"
 
     if not isinstance(facets, str):
         if len(facets) == 1:

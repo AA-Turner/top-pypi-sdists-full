@@ -22,7 +22,7 @@ from pyglove.core.io import file_system
 class StdFileSystemTest(unittest.TestCase):
 
   def test_file(self):
-    tmp_dir = tempfile.gettempdir()
+    tmp_dir = tempfile.mkdtemp()
     fs = file_system.StdFileSystem()
 
     file1 = os.path.join(tmp_dir, 'file1')
@@ -44,7 +44,7 @@ class StdFileSystemTest(unittest.TestCase):
     self.assertFalse(fs.exists(file1))
 
   def test_file_system(self):
-    tmp_dir = tempfile.gettempdir()
+    tmp_dir = tempfile.mkdtemp()
     fs = file_system.StdFileSystem()
 
     # Create a directory.
@@ -68,7 +68,7 @@ class StdFileSystemTest(unittest.TestCase):
     # Test rm.
     with self.assertRaises(FileNotFoundError):
       fs.rm(os.path.join(dir_a, 'file2'))
-    with self.assertRaises(IsADirectoryError):
+    with self.assertRaises((IsADirectoryError, PermissionError)):
       fs.rm(os.path.join(dir_a, 'b'))
 
     # Test rmdir.
@@ -133,15 +133,16 @@ class MemoryFileSystemTest(unittest.TestCase):
     self.assertFalse(fs.exists(file1))
     with fs.open(file1, 'w') as f:
       f.write('hello')
+      f.flush()
     self.assertTrue(fs.exists(file1))
     self.assertFalse(fs.isdir(file1))
 
     # Make dirs.
     fs.mkdirs(os.path.join(dir_a, 'b/c/d'))
 
+    fs.mkdirs(os.path.join(dir_a, 'b/c/d'))
     with self.assertRaises(FileExistsError):
-      fs.mkdirs(os.path.join(dir_a, 'b/c/d'))
-    fs.mkdirs(os.path.join(dir_a, 'b/c/d'), exist_ok=True)
+      fs.mkdirs(os.path.join(dir_a, 'b/c/d'), exist_ok=False)
     with self.assertRaises(NotADirectoryError):
       fs.mkdirs(os.path.join(file1, 'e'))
 
@@ -183,7 +184,7 @@ class MemoryFileSystemTest(unittest.TestCase):
 class FileIoApiTest(unittest.TestCase):
 
   def test_standard_filesystem(self):
-    file1 = os.path.join(tempfile.gettempdir(), 'file1')
+    file1 = os.path.join(tempfile.mkdtemp(), 'file1')
     with self.assertRaises(FileNotFoundError):
       file_system.readfile(file1)
     self.assertIsNone(file_system.readfile(file1, nonexist_ok=True))
@@ -198,7 +199,7 @@ class FileIoApiTest(unittest.TestCase):
     file_system.rm(file1)
     self.assertFalse(file_system.path_exists(file1))
 
-    dir1 = os.path.join(tempfile.gettempdir(), 'dir1')
+    dir1 = os.path.join(tempfile.mkdtemp(), 'dir1')
     file_system.mkdir(dir1)
     self.assertEqual(file_system.listdir(dir1), [])
     file_system.mkdirs(os.path.join(dir1, 'a/b/c'))
@@ -207,7 +208,7 @@ class FileIoApiTest(unittest.TestCase):
     self.assertEqual(sorted(file_system.listdir(dir1)), ['a', 'file2'])  # pylint: disable=g-generic-assert
     self.assertEqual(    # pylint: disable=g-generic-assert
         sorted(file_system.listdir(dir1, fullpath=True)),
-        ['/tmp/dir1/a', '/tmp/dir1/file2']
+        [os.path.join(dir1, 'a'), os.path.join(dir1, 'file2')]
     )
     file_system.rmdir(os.path.join(dir1, 'a/b/c'))
     file_system.rmdirs(os.path.join(dir1, 'a/b'))
@@ -224,6 +225,7 @@ class FileIoApiTest(unittest.TestCase):
     with file_system.open(file1, 'w') as f:
       self.assertIsInstance(f, file_system.MemoryFile)
       f.write('foo')
+      f.flush()
     self.assertTrue(file_system.path_exists(file1))
     self.assertEqual(file_system.readfile(file1), 'foo')
     file_system.writefile(file1, 'bar')

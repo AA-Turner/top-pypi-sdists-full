@@ -18,6 +18,7 @@ from openai import AsyncOpenAI
 
 from meutils.pipe import *
 from meutils.decorators.retry import retrying
+# from meutils.oss.ali_oss import qwenai_upload
 from meutils.io.files_utils import to_bytes, guess_mime_type
 from meutils.caches import rcache
 
@@ -64,6 +65,8 @@ async def to_file(file, api_key, cookie: Optional[str] = None):
     logger.debug(file_object)
     return file_object
 
+# todo
+# oss
 
 async def create(request: CompletionRequest, token: Optional[str] = None, cookie: Optional[str] = None):
     cookie = cookie or COOKIE
@@ -135,6 +138,12 @@ async def create(request: CompletionRequest, token: Optional[str] = None, cookie
 
                 elif content.get("type") == 'image_url':
                     url = content.get(content.get("type")).get("url")
+                    file_object = await to_file(url, token, cookie)
+
+                    user_content[i] = {"type": "image", "image": file_object.id}
+
+                elif content.get("type") == 'input_audio':
+                    url = content.get(content.get("type")).get("data")
                     file_object = await to_file(url, token, cookie)
 
                     user_content[i] = {"type": "image", "image": file_object.id}
@@ -244,12 +253,28 @@ if __name__ == '__main__':
     #
     # ]
 
+    # user_content = [
+    #     {
+    #         "role": "user",
+    #         "content": [
+    #             {
+    #                 "type": "input_audio",
+    #                 "input_audio": {
+    #                     "data": "https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20250211/tixcef/cherry.wav",
+    #                     "format": "wav",
+    #                 },
+    #             },
+    #             {"type": "text", "text": "这段音频在说什么"},
+    #         ],
+    #     },
+    # ]
+
     request = CompletionRequest(
         # model="qwen-turbo-2024-11-01",
         # model="qwen-max-latest",
         # model="qvq-max-2025-03-25",
         # model="qvq-72b-preview-0310",
-        # model="qwen2.5-omni-7b",
+        model="qwen2.5-omni-7b",
         # model="qwen-plus",
 
         # model="qwen-max-latest-search",
@@ -260,9 +285,11 @@ if __name__ == '__main__':
         # model="qwen2.5-vl-72b-instruct",
 
         # model="qwen-plus-latest",
-        model="qwen3-235b-a22b",
+        # model="qwen3-235b-a22b",
         # model="qwen3-30b-a3b",
         # model="qwen3-32b",
+
+        # model="qwen-omni-turbo-0119",
 
         # max_tokens=1,
         max_tokens=None,
@@ -273,11 +300,11 @@ if __name__ == '__main__':
                 # 'content': '今天南京天气',
                 # 'content': "9.8 9.11哪个大",
                 # 'content': 'https://oss.ffire.cc/files/AIGC.pdf 总结下',
-                'content': ' 总结下',
+                # 'content': ' 总结下',
 
                 # "chat_type": "search", deep_research
 
-                # 'content': user_content,
+                'content': user_content,
 
                 # "content": [
                 #     {
@@ -343,6 +370,6 @@ if __name__ == '__main__':
 
     # token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjMxMGNiZGFmLTM3NTQtNDYxYy1hM2ZmLTllYzgwMDUzMjljOSIsImV4cCI6MTc0ODQ3OTE0M30.oAIE1K0XA0YYqlxB8Su-u0UJbY_BBZa4_tvZpFJKxGY"
 
-    arun(create(request, token))
+    # arun(create(request, token))
 
-    # arun(to_file("https://oss.ffire.cc/files/kling_watermark.png", token))
+    arun(to_file("https://help-static-aliyun-doc.aliyuncs.com/file-manage-files/zh-CN/20250211/tixcef/cherry.wav", token))

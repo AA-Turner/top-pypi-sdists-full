@@ -43,6 +43,7 @@ from .type_defs import (
     CopyObjectOutputTypeDef,
     CopyObjectRequestTypeDef,
     CopySourceTypeDef,
+    CreateBucketMetadataConfigurationRequestTypeDef,
     CreateBucketMetadataTableConfigurationRequestTypeDef,
     CreateBucketOutputTypeDef,
     CreateBucketRequestTypeDef,
@@ -56,6 +57,7 @@ from .type_defs import (
     DeleteBucketIntelligentTieringConfigurationRequestTypeDef,
     DeleteBucketInventoryConfigurationRequestTypeDef,
     DeleteBucketLifecycleRequestTypeDef,
+    DeleteBucketMetadataConfigurationRequestTypeDef,
     DeleteBucketMetadataTableConfigurationRequestTypeDef,
     DeleteBucketMetricsConfigurationRequestTypeDef,
     DeleteBucketOwnershipControlsRequestTypeDef,
@@ -95,6 +97,8 @@ from .type_defs import (
     GetBucketLocationRequestTypeDef,
     GetBucketLoggingOutputTypeDef,
     GetBucketLoggingRequestTypeDef,
+    GetBucketMetadataConfigurationOutputTypeDef,
+    GetBucketMetadataConfigurationRequestTypeDef,
     GetBucketMetadataTableConfigurationOutputTypeDef,
     GetBucketMetadataTableConfigurationRequestTypeDef,
     GetBucketMetricsConfigurationOutputTypeDef,
@@ -202,6 +206,8 @@ from .type_defs import (
     RestoreObjectRequestTypeDef,
     SelectObjectContentOutputTypeDef,
     SelectObjectContentRequestTypeDef,
+    UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef,
+    UpdateBucketMetadataJournalTableConfigurationRequestTypeDef,
     UploadPartCopyOutputTypeDef,
     UploadPartCopyRequestTypeDef,
     UploadPartOutputTypeDef,
@@ -320,11 +326,23 @@ class S3Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#create_bucket)
         """
 
+    def create_bucket_metadata_configuration(
+        self, **kwargs: Unpack[CreateBucketMetadataConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates an S3 Metadata V2 metadata configuration for a general purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/create_bucket_metadata_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#create_bucket_metadata_configuration)
+        """
+
     def create_bucket_metadata_table_configuration(
         self, **kwargs: Unpack[CreateBucketMetadataTableConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Creates a metadata table configuration for a general purpose bucket.
+        We recommend that you create your S3 Metadata configurations by using the V2 <a
+        href="https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketMetadataConfiguration.html">CreateBucketMetadataConfiguration</a>
+        API operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/create_bucket_metadata_table_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#create_bucket_metadata_table_configuration)
@@ -424,11 +442,23 @@ class S3Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#delete_bucket_lifecycle)
         """
 
+    def delete_bucket_metadata_configuration(
+        self, **kwargs: Unpack[DeleteBucketMetadataConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an S3 Metadata configuration from a general purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_bucket_metadata_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#delete_bucket_metadata_configuration)
+        """
+
     def delete_bucket_metadata_table_configuration(
         self, **kwargs: Unpack[DeleteBucketMetadataTableConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a metadata table configuration from a general purpose bucket.
+        We recommend that you delete your S3 Metadata configurations by using the V2 <a
+        href="https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteBucketMetadataTableConfiguration.html">DeleteBucketMetadataTableConfiguration</a>
+        API operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_bucket_metadata_table_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#delete_bucket_metadata_table_configuration)
@@ -648,11 +678,24 @@ class S3Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#get_bucket_logging)
         """
 
+    def get_bucket_metadata_configuration(
+        self, **kwargs: Unpack[GetBucketMetadataConfigurationRequestTypeDef]
+    ) -> GetBucketMetadataConfigurationOutputTypeDef:
+        """
+        Retrieves the S3 Metadata configuration for a general purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_metadata_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#get_bucket_metadata_configuration)
+        """
+
     def get_bucket_metadata_table_configuration(
         self, **kwargs: Unpack[GetBucketMetadataTableConfigurationRequestTypeDef]
     ) -> GetBucketMetadataTableConfigurationOutputTypeDef:
         """
-        Retrieves the metadata table configuration for a general purpose bucket.
+        We recommend that you retrieve your S3 Metadata configurations by using the V2
+        <a
+        href="https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketMetadataTableConfiguration.html">GetBucketMetadataTableConfiguration</a>
+        API operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_metadata_table_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#get_bucket_metadata_table_configuration)
@@ -1285,6 +1328,28 @@ class S3Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/select_object_content.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#select_object_content)
+        """
+
+    def update_bucket_metadata_inventory_table_configuration(
+        self, **kwargs: Unpack[UpdateBucketMetadataInventoryTableConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables or disables a live inventory table for an S3 Metadata configuration on
+        a general purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_bucket_metadata_inventory_table_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#update_bucket_metadata_inventory_table_configuration)
+        """
+
+    def update_bucket_metadata_journal_table_configuration(
+        self, **kwargs: Unpack[UpdateBucketMetadataJournalTableConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables or disables journal table record expiration for an S3 Metadata
+        configuration on a general purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/update_bucket_metadata_journal_table_configuration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/client/#update_bucket_metadata_journal_table_configuration)
         """
 
     def upload_part(self, **kwargs: Unpack[UploadPartRequestTypeDef]) -> UploadPartOutputTypeDef:

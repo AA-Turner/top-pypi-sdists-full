@@ -145,6 +145,7 @@ from .literals import (
     ImageAttributeNameType,
     ImageStateType,
     ImageTypeValuesType,
+    InitializationTypeType,
     InstanceAttributeNameType,
     InstanceAutoRecoveryStateType,
     InstanceBandwidthWeightingType,
@@ -1993,6 +1994,7 @@ __all__ = (
     "InferenceAcceleratorInfoTypeDef",
     "InferenceDeviceInfoTypeDef",
     "InferenceDeviceMemoryInfoTypeDef",
+    "InitializationStatusDetailsTypeDef",
     "InstanceAttachmentEnaSrdSpecificationTypeDef",
     "InstanceAttachmentEnaSrdUdpSpecificationTypeDef",
     "InstanceAttributeTypeDef",
@@ -6524,6 +6526,12 @@ class InferenceDeviceMemoryInfoTypeDef(TypedDict):
     SizeInMiB: NotRequired[int]
 
 
+class InitializationStatusDetailsTypeDef(TypedDict):
+    InitializationType: NotRequired[InitializationTypeType]
+    Progress: NotRequired[int]
+    EstimatedTimeToCompleteInSeconds: NotRequired[int]
+
+
 class InstanceAttachmentEnaSrdUdpSpecificationTypeDef(TypedDict):
     EnaSrdUdpEnabled: NotRequired[bool]
 
@@ -9534,6 +9542,7 @@ class Ec2InstanceConnectEndpointTypeDef(TypedDict):
     PreserveClientIp: NotRequired[bool]
     SecurityGroupIds: NotRequired[List[str]]
     Tags: NotRequired[List[TagTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 
 class HostReservationTypeDef(TypedDict):
@@ -18475,6 +18484,7 @@ class VolumeStatusItemTypeDef(TypedDict):
     VolumeId: NotRequired[str]
     VolumeStatus: NotRequired[VolumeStatusInfoTypeDef]
     AttachmentStatuses: NotRequired[List[VolumeStatusAttachmentStatusTypeDef]]
+    InitializationStatusDetails: NotRequired[InitializationStatusDetailsTypeDef]
     AvailabilityZoneId: NotRequired[str]
 
 
@@ -18795,6 +18805,7 @@ class CreateInstanceConnectEndpointRequestTypeDef(TypedDict):
     PreserveClientIp: NotRequired[bool]
     ClientToken: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 
 class CreateInstanceEventWindowRequestTypeDef(TypedDict):

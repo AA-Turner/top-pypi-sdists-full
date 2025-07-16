@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -29,16 +29,16 @@ def test_lorentz_sympy():
         vector.backends.sympy.TemporalSympyTau(nt),
     )
     assert (
-        v1.deltaRapidityPhi2(v2)
+        v1.deltaRapidityPhi2(v2).simplify()
         == 0.25
         * (
-            -sympy.log(
-                (nz + sympy.sqrt(nt**2 + nx**2 + ny**2 + nz**2))
-                / (-nz + sympy.sqrt(nt**2 + nx**2 + ny**2 + nz**2))
+            sympy.log(
+                (-nz - sympy.sqrt(nt**2 + nx**2 + ny**2 + nz**2))
+                / (nz - sympy.sqrt(nt**2 + nx**2 + ny**2 + nz**2))
             )
-            + sympy.log(
-                (z + sympy.sqrt(t**2 + x**2 + y**2 + z**2))
-                / (-z + sympy.sqrt(t**2 + x**2 + y**2 + z**2))
+            - sympy.log(
+                (-z - sympy.sqrt(t**2 + x**2 + y**2 + z**2))
+                / (z - sympy.sqrt(t**2 + x**2 + y**2 + z**2))
             )
         )
         ** 2

@@ -865,6 +865,76 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/get_account:
+    post:
+      operationId: get_account
+      description: |-
+        Retrieve detailed information about a single user account.
+
+        This operation fetches information for a single account identified by its
+        integration-specific user ID.  It can be used to:
+        - Display an individual user’s profile
+        - Pull the most up-to-date custom attribute values for a user
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/GetAccountResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/GetAccount'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/get_authorization_url:
     post:
       operationId: get_authorization_url
@@ -3107,6 +3177,39 @@ components:
       description: Resource data describing a resource within the connector.
       x-unique-hash:
         - integration_specific_id
+    GetAccount:
+      type: object
+      required:
+        - account_id
+      properties:
+        account_id:
+          type: string
+          description: Integration-specific identifier that uniquely identifies the user account.
+          x-semantic: account-id
+        custom_attributes:
+          type: array
+          items:
+            type: string
+          description: |-
+            Optional array of custom attribute identifiers whose values should be
+            returned in the response.  If omitted, no custom attributes will be
+            included.
+      description: Request parameters for retrieving a single account.
+      x-capability-level: read
+    GetAccountResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/FoundAccountData'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing detailed information about the requested account.
     GetAuthorizationUrl:
       type: object
       required:
@@ -4164,6 +4267,7 @@ components:
         - handle_authorization_callback
         - handle_client_credentials_request
         - list_accounts
+        - get_account
         - list_activity_records
         - list_custom_attributes_schema
         - list_entitlements

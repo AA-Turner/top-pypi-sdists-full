@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,3 +30,4 @@ parallel_map = py.parallel_map
 unzip = py.unzip
 stack = py.stack
 spec_like = py.spec_like
+copy = py.copy

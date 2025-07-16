@@ -7,12 +7,12 @@ class geom_sina(geom_point):
     """
     Draw a sina plot
 
+    {usage}
+
     A sina plot is a data visualization chart suitable for plotting
     any single variable in a multiclass dataset. It is an enhanced
     jitter strip chart, where the width of the jitter is controlled
     by the density distribution of the data within each class.
-
-    {usage}
 
     Parameters
     ----------
@@ -20,7 +20,7 @@ class geom_sina(geom_point):
 
     See Also
     --------
-    plotnine.stat_sina
+    plotnine.stat_sina : The default `stat` for this `geom`.
 
     References
     ----------

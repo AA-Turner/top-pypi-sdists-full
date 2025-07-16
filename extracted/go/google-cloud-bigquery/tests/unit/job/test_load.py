@@ -19,6 +19,7 @@ from ..helpers import make_connection
 
 from .helpers import _Base
 from .helpers import _make_client
+from google.cloud.bigquery.enums import SourceColumnMatch
 
 
 class TestLoadJob(_Base):
@@ -37,11 +38,26 @@ class TestLoadJob(_Base):
         self.OUTPUT_BYTES = 23456
         self.OUTPUT_ROWS = 345
         self.REFERENCE_FILE_SCHEMA_URI = "gs://path/to/reference"
+        self.SOURCE_COLUMN_MATCH = "NAME"
+        self.DATE_FORMAT = "%Y-%m-%d"
+        self.DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+        self.TIME_ZONE = "UTC"
+        self.TIME_FORMAT = "%H:%M:%S"
+        self.TIMESTAMP_FORMAT = "YYYY-MM-DD HH:MM:SS.SSSSSSZ"
+        self.NULL_MARKERS = ["", "NA"]
 
     def _make_resource(self, started=False, ended=False):
         resource = super(TestLoadJob, self)._make_resource(started, ended)
         config = resource["configuration"]["load"]
         config["sourceUris"] = [self.SOURCE1]
+        config["sourceColumnMatch"] = self.SOURCE_COLUMN_MATCH
+        config["dateFormat"] = self.DATE_FORMAT
+        config["datetimeFormat"] = self.DATETIME_FORMAT
+        config["timeZone"] = self.TIME_ZONE
+        config["timeFormat"] = self.TIME_FORMAT
+        config["timestampFormat"] = self.TIMESTAMP_FORMAT
+        config["nullMarkers"] = self.NULL_MARKERS
+
         config["destinationTable"] = {
             "projectId": self.PROJECT,
             "datasetId": self.DS_ID,
@@ -129,6 +145,10 @@ class TestLoadJob(_Base):
             self.assertEqual(job.null_marker, config["nullMarker"])
         else:
             self.assertIsNone(job.null_marker)
+        if "nullMarkers" in config:
+            self.assertEqual(job.null_markers, config["nullMarkers"])
+        else:
+            self.assertIsNone(job.null_markers)
         if "quote" in config:
             self.assertEqual(job.quote_character, config["quote"])
         else:
@@ -143,7 +163,6 @@ class TestLoadJob(_Base):
             )
         else:
             self.assertIsNone(job.reference_file_schema_uri)
-
         if "destinationEncryptionConfiguration" in config:
             self.assertIsNotNone(job.destination_encryption_configuration)
             self.assertEqual(
@@ -152,6 +171,35 @@ class TestLoadJob(_Base):
             )
         else:
             self.assertIsNone(job.destination_encryption_configuration)
+        if "dateFormat" in config:
+            self.assertEqual(job.date_format, config["dateFormat"])
+        else:
+            self.assertIsNone(job.date_format)
+        if "datetimeFormat" in config:
+            self.assertEqual(job.datetime_format, config["datetimeFormat"])
+        else:
+            self.assertIsNone(job.datetime_format)
+        if "timeZone" in config:
+            self.assertEqual(job.time_zone, config["timeZone"])
+        else:
+            self.assertIsNone(job.time_zone)
+        if "timeFormat" in config:
+            self.assertEqual(job.time_format, config["timeFormat"])
+        else:
+            self.assertIsNone(job.time_format)
+        if "timestampFormat" in config:
+            self.assertEqual(job.timestamp_format, config["timestampFormat"])
+        else:
+            self.assertIsNone(job.timestamp_format)
+
+        if "sourceColumnMatch" in config:
+            # job.source_column_match will be an Enum, config[...] is a string
+            self.assertEqual(
+                job.source_column_match.value,
+                config["sourceColumnMatch"],
+            )
+        else:
+            self.assertIsNone(job.source_column_match)
 
     def test_ctor(self):
         client = _make_client(project=self.PROJECT)
@@ -181,6 +229,7 @@ class TestLoadJob(_Base):
         self.assertIsNone(job.ignore_unknown_values)
         self.assertIsNone(job.max_bad_records)
         self.assertIsNone(job.null_marker)
+        self.assertIsNone(job.null_markers)
         self.assertIsNone(job.quote_character)
         self.assertIsNone(job.skip_leading_rows)
         self.assertIsNone(job.source_format)
@@ -194,6 +243,12 @@ class TestLoadJob(_Base):
         self.assertIsNone(job.clustering_fields)
         self.assertIsNone(job.schema_update_options)
         self.assertIsNone(job.reference_file_schema_uri)
+        self.assertIsNone(job.source_column_match)
+        self.assertIsNone(job.date_format)
+        self.assertIsNone(job.datetime_format)
+        self.assertIsNone(job.time_zone)
+        self.assertIsNone(job.time_format)
+        self.assertIsNone(job.timestamp_format)
 
     def test_ctor_w_config(self):
         from google.cloud.bigquery.schema import SchemaField
@@ -431,6 +486,24 @@ class TestLoadJob(_Base):
         self.assertIs(job._client, client)
         self._verifyResourceProperties(job, RESOURCE)
 
+    def test_to_api_repr(self):
+        self._setUpConstants()
+        client = _make_client(project=self.PROJECT)
+        RESOURCE = self._make_resource(ended=False)
+
+        klass = self._get_target_class()
+        job = klass.from_api_repr(RESOURCE, client)
+        api_repr = job.to_api_repr()
+
+        # as per the documentation in load.py -> LoadJob.to_api_repr(),
+        # the return value from to_api_repr should not include statistics
+        expected = {
+            "jobReference": RESOURCE["jobReference"],
+            "configuration": RESOURCE["configuration"],
+        }
+
+        self.assertEqual(api_repr, expected)
+
     def test_begin_w_already_running(self):
         conn = make_connection()
         client = _make_client(project=self.PROJECT, connection=conn)
@@ -571,7 +644,14 @@ class TestLoadJob(_Base):
                 ]
             },
             "schemaUpdateOptions": [SchemaUpdateOption.ALLOW_FIELD_ADDITION],
+            "sourceColumnMatch": self.SOURCE_COLUMN_MATCH,
+            "dateFormat": self.DATE_FORMAT,
+            "datetimeFormat": self.DATETIME_FORMAT,
+            "timeZone": self.TIME_ZONE,
+            "timeFormat": self.TIME_FORMAT,
+            "timestampFormat": self.TIMESTAMP_FORMAT,
         }
+
         RESOURCE["configuration"]["load"] = LOAD_CONFIGURATION
         conn1 = make_connection()
         client1 = _make_client(project=self.PROJECT, connection=conn1)
@@ -599,6 +679,13 @@ class TestLoadJob(_Base):
         config.write_disposition = WriteDisposition.WRITE_TRUNCATE
         config.schema_update_options = [SchemaUpdateOption.ALLOW_FIELD_ADDITION]
         config.reference_file_schema_uri = "gs://path/to/reference"
+        config.source_column_match = SourceColumnMatch(self.SOURCE_COLUMN_MATCH)
+        config.date_format = self.DATE_FORMAT
+        config.datetime_format = self.DATETIME_FORMAT
+        config.time_zone = self.TIME_ZONE
+        config.time_format = self.TIME_FORMAT
+        config.timestamp_format = self.TIMESTAMP_FORMAT
+
         with mock.patch(
             "google.cloud.bigquery.opentelemetry_tracing._get_final_span_attributes"
         ) as final_attributes:

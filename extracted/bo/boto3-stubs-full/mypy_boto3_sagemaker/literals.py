@@ -231,6 +231,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginatorName",
     "ListPipelineExecutionsPaginatorName",
     "ListPipelineParametersForExecutionPaginatorName",
+    "ListPipelineVersionsPaginatorName",
     "ListPipelinesPaginatorName",
     "ListProcessingJobsPaginatorName",
     "ListResourceCatalogsPaginatorName",
@@ -1308,6 +1309,7 @@ ListPartnerAppsPaginatorName = Literal["list_partner_apps"]
 ListPipelineExecutionStepsPaginatorName = Literal["list_pipeline_execution_steps"]
 ListPipelineExecutionsPaginatorName = Literal["list_pipeline_executions"]
 ListPipelineParametersForExecutionPaginatorName = Literal["list_pipeline_parameters_for_execution"]
+ListPipelineVersionsPaginatorName = Literal["list_pipeline_versions"]
 ListPipelinesPaginatorName = Literal["list_pipelines"]
 ListProcessingJobsPaginatorName = Literal["list_processing_jobs"]
 ListResourceCatalogsPaginatorName = Literal["list_resource_catalogs"]
@@ -1944,6 +1946,7 @@ ResourceTypeType = Literal[
     "ModelPackageGroup",
     "Pipeline",
     "PipelineExecution",
+    "PipelineVersion",
     "Project",
     "TrainingJob",
 ]
@@ -2712,6 +2715,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -2861,6 +2865,7 @@ PaginatorName = Literal[
     "list_pipeline_execution_steps",
     "list_pipeline_executions",
     "list_pipeline_parameters_for_execution",
+    "list_pipeline_versions",
     "list_pipelines",
     "list_processing_jobs",
     "list_resource_catalogs",

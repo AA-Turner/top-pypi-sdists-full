@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: docxtpl
-Version: 0.20.0
+Version: 0.20.1
 Summary: Python docx template engine
 Home-page: https://github.com/elapouya/python-docx-template
 Author: Eric Lapouyade
-License: LGPL 2.1
+License: LGPL-2.1-only
 Keywords: jinja2
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 4 - Beta
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-License-File: LICENSE.txt
+Description-Content-Type: text/x-rst
 Requires-Dist: python-docx>=1.1.1
 Requires-Dist: docxcompose
 Requires-Dist: jinja2
@@ -67,6 +67,10 @@ If you like python-docx-template, please have a look at some of my other project
 
 News
 ====
+0.20.1 (2025-07-15)
+-------------------
+- Fix and improve get_undeclared_template_variables() method (Thanks to Pablo Esteban)
+
 0.20.0 (2024-12-29)
 -------------------
 - Add RichTextParagraph (Thanks to ST-Imrie)

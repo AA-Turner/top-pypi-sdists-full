@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -166,8 +166,8 @@ class _OsPathBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
-    os.makedirs(path, exist_ok=exist_ok, mode=mode)
+    mode_kwargs = {} if mode is None else {'mode': mode}
+    os.makedirs(path, exist_ok=exist_ok, **mode_kwargs)
 
   def mkdir(
       self,
@@ -176,9 +176,9 @@ class _OsPathBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
+    mode_kwargs = {} if mode is None else {'mode': mode}
     try:
-      os.mkdir(path, mode=mode)
+      os.mkdir(path, **mode_kwargs)
     except FileExistsError:
       if self.isdir(path):  # No-op if directory already exists
         if exist_ok:
@@ -302,8 +302,7 @@ class _TfBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
-    if mode != 0o777:
+    if mode is not None and mode != 0o777:
       # tf.io.gfile do not support setting `mode=`
       raise NotImplementedError(
           'makedirs with custom `mode=` not supported for tf.io.gfile backend.'
@@ -329,8 +328,7 @@ class _TfBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
-    if mode != 0o777:
+    if mode is not None and mode != 0o777:
       # tf.io.gfile do not support setting `mode=`
       raise NotImplementedError(
           'mkdir with custom `mode=` not supported for tf.io.gfile backend.'
@@ -406,7 +404,10 @@ class _TfBackend(Backend):
       raise  # pylint: disable=misplaced-bare-raise
 
   def stat(self, path: PathLike) -> stat_utils.StatResult:
-    st = self.gfile.stat(path)
+    try:
+      st = self.gfile.stat(path)
+    except self.tf.errors.NotFoundError as e:
+      raise FileNotFoundError(str(e)) from None
     return stat_utils.StatResult(
         is_directory=st.is_directory,
         length=st.length,
@@ -486,8 +487,7 @@ class _FileSystemSpecBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
-    if mode != 0o777:
+    if mode is not None and mode != 0o777:
       # FileSystemSpec backend do not support setting `mode=`
       raise NotImplementedError(
           'makedirs with custom `mode=` not supported for FileSystemSpec'
@@ -502,8 +502,7 @@ class _FileSystemSpecBackend(Backend):
       exist_ok: bool = False,
       mode: Optional[int] = None,
   ) -> None:
-    mode = 0o777 if mode is None else mode
-    if mode != 0o777:
+    if mode is not None and mode != 0o777:
       # FileSystemSpec backend do not support setting `mode=`
       raise NotImplementedError(
           'mkdir with custom `mode=` not supported for FileSystemSpec backend.'

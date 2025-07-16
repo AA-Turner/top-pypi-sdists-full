@@ -8846,7 +8846,9 @@ class CfnService(
     @builtins.property
     @jsii.member(jsii_name="attrServiceArn")
     def attr_service_arn(self) -> builtins.str:
-        '''Not currently supported in AWS CloudFormation .
+        '''The ARN that identifies the service.
+
+        For more information about the ARN format, see `Amazon Resource Name (ARN) <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-account-settings.html#ecs-resource-ids>`_ in the *Amazon ECS Developer Guide* .
 
         :cloudformationAttribute: ServiceArn
         '''
@@ -12885,7 +12887,7 @@ class CfnTaskDefinition(
         :param ephemeral_storage: The ephemeral storage settings to use for tasks run with the task definition.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make AWS API calls on your behalf. For informationabout the required IAM roles for Amazon ECS, see `IAM roles for Amazon ECS <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-ecs-iam-role-overview.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param family: The name of a family that this task definition is registered to. Up to 255 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed. A family groups multiple versions of a task definition. Amazon ECS gives the first task definition that you registered to a family a revision number of 1. Amazon ECS gives sequential revision numbers to each task definition that you add. .. epigraph:: To use revision numbers when you update a task definition, specify this property. If you don't specify a value, AWS CloudFormation generates a new task definition each time that you update it.
-        :param inference_accelerators: (deprecated) The Elastic Inference accelerators to use for the containers in the task.
+        :param inference_accelerators: 
         :param ipc_mode: The IPC resource namespace to use for the containers in the task. The valid values are ``host`` , ``task`` , or ``none`` . If ``host`` is specified, then all containers within the tasks that specified the ``host`` IPC mode on the same container instance share the same IPC resources with the host Amazon EC2 instance. If ``task`` is specified, all containers within the specified task share the same IPC resources. If ``none`` is specified, then IPC resources within the containers of a task are private and not shared with other containers in a task or on the container instance. If no value is specified, then the IPC resource namespace sharing depends on the Docker daemon setting on the container instance. If the ``host`` IPC mode is used, be aware that there is a heightened risk of undesired IPC namespace expose. If you are setting namespaced kernel parameters using ``systemControls`` for the containers in the task, the following will apply to your IPC resource namespace. For more information, see `System Controls <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html>`_ in the *Amazon Elastic Container Service Developer Guide* . - For tasks that use the ``host`` IPC mode, IPC namespace related ``systemControls`` are not supported. - For tasks that use the ``task`` IPC mode, IPC namespace related ``systemControls`` will apply to all containers within a task. .. epigraph:: This parameter is not supported for Windows containers or tasks run on AWS Fargate .
         :param memory: The amount (in MiB) of memory used by the task. If your tasks runs on Amazon EC2 instances, you must specify either a task-level memory value or a container-level memory value. This field is optional and any value can be used. If a task-level memory value is specified, the container-level memory value is optional. For more information regarding container-level memory and memory reservation, see `ContainerDefinition <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html>`_ . If your tasks runs on AWS Fargate , this field is required. You must use one of the following values. The value you choose determines your range of valid values for the ``cpu`` parameter. - 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available ``cpu`` values: 256 (.25 vCPU) - 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available ``cpu`` values: 512 (.5 vCPU) - 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available ``cpu`` values: 1024 (1 vCPU) - Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available ``cpu`` values: 2048 (2 vCPU) - Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available ``cpu`` values: 4096 (4 vCPU) - Between 16 GB and 60 GB in 4 GB increments - Available ``cpu`` values: 8192 (8 vCPU) This option requires Linux platform ``1.4.0`` or later. - Between 32GB and 120 GB in 8 GB increments - Available ``cpu`` values: 16384 (16 vCPU) This option requires Linux platform ``1.4.0`` or later.
         :param network_mode: The Docker networking mode to use for the containers in the task. The valid values are ``none`` , ``bridge`` , ``awsvpc`` , and ``host`` . If no network mode is specified, the default is ``bridge`` . For Amazon ECS tasks on Fargate, the ``awsvpc`` network mode is required. For Amazon ECS tasks on Amazon EC2 Linux instances, any network mode can be used. For Amazon ECS tasks on Amazon EC2 Windows instances, ``<default>`` or ``awsvpc`` can be used. If the network mode is set to ``none`` , you cannot specify port mappings in your container definitions, and the tasks containers do not have external connectivity. The ``host`` and ``awsvpc`` network modes offer the highest networking performance for containers because they use the EC2 network stack instead of the virtualized network stack provided by the ``bridge`` mode. With the ``host`` and ``awsvpc`` network modes, exposed container ports are mapped directly to the corresponding host port (for the ``host`` network mode) or the attached elastic network interface port (for the ``awsvpc`` network mode), so you cannot take advantage of dynamic host port mappings. .. epigraph:: When using the ``host`` network mode, you should not run containers using the root user (UID 0). It is considered best practice to use a non-root user. If the network mode is ``awsvpc`` , the task is allocated an elastic network interface, and you must specify a `NetworkConfiguration <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_NetworkConfiguration.html>`_ value when you create a service or run a task with the task definition. For more information, see `Task Networking <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking.html>`_ in the *Amazon Elastic Container Service Developer Guide* . If the network mode is ``host`` , you cannot run multiple instantiations of the same task on a single container instance when port mappings are used.
@@ -13073,8 +13075,7 @@ class CfnTaskDefinition(
     def inference_accelerators(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnTaskDefinition.InferenceAcceleratorProperty"]]]]:
-        '''(deprecated) The Elastic Inference accelerators to use for the containers in the task.
-
+        '''
         :deprecated: this property has been deprecated
 
         :stability: deprecated
@@ -15613,12 +15614,9 @@ class CfnTaskDefinition(
             device_name: typing.Optional[builtins.str] = None,
             device_type: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Details on an Elastic Inference accelerator.
-
-            For more information, see `Working with Amazon Elastic Inference on Amazon ECS <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-inference.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
-
-            :param device_name: The Elastic Inference accelerator device name. The ``deviceName`` must also be referenced in a container definition as a `ResourceRequirement <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ResourceRequirement.html>`_ .
-            :param device_type: The Elastic Inference accelerator type to use.
+            '''
+            :param device_name: 
+            :param device_type: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-inferenceaccelerator.html
             :exampleMetadata: fixture=_generated
@@ -15646,10 +15644,7 @@ class CfnTaskDefinition(
 
         @builtins.property
         def device_name(self) -> typing.Optional[builtins.str]:
-            '''The Elastic Inference accelerator device name.
-
-            The ``deviceName`` must also be referenced in a container definition as a `ResourceRequirement <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ResourceRequirement.html>`_ .
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-inferenceaccelerator.html#cfn-ecs-taskdefinition-inferenceaccelerator-devicename
             '''
             result = self._values.get("device_name")
@@ -15657,8 +15652,7 @@ class CfnTaskDefinition(
 
         @builtins.property
         def device_type(self) -> typing.Optional[builtins.str]:
-            '''The Elastic Inference accelerator type to use.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-inferenceaccelerator.html#cfn-ecs-taskdefinition-inferenceaccelerator-devicetype
             '''
             result = self._values.get("device_type")
@@ -17739,7 +17733,7 @@ class CfnTaskDefinitionProps:
         :param ephemeral_storage: The ephemeral storage settings to use for tasks run with the task definition.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make AWS API calls on your behalf. For informationabout the required IAM roles for Amazon ECS, see `IAM roles for Amazon ECS <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security-ecs-iam-role-overview.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
         :param family: The name of a family that this task definition is registered to. Up to 255 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed. A family groups multiple versions of a task definition. Amazon ECS gives the first task definition that you registered to a family a revision number of 1. Amazon ECS gives sequential revision numbers to each task definition that you add. .. epigraph:: To use revision numbers when you update a task definition, specify this property. If you don't specify a value, AWS CloudFormation generates a new task definition each time that you update it.
-        :param inference_accelerators: (deprecated) The Elastic Inference accelerators to use for the containers in the task.
+        :param inference_accelerators: 
         :param ipc_mode: The IPC resource namespace to use for the containers in the task. The valid values are ``host`` , ``task`` , or ``none`` . If ``host`` is specified, then all containers within the tasks that specified the ``host`` IPC mode on the same container instance share the same IPC resources with the host Amazon EC2 instance. If ``task`` is specified, all containers within the specified task share the same IPC resources. If ``none`` is specified, then IPC resources within the containers of a task are private and not shared with other containers in a task or on the container instance. If no value is specified, then the IPC resource namespace sharing depends on the Docker daemon setting on the container instance. If the ``host`` IPC mode is used, be aware that there is a heightened risk of undesired IPC namespace expose. If you are setting namespaced kernel parameters using ``systemControls`` for the containers in the task, the following will apply to your IPC resource namespace. For more information, see `System Controls <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html>`_ in the *Amazon Elastic Container Service Developer Guide* . - For tasks that use the ``host`` IPC mode, IPC namespace related ``systemControls`` are not supported. - For tasks that use the ``task`` IPC mode, IPC namespace related ``systemControls`` will apply to all containers within a task. .. epigraph:: This parameter is not supported for Windows containers or tasks run on AWS Fargate .
         :param memory: The amount (in MiB) of memory used by the task. If your tasks runs on Amazon EC2 instances, you must specify either a task-level memory value or a container-level memory value. This field is optional and any value can be used. If a task-level memory value is specified, the container-level memory value is optional. For more information regarding container-level memory and memory reservation, see `ContainerDefinition <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html>`_ . If your tasks runs on AWS Fargate , this field is required. You must use one of the following values. The value you choose determines your range of valid values for the ``cpu`` parameter. - 512 (0.5 GB), 1024 (1 GB), 2048 (2 GB) - Available ``cpu`` values: 256 (.25 vCPU) - 1024 (1 GB), 2048 (2 GB), 3072 (3 GB), 4096 (4 GB) - Available ``cpu`` values: 512 (.5 vCPU) - 2048 (2 GB), 3072 (3 GB), 4096 (4 GB), 5120 (5 GB), 6144 (6 GB), 7168 (7 GB), 8192 (8 GB) - Available ``cpu`` values: 1024 (1 vCPU) - Between 4096 (4 GB) and 16384 (16 GB) in increments of 1024 (1 GB) - Available ``cpu`` values: 2048 (2 vCPU) - Between 8192 (8 GB) and 30720 (30 GB) in increments of 1024 (1 GB) - Available ``cpu`` values: 4096 (4 vCPU) - Between 16 GB and 60 GB in 4 GB increments - Available ``cpu`` values: 8192 (8 vCPU) This option requires Linux platform ``1.4.0`` or later. - Between 32GB and 120 GB in 8 GB increments - Available ``cpu`` values: 16384 (16 vCPU) This option requires Linux platform ``1.4.0`` or later.
         :param network_mode: The Docker networking mode to use for the containers in the task. The valid values are ``none`` , ``bridge`` , ``awsvpc`` , and ``host`` . If no network mode is specified, the default is ``bridge`` . For Amazon ECS tasks on Fargate, the ``awsvpc`` network mode is required. For Amazon ECS tasks on Amazon EC2 Linux instances, any network mode can be used. For Amazon ECS tasks on Amazon EC2 Windows instances, ``<default>`` or ``awsvpc`` can be used. If the network mode is set to ``none`` , you cannot specify port mappings in your container definitions, and the tasks containers do not have external connectivity. The ``host`` and ``awsvpc`` network modes offer the highest networking performance for containers because they use the EC2 network stack instead of the virtualized network stack provided by the ``bridge`` mode. With the ``host`` and ``awsvpc`` network modes, exposed container ports are mapped directly to the corresponding host port (for the ``host`` network mode) or the attached elastic network interface port (for the ``awsvpc`` network mode), so you cannot take advantage of dynamic host port mappings. .. epigraph:: When using the ``host`` network mode, you should not run containers using the root user (UID 0). It is considered best practice to use a non-root user. If the network mode is ``awsvpc`` , the task is allocated an elastic network interface, and you must specify a `NetworkConfiguration <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_NetworkConfiguration.html>`_ value when you create a service or run a task with the task definition. For more information, see `Task Networking <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-networking.html>`_ in the *Amazon Elastic Container Service Developer Guide* . If the network mode is ``host`` , you cannot run multiple instantiations of the same task on a single container instance when port mappings are used.
@@ -18122,8 +18116,7 @@ class CfnTaskDefinitionProps:
     def inference_accelerators(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnTaskDefinition.InferenceAcceleratorProperty]]]]:
-        '''(deprecated) The Elastic Inference accelerators to use for the containers in the task.
-
+        '''
         :deprecated: this property has been deprecated
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-taskdefinition.html#cfn-ecs-taskdefinition-inferenceaccelerators

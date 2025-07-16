@@ -1,7 +1,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 [tool.poetry]
 name = "AlexaPy"
-version = "1.29.5"
+version = "1.29.6"
 description = "Python API to control Amazon Echo Devices Programmatically."
 authors = [
   "Keaton Taylor <keatonstaylor@gmail.com>",
@@ -30,7 +30,7 @@ aiohttp = "^3.8.4"
 httpx = { extras = ["http2"], version = ">=0.24.0" }
 
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 aresponses = "*"
 detox = "*"
 flake8 = "*"
@@ -42,7 +42,6 @@ pytest-cov = "*"
 python-semantic-release = "7.28.1"
 tox = "*"
 safety = ">=1.8.7"
-black = { version = ">19.10b0", allow-prereleases = true }
 Sphinx = ">=3.5.0,<7.0.0"
 autoapi = ">=2.0.1"
 sphinx-rtd-theme = "^0.5.1"
@@ -51,10 +50,9 @@ tomlkit = ">=0.7.0"
 sphinx-autoapi = ">=1.7.0"
 sphinx-copybutton = ">=0.3.1"
 pipdeptree = "^2.2.1"
-
-[tool.poetry.group.dev.dependencies]
 pyupgrade = "^3.4.0"
-pre-commit = "^3.3.1"
+commitizen = "^4.8.3"
+black = "^25.1.0"
 
 [tool.codespell]
 skip = '*.csv,*.json,^docs,.*\.lock'

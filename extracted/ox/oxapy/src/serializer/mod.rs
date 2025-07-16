@@ -7,9 +7,12 @@ use pyo3::{
 };
 use serde_json::Value;
 
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 
-use std::{collections::HashMap, sync::Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use crate::{json, IntoPyException};
 
@@ -33,7 +36,7 @@ struct Serializer {
     #[pyo3(get, set)]
     instance: Option<Py<PyAny>>,
     #[pyo3(get, set)]
-    validate_data: Option<Py<PyDict>>,
+    validated_data: Option<Py<PyDict>>,
     #[pyo3(get, set)]
     raw_data: Option<String>,
     #[pyo3(get, set)]
@@ -42,28 +45,56 @@ struct Serializer {
 
 #[pymethods]
 impl Serializer {
+    /// Create a new `Serializer` instance.
+    ///
+    /// This constructor initializes the serializer with optional raw JSON data, an instance to serialize,
+    /// and optional context. The serializer is configured as a field of type `"object"`, with flags for
+    /// `required`, `nullable`, and `many`.
+    ///
+    /// Args:
+    ///     data (str, optional): Raw JSON string to be validated or deserialized.
+    ///     instance (Any, optional): Python object instance to be serialized.
+    ///     required (bool, optional): Whether the field is required (default: True).
+    ///     nullable (bool, optional): Whether the field allows null values (default: False).
+    ///     many (bool, optional): Whether the serializer handles multiple objects (default: False).
+    ///     context (dict, optional): Additional context information.
+    ///     read_only (bool, optional): If `True`, the serializer will be excluded when deserializing (default: False).
+    ///     write_only (bool, optional): If `True`, the serializer will be excluded when serializing (default: False).
+    ///
+    /// Returns:
+    ///     tuple[Serializer, Field]: A tuple containing the serializer instance and its associated `Field`.
+    ///
+    /// Example:
+    /// ```python
+    /// serializer, field = MySerializer(
+    ///     data='{"email": "user@example.com", "password": "secret123"}'
+    /// )
+    /// ```
     #[new]
     #[pyo3(signature = (
         data = None,
         instance = None,
         required = true,
+        nullable = false,
         many = false,
-        title = None,
-        description = None,
-        context = None
+        context = None,
+        read_only= false,
+        write_only = false,
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         data: Option<String>,
         instance: Option<Py<PyAny>>,
         required: Option<bool>,
+        nullable: Option<bool>,
         many: Option<bool>,
-        title: Option<String>,
-        description: Option<String>,
         context: Option<Py<PyDict>>,
+        read_only: Option<bool>,
+        write_only: Option<bool>,
     ) -> (Self, Field) {
         (
             Self {
-                validate_data: None,
+                validated_data: None,
                 raw_data: data,
                 instance,
                 context,
@@ -71,19 +102,44 @@ impl Serializer {
             Field {
                 required,
                 ty: "object".to_string(),
+                nullable,
                 many,
-                title,
-                description,
+                read_only,
+                write_only,
                 ..Default::default()
             },
         )
     }
 
+    /// Generate and return the JSON Schema for this serializer.
+    ///
+    /// The schema is built dynamically based on the serializer class definition and its fields.
+    ///
+    /// Returns:
+    ///     dict: The JSON Schema as a Python dictionary.
+    ///
+    /// Example:
+    /// ```python
+    /// schema = serializer.schema()
+    /// print(schema)
+    /// ```
     fn schema(slf: Bound<'_, Self>) -> PyResult<Py<PyDict>> {
-        let schema_value = Self::json_schema_value(&slf.get_type())?;
+        let schema_value = Self::json_schema_value(&slf.get_type(), None)?;
         json::loads(&schema_value.to_string())
     }
 
+    /// Validate the raw JSON data and store the result in `validated_data`.
+    ///
+    /// Parses the `raw_data` JSON string, validates it, and saves the result as `validated_data`.
+    ///
+    /// Raises:
+    ///     ValidationException: If `raw_data` is missing or invalid.
+    ///
+    /// Example:
+    /// ```python
+    /// serializer.is_valid()
+    /// print(serializer.validated_data["email"])
+    /// ```
     fn is_valid(slf: &Bound<'_, Self>) -> PyResult<()> {
         let raw_data = slf
             .getattr("raw_data")?
@@ -95,14 +151,29 @@ impl Serializer {
         let validated_data: Option<Bound<PyDict>> =
             slf.call_method1("validate", (attr,))?.extract()?;
 
-        slf.setattr("validate_data", validated_data)?;
+        slf.setattr("validated_data", validated_data)?;
         Ok(())
     }
 
+    /// Validate a Python dictionary against the serializer's schema.
+    ///
+    /// Args:
+    ///     attr (dict): The data to validate.
+    ///
+    /// Returns:
+    ///     dict: The validated data, with any `read_only` fields removed.
+    ///
+    /// Raises:
+    ///     ValidationException: If validation fails.
+    ///
+    /// Example:
+    /// ```python
+    /// serializer.validate({"email": "user@example.com"})
+    /// ```
     fn validate<'a>(slf: Bound<'a, Self>, attr: Bound<'a, PyDict>) -> PyResult<Bound<'a, PyDict>> {
         let json::Wrap(json_value) = attr.clone().try_into()?;
 
-        let schema_value = Self::json_schema_value(&slf.get_type())?;
+        let schema_value = Self::json_schema_value(&slf.get_type(), None)?;
 
         let validator = jsonschema::options()
             .should_validate_formats(true)
@@ -113,28 +184,32 @@ impl Serializer {
             .validate(&json_value)
             .map_err(|err| ValidationException::new_err(err.to_string()))?;
 
+        for k in attr.keys() {
+            let key = k.to_string();
+            if let Ok(field) = slf.getattr(&key) {
+                let field = field.extract::<Field>()?;
+                if field.read_only.unwrap_or_default() {
+                    attr.del_item(&key)?;
+                }
+            }
+        }
+
         Ok(attr)
     }
 
-    fn to_representation<'l>(
-        slf: &Bound<'_, Self>,
-        instance: Bound<PyAny>,
-        py: Python<'l>,
-    ) -> PyResult<Bound<'l, PyDict>> {
-        let dict = PyDict::new(py);
-        let columns = instance
-            .getattr("__table__")?
-            .getattr("columns")?
-            .try_iter()?;
-        for c in columns {
-            let col = c.unwrap().getattr("name")?.to_string();
-            if slf.getattr(&col).is_ok() {
-                dict.set_item(&col, instance.getattr(&col)?)?;
-            }
-        }
-        Ok(dict)
-    }
-
+    /// Return the serialized representation of the instance(s).
+    ///
+    /// If `many=True`, returns a list of serialized dicts.
+    /// Otherwise returns a single dict, or None if no instance.
+    /// Fields marked as `write_only=True` will be excluded from the serialized output.
+    ///
+    /// Returns:
+    ///     dict or list[dict] or None: Serialized representation(s).
+    ///
+    /// Example:
+    /// ```python
+    /// print(serializer.data)
+    /// ```
     #[getter]
     fn data<'l>(slf: Bound<'l, Self>, py: Python<'l>) -> PyResult<PyObject> {
         let many = slf.getattr("many")?.extract::<bool>()?;
@@ -160,59 +235,146 @@ impl Serializer {
         Ok(py.None())
     }
 
-    fn create(
-        slf: &Bound<Self>,
+    /// Create and persist a new model instance with validated data.
+    ///
+    /// Args:
+    ///     session (Any): The database session.
+    ///     validated_data (dict): The validated data.
+    ///
+    /// Returns:
+    ///     Any: The created instance.
+    ///
+    /// Example:
+    /// ```python
+    /// instance = serializer.create(session, serializer.validated_data)
+    /// ```
+    fn create<'l>(
+        slf: &'l Bound<Self>,
         session: PyObject,
-        validate_data: Bound<PyDict>,
-        py: Python<'_>,
-    ) -> PyResult<()> {
-        if let Ok(class_meta) = slf.getattr("Meta") {
-            let model = class_meta.getattr("model")?;
-            let instance = model.call((), Some(&validate_data))?;
-            session.call_method1(py, "add", (instance,))?;
-            session.call_method0(py, "commit")?;
-        }
-        Ok(())
+        validated_data: Bound<PyDict>,
+        py: Python<'l>,
+    ) -> PyResult<PyObject> {
+        let class_meta = slf.getattr("Meta")?;
+        let model = class_meta.getattr("model")?;
+        let instance = model.call((), Some(&validated_data))?;
+        session.call_method1(py, "add", (instance.clone(),))?;
+        session.call_method0(py, "commit")?;
+        Ok(instance.into())
     }
 
-    fn save(slf: Bound<'_, Self>, session: PyObject, py: Python<'_>) -> PyResult<()> {
-        let validate_data: Bound<PyDict> = slf
-            .getattr("validate_data")?
+    /// Save validated data by creating a new instance and persisting it.
+    ///
+    /// Calls `is_valid()` first to populate `validated_data` before calling `create()`.
+    ///
+    /// Args:
+    ///     session (Any): The database session.
+    ///
+    /// Returns:
+    ///     Any: The created instance.
+    ///
+    /// Raises:
+    ///     Exception: If `is_valid()` was not called first.
+    ///
+    /// Example:
+    /// ```python
+    /// instance = serializer.save(session)
+    /// ```
+    fn save(slf: Bound<'_, Self>, session: PyObject) -> PyResult<PyObject> {
+        let validated_data: Bound<PyDict> = slf
+            .getattr("validated_data")?
             .extract::<Option<Bound<PyDict>>>()?
             .ok_or_else(|| PyException::new_err("call `is_valid()` before `save()`"))?;
-
-        Self::create(&slf, session, validate_data, py)?;
-        Ok(())
+        Ok(slf
+            .call_method1("create", (session, validated_data))?
+            .into())
     }
 
+    /// Update an existing instance with validated data.
+    ///
+    /// Args:
+    ///     session (Any): The database session.
+    ///     instance (Any): The instance to update.
+    ///     validated_data (dict): Field names and new values.
+    ///
+    /// Returns:
+    ///     Any: The updated instance.
+    ///
+    /// Example:
+    /// ```python
+    /// updated = serializer.update(session, instance, {"email": "new@email.com"})
+    /// ```
     fn update(
-        slf: Bound<'_, Self>,
-        instance: PyObject,
+        &self,
         session: PyObject,
+        instance: PyObject,
+        validated_data: HashMap<String, PyObject>,
         py: Python<'_>,
-    ) -> PyResult<()> {
-        let validate_data = slf
-            .getattr("validate_data")?
-            .extract::<Option<HashMap<String, PyObject>>>()?
-            .ok_or_else(|| PyException::new_err("call `is_valid()` before `save()`"))?;
-        for (key, value) in validate_data {
+    ) -> PyResult<PyObject> {
+        for (key, value) in validated_data {
             instance.setattr(py, key, value)?;
         }
         session.call_method0(py, "commit")?;
-        Ok(())
+        Ok(instance)
+    }
+
+    /// Convert a model instance to a Python dictionary.
+    ///
+    /// Processes each field in the model, excluding those marked as `write_only=True`.
+    ///
+    /// Args:
+    ///     instance: The model instance to serialize.
+    ///
+    /// Returns:
+    ///     dict: Dictionary representation of the instance.
+    #[inline]
+    fn to_representation<'l>(
+        slf: Bound<'_, Self>,
+        instance: Bound<PyAny>,
+        py: Python<'l>,
+    ) -> PyResult<Bound<'l, PyDict>> {
+        let dict = PyDict::new(py);
+
+        let inspect = INSPECT
+            .get()
+            .ok_or_else(|| PyException::new_err("sqlalchemy is not installed"))?;
+
+        let mapper = inspect.call1(py, (instance.get_type(),))?;
+
+        let columns = mapper.getattr(py, "columns")?.into_bound(py).try_iter()?;
+        let relationships = mapper
+            .getattr(py, "relationships")?
+            .into_bound(py)
+            .try_iter()?;
+
+        for c in columns {
+            let col = c?.getattr("name")?.to_string();
+            if let Ok(field) = slf.getattr(&col) {
+                if !field.extract::<Field>()?.write_only.unwrap_or_default() {
+                    dict.set_item(&col, instance.getattr(&col)?)?;
+                }
+            }
+        }
+
+        for r in relationships {
+            let key = r?.getattr("key")?.to_string();
+            if let Ok(field) = slf.getattr(&key) {
+                if !field.extract::<Field>()?.write_only.unwrap_or_default() {
+                    field.setattr("instance", instance.getattr(&key)?)?;
+                    dict.set_item(key, field.getattr("data")?)?;
+                }
+            }
+        }
+        Ok(dict)
     }
 }
 
-static CACHES_JSON_SCHEMA_VALUE: Lazy<Mutex<HashMap<String, Value>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static CACHES_JSON_SCHEMA_VALUE: Lazy<Arc<Mutex<HashMap<String, Value>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 impl Serializer {
-    fn json_schema_value(cls: &Bound<'_, PyType>) -> PyResult<Value> {
+    fn json_schema_value(cls: &Bound<'_, PyType>, nullable: Option<bool>) -> PyResult<Value> {
         let mut properties = serde_json::Map::with_capacity(16);
         let mut required_fields = Vec::with_capacity(8);
-        let mut is_many = false;
-        let mut title = None;
-        let mut description = None;
 
         let class_name = cls.name()?;
 
@@ -223,24 +385,6 @@ impl Serializer {
             .cloned()
         {
             return Ok(value);
-        }
-
-        if let Ok(cls_dict) = cls.getattr("__dict__") {
-            if let Ok(many) = cls_dict.get_item("many") {
-                if let Ok(is_many_extract) = many.extract::<bool>() {
-                    is_many = is_many_extract;
-                }
-            }
-            if let Ok(t) = cls_dict.get_item("title") {
-                if let Ok(titre_extract) = t.extract::<Option<String>>() {
-                    title = titre_extract;
-                }
-            }
-            if let Ok(d) = cls_dict.get_item("description") {
-                if let Ok(description_extract) = d.extract::<Option<String>>() {
-                    description = description_extract;
-                }
-            }
         }
 
         let attrs = cls.dir()?;
@@ -260,11 +404,20 @@ impl Serializer {
                         required_fields.push(attr_name.clone());
                     }
 
-                    let nested_schema = Self::json_schema_value(&attr_obj.get_type())?;
+                    let nested_schema =
+                        Self::json_schema_value(&attr_obj.get_type(), field.nullable)?;
 
                     if is_field_many {
                         let mut array_schema = serde_json::Map::with_capacity(2);
-                        array_schema.insert("type".to_string(), Value::String("array".to_string()));
+
+                        if field.nullable.unwrap_or(false) {
+                            array_schema
+                                .insert("type".to_string(), serde_json::json!(["array", "null"]));
+                        } else {
+                            array_schema
+                                .insert("type".to_string(), Value::String("array".to_string()));
+                        }
+
                         array_schema.insert("items".to_string(), nested_schema);
                         properties.insert(attr_name, Value::Object(array_schema));
                     } else {
@@ -281,7 +434,11 @@ impl Serializer {
         }
 
         let mut schema = serde_json::Map::with_capacity(5);
-        schema.insert("type".to_string(), Value::String("object".to_string()));
+        if nullable.unwrap_or_default() {
+            schema.insert("type".to_string(), serde_json::json!(["object", "null"]));
+        } else {
+            schema.insert("type".to_string(), Value::String("object".to_string()));
+        }
         schema.insert("properties".to_string(), Value::Object(properties));
         schema.insert("additionalProperties".to_string(), Value::Bool(false));
 
@@ -290,21 +447,7 @@ impl Serializer {
             schema.insert("required".to_string(), Value::Array(reqs));
         }
 
-        if let Some(t) = title {
-            schema.insert("title".to_string(), Value::String(t));
-        }
-        if let Some(d) = description {
-            schema.insert("description".to_string(), Value::String(d));
-        }
-
-        let final_schema = if is_many {
-            let mut array_schema = serde_json::Map::with_capacity(2);
-            array_schema.insert("type".to_string(), Value::String("array".to_string()));
-            array_schema.insert("items".to_string(), Value::Object(schema));
-            Value::Object(array_schema)
-        } else {
-            Value::Object(schema)
-        };
+        let final_schema = Value::Object(schema);
 
         CACHES_JSON_SCHEMA_VALUE
             .lock()
@@ -315,8 +458,18 @@ impl Serializer {
     }
 }
 
+static INSPECT: OnceCell<Py<PyAny>> = OnceCell::new();
+
 pub fn serializer_submodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    let serializer = PyModule::new(m.py(), "serializer")?;
+    let py = m.py();
+    let serializer = PyModule::new(py, "serializer")?;
+
+    if let Ok(sqlalchemy) = PyModule::import(py, "sqlalchemy") {
+        let inspection = sqlalchemy.getattr("inspection")?;
+        let inspect = inspection.getattr("inspect")?;
+        INSPECT.set(inspect.into()).ok();
+    }
+
     serializer.add_class::<Field>()?;
     serializer.add_class::<EmailField>()?;
     serializer.add_class::<IntegerField>()?;

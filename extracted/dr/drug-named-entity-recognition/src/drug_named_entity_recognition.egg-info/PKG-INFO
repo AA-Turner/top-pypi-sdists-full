@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drug-named-entity-recognition
-Version: 2.0.8
+Version: 2.0.9
 Summary: Drug Named Entity Recognition library to find and resolve drug names in a string (drug named entity linking)
 Home-page: https://fastdatascience.com/drug-named-entity-recognition-python-library
 Author: Thomas Wood
@@ -318,6 +318,34 @@ Response includes `'omop_id': '161'`:
 
 We now support SMILES (Simplified Molecular Input Line Entry System) strings for drug molecules. SMILES data is extracted from PubChem’s CID-SMILES.gz file and integrated during the dictionary build step (06_add_smiles_from_pubchem.py), enriching each drug entry with a machine-readable structure. If available, a SMILES string is returned in the find_drugs() output under the smiles key. For visualisation, users can refer to the example notebook using RDKit (optional dependency). This enhancement allows better structural insight without relying on external APIs.
 
+## Plotting the molecular structure
+
+This needs you to also install `rdkit`: 
+
+```
+pip install rdkit
+```
+
+```
+from rdkit import Chem
+from rdkit.Chem import Draw
+from drug_named_entity_recognition import find_drugs
+sentences = "I prescribed Dabigatran"
+drugs = find_drugs(sentences.split(), is_include_structure=True)
+for drug in drugs:
+    structure_mol = drug[0]["structure_mol"]
+    break
+print (structure_mol)
+
+mol = Chem.MolFromMolBlock(structure_mol)
+image = Draw.MolToImage(mol, size=(1000,500))
+image.show()
+image.save("dabigatran.png")
+```
+
+displays:
+
+![dabigatran](./dabigatran.png)
 
 # 📁Data sources
 
@@ -453,7 +481,21 @@ Wood, T.A., Drug Named Entity Recognition [Computer software], Version 2.0.8, ac
 }
 ```
 
+
+
+## Case studies: Who is using the Drug Named Entity Recognition Library?
+
+Thankfully, a number of people and organisations around the world have been using the library and have cited us.
+
+### NeuroTrialNER: An Annotated Corpus for Neurological Diseases and Therapies in Clinical Trial Registries
+
+Simona E. Doneva at the University of Zurich and her colleagues used the tool to make an annotated corpus of neurological diseases.
+
+* Doneva, Simona, et al. [NeuroTrialNER: An Annotated Corpus for Neurological Diseases and Therapies in Clinical Trial Registries.](https://aclanthology.org/2024.emnlp-main.1050.pdf) Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing. 2024.
+
+
 ## Citations
 
 1. Kim S, Chen J, Cheng T, et al. PubChem 2025 update. Nucleic Acids Res. 2025;53(D1):D1516-D1525. doi:10.1093/nar/gkae1059
 2. Knox C, Wilson M, Klinger CM, et al. DrugBank 6.0: the DrugBank Knowledgebase for 2024. Nucleic Acids Res. 2024 Jan 5;52(D1):D1265-D1275. doi: 10.1093/nar/gkad976.
+

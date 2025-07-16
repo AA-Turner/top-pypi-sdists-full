@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -54,31 +54,17 @@ from vector.backends.object import (
 @numba.extending.overload(numpy.nan_to_num)  # FIXME: This needs to go into Numba!
 def nan_to_num(x, copy=True, nan=0.0, posinf=None, neginf=None):
     if isinstance(x, numba.types.Array):
-        if isinstance(nan, numba.types.Array):
 
-            def nan_to_num_impl(x, copy=True, nan=0.0, posinf=None, neginf=None):
-                out = numpy.copy(x).reshape(-1) if copy else x.reshape(-1)
-                for i in range(len(out)):
-                    if numpy.isnan(out[i]):
-                        out[i] = nan[i]
-                    if posinf is not None and numpy.isinf(out[i]) and out[i] > 0:
-                        out[i] = posinf
-                    if neginf is not None and numpy.isinf(out[i]) and out[i] < 0:
-                        out[i] = neginf
-                return out.reshape(x.shape)
-
-        else:
-
-            def nan_to_num_impl(x, copy=True, nan=0.0, posinf=None, neginf=None):
-                out = numpy.copy(x).reshape(-1) if copy else x.reshape(-1)
-                for i in range(len(out)):
-                    if numpy.isnan(out[i]):
-                        out[i] = nan
-                    if posinf is not None and numpy.isinf(out[i]) and out[i] > 0:
-                        out[i] = posinf
-                    if neginf is not None and numpy.isinf(out[i]) and out[i] < 0:
-                        out[i] = neginf
-                return out.reshape(x.shape)
+        def nan_to_num_impl(x, copy=True, nan=0.0, posinf=None, neginf=None):
+            out = numpy.copy(x).reshape(-1) if copy else x.reshape(-1)
+            for i in range(len(out)):
+                if numpy.isnan(out[i]):
+                    out[i] = nan
+                if posinf is not None and numpy.isinf(out[i]) and out[i] > 0:
+                    out[i] = posinf
+                if neginf is not None and numpy.isinf(out[i]) and out[i] < 0:
+                    out[i] = neginf
+            return out.reshape(x.shape)
 
     else:
 

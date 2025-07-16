@@ -4,6 +4,7 @@ import json
 import os
 import textwrap
 import unittest.mock
+from uuid import uuid4
 
 import pytest
 from pydantic import BaseModel
@@ -13,10 +14,15 @@ from strands import Agent
 from strands.agent import AgentResult
 from strands.agent.conversation_manager.null_conversation_manager import NullConversationManager
 from strands.agent.conversation_manager.sliding_window_conversation_manager import SlidingWindowConversationManager
+from strands.agent.state import AgentState
 from strands.handlers.callback_handler import PrintingCallbackHandler, null_callback_handler
 from strands.models.bedrock import DEFAULT_BEDROCK_MODEL_ID, BedrockModel
+from strands.session.repository_session_manager import RepositorySessionManager
 from strands.types.content import Messages
 from strands.types.exceptions import ContextWindowOverflowException, EventLoopException
+from strands.types.session import Session, SessionAgent, SessionMessage, SessionType
+from tests.fixtures.mock_session_repository import MockedSessionRepository
+from tests.fixtures.mocked_model_provider import MockedModelProvider
 
 
 @pytest.fixture
@@ -636,7 +642,6 @@ def test_agent__call__callback(mock_model, agent, callback_handler, agenerator):
     )
 
     agent("test")
-
     callback_handler.assert_has_calls(
         [
             unittest.mock.call(init_event_loop=True),
@@ -955,7 +960,7 @@ def test_agent_callback_handler_custom_handler_used():
     assert agent.callback_handler is custom_handler
 
 
-def test_agent_structured_output(agent, user, agenerator):
+def test_agent_structured_output(agent, system_prompt, user, agenerator):
     agent.model.structured_output = unittest.mock.Mock(return_value=agenerator([{"output": user}]))
 
     prompt = "Jane Doe is 30 years old and her email is jane@doe.com"
@@ -964,10 +969,12 @@ def test_agent_structured_output(agent, user, agenerator):
     exp_result = user
     assert tru_result == exp_result
 
-    agent.model.structured_output.assert_called_once_with(type(user), [{"role": "user", "content": [{"text": prompt}]}])
+    agent.model.structured_output.assert_called_once_with(
+        type(user), [{"role": "user", "content": [{"text": prompt}]}], system_prompt=system_prompt
+    )
 
 
-def test_agent_structured_output_multi_modal_input(agent, user, agenerator):
+def test_agent_structured_output_multi_modal_input(agent, system_prompt, user, agenerator):
     agent.model.structured_output = unittest.mock.Mock(return_value=agenerator([{"output": user}]))
 
     prompt = [
@@ -986,7 +993,9 @@ def test_agent_structured_output_multi_modal_input(agent, user, agenerator):
     exp_result = user
     assert tru_result == exp_result
 
-    agent.model.structured_output.assert_called_once_with(type(user), [{"role": "user", "content": prompt}])
+    agent.model.structured_output.assert_called_once_with(
+        type(user), [{"role": "user", "content": prompt}], system_prompt=system_prompt
+    )
 
 
 @pytest.mark.asyncio
@@ -1001,7 +1010,7 @@ async def test_agent_structured_output_in_async_context(agent, user, agenerator)
 
 
 @pytest.mark.asyncio
-async def test_agent_structured_output_async(agent, user, agenerator):
+async def test_agent_structured_output_async(agent, system_prompt, user, agenerator):
     agent.model.structured_output = unittest.mock.Mock(return_value=agenerator([{"output": user}]))
 
     prompt = "Jane Doe is 30 years old and her email is jane@doe.com"
@@ -1010,7 +1019,9 @@ async def test_agent_structured_output_async(agent, user, agenerator):
     exp_result = user
     assert tru_result == exp_result
 
-    agent.model.structured_output.assert_called_once_with(type(user), [{"role": "user", "content": [{"text": prompt}]}])
+    agent.model.structured_output.assert_called_once_with(
+        type(user), [{"role": "user", "content": [{"text": prompt}]}], system_prompt=system_prompt
+    )
 
 
 @pytest.mark.asyncio
@@ -1338,6 +1349,11 @@ async def test_agent_stream_async_creates_and_ends_span_on_exception(mock_get_tr
     mock_tracer.end_agent_span.assert_called_once_with(span=mock_span, error=test_exception)
 
 
+def test_agent_init_with_state_object():
+    agent = Agent(state=AgentState({"foo": "bar"}))
+    assert agent.state.get("foo") == "bar"
+
+
 def test_non_dict_throws_error():
     with pytest.raises(ValueError, match="state must be an AgentState object or a dict"):
         agent = Agent(state={"object", object()})
@@ -1391,3 +1407,172 @@ def test_agent_state_get_breaks_deep_dict_reference():
 
     # This will fail if AgentState reflects the updated reference
     json.dumps(agent.state.get())
+
+
+def test_agent_session_management():
+    mock_session_repository = MockedSessionRepository()
+    session_manager = RepositorySessionManager(session_id="123", session_repository=mock_session_repository)
+    model = MockedModelProvider([{"role": "assistant", "content": [{"text": "hello!"}]}])
+    agent = Agent(session_manager=session_manager, model=model)
+    agent("Hello!")
+
+
+def test_agent_restored_from_session_management():
+    mock_session_repository = MockedSessionRepository()
+    mock_session_repository.create_session(Session(session_id="123", session_type=SessionType.AGENT))
+    mock_session_repository.create_agent(
+        "123",
+        SessionAgent(
+            agent_id="default",
+            state={"foo": "bar"},
+            conversation_manager_state=SlidingWindowConversationManager().get_state(),
+        ),
+    )
+    session_manager = RepositorySessionManager(session_id="123", session_repository=mock_session_repository)
+
+    agent = Agent(session_manager=session_manager)
+
+    assert agent.state.get("foo") == "bar"
+
+
+def test_agent_restored_from_session_management_with_message():
+    mock_session_repository = MockedSessionRepository()
+    mock_session_repository.create_session(Session(session_id="123", session_type=SessionType.AGENT))
+    mock_session_repository.create_agent(
+        "123",
+        SessionAgent(
+            agent_id="default",
+            state={"foo": "bar"},
+            conversation_manager_state=SlidingWindowConversationManager().get_state(),
+        ),
+    )
+    mock_session_repository.create_message(
+        "123", "default", SessionMessage({"role": "user", "content": [{"text": "Hello!"}]}, 0)
+    )
+    session_manager = RepositorySessionManager(session_id="123", session_repository=mock_session_repository)
+
+    agent = Agent(session_manager=session_manager)
+
+    assert agent.state.get("foo") == "bar"
+
+
+def test_agent_redacts_input_on_triggered_guardrail():
+    mocked_model = MockedModelProvider(
+        [{"redactedUserContent": "BLOCKED!", "redactedAssistantContent": "INPUT BLOCKED!"}]
+    )
+
+    agent = Agent(
+        model=mocked_model,
+        system_prompt="You are a helpful assistant.",
+        callback_handler=None,
+    )
+
+    response1 = agent("CACTUS")
+
+    assert response1.stop_reason == "guardrail_intervened"
+    assert agent.messages[0]["content"][0]["text"] == "BLOCKED!"
+
+
+def test_agent_restored_from_session_management_with_redacted_input():
+    mocked_model = MockedModelProvider(
+        [{"redactedUserContent": "BLOCKED!", "redactedAssistantContent": "INPUT BLOCKED!"}]
+    )
+
+    test_session_id = str(uuid4())
+    mocked_session_repository = MockedSessionRepository()
+    session_manager = RepositorySessionManager(session_id=test_session_id, session_repository=mocked_session_repository)
+
+    agent = Agent(
+        model=mocked_model,
+        system_prompt="You are a helpful assistant.",
+        callback_handler=None,
+        session_manager=session_manager,
+    )
+
+    assert mocked_session_repository.read_agent(test_session_id, agent.agent_id) is not None
+
+    response1 = agent("CACTUS")
+
+    assert response1.stop_reason == "guardrail_intervened"
+    assert agent.messages[0]["content"][0]["text"] == "BLOCKED!"
+    user_input_session_message = mocked_session_repository.list_messages(test_session_id, agent.agent_id)[0]
+    # Assert persisted message is equal to the redacted message in the agent
+    assert user_input_session_message.to_message() == agent.messages[0]
+
+    # Restore an agent from the session, confirm input is still redacted
+    session_manager_2 = RepositorySessionManager(
+        session_id=test_session_id, session_repository=mocked_session_repository
+    )
+    agent_2 = Agent(
+        model=mocked_model,
+        system_prompt="You are a helpful assistant.",
+        callback_handler=None,
+        session_manager=session_manager_2,
+    )
+
+    # Assert that the restored agent redacted message is equal to the original agent
+    assert agent.messages[0] == agent_2.messages[0]
+
+
+def test_agent_restored_from_session_management_with_correct_index():
+    mock_model_provider = MockedModelProvider(
+        [{"role": "assistant", "content": [{"text": "hello!"}]}, {"role": "assistant", "content": [{"text": "world!"}]}]
+    )
+    mock_session_repository = MockedSessionRepository()
+    session_manager = RepositorySessionManager(session_id="test", session_repository=mock_session_repository)
+    agent = Agent(session_manager=session_manager, model=mock_model_provider)
+    agent("Hello!")
+
+    assert len(mock_session_repository.list_messages("test", agent.agent_id)) == 2
+
+    session_manager_2 = RepositorySessionManager(session_id="test", session_repository=mock_session_repository)
+    agent_2 = Agent(session_manager=session_manager_2, model=mock_model_provider)
+
+    assert len(agent_2.messages) == 2
+    assert agent_2.messages[1]["content"][0]["text"] == "hello!"
+
+    agent_2("Hello!")
+
+    assert len(agent_2.messages) == 4
+    session_messages = mock_session_repository.list_messages("test", agent_2.agent_id)
+    assert (len(session_messages)) == 4
+    assert session_messages[1].message["content"][0]["text"] == "hello!"
+    assert session_messages[3].message["content"][0]["text"] == "world!"
+
+
+def test_agent_with_session_and_conversation_manager():
+    mock_model = MockedModelProvider([{"role": "assistant", "content": [{"text": "hello!"}]}])
+    mock_session_repository = MockedSessionRepository()
+    session_manager = RepositorySessionManager(session_id="123", session_repository=mock_session_repository)
+    conversation_manager = SlidingWindowConversationManager(window_size=1)
+    # Create an agent with a mocked model and session repository
+    agent = Agent(
+        session_manager=session_manager,
+        conversation_manager=conversation_manager,
+        model=mock_model,
+    )
+
+    # Assert session was initialized
+    assert mock_session_repository.read_session("123") is not None
+    assert mock_session_repository.read_agent("123", agent.agent_id) is not None
+    assert len(mock_session_repository.list_messages("123", agent.agent_id)) == 0
+
+    agent("Hello!")
+
+    # After invoking, assert that the messages were persisted
+    assert len(mock_session_repository.list_messages("123", agent.agent_id)) == 2
+    # Assert conversation manager reduced the messages
+    assert len(agent.messages) == 1
+
+    # Initialize another agent using the same session
+    session_manager_2 = RepositorySessionManager(session_id="123", session_repository=mock_session_repository)
+    conversation_manager_2 = SlidingWindowConversationManager(window_size=1)
+    agent_2 = Agent(
+        session_manager=session_manager_2,
+        conversation_manager=conversation_manager_2,
+        model=mock_model,
+    )
+    # Assert that the second agent was initialized properly, and that the messages of both agents are equal
+    assert agent.messages == agent_2.messages
+    # Asser the conversation manager was initialized properly
+    assert agent.conversation_manager.removed_message_count == agent_2.conversation_manager.removed_message_count

@@ -68,6 +68,7 @@ class stat_bindot(stat):
 
     See Also
     --------
+    plotnine.geom_dotplot : The default `geom` for this `stat`.
     plotnine.stat_bin
     """
 
@@ -113,7 +114,6 @@ class stat_bindot(stat):
             and params["binwidth"] is None
             and params["bins"] is None
         ):
-            params = params.copy()
             params["bins"] = freedman_diaconis_bins(data["x"])
             msg = (
                 "'stat_bin()' using 'bins = {}'. "
@@ -121,10 +121,8 @@ class stat_bindot(stat):
             )
             warn(msg.format(params["bins"]), PlotnineWarning)
 
-        return params
-
-    @classmethod
-    def compute_panel(cls, data, scales, **params):
+    def compute_panel(self, data, scales):
+        params = self.params
         if (
             params["method"] == "dotdensity"
             and params["binpositions"] == "all"
@@ -160,10 +158,10 @@ class stat_bindot(stat):
             data["binwidth"] = newdata["binwidth"]
             data["weight"] = newdata["weight"]
             data["bincenter"] = newdata["bincenter"]
-        return super(cls, stat_bindot).compute_panel(data, scales, **params)
+        return super().compute_panel(data, scales)
 
-    @classmethod
-    def compute_group(cls, data, scales, **params):
+    def compute_group(self, data, scales):
+        params = self.params
         # Check that weights are whole numbers
         # (for dots, weights must be whole)
         weight = data.get("weight")
@@ -281,9 +279,7 @@ def densitybin(
     if all(pd.isna(x)):
         return pd.DataFrame()
 
-    if weight is None:
-        weight = np.ones(len(x))
-    weight = np.asarray(weight)
+    weight = np.ones(len(x)) if weight is None else np.array(list(weight))
     weight[np.isnan(weight)] = 0
 
     if rangee is None:

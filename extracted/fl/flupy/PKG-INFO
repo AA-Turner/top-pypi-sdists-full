@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: flupy
-Version: 1.2.2
+Version: 1.2.3
 Summary: Fluent data processing in Python - a chainable stream processing library for expressive data manipulation using method chaining
 License: MIT
 Author: Oliver Rice

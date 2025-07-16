@@ -303,14 +303,13 @@ from pyglove.core.typing.typed_missing import MissingValue   # Typed.
 from pyglove.core.typing.class_schema import KeySpec
 from pyglove.core.typing.class_schema import ValueSpec
 from pyglove.core.typing.class_schema import Field
+from pyglove.core.typing.class_schema import FieldKeyDef
+from pyglove.core.typing.class_schema import FieldValueDef
+from pyglove.core.typing.class_schema import FieldDef
 from pyglove.core.typing.class_schema import Schema
 from pyglove.core.typing.class_schema import create_field
 from pyglove.core.typing.class_schema import create_schema
 from pyglove.core.typing.class_schema import ForwardRef
-
-# Class schema helpers.
-from pyglove.core.typing.class_schema_utils import get_arg_fields
-from pyglove.core.typing.class_schema_utils import ensure_value_spec
 
 # Concrete key specifications.
 from pyglove.core.typing.key_specs import ConstStrKey
@@ -337,6 +336,8 @@ from pyglove.core.typing.value_specs import Type
 from pyglove.core.typing.value_specs import Union
 from pyglove.core.typing.value_specs import Any
 
+from pyglove.core.typing.value_specs import ensure_value_spec
+
 # Generic type aliases.
 from pyglove.core.typing.value_specs import GenericMeta
 from pyglove.core.typing.value_specs import Generic
@@ -361,6 +362,7 @@ from pyglove.core.typing.type_conversion import get_json_value_converter
 # Inspect helpers.
 from pyglove.core.typing.inspect import is_subclass
 from pyglove.core.typing.inspect import is_instance
+from pyglove.core.typing.inspect import get_outer_class
 from pyglove.core.typing.inspect import get_type
 from pyglove.core.typing.inspect import get_type_args
 from pyglove.core.typing.inspect import is_generic
@@ -373,14 +375,27 @@ import pyglove.core.typing.annotation_conversion  # pylint: disable=unused-impor
 # Interface for custom typing.
 from pyglove.core.typing.custom_typing import CustomTyping
 
+# Annotation conversion
+from pyglove.core.typing.annotation_conversion import annotation_from_str
+
 # Callable signature.
 from pyglove.core.typing.callable_signature import Argument
 from pyglove.core.typing.callable_signature import CallableType
 from pyglove.core.typing.callable_signature import Signature
-from pyglove.core.typing.callable_signature import get_signature
+from pyglove.core.typing.callable_signature import signature
+from pyglove.core.typing.callable_signature import schema
+
+# For backward compatibility.
+get_signature = signature
 
 # Callable extensions.
+from pyglove.core.typing.callable_ext import PresetArgValue
+from pyglove.core.typing.callable_ext import enable_preset_args
+from pyglove.core.typing.callable_ext import preset_args
 from pyglove.core.typing.callable_ext import CallableWithOptionalKeywordArgs
+
+# JSON schema conversion.
+from pyglove.core.typing.json_schema import to_json_schema
 
 # PyType support.
 from pyglove.core.typing.pytype_support import *

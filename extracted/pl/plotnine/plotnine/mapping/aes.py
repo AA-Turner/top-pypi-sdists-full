@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import re
-import typing
 from collections.abc import Iterable, Sequence
 from contextlib import suppress
 from copy import deepcopy
 from dataclasses import fields
-from typing import Any, Dict
+from functools import cached_property
+from typing import TYPE_CHECKING, Any, Dict
 
+import numpy as np
 import pandas as pd
+from mizani._colors.utils import is_color_tuple
 
 from ..iapi import labels_view
 from .evaluation import after_stat, stage
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from typing import Protocol, TypeVar
 
     class ColorOrColour(Protocol):
@@ -171,27 +173,11 @@ class aes(Dict[str, Any]):
       ggplot(df, aes(x="df.index", y="np.sin(gam ma)"))
       ```
 
-    `aes` has 2 internal methods you can use to transform variables being
-    mapped.
+    `aes` has 2 internal functions that you can use in your expressions
+    when transforming the variables.
 
-      1. `factor` - This function turns the variable into a factor.
-         It is just an alias to `pandas.Categorical`:
-
-         ```python
-         ggplot(mtcars, aes(x="factor(cyl)")) + geom_bar()
-         ```
-
-      2. `reorder` - This function changes the order of first variable
-         based on values of the second variable:
-
-         ```python
-         df = pd.DataFrame({
-             "x": ["b", "d", "c", "a"],
-             "y": [1, 2, 3, 4]
-         })
-
-         ggplot(df, aes("reorder(x, y)", "y")) + geom_col()
-         ```
+      1. [](:func:`~plotnine.mapping._eval_environment.factor`)
+      1. [](:func:`~plotnine.mapping._eval_environment.reorder`)
 
     **The group aesthetic**
 
@@ -237,7 +223,7 @@ class aes(Dict[str, Any]):
                 kwargs[name] = after_stat(_after_stat)
         return kwargs
 
-    @property
+    @cached_property
     def _starting(self) -> dict[str, Any]:
         """
         Return the subset of aesthetics mapped from the layer data
@@ -254,7 +240,7 @@ class aes(Dict[str, Any]):
 
         return d
 
-    @property
+    @cached_property
     def _calculated(self) -> dict[str, Any]:
         """
         Return only the aesthetics mapped to calculated statistics
@@ -269,7 +255,7 @@ class aes(Dict[str, Any]):
 
         return d
 
-    @property
+    @cached_property
     def _scaled(self) -> dict[str, Any]:
         """
         Return only the aesthetics mapped to after scaling
@@ -298,14 +284,14 @@ class aes(Dict[str, Any]):
 
         return result
 
-    def __radd__(self, plot):
+    def __radd__(self, other):
         """
         Add aesthetic mappings to ggplot
         """
         self = deepcopy(self)
-        plot.mapping.update(self)
-        plot.labels.update(make_labels(self))
-        return plot
+        other.mapping.update(self)
+        other.labels.update(make_labels(self))
+        return other
 
     def copy(self):
         return aes(**self)
@@ -554,23 +540,23 @@ def make_labels(mapping: dict[str, Any] | aes) -> labels_view:
     )
 
 
-def is_valid_aesthetic(value: Any, ae: str) -> bool:
+class RepeatAesthetic:
     """
-    Return True if `value` looks valid.
+    Repeat an Aeshetic a given number of times
 
-    Parameters
-    ----------
-    value :
-        Value to check
-    ae :
-        Aesthetic name
+    The methods in this class know how to create sequences of aesthetics
+    whose values may not be scalar.
 
-    Notes
-    -----
-    There are no guarantees that he value is spot on
-    valid.
+    Some aesthetics may have valid values that are not scalar. e.g.
+    sequences. Inserting one of such a value in a dataframe as a column
+    would either lead to the wrong input or fail. The s
     """
-    if ae == "linetype":
+
+    @staticmethod
+    def linetype(value: Any, n: int) -> Sequence[Any]:
+        """
+        Repeat linetypes
+        """
         named = {
             "solid",
             "dashed",
@@ -585,47 +571,75 @@ def is_valid_aesthetic(value: Any, ae: str) -> bool:
             "",
         }
         if value in named:
-            return True
+            return [value] * n
 
         # tuple of the form (offset, (on, off, on, off, ...))
         # e.g (0, (1, 2))
-        conditions = [
-            isinstance(value, tuple),
-            isinstance(value[0], int),
-            isinstance(value[1], tuple),
-            len(value[1]) % 2 == 0,
-            all(isinstance(x, int) for x in value[1]),
-        ]
-        return all(conditions)
+        if (
+            isinstance(value, tuple)
+            and isinstance(value[0], int)
+            and isinstance(value[1], tuple)
+            and len(value[1]) % 2 == 0
+            and all(isinstance(x, int) for x in value[1])
+        ):
+            return [value] * n
 
-    elif ae == "shape":
+        raise ValueError(f"{value} is not a known linetype.")
+
+    @staticmethod
+    def color(value: Any, n: int) -> Sequence[Any]:
+        """
+        Repeat colors
+        """
         if isinstance(value, str):
-            return True
+            return [value] * n
+        if is_color_tuple(value):
+            return [tuple(value)] * n
 
+        raise ValueError(f"{value} is not a known color.")
+
+    fill = color
+
+    @staticmethod
+    def shape(value: Any, n: int) -> Any:
+        """
+        Repeat shapes
+        """
+        if isinstance(value, str):
+            return [value] * n
         # tuple of the form (numsides, style, angle)
         # where style is in the range [0, 3]
         # e.g (4, 1, 45)
-        conditions = [
-            isinstance(value, tuple),
-            all(isinstance(x, int) for x in value),
-            0 <= value[1] < 3,
-        ]
-        return all(conditions)
+        if (
+            isinstance(value, tuple)
+            and all(isinstance(x, int) for x in value)
+            and 0 <= value[1] < 3
+        ):
+            return [value] * n
 
-    elif ae in {"color", "fill"}:
-        if isinstance(value, str):
-            return True
-        with suppress(TypeError):
-            if isinstance(value, (tuple, list)) and all(
-                0 <= x <= 1 for x in value
-            ):
-                return True
+        if is_shape_points(value):
+            return [tuple(value)] * n
+
+        raise ValueError(f"{value} is not a know shape.")
+
+
+def is_shape_points(obj: Any) -> bool:
+    """
+    Return True if obj is like Sequence[tuple[float, float]]
+    """
+
+    def is_numeric(obj) -> bool:
+        """
+        Return True if obj is a python or numpy float or integer
+        """
+        return isinstance(obj, (float, int, np.floating, np.integer))
+
+    if not iter(obj):
         return False
-
-    # For any other aesthetics we return False to allow
-    # for special cases to be discovered and then coded
-    # for appropriately.
-    return False
+    try:
+        return all(is_numeric(a) and is_numeric(b) for a, b in obj)
+    except TypeError:
+        return False
 
 
 def has_groups(data: pd.DataFrame) -> bool:

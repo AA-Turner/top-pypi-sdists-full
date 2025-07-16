@@ -6403,6 +6403,7 @@ class CfnDomain(
                     environment_id="environmentId",
                     project_id="projectId",
                     project_s3_path="projectS3Path",
+                    single_sign_on_application_arn="singleSignOnApplicationArn",
                     studio_web_portal_access="studioWebPortalAccess"
                 )
             ),
@@ -7801,6 +7802,7 @@ class CfnDomain(
                         environment_id="environmentId",
                         project_id="projectId",
                         project_s3_path="projectS3Path",
+                        single_sign_on_application_arn="singleSignOnApplicationArn",
                         studio_web_portal_access="studioWebPortalAccess"
                     )
                 )
@@ -9201,6 +9203,7 @@ class CfnDomain(
             "environment_id": "environmentId",
             "project_id": "projectId",
             "project_s3_path": "projectS3Path",
+            "single_sign_on_application_arn": "singleSignOnApplicationArn",
             "studio_web_portal_access": "studioWebPortalAccess",
         },
     )
@@ -9214,6 +9217,7 @@ class CfnDomain(
             environment_id: typing.Optional[builtins.str] = None,
             project_id: typing.Optional[builtins.str] = None,
             project_s3_path: typing.Optional[builtins.str] = None,
+            single_sign_on_application_arn: typing.Optional[builtins.str] = None,
             studio_web_portal_access: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The settings that apply to an Amazon SageMaker AI domain when you use it in Amazon SageMaker Unified Studio.
@@ -9224,6 +9228,7 @@ class CfnDomain(
             :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
             :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
             :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
+            :param single_sign_on_application_arn: The ARN of the DataZone application managed by SageMaker Unified Studio in the AWS IAM Identity Center.
             :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface. To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
@@ -9242,6 +9247,7 @@ class CfnDomain(
                     environment_id="environmentId",
                     project_id="projectId",
                     project_s3_path="projectS3Path",
+                    single_sign_on_application_arn="singleSignOnApplicationArn",
                     studio_web_portal_access="studioWebPortalAccess"
                 )
             '''
@@ -9253,6 +9259,7 @@ class CfnDomain(
                 check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
                 check_type(argname="argument project_id", value=project_id, expected_type=type_hints["project_id"])
                 check_type(argname="argument project_s3_path", value=project_s3_path, expected_type=type_hints["project_s3_path"])
+                check_type(argname="argument single_sign_on_application_arn", value=single_sign_on_application_arn, expected_type=type_hints["single_sign_on_application_arn"])
                 check_type(argname="argument studio_web_portal_access", value=studio_web_portal_access, expected_type=type_hints["studio_web_portal_access"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if domain_account_id is not None:
@@ -9267,6 +9274,8 @@ class CfnDomain(
                 self._values["project_id"] = project_id
             if project_s3_path is not None:
                 self._values["project_s3_path"] = project_s3_path
+            if single_sign_on_application_arn is not None:
+                self._values["single_sign_on_application_arn"] = single_sign_on_application_arn
             if studio_web_portal_access is not None:
                 self._values["studio_web_portal_access"] = studio_web_portal_access
 
@@ -9326,6 +9335,15 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-projects3path
             '''
             result = self._values.get("project_s3_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def single_sign_on_application_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the DataZone application managed by SageMaker Unified Studio in the AWS IAM Identity Center.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-singlesignonapplicationarn
+            '''
+            result = self._values.get("single_sign_on_application_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -10159,6 +10177,7 @@ class CfnDomainProps:
                         environment_id="environmentId",
                         project_id="projectId",
                         project_s3_path="projectS3Path",
+                        single_sign_on_application_arn="singleSignOnApplicationArn",
                         studio_web_portal_access="studioWebPortalAccess"
                     )
                 ),
@@ -51522,6 +51541,7 @@ def _typecheckingstub__b4dad77d25b548827f5bcfd63cb5788816c5db5845110e1912053632c
     environment_id: typing.Optional[builtins.str] = None,
     project_id: typing.Optional[builtins.str] = None,
     project_s3_path: typing.Optional[builtins.str] = None,
+    single_sign_on_application_arn: typing.Optional[builtins.str] = None,
     studio_web_portal_access: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

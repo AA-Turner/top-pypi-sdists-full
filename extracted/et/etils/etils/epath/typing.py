@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@ from __future__ import annotations
 
 import os
 import typing
-from typing import Union
+from typing import TypeAlias, Union
 
 # Accept both `str` and `pathlib.Path`-like
-PathLike = Union[str, os.PathLike]
+PathLike: TypeAlias = Union[str, os.PathLike]
 if typing.TYPE_CHECKING:
-  # TODO(py310): os.PathLike is not suscrible
-  PathLike = Union[str, os.PathLike[str]]
+  # TODO(py310): os.PathLike is not subscriptable
+  PathLike: TypeAlias = Union[str, os.PathLike[str]]
 
 PathLikeCls = (str, os.PathLike)  # Used in `isinstance`

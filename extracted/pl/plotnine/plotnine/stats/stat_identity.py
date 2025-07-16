@@ -12,10 +12,13 @@ class stat_identity(stat):
     Parameters
     ----------
     {common_parameters}
+
+    See Also
+    --------
+    plotnine.geom_point : The default `geom` for this `stat`.
     """
 
     DEFAULT_PARAMS = {"geom": "point", "position": "identity", "na_rm": False}
 
-    @classmethod
-    def compute_panel(cls, data, scales, **params):
+    def compute_panel(self, data, scales):
         return data

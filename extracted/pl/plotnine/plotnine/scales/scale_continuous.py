@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, cast
 from warnings import warn
 
 import numpy as np
@@ -387,14 +387,15 @@ class scale_continuous(
             limits = self.final_limits
 
         x = self.oob(self.rescaler(x, _from=limits))
+        na_value = cast("float", self.na_value)
 
         uniq = np.unique(x)
         pal = np.asarray(self.palette(uniq))
         scaled = pal[match(x, uniq)]
         if scaled.dtype.kind == "U":
-            scaled = [self.na_value if x == "nan" else x for x in scaled]
+            scaled = [na_value if x == "nan" else x for x in scaled]
         else:
-            scaled[pd.isna(scaled)] = self.na_value
+            scaled[pd.isna(scaled)] = na_value
         return scaled
 
     def get_breaks(
@@ -520,11 +521,12 @@ class scale_continuous(
             # When user sets breaks and labels of equal size,
             # but the limits exclude some of the breaks.
             # We remove the corresponding labels
-            from collections.abc import Sized
+            from collections.abc import Iterable, Sized
 
             labels = self.labels
             if (
                 len(labels) != len(breaks)
+                and isinstance(self.breaks, Iterable)
                 and isinstance(self.breaks, Sized)
                 and len(labels) == len(self.breaks)
             ):

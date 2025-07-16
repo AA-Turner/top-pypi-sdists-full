@@ -15,7 +15,7 @@ from meutils.config_utils.lark_utils import get_next_token_for_polling
 from meutils.decorators.retry import retrying
 from openai import AsyncOpenAI
 
-FEISHU_URL = "https://xchatllm.feishu.cn/sheets/MekfsfVuohfUf1tsWV0cCvTmn3c?sheet=PDnO6X"
+FEISHU_URL = "https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=gg5DNy"
 
 
 @retrying(title=__name__)

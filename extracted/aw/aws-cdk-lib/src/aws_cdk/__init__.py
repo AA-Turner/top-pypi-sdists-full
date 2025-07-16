@@ -9205,17 +9205,17 @@ class CfnStackSetProps:
     ) -> None:
         '''Properties for defining a ``CfnStackSet``.
 
-        :param permission_model: Describes how the IAM roles required for stack set operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for stack sets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
-        :param stack_set_name: The name to associate with the stack set. The name must be unique in the Region where you create your stack set.
-        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this stack set. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
+        :param permission_model: Describes how the IAM roles required for StackSet operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
+        :param stack_set_name: The name to associate with the StackSet. The name must be unique in the Region where you create your StackSet.
+        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
         :param auto_deployment: Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU). For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* . Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
-        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for stack sets with self-managed permissions. - To create a stack set with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a stack set with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . Stack sets with service-managed permissions are created in the management account, including stack sets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
-        :param capabilities: The capabilities that are allowed in the stack set. Some stack set templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
-        :param description: A description of the stack set.
-        :param execution_role_name: The name of the IAM execution role to use to create the stack set. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the stack set operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
-        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your stack set's execution configuration while there are running or queued operations for that stack set. When inactive (default), StackSets performs one operation at a time in request order.
-        :param operation_preferences: The user-specified preferences for how CloudFormation performs a stack set operation.
-        :param parameters: The input parameters for the stack set template.
+        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions. - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
+        :param capabilities: The capabilities that are allowed in the StackSet. Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
+        :param description: A description of the StackSet.
+        :param execution_role_name: The name of the IAM execution role to use to create the StackSet. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
+        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When inactive (default), StackSets performs one operation at a time in request order.
+        :param operation_preferences: The user-specified preferences for how CloudFormation performs a StackSet operation.
+        :param parameters: The input parameters for the StackSet template.
         :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
         :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
@@ -9333,10 +9333,10 @@ class CfnStackSetProps:
 
     @builtins.property
     def permission_model(self) -> builtins.str:
-        '''Describes how the IAM roles required for stack set operations are created.
+        '''Describes how the IAM roles required for StackSet operations are created.
 
         - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
-        - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for stack sets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
+        - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-permissionmodel
         '''
@@ -9346,9 +9346,9 @@ class CfnStackSetProps:
 
     @builtins.property
     def stack_set_name(self) -> builtins.str:
-        '''The name to associate with the stack set.
+        '''The name to associate with the StackSet.
 
-        The name must be unique in the Region where you create your stack set.
+        The name must be unique in the Region where you create your StackSet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-stacksetname
         '''
@@ -9358,11 +9358,11 @@ class CfnStackSetProps:
 
     @builtins.property
     def administration_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the IAM role to use to create this stack set.
+        '''The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet.
 
-        Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account.
+        Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account.
 
-        Use customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
+        Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* .
 
         Valid only if the permissions model is ``SELF_MANAGED`` .
 
@@ -9390,14 +9390,14 @@ class CfnStackSetProps:
     def call_as(self) -> typing.Optional[builtins.str]:
         '''Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account.
 
-        By default, ``SELF`` is specified. Use ``SELF`` for stack sets with self-managed permissions.
+        By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions.
 
-        - To create a stack set with service-managed permissions while signed in to the management account, specify ``SELF`` .
-        - To create a stack set with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` .
+        - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` .
+        - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` .
 
         Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* .
 
-        Stack sets with service-managed permissions are created in the management account, including stack sets that are created by delegated administrators.
+        StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators.
 
         Valid only if the permissions model is ``SERVICE_MANAGED`` .
 
@@ -9408,9 +9408,9 @@ class CfnStackSetProps:
 
     @builtins.property
     def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The capabilities that are allowed in the stack set.
+        '''The capabilities that are allowed in the StackSet.
 
-        Some stack set templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
+        Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-capabilities
         '''
@@ -9419,7 +9419,7 @@ class CfnStackSetProps:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the stack set.
+        '''A description of the StackSet.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-description
         '''
@@ -9428,9 +9428,9 @@ class CfnStackSetProps:
 
     @builtins.property
     def execution_role_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the IAM execution role to use to create the stack set.
+        '''The name of the IAM execution role to use to create the StackSet.
 
-        If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the stack set operation.
+        If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation.
 
         Valid only if the permissions model is ``SELF_MANAGED`` .
 
@@ -9450,7 +9450,7 @@ class CfnStackSetProps:
 
            If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
 
-           You can't modify your stack set's execution configuration while there are running or queued operations for that stack set.
+           You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
 
         When inactive (default), StackSets performs one operation at a time in request order.
 
@@ -9463,7 +9463,7 @@ class CfnStackSetProps:
     def operation_preferences(
         self,
     ) -> typing.Optional[typing.Union["IResolvable", "CfnStackSet.OperationPreferencesProperty"]]:
-        '''The user-specified preferences for how CloudFormation performs a stack set operation.
+        '''The user-specified preferences for how CloudFormation performs a StackSet operation.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-operationpreferences
         '''
@@ -9474,7 +9474,7 @@ class CfnStackSetProps:
     def parameters(
         self,
     ) -> typing.Optional[typing.Union["IResolvable", typing.List[typing.Union["IResolvable", "CfnStackSet.ParameterProperty"]]]]:
-        '''The input parameters for the stack set template.
+        '''The input parameters for the StackSet template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-stackset.html#cfn-cloudformation-stackset-parameters
         '''
@@ -20005,13 +20005,12 @@ class RemovalPolicy(enum.Enum):
     '''
 
     DESTROY = "DESTROY"
-    '''This is the default removal policy.
-
-    It means that when the resource is
-    removed from the app, it will be physically destroyed.
-    '''
+    '''When this removal policy is applied, the resource will be physically destroyed when it is removed from the stack or when the stack is deleted.'''
     RETAIN = "RETAIN"
-    '''This uses the 'Retain' DeletionPolicy, which will cause the resource to be retained in the account, but orphaned from the stack.'''
+    '''This uses the 'Retain' DeletionPolicy, which will cause the resource to be retained in the account, but orphaned from the stack.
+
+    Most resources default to this removal policy.
+    '''
     SNAPSHOT = "SNAPSHOT"
     '''This retention policy deletes the resource, but saves a snapshot of its data before deleting, so that it can be re-created later.
 
@@ -21844,7 +21843,7 @@ class Stack(
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
         :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param synthesizer: Synthesis method to use while deploying this stack. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. If not specified, the ``defaultStackSynthesizer`` from ``App`` will be used. If that is not specified, ``DefaultStackSynthesizer`` is used if ``@aws-cdk/core:newStyleStackSynthesis`` is set to ``true`` or the CDK major version is v2. In CDK v1 ``LegacyStackSynthesizer`` is the default if no other synthesizer is specified. Default: - The synthesizer specified on ``App``, or ``DefaultStackSynthesizer`` otherwise.
-        :param tags: Stack tags that will be applied to all the taggable resources and the stack itself. Default: {}
+        :param tags: Tags that will be applied to the Stack. These tags are applied to the CloudFormation Stack itself. They will not appear in the CloudFormation template. However, at deployment time, CloudFormation will apply these tags to all resources in the stack that support tagging. You will not be able to exempt resources from tagging (using the ``excludeResourceTypes`` property of ``Tags.of(...).add()``) for tags applied in this way. Default: {}
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
         '''
         if __debug__:
@@ -21932,6 +21931,21 @@ class Stack(
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addMetadata", [key, value]))
+
+    @jsii.member(jsii_name="addStackTag")
+    def add_stack_tag(self, tag_name: builtins.str, tag_value: builtins.str) -> None:
+        '''Configure a stack tag.
+
+        At deploy time, CloudFormation will automatically apply all stack tags to all resources in the stack.
+
+        :param tag_name: -
+        :param tag_value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c79ea9b0cd54830acfa2c93ac0786782e515591ac5cda10c42b42f8ff76457a0)
+            check_type(argname="argument tag_name", value=tag_name, expected_type=type_hints["tag_name"])
+            check_type(argname="argument tag_value", value=tag_value, expected_type=type_hints["tag_value"])
+        return typing.cast(None, jsii.invoke(self, "addStackTag", [tag_name, tag_value]))
 
     @jsii.member(jsii_name="addTransform")
     def add_transform(self, transform: builtins.str) -> None:
@@ -22203,6 +22217,19 @@ class Stack(
             check_type(argname="argument fact_name", value=fact_name, expected_type=type_hints["fact_name"])
             check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
         return typing.cast(builtins.str, jsii.invoke(self, "regionalFact", [fact_name, default_value]))
+
+    @jsii.member(jsii_name="removeStackTag")
+    def remove_stack_tag(self, tag_name: builtins.str) -> None:
+        '''Remove a stack tag.
+
+        At deploy time, CloudFormation will automatically apply all stack tags to all resources in the stack.
+
+        :param tag_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25f39c18a619c464f8e693cb5c5847cdf10f847438cac04672be8ba78d2b49d0)
+            check_type(argname="argument tag_name", value=tag_name, expected_type=type_hints["tag_name"])
+        return typing.cast(None, jsii.invoke(self, "removeStackTag", [tag_name]))
 
     @jsii.member(jsii_name="renameLogicalId")
     def rename_logical_id(self, old_id: builtins.str, new_id: builtins.str) -> None:
@@ -22555,7 +22582,7 @@ class StackProps:
         :param stack_name: Name to deploy the stack with. Default: - Derived from construct path.
         :param suppress_template_indentation: Enable this flag to suppress indentation in generated CloudFormation templates. If not specified, the value of the ``@aws-cdk/core:suppressTemplateIndentation`` context key will be used. If that is not specified, then the default value ``false`` will be used. Default: - the value of ``@aws-cdk/core:suppressTemplateIndentation``, or ``false`` if that is not set.
         :param synthesizer: Synthesis method to use while deploying this stack. The Stack Synthesizer controls aspects of synthesis and deployment, like how assets are referenced and what IAM roles to use. For more information, see the README of the main CDK package. If not specified, the ``defaultStackSynthesizer`` from ``App`` will be used. If that is not specified, ``DefaultStackSynthesizer`` is used if ``@aws-cdk/core:newStyleStackSynthesis`` is set to ``true`` or the CDK major version is v2. In CDK v1 ``LegacyStackSynthesizer`` is the default if no other synthesizer is specified. Default: - The synthesizer specified on ``App``, or ``DefaultStackSynthesizer`` otherwise.
-        :param tags: Stack tags that will be applied to all the taggable resources and the stack itself. Default: {}
+        :param tags: Tags that will be applied to the Stack. These tags are applied to the CloudFormation Stack itself. They will not appear in the CloudFormation template. However, at deployment time, CloudFormation will apply these tags to all resources in the stack that support tagging. You will not be able to exempt resources from tagging (using the ``excludeResourceTypes`` property of ``Tags.of(...).add()``) for tags applied in this way. Default: {}
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
 
         :exampleMetadata: infused
@@ -22804,7 +22831,15 @@ class StackProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Stack tags that will be applied to all the taggable resources and the stack itself.
+        '''Tags that will be applied to the Stack.
+
+        These tags are applied to the CloudFormation Stack itself. They will not
+        appear in the CloudFormation template.
+
+        However, at deployment time, CloudFormation will apply these tags to all
+        resources in the stack that support tagging. You will not be able to exempt
+        resources from tagging (using the ``excludeResourceTypes`` property of
+        ``Tags.of(...).add()``) for tags applied in this way.
 
         :default: {}
         '''
@@ -24723,7 +24758,26 @@ class Tags(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Tags"):
         include_resource_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         priority: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''add tags to the node of a construct and all its the taggable children.
+        '''Add tags to the node of a construct and all its the taggable children.
+
+
+
+        Tagging and CloudFormation Stacks
+
+        If the feature flag ``@aws-cdk/core:explicitStackTags`` is set to ``true``
+        (recommended modern behavior), Stacks will not automatically be tagged.
+        Stack tags should be configured on Stacks directly (preferred), or
+        you must explicitly include the resource type ``aws:cdk:stack`` in the
+        ``includeResourceTypes`` array.
+
+        If the feature flag is set to ``false`` (legacy behavior) then both Stacks
+        and resources in the indicated scope will both be tagged by default, which
+        leads to tags being applied twice (once in the template, and then once
+        again automatically by CloudFormation as part of the stack deployment).
+        That behavior leads to loss of control as ``excludeResourceTypes`` will
+        prevent tags from appearing in the template, but they will still be
+        applied to the Stack and hence CloudFormation will still apply them
+        to the resource.
 
         :param key: -
         :param value: -
@@ -24837,18 +24891,25 @@ class TimeZone(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.TimeZone"):
     Example::
 
         from aws_cdk import TimeZone
-        # plan: backup.BackupPlan
+        # resource: SomeScalableResource
         
-        plan.add_rule(backup.BackupPlanRule(
-            completion_window=Duration.hours(2),
-            start_window=Duration.hours(1),
-            schedule_expression=events.Schedule.cron( # Only cron expressions are supported
-                day="15",
-                hour="3",
-                minute="30"),
-            schedule_expression_timezone=TimeZone.ETC_UTC,
-            move_to_cold_storage_after=Duration.days(30)
-        ))
+        
+        capacity = resource.auto_scale_capacity(
+            min_capacity=1,
+            max_capacity=50
+        )
+        
+        capacity.scale_on_schedule("PrescaleInTheMorning",
+            schedule=appscaling.Schedule.cron(hour="8", minute="0"),
+            min_capacity=20,
+            time_zone=TimeZone.AMERICA_DENVER
+        )
+        
+        capacity.scale_on_schedule("AllowDownscalingAtNight",
+            schedule=appscaling.Schedule.cron(hour="20", minute="0"),
+            min_capacity=1,
+            time_zone=TimeZone.AMERICA_DENVER
+        )
     '''
 
     @jsii.member(jsii_name="of")
@@ -30396,7 +30457,7 @@ class CfnHookDefaultVersion(
     @builtins.property
     @jsii.member(jsii_name="attrArn")
     def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Number (ARN) of the activated Hook, in this account and Region.
+        '''The Amazon Resource Number (ARN) of the activated Hook in this account and Region.
 
         :cloudformationAttribute: Arn
         '''
@@ -30541,7 +30602,7 @@ class CfnHookTypeConfig(
     @builtins.property
     @jsii.member(jsii_name="attrConfigurationArn")
     def attr_configuration_arn(self) -> builtins.str:
-        '''The Amazon Resource Number (ARN) of the activated Hook type configuration, in this account and Region.
+        '''The Amazon Resource Number (ARN) of the activated Hook type configuration in this account and Region.
 
         :cloudformationAttribute: ConfigurationArn
         '''
@@ -31808,7 +31869,8 @@ class CfnMacro(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnM
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''Returns a unique identifier for the resource.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -33117,7 +33179,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
 
     For more information, see `Nested stacks <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-nested-stacks.html>`_ in the *AWS CloudFormation User Guide* .
 
-    You can add output values from a nested stack within the containing template. You use the `GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html>`_ function with the nested stack's logical name and the name of the output value in the nested stack in the format ``Outputs. *NestedStackOutputName*`` .
+    You can add output values from a nested stack within the containing template. You use the `GetAtt <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/intrinsic-function-reference-getatt.html>`_ function with the nested stack's logical name and the name of the output value in the nested stack in the format ``Outputs. *NestedStackOutputName*`` .
 
     We strongly recommend that updates to nested stacks are run from the parent stack.
 
@@ -33251,7 +33313,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
     @builtins.property
     @jsii.member(jsii_name="attrChangeSetId")
     def attr_change_set_id(self) -> builtins.str:
-        '''Returns the unique ID of the change set.
+        '''Returns the unique identifier of the change set.
 
         :cloudformationAttribute: ChangeSetId
         '''
@@ -33260,7 +33322,7 @@ class CfnStack(CfnResource, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.CfnS
     @builtins.property
     @jsii.member(jsii_name="attrCreationTime")
     def attr_creation_time(self) -> builtins.str:
-        '''Returns The time at which the stack was created.
+        '''Returns the time the stack was created.
 
         :cloudformationAttribute: CreationTime
         '''
@@ -33520,9 +33582,9 @@ class CfnStackSet(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.CfnStackSet",
 ):
-    '''The ``AWS::CloudFormation::StackSet`` resource enables you to provision stacks into AWS accounts and across Regions by using a single CloudFormation template.
+    '''The ``AWS::CloudFormation::StackSet`` resource contains information about a StackSet.
 
-    In the stack set, you specify the template to use, in addition to any parameters and capabilities that the template requires.
+    With StackSets, you can provision stacks across AWS accounts and Regions from a single CloudFormation template. Each stack is based on the same CloudFormation template, but you can customize individual stacks using parameters.
     .. epigraph::
 
        Run deployments to nested StackSets from the parent stack, not directly through the StackSet API.
@@ -33615,17 +33677,17 @@ class CfnStackSet(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param permission_model: Describes how the IAM roles required for stack set operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for stack sets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
-        :param stack_set_name: The name to associate with the stack set. The name must be unique in the Region where you create your stack set.
-        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this stack set. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific stack sets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
+        :param permission_model: Describes how the IAM roles required for StackSet operations are created. - With ``SELF_MANAGED`` permissions, you must create the administrator and execution roles required to deploy to target accounts. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . - With ``SERVICE_MANAGED`` permissions, StackSets automatically creates the IAM roles required to deploy to accounts managed by AWS Organizations . For more information, see `Activate trusted access for StackSets with AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-activate-trusted-access.html>`_ in the *AWS CloudFormation User Guide* .
+        :param stack_set_name: The name to associate with the StackSet. The name must be unique in the Region where you create your StackSet.
+        :param administration_role_arn: The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet. Specify an IAM role only if you are using customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. Use customized administrator roles to control which users or groups can manage specific StackSets within the same administrator account. For more information, see `Grant self-managed permissions <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-prereqs-self-managed.html>`_ in the *AWS CloudFormation User Guide* . Valid only if the permissions model is ``SELF_MANAGED`` .
         :param auto_deployment: Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU). For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* . Required if the permissions model is ``SERVICE_MANAGED`` . (Not used with self-managed permissions.)
-        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for stack sets with self-managed permissions. - To create a stack set with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a stack set with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . Stack sets with service-managed permissions are created in the management account, including stack sets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
-        :param capabilities: The capabilities that are allowed in the stack set. Some stack set templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
-        :param description: A description of the stack set.
-        :param execution_role_name: The name of the IAM execution role to use to create the stack set. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the stack set operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
-        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your stack set's execution configuration while there are running or queued operations for that stack set. When inactive (default), StackSets performs one operation at a time in request order.
-        :param operation_preferences: The user-specified preferences for how CloudFormation performs a stack set operation.
-        :param parameters: The input parameters for the stack set template.
+        :param call_as: Specifies whether you are acting as an account administrator in the organization's management account or as a delegated administrator in a member account. By default, ``SELF`` is specified. Use ``SELF`` for StackSets with self-managed permissions. - To create a StackSet with service-managed permissions while signed in to the management account, specify ``SELF`` . - To create a StackSet with service-managed permissions while signed in to a delegated administrator account, specify ``DELEGATED_ADMIN`` . Your AWS account must be registered as a delegated admin in the management account. For more information, see `Register a delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ in the *AWS CloudFormation User Guide* . StackSets with service-managed permissions are created in the management account, including StackSets that are created by delegated administrators. Valid only if the permissions model is ``SERVICE_MANAGED`` .
+        :param capabilities: The capabilities that are allowed in the StackSet. Some StackSet templates might include resources that can affect permissions in your AWS account —for example, by creating new IAM users. For more information, see `Acknowledging IAM resources in CloudFormation templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/control-access-with-iam.html#using-iam-capabilities>`_ in the *AWS CloudFormation User Guide* .
+        :param description: A description of the StackSet.
+        :param execution_role_name: The name of the IAM execution role to use to create the StackSet. If you don't specify an execution role, CloudFormation uses the ``AWSCloudFormationStackSetExecutionRole`` role for the StackSet operation. Valid only if the permissions model is ``SELF_MANAGED`` . *Pattern* : ``[a-zA-Z_0-9+=,.@-]+``
+        :param managed_execution: Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations. When active, StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When inactive (default), StackSets performs one operation at a time in request order.
+        :param operation_preferences: The user-specified preferences for how CloudFormation performs a StackSet operation.
+        :param parameters: The input parameters for the StackSet template.
         :param stack_instances_group: A group of stack instances with parameters in some specific accounts and Regions.
         :param tags: Key-value pairs to associate with this stack. CloudFormation also propagates these tags to supported resources in the stack. You can specify a maximum number of 50 tags. If you don't specify this parameter, CloudFormation doesn't modify the stack's tags. If you specify an empty value, CloudFormation removes all associated tags.
         :param template_body: The structure that contains the template body, with a minimum length of 1 byte and a maximum length of 51,200 bytes. You must include either ``TemplateURL`` or ``TemplateBody`` in a StackSet, but you can't use both. Dynamic references in the ``TemplateBody`` may not work correctly in all cases. It's recommended to pass templates that contain dynamic references through ``TemplateUrl`` instead.
@@ -33688,7 +33750,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="attrStackSetId")
     def attr_stack_set_id(self) -> builtins.str:
-        '''The ID of the stack that you're creating.
+        '''Returns the unique identifier of the resource.
 
         :cloudformationAttribute: StackSetId
         '''
@@ -33708,7 +33770,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="permissionModel")
     def permission_model(self) -> builtins.str:
-        '''Describes how the IAM roles required for stack set operations are created.'''
+        '''Describes how the IAM roles required for StackSet operations are created.'''
         return typing.cast(builtins.str, jsii.get(self, "permissionModel"))
 
     @permission_model.setter
@@ -33721,7 +33783,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="stackSetName")
     def stack_set_name(self) -> builtins.str:
-        '''The name to associate with the stack set.'''
+        '''The name to associate with the StackSet.'''
         return typing.cast(builtins.str, jsii.get(self, "stackSetName"))
 
     @stack_set_name.setter
@@ -33734,7 +33796,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="administrationRoleArn")
     def administration_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Number (ARN) of the IAM role to use to create this stack set.'''
+        '''The Amazon Resource Number (ARN) of the IAM role to use to create this StackSet.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "administrationRoleArn"))
 
     @administration_role_arn.setter
@@ -33778,7 +33840,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="capabilities")
     def capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The capabilities that are allowed in the stack set.'''
+        '''The capabilities that are allowed in the StackSet.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "capabilities"))
 
     @capabilities.setter
@@ -33791,7 +33853,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the stack set.'''
+        '''A description of the StackSet.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
 
     @description.setter
@@ -33804,7 +33866,7 @@ class CfnStackSet(
     @builtins.property
     @jsii.member(jsii_name="executionRoleName")
     def execution_role_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the IAM execution role to use to create the stack set.'''
+        '''The name of the IAM execution role to use to create the StackSet.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleName"))
 
     @execution_role_name.setter
@@ -33832,7 +33894,7 @@ class CfnStackSet(
     def operation_preferences(
         self,
     ) -> typing.Optional[typing.Union[IResolvable, "CfnStackSet.OperationPreferencesProperty"]]:
-        '''The user-specified preferences for how CloudFormation performs a stack set operation.'''
+        '''The user-specified preferences for how CloudFormation performs a StackSet operation.'''
         return typing.cast(typing.Optional[typing.Union[IResolvable, "CfnStackSet.OperationPreferencesProperty"]], jsii.get(self, "operationPreferences"))
 
     @operation_preferences.setter
@@ -33850,7 +33912,7 @@ class CfnStackSet(
     def parameters(
         self,
     ) -> typing.Optional[typing.Union[IResolvable, typing.List[typing.Union[IResolvable, "CfnStackSet.ParameterProperty"]]]]:
-        '''The input parameters for the stack set template.'''
+        '''The input parameters for the StackSet template.'''
         return typing.cast(typing.Optional[typing.Union[IResolvable, typing.List[typing.Union[IResolvable, "CfnStackSet.ParameterProperty"]]]], jsii.get(self, "parameters"))
 
     @parameters.setter
@@ -34018,7 +34080,7 @@ class CfnStackSet(
             accounts_url: typing.Optional[builtins.str] = None,
             organizational_unit_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''The AWS OrganizationalUnitIds or Accounts for which to create stack instances in the specified Regions.
+            '''The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
 
             :param account_filter_type: Limit deployment targets to individual accounts or include additional accounts with provided OUs. The following is a list of possible values for the ``AccountFilterType`` operation. - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` parameter. - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` parameter. - ``UNION`` StackSet deploys to the OU, and the accounts specified in the ``Accounts`` parameter. ``UNION`` is not supported for create operations when using StackSet as a resource.
             :param accounts: The account IDs of the AWS accounts . If you have many account numbers, you can provide those accounts using the ``AccountsUrl`` property instead. *Pattern* : ``^[0-9]{12}$``
@@ -34131,7 +34193,7 @@ class CfnStackSet(
         ) -> None:
             '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.
 
-            :param active: When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your stack set's execution configuration while there are running or queued operations for that stack set. When ``false`` (default), StackSets performs one operation at a time in request order.
+            :param active: When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When ``false`` (default), StackSets performs one operation at a time in request order.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-managedexecution.html
             :exampleMetadata: fixture=_generated
@@ -34162,7 +34224,7 @@ class CfnStackSet(
 
                If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
 
-               You can't modify your stack set's execution configuration while there are running or queued operations for that stack set.
+               You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
 
             When ``false`` (default), StackSets performs one operation at a time in request order.
 
@@ -34207,13 +34269,13 @@ class CfnStackSet(
             region_concurrency_type: typing.Optional[builtins.str] = None,
             region_order: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''The user-specified preferences for how CloudFormation performs a stack set operation.
+            '''The user-specified preferences for how CloudFormation performs a StackSet operation.
 
-            For more information on maximum concurrent accounts and failure tolerance, see `Stack set operation options <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-concepts.html#stackset-ops-options>`_ in the *AWS CloudFormation User Guide* .
+            For more information on maximum concurrent accounts and failure tolerance, see `StackSet operation options <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-concepts.html#stackset-ops-options>`_ in the *AWS CloudFormation User Guide* .
 
-            :param concurrency_mode: Specifies how the concurrency level behaves during the operation execution. - ``STRICT_FAILURE_TOLERANCE`` : This option dynamically lowers the concurrency level to ensure the number of failed accounts never exceeds the value of ``FailureToleranceCount`` +1. The initial actual concurrency is set to the lower of either the value of the ``MaxConcurrentCount`` , or the value of ``FailureToleranceCount`` +1. The actual concurrency is then reduced proportionally by the number of failures. This is the default behavior. If failure tolerance or Maximum concurrent accounts are set to percentages, the behavior is similar. - ``SOFT_FAILURE_TOLERANCE`` : This option decouples ``FailureToleranceCount`` from the actual concurrency. This allows stack set operations to run at the concurrency level set by the ``MaxConcurrentCount`` value, or ``MaxConcurrentPercentage`` , regardless of the number of failures.
-            :param failure_tolerance_count: The number of accounts, per Region, for which this operation can fail before CloudFormation stops the operation in that Region. If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions. Conditional: You must specify either ``FailureToleranceCount`` or ``FailureTolerancePercentage`` (but not both).
-            :param failure_tolerance_percentage: The percentage of accounts, per Region, for which this stack operation can fail before CloudFormation stops the operation in that Region. If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions. When calculating the number of accounts based on the specified percentage, CloudFormation rounds *down* to the next whole number. Conditional: You must specify either ``FailureToleranceCount`` or ``FailureTolerancePercentage`` , but not both.
+            :param concurrency_mode: Specifies how the concurrency level behaves during the operation execution. - ``STRICT_FAILURE_TOLERANCE`` : This option dynamically lowers the concurrency level to ensure the number of failed accounts never exceeds the value of ``FailureToleranceCount`` +1. The initial actual concurrency is set to the lower of either the value of the ``MaxConcurrentCount`` , or the value of ``FailureToleranceCount`` +1. The actual concurrency is then reduced proportionally by the number of failures. This is the default behavior. If failure tolerance or Maximum concurrent accounts are set to percentages, the behavior is similar. - ``SOFT_FAILURE_TOLERANCE`` : This option decouples ``FailureToleranceCount`` from the actual concurrency. This allows StackSet operations to run at the concurrency level set by the ``MaxConcurrentCount`` value, or ``MaxConcurrentPercentage`` , regardless of the number of failures.
+            :param failure_tolerance_count: The number of accounts per Region this operation can fail in before CloudFormation stops the operation in that Region. If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions. Conditional: You must specify either ``FailureToleranceCount`` or ``FailureTolerancePercentage`` (but not both).
+            :param failure_tolerance_percentage: The percentage of accounts per Region this stack operation can fail in before CloudFormation stops the operation in that Region. If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions. When calculating the number of accounts based on the specified percentage, CloudFormation rounds *down* to the next whole number. Conditional: You must specify either ``FailureToleranceCount`` or ``FailureTolerancePercentage`` , but not both.
             :param max_concurrent_count: The maximum number of accounts in which to perform this operation at one time. This is dependent on the value of ``FailureToleranceCount`` . ``MaxConcurrentCount`` is at most one more than the ``FailureToleranceCount`` . Note that this setting lets you specify the *maximum* for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Conditional: You must specify either ``MaxConcurrentCount`` or ``MaxConcurrentPercentage`` , but not both.
             :param max_concurrent_percentage: The maximum percentage of accounts in which to perform this operation at one time. When calculating the number of accounts based on the specified percentage, CloudFormation rounds down to the next whole number. This is true except in cases where rounding down would result is zero. In this case, CloudFormation sets the number as one instead. Note that this setting lets you specify the *maximum* for operations. For large deployments, under certain circumstances the actual number of accounts acted upon concurrently may be lower due to service throttling. Conditional: You must specify either ``MaxConcurrentCount`` or ``MaxConcurrentPercentage`` , but not both.
             :param region_concurrency_type: The concurrency type of deploying StackSets operations in Regions, could be in parallel or one Region at a time.
@@ -34271,7 +34333,7 @@ class CfnStackSet(
 
             If failure tolerance or Maximum concurrent accounts are set to percentages, the behavior is similar.
 
-            - ``SOFT_FAILURE_TOLERANCE`` : This option decouples ``FailureToleranceCount`` from the actual concurrency. This allows stack set operations to run at the concurrency level set by the ``MaxConcurrentCount`` value, or ``MaxConcurrentPercentage`` , regardless of the number of failures.
+            - ``SOFT_FAILURE_TOLERANCE`` : This option decouples ``FailureToleranceCount`` from the actual concurrency. This allows StackSet operations to run at the concurrency level set by the ``MaxConcurrentCount`` value, or ``MaxConcurrentPercentage`` , regardless of the number of failures.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-operationpreferences.html#cfn-cloudformation-stackset-operationpreferences-concurrencymode
             '''
@@ -34280,7 +34342,7 @@ class CfnStackSet(
 
         @builtins.property
         def failure_tolerance_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of accounts, per Region, for which this operation can fail before CloudFormation stops the operation in that Region.
+            '''The number of accounts per Region this operation can fail in before CloudFormation stops the operation in that Region.
 
             If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions.
 
@@ -34293,7 +34355,7 @@ class CfnStackSet(
 
         @builtins.property
         def failure_tolerance_percentage(self) -> typing.Optional[jsii.Number]:
-            '''The percentage of accounts, per Region, for which this stack operation can fail before CloudFormation stops the operation in that Region.
+            '''The percentage of accounts per Region this stack operation can fail in before CloudFormation stops the operation in that Region.
 
             If the operation is stopped in a Region, CloudFormation doesn't attempt the operation in any subsequent Regions.
 
@@ -34462,7 +34524,7 @@ class CfnStackSet(
 
             :param deployment_targets: The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
             :param regions: The names of one or more Regions where you want to create stack instances using the specified AWS accounts .
-            :param parameter_overrides: A list of stack set parameters whose values you want to override in the selected stack instances.
+            :param parameter_overrides: A list of StackSet parameters whose values you want to override in the selected stack instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-stackinstances.html
             :exampleMetadata: fixture=_generated
@@ -34527,7 +34589,7 @@ class CfnStackSet(
         def parameter_overrides(
             self,
         ) -> typing.Optional[typing.Union[IResolvable, typing.List[typing.Union[IResolvable, "CfnStackSet.ParameterProperty"]]]]:
-            '''A list of stack set parameters whose values you want to override in the selected stack instances.
+            '''A list of StackSet parameters whose values you want to override in the selected stack instances.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-stackinstances.html#cfn-cloudformation-stackset-stackinstances-parameteroverrides
             '''
@@ -34893,7 +34955,7 @@ class CfnWaitCondition(
 ):
     '''The ``AWS::CloudFormation::WaitCondition`` resource provides a way to coordinate stack resource creation with configuration actions that are external to the stack creation or to track the status of a configuration process.
 
-    In these situations, we recommend that you associate a ``CreationPolicy`` attribute with the wait condition instead of using a wait condition handle. For more information and an example, see `CreationPolicy attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-creationpolicy.html>`_ in the *AWS CloudFormation User Guide* . If you use a ``CreationPolicy`` with a wait condition, don't specify any of the wait condition's properties.
+    In these situations, we recommend that you associate a ``CreationPolicy`` attribute with the wait condition instead of using a wait condition handle. For more information and an example, see `CreationPolicy attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-attribute-creationpolicy.html>`_ in the *AWS CloudFormation User Guide* . If you use a ``CreationPolicy`` with a wait condition, don't specify any of the wait condition's properties.
     .. epigraph::
 
        If you use AWS PrivateLink , resources in the VPC that respond to wait conditions must have access to CloudFormation , specific Amazon S3 buckets. Resources must send wait condition responses to a presigned Amazon S3 URL. If they can't send responses to Amazon S3 , CloudFormation won't receive a response and the stack operation fails. For more information, see `Access CloudFormation using an interface endpoint ( AWS PrivateLink ) <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/vpc-interface-endpoints.html>`_ in the *AWS CloudFormation User Guide* . > For Amazon EC2 and Auto Scaling resources, we recommend that you use a ``CreationPolicy`` attribute instead of wait conditions. Add a ``CreationPolicy`` attribute to those resources, and use the ``cfn-signal`` helper script to signal when an instance creation process has completed successfully.
@@ -34980,7 +35042,8 @@ class CfnWaitCondition(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''
+        '''Returns a unique identifier for the resource.
+
         :cloudformationAttribute: Id
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
@@ -35105,7 +35168,7 @@ class CfnWaitConditionHandle(
     @builtins.property
     @jsii.member(jsii_name="attrId")
     def attr_id(self) -> builtins.str:
-        '''A unique identifier for the resource.
+        '''Returns a unique identifier for the resource.
 
         :cloudformationAttribute: Id
         '''
@@ -37898,6 +37961,7 @@ __all__ = [
     "aws_notifications",
     "aws_notificationscontacts",
     "aws_oam",
+    "aws_odb",
     "aws_omics",
     "aws_opensearchserverless",
     "aws_opensearchservice",
@@ -38200,6 +38264,7 @@ from . import aws_nimblestudio
 from . import aws_notifications
 from . import aws_notificationscontacts
 from . import aws_oam
+from . import aws_odb
 from . import aws_omics
 from . import aws_opensearchserverless
 from . import aws_opensearchservice
@@ -40929,6 +40994,13 @@ def _typecheckingstub__2747e69e9678b96621f1476e1bee4426100a530229cea9dce16210392
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c79ea9b0cd54830acfa2c93ac0786782e515591ac5cda10c42b42f8ff76457a0(
+    tag_name: builtins.str,
+    tag_value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4b8bfc7ce675d439b6218b58ddc312a45cfe87ee7179a489f0cc18c67560faac(
     transform: builtins.str,
 ) -> None:
@@ -40968,6 +41040,12 @@ def _typecheckingstub__7eb4efd0e98e37a77b9d6a8457ab994090e9e1d90a15478cce82f6bde
 def _typecheckingstub__1f4a18c1188f55ad7c4058f8aace9f6ebb7b7e9b596dd51616883b3505dfda79(
     fact_name: builtins.str,
     default_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25f39c18a619c464f8e693cb5c5847cdf10f847438cac04672be8ba78d2b49d0(
+    tag_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

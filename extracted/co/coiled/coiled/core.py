@@ -1312,7 +1312,7 @@ class Cloud(Generic[IsAsynchronous]):
         min_memory: Union[int, str, float] | None = None,
         cores: Union[int, List[int]] | None = None,
         memory: Union[int, float, str, List[int], List[str], List[float]] | None = None,
-        gpus: Union[int, List[int]] | None = None,
+        gpus: str | int | list[int] | None = None,
         arch: Literal["x86_64", "arm64"] | None = None,
     ) -> Dict[str, VmType]:
         if backend:
@@ -1421,7 +1421,7 @@ class Cloud(Generic[IsAsynchronous]):
         min_memory: Union[int, str, float] | None = None,
         cores: Union[int, List[int]] | None = None,
         memory: Union[int, str, float, List[int], List[str], List[float]] | None = None,
-        gpus: Union[int, List[int]] | None = None,
+        gpus: str | int | list[int] | None = None,
         backend: str | None = None,
         arch: Literal["x86_64", "arm64"] | None = None,
     ) -> Tuple[dict, str | None]:
@@ -1442,6 +1442,8 @@ class Cloud(Generic[IsAsynchronous]):
             params["gpus__lte"] = max(gpus)
         elif isinstance(gpus, int):
             params["gpus"] = gpus
+        elif isinstance(gpus, str):
+            params["gpu_name"] = gpus
 
         if min_cores:
             params["cores__gte"] = min_cores
@@ -1633,7 +1635,7 @@ class Cloud(Generic[IsAsynchronous]):
         min_memory: Union[int, str, float] | None,
         cores: Union[int, List[int]] | None,
         memory: Union[int, str, float, List[int], List[str], List[float]] | None,
-        gpus: Union[int, List[int]] | None,
+        gpus: str | int | list[int] | None = None,
         arch: Literal["x86_64", "arm64"] | None = None,
     ) -> Dict[str, VmType]: ...
 
@@ -1646,7 +1648,7 @@ class Cloud(Generic[IsAsynchronous]):
         min_memory: Union[int, str, float] | None,
         cores: Union[int, List[int]] | None,
         memory: Union[int, str, float, List[int], List[str], List[float]] | None,
-        gpus: Union[int, List[int]] | None,
+        gpus: str | int | list[int] | None = None,
         arch: Literal["x86_64", "arm64"] | None = None,
     ) -> Awaitable[Dict[str, VmType]]: ...
 
@@ -1658,7 +1660,7 @@ class Cloud(Generic[IsAsynchronous]):
         min_memory: Union[int, str, float] | None = None,
         cores: Union[int, List[int]] | None = None,
         memory: Union[int, str, float, List[int], List[str], List[float]] | None = None,
-        gpus: Union[int, List[int]] | None = None,
+        gpus: str | int | list[int] | None = None,
         arch: Literal["x86_64", "arm64"] | None = None,
     ) -> Union[Awaitable[Dict[str, VmType]], Dict[str, VmType]]:
         return self._sync(
@@ -2935,7 +2937,7 @@ def list_instance_types(
     min_memory: Union[int, str, float] | None = None,
     cores: Union[int, List[int]] | None = None,
     memory: Union[int, str, float, List[int], List[str], List[float]] | None = None,
-    gpus: Union[int, List[int]] | None = None,
+    gpus: str | int | list[int] | None = None,
     arch: Literal["x86_64", "arm64"] | None = None,
 ) -> Dict[str, VmType]:
     """List allowed instance types for the cloud provider configured on your account.
@@ -2962,8 +2964,8 @@ def list_instance_types(
         The exact amount of memory or a list containing the minimum and maximum
         amount of memory to filter instances by.
     gpus
-        The exact number of gpus to filter or a list containing the minimum and maximum number
-        of GPUS to filter instances by.
+        Either (1) the exact number of gpus to filter, or (2) list containing the minimum and maximum number
+        of GPUS to filter instances by, or (3) GPU type by name (e.g., "L4")
     arch
         CPU architecture, defaults to x86_64. There's no way to get both x86_64 and arm64
         instances in a single call.

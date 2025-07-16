@@ -15,7 +15,6 @@ import logging
 import random
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncGenerator, AsyncIterator, Callable, Mapping, Optional, Type, TypeVar, Union, cast
-from uuid import uuid4
 
 from opentelemetry import trace
 from pydantic import BaseModel
@@ -32,6 +31,7 @@ from ..hooks import (
 )
 from ..models.bedrock import BedrockModel
 from ..models.model import Model
+from ..session.session_manager import SessionManager
 from ..telemetry.metrics import EventLoopMetrics
 from ..telemetry.tracer import get_tracer
 from ..tools.registry import ToolRegistry
@@ -62,6 +62,7 @@ class _DefaultCallbackHandlerSentinel:
 
 _DEFAULT_CALLBACK_HANDLER = _DefaultCallbackHandlerSentinel()
 _DEFAULT_AGENT_NAME = "Strands Agents"
+_DEFAULT_AGENT_ID = "default"
 
 
 class Agent:
@@ -207,6 +208,7 @@ class Agent:
         description: Optional[str] = None,
         state: Optional[Union[AgentState, dict]] = None,
         hooks: Optional[list[HookProvider]] = None,
+        session_manager: Optional[SessionManager] = None,
     ):
         """Initialize the Agent with the specified configuration.
 
@@ -237,22 +239,24 @@ class Agent:
             load_tools_from_directory: Whether to load and automatically reload tools in the `./tools/` directory.
                 Defaults to False.
             trace_attributes: Custom trace attributes to apply to the agent's trace span.
-            agent_id: Optional ID for the agent, useful for multi-agent scenarios.
-                If None, a UUID is generated.
+            agent_id: Optional ID for the agent, useful for session management and multi-agent scenarios.
+                Defaults to "default".
             name: name of the Agent
-                Defaults to None.
+                Defaults to "Strands Agents".
             description: description of what the Agent does
                 Defaults to None.
             state: stateful information for the agent. Can be either an AgentState object, or a json serializable dict.
                 Defaults to an empty AgentState object.
             hooks: hooks to be added to the agent hook registry
                 Defaults to None.
+            session_manager: Manager for handling agent sessions including conversation history and state.
+                If provided, enables session-based persistence and state management.
         """
         self.model = BedrockModel() if not model else BedrockModel(model_id=model) if isinstance(model, str) else model
         self.messages = messages if messages is not None else []
 
         self.system_prompt = system_prompt
-        self.agent_id = agent_id or str(uuid4())
+        self.agent_id = agent_id or _DEFAULT_AGENT_ID
         self.name = name or _DEFAULT_AGENT_NAME
         self.description = description
 
@@ -312,6 +316,12 @@ class Agent:
         self.tool_caller = Agent.ToolCaller(self)
 
         self.hooks = HookRegistry()
+
+        # Initialize session management functionality
+        self._session_manager = session_manager
+        if self._session_manager:
+            self.hooks.add_hook(self._session_manager)
+
         if hooks:
             for hook in hooks:
                 self.hooks.add_hook(hook)
@@ -447,7 +457,7 @@ class Agent:
                 content: list[ContentBlock] = [{"text": prompt}] if isinstance(prompt, str) else prompt
                 self._append_message({"role": "user", "content": content})
 
-            events = self.model.structured_output(output_model, self.messages)
+            events = self.model.structured_output(output_model, self.messages, system_prompt=self.system_prompt)
             async for event in events:
                 if "callback" in event:
                     self.callback_handler(**cast(dict, event["callback"]))
@@ -469,9 +479,10 @@ class Agent:
             prompt: User input as text or list of ContentBlock objects for multi-modal content.
             **kwargs: Additional parameters to pass to the event loop.
 
-        Returns:
+        Yields:
             An async iterator that yields events. Each event is a dictionary containing
             information about the current state of processing, such as:
+
             - data: Text content being generated
             - complete: Whether this is the final chunk
             - current_tool_use: Information about tools being executed
@@ -533,6 +544,19 @@ class Agent:
             # Execute the event loop cycle with retry logic for context limits
             events = self._execute_event_loop_cycle(invocation_state)
             async for event in events:
+                # Signal from the model provider that the message sent by the user should be redacted,
+                # likely due to a guardrail.
+                if (
+                    event.get("callback")
+                    and event["callback"].get("event")
+                    and event["callback"]["event"].get("redactContent")
+                    and event["callback"]["event"]["redactContent"].get("redactUserContentMessage")
+                ):
+                    self.messages[-1]["content"] = [
+                        {"text": event["callback"]["event"]["redactContent"]["redactUserContentMessage"]}
+                    ]
+                    if self._session_manager:
+                        self._session_manager.redact_latest_message(self.messages[-1], self)
                 yield event
 
         finally:
@@ -564,6 +588,11 @@ class Agent:
         except ContextWindowOverflowException as e:
             # Try reducing the context size and retrying
             self.conversation_manager.reduce_context(self, e=e)
+
+            # Sync agent after reduce_context to keep conversation_manager_state up to date in the session
+            if self._session_manager:
+                self._session_manager.sync_agent(self)
+
             events = self._execute_event_loop_cycle(invocation_state)
             async for event in events:
                 yield event

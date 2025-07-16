@@ -15,9 +15,10 @@
 """Classes for load jobs."""
 
 import typing
-from typing import FrozenSet, List, Iterable, Optional
+from typing import FrozenSet, List, Iterable, Optional, Union
 
 from google.cloud.bigquery.encryption_configuration import EncryptionConfiguration
+from google.cloud.bigquery.enums import SourceColumnMatch
 from google.cloud.bigquery.external_config import HivePartitioningOptions
 from google.cloud.bigquery.format_options import ParquetOptions
 from google.cloud.bigquery import _helpers
@@ -387,6 +388,27 @@ class LoadJobConfig(_JobConfig):
         self._set_sub_prop("nullMarker", value)
 
     @property
+    def null_markers(self) -> Optional[List[str]]:
+        """Optional[List[str]]: A list of strings represented as SQL NULL values in a CSV file.
+
+        .. note::
+            null_marker and null_markers can't be set at the same time.
+            If null_marker is set, null_markers has to be not set.
+            If null_markers is set, null_marker has to be not set.
+            If both null_marker and null_markers are set at the same time, a user error would be thrown.
+            Any strings listed in null_markers, including empty string would be interpreted as SQL NULL.
+            This applies to all column types.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.null_markers
+        """
+        return self._get_sub_prop("nullMarkers")
+
+    @null_markers.setter
+    def null_markers(self, value: Optional[List[str]]):
+        self._set_sub_prop("nullMarkers", value)
+
+    @property
     def preserve_ascii_control_characters(self):
         """Optional[bool]: Preserves the embedded ASCII control characters when sourceFormat is set to CSV.
 
@@ -547,6 +569,105 @@ class LoadJobConfig(_JobConfig):
     @source_format.setter
     def source_format(self, value):
         self._set_sub_prop("sourceFormat", value)
+
+    @property
+    def source_column_match(self) -> Optional[SourceColumnMatch]:
+        """Optional[google.cloud.bigquery.enums.SourceColumnMatch]: Controls the
+        strategy used to match loaded columns to the schema. If not set, a sensible
+        default is chosen based on how the schema is provided. If autodetect is
+        used, then columns are matched by name. Otherwise, columns are matched by
+        position. This is done to keep the behavior backward-compatible.
+
+        Acceptable values are:
+
+            SOURCE_COLUMN_MATCH_UNSPECIFIED: Unspecified column name match option.
+            POSITION: matches by position. This assumes that the columns are ordered
+            the same way as the schema.
+            NAME: matches by name. This reads the header row as column names and
+            reorders columns to match the field names in the schema.
+
+        See:
+
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.source_column_match
+        """
+        value = self._get_sub_prop("sourceColumnMatch")
+        return SourceColumnMatch(value) if value is not None else None
+
+    @source_column_match.setter
+    def source_column_match(self, value: Union[SourceColumnMatch, str, None]):
+        if value is not None and not isinstance(value, (SourceColumnMatch, str)):
+            raise TypeError(
+                "value must be a google.cloud.bigquery.enums.SourceColumnMatch, str, or None"
+            )
+        if isinstance(value, SourceColumnMatch):
+            value = value.value
+        self._set_sub_prop("sourceColumnMatch", value if value else None)
+
+    @property
+    def date_format(self) -> Optional[str]:
+        """Optional[str]: Date format used for parsing DATE values.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.date_format
+        """
+        return self._get_sub_prop("dateFormat")
+
+    @date_format.setter
+    def date_format(self, value: Optional[str]):
+        self._set_sub_prop("dateFormat", value)
+
+    @property
+    def datetime_format(self) -> Optional[str]:
+        """Optional[str]: Date format used for parsing DATETIME values.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.datetime_format
+        """
+        return self._get_sub_prop("datetimeFormat")
+
+    @datetime_format.setter
+    def datetime_format(self, value: Optional[str]):
+        self._set_sub_prop("datetimeFormat", value)
+
+    @property
+    def time_zone(self) -> Optional[str]:
+        """Optional[str]: Default time zone that will apply when parsing timestamp
+        values that have no specific time zone.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.time_zone
+        """
+        return self._get_sub_prop("timeZone")
+
+    @time_zone.setter
+    def time_zone(self, value: Optional[str]):
+        self._set_sub_prop("timeZone", value)
+
+    @property
+    def time_format(self) -> Optional[str]:
+        """Optional[str]: Date format used for parsing TIME values.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.time_format
+        """
+        return self._get_sub_prop("timeFormat")
+
+    @time_format.setter
+    def time_format(self, value: Optional[str]):
+        self._set_sub_prop("timeFormat", value)
+
+    @property
+    def timestamp_format(self) -> Optional[str]:
+        """Optional[str]: Date format used for parsing TIMESTAMP values.
+
+        See:
+        https://cloud.google.com/bigquery/docs/reference/rest/v2/Job#JobConfigurationLoad.FIELDS.timestamp_format
+        """
+        return self._get_sub_prop("timestampFormat")
+
+    @timestamp_format.setter
+    def timestamp_format(self, value: Optional[str]):
+        self._set_sub_prop("timestampFormat", value)
 
     @property
     def time_partitioning(self):
@@ -789,6 +910,13 @@ class LoadJob(_AsyncJob):
         return self.configuration.null_marker
 
     @property
+    def null_markers(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.null_markers`.
+        """
+        return self.configuration.null_markers
+
+    @property
     def quote_character(self):
         """See
         :attr:`google.cloud.bigquery.job.LoadJobConfig.quote_character`.
@@ -888,6 +1016,48 @@ class LoadJob(_AsyncJob):
         :attr:`google.cloud.bigquery.job.LoadJobConfig.clustering_fields`.
         """
         return self.configuration.clustering_fields
+
+    @property
+    def source_column_match(self) -> Optional[SourceColumnMatch]:
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.source_column_match`.
+        """
+        return self.configuration.source_column_match
+
+    @property
+    def date_format(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.date_format`.
+        """
+        return self.configuration.date_format
+
+    @property
+    def datetime_format(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.datetime_format`.
+        """
+        return self.configuration.datetime_format
+
+    @property
+    def time_zone(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.time_zone`.
+        """
+        return self.configuration.time_zone
+
+    @property
+    def time_format(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.time_format`.
+        """
+        return self.configuration.time_format
+
+    @property
+    def timestamp_format(self):
+        """See
+        :attr:`google.cloud.bigquery.job.LoadJobConfig.timestamp_format`.
+        """
+        return self.configuration.timestamp_format
 
     @property
     def schema_update_options(self):

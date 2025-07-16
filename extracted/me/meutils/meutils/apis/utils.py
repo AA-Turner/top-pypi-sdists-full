@@ -7,10 +7,70 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
+import httpx
 
 from meutils.pipe import *
 from openai import AsyncClient
 from meutils.caches import rcache
+from openai._legacy_response import HttpxBinaryResponseContent
+
+
+async def make_request_httpx(
+        base_url: str,
+        headers: Optional[dict] = None,
+
+        path: Optional[str] = None,
+
+        params: Optional[dict] = None,
+        payload: Optional[dict] = None,
+        data: Optional[Any] = None,
+        files: Optional[dict] = None,
+        timeout: Optional[int] = None,
+
+        method: Optional[str] = None,
+
+        debug: bool = False,
+        **kwargs
+):
+    if method is None:
+        method = (payload or data or files) and "POST" or "GET"
+
+    path = path or "/"
+    path = f"""/{path.removeprefix("/")}"""
+
+
+    if debug:
+        log = {
+            "base_url": base_url,
+            "path": path,
+            "method": method,
+            "headers": headers,
+            "params": params,
+            "payload": payload,
+            "data": data,
+            "timeout": timeout,
+        }
+        logger.debug(f"MAKE_REQUEST: {method.upper()} => {base_url}{path}")
+        logger.debug(f"MAKE_REQUEST_DETAIL: {bjson(log)}")
+
+    async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout or 100) as client:
+        # content: RequestContent | None = None,
+        # data: RequestData | None = None,
+        # files: RequestFiles | None = None,
+        # json: typing.Any | None = None,
+        # params: QueryParamTypes | None = None,
+        # headers: HeaderTypes | None = None,
+        response = await client.request(method, path, json=payload, data=data, files=files, params=params)
+        # response.raise_for_status()
+
+        if isinstance(response.content, HttpxBinaryResponseContent):
+            return response.content
+
+        try:
+            return response.json()
+        except Exception as e:
+            logger.error(e)
+            return response
 
 
 async def make_request(
@@ -30,6 +90,8 @@ async def make_request(
 
         debug: bool = False
 ):
+    headers = headers or {}
+
     if headers:
         headers = {k: v for k, v in headers.items() if '_' not in k}
         if not any(i in base_url for i in {"queue.fal.run", "elevenlabs"}):  # todo  xi-api-key
@@ -96,6 +158,9 @@ async def make_request(
         #         return response.json()
 
         response = await client.post(path, body=payload, options=options, files=files, cast_to=object)
+
+        # HttpxBinaryResponseContent
+
         return response
 
 
@@ -171,23 +236,23 @@ if __name__ == '__main__':
     #     headers=headers,
     #     method="post"
     # ))
-
-    FAL_KEY = "56d8a95e-2fe6-44a6-8f7d-f7f9c83eec24:537f06b6044770071f5d86fc7fcd6d6f"
-    REQUEST_ID = "8bcd6710-0a0e-492c-81e6-f09c026bda99"
+    # fal - topaz - upscale - video
+    FAL_KEY = "aa5c047f-2621-4be2-9cee-9857a630aa11:b06782c97dffb50bfd6eebb63f49c624"
+    REQUEST_ID = "714e4d31-d735-45f7-a9f5-e50eecbb0743"
     base_url = "https://queue.fal.run/fal-ai"
-    path = f"/kling-video/requests/{REQUEST_ID}"
+    path = f"/minimax/requests/{REQUEST_ID}"
     # path=f"/kling-video/requests/{REQUEST_ID}/status"
     # "MAKE_REQUEST: GET => https://queue.fal.run/fal-ai/kling-video/requests/f570c7b0-b0f2-444b-b8c1-0212168f2f2e"
     headers = {
         "Authorization": f"key {FAL_KEY}"
     }
-    # arun(make_request(
-    #     base_url=base_url,
-    #     path=path,
-    #     headers=headers,
-    #     method="get",
-    #     debug=True
-    # ))
+    arun(make_request(
+        base_url=base_url,
+        path=path,
+        headers=headers,
+        method="get",
+        debug=True
+    ))
 
     # 'detail': 'Request is still in progress',
 
@@ -251,37 +316,3 @@ if __name__ == '__main__':
     #     debug=True
     # ))
 
-    """
-    curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb?output_format=mp3_44100_128" \
-     -H "xi-api-key: sk_9e7ce9190f85579b527beb6e673eb350db9c0cbfe2c7334b" \
-     -H "Content-Type: application/json" \
-     -d '{
-  "text": "The first move is what sets everything in motion.",
-  "model_id": "eleven_multilingual_v2"
-}'
-"""
-    UPSTREAM_BASE_URL = "https://api.elevenlabs.io/v1"
-    UPSTREAM_API_KEY = "sk_9e7ce9190f85579b527beb6e673eb350db9c0cbfe2c7334b"
-    path = "/text-to-speech/JBFqnCBsd6RMkjVDRZzb"
-
-    headers = {
-        "xi-api-key": UPSTREAM_API_KEY
-    }
-
-    payload = {
-        "text": "The first move is what sets everything in motion.",
-        "model_id": "eleven_multilingual_v2"
-    }
-    params = {
-        "output_format": "mp3_44100_128"
-    }
-
-    arun(make_request(
-        base_url=UPSTREAM_BASE_URL,
-        # api_key=UPSTREAM_API_KEY,
-        path=path,
-        payload=payload,
-        debug=True,
-        headers=headers,
-        params=params
-    ))

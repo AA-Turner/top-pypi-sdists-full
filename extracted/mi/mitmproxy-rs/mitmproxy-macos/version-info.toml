@@ -28,7 +28,7 @@ authors = [
     "Fabio Valentini <decathorpe@gmail.com>",
     "Maximilian Hils <cargo@maximilianhils.com>",
 ]
-version = "0.12.6"
+version = "0.12.7"
 publish = false
 repository = "https://github.com/mitmproxy/mitmproxy-rs"
 edition = "2021"
@@ -39,7 +39,7 @@ aya = { version = "0.13.0", default-features = false }
 aya-ebpf = { version = "0.1.1", default-features = false }
 aya-log = { version = "0.2.1", default-features = false }
 aya-log-ebpf = { version = "0.1.1", default-features = false }
-tun = { version = "0.7.21" }
+tun = { version = "0.7.22" }
 
 [workspace.lints.clippy]
 large_futures = "deny"
@@ -63,7 +63,7 @@ tokio = { version = "1.45.1", features = ["macros", "net", "rt-multi-thread", "s
 boringtun = { version = "0.6", default-features = false }
 console-subscriber = { version = "0.4.1", optional = true }
 image = { version = "0.25.6", default-features = false, features = ["png", "tiff"] }
-prost = "0.13.5"
+prost = "0.14.1"
 tokio-util = { version = "0.7.14", features = ["codec"] }
 futures-util = { version = "0.3.31", features = ["sink"] }
 lru_time_cache = "0.11.11"
@@ -74,10 +74,10 @@ socket2 = "0.5.10"
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
-boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = 'e3252d9c4f4c8fc628995330f45369effd4660a1' }
+boringtun = { git = 'https://github.com/cloudflare/boringtun', rev = '2f3c85f5c4a601018c10b464b1ca890d9504bf6e' }
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.61.1"
+version = "0.61.3"
 features = [
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
@@ -99,12 +99,12 @@ core-graphics = "0.25"
 core-foundation = "0.10"
 cocoa = "0.26"
 objc = "0.2"
-sysinfo = "0.35.1"
+sysinfo = "0.35.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 tun = { workspace = true, features = ["async"] }
 tempfile = "3.20.0"
-sysinfo = "0.35.1"
+sysinfo = "0.35.2"
 
 [dev-dependencies]
 env_logger = "0.11"

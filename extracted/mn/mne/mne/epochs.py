@@ -1353,6 +1353,7 @@ class BaseEpochs(
         fig_facecolor="k",
         fig_background=None,
         font_color="w",
+        select=False,
         show=True,
     ):
         return plot_topo_image_epochs(
@@ -1371,6 +1372,7 @@ class BaseEpochs(
             fig_facecolor=fig_facecolor,
             fig_background=fig_background,
             font_color=font_color,
+            select=select,
             show=show,
         )
 
@@ -1671,8 +1673,7 @@ class BaseEpochs(
             # we start out with an empty array, allocate only if necessary
             data = np.empty((0, len(self.info["ch_names"]), len(self.times)))
             msg = (
-                f"for {n_events} events and {len(self._raw_times)} "
-                "original time points"
+                f"for {n_events} events and {len(self._raw_times)} original time points"
             )
             if self._decim > 1:
                 msg += " (prior to decimation)"
@@ -2301,8 +2302,7 @@ class BaseEpochs(
             logger.info(f"Splitting into {n_parts} parts")
             if n_parts > 100:  # This must be an error
                 raise ValueError(
-                    f"Split size {split_size} would result in writing "
-                    f"{n_parts} files"
+                    f"Split size {split_size} would result in writing {n_parts} files"
                 )
 
         if len(self.drop_log) > 100000:
@@ -2465,11 +2465,13 @@ class BaseEpochs(
             # 2b. for non-tag ids, just pass them directly
             # 3. do this for every input
             event_ids = [
-                [
-                    k for k in ids if all(tag in k.split("/") for tag in id_)
-                ]  # ids matching all tags
-                if all(id__ not in ids for id__ in id_)
-                else id_  # straight pass for non-tag inputs
+                (
+                    [
+                        k for k in ids if all(tag in k.split("/") for tag in id_)
+                    ]  # ids matching all tags
+                    if all(id__ not in ids for id__ in id_)
+                    else id_
+                )  # straight pass for non-tag inputs
                 for id_ in event_ids
             ]
             for ii, id_ in enumerate(event_ids):
@@ -3143,7 +3145,7 @@ def make_metadata(
         raise ValueError(
             f"The event names in keep_first and keep_last must "
             f"be mutually exclusive. Specified in both: "
-            f'{", ".join(sorted(keep_first_and_last))}'
+            f"{', '.join(sorted(keep_first_and_last))}"
         )
     del keep_first_and_last
 
@@ -3163,7 +3165,7 @@ def make_metadata(
         if event_name_diff:
             raise ValueError(
                 f"Present in {input_name}, but missing from event_id: "
-                f'{", ".join(event_name_diff)}'
+                f"{', '.join(event_name_diff)}"
             )
 
     _diff_input_strings_vs_event_id(
@@ -3556,8 +3558,7 @@ class Epochs(BaseEpochs):
 
         if not isinstance(raw, BaseRaw):
             raise ValueError(
-                "The first argument to `Epochs` must be an "
-                "instance of mne.io.BaseRaw"
+                "The first argument to `Epochs` must be an instance of mne.io.BaseRaw"
             )
         info = deepcopy(raw.info)
         annotations = raw.annotations.copy()
@@ -3575,6 +3576,18 @@ class Epochs(BaseEpochs):
             events, event_id, annotations = _events_from_annotations(
                 raw, events, event_id, annotations, on_missing
             )
+
+            # add the annotations.extras to the metadata
+            if not all(len(d) == 0 for d in annotations.extras):
+                pd = _check_pandas_installed(strict=True)
+                extras_df = pd.DataFrame(annotations.extras)
+                if metadata is None:
+                    metadata = extras_df
+                else:
+                    extras_df.set_index(metadata.index, inplace=True)
+                    metadata = pd.concat(
+                        [metadata, extras_df], axis=1, ignore_index=False
+                    )
 
         # call BaseEpochs constructor
         super().__init__(
@@ -4441,8 +4454,7 @@ class EpochsFIF(BaseEpochs):
         else:
             # read the correct subset of the data
             raise RuntimeError(
-                "Correct epoch could not be found, please "
-                "contact mne-python developers"
+                "Correct epoch could not be found, please contact mne-python developers"
             )
         # the following is equivalent to this, but faster:
         #
@@ -4826,7 +4838,7 @@ def average_movements(
     del head_pos
     _check_usable(epochs, ignore_ref)
     origin = _check_origin(origin, epochs.info, "head")
-    recon_trans = _check_destination(destination, epochs.info, True)
+    recon_trans = _check_destination(destination, epochs.info, "head")
 
     logger.info(f"Aligning and averaging up to {len(epochs.events)} epochs")
     if not np.array_equal(epochs.events[:, 0], np.unique(epochs.events[:, 0])):

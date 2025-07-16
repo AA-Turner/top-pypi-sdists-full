@@ -18,18 +18,18 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from plotnine import aes, guides
-    from plotnine.layer import Layers
+    from plotnine.layer import Layers, layer
     from plotnine.scales.scale import scale
     from plotnine.typing import (
         LegendPosition,
         Orientation,
-        SidePosition,
+        Side,
     )
 
     from .guides import GuidesElements
 
     AlignDict: TypeAlias = dict[
-        Literal["ha", "va"], dict[tuple[Orientation, SidePosition], str]
+        Literal["ha", "va"], dict[tuple[Orientation, Side], str]
     ]
 
 
@@ -76,10 +76,10 @@ class guide(ABC, metaclass=Register):
         self.plot_layers: Layers
         self.plot_mapping: aes
         self._elements_cls = GuideElements
-        self.elements = cast(GuideElements, None)
+        self.elements = cast("GuideElements", None)
         self.guides_elements: GuidesElements
 
-    def legend_aesthetics(self, layer):
+    def legend_aesthetics(self, layer: layer):
         """
         Return the aesthetics that contribute to the legend
 
@@ -122,24 +122,21 @@ class guide(ABC, metaclass=Register):
     @property
     def _resolved_position_justification(
         self,
-    ) -> (
-        tuple[SidePosition, float]
-        | tuple[tuple[float, float], tuple[float, float]]
-    ):
+    ) -> tuple[Side, float] | tuple[tuple[float, float], tuple[float, float]]:
         """
         Return the final position & justification to draw the guide
         """
         pos = self.elements.position
         just_view = asdict(self.guides_elements.justification)
         if isinstance(pos, str):
-            just = cast(float, just_view[pos])
+            just = cast("float", just_view[pos])
             return (pos, just)
         else:
             # If no justification is given for an inside legend,
             # we use the position of the legend
             if (just := just_view["inside"]) is None:
                 just = pos
-            just = cast(tuple[float, float], just)
+            just = cast("tuple[float, float]", just)
             return (pos, just)
 
     def train(
@@ -191,9 +188,9 @@ class GuideElements:
     def title(self):
         ha = self.theme.getp(("legend_title", "ha"))
         va = self.theme.getp(("legend_title", "va"), "center")
-        _margin = self.theme.getp(("legend_title", "margin"))
+        _margin = self.theme.getp(("legend_title", "margin")).pt
         _loc = get_opposite_side(self.title_position)[0]
-        margin = _margin.get_as(_loc, "pt") if _margin else 0
+        margin = getattr(_margin, _loc)
         top_or_bottom = self.title_position in ("top", "bottom")
         is_blank = self.theme.T.is_blank("legend_title")
 
@@ -213,17 +210,19 @@ class GuideElements:
         )
 
     @cached_property
-    def text_position(self) -> SidePosition:
+    def text_position(self) -> Side:
         raise NotImplementedError
 
     @cached_property
     def _text_margin(self) -> float:
-        _margin = self.theme.getp((f"legend_text_{self.guide_kind}", "margin"))
-        _loc = get_opposite_side(self.text_position)
-        return _margin.get_as(_loc[0], "pt") if _margin else 0
+        _margin = self.theme.getp(
+            (f"legend_text_{self.guide_kind}", "margin")
+        ).pt
+        _loc = get_opposite_side(self.text_position)[0]
+        return getattr(_margin, _loc)
 
     @cached_property
-    def title_position(self) -> SidePosition:
+    def title_position(self) -> Side:
         if not (pos := self.theme.getp("legend_title_position")):
             pos = "top" if self.is_vertical else "left"
         return pos
@@ -242,7 +241,7 @@ class GuideElements:
         return direction
 
     @cached_property
-    def position(self) -> SidePosition | tuple[float, float]:
+    def position(self) -> Side | tuple[float, float]:
         if (guide_pos := self.guide.position) == "inside":
             guide_pos = self._position_inside
 
@@ -254,7 +253,7 @@ class GuideElements:
         return pos
 
     @cached_property
-    def _position_inside(self) -> SidePosition | tuple[float, float]:
+    def _position_inside(self) -> Side | tuple[float, float]:
         pos = self.theme.getp("legend_position_inside")
         if isinstance(pos, tuple):
             return pos

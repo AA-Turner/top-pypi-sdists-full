@@ -29,6 +29,7 @@ from .errors import (
     AlexapyTooManyRequestsError,
 )
 from .helpers import _catch_all_exceptions, hide_email
+from .const import GQL_SMARTHOME_QUERY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -284,6 +285,7 @@ class AlexaAPI:
         login: AlexaLogin,
         uri: str,
         data: Optional[dict[str, str]] = None,
+        additional_headers: Optional[dict[str, str]] = None,
         query: Optional[dict[str, str]] = None,
         sub_domain: Optional[str] = "alexa",
     ) -> ClientResponse:
@@ -341,11 +343,14 @@ class AlexaAPI:
             raise AlexapyLoginError("Login error detected; not contacting API")
         if session.closed:
             raise AlexapyLoginError("Session is closed")
+        headers = login._headers.copy()
+        if additional_headers:
+            headers.update(additional_headers)
         response = await getattr(session, method)(
             url,
             json=data,
             # cookies=login._cookies,
-            headers=login._headers,
+            headers=headers,
             ssl=login._ssl,
         )
         _LOGGER.debug(
@@ -1340,9 +1345,18 @@ class AlexaAPI:
             int((time.time() + 24 * 3600) * 1000) if end_time is None else end_time
         )
         response = await AlexaAPI._static_request(
-            "get",
+            "post",
             login,
-            "/alexa-privacy/apd/rvh/customer-history-records",
+            "/alexa-privacy/apd/rvh/customer-history-records-v2",
+            data={"previousRequestToken": None},
+            additional_headers={
+                "anti-csrftoken-a2z": (
+                    login.csrf_token
+                    if login.csrf_token
+                    else await login.get_csrf_token()
+                ),
+                "referer": f"https://www.{login.url}",
+            },
             query={
                 "startTime": start_time,
                 "endTime": end_time,
@@ -1695,8 +1709,8 @@ class AlexaAPI:
 
     @staticmethod
     @_catch_all_exceptions
-    async def get_guard_details(login: AlexaLogin) -> Optional[dict[str, Any]]:
-        """Get Alexa Guard details.
+    async def get_devices_gql(login: AlexaLogin) -> Optional[dict[str, Any]]:
+        """Get devices of the Alexa network.
 
         Args:
         login (AlexaLogin): Successfully logged in AlexaLogin
@@ -1704,11 +1718,13 @@ class AlexaAPI:
         Returns json
 
         """
-        response = await AlexaAPI._static_request("get", login, "/api/phoenix")
+        response = await AlexaAPI._static_request(
+            "post", login, "/nexus/v1/graphql", data={"query": GQL_SMARTHOME_QUERY}
+        )
         # _LOGGER.debug("%s: Response: %s", hide_email(login.email),
         #               await response.json(content_type=None))
         return (
-            json.loads((await response.json(content_type=None))["networkDetail"])
+            ((await response.json(content_type=None))["data"]["endpoints"]["items"])
             if response
             else None
         )
@@ -1716,20 +1732,23 @@ class AlexaAPI:
     @staticmethod
     @_catch_all_exceptions
     async def get_network_details(login: AlexaLogin) -> Optional[dict[str, Any]]:
-        """Get the network of devices that Alexa is aware of. This is the same as calling get_guard_details().
+        """Get the network of devices that Alexa is aware of.
 
         Args:
         login: (AlexaLogin): Successfully logged in AlexaLogin
 
         Returns json
         """
-        network_detail = await AlexaAPI.get_guard_details(login)
+        network_detail = await AlexaAPI.get_devices_gql(login)
         _LOGGER.debug(
-            "%s: get_network_details response: %s",
+            "%s: get_devices_gql response: %s",
             hide_email(login.email),
             network_detail,
         )
-        return network_detail
+        details = []
+        for el in network_detail:
+            details.append(el["legacyAppliance"])
+        return details
 
     @staticmethod
     @_catch_all_exceptions

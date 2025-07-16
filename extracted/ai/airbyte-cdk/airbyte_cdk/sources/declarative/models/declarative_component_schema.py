@@ -160,6 +160,20 @@ class CustomBackoffStrategy(BaseModel):
     parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
+class CustomConfigTransformation(BaseModel):
+    class Config:
+        extra = Extra.allow
+
+    type: Literal["CustomConfigTransformation"]
+    class_name: str = Field(
+        ...,
+        description="Fully-qualified name of the class that will be implementing the custom config transformation. The format is `source_<name>.<package>.<class_name>`.",
+        examples=["source_declarative_manifest.components.MyCustomConfigTransformation"],
+        title="Class Name",
+    )
+    parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
+
+
 class CustomErrorHandler(BaseModel):
     class Config:
         extra = Extra.allow
@@ -637,8 +651,8 @@ class OAuthAuthenticator(BaseModel):
     )
     refresh_token_updater: Optional[RefreshTokenUpdater] = Field(
         None,
-        description="When the token updater is defined, new refresh tokens, access tokens and the access token expiry date are written back from the authentication response to the config object. This is important if the refresh token can only used once.",
-        title="Token Updater",
+        description="When the refresh token updater is defined, new refresh tokens, access tokens and the access token expiry date are written back from the authentication response to the config object. This is important if the refresh token can only used once.",
+        title="Refresh Token Updater",
     )
     profile_assertion: Optional[JwtAuthenticator] = Field(
         None,
@@ -1307,6 +1321,12 @@ class InjectInto(Enum):
 
 class RequestOption(BaseModel):
     type: Literal["RequestOption"]
+    inject_into: InjectInto = Field(
+        ...,
+        description="Configures where the descriptor should be set on the HTTP requests. Note that request parameters that are already encoded in the URL path will not be duplicated.",
+        examples=["request_parameter", "header", "body_data", "body_json"],
+        title="Inject Into",
+    )
     field_name: Optional[str] = Field(
         None,
         description="Configures which key should be used in the location that the descriptor is being injected into. We hope to eventually deprecate this field in favor of `field_path` for all request_options, but must currently maintain it for backwards compatibility in the Builder.",
@@ -1318,12 +1338,6 @@ class RequestOption(BaseModel):
         description="Configures a path to be used for nested structures in JSON body requests (e.g. GraphQL queries)",
         examples=[["data", "viewer", "id"]],
         title="Field Path",
-    )
-    inject_into: InjectInto = Field(
-        ...,
-        description="Configures where the descriptor should be set on the HTTP requests. Note that request parameters that are already encoded in the URL path will not be duplicated.",
-        examples=["request_parameter", "header", "body_data", "body_json"],
-        title="Inject Into",
     )
 
 
@@ -2149,7 +2163,9 @@ class ConfigMigration(BaseModel):
     description: Optional[str] = Field(
         None, description="The description/purpose of the config migration."
     )
-    transformations: List[Union[ConfigRemapField, ConfigAddFields, ConfigRemoveFields]] = Field(
+    transformations: List[
+        Union[ConfigRemapField, ConfigAddFields, ConfigRemoveFields, CustomConfigTransformation]
+    ] = Field(
         ...,
         description="The list of transformations that will attempt to be applied on an incoming unmigrated config. The transformations will be applied in the order they are defined.",
         title="Transformations",
@@ -2160,13 +2176,16 @@ class ConfigNormalizationRules(BaseModel):
     class Config:
         extra = Extra.forbid
 
+    type: Literal["ConfigNormalizationRules"]
     config_migrations: Optional[List[ConfigMigration]] = Field(
         [],
         description="The discrete migrations that will be applied on the incoming config. Each migration will be applied in the order they are defined.",
         title="Config Migrations",
     )
     transformations: Optional[
-        List[Union[ConfigRemapField, ConfigAddFields, ConfigRemoveFields]]
+        List[
+            Union[ConfigRemapField, ConfigAddFields, ConfigRemoveFields, CustomConfigTransformation]
+        ]
     ] = Field(
         [],
         description="The list of transformations that will be applied on the incoming config at the start of each sync. The transformations will be applied in the order they are defined.",

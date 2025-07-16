@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -73,12 +73,11 @@ def test_xy_eta_t():
         ),
         vector.backends.sympy.TemporalSympyT(t),
     )
-    # TODO: the expression blows up on simplifying?
     assert vec.tau == sympy.sqrt(
         sympy.Abs(
             t**2
-            - 0.25
-            * (1 + sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))) ** 2
+            - (0.5 + 0.5 * sympy.exp(-2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2))))
+            ** 2
             * (x**2 + y**2)
             * sympy.exp(2 * sympy.asinh(z / sympy.sqrt(x**2 + y**2)))
         )

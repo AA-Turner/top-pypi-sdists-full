@@ -34,9 +34,22 @@ def exception_wrapper():
     try:
         yield
     except redis.exceptions.ResponseError as e:
-        if (("WRONGTYPE" not in str(e)) and (
-        not ("INCRBY" in str(e) and "value is not an integer or out of range" in str(e))) and
-                ("MOVED" not in str(e)) and "the key does not exist" not in str(e)):
+        if (("WRONGTYPE" not in str(e)) and
+            ("MOVED" not in str(e)) and
+            ("item exists" not in str(e)) and
+            ("key already exists" not in str(e)) and
+            (not ("BF." in str(e) and "received bad data" in str(e))) and
+            (not ("CF." in str(e) and "Invalid header" in str(e))) and
+            (not ("CMS." in str(e) and "width/depth is not equal" in str(e))) and
+            (not ("INCRBY" in str(e) and "value is not an integer or out of range" in str(e))) and
+            (not ("JSON." in str(e) and "could not perform this operation on a key that doesn't exist" in str(e))) and 
+            (not ("JSON." in str(e) and "Path" in str(e) and "does not exist" in str(e))) and
+            (not ("XGROUP CREATE" in str(e) and "BUSYGROUP Consumer Group name already exists" in str(e))) and
+            (not ("GEO" in str(e) and "could not decode requested zset member" in str(e))) and
+            (not ("RENAME" in str(e) and "no such key" in str(e))) and
+            (not ("RESTORE" in str(e))) and
+            (not ("LSET" in str(e) and "index out of range" in str(e))) and
+            (not ("LSET" in str(e) and "no such key" in str(e)))):
             raise e
 
 class RedisObj():
@@ -100,6 +113,9 @@ class BaseGen():
         return prefix + self._rand_str(self.def_key_size)
     
     def _scan_rand_key(self, redis_obj: redis.Redis, type: str) -> str | None:
+        if type == "base":
+            return redis_obj.randomkey()
+        
         if not hasattr(self, 'scan_cursors'):
             self.scan_cursors = {}
         
@@ -204,10 +220,7 @@ class BaseGen():
                         should_expire = True
                 else:
                     r = random.choice(rl)  # Randomly select a connection for scanning
-                    if cmd.type != "base":
-                        key = self._scan_rand_key(r, cmd.type)
-                    else:
-                        key = r.randomkey()
+                    key = self._scan_rand_key(r, cmd.type)
                         
                     if not key:
                         continue  # Skip if no key found, e.g. in case of empty DB or no keys of the requested type
@@ -258,13 +271,290 @@ class BaseGen():
     
     @cg_method("base", False)
     def expire(self, pipe: redis.client.Pipeline, key: str) -> None:
-        pipe.expire(key, random.randrange(self.ttl_low, self.ttl_high))
+        seconds = random.randrange(self.ttl_low, self.ttl_high)
+        
+        # Optional expiration conditions (Redis 7.0+)
+        kwargs = {}
+        if random.random() < 0.3:
+            kwargs['nx'] = True  # Set expiry only if key has no expiry
+        elif random.random() < 0.3:
+            kwargs['xx'] = True  # Set expiry only if key already has expiry
+        elif random.random() < 0.2:
+            kwargs['gt'] = True  # Set expiry only if new expiry is greater than current
+        elif random.random() < 0.2:
+            kwargs['lt'] = True  # Set expiry only if new expiry is less than current
+        
+        pipe.expire(key, seconds, **kwargs)
+    
+    @cg_method("base", False)
+    def pexpire(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Expire in milliseconds (more precise)
+        milliseconds = random.randrange(self.ttl_low * 1000, self.ttl_high * 1000)
+        
+        # Optional expiration conditions
+        kwargs = {}
+        if random.random() < 0.3:
+            kwargs['nx'] = True
+        elif random.random() < 0.3:
+            kwargs['xx'] = True
+        elif random.random() < 0.2:
+            kwargs['gt'] = True
+        elif random.random() < 0.2:
+            kwargs['lt'] = True
+            
+        pipe.pexpire(key, milliseconds, **kwargs)
+    
+    @cg_method("base", False)
+    def expireat(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Expire at absolute Unix timestamp (seconds)
+        import time
+        future_timestamp = int(time.time()) + random.randrange(self.ttl_low, self.ttl_high)
+        
+        # Optional expiration conditions
+        kwargs = {}
+        if random.random() < 0.3:
+            kwargs['nx'] = True
+        elif random.random() < 0.3:
+            kwargs['xx'] = True
+        elif random.random() < 0.2:
+            kwargs['gt'] = True
+        elif random.random() < 0.2:
+            kwargs['lt'] = True
+            
+        pipe.expireat(key, future_timestamp, **kwargs)
+    
+    @cg_method("base", False)
+    def pexpireat(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Expire at absolute Unix timestamp (milliseconds)
+        import time
+        future_timestamp_ms = int(time.time() * 1000) + random.randrange(self.ttl_low * 1000, self.ttl_high * 1000)
+        
+        # Optional expiration conditions
+        kwargs = {}
+        if random.random() < 0.3:
+            kwargs['nx'] = True
+        elif random.random() < 0.3:
+            kwargs['xx'] = True
+        elif random.random() < 0.2:
+            kwargs['gt'] = True
+        elif random.random() < 0.2:
+            kwargs['lt'] = True
+            
+        pipe.pexpireat(key, future_timestamp_ms, **kwargs)
     
     @cg_method("base", False)
     def persist(self, pipe: redis.client.Pipeline, key: str) -> None:
         pipe.persist(key)
+    
+    @cg_method("base", False)
+    def ttl(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get time-to-live in seconds
+        pipe.ttl(key)
+    
+    @cg_method("base", False)
+    def pttl(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get time-to-live in milliseconds
+        pipe.pttl(key)
+    
+    @cg_method("base", False)
+    def expiretime(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get absolute expiration timestamp in seconds (Redis 7.0+)
+        pipe.expiretime(key)
+    
+    @cg_method("base", False)
+    def pexpiretime(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get absolute expiration timestamp in milliseconds (Redis 7.0+)
+        pipe.pexpiretime(key)
+
+    # Key management family - comprehensive key lifecycle operations
+    @cg_method("base", False)
+    def delete(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Delete one or more keys
+        redis_obj = self._pipe_to_redis(pipe)
+        
+        # Sometimes delete multiple keys at once
+        if random.random() < 0.3:
+            additional_keys = []
+            for _ in range(random.randint(1, 3)):
+                extra_key = redis_obj.randomkey()
+                if extra_key:
+                    additional_keys.append(extra_key)
+            
+            if additional_keys:
+                pipe.delete(key, *additional_keys)
+            else:
+                pipe.delete(key)
+        else:
+            pipe.delete(key)
+    
+    @cg_method("base", False)
+    def exists(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Check if one or more keys exist
+        redis_obj = self._pipe_to_redis(pipe)
+        
+        # Sometimes check multiple keys at once
+        if random.random() < 0.4:
+            additional_keys = []
+            for _ in range(random.randint(1, 2)):
+                extra_key = redis_obj.randomkey()
+                if extra_key:
+                    additional_keys.append(extra_key)
+            
+            if additional_keys:
+                pipe.exists(key, *additional_keys)
+            else:
+                pipe.exists(key)
+        else:
+            pipe.exists(key)
+    
+    @cg_method("base", False)
+    def type(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get the data type of a key's value
+        pipe.type(key)
+    
+    @cg_method("base", True)
+    def rename(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Rename a key to a new name
+        if random.random() < 0.8:
+            new_key = self._rand_key("base")
+        else:
+            new_key = self._scan_rand_key(self._pipe_to_redis(pipe), "base") or key
+        
+        pipe.rename(key, new_key)
+    
+    @cg_method("base", False)
+    def renamenx(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Rename key only if new name doesn't exist
+        if random.random() < 0.8:
+            new_key = self._rand_key("base")
+        else:
+            new_key = self._scan_rand_key(self._pipe_to_redis(pipe), "base") or key
+        pipe.renamenx(key, new_key)
+    
+    @cg_method("base", False)
+    def unlink(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Asynchronous key deletion (non-blocking)
+        redis_obj = self._pipe_to_redis(pipe)
+        
+        # Sometimes unlink multiple keys at once
+        if random.random() < 0.3:
+            additional_keys = []
+            for _ in range(random.randint(1, 3)):
+                extra_key = redis_obj.randomkey()
+                if extra_key:
+                    additional_keys.append(extra_key)
+            
+            if additional_keys:
+                pipe.unlink(key, *additional_keys)
+            else:
+                pipe.unlink(key)
+        else:
+            pipe.unlink(key)
+    
+    @cg_method("base", False)
+    def touch(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Update last access time of keys
+        redis_obj = self._pipe_to_redis(pipe)
+        
+        # Sometimes touch multiple keys at once
+        if random.random() < 0.4:
+            additional_keys = []
+            for _ in range(random.randint(1, 2)):
+                extra_key = redis_obj.randomkey()
+                if extra_key:
+                    additional_keys.append(extra_key)
+            
+            if additional_keys:
+                pipe.touch(key, *additional_keys)
+            else:
+                pipe.touch(key)
+        else:
+            pipe.touch(key)
+    
+    @cg_method("base", True)
+    def copy(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Copy key to new name with options
+        dest_key = self._rand_key("base")
+        
+        kwargs = {}
+        # Sometimes copy to different database
+        if random.random() < 0.2:
+            kwargs['destination_db'] = random.randint(1, 15)
+        
+        # Sometimes replace existing destination
+        if random.random() < 0.3:
+            kwargs['replace'] = True
+        
+        pipe.copy(key, dest_key, **kwargs)
+    
+    @cg_method("base", False)
+    def move(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Move key to different Redis database
+        db_number = random.randint(1, 15)
+        pipe.move(key, db_number)
+    
+    @cg_method("base", False)
+    def dump(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Serialize key value for backup/migration
+        pipe.dump(key)
+    
+    @cg_method("base", True)
+    def restore(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Restore key from serialized value
+        # Note: This is a simplified version - in real usage you'd need actual dump data
+        redis_obj = self._pipe_to_redis(pipe)
+        
+        # Try to get dump data from an existing key
+        source_key = redis_obj.randomkey()
+        if source_key:
+            try:
+                dump_data = redis_obj.dump(source_key)
+                # Validate dump data exists and is properly formatted
+                if dump_data and isinstance(dump_data, bytes) and len(dump_data) > 10:
+                    ttl = random.randint(self.ttl_low, self.ttl_high)  
+                    
+                    kwargs = {}
+                    if random.random() < 0.3:
+                        kwargs['replace'] = True
+                    if random.random() < 0.2:
+                        kwargs['absttl'] = True
+                    if random.random() < 0.2:
+                        kwargs['idletime'] = random.randint(1, 1000)
+                    if random.random() < 0.2:
+                        kwargs['frequency'] = random.randint(1, 255)
+                    
+                    pipe.restore(key, ttl, dump_data, **kwargs)
+                    return
+            except (redis.exceptions.ResponseError, redis.exceptions.DataError, TypeError, AttributeError):
+                # Skip on any Redis errors, data corruption, or type issues
+                pass
+        
+        # Skip if we can't get valid dump data
+        return
+    
+    @cg_method("base", False)
+    def randomkey(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Get random key from database (key parameter ignored for this command)
+        pipe.randomkey()
+    
+    @cg_method("base", False)
+    def keys(self, pipe: redis.client.Pipeline, key: str) -> None:
+        # Find keys matching pattern (use carefully in production)
+        patterns = [
+            "*",
+            f"{self.def_key_pref}*",
+            "string:*",
+            "list:*", 
+            "set:*",
+            "zset:*",
+            "hash:*",
+            "*:*",
+            f"*{self._rand_str(3)}*"
+        ]
+        pattern = random.choice(patterns)
+        pipe.keys(pattern)
 
 if __name__ == "__main__":
     base_gen = parse(BaseGen)
-    base_gen.distributions = '{"expire": 100, "persist": 100}'
+    base_gen.distributions = '{"expire": 100, "pexpire": 80, "expireat": 60, "pexpireat": 50, "persist": 100, "ttl": 70, "pttl": 60, "expiretime": 40, "pexpiretime": 30, "delete": 90, "exists": 80, "type": 60, "rename": 40, "renamenx": 30, "unlink": 50, "touch": 40, "copy": 30, "move": 25, "dump": 20, "restore": 15, "randomkey": 35, "keys": 25}'
     base_gen._run()

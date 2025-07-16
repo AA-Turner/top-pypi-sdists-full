@@ -42,3 +42,29 @@ HTTP2_AUTHORITY = {
     ".co.nz": HTTP2_FE,
 }
 HTTP2_DEFAULT = HTTP2_EU
+
+GQL_SMARTHOME_QUERY = """
+query CustomerSmartHome {
+    endpoints(
+      endpointsQueryParams: { paginationParams: { disablePagination: true } }
+    ) {
+        items {
+            legacyAppliance {
+                applianceId
+                applianceTypes
+                friendlyName
+                friendlyDescription
+                manufacturerName
+                connectedVia
+                modelName
+                entityId
+                aliases
+                capabilities
+                customerDefinedDeviceType
+                alexaDeviceIdentifierList
+                driverIdentity
+            }
+        }
+    }
+}
+"""

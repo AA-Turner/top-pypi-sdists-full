@@ -13,15 +13,31 @@
 # limitations under the License.
 """Symbolic reference."""
 
-import numbers
-from typing import Any, Callable, Optional, Tuple
-from pyglove.core import object_utils
+import functools
+import typing
+from typing import Any, Callable, List, Optional, Tuple, Type
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.symbolic import base
-from pyglove.core.symbolic.object import Object
+from pyglove.core.symbolic import object as pg_object
+from pyglove.core.views.html import tree_view
 
 
-class Ref(Object, base.Inferential):
+class RefMeta(pg_object.ObjectMeta):
+  """Metaclass for Ref."""
+
+  def __getitem__(cls, type_arg: Type[Any]) -> Any:    # pylint: disable=no-self-argument
+    if typing.TYPE_CHECKING:
+      return type_arg
+    return pg_typing.Object(type_arg, transform=Ref)
+
+
+class Ref(
+    pg_object.Object,
+    base.Inferential,
+    tree_view.HtmlTreeView.Extension,
+    metaclass=RefMeta
+):
   """Symbolic reference.
 
   When adding a symbolic node to a symbolic tree, it undergoes a copy operation
@@ -80,11 +96,11 @@ class Ref(Object, base.Inferential):
 
   def __new__(cls, value: Any, **kwargs):
     del kwargs
-    if isinstance(value, (bool, numbers.Number, str)):
-      return value
-    return object.__new__(cls)
+    if isinstance(value, (base.Symbolic, list, dict)):
+      return object.__new__(cls)
+    return value
 
-  @object_utils.explicit_method_override
+  @utils.explicit_method_override
   def __init__(self, value: Any, **kwargs) -> None:
     super().__init__(**kwargs)
     if isinstance(value, Ref):
@@ -111,12 +127,13 @@ class Ref(Object, base.Inferential):
 
   def custom_apply(
       self,
-      path: object_utils.KeyPath,
+      path: utils.KeyPath,
       value_spec: pg_typing.ValueSpec,
       allow_partial: bool = False,
-      child_transform: Optional[Callable[
-          [object_utils.KeyPath, pg_typing.Field, Any], Any]] = None
-      ) -> Tuple[bool, Any]:
+      child_transform: Optional[
+          Callable[[utils.KeyPath, pg_typing.Field, Any], Any]
+      ] = None,
+  ) -> Tuple[bool, Any]:
     """Validate candidates during value_spec binding time."""
     del child_transform
     # Check if the field being assigned could accept the referenced value.
@@ -135,7 +152,9 @@ class Ref(Object, base.Inferential):
   def sym_eq(self, other: Any) -> bool:
     return isinstance(other, Ref) and self.value is other.value
 
-  def sym_jsonify(self, **kwargs: Any) -> Any:
+  def sym_jsonify(self, *, save_ref_value: bool = False, **kwargs: Any) -> Any:
+    if save_ref_value:
+      return base.to_json(self._value, save_ref_value=save_ref_value, **kwargs)
     raise TypeError(f'{self!r} cannot be serialized at the moment.')
 
   def __getstate__(self):
@@ -146,17 +165,68 @@ class Ref(Object, base.Inferential):
       compact: bool = False,
       verbose: bool = False,
       root_indent: int = 0,
-      **kwargs: Any) -> str:
-    value_str = object_utils.format(
+      **kwargs: Any,
+  ) -> str:
+    value_str = utils.format(
         self._value,
-        compact=compact, verbose=verbose, root_indent=root_indent + 1)
+        compact=compact,
+        verbose=verbose,
+        root_indent=root_indent + 1,
+    )
     if compact:
       return f'{self.__class__.__name__}({value_str})'
     else:
-      return (f'{self.__class__.__name__}(\n'
-              + '  ' * (root_indent + 1)
-              + f'value = {value_str}\n'
-              + '  ' * root_indent + ')')
+      return (
+          f'{self.__class__.__name__}(\n'
+          + '  ' * (root_indent + 1)
+          + f'value = {value_str}\n'
+          + '  ' * root_indent
+          + ')'
+      )
+
+  def _html_tree_view_content(
+      self,
+      *,
+      view: tree_view.HtmlTreeView,
+      **kwargs: Any) -> tree_view.Html:
+    """Overrides `_html_content` to render the referenced value."""
+    return view.content(self._value, **kwargs)
+
+  def _html_tree_view_summary(
+      self,
+      *,
+      view: tree_view.HtmlTreeView,
+      title: Optional[str] = None,
+      **kwargs: Any) -> Optional[tree_view.Html]:
+    """Overrides `_html_content` to render the referenced value."""
+    return view.summary(
+        self,
+        title=title or f'{type(self._value).__name__}(...)',
+        **kwargs
+    )
+
+  @classmethod
+  @functools.cache
+  def _html_tree_view_config(cls) -> dict[str, Any]:
+    return tree_view.HtmlTreeView.get_kwargs(
+        super()._html_tree_view_config(),
+        dict(
+            css_classes=['ref'],
+        )
+    )
+
+  @classmethod
+  @functools.cache
+  def _html_tree_view_css_styles(cls) -> List[str]:
+    return super()._html_tree_view_css_styles() + [
+        """
+        /* Ref styles. */
+        .ref.summary-title::before {
+          content: 'ref: ';
+          color: #aaa;
+        }
+        """
+    ]
 
 
 def maybe_ref(value: Any) -> Optional[Ref]:
@@ -165,3 +235,27 @@ def maybe_ref(value: Any) -> Optional[Ref]:
     if value.sym_parent is None:
       return value
   return Ref(value)
+
+
+def deref(value: base.Symbolic, recursive: bool = False) -> Any:
+  """Dereferences a symbolic value that may contain pg.Ref.
+
+  Args:
+    value: The input symbolic value.
+    recursive: If True, dereference `pg.Ref` in the entire tree. Otherwise
+      Only dereference the root node.
+
+  Returns:
+    The dereferenced root, or dereferenced tree if recursive is True.
+  """
+  if isinstance(value, Ref):
+    value = value.value
+
+  if recursive:
+    def _deref(k, v, p):
+      del k, p
+      if isinstance(v, Ref):
+        return deref(v.value, recursive=True)
+      return v
+    return value.rebind(_deref, raise_on_no_change=False)
+  return value

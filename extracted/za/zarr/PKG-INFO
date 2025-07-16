@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zarr
-Version: 3.0.10
+Version: 3.1.0
 Summary: An implementation of chunked, compressed, N-dimensional arrays for Python
 Project-URL: Bug Tracker, https://github.com/zarr-developers/zarr-python/issues
 Project-URL: Changelog, https://zarr.readthedocs.io/en/stable/release-notes.html
@@ -28,7 +28,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Requires-Dist: donfig>=0.8
 Requires-Dist: numcodecs[crc32c]>=0.14
-Requires-Dist: numpy>=1.25
+Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=22.0
 Requires-Dist: typing-extensions>=4.9
 Provides-Extra: docs
@@ -36,6 +36,7 @@ Requires-Dist: astroid<4; extra == 'docs'
 Requires-Dist: numcodecs[msgpack]; extra == 'docs'
 Requires-Dist: numpydoc; extra == 'docs'
 Requires-Dist: pydata-sphinx-theme; extra == 'docs'
+Requires-Dist: pytest; extra == 'docs'
 Requires-Dist: rich; extra == 'docs'
 Requires-Dist: s3fs>=2023.10.0; extra == 'docs'
 Requires-Dist: sphinx-autoapi==3.4.0; extra == 'docs'
@@ -65,12 +66,15 @@ Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: hypothesis; extra == 'test'
 Requires-Dist: mypy; extra == 'test'
+Requires-Dist: packaging; extra == 'test'
 Requires-Dist: pytest-accept; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-xdist; extra == 'test'
 Requires-Dist: pytest<8.4; extra == 'test'
 Requires-Dist: rich; extra == 'test'
+Requires-Dist: tomlkit; extra == 'test'
+Requires-Dist: uv; extra == 'test'
 Description-Content-Type: text/markdown
 
 <div align="center">

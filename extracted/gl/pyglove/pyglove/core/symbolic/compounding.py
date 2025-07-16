@@ -17,10 +17,9 @@ import abc
 import inspect
 import sys
 import types
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from pyglove.core import object_utils
-from pyglove.core.symbolic import schema_utils
+from pyglove.core import utils
 from pyglove.core.symbolic.base import Symbolic
 from pyglove.core.symbolic.object import Object
 import pyglove.core.typing as pg_typing
@@ -40,7 +39,7 @@ class Compound(Object):
     # from the user class to compound with.
     Object.__init_subclass__(cls)
 
-  @object_utils.explicit_method_override
+  @utils.explicit_method_override
   def __init__(self, *args, **kwargs):
     # `explicit_init` allows the `__init__` of the other classes that sit after
     # `Compound` to be bypassed.
@@ -53,16 +52,11 @@ _COMPOUND_OWNED_ATTR_NAMES = frozenset(dir(Compound))
 def compound_class(
     factory_fn: types.FunctionType,
     base_class: Optional[Type[Object]] = None,
-    args: Optional[
-        List[
-            Union[
-                Tuple[Tuple[str, pg_typing.KeySpec], pg_typing.ValueSpec, str],
-                Tuple[
-                    Tuple[str, pg_typing.KeySpec], pg_typing.ValueSpec, str, Any
-                ],
-            ]
-        ]
-    ] = None,  # pylint: disable=bad-continuation
+    args: Union[
+        List[Union[pg_typing.Field, pg_typing.FieldDef]],
+        Dict[pg_typing.FieldKeyDef, pg_typing.FieldValueDef],
+        None
+    ] = None,
     *,
     lazy_build: bool = True,
     auto_doc: bool = True,
@@ -127,7 +121,7 @@ def compound_class(
   if not inspect.isfunction(factory_fn):
     raise TypeError('Decorator `compound` is only applicable to functions.')
 
-  schema = schema_utils.function_schema(
+  schema = pg_typing.schema(
       factory_fn,
       args=args,
       returns=pg_typing.Object(base_class) if base_class else None,

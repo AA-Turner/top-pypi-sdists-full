@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 import contextlib
 import functools
+import getpass
+import os
 import sys
-from typing import Any, Optional
+from typing import Optional
 
 from etils.epy import contextlib as epy_contextlib
 from etils.epy import lazy_imports_utils
@@ -65,6 +67,6 @@ def binary_adhoc(
     restrict: None | py_utils.StrOrStrList = None,
     reload: None | py_utils.StrOrStrList = None,
     verbose: bool = False,
-    **kwargs: Any,
+    legacy_backend: bool | None = None,
 ) -> Iterator[None]:
   yield

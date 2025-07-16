@@ -634,6 +634,9 @@ __all__ = (
     "RuleSummaryTypeDef",
     "RuleTargetTypeDef",
     "RunStatisticsForAssetsTypeDef",
+    "S3PropertiesInputTypeDef",
+    "S3PropertiesOutputTypeDef",
+    "S3PropertiesPatchTypeDef",
     "SageMakerRunConfigurationInputTypeDef",
     "SageMakerRunConfigurationOutputTypeDef",
     "ScheduleConfigurationTypeDef",
@@ -956,6 +959,11 @@ class IamPropertiesInputTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
 
 
+class S3PropertiesInputTypeDef(TypedDict):
+    s3Uri: str
+    s3AccessGrantLocationId: NotRequired[str]
+
+
 class SparkEmrPropertiesInputTypeDef(TypedDict):
     computeArn: NotRequired[str]
     instanceProfileArn: NotRequired[str]
@@ -982,8 +990,20 @@ class IamPropertiesOutputTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
 
 
+class S3PropertiesOutputTypeDef(TypedDict):
+    s3Uri: str
+    errorMessage: NotRequired[str]
+    s3AccessGrantLocationId: NotRequired[str]
+    status: NotRequired[ConnectionStatusType]
+
+
 class IamPropertiesPatchTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
+
+
+class S3PropertiesPatchTypeDef(TypedDict):
+    s3Uri: str
+    s3AccessGrantLocationId: NotRequired[str]
 
 
 class SparkEmrPropertiesPatchTypeDef(TypedDict):
@@ -2975,7 +2995,6 @@ UpdateDomainOutputTypeDef = TypedDict(
 
 class CreateEnvironmentInputTypeDef(TypedDict):
     domainIdentifier: str
-    environmentProfileIdentifier: str
     name: str
     projectIdentifier: str
     deploymentOrder: NotRequired[int]
@@ -2984,6 +3003,7 @@ class CreateEnvironmentInputTypeDef(TypedDict):
     environmentAccountRegion: NotRequired[str]
     environmentBlueprintIdentifier: NotRequired[str]
     environmentConfigurationId: NotRequired[str]
+    environmentProfileIdentifier: NotRequired[str]
     glossaryTerms: NotRequired[Sequence[str]]
     userParameters: NotRequired[Sequence[EnvironmentParameterTypeDef]]
 
@@ -5589,6 +5609,7 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     hyperPodProperties: NotRequired[HyperPodPropertiesOutputTypeDef]
     iamProperties: NotRequired[IamPropertiesOutputTypeDef]
     redshiftProperties: NotRequired[RedshiftPropertiesOutputTypeDef]
+    s3Properties: NotRequired[S3PropertiesOutputTypeDef]
     sparkEmrProperties: NotRequired[SparkEmrPropertiesOutputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesOutputTypeDef]
 
@@ -5829,6 +5850,7 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     glueProperties: NotRequired[GluePropertiesPatchTypeDef]
     iamProperties: NotRequired[IamPropertiesPatchTypeDef]
     redshiftProperties: NotRequired[RedshiftPropertiesPatchTypeDef]
+    s3Properties: NotRequired[S3PropertiesPatchTypeDef]
     sparkEmrProperties: NotRequired[SparkEmrPropertiesPatchTypeDef]
 
 
@@ -6294,6 +6316,7 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     hyperPodProperties: NotRequired[HyperPodPropertiesInputTypeDef]
     iamProperties: NotRequired[IamPropertiesInputTypeDef]
     redshiftProperties: NotRequired[RedshiftPropertiesInputTypeDef]
+    s3Properties: NotRequired[S3PropertiesInputTypeDef]
     sparkEmrProperties: NotRequired[SparkEmrPropertiesInputTypeDef]
     sparkGlueProperties: NotRequired[SparkGluePropertiesInputTypeDef]
 

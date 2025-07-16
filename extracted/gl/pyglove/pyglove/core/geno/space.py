@@ -18,10 +18,9 @@ import random
 import types
 from typing import List, Optional, Union
 
-from pyglove.core import object_utils
 from pyglove.core import symbolic
 from pyglove.core import typing as pg_typing
-
+from pyglove.core import utils
 from pyglove.core.geno.base import DecisionPoint
 from pyglove.core.geno.base import DNA
 from pyglove.core.geno.base import DNASpec
@@ -138,7 +137,7 @@ class Space(DNASpec):
     """
     return not self.elements
 
-  def validate(self, dna: DNA) -> None:
+  def validate(self, dna: DNA) -> None:  # pytype: disable=signature-mismatch
     """Validate whether a DNA value conforms to this spec."""
     if not self.elements and (dna.value is not None or dna.children):
       raise ValueError(
@@ -231,8 +230,8 @@ class Space(DNASpec):
     return sum([len(elem) for elem in self.elements])
 
   def __getitem__(
-      self, index: Union[int, slice, str, object_utils.KeyPath]
-      ) -> Union[DecisionPoint, List[DecisionPoint]]:
+      self, index: Union[int, slice, str, utils.KeyPath]
+  ) -> Union[DecisionPoint, List[DecisionPoint]]:
     """Operator [] to return element by index or sub-DNASpec by name."""
     if isinstance(index, (int, slice)):
       return self.elements[index]

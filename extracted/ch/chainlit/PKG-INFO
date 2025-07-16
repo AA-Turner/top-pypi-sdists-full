@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: chainlit
-Version: 2.6.0
+Version: 2.6.2
 Summary: Build Conversational AI.
-Home-page: https://chainlit.io/
 License: Apache-2.0
 Keywords: LLM,Agents,MCP,gen ai,chat ui,chatbot ui,openai,copilot,langchain,conversational ai
 Author: Willy Douhard
@@ -15,6 +14,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Communications :: Chat
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -39,10 +39,10 @@ Requires-Dist: python-socketio (>=5.11.0,<6.0.0)
 Requires-Dist: starlette (>=0.41.2)
 Requires-Dist: syncer (>=2.0.3,<3.0.0)
 Requires-Dist: tomli (>=2.0.1,<3.0.0)
-Requires-Dist: uptrace (>=1.29.0,<2.0.0)
 Requires-Dist: uvicorn (>=0.25.0)
 Requires-Dist: watchfiles (>=0.20.0,<0.21.0)
 Project-URL: Documentation, https://docs.chainlit.io/
+Project-URL: Homepage, https://chainlit.io/
 Project-URL: Repository, https://github.com/Chainlit/chainlit
 Description-Content-Type: text/markdown
 

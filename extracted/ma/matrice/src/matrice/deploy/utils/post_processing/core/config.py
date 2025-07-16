@@ -428,6 +428,13 @@ class ConfigManager:
             return FireSmokeConfig
         except ImportError:
             return None
+    def _get_parking_space_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.parking_space_detection import ParkingSpaceConfig
+            return ParkingSpaceConfig
+        except ImportError:
+            return None
 
     def _get_pothole_segmentation_config_class(self):
         """Register a configuration class for a use case."""
@@ -442,6 +449,30 @@ class ConfigManager:
         try:
             from ..usecases.flare_analysis import FlareAnalysisConfig
             return FlareAnalysisConfig
+        except ImportError:
+            return None
+    
+    def face_emotion_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.face_emotion import FaceEmotionConfig
+            return FaceEmotionConfig
+        except ImportError:
+            return None
+    
+    def underwater_pollution_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig
+            return UnderwaterPlasticConfig
+        except ImportError:
+            return None
+
+    def pedestrian_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.pedestrian_detection import PedestrianDetectionConfig
+            return PedestrianDetectionConfig
         except ImportError:
             return None
 
@@ -544,6 +575,21 @@ class ConfigManager:
 
             config = LicensePlateConfig(
                 category=category or "vehicle",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "parking_space_detection":
+            # Import here to avoid circular import
+            from ..usecases.parking_space_detection import ParkingSpaceConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ParkingSpaceConfig(
+                category=category or "parking_space",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -669,6 +715,51 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "face_emotion":
+            # Import here to avoid circular import
+            from ..usecases.face_emotion import FaceEmotionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FaceEmotionConfig(
+                category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "pedestrian_detection":
+            # Import here to avoid circular import
+            from ..usecases.pedestrian_detection import PedestrianDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+            config = PedestrianDetectionConfig(
+                category=category or "pedestrian",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+
+        elif usecase == "underwater_pollution_detection":
+            # Import here to avoid circular import
+            from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+            config = UnderwaterPlasticConfig(
+                category=category or "pollution",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+            
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
 
@@ -769,6 +860,12 @@ class ConfigManager:
             from ..usecases.license_plate_detection import LicensePlateConfig
             default_config = LicensePlateConfig()
             return default_config.to_dict()
+        elif usecase == "parking_space_detection":
+            # Import here to avoid circular import
+            from ..usecases.parking_space_detection import ParkingSpaceConfig
+            default_config = ParkingSpaceConfig()
+            return default_config.to_dict()
+
         elif usecase == "fire_smoke_detection":
             # Import here to avoid circular import
             from ..usecases.fire_detection import FireSmokeConfig
@@ -804,6 +901,20 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.ppe_compliance import PPEComplianceConfig
             default_config = PPEComplianceConfig()
+            return default_config.to_dict()
+        elif usecase == "face_emotion":
+            # Import here to avoid circular import
+            from ..usecases.face_emotion import FaceEmotionConfig
+            default_config = FaceEmotionConfig()
+            return default_config.to_dict()
+        elif usecase == "underwater_pollution_detection":
+            # Import here to avoid circular import
+            from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig
+            default_config = UnderwaterPlasticConfig()
+        elif usecase == "pedestrian_detection":
+            # Import here to avoid circular import
+            from ..usecases.pedestrian_detection import PedestrianDetectionConfig
+            default_config = PedestrianDetectionConfig()
             return default_config.to_dict()
         elif usecase not in self._config_classes:
             raise ConfigValidationError(f"Unsupported use case: {usecase}")

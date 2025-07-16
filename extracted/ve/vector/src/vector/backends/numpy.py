@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -381,14 +381,14 @@ def _is_type_safe(
     | MomentumNumpy3D
     | MomentumNumpy4D
     | CoordinatesNumpy,
-) -> bool:
+) -> None:
     for i in range(len(array.dtype)):  # type: ignore[arg-type]
         if not issubclass(
             array.dtype[i].type, (numpy.integer, numpy.floating)
         ) or issubclass(array.dtype[i].type, numpy.timedelta64):
-            return False
-
-    return True
+            raise TypeError(
+                "a coordinate must be of the type numpy.integer or numpy.floating"
+            )
 
 
 class GetItem:
@@ -429,7 +429,7 @@ class TemporalNumpy(CoordinatesNumpy, Temporal):
     ObjectClass: type[vector.backends.object.TemporalObject]
 
 
-class AzimuthalNumpyXY(AzimuthalNumpy, AzimuthalXY, GetItem, FloatArray):  # type: ignore[misc]
+class AzimuthalNumpyXY(AzimuthalNumpy, AzimuthalXY, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``x`` and ``y`` (azimuthal) coordinates of NumPy backend.
     Creates a structured NumPy array and returns it as an AzimuthalNumpyXY object.
@@ -495,7 +495,7 @@ class AzimuthalNumpyXY(AzimuthalNumpy, AzimuthalXY, GetItem, FloatArray):  # typ
         return self["y"]
 
 
-class AzimuthalNumpyRhoPhi(AzimuthalNumpy, AzimuthalRhoPhi, GetItem, FloatArray):  # type: ignore[misc]
+class AzimuthalNumpyRhoPhi(AzimuthalNumpy, AzimuthalRhoPhi, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``rho`` and ``phi`` (azimuthal) coordinates of NumPy backend.
     Creates a structured NumPy array and returns it as an AzimuthalNumpyXY object.
@@ -561,7 +561,7 @@ class AzimuthalNumpyRhoPhi(AzimuthalNumpy, AzimuthalRhoPhi, GetItem, FloatArray)
         return self["phi"]
 
 
-class LongitudinalNumpyZ(LongitudinalNumpy, LongitudinalZ, GetItem, FloatArray):  # type: ignore[misc]
+class LongitudinalNumpyZ(LongitudinalNumpy, LongitudinalZ, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``z`` (longitudinal) coordinate of NumPy backend.
     Creates a structured NumPy array and returns it as a LongitudinalNumpyZ object.
@@ -619,7 +619,7 @@ class LongitudinalNumpyZ(LongitudinalNumpy, LongitudinalZ, GetItem, FloatArray):
         return self["z"]
 
 
-class LongitudinalNumpyTheta(LongitudinalNumpy, LongitudinalTheta, GetItem, FloatArray):  # type: ignore[misc]
+class LongitudinalNumpyTheta(LongitudinalNumpy, LongitudinalTheta, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``theta`` (longitudinal) coordinate of NumPy backend.
     Creates a structured NumPy array and returns it as a LongitudinalNumpyTheta object.
@@ -677,7 +677,7 @@ class LongitudinalNumpyTheta(LongitudinalNumpy, LongitudinalTheta, GetItem, Floa
         return self["theta"]
 
 
-class LongitudinalNumpyEta(LongitudinalNumpy, LongitudinalEta, GetItem, FloatArray):  # type: ignore[misc]
+class LongitudinalNumpyEta(LongitudinalNumpy, LongitudinalEta, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``eta`` (longitudinal) coordinate of NumPy backend.
     Creates a structured NumPy array and returns it as a LongitudinalNumpyEta object.
@@ -735,7 +735,7 @@ class LongitudinalNumpyEta(LongitudinalNumpy, LongitudinalEta, GetItem, FloatArr
         return self["eta"]
 
 
-class TemporalNumpyT(TemporalNumpy, TemporalT, GetItem, FloatArray):  # type: ignore[misc]
+class TemporalNumpyT(TemporalNumpy, TemporalT, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """
     Class for the ``t`` (temporal) coordinate of NumPy backend.
     Creates a structured NumPy array and returns it as a TemporalNumpyT object.
@@ -793,7 +793,7 @@ class TemporalNumpyT(TemporalNumpy, TemporalT, GetItem, FloatArray):  # type: ig
         return self["t"]
 
 
-class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type: ignore[misc]
+class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type: ignore[misc] # noqa: PLW1641
     """Class for the ``tau`` (temporal) coordinate of NumPy backend."""
 
     ObjectClass = vector.backends.object.TemporalObjectTau
@@ -843,7 +843,7 @@ class TemporalNumpyTau(TemporalNumpy, TemporalTau, GetItem, FloatArray):  # type
         return self["tau"]
 
 
-class VectorNumpy(Vector, GetItem):
+class VectorNumpy(Vector, GetItem):  # noqa: PLW1641
     """Mixin class for NumPy vectors."""
 
     lib = numpy
@@ -1179,10 +1179,7 @@ class VectorNumpy2D(VectorNumpy, Planar, Vector2D, FloatArray):  # type: ignore[
                 'fields ("x", "y") or ("rho", "phi")'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -1359,10 +1356,7 @@ class MomentumNumpy2D(PlanarMomentum, VectorNumpy2D):
                 'fields ("x", "y") or ("rho", "phi") or ("px", "py") or ("pt", "phi")'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __repr__(self) -> str:
         return _array_repr(self, True)
@@ -1437,10 +1431,7 @@ class VectorNumpy3D(VectorNumpy, Spatial, Vector3D, FloatArray):  # type: ignore
                 'field "z" or "theta" or "eta"'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -1676,10 +1667,7 @@ class MomentumNumpy3D(SpatialMomentum, VectorNumpy3D):
                 'field "z" or "theta" or "eta" or "pz"'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __repr__(self) -> str:
         return _array_repr(self, True)
@@ -1768,10 +1756,7 @@ class VectorNumpy4D(VectorNumpy, Lorentz, Vector4D, FloatArray):  # type: ignore
                 'field "t" or "tau"'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __str__(self) -> str:
         return str(self.view(numpy.ndarray))
@@ -2077,10 +2062,7 @@ class MomentumNumpy4D(LorentzMomentum, VectorNumpy4D):
                 'field "t" or "tau" or "E" or "e" or "energy" or "M" or "m" or "mass"'
             )
 
-        if not _is_type_safe(self):
-            raise TypeError(
-                "a coordinate must be of the type numpy.integer or numpy.floating"
-            )
+        _is_type_safe(self)
 
     def __repr__(self) -> str:
         return _array_repr(self, True)

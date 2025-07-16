@@ -16,6 +16,10 @@ from ..usecases.vehicle_monitoring import VehicleMonitoringConfig, VehicleMonito
 from ..usecases.fire_detection import FireSmokeConfig, FireSmokeUseCase
 from ..usecases.flare_analysis import FlareAnalysisConfig,FlareAnalysisUseCase
 from ..usecases.pothole_segmentation import PotholeConfig, PotholeSegmentationUseCase
+from ..usecases.face_emotion import FaceEmotionConfig, FaceEmotionUseCase
+from ..usecases.parking_space_detection import ParkingSpaceConfig, ParkingSpaceUseCase
+from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig, UnderwaterPlasticUseCase
+from ..usecases.pedestrian_detection import PedestrianDetectionConfig, PedestrianDetectionUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -28,7 +32,11 @@ __all__ = [
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'PotholeSegmentationUseCase',
+    'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
+    'FaceEmotionUseCase',
+    'UnderwaterPlasticUseCase',
+    'PedestrianDetectionUseCase',
     'PeopleCountingConfig',
     'PotholeConfig',
     'CustomerServiceConfig',
@@ -37,6 +45,10 @@ __all__ = [
     'LicensePlateConfig',
     'ColorDetectionConfig',
     'VehicleMonitoringConfig',
+    'ParkingSpaceConfig',
     'FireSmokeConfig',
-    'FlareAnalysisConfig'
+    'FlareAnalysisConfig',
+    'FaceEmotionConfig',
+    'UnderwaterPlasticUseCase',
+    'PedestrianDetectionConfig',
 ]

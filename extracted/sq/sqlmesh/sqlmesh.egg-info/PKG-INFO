@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.200.0
+Version: 0.201.0
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -243,7 +243,7 @@ Requires-Dist: PyAthena[Pandas]; extra == "athena"
 Provides-Extra: azuresql
 Requires-Dist: pymssql; extra == "azuresql"
 Provides-Extra: azuresql-odbc
-Requires-Dist: pyodbc; extra == "azuresql-odbc"
+Requires-Dist: pyodbc>=5.0.0; extra == "azuresql-odbc"
 Provides-Extra: bigquery
 Requires-Dist: google-cloud-bigquery[pandas]; extra == "bigquery"
 Requires-Dist: google-cloud-bigquery-storage; extra == "bigquery"
@@ -280,7 +280,7 @@ Requires-Dist: psycopg2-binary; extra == "dev"
 Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: PyAthena[Pandas]; extra == "dev"
 Requires-Dist: PyGithub>=2.6.0; extra == "dev"
-Requires-Dist: pyodbc; extra == "dev"
+Requires-Dist: pyodbc>=5.0.0; extra == "dev"
 Requires-Dist: pyperf; extra == "dev"
 Requires-Dist: pyspark~=3.5.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -318,7 +318,7 @@ Requires-Dist: duckdb>=1.2.0; extra == "motherduck"
 Provides-Extra: mssql
 Requires-Dist: pymssql; extra == "mssql"
 Provides-Extra: mssql-odbc
-Requires-Dist: pyodbc; extra == "mssql-odbc"
+Requires-Dist: pyodbc>=5.0.0; extra == "mssql-odbc"
 Provides-Extra: mysql
 Requires-Dist: pymysql; extra == "mysql"
 Provides-Extra: mwaa

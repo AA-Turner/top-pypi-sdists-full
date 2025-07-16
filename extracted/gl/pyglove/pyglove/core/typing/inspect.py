@@ -14,6 +14,7 @@
 """Utility module for inspecting generics types."""
 
 import inspect
+import sys
 import typing
 from typing import Any, Callable, Optional, Tuple, Type, Union
 
@@ -29,6 +30,11 @@ def is_subclass(
   """An issubclass extension that supports Any and generic types."""
 
   def _is_subclass(src: Type[Any], target: Type[Any]) -> bool:
+    if is_protocol(target):
+      # NOTE(daiyip): loose runtime check for Protocol.
+      # As runtime protocol check (through decorating the protocol class with
+      # @typing.runtime_checkable) might be unreliable and very slow.
+      return inspect.isclass(src) and src.__module__ != 'builtins'
     if target is Any:
       return True
     elif src is Any:
@@ -77,6 +83,17 @@ def is_subclass(
   return _is_subclass(src, target)
 
 
+def is_protocol(maybe_protocol: Type[Any]) -> bool:
+  """Returns True if a type is a protocol."""
+  if not inspect.isclass(maybe_protocol):
+    return False
+  maybe_protocol = typing.get_origin(maybe_protocol) or maybe_protocol
+  for base in maybe_protocol.__bases__:
+    if base is typing.Protocol or typing.get_origin(base) is typing.Protocol:
+      return True
+  return False
+
+
 def is_generic(maybe_generic: Type[Any]) -> bool:
   """Returns True if a type is a generic class."""
   return typing.get_origin(maybe_generic) is not None
@@ -114,6 +131,68 @@ def get_type_args(
       if get_type(orig_base) is base:
         return typing.get_args(orig_base)
     return ()
+
+
+def get_outer_class(
+    cls: Type[Any],
+    base_cls: Union[Type[Any], Tuple[Type[Any], ...], None] = None,
+    immediate: bool = False,
+) -> Optional[Type[Any]]:
+  """Returns the outer class.
+
+  Example::
+
+    class A:
+      pass
+
+    class A1:
+      class B:
+        class C:
+          ...
+
+    pg.typing.outer_class(B) is A1
+    pg.typing.outer_class(C) is B
+    pg.typing.outer_class(C, base_cls=A) is None
+    pg.typing.outer_class(C, base_cls=A1) is None
+
+  Args:
+    cls: The class to get the outer class for.
+    base_cls: The base class of the outer class. If provided, an outer class
+      that is not a subclass of `base_cls` will be returned as None.
+    immediate: Whether to return the immediate outer class or a class in the
+      nesting hierarchy that is a subclass of `base_cls`. Applicable when
+      `base_cls` is not None.
+
+  Returns:
+    The outer class of `cls`. None if cannot find one or the outer class is
+      not a subclass of `base_cls`.
+  """
+  if '<locals>' in cls.__qualname__:
+    raise ValueError(
+        'Cannot find the outer class for locally defined class '
+        f'{cls.__qualname__!r}'
+    )
+
+  names = cls.__qualname__.split('.')
+  if len(names) < 2:
+    return None
+
+  parent = sys.modules[cls.__module__]
+  symbols = []
+  for name in names[:-1]:
+    symbol = getattr(parent, name, None)
+    if symbol is None:
+      return None
+    assert inspect.isclass(symbol), symbol
+    symbols.append(symbol)
+    parent = symbol
+
+  for symbol in reversed(symbols):
+    if immediate:
+      return symbol if not base_cls or issubclass(symbol, base_cls) else None
+    if not base_cls or issubclass(symbol, base_cls):
+      return symbol
+  return None
 
 
 def callable_eq(

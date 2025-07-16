@@ -1,7 +1,7 @@
 name = "PythonCall"
 uuid = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 authors = ["Christopher Doris <github.com/cjdoris>"]
-version = "0.9.25"
+version = "0.9.26"
 
 [deps]
 CondaPkg = "992eb4ea-22a4-4c89-a5bb-47a3300528ab"
@@ -29,7 +29,7 @@ Tables = "1"
 Test = "1"
 TestItemRunner = "0 - 999"
 UnsafePointers = "1"
-julia = "1.6.1"
+julia = "1.9"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"

@@ -37,8 +37,7 @@ Here lists the sub-modules included in the core PyGlove library:
    |__ tuning          :  Interface for program tuning with a local backend.
    |__ detouring       :  Detouring classes creation without symbolic types.
    |__ patching        :  Patching a program with URL-like strings.
-   |__ object_utils    :  Utility libary on operating with Python objects.
-
+   |__ utils           :  Utility libary on operating with Python objects.
 """
 
 # NOTE(daiyip): We disable bad-import-order to preserve the relation of
@@ -92,6 +91,9 @@ InferredValue = symbolic.InferredValue
 Ref = symbolic.Ref
 maybe_ref = symbolic.maybe_ref
 
+# Symbolic error info
+ErrorInfo = symbolic.ErrorInfo
+
 # Decorator for declaring symbolic. members for `pg.Object`.
 members = symbolic.members
 
@@ -126,6 +128,9 @@ compound_class = symbolic.compound_class
 # Method for declaring a boilerplated class from a symbolic instance.
 boilerplate_class = symbolic.boilerplate_class
 
+# Methods for contextual objects.
+ContextualObject = symbolic.ContextualObject
+contextual_attribute = symbolic.contextual_attribute
 
 #
 # Context manager for swapping wrapped class with their wrappers.
@@ -163,6 +168,7 @@ to_json = symbolic.to_json
 to_json_str = symbolic.to_json_str
 save = symbolic.save
 load = symbolic.load
+open_jsonl = symbolic.open_jsonl
 get_load_handler = symbolic.get_load_handler
 set_load_handler = symbolic.set_load_handler
 get_save_handler = symbolic.get_save_handler
@@ -192,7 +198,8 @@ CustomTyping = typing.CustomTyping
 
 get_converter = typing.get_converter
 register_converter = typing.register_converter
-get_signature = typing.get_signature
+signature = typing.signature
+schema = typing.schema
 
 
 #
@@ -271,29 +278,60 @@ ObjectFactory = patching.ObjectFactory
 
 
 #
-# Symbols from 'object_utils' sub-module.
+# Symbols from 'utils' sub-module.
 #
 
-from pyglove.core import object_utils
-KeyPath = object_utils.KeyPath
-MISSING_VALUE = object_utils.MISSING_VALUE
+from pyglove.core import utils
 
-Formattable = object_utils.Formattable
-repr_format = object_utils.repr_format
-str_format = object_utils.str_format
+# For backward compatibility.
+object_utils = utils
 
-MaybePartial = object_utils.MaybePartial
-JSONConvertible = object_utils.JSONConvertible
-DocStr = object_utils.DocStr
+KeyPath = utils.KeyPath
+KeyPathSet = utils.KeyPathSet
+MISSING_VALUE = utils.MISSING_VALUE
 
-registered_types = object_utils.registered_types
-explicit_method_override = object_utils.explicit_method_override
+Formattable = utils.Formattable
+repr_format = utils.repr_format
+str_format = utils.str_format
 
-is_partial = object_utils.is_partial
-format = object_utils.format   # pylint: disable=redefined-builtin
-print = object_utils.print    # pylint: disable=redefined-builtin
-docstr = object_utils.docstr
-catch_errors = object_utils.catch_errors
+MaybePartial = utils.MaybePartial
+JSONConvertible = utils.JSONConvertible
+DocStr = utils.DocStr
+
+registered_types = utils.registered_types
+explicit_method_override = utils.explicit_method_override
+
+is_partial = utils.is_partial
+format = utils.format  # pylint: disable=redefined-builtin
+print = utils.print  # pylint: disable=redefined-builtin
+docstr = utils.docstr
+catch_errors = utils.catch_errors
+timeit = utils.timeit
+
+contextual_override = utils.contextual_override
+with_contextual_override = utils.with_contextual_override
+contextual_value = utils.contextual_value
+
+colored = utils.colored
+decolor = utils.decolor
+
+# Symbols from 'views' sub-module.
+
+from pyglove.core import views
+view = views.view
+view_options = views.view_options
+View = views.View
+Html = views.Html
+to_html = views.to_html
+to_html_str = views.to_html_str
+
+# NOTE(daiyip): Hack to add `controls` to `pg.views.html`.
+# We exclude `html.controls` from `pyglove.core.views.html` package to avoid
+# circular dependency between `pyglove.core.views.html` and
+# `pyglove.core.symbolic`.
+from pyglove.core.views.html import controls
+views.html.controls = controls
+
 
 #
 # Symbols from `io` sub-module.
@@ -301,6 +339,12 @@ catch_errors = object_utils.catch_errors
 
 from pyglove.core import io
 
+#
+# Symbols from `coding` sub-module.
+#
+#
+
+from pyglove.core import coding
 
 #
 # Symbols from `logging.py`.

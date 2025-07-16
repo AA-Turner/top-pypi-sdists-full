@@ -77,6 +77,8 @@ async def billing_for_tokens(
         api_key: Optional[str] = None,
 
         n: Optional[float] = None,  # 按次走以前逻辑也行
+
+        task_id: Optional[str] = None,
 ):
     """
 
@@ -90,11 +92,11 @@ async def billing_for_tokens(
             "total_tokens": total_tokens
         }
 
-            # usage = {
-        #     "prompt_tokens": input_tokens,
-        #     "completion_tokens": output_tokens,
-        #     "total_tokens": total_tokens
-        # }
+    usage = {
+            "prompt_tokens": input_tokens,
+            "completion_tokens": output_tokens,
+            "total_tokens": total_tokens
+        }
     """
     usage = usage or {}
     n = n and int(np.round(n))
@@ -104,7 +106,8 @@ async def billing_for_tokens(
         _ = await client.images.generate(
             model=model,
             prompt="ChatfireAPI",
-            n=n
+            n=n,
+            user=task_id
         )
 
     elif "input_tokens" in usage:
@@ -112,13 +115,17 @@ async def billing_for_tokens(
             model=model,
             prompt="ChatfireAPI",
             n=n,
-            extra_body={"extra_fields": usage}
+            extra_body={"extra_fields": usage},
+
+            user=task_id
         )
     else:
+        # todo 设计 id chatcmpl-NEdenEpvzGiKR2FfK2GmzK => 表达某些含义
         _ = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "ChatfireAPI"}],
-            extra_body={"extra_body": usage}
+            extra_body={"extra_body": usage},
+            user=task_id
         )
     return _
 
@@ -227,7 +234,10 @@ if __name__ == '__main__':
     #     "total_tokens": 101
     # }
     # n = 1
-    # arun(create_usage_for_tokens(usage=usage, n=n))
+    usage = {
+        "prompt_tokens": 1000, "completion_tokens": 100,  # "total_tokens": 2000,
+    }
+    arun(billing_for_tokens(model="tokens", usage=usage, id='xx'))
 
     # arun(create_usage_for_async_task(task_id="task_id", n=1))
 
@@ -270,12 +280,12 @@ if __name__ == '__main__':
     #   "progress": 99
     # }
 
-    data = {
-        "model": "veo3",
-        "prompt": "女人飞上天了",
-        "images": [
-            "https://oss.ffire.cc/files/kling_watermark.png"
-        ],
-        "enhance_prompt": True
-    }
-    print(get_billing_model(data, default_resolution=""))
+    # data = {
+    #     "model": "veo3",
+    #     "prompt": "女人飞上天了",
+    #     "images": [
+    #         "https://oss.ffire.cc/files/kling_watermark.png"
+    #     ],
+    #     "enhance_prompt": True
+    # }
+    # print(get_billing_model(data, default_resolution=""))

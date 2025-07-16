@@ -84,7 +84,7 @@ async def make_request_for_hunyuan(payload, token: Optional[str] = None, respons
 @retrying(min=3, ignored_exception_types=(IgnoredRetryException,))
 async def make_request_for_gitee(payload, token: Optional[str] = None, response_format: str = "url"):
     s = time.time()
-    feishu_url = "https://xchatllm.feishu.cn/sheets/MekfsfVuohfUf1tsWV0cCvTmn3c?sheet=PDnO6X"
+    feishu_url = "https://xchatllm.feishu.cn/sheets/Bmjtst2f6hfMqFttbhLcdfRJnNf?sheet=gg5DNy"
     token = token or await get_next_token_for_polling(feishu_url)
 
     logger.debug(token)

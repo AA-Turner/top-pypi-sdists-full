@@ -134,6 +134,12 @@ class ECSymbol(object):
 
         self._setDefaultFormat()
 
+    def __del__(self):
+        if self._symIterPtr:
+            rc = gmdFreeSymbolIterator(self._ecDB._gmd, self._symIterPtr)
+            self._ecDB._check_for_gmd_error(rc)
+            self._symIterPtr = None
+
     def __len__(self):
         ret = gmdSymbolInfo(self._ecDB._gmd, self._symPtr, GMD_NRRECORDS)
         self._ecDB._check_for_gmd_error(ret[0])
@@ -157,6 +163,8 @@ class ECSymbol(object):
                 )
                 self._ecDB._check_for_gmd_error(_intValueAndFree(rc))
                 rc = gmdSetElemText(self._ecDB._gmd, symIterPtr, parseValues(rec))
+                self._ecDB._check_for_gmd_error(rc)
+                rc = gmdFreeSymbolIterator(self._ecDB._gmd, symIterPtr)
                 self._ecDB._check_for_gmd_error(rc)
         elif keyType == KeyType.INT:
             keyArray = intArray(
@@ -190,6 +198,8 @@ class ECSymbol(object):
                 )
                 self._ecDB._check_for_gmd_error(_intValueAndFree(rc))
                 rc = gmdSetLevel(self._ecDB._gmd, symIterPtr, parseValues(rec))
+                self._ecDB._check_for_gmd_error(rc)
+                rc = gmdFreeSymbolIterator(self._ecDB._gmd, symIterPtr)
                 self._ecDB._check_for_gmd_error(rc)
         elif keyType == KeyType.INT:
             keyArray = intArray(
@@ -228,6 +238,8 @@ class ECSymbol(object):
                 rc = gmdSetUpper(self._ecDB._gmd, symIterPtr, values[3])
                 self._ecDB._check_for_gmd_error(rc)
                 rc = gmdSetScale(self._ecDB._gmd, symIterPtr, values[4])
+                self._ecDB._check_for_gmd_error(rc)
+                rc = gmdFreeSymbolIterator(self._ecDB._gmd, symIterPtr)
                 self._ecDB._check_for_gmd_error(rc)
         elif keyType == KeyType.INT:
             keyArray = intArray(
@@ -279,6 +291,8 @@ class ECSymbol(object):
                 tmpRecordFormat = RecordFormat.FLAT
             else:
                 tmpRecordFormat = RecordFormat.TUPLE
+            rc = gmdFreeSymbolIterator(self._ecDB._gmd, self._symIterPtr)
+            self._ecDB._check_for_gmd_error(rc)
         else:
             tmpRecordFormat = RecordFormat.FLAT
         self._symIterPtr = None
@@ -303,6 +317,9 @@ class ECSymbol(object):
             symIterPtr = gmdFindRecordPy(self._ecDB._gmd, self._symPtr, list(item), rc)
         self._ecDB._check_for_gmd_error(_intValueAndFree(rc))
         val = self._values(symIterPtr)
+        if symIterPtr:
+            rc = gmdFreeSymbolIterator(self._ecDB._gmd, symIterPtr)
+            self._ecDB._check_for_gmd_error(rc)
         if len(val) == 1:
             return val[0]
 

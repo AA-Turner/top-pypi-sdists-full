@@ -99,6 +99,8 @@ class UrlProvider:
                 page_key = "x-data-request-site-top-level-record-type-page"
             case PageType.ACTION:
                 page_key = "x-data-request-site-top-level-action-page"
+            case PageType.PROCESS_HQ:
+                page_key = "x-data-request-site-page-redirect"
             case _:
                 page_key = "x-data-request-site-top-level-report-page"
         uri_template_variables: Dict[str, Any] = {

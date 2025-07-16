@@ -36,7 +36,7 @@ class Completions(object):
 
         ###########################################################################
         # 开启视觉模型
-        if not any(i in request.model for i in ["vl", 'vision']) and (urls := request.last_urls.get("image_url")):
+        if not any(i in request.model.lower() for i in ["vl", 'vision']) and (urls := request.last_urls.get("image_url")):
             # logger.debug(request)
             if request.model.startswith(("gemini",)):
 

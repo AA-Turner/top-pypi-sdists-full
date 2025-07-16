@@ -25,7 +25,7 @@ from .bootstrapper import Bootstrapper
 from .checks import CheckLogContents, CheckLogSize, CheckMemoryUsage
 from .display import DISPLAYS, DisplayMode
 from .exceptions import BrowserExecutionError, InvalidPrefs, LaunchError
-from .helpers import prepare_environment, wait_on_files
+from .helpers import detect_sanitizer, prepare_environment, wait_on_files
 from .minidump_parser import MDSW_URL, MinidumpParser
 from .process_tree import ProcessTree
 from .profile import Profile
@@ -292,7 +292,10 @@ class FFPuppet:
         return self._logs.available_logs()
 
     def build_launch_cmd(
-        self, bin_path: str, additional_args: Sequence[str] | None = None
+        self,
+        bin_path: str,
+        additional_args: Sequence[str] | None = None,
+        sanitizer: str | None = None,
     ) -> list[str]:
         """Build a command that can be used to launch the browser.
 
@@ -402,9 +405,9 @@ class FFPuppet:
                 "rr",
                 "record",
             ]
-            if getenv("RR_ASAN") == "1":
+            if sanitizer == "asan" or getenv("RR_ASAN") == "1":
                 rr_cmd.append("--asan")
-            if getenv("RR_TSAN") == "1":
+            if sanitizer == "tsan" or getenv("RR_TSAN") == "1":
                 rr_cmd.append("--tsan")
             if getenv("RR_CHAOS") == "1":
                 rr_cmd.append("--chaos")
@@ -552,8 +555,8 @@ class FFPuppet:
                     for md_file in (self.profile.path / "minidumps").glob("*"):
                         copy(md_file, dmps)
                 # use DEBUG_DMP to copy dmp files to a known location
-                debug_dmp = Path(getenv("DEBUG_DMP", ""))
-                if debug_dmp.is_dir():
+                debug_dmp = getenv("DEBUG_DMP")
+                if debug_dmp:
                     for md_file in (self.profile.path / "minidumps").glob("*"):
                         copy(md_file, debug_dmp)
                 # check for local build symbols
@@ -581,8 +584,11 @@ class FFPuppet:
                     llvm_sym: str | None = None
                     if (self._bin_path / LLVM_SYMBOLIZER).exists():
                         llvm_sym = str(self._bin_path / LLVM_SYMBOLIZER)
-                        LOG.debug("found packaged llvm-symbolizer")
-                    LOG.debug("symbolizing sanitizer logs")
+                    LOG.debug(
+                        "found packaged LLVM_SYMBOLIZER: %s, symbolizing logs: %d",
+                        llvm_sym is not None,
+                        len(sanitizer_logs),
+                    )
                     for entry in sanitizer_logs:
                         if not symbolize_log(entry, llvm_symbolizer=llvm_sym):
                             LOG.warning("Failed to symbolize '%s'", entry)
@@ -727,6 +733,9 @@ class FFPuppet:
         bin_path = bin_path.resolve()
         if not bin_path.is_file() or not access(bin_path, X_OK):
             raise OSError(f"{bin_path} is not an executable")
+        detected_sanitizer = detect_sanitizer(bin_path)
+        LOG.debug("detected sanitizer: %s", detected_sanitizer)
+
         # need the path to help find symbols
         self._bin_path = bin_path.parent
 
@@ -802,7 +811,11 @@ class FFPuppet:
 
             self.profile.add_prefs(prefs)
 
-            cmd = self.build_launch_cmd(str(bin_path), additional_args=launch_args)
+            cmd = self.build_launch_cmd(
+                str(bin_path),
+                additional_args=launch_args,
+                sanitizer=detected_sanitizer,
+            )
 
             # open logs
             self._logs.add_log("stdout")
@@ -824,6 +837,7 @@ class FFPuppet:
                 env=prepare_environment(
                     self._logs.path / self._logs.PREFIX_SAN,
                     env_mod=env_mod,
+                    sanitizer=detected_sanitizer,
                 ),
                 shell=False,
                 stderr=stderr,

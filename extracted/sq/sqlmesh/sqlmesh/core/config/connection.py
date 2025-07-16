@@ -238,7 +238,10 @@ class DuckDBAttachOptions(BaseConfig):
             options.append("READ_ONLY")
 
         # DuckLake specific options
+        path = self.path
         if self.type == "ducklake":
+            if not path.startswith("ducklake:"):
+                path = f"ducklake:{path}"
             if self.data_path is not None:
                 options.append(f"DATA_PATH '{self.data_path}'")
             if self.encrypted:
@@ -254,7 +257,7 @@ class DuckDBAttachOptions(BaseConfig):
         alias_sql = (
             f" AS {alias}" if not (self.type == "motherduck" or self.path.startswith("md:")) else ""
         )
-        return f"ATTACH IF NOT EXISTS '{self.path}'{alias_sql}{options_sql}"
+        return f"ATTACH IF NOT EXISTS '{path}'{alias_sql}{options_sql}"
 
 
 class BaseDuckDBConnectionConfig(ConnectionConfig):
@@ -1624,7 +1627,32 @@ class MSSQLConnectionConfig(ConnectionConfig):
             # Create the connection string
             conn_str = ";".join(conn_str_parts)
 
-            return pyodbc.connect(conn_str, autocommit=kwargs.get("autocommit", False))
+            conn = pyodbc.connect(conn_str, autocommit=kwargs.get("autocommit", False))
+
+            # Set up output converters for MSSQL-specific data types
+            # Handle SQL type -155 (DATETIMEOFFSET) which is not yet supported by pyodbc
+            # ref: https://github.com/mkleehammer/pyodbc/issues/134#issuecomment-281739794
+            def handle_datetimeoffset(dto_value: t.Any) -> t.Any:
+                from datetime import datetime, timedelta, timezone
+                import struct
+
+                # Unpack the DATETIMEOFFSET binary format:
+                # Format: <6hI2h = (year, month, day, hour, minute, second, nanoseconds, tz_hour_offset, tz_minute_offset)
+                tup = struct.unpack("<6hI2h", dto_value)
+                return datetime(
+                    tup[0],
+                    tup[1],
+                    tup[2],
+                    tup[3],
+                    tup[4],
+                    tup[5],
+                    tup[6] // 1000,
+                    timezone(timedelta(hours=tup[7], minutes=tup[8])),
+                )
+
+            conn.add_output_converter(-155, handle_datetimeoffset)
+
+            return conn
 
         return connect
 

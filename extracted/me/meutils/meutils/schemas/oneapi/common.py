@@ -22,7 +22,8 @@ MJ_FAST = 1.5
 STEP = 2
 MINIMAX_VIDEO = 3
 
-FAL = {
+FAL = 3
+FAL_MODELS = {
     'fal-elevenlabs-tts-turbo-v2.5': 0.3,
     'fal-kling-video-lipsync-audio-to-video': 0.5,
 
@@ -46,14 +47,24 @@ FAL = {
     'fal-flux-pro-kontext-max': 0.08 * 3,
     'fal-flux-pro-kontext-max-text-to-image': 0.08 * 3,
     'fal-flux-pro-kontext-max-multi': 0.08 * 3,
+
+    # hailuo
+    "fal-ai/minimax/hailuo-02/standard/text-to-video": 0.27 * FAL,  # 6 10
+    "fal-ai/minimax/hailuo-02/standard/image-to-video": 0.27 * FAL,  # 6 10
+
+    "fal-ai/minimax/hailuo-02/pro/text-to-video": 0.48 * FAL,
+    "fal-ai/minimax/hailuo-02/pro/image-to-video": 0.48 * FAL,
+
 }
 
-FAL = {model.replace("fal-ai", "fal").replace("{{BASE_URL}}/", "").replace("/", "-").lower(): v for model, v in
-       FAL.items()}
+FAL_MODELS = {
+    model.replace("fal-ai", "fal").replace("{{BASE_URL}}/", "").replace("/", "-").lower(): v for model, v in
+    FAL_MODELS.items()}
 
 MODEL_PRICE = {
-    **FAL,
+    **FAL_MODELS,
 
+    "async-task": 0.0001,
     "chatfire-claude": 0.02,
     "o1:free": FREE,
     # "claude-3-7-sonnet-code:free": "claude-3-7-sonnet-code"
@@ -63,6 +74,11 @@ MODEL_PRICE = {
     "black-forest-labs/FLUX.1-pro": 0.0001,
 
     "gpt-search": 0.02,
+
+    # audio
+    "indextts-1.5": 0.02,
+    "cosyvoice2": 0.02,
+    "step-audio-tts-3b": 0.02,
 
     # 谷歌
     "gemini-2.0-flash-search": 0.01,
@@ -116,6 +132,7 @@ MODEL_PRICE = {
 
     # veo
     "veo3": 2,
+    "veo3-frames": 2,
     "veo3-pro": 8,
     "veo3-pro-frames": 8,
 
@@ -225,21 +242,6 @@ MODEL_PRICE = {
 
     "deepseek-ai/Janus-Pro-7B": 0.01,
 
-    # replicate
-    "api-replicate-flux-1.1-pro": 0.040,
-    "api-replicate-flux-1.1-pro-ultra": 0.060,
-    "api-replicate-flux-dev": 0.025,
-    "api-replicate-flux-pro": 0.055,
-    "api-replicate-flux-schnell": 0.003,
-    "api-replicate-ideogram-v2": 0.080,
-    "api-replicate-ideogram-v2-turbo": 0.050,
-    "api-replicate-recraft-v3": 0.040,
-    "api-replicate-recraft-v3-svg": 0.080,
-    "api-replicate-stable-diffusion-3": 0.035,
-    "api-replicate-stable-diffusion-3.5-large": 0.065,
-    "api-replicate-stable-diffusion-3.5-large-turbo": 0.040,
-    "api-replicate-stable-diffusion-3.5-medium": 0.035,
-
     # sd
     "stable-diffusion-xl-base-1.0": 0.01,
     "stable-diffusion-2-1": 0.01,
@@ -269,10 +271,6 @@ MODEL_PRICE = {
     "chat-kolors": 0.02,
     "chat-kling": 0.02,
     "chat-video": 0.1,
-    "chat-video-kling": 0.1,
-    "chat-video-gen3": 0.1,
-    "chat-video-vidu": 0.1,
-    "chat-video-vidu-vip": 0.3,
     "chat-flux.1.1-pro": 0.1,
 
     # aitools
@@ -348,7 +346,6 @@ MODEL_PRICE = {
     "o1-mini-all": 0.2,
     "o1-preview-all": 0.6,
 
-    "o3": 0.6 * 0.8,
     "o3-mini": 0.05,
     "o3-mini-high": 0.1,
 
@@ -423,7 +420,9 @@ MODEL_PRICE = {
 
     # MJ
     "mj-chat": 0.3,
+    "mj_fast_video": 0.8 * MJ_FAST,
 
+    "mj_fast_edits": 0.1 * MJ_FAST,
     "mj_fast_blend": 0.1 * MJ_FAST,
     "mj_fast_custom_oom": 0,
     "mj_fast_describe": 0.05 * MJ_FAST,
@@ -470,10 +469,21 @@ MODEL_PRICE = {
 }
 
 MODEL_RATIO = {
+    # elevenlabs
+    "elevenlabs/scribe_v1": 3 * 0.03 * 1000 / 60 / 2,  # Your request will cost $0.03 per minute of audio transcribed
+    "elevenlabs/eleven_turbo_v2_5": 3 * 0.05 * 1000 / 2,  # Your request will cost $0.05 per thousand characters.
+
+    # fal 按量计费
+    "fal-topaz-upscale-video": 3 * 0.1 * 1000 / 2,
+    "fal-luma-dream-machine-ray-2-reframe": 3 * 0.2 * 1000 / 2,
+    "fal-luma-dream-machine-ray-2-flash-reframe": 3 * 0.06 * 1000 / 2,
+
     # 智能体
     "gpt-4-plus": 2.5,
     "gpt-4o-plus": 2.5,
     "jina-deepsearch": 2,
+    "jina-deepsearch-v1": 2,
+
     "deepresearch": 2,
     "deepsearch": 2,
 
@@ -517,12 +527,30 @@ MODEL_RATIO = {
     "grok-3-mini-beta": 0.15,
     "grok-3-mini-fast-beta": 0.3,
 
+    "grok-4": 1.5,
+
     # 定制
     "lingxi-all": 1,
+
+    # 月之暗面 https://platform.moonshot.cn/docs/price/chat#%E4%BA%A7%E5%93%81%E5%AE%9A%E4%BB%B7
+    "kimi-latest-8k": 1,
+    "kimi-latest-32k": 2.5,
+    "kimi-latest-128k": 5,
+
+    "moonshot-v1-8k": 1,
+    "moonshot-v1-32k": 2.5,
+    "moonshot-v1-128k": 5,
+
+    "kimi-vl-a3b-thinking": 1,
+    "moonshot-v1-8k-vision-preview": 1,
+    "moonshot-v1-32k-vision-preview": 2.5,
+    "moonshot-v1-128k-vision-preview": 5,
 
     "kimi": 5,
     "kimi-128k": 5,
     "kimi-dev-72b": 1,
+    "moonshotai/kimi-k2-instruct": 2,
+    "kimi-k2-0711-preview": 2,
 
     # 智谱 https://www.bigmodel.cn/pricing
     'glm-4-9b-chat': 0.1,
@@ -547,19 +575,8 @@ MODEL_RATIO = {
     "glm-z1-air": 0.25,  # "glm-z1-air": "glm-z1-air==THUDM/GLM-Z1-32B-0414"
     "glm-z1-airx": 2.5,  # "glm-z1-airx": "glm-z1-airx==THUDM/GLM-Z1-Rumination-32B-0414"
 
-    # 月之暗面 https://platform.moonshot.cn/docs/price/chat#%E4%BA%A7%E5%93%81%E5%AE%9A%E4%BB%B7
-    "kimi-latest-8k": 1,
-    "kimi-latest-32k": 2.5,
-    "kimi-latest-128k": 5,
-
-    "moonshot-v1-8k": 1,
-    "moonshot-v1-32k": 2.5,
-    "moonshot-v1-128k": 5,
-
-    "kimi-vl-a3b-thinking": 1,
-    "moonshot-v1-8k-vision-preview": 1,
-    "moonshot-v1-32k-vision-preview": 2.5,
-    "moonshot-v1-128k-vision-preview": 5,
+    "glm-4.1v-thinking-flash": 0.1,
+    "glm-4.1v-thinking-flashx": 1,
 
     # 阿里千问 https://dashscope.console.aliyun.com/billing
     "qwen-long": 0.25,
@@ -597,7 +614,7 @@ MODEL_RATIO = {
     "qwen3-235b-a22b": 2,
     "qwen-math-plus": 2,
 
-    "qwq-32b": 1,
+    "qwq-32b": 0.5,
     "qwq-plus": 0.8,
     "qwq-max": 0.8,
     "qwq-max-search": 2,
@@ -698,6 +715,7 @@ MODEL_RATIO = {
     "deepseek-r1-250528": 2,
     "deepseek-r1-250528-qwen3-8b": 0.3,
     "deepseek-r1-250528-think": 2,
+    "deepseek-r1-160k": 2,
 
     "deepseek-search": 1,
     'deepseek-r1-search': 2,
@@ -797,6 +815,13 @@ MODEL_RATIO = {
     "hunyuan-a13b-instruct": 0.5,
 
     # 百度文心
+    "baidu/ernie-4.5-300b-a47b": 2,  # sili
+    "baidu/ernie-4.5-vl-424b-a47b": 2,  # pp
+
+    "baidu/ernie-4.5-0.3b": 0.1,  # pp免费
+    "baidu/ernie-4.5-21B-a3b": 0.1,  # pp免费
+    "baidu/ernie-4.5-vl-28b-a3b": 0.1,  # pp免费
+
     "ernie-4.5-turbo-vl-32k": 0.45,
     "ernie-4.5-turbo-128k": 0.12,
     "ernie-x1-turbo-32k": 0.15,
@@ -823,6 +848,7 @@ MODEL_RATIO = {
     "tts-1-hd": 15,
     "tts-1-hd-1106": 15,
     "whisper-1": 15,
+    "whisper-large-v3-turbo": 15,
 
     # claude
 
@@ -1007,6 +1033,7 @@ MODEL_RATIO = {
 
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": 0.1,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 0.2,
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo": 0.2,
 
     # groq https://console.groq.com/docs/models
     "llama3-8b-8192": 0.01,
@@ -1061,6 +1088,8 @@ COMPLETION_RATIO = {
     "gpt-4-plus": 5,
     "gpt-4o-plus": 5,
     "jina-deepsearch": 4,
+    "jina-deepsearch-v1": 4,
+
     "deepresearch": 4,
     "deepsearch": 4,
 
@@ -1070,6 +1099,8 @@ COMPLETION_RATIO = {
     "kimi-latest-128k": 3,
     "kimi-dev-72b": 4,
     "kimi-vl-a3b-thinking": 5,
+    "moonshotai/kimi-k2-instruct": 4,
+    "kimi-k2-0711-preview": 4,
 
     "moonshot-v1-8k": 5,
     "moonshot-v1-32k": 4,
@@ -1092,6 +1123,7 @@ COMPLETION_RATIO = {
     "grok-3-fast-beta": 5,
     "grok-3-mini-beta": 5 / 3,
     "grok-3-mini-fast-beta": 4 / 0.6,
+    "grok-4": 5,
 
     "gpt-4-all": 4,
     "gpt-4-gizmo-*": 4,
@@ -1154,8 +1186,9 @@ COMPLETION_RATIO = {
     "llama-3.1-405b-instruct": 6,
     "meta-llama/Meta-Llama-3.1-405B-Instruct": 6,
 
-    "meta-llama/Llama-4-Scout-17B-16E-Instruct": 3,
-    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 3,
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": 4,
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 4,
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo": 4,
 
     "llama-3.3-70b-instruct": 4,
 
@@ -1170,6 +1203,14 @@ COMPLETION_RATIO = {
 
     "command-r-08-2024": 4,
     "command-r-plus-08-2024": 4,
+
+    # 百度
+    "baidu/ernie-4.5-300b-a47b": 4,  # sili
+    "baidu/ernie-4.5-vl-424b-a47b": 4,  # pp
+
+    "baidu/ernie-4.5-0.3b": 4,  # pp免费  baidu/ernie-4.5-0.3b,baidu/ernie-4.5-21B-a3b,baidu/ernie-4.5-vl-28b-a3b
+    "baidu/ernie-4.5-21B-a3b": 4,  # pp免费
+    "baidu/ernie-4.5-vl-28b-a3b": 4,  # pp免费
 
     "ERNIE-Speed-8K": 3,
     "ERNIE-Speed-128K": 3,
@@ -1232,11 +1273,9 @@ COMPLETION_RATIO = {
     "qwen2.5-coder-32b-instruct": 3,
 
     "qwen-turbo-2024-11-01": 3,
-    "qwen/qwq-32b-preview": 3,
-    "Qwen/QwQ-32B-Preview": 3,
-    "qwq-32b": 3,
 
-    "qwq-32b-preview": 3,
+    "qwq-32b": 2,
+
     "qvq-72b-preview": 3,
 
     "qwen-long": 4,
@@ -1360,8 +1399,9 @@ COMPLETION_RATIO = {
     "deepseek-v3-fast": 4,
 
     'deepseek-r1': 4,
+    "deepseek-r1-160k": 5,
+
     'deepseek-reasoner': 4,
-    "deepseek-reasoner-164k": 8,
     "deepseek-r1-250120": 4,
     "deepseek-r1-0528": 4,
     "deepseek-r1-250528": 4,
@@ -1393,6 +1433,8 @@ COMPLETION_RATIO = {
     "glm-zero": 5,
     "glm-zero-preview": 5,
     "glm-4v-flash": 5,
+    "glm-4.1v-thinking-flash": 2,
+    "glm-4.1v-thinking-flashx": 4,
 
     "step-1-flash": 5,
     "step-1-8k": 5,
@@ -1610,4 +1652,6 @@ if __name__ == '__main__':
 
     print([k for k in MODEL_RATIO if k.startswith(('deepseek', 'doubao', 'moon'))] | xjoin(","))
 
-    print(','.join(FAL))
+    print([k for k in MODEL_PRICE if k.startswith(('chat-',))] | xjoin(","))
+
+    # print(','.join(FAL))

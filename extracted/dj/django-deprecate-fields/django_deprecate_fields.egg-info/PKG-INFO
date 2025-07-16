@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-deprecate-fields
-Version: 0.2.1
+Version: 0.2.2
 Summary: This package allows deprecating model fields and allows removing them in a backwards compatible manner.
 Home-page: https://github.com/3YOURMIND/django-deprecate-fields
 Author: 3YOURMIND GmbH

@@ -39,7 +39,7 @@ AUDIO_TRANSCRIPTIONS_PARAMS = get_function_params(fn=OpenAI(api_key='').audio.tr
 
 
 def to_openai_params(
-        request: Union[dict, CompletionRequest, ChatCompletionRequest, ImageRequest, TTSRequest, STTRequest],
+        request: Union[dict, CompletionRequest, ChatCompletionRequest, ImageRequest, ImageEditRequest, TTSRequest, STTRequest],
         redirect_model: Optional[str] = None,
 ) -> dict:
     data = copy.deepcopy(request)
@@ -66,7 +66,7 @@ def to_openai_params(
     data['extra_body'] = extra_body  # 拓展字段
     data['model'] = redirect_model or data['model']
 
-    if request.model.startswith(("gemini",)):
+    if data['model'].startswith(("gemini",)):
         data.pop("extra_body", None)
         data.pop("presence_penalty", None)
         data.pop("frequency_penalty", None)
@@ -156,7 +156,7 @@ async def ppu_flow(
     成功，充足，后扣费
     成功，不足，报错
     """
-    post =post.lower()
+    post = post.lower()
     if n is not None and n > 0:  # todo: 跳过某些用户
         try:
             user_money, api_key_money = await asyncio.gather(*[get_user_money(api_key), get_api_key_money(api_key)])

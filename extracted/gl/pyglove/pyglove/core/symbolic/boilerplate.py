@@ -15,14 +15,12 @@
 
 import copy
 import inspect
-
 from typing import Any, List, Optional, Type
 
-from pyglove.core import object_utils
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.symbolic import flags
 from pyglove.core.symbolic import object as pg_object
-from pyglove.core.symbolic import schema_utils
 
 
 def boilerplate_class(
@@ -130,9 +128,9 @@ def boilerplate_class(
   cls.auto_register = True
 
   allow_partial = value.allow_partial
-  def _freeze_field(path: object_utils.KeyPath,
-                    field: pg_typing.Field,
-                    value: Any) -> Any:
+  def _freeze_field(
+      path: utils.KeyPath, field: pg_typing.Field, value: Any
+  ) -> Any:
     # We do not do validation since Object is already in valid form.
     del path
     if not isinstance(field.key, pg_typing.ListKey):
@@ -152,18 +150,14 @@ def boilerplate_class(
     return value
 
   # NOTE(daiyip): we call `cls.__schema__.apply` to freeze fields that have
-  # default values. But we no longer need to formalize `cls.__schema__`, since
-  # it's copied from the boilerplate object's class which was already
-  # formalized.
+  # default values.
   with flags.allow_writable_accessors():
     cls.__schema__.apply(
         value._sym_attributes,  # pylint: disable=protected-access
         allow_partial=allow_partial,
         child_transform=_freeze_field,
     )
-
-  if init_arg_list is not None:
-    schema_utils.validate_init_arg_list(init_arg_list, cls.__schema__)
-    cls.__schema__.metadata['init_arg_list'] = init_arg_list
+  cls.__schema__.metadata['init_arg_list'] = init_arg_list
+  cls.apply_schema(cls.__schema__)
   cls.register_for_deserialization(serialization_key, additional_keys)
   return cls

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mockafka-py
-Version: 0.2.0
+Version: 0.2.1
 Summary: A mock library for confluent kafka
 Author: alm0ra
 Author-email: ali.mrd318@gmail.com

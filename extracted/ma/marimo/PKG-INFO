@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo
-Version: 0.14.10
+Version: 0.14.11
 Summary: A library for making reactive notebooks and apps
 Project-URL: homepage, https://github.com/marimo-team/marimo
 License: 
@@ -266,7 +266,7 @@ Requires-Dist: pillow!=11.3.0,>=10.2.0; extra == 'docs'
 Requires-Dist: pymdown-extensions>=10.7; extra == 'docs'
 Provides-Extra: lsp
 Requires-Dist: python-lsp-ruff>=2.0.0; extra == 'lsp'
-Requires-Dist: python-lsp-server>=1.10.0; extra == 'lsp'
+Requires-Dist: python-lsp-server>=1.13.0; extra == 'lsp'
 Provides-Extra: recommended
 Requires-Dist: altair>=5.4.0; extra == 'recommended'
 Requires-Dist: duckdb>=1.0.0; extra == 'recommended'

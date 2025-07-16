@@ -78,7 +78,7 @@ class geom_crossbar(geom):
         panel_params: panel_view,
         coord: coord,
         ax: Axes,
-        **params: Any,
+        params: dict[str, Any],
     ):
         y = data["y"]
         xmin = data["xmin"]
@@ -88,7 +88,7 @@ class geom_crossbar(geom):
         group = data["group"]
 
         # From violin
-        notchwidth = typing.cast(float, params.get("notchwidth"))
+        notchwidth = typing.cast("float", params.get("notchwidth"))
         # ynotchupper = data.get('ynotchupper')
         # ynotchlower = data.get('ynotchlower')
 
@@ -110,8 +110,7 @@ class geom_crossbar(geom):
 
             if any(ynotchlower < ymin) or any(ynotchupper > ymax):
                 warn(
-                    "Notch went outside the hinges. "
-                    "Try setting notch=False.",
+                    "Notch went outside the hinges. Try setting notch=False.",
                     PlotnineWarning,
                 )
 
@@ -161,8 +160,8 @@ class geom_crossbar(geom):
             )
 
         copy_missing_columns(box, data)
-        geom_polygon.draw_group(box, panel_params, coord, ax, **params)
-        geom_segment.draw_group(middle, panel_params, coord, ax, **params)
+        geom_polygon.draw_group(box, panel_params, coord, ax, params)
+        geom_segment.draw_group(middle, panel_params, coord, ax, params)
 
     @staticmethod
     def draw_legend(

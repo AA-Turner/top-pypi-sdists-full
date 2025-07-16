@@ -475,6 +475,8 @@ __all__ = (
     "ClusterNodeSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
     "ClusterOrchestratorTypeDef",
+    "ClusterRestrictedInstanceGroupDetailsTypeDef",
+    "ClusterRestrictedInstanceGroupSpecificationTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
     "ClusterSummaryTypeDef",
     "CodeEditorAppImageConfigOutputTypeDef",
@@ -958,6 +960,8 @@ __all__ = (
     "EndpointStepMetadataTypeDef",
     "EndpointSummaryTypeDef",
     "EndpointTypeDef",
+    "EnvironmentConfigDetailsTypeDef",
+    "EnvironmentConfigTypeDef",
     "EnvironmentParameterRangesOutputTypeDef",
     "EnvironmentParameterRangesTypeDef",
     "EnvironmentParameterTypeDef",
@@ -970,6 +974,7 @@ __all__ = (
     "ExplainerConfigOutputTypeDef",
     "ExplainerConfigTypeDef",
     "ExplainerConfigUnionTypeDef",
+    "FSxLustreConfigTypeDef",
     "FSxLustreFileSystemConfigTypeDef",
     "FSxLustreFileSystemTypeDef",
     "FailStepMetadataTypeDef",
@@ -1313,6 +1318,9 @@ __all__ = (
     "ListPipelineParametersForExecutionRequestPaginateTypeDef",
     "ListPipelineParametersForExecutionRequestTypeDef",
     "ListPipelineParametersForExecutionResponseTypeDef",
+    "ListPipelineVersionsRequestPaginateTypeDef",
+    "ListPipelineVersionsRequestTypeDef",
+    "ListPipelineVersionsResponseTypeDef",
     "ListPipelinesRequestPaginateTypeDef",
     "ListPipelinesRequestTypeDef",
     "ListPipelinesResponseTypeDef",
@@ -1558,6 +1566,8 @@ __all__ = (
     "PipelineExperimentConfigTypeDef",
     "PipelineSummaryTypeDef",
     "PipelineTypeDef",
+    "PipelineVersionSummaryTypeDef",
+    "PipelineVersionTypeDef",
     "PredefinedMetricSpecificationTypeDef",
     "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
@@ -1899,6 +1909,8 @@ __all__ = (
     "UpdatePipelineExecutionResponseTypeDef",
     "UpdatePipelineRequestTypeDef",
     "UpdatePipelineResponseTypeDef",
+    "UpdatePipelineVersionRequestTypeDef",
+    "UpdatePipelineVersionResponseTypeDef",
     "UpdateProjectInputTypeDef",
     "UpdateProjectOutputTypeDef",
     "UpdateSpaceRequestTypeDef",
@@ -2147,7 +2159,7 @@ class BatchDeleteClusterNodesErrorTypeDef(TypedDict):
 
 class BatchDeleteClusterNodesRequestTypeDef(TypedDict):
     ClusterName: str
-    NodeIds: Sequence[str]
+    NodeIds: NotRequired[Sequence[str]]
 
 class BatchDescribeModelPackageErrorTypeDef(TypedDict):
     ErrorCode: str
@@ -3086,7 +3098,7 @@ class DescribeAutoMLJobV2RequestTypeDef(TypedDict):
 
 class DescribeClusterNodeRequestTypeDef(TypedDict):
     ClusterName: str
-    NodeId: str
+    NodeId: NotRequired[str]
 
 class DescribeClusterRequestTypeDef(TypedDict):
     ClusterName: str
@@ -3395,6 +3407,7 @@ class PipelineExperimentConfigTypeDef(TypedDict):
 
 class DescribePipelineRequestTypeDef(TypedDict):
     PipelineName: str
+    PipelineVersionId: NotRequired[int]
 
 class DescribeProcessingJobRequestTypeDef(TypedDict):
     ProcessingJobName: str
@@ -3679,6 +3692,10 @@ class EndpointSummaryTypeDef(TypedDict):
     CreationTime: datetime
     LastModifiedTime: datetime
     EndpointStatus: EndpointStatusType
+
+class FSxLustreConfigTypeDef(TypedDict):
+    SizeInGiB: int
+    PerUnitStorageThroughput: int
 
 class EnvironmentParameterTypeDef(TypedDict):
     Key: str
@@ -4123,6 +4140,14 @@ class ListPipelineParametersForExecutionRequestTypeDef(TypedDict):
 class ParameterTypeDef(TypedDict):
     Name: str
     Value: str
+
+class PipelineVersionSummaryTypeDef(TypedDict):
+    PipelineArn: NotRequired[str]
+    PipelineVersionId: NotRequired[int]
+    CreationTime: NotRequired[datetime]
+    PipelineVersionDescription: NotRequired[str]
+    PipelineVersionDisplayName: NotRequired[str]
+    LastExecutionPipelineExecutionArn: NotRequired[str]
 
 class PipelineSummaryTypeDef(TypedDict):
     PipelineArn: NotRequired[str]
@@ -4830,6 +4855,12 @@ class UpdateMonitoringAlertRequestTypeDef(TypedDict):
     DatapointsToAlert: int
     EvaluationPeriod: int
 
+class UpdatePipelineVersionRequestTypeDef(TypedDict):
+    PipelineArn: str
+    PipelineVersionId: int
+    PipelineVersionDisplayName: NotRequired[str]
+    PipelineVersionDescription: NotRequired[str]
+
 class UpdateTrialRequestTypeDef(TypedDict):
     TrialName: str
     DisplayName: NotRequired[str]
@@ -5411,6 +5442,12 @@ class UpdatePipelineExecutionResponseTypeDef(TypedDict):
 
 class UpdatePipelineResponseTypeDef(TypedDict):
     PipelineArn: str
+    PipelineVersionId: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdatePipelineVersionResponseTypeDef(TypedDict):
+    PipelineArn: str
+    PipelineVersionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProjectOutputTypeDef(TypedDict):
@@ -7411,6 +7448,21 @@ class ListPipelineExecutionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListPipelineVersionsRequestPaginateTypeDef(TypedDict):
+    PipelineName: str
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPipelineVersionsRequestTypeDef(TypedDict):
+    PipelineName: str
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListPipelinesRequestPaginateTypeDef(TypedDict):
     PipelineNamePrefix: NotRequired[str]
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -8090,6 +8142,13 @@ class ListEndpointsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class EnvironmentConfigDetailsTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+    S3OutputPath: NotRequired[str]
+
+class EnvironmentConfigTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+
 class ModelConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
     EnvironmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
@@ -8416,6 +8475,11 @@ class ListPipelineExecutionsResponseTypeDef(TypedDict):
 
 class ListPipelineParametersForExecutionResponseTypeDef(TypedDict):
     PipelineParameters: List[ParameterTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPipelineVersionsResponseTypeDef(TypedDict):
+    PipelineVersionSummaries: List[PipelineVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9482,6 +9546,8 @@ class DescribePipelineResponseTypeDef(TypedDict):
     CreatedBy: UserContextTypeDef
     LastModifiedBy: UserContextTypeDef
     ParallelismConfiguration: ParallelismConfigurationTypeDef
+    PipelineVersionDisplayName: str
+    PipelineVersionDescription: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrialComponentResponseTypeDef(TypedDict):
@@ -9583,6 +9649,19 @@ class PipelineTypeDef(TypedDict):
     LastModifiedBy: NotRequired[UserContextTypeDef]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     Tags: NotRequired[List[TagTypeDef]]
+
+class PipelineVersionTypeDef(TypedDict):
+    PipelineArn: NotRequired[str]
+    PipelineVersionId: NotRequired[int]
+    PipelineVersionDisplayName: NotRequired[str]
+    PipelineVersionDescription: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    CreatedBy: NotRequired[UserContextTypeDef]
+    LastModifiedBy: NotRequired[UserContextTypeDef]
+    LastExecutedPipelineExecutionArn: NotRequired[str]
+    LastExecutedPipelineExecutionDisplayName: NotRequired[str]
+    LastExecutedPipelineExecutionStatus: NotRequired[PipelineExecutionStatusType]
 
 class TrialComponentSimpleSummaryTypeDef(TypedDict):
     TrialComponentName: NotRequired[str]
@@ -9972,6 +10051,7 @@ class DescribePipelineExecutionResponseTypeDef(TypedDict):
     LastModifiedBy: UserContextTypeDef
     ParallelismConfiguration: ParallelismConfigurationTypeDef
     SelectiveExecutionConfig: SelectiveExecutionConfigOutputTypeDef
+    PipelineVersionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PipelineExecutionTypeDef(TypedDict):
@@ -9989,6 +10069,8 @@ class PipelineExecutionTypeDef(TypedDict):
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigOutputTypeDef]
     PipelineParameters: NotRequired[List[ParameterTypeDef]]
+    PipelineVersionId: NotRequired[int]
+    PipelineVersionDisplayName: NotRequired[str]
 
 SelectiveExecutionConfigUnionTypeDef = Union[
     SelectiveExecutionConfigTypeDef, SelectiveExecutionConfigOutputTypeDef
@@ -10859,6 +10941,7 @@ class StartPipelineExecutionRequestTypeDef(TypedDict):
     PipelineExecutionDescription: NotRequired[str]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigUnionTypeDef]
+    PipelineVersionId: NotRequired[int]
 
 CreateInferenceExperimentRequestTypeDef = TypedDict(
     "CreateInferenceExperimentRequestTypeDef",
@@ -11100,6 +11183,22 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     TrainingPlanStatus: NotRequired[str]
     OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+
+class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
+    CurrentCount: NotRequired[int]
+    TargetCount: NotRequired[int]
+    InstanceGroupName: NotRequired[str]
+    InstanceType: NotRequired[ClusterInstanceTypeType]
+    ExecutionRole: NotRequired[str]
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
+    Status: NotRequired[InstanceGroupStatusType]
+    TrainingPlanArn: NotRequired[str]
+    TrainingPlanStatus: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+    EnvironmentConfig: NotRequired[EnvironmentConfigDetailsTypeDef]
 
 class ScheduledUpdateConfigTypeDef(TypedDict):
     ScheduleExpression: str
@@ -11631,6 +11730,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     CreationTime: datetime
     FailureMessage: str
     InstanceGroups: List[ClusterInstanceGroupDetailsTypeDef]
+    RestrictedInstanceGroups: List[ClusterRestrictedInstanceGroupDetailsTypeDef]
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
     NodeRecovery: ClusterNodeRecoveryType
@@ -11887,6 +11987,19 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
 
+class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
+    InstanceCount: int
+    InstanceGroupName: str
+    InstanceType: ClusterInstanceTypeType
+    ExecutionRole: str
+    EnvironmentConfig: EnvironmentConfigTypeDef
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
+    TrainingPlanArn: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
+
 class AlgorithmValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
     ValidationProfiles: List[AlgorithmValidationProfileOutputTypeDef]
@@ -12053,6 +12166,9 @@ ModelPackageValidationSpecificationUnionTypeDef = Union[
 class CreateClusterRequestTypeDef(TypedDict):
     ClusterName: str
     InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
+    RestrictedInstanceGroups: NotRequired[
+        Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
+    ]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
@@ -12061,6 +12177,9 @@ class CreateClusterRequestTypeDef(TypedDict):
 class UpdateClusterRequestTypeDef(TypedDict):
     ClusterName: str
     InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
+    RestrictedInstanceGroups: NotRequired[
+        Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
+    ]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
 
@@ -12220,6 +12339,7 @@ class SearchRecordTypeDef(TypedDict):
     ModelPackageGroup: NotRequired[ModelPackageGroupTypeDef]
     Pipeline: NotRequired[PipelineTypeDef]
     PipelineExecution: NotRequired[PipelineExecutionTypeDef]
+    PipelineVersion: NotRequired[PipelineVersionTypeDef]
     FeatureGroup: NotRequired[FeatureGroupTypeDef]
     FeatureMetadata: NotRequired[FeatureMetadataTypeDef]
     Project: NotRequired[ProjectTypeDef]

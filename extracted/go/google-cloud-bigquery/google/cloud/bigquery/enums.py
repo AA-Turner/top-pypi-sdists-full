@@ -80,6 +80,24 @@ class CreateDisposition(object):
     returned in the job result."""
 
 
+class DatasetView(enum.Enum):
+    """DatasetView specifies which dataset information is returned."""
+
+    DATASET_VIEW_UNSPECIFIED = "DATASET_VIEW_UNSPECIFIED"
+    """The default value. Currently maps to the FULL view."""
+
+    METADATA = "METADATA"
+    """View metadata information for the dataset, such as friendlyName,
+    description, labels, etc."""
+
+    ACL = "ACL"
+    """View ACL information for the dataset, which defines dataset access
+    for one or more entities."""
+
+    FULL = "FULL"
+    """View both dataset metadata and ACL information."""
+
+
 class DefaultPandasDTypes(enum.Enum):
     """Default Pandas DataFrem DTypes to convert BigQuery data. These
     Sentinel values are used instead of None to maintain backward compatibility,
@@ -409,6 +427,24 @@ class BigLakeTableFormat(object):
     """Apache Iceberg format."""
 
 
+class UpdateMode(enum.Enum):
+    """Specifies the kind of information to update in a dataset."""
+
+    UPDATE_MODE_UNSPECIFIED = "UPDATE_MODE_UNSPECIFIED"
+    """The default value. Behavior defaults to UPDATE_FULL."""
+
+    UPDATE_METADATA = "UPDATE_METADATA"
+    """Includes metadata information for the dataset, such as friendlyName,
+    description, labels, etc."""
+
+    UPDATE_ACL = "UPDATE_ACL"
+    """Includes ACL information for the dataset, which defines dataset access
+    for one or more entities."""
+
+    UPDATE_FULL = "UPDATE_FULL"
+    """Includes both dataset metadata and ACL information."""
+
+
 class JobCreationMode(object):
     """Documented values for Job Creation Mode."""
 
@@ -426,3 +462,21 @@ class JobCreationMode(object):
     The conditions under which BigQuery can decide to not create a Job are
     subject to change.
     """
+
+
+class SourceColumnMatch(str, enum.Enum):
+    """Uses sensible defaults based on how the schema is provided.
+    If autodetect is used, then columns are matched by name. Otherwise, columns
+    are matched by position. This is done to keep the behavior backward-compatible.
+    """
+
+    SOURCE_COLUMN_MATCH_UNSPECIFIED = "SOURCE_COLUMN_MATCH_UNSPECIFIED"
+    """Unspecified column name match option."""
+
+    POSITION = "POSITION"
+    """Matches by position. This assumes that the columns are ordered the same
+    way as the schema."""
+
+    NAME = "NAME"
+    """Matches by name. This reads the header row as column names and reorders
+    columns to match the field names in the schema."""

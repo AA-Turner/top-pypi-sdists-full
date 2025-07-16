@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -622,7 +622,7 @@ class AwkwardProtocol(Protocol):
     def __getitem__(self, where: typing.Any) -> float | ak.Array | ak.Record | None: ...
 
 
-class _lib(typing.NamedTuple):
+class _lib(typing.NamedTuple):  # noqa: PLW1641
     """a wrapper that respects the numpy-like interface of awkward-array and the module interface of numpy"""
 
     module: types.ModuleType

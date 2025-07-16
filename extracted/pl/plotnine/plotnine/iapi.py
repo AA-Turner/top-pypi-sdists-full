@@ -10,6 +10,7 @@ from __future__ import annotations
 import itertools
 from copy import copy
 from dataclasses import dataclass, field, fields
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,11 +20,14 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from plotnine.scales.scale import scale
+    from plotnine.themes.elements.margin import margin
     from plotnine.typing import (
         CoordRange,
         FloatArrayLike,
+        HorizontalJustification,
         ScaledAestheticsName,
         StripPosition,
+        VerticalJustification,
     )
 
     from ._mpl.offsetbox import FlexibleAnchoredOffsetbox
@@ -76,6 +80,7 @@ class labels_view:
     title: Optional[str] = None
     caption: Optional[str] = None
     subtitle: Optional[str] = None
+    tag: Optional[str] = None
 
     def update(self, other: labels_view):
         """
@@ -228,19 +233,40 @@ class strip_draw_info:
     Information required to draw strips
     """
 
-    x: float
-    y: float
-    ha: str
-    va: str
-    box_width: float
-    box_height: float
-    strip_text_margin: float
+    bg_x: float
+    """Left of the strip background in transAxes"""
+
+    bg_y: float
+    """Bottom of the strip background in transAxes"""
+
+    ha: HorizontalJustification | float
+    """Horizontal justification of strip text within the background"""
+
+    va: VerticalJustification | float
+    """Vertical justification of strip text within the background"""
+
+    bg_width: float
+    """Width of the strip background in transAxes"""
+
+    bg_height: float
+    """Height of the strip background in transAxes"""
+
+    margin: margin
+    """Strip text margin with the units in lines"""
+
     strip_align: float
     position: StripPosition
     label: str
     ax: Axes
     rotation: float
     layout: layout_details
+
+    @cached_property
+    def is_oneline(self) -> bool:
+        """
+        Whether the strip text is a single line
+        """
+        return len(self.label.split("\n")) == 1
 
 
 @dataclass

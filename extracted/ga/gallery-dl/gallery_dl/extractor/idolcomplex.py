@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright 2018-2023 Mike Fährmann
+# Copyright 2018-2025 Mike Fährmann
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -159,7 +159,7 @@ class IdolcomplexTagExtractor(IdolcomplexExtractor):
 
     def __init__(self, match):
         IdolcomplexExtractor.__init__(self, match)
-        query = text.parse_query(match.group(1))
+        query = text.parse_query(match[1])
         self.tags = text.unquote(query.get("tags", "").replace("+", " "))
         self.start_page = text.parse_int(query.get("page"), 1)
         self.next = text.parse_int(query.get("next"), 0)
@@ -184,7 +184,7 @@ class IdolcomplexTagExtractor(IdolcomplexExtractor):
 
         tags = self.tags.split()
         if not self.logged_in and len(tags) > 4:
-            raise exception.StopExtraction(
+            raise exception.AbortExtraction(
                 "Non-members can only search up to 4 tags at once")
         return {"search_tags": " ".join(tags)}
 

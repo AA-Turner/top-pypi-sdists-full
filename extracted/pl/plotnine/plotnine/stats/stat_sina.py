@@ -57,10 +57,19 @@ class stat_sina(stat):
         - `area` - Scale by the largest density/bin among the different sinas
         - `count` - areas are scaled proportionally to the number of points
         - `width` - Only scale according to the maxwidth parameter.
+    style :
+        Type of sina plot to draw. The options are
+        ```python
+        'full'        # Regular (2 sided)
+        'left'        # Left-sided half
+        'right'       # Right-sided half
+        'left-right'  # Alternate (left first) half by the group
+        'right-left'  # Alternate (right first) half by the group
+        ```
 
     See Also
     --------
-    plotnine.geom_sina
+    plotnine.geom_sina : The default `geom` for this `stat`.
     """
 
     _aesthetics_doc = """
@@ -91,6 +100,7 @@ class stat_sina(stat):
         "bin_limit": 1,
         "random_state": None,
         "scale": "area",
+        "style": "full",
     }
     CREATES = {"scaled"}
 
@@ -101,12 +111,12 @@ class stat_sina(stat):
             and (data["x"] != data["x"].iloc[0]).any()
         ):
             raise TypeError(
-                "Continuous x aesthetic -- did you forget " "aes(group=...)?"
+                "Continuous x aesthetic -- did you forget aes(group=...)?"
             )
         return data
 
     def setup_params(self, data):
-        params = self.params.copy()
+        params = self.params
         random_state = params["random_state"]
 
         if params["maxwidth"] is None:
@@ -127,10 +137,9 @@ class stat_sina(stat):
         params["clip"] = (-np.inf, np.inf)
         params["bounds"] = (-np.inf, np.inf)
         params["n"] = 512
-        return params
 
-    @classmethod
-    def compute_panel(cls, data, scales, **params):
+    def compute_panel(self, data, scales):
+        params = self.params
         maxwidth = params["maxwidth"]
         random_state = params["random_state"]
         fuzz = 1e-8
@@ -144,7 +153,7 @@ class stat_sina(stat):
         else:
             params["bins"] = breaks_from_bins(y_dim_fuzzed, params["bins"])
 
-        data = super(cls, stat_sina).compute_panel(data, scales, **params)
+        data = super().compute_panel(data, scales)
 
         if not len(data):
             return data
@@ -188,11 +197,10 @@ class stat_sina(stat):
 
         return data
 
-    @classmethod
-    def compute_group(cls, data, scales, **params):
-        maxwidth = params["maxwidth"]
-        bins = params["bins"]
-        bin_limit = params["bin_limit"]
+    def compute_group(self, data, scales):
+        maxwidth = self.params["maxwidth"]
+        bins = self.params["bins"]
+        bin_limit = self.params["bin_limit"]
         weight = None
         y = data["y"]
 
@@ -205,12 +213,12 @@ class stat_sina(stat):
         elif len(np.unique(y)) < 2:
             data["density"] = 1
             data["scaled"] = 1
-        elif params["method"] == "density":
+        elif self.params["method"] == "density":
             from scipy.interpolate import interp1d
 
             # density kernel estimation
             range_y = y.min(), y.max()
-            dens = compute_density(y, weight, range_y, **params)
+            dens = compute_density(y, weight, range_y, self.params)
             densf = interp1d(
                 dens["x"],
                 dens["density"],
@@ -243,8 +251,31 @@ class stat_sina(stat):
 
         return data
 
-    def finish_layer(self, data, params):
+    def finish_layer(self, data):
         # Rescale x in case positions have been adjusted
+        style = self.params["style"]
+        x_mean = data["x"].to_numpy()
         x_mod = (data["xmax"] - data["xmin"]) / data["width"]
         data["x"] = data["x"] + data["x_diff"] * x_mod
+        x = data["x"].to_numpy()
+        even = data["group"].to_numpy() % 2 == 0
+
+        def mirror_x(bool_idx):
+            """
+            Mirror x locations along the mean value
+            """
+            data.loc[bool_idx, "x"] = (
+                2 * x_mean[bool_idx] - data.loc[bool_idx, "x"]
+            )
+
+        match style:
+            case "left":
+                mirror_x(x_mean < x)
+            case "right":
+                mirror_x(x < x_mean)
+            case "left-right":
+                mirror_x(even & (x < x_mean) | ~even & (x_mean < x))
+            case "right-left":
+                mirror_x(even & (x_mean < x) | ~even & (x < x_mean))
+
         return data

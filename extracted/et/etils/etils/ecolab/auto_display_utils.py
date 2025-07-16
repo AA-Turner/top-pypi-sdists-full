@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from etils.ecolab import highlight_util
 from etils.ecolab.inspects import core as inspects
 from etils.etree import jax as etree  # pylint: disable=g-importing-member
 import IPython
+from IPython.lib import pretty
 import packaging.version
 
 _T = TypeVar('_T')
@@ -402,7 +403,7 @@ def _unparse_line(node: ast.AST) -> ast.Constant:
   return ast.Constant(ast.unparse(node))
 
 
-def disp(obj: Any, *, mode: str = '') -> None:
+def disp(obj: Any, mode: str = '') -> None:
   """Display the object.
 
   This is the functional API for the `;` auto display magic.
@@ -434,14 +435,14 @@ def _display_and_return(
   if _Options.SPEC in options:  # Convert to spec
     x = etree.spec_like(x)
 
-  repr_fn = repr
+  repr_fn = pretty.pretty
   display_fn = IPython.display.display
   if line_code and _Options.SYNTAX_HIGHLIGHT not in options:
     print(line_code + ' = ', end='')
     # When the next element is a `IPython.display`, the next element is
     # displayed on a new line. This is because `display()` create a new
     # <div> section. So use standard `print` when line is displayed.
-    display_fn = lambda x: print(repr(x))
+    display_fn = lambda x: print(pretty.pretty(x))
 
   if _Options.PPRINT in options:
     repr_fn = epy.pretty_repr

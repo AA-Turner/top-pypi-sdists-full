@@ -21,7 +21,7 @@ class ThemeTargets:
     """
     Artists that will be themed
 
-    This includes only artist that cannot be accessed easily from
+    This includes only artist that cannot be easily accessed from
     the figure or the axes.
     """
 
@@ -37,7 +37,9 @@ class ThemeTargets:
     panel_border: list[Rectangle] = field(default_factory=list)
     plot_caption: Optional[Text] = None
     plot_subtitle: Optional[Text] = None
+    plot_tag: Optional[Text] = None
     plot_title: Optional[Text] = None
+    plot_background: Optional[Rectangle] = None
     strip_background_x: list[StripTextPatch] = field(default_factory=list)
     strip_background_y: list[StripTextPatch] = field(default_factory=list)
     strip_text_x: list[StripText] = field(default_factory=list)

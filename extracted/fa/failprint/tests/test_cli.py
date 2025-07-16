@@ -1,16 +1,19 @@
-"""Tests for the `cli` module."""
+"""Tests for the CLI."""
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
-from failprint import cli, debug
+from failprint._internal import debug
+from failprint._internal.cli import main
 
 
 def test_fail_without_arguments() -> None:
     """Fails without arguments."""
     with pytest.raises(SystemExit):
-        cli.main([])
+        main([])
 
 
 def test_show_help(capsys: pytest.CaptureFixture) -> None:
@@ -20,14 +23,14 @@ def test_show_help(capsys: pytest.CaptureFixture) -> None:
         capsys: Pytest fixture to capture output.
     """
     with pytest.raises(SystemExit):
-        cli.main(["-h"])
+        main(["-h"])
     captured = capsys.readouterr()
     assert "failprint" in captured.out
 
 
 def test_run_command() -> None:
     """Run a simple command."""
-    assert cli.main(["echo", "hello"]) == 0
+    assert main(["--", sys.executable, "-c", "print('hello')"]) == 0
 
 
 def test_accept_custom_format(capsys: pytest.CaptureFixture) -> None:
@@ -36,7 +39,7 @@ def test_accept_custom_format(capsys: pytest.CaptureFixture) -> None:
     Arguments:
         capsys: Pytest fixture to capture output.
     """
-    assert cli.main(["--no-progress", "-f", "custom={{output}}", "echo", "custom"]) == 0
+    assert main(["--no-progress", "-f", "custom={{output}}", "--", sys.executable, "-c", "print('custom')"]) == 0
     outerr = capsys.readouterr()
     assert "custom" in outerr.out
 
@@ -48,9 +51,9 @@ def test_show_version(capsys: pytest.CaptureFixture) -> None:
         capsys: Pytest fixture to capture output.
     """
     with pytest.raises(SystemExit):
-        cli.main(["-V"])
+        main(["-V"])
     captured = capsys.readouterr()
-    assert debug.get_version() in captured.out
+    assert debug._get_version() in captured.out
 
 
 def test_show_debug_info(capsys: pytest.CaptureFixture) -> None:
@@ -60,7 +63,7 @@ def test_show_debug_info(capsys: pytest.CaptureFixture) -> None:
         capsys: Pytest fixture to capture output.
     """
     with pytest.raises(SystemExit):
-        cli.main(["--debug-info"])
+        main(["--debug-info"])
     captured = capsys.readouterr().out.lower()
     assert "python" in captured
     assert "system" in captured

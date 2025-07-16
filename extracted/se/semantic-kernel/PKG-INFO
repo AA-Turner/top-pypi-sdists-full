@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.34.0
+Version: 1.35.0
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -42,7 +42,7 @@ Requires-Dist: protobuf
 Requires-Dist: typing-extensions>=4.13
 Requires-Dist: anthropic ~= 0.32 ; extra == "anthropic"
 Requires-Dist: autogen-agentchat >= 0.2, <0.4 ; extra == "autogen"
-Requires-Dist: boto3>=1.36.4,<1.39.0 ; extra == "aws"
+Requires-Dist: boto3>=1.36.4,<1.40.0 ; extra == "aws"
 Requires-Dist: azure-ai-inference >= 1.0.0b6 ; extra == "azure"
 Requires-Dist: azure-core-tracing-opentelemetry >= 1.0.0b11 ; extra == "azure"
 Requires-Dist: azure-search-documents >= 11.6.0b4 ; extra == "azure"
@@ -61,7 +61,7 @@ Requires-Dist: mcp>=1.8 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.6 ; extra == "milvus"
 Requires-Dist: milvus >= 2.3,<2.3.8 ; extra == "milvus" and ( platform_system != 'Windows')
 Requires-Dist: mistralai >= 1.2,< 2.0 ; extra == "mistralai"
-Requires-Dist: pymongo >= 4.8.0, < 4.13 ; extra == "mongo"
+Requires-Dist: pymongo >= 4.8.0, < 4.14 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
 Requires-Dist: ipykernel ~= 6.29 ; extra == "notebooks"
 Requires-Dist: ollama ~= 0.4 ; extra == "ollama"

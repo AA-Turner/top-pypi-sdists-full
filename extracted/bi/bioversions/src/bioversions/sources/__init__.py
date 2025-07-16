@@ -75,7 +75,66 @@ from .zfin import ZfinGetter
 from ..utils import Getter, VersionResult, norm, refresh_daily
 
 __all__ = [
+    "AntibodyRegistryGetter",
+    "BiGGGetter",
+    "BioGRIDGetter",
+    "CellosaurusGetter",
+    "ChEBIGetter",
+    "ChEMBLGetter",
+    "ChemIDplusGetter",
+    "CiVICGetter",
+    "ComplexPortalGetter",
+    "DGIGetter",
+    "DepMapGetter",
+    "DisGeNetGetter",
+    "DrugBankGetter",
+    "DrugCentralGetter",
+    "EnsemblGetter",
+    "ExPASyGetter",
+    "FlybaseGetter",
+    "GTDBGetter",
+    "GuideToPharmacologyGetter",
+    "HGNCGetter",
+    "HomoloGeneGetter",
+    "ICD10Getter",
+    "ICD11Getter",
+    "ICFGetter",
+    "ITISGetter",
+    "IntActGetter",
+    "InterProGetter",
+    "KEGGGetter",
+    "MGIGetter",
+    "MOAlmanacGetter",
+    "MSigDBGetter",
+    "MeshGetter",
+    "MirbaseGetter",
+    "NCBIGeneGetter",
+    "NCItGetter",
+    "NPASSGetter",
+    "OMIMGetter",
+    "OncoTreeGetter",
+    "PRGetter",
+    "PathBankGetter",
+    "PathwayCommonsGetter",
+    "PfamGetter",
+    "PombaseGetter",
+    "PubChemGetter",
+    "RGDGetter",
+    "ReactomeGetter",
+    "RfamGetter",
+    "RheaGetter",
+    "RxNormGetter",
+    "SILVAGetter",
+    "SPDXGetter",
+    "SgdGetter",
+    "SignorGetter",
+    "StringDBGetter",
+    "SwissLipidGetter",
+    "UMLSGetter",
+    "UniProtGetter",
     "VersionFailure",
+    "WikiPathwaysGetter",
+    "ZfinGetter",
     "clear_cache",
     "get_rows",
     "get_version",
@@ -257,8 +316,8 @@ def iter_versions(
             it.set_postfix(name=cls.name)
             try:
                 yv = resolve(cls.name)
-            except (OSError, AttributeError, ftplib.error_perm):
-                msg = f"[{cls.bioregistry_id or cls.name}] failed to resolve"
+            except (OSError, AttributeError, ftplib.error_perm) as e:
+                msg = f"[{cls.bioregistry_id or cls.name}] failed to resolve: {e}"
                 tqdm.write(msg)
                 yield VersionFailure(cls.name, cls.__name__, msg, traceback.format_exc())
             except (ValueError, KeyError) as e:

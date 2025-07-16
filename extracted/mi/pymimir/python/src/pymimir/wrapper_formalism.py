@@ -41,7 +41,6 @@ from pymimir.advanced.formalism import StaticLiteralList as AdvancedStaticLitera
 from pymimir.advanced.formalism import StaticPredicate as AdvancedStaticPredicate
 from pymimir.advanced.formalism import Term as AdvancedTerm
 from pymimir.advanced.formalism import TermList as AdvancedTermList
-from pymimir.advanced.formalism import Translator as AdvancedTranslator
 from pymimir.advanced.formalism import Variable as AdvancedVariable
 from pymimir.advanced.formalism import VariableList as AdvancedVariableList
 from pymimir.advanced.search import ConjunctiveConditionSatisficingBindingGenerator
@@ -1398,6 +1397,19 @@ class GroundAction:
         """
         return [GroundConditionalEffect(x) for x in self._advanced_ground_action.get_conditional_effects()]
 
+    def is_applicable(self, state: 'State') -> 'bool':
+        """
+        Check if the ground action is applicable in the given state.
+
+        :param state: The state to check applicability against.
+        :type state: State
+        :return: True if the ground action is applicable, False otherwise.
+        :rtype: bool
+        """
+        assert isinstance(state, State), "Invalid state type."
+        assert state._problem == self._problem, "State and action belong to different problems."
+        return self.get_precondition().holds(state)
+
     def apply(self, state: 'State') -> 'State':
         """
         Apply the ground action to the given state.
@@ -1466,9 +1478,7 @@ class Domain:
         """
         assert isinstance(domain_path, (Path, str)), "Invalid domain path type."
         self._advanced_parser = AdvancedParser(domain_path, AdvancedParserOptions())
-        original_domain = self._advanced_parser.get_domain()
-        self._advanced_translator = AdvancedTranslator(original_domain)
-        self._advanced_domain = self._advanced_translator.get_translated_domain()
+        self._advanced_domain = self._advanced_parser.get_domain()
         self._repositories = self._advanced_domain.get_repositories()
 
     def get_name(self) -> 'str':
@@ -1647,8 +1657,7 @@ class Problem:
             raise ValueError("Invalid mode. Use 'lifted' or 'grounded'.")
         search_mode = SearchMode.LIFTED if mode == 'lifted' else SearchMode.GROUNDED
         self._domain = domain
-        original_problem = domain._advanced_parser.parse_problem(problem_path, AdvancedParserOptions())
-        self._advanced_problem = domain._advanced_translator.translate(original_problem)
+        self._advanced_problem = domain._advanced_parser.parse_problem(problem_path, AdvancedParserOptions())
         self._search_context = SearchContext.create(self._advanced_problem, SearchContextOptions(search_mode))
         self._static_ground_atom_indices = { atom.get_index() for atom in self._advanced_problem.get_static_initial_atoms() }
 
@@ -1960,7 +1969,7 @@ class State:
         """
         return self._problem
 
-    def get_ground_atoms(self, ignore_static = False, ignore_fluent = False, ignore_derived = False) -> 'list[GroundAtom]':
+    def get_atoms(self, ignore_static = False, ignore_fluent = False, ignore_derived = False) -> 'list[GroundAtom]':
         """
         Returns the ground atoms of the state.
 
@@ -2128,7 +2137,7 @@ class State:
         :return: A string representation of the state.
         :rtype: str
         """
-        return self._advanced_state.to_string(self._problem._advanced_problem)
+        return str(self._advanced_state)
 
     def __repr__(self) -> 'str':
         """
@@ -2418,7 +2427,7 @@ class ConjunctiveCondition:
             ground_literals.extend([GroundLiteral(x) for x in self._advanced_conjunctive_condition.get_nullary_ground_derived_literals()])
         return ground_literals
 
-    def ground(self, state: 'State', max_groundings: int = -1, blacklist: list[Predicate] = None) -> 'list[GroundConjunctiveCondition]':
+    def ground(self, state: 'State', max_groundings: int = -1, blacklist: 'list[Predicate]' = None) -> 'list[GroundConjunctiveCondition]':
         """
         Ground the conjunctive condition.
 

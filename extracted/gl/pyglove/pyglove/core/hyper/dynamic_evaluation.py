@@ -18,9 +18,9 @@ import types
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 from pyglove.core import geno
-from pyglove.core import object_utils
 from pyglove.core import symbolic
 from pyglove.core import typing as pg_typing
+from pyglove.core import utils
 from pyglove.core.hyper import base
 from pyglove.core.hyper import categorical
 from pyglove.core.hyper import custom
@@ -243,7 +243,7 @@ class DynamicEvaluationContext:
     """Registers a parameter with current context and return its first value."""
     def _add_child_decision_point(c):
       if isinstance(c, types.LambdaType):
-        s = pg_typing.get_signature(c)
+        s = pg_typing.signature(c, auto_typing=False, auto_doc=False)
         if not s.args and not s.has_wildcard_args:
           sub_context = DynamicEvaluationContext(
               where=self._where, per_thread=self._per_thread)
@@ -464,7 +464,7 @@ class DynamicEvaluationContext:
     get_current_decision = self._decision_getter
     def _apply_child(c):
       if isinstance(c, types.LambdaType):
-        s = pg_typing.get_signature(c)
+        s = pg_typing.signature(c, auto_typing=False, auto_doc=False)
         if not s.args and not s.has_wildcard_args:
           return c()
       return c
@@ -520,10 +520,10 @@ class _DynamicEvaluationStack:
   @property
   def _local_stack(self):
     """Returns thread-local stack."""
-    stack = object_utils.thread_local_get(self._TLS_KEY, None)
+    stack = utils.thread_local_get(self._TLS_KEY, None)
     if stack is None:
       stack = []
-      object_utils.thread_local_set(self._TLS_KEY, stack)
+      utils.thread_local_set(self._TLS_KEY, stack)
     return stack
 
   def push(self, context: DynamicEvaluationContext):
@@ -585,4 +585,3 @@ def trace(
   with context.collect():
     fun()
   return context
-

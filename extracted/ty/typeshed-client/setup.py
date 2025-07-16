@@ -1,10 +1,10 @@
 import ast
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
-from setuptools import setup
+from setuptools import setup  # type: ignore[import-untyped]
 
 current_dir = Path(__file__).parent.resolve()
 ts_client_dir = current_dir / "typeshed_client"
@@ -37,6 +37,7 @@ setup(
     version=version,
     description="A library for accessing stubs in typeshed.",
     long_description=Path("README.rst").read_text(),
+    long_description_content_type="text/x-rst",
     keywords="typeshed typing annotations",
     author="Jelle Zijlstra",
     author_email="jelle.zijlstra@gmail.com",
@@ -55,13 +56,13 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

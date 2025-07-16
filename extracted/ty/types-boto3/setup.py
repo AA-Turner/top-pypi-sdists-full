@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3",
-    version="1.39.4",
+    version="1.39.6",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.39.4 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.39.6 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["types-boto3-full>=1.39.0, <1.40.0"],
-        "boto3": ["boto3==1.39.4"],
+        "boto3": ["boto3==1.39.6"],
         "all": [
             "types-boto3-accessanalyzer>=1.39.0, <1.40.0",
             "types-boto3-account>=1.39.0, <1.40.0",
@@ -392,6 +392,7 @@ setup(
             "types-boto3-s3control>=1.39.0, <1.40.0",
             "types-boto3-s3outposts>=1.39.0, <1.40.0",
             "types-boto3-s3tables>=1.39.0, <1.40.0",
+            "types-boto3-s3vectors>=1.39.0, <1.40.0",
             "types-boto3-sagemaker>=1.39.0, <1.40.0",
             "types-boto3-sagemaker-a2i-runtime>=1.39.0, <1.40.0",
             "types-boto3-sagemaker-edge>=1.39.0, <1.40.0",
@@ -827,6 +828,7 @@ setup(
         "s3control": ["types-boto3-s3control>=1.39.0, <1.40.0"],
         "s3outposts": ["types-boto3-s3outposts>=1.39.0, <1.40.0"],
         "s3tables": ["types-boto3-s3tables>=1.39.0, <1.40.0"],
+        "s3vectors": ["types-boto3-s3vectors>=1.39.0, <1.40.0"],
         "sagemaker": ["types-boto3-sagemaker>=1.39.0, <1.40.0"],
         "sagemaker-a2i-runtime": ["types-boto3-sagemaker-a2i-runtime>=1.39.0, <1.40.0"],
         "sagemaker-edge": ["types-boto3-sagemaker-edge>=1.39.0, <1.40.0"],

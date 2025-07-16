@@ -35,7 +35,7 @@ __all__ = (
 )
 
 DescribeServicesPaginatorName = Literal["describe_services"]
-FilterTypeType = Literal["TERM_MATCH"]
+FilterTypeType = Literal["ANY_OF", "CONTAINS", "EQUALS", "NONE_OF", "TERM_MATCH"]
 GetAttributeValuesPaginatorName = Literal["get_attribute_values"]
 GetProductsPaginatorName = Literal["get_products"]
 ListPriceListsPaginatorName = Literal["list_price_lists"]
@@ -376,6 +376,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

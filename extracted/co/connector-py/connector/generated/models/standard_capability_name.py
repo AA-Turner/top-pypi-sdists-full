@@ -41,6 +41,7 @@ class StandardCapabilityName(str, Enum):
     HANDLE_AUTHORIZATION_CALLBACK = 'handle_authorization_callback'
     HANDLE_CLIENT_CREDENTIALS_REQUEST = 'handle_client_credentials_request'
     LIST_ACCOUNTS = 'list_accounts'
+    GET_ACCOUNT = 'get_account'
     LIST_ACTIVITY_RECORDS = 'list_activity_records'
     LIST_CUSTOM_ATTRIBUTES_SCHEMA = 'list_custom_attributes_schema'
     LIST_ENTITLEMENTS = 'list_entitlements'

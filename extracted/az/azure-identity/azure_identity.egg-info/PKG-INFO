@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-identity
-Version: 1.23.0
+Version: 1.23.1
 Summary: Microsoft Azure Identity Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/identity/azure-identity
 Author: Microsoft Corporation
@@ -428,6 +428,13 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 
 # Release History
+
+## 1.23.1 (2025-07-15)
+
+### Bugs Fixed
+
+- Fixed an issue with `AzurePowerShellCredential` not working correctly for users still using older versions of PowerShell (e.g., Windows PowerShell 5.1) where `-AsPlainText` is not supported in the `ConvertFrom-SecureString` cmdlet.  ([#41675](https://github.com/Azure/azure-sdk-for-python/pull/41675))
+- Fixed an issue with `AzureCliCredential` being unable to find the correct `az` executable for certain Python versions on Windows. ([#41806](https://github.com/Azure/azure-sdk-for-python/pull/41806))
 
 ## 1.23.0 (2025-05-13)
 

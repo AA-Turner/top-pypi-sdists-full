@@ -69,7 +69,6 @@ from g4f.cookies import read_cookie_files, get_cookies_dir
 from g4f.providers.types import ProviderType
 from g4f.providers.response import AudioResponse
 from g4f.providers.any_provider import AnyProvider
-from g4f.config import STATIC_URL
 from g4f import Provider
 from g4f.gui import get_gui_app
 from .stubs import (
@@ -116,10 +115,11 @@ def create_app():
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=".*",
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
 
     api = Api(app)
@@ -231,7 +231,7 @@ class Api:
         @self.app.middleware("http")
         async def authorization(request: Request, call_next):
             user = None
-            if AppConfig.g4f_api_key is not None or AppConfig.demo:
+            if request.method != "OPTIONS" and AppConfig.g4f_api_key is not None or AppConfig.demo:
                 try:
                     user_g4f_api_key = await self.get_g4f_api_key(request)
                 except HTTPException:
@@ -257,10 +257,11 @@ class Api:
                     user = "admin"
                 path = request.url.path
                 if path.startswith("/v1") or path.startswith("/api/") or (AppConfig.demo and path == '/backend-api/v2/upload_cookies'):
-                    if user_g4f_api_key is None:
-                        return ErrorResponse.from_message("G4F API key required", HTTP_401_UNAUTHORIZED)
-                    if AppConfig.g4f_api_key is None and user is None:
-                        return ErrorResponse.from_message("Invalid G4F API key", HTTP_403_FORBIDDEN)
+                    if request.method != "OPTIONS":
+                        if user_g4f_api_key is None:
+                            return ErrorResponse.from_message("G4F API key required", HTTP_401_UNAUTHORIZED)
+                        if AppConfig.g4f_api_key is None and user is None:
+                            return ErrorResponse.from_message("Invalid G4F API key", HTTP_403_FORBIDDEN)
                 elif not AppConfig.demo and not path.startswith("/images/") and not path.startswith("/media/"):
                     if user_g4f_api_key is not None:
                         if user is None:
@@ -276,8 +277,6 @@ class Api:
                     user = f"{user}:{ip}" if user else ip
                 request = update_headers(request, user)
             response = await call_next(request)
-            if "Access-Control-Allow-Origin" not in response.headers:
-                response.headers["Access-Control-Allow-Origin"] = STATIC_URL
             return response
 
     def register_validation_exception_handler(self):
@@ -365,6 +364,10 @@ class Api:
             }
 
         @self.app.get("/v1/models/{model_name}", responses={
+            HTTP_200_OK: {"model": ModelResponseModel},
+            HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
+        })
+        @self.app.post("/v1/models/{model_name}", responses={
             HTTP_200_OK: {"model": ModelResponseModel},
             HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
         })
@@ -755,7 +758,7 @@ class Api:
                 if m:
                     return int(m.group(0))
                 else:
-                    raise ValueError("No timestamp found in filename")
+                    return 0
             target = os.path.join(get_media_dir(), os.path.basename(filename))
             if thumbnail and has_pillow:
                 thumbnail_dir = os.path.join(get_media_dir(), "thumbnails")

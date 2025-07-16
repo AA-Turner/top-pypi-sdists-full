@@ -148,19 +148,74 @@ def convert_def(d: ir.Def) -> logic_pb2.Def:
 
 def convert_loop(l: ir.Loop) -> logic_pb2.Loop:
     return logic_pb2.Loop(
-        init=[convert_def(init_def) for init_def in l.init],
-        body=[convert_declaration(decl) for decl in l.body]
+        init=[convert_instruction(init_def) for init_def in l.init],
+        body=convert_script(l.body)
     )
 
 def convert_declaration(decl: ir.Declaration) -> logic_pb2.Declaration:
+    from typing import Dict, Any
     if isinstance(decl, ir.Def):
-        from typing import Dict, Any
         decl_dict: Dict[str, Any] = {'def': convert_def(decl)}
         return logic_pb2.Declaration(**decl_dict)  # type: ignore
-    elif isinstance(decl, ir.Loop):
-        return logic_pb2.Declaration(loop=convert_loop(decl))
+    elif isinstance(decl, ir.Algorithm):
+        algorithm_dict: Dict[str, Any] = {'algorithm': convert_algorithm(decl)}
+        return logic_pb2.Declaration(**algorithm_dict)
     else:
         raise TypeError(f"Unsupported Declaration type: {type(decl)}")
+
+def convert_algorithm(algo: ir.Algorithm)-> logic_pb2.Algorithm:
+    dict: Dict[str, Any] = {
+        'global': [convert_relation_id(id) for id in algo.global_],
+        'body':convert_script(algo.body)
+    }
+    return logic_pb2.Algorithm(**dict)
+
+def convert_instruction(instr: ir.Instruction) -> logic_pb2.Instruction:
+    from typing import Dict, Any
+    if isinstance(instr, ir.Assign):
+        dict: Dict[str, Any] = {'assign': convert_assign(instr)}
+        return logic_pb2.Instruction(**dict)
+    elif isinstance(instr, ir.Break):
+        dict: Dict[str, Any] = {'break': convert_break(instr)}
+        return logic_pb2.Instruction(**dict)
+    elif isinstance(instr, ir.Upsert):
+        dict: Dict[str, Any] = {'upsert': convert_upsert(instr)}
+        return logic_pb2.Instruction(**dict)
+    else:
+        raise TypeError(f"Unsupported Instruction type: {type(instr)}")
+
+def convert_assign(instr: ir.Assign) -> logic_pb2.Assign:
+    return logic_pb2.Assign(
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+def convert_break(instr: ir.Break) -> logic_pb2.Break:
+    return logic_pb2.Break(
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+def convert_upsert(instr: ir.Upsert) -> logic_pb2.Upsert:
+    return logic_pb2.Upsert(
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+
+def convert_script(script: ir.Script) -> logic_pb2.Script:
+    return logic_pb2.Script(constructs=[convert_construct(c) for c in script.constructs])
+
+def convert_construct(construct: ir.Construct) -> logic_pb2.Construct:
+    from typing import Dict, Any
+    if isinstance(construct, ir.Loop):
+        loop_dict: Dict[str, Any] = {'loop': convert_loop(construct)}
+        return logic_pb2.Construct(**loop_dict)  # type: ignore
+    elif isinstance(construct, ir.Instruction):
+        instruction_dict: Dict[str, Any] = {'instruction': convert_instruction(construct)}
+        return logic_pb2.Construct(**instruction_dict)
+    else:
+        raise TypeError(f"Unsupported Construct type: {type(construct)}")
 
 def convert_fragment(frag: ir.Fragment) -> fragments_pb2.Fragment:
     return fragments_pb2.Fragment(
@@ -204,6 +259,28 @@ def convert_output(o: ir.Output) -> transactions_pb2.Output:
         kwargs['name'] = o.name
     return transactions_pb2.Output(**kwargs) # type: ignore
 
+def convert_export(e: ir.Export) -> transactions_pb2.Export:
+    return transactions_pb2.Export(csv_config=convert_export_config(e.config)) # type: ignore
+
+def convert_export_config(ec: ir.ExportCSVConfig) -> transactions_pb2.ExportCSVConfig:
+    return transactions_pb2.ExportCSVConfig(
+        data_columns=[convert_export_csv_column(c) for c in ec.data_columns],
+        path=ec.path,
+        partition_size=ec.partition_size if ec.partition_size is not None else 0,
+        compression=ec.compression if ec.compression is not None else "",
+        syntax_header_row=ec.syntax_header_row if ec.syntax_header_row is not None else True,
+        syntax_missing_string=ec.syntax_missing_string if ec.syntax_missing_string is not None else "",
+        syntax_delim=ec.syntax_delim if ec.syntax_delim is not None else ",",
+        syntax_quotechar=ec.syntax_quotechar if ec.syntax_quotechar is not None else '"',
+        syntax_escapechar=ec.syntax_escapechar if ec.syntax_escapechar is not None else '\\'
+    )
+
+def convert_export_csv_column(ec: ir.ExportCSVColumn) -> transactions_pb2.ExportCSVColumn:
+    return transactions_pb2.ExportCSVColumn(
+        column_name=ec.column_name,
+        column_data=convert_relation_id(ec.column_data),
+    )
+
 def convert_abort(a: ir.Abort) -> transactions_pb2.Abort:
     kwargs: Dict[str, Any] = {'relation_id': convert_relation_id(a.relation_id)}
     if a.name is not None:
@@ -226,6 +303,8 @@ def convert_read(r: ir.Read) -> transactions_pb2.Read:
         return transactions_pb2.Read(what_if=convert_whatif(rt)) # Note the underscore
     elif isinstance(rt, ir.Abort):
         return transactions_pb2.Read(abort=convert_abort(rt))
+    elif isinstance(rt, ir.Export):
+        return transactions_pb2.Read(export=convert_export(rt))
     else:
         raise TypeError(f"Unsupported Read type: {type(rt)}")
 

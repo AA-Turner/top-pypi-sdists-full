@@ -73,7 +73,7 @@ def breaks_from_binwidth(
 
     if boundary is not None and center is not None:
         raise PlotnineError(
-            "Only one of 'boundary' and 'center' " "may be specified."
+            "Only one of 'boundary' and 'center' may be specified."
         )
     elif boundary is None:
         # When center is None, put the min and max of data in outer
@@ -165,7 +165,10 @@ def assign_bins(
     if weight is None:
         weight = np.ones(len(x))
     else:
-        weight = np.asarray(weight)
+        # If weight is a dtype that isn't writeable
+        # and does not own it's memory. Using a list
+        # as an intermediate easily solves this.
+        weight = np.array(list(weight))
         weight[np.isnan(weight)] = 0
 
     bin_idx = pd.cut(

@@ -51,8 +51,14 @@ export interface ContextProvider<T extends SupportedContextItem> {
     selector: DocumentSelector;
     resolver: ContextResolver<T>;
 }
+
+export type ResolveOnTimeoutResult<T> = T | readonly T[];
+export type ResolveResult<T> = Promise<T> | Promise<readonly T[]> | AsyncIterable<T>;
+
 export interface ContextResolver<T extends SupportedContextItem> {
-    resolve(request: ResolveRequest, token: CancellationToken): Promise<T> | Promise<T[]> | AsyncIterable<T>;
+    resolve(request: ResolveRequest, token: CancellationToken): ResolveResult<T>;
+    // Optional method to be invoked if the request timed out. This requests additional context items.
+    resolveOnTimeout?(request: ResolveRequest): ResolveOnTimeoutResult<T> | undefined;
 }
 
 /**
@@ -117,8 +123,15 @@ export interface ResolveRequest {
      * After the time budget runs out, the request will be cancelled via the CancellationToken.
      * Providers can use this value as a hint when computing context. Providers should expect the
      * request to be cancelled once the time budget runs out.
+     *
+     * @deprecated Use `timeoutEnd` instead.
      */
     timeBudget: number;
+
+    /**
+     * Unix timestamp representing the exact time the request will be cancelled via the CancellationToken.
+     */
+    timeoutEnd: number;
 
     /**
      * Various statistics about the last completion request. This can be used by the context provider

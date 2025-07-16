@@ -12,69 +12,12 @@ from .._models import BaseModel
 from .shared.currency import Currency
 from .virtual_account import VirtualAccount
 from .internal_account import InternalAccount
+from .shared.accounting import Accounting
 from .payment_order_type import PaymentOrderType
 from .payment_order_subtype import PaymentOrderSubtype
+from .shared.foreign_exchange_rate import ForeignExchangeRate
 
-__all__ = [
-    "PaymentOrder",
-    "Accounting",
-    "ForeignExchangeRate",
-    "ReferenceNumbers",
-    "ReferenceNumber",
-    "UltimateOriginatingAccount",
-]
-
-
-class Accounting(BaseModel):
-    account_id: Optional[str] = None
-    """The ID of one of your accounting categories.
-
-    Note that these will only be accessible if your accounting system has been
-    connected.
-    """
-
-    class_id: Optional[str] = None
-    """The ID of one of the class objects in your accounting system.
-
-    Class objects track segments of your business independent of client or project.
-    Note that these will only be accessible if your accounting system has been
-    connected.
-    """
-
-
-class ForeignExchangeRate(BaseModel):
-    base_amount: int
-    """
-    Amount in the lowest denomination of the `base_currency` to convert, often
-    called the "sell" amount.
-    """
-
-    base_currency: Currency
-    """Currency to convert, often called the "sell" currency."""
-
-    exponent: int
-    """The exponent component of the rate.
-
-    The decimal is calculated as `value` / (10 ^ `exponent`).
-    """
-
-    rate_string: str
-    """A string representation of the rate."""
-
-    target_amount: int
-    """
-    Amount in the lowest denomination of the `target_currency`, often called the
-    "buy" amount.
-    """
-
-    target_currency: Currency
-    """Currency to convert the `base_currency` to, often called the "buy" currency."""
-
-    value: int
-    """The whole number component of the rate.
-
-    The decimal is calculated as `value` / (10 ^ `exponent`).
-    """
+__all__ = ["PaymentOrder", "ReferenceNumbers", "ReferenceNumber", "UltimateOriginatingAccount"]
 
 
 class ReferenceNumber(BaseModel):
@@ -121,7 +64,11 @@ class ReferenceNumber(BaseModel):
         "currencycloud_payment_id",
         "dc_bank_transaction_id",
         "eft_trace_number",
+        "evolve_core_batch",
+        "evolve_core_file_key",
+        "evolve_core_seq",
         "evolve_transaction_id",
+        "fake_vendor_payment_id",
         "fedwire_imad",
         "fedwire_omad",
         "first_republic_internal_id",
@@ -154,7 +101,6 @@ class ReferenceNumber(BaseModel):
         "pnc_request_for_payment_id",
         "pnc_transaction_reference_number",
         "rbc_wire_reference_id",
-        "rspec_vendor_payment_id",
         "rtp_instruction_id",
         "signet_api_reference_id",
         "signet_confirmation_id",
@@ -175,6 +121,9 @@ class ReferenceNumber(BaseModel):
         "wells_fargo_payment_id",
         "wells_fargo_trace_number",
         "wells_fargo_uetr",
+        "western_alliance_payment_id",
+        "western_alliance_transaction_id",
+        "western_alliance_wire_confirmation_number",
     ]
     """The type of the reference number. Referring to the vendor payment id."""
 
@@ -452,11 +401,7 @@ from .return_object import ReturnObject
 
 if PYDANTIC_V2:
     PaymentOrder.model_rebuild()
-    Accounting.model_rebuild()
-    ForeignExchangeRate.model_rebuild()
     ReferenceNumber.model_rebuild()
 else:
     PaymentOrder.update_forward_refs()  # type: ignore
-    Accounting.update_forward_refs()  # type: ignore
-    ForeignExchangeRate.update_forward_refs()  # type: ignore
     ReferenceNumber.update_forward_refs()  # type: ignore

@@ -11,15 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for pyglove.core.typing.class_schema."""
-
 import copy
 import inspect
 import sys
 from typing import Optional, Union, List
 import unittest
 
-from pyglove.core import object_utils
+from pyglove.core import utils
 from pyglove.core.typing import annotation_conversion  # pylint: disable=unused-import
 from pyglove.core.typing import class_schema
 from pyglove.core.typing import custom_typing
@@ -33,24 +31,31 @@ from pyglove.core.typing.class_schema import Schema
 class ForwardRefTest(unittest.TestCase):
   """Test for `ForwardRef` class."""
 
+  class A:
+    pass
+
   def setUp(self):
     super().setUp()
     self._module = sys.modules[__name__]
 
   def test_basics(self):
-    r = class_schema.ForwardRef(self._module, 'FieldTest')
+    r = class_schema.ForwardRef(self._module, 'ForwardRefTest.A')
     self.assertIs(r.module, self._module)
-    self.assertEqual(r.name, 'FieldTest')
-    self.assertEqual(r.qualname, f'{self._module.__name__}.FieldTest')
+    self.assertEqual(r.name, 'A')
+    self.assertEqual(r.qualname, 'ForwardRefTest.A')
+    self.assertEqual(r.type_id, f'{self._module.__name__}.ForwardRefTest.A')
 
   def test_resolved(self):
-    self.assertTrue(class_schema.ForwardRef(self._module, 'FieldTest').resolved)
+    self.assertTrue(
+        class_schema.ForwardRef(self._module, 'ForwardRefTest.A').resolved
+    )
     self.assertFalse(class_schema.ForwardRef(self._module, 'Foo').resolved)
 
   def test_as_annotation(self):
     self.assertEqual(
-        class_schema.ForwardRef(self._module, 'FieldTest').as_annotation(),
-        FieldTest,
+        class_schema.ForwardRef(
+            self._module, 'ForwardRefTest.A').as_annotation(),
+        ForwardRefTest.A,
     )
     self.assertEqual(
         class_schema.ForwardRef(self._module, 'Foo').as_annotation(), 'Foo'
@@ -58,7 +63,8 @@ class ForwardRefTest(unittest.TestCase):
 
   def test_cls(self):
     self.assertIs(
-        class_schema.ForwardRef(self._module, 'FieldTest').cls, FieldTest
+        class_schema.ForwardRef(self._module, 'ForwardRefTest.A').cls,
+        ForwardRefTest.A
     )
 
     with self.assertRaisesRegex(TypeError, '.* does not exist in module'):
@@ -67,10 +73,10 @@ class ForwardRefTest(unittest.TestCase):
     with self.assertRaisesRegex(TypeError, '.* is not a class'):
       _ = class_schema.ForwardRef(self._module, 'unittest').cls
 
-  def test_format(self):
+  def test_repr(self):
     self.assertEqual(
-        str(class_schema.ForwardRef(self._module, 'FieldTest')),
-        f'ForwardRef(module={self._module.__name__}, name=FieldTest)',
+        repr(class_schema.ForwardRef(self._module, 'FieldTest')),
+        f'ForwardRef(module=\'{self._module.__name__}\', name=\'FieldTest\')',
     )
 
   def test_eq_ne(self):
@@ -109,6 +115,7 @@ class FieldTest(unittest.TestCase):
     self.assertEqual(f.description, 'a field')
     self.assertIsInstance(f.metadata, dict)
     self.assertEqual(len(f.metadata), 0)
+    self.assertIsNone(f.origin)
 
     # Cover the self comparison in __eq__.
     self.assertEqual(f, f)
@@ -187,46 +194,24 @@ class FieldTest(unittest.TestCase):
           'b': 1,
       }, allow_partial=False)
 
-  def test_format(self):
+  def test_repr(self):
     self.assertEqual(
-        Field('a', vs.Dict([
-            ('b', vs.Int())
-        ]), 'this is a very long field.', {
-            'm1': 1,
-            'm2': 2,
-            'm3': 3,
-            'm4': 4,
-            'm5': 5
-        }).format(compact=True, verbose=False),
-        'Field(key=a, value=Dict({b=Int()}), '
-        'description=\'this is a very long ...\', '
-        'metadata={...})')
-
-    self.assertEqual(
-        Field('a', vs.Dict([
-            ('b', vs.Int())
-        ]), 'this is a very long field.', {
-            'm1': 1,
-            'm2': 2,
-            'm3': 3,
-            'm4': 4,
-            'm5': 5
-        }).format(compact=True, verbose=True),
-        'Field(key=a, value=Dict({b=Int()}), '
-        'description=\'this is a very long field.\', '
-        'metadata={\'m1\': 1, \'m2\': 2, \'m3\': 3, \'m4\': 4, \'m5\': 5})')
-
-    self.assertEqual(
-        Field('a', vs.Dict([
-            ('b', vs.Int())
-        ]), 'field a').format(compact=False, verbose=False),
-        'Field(key=a, value=Dict({\n'
-        '    b = Int()\n'
-        '  }), description=\'field a\')')
+        repr(
+            Field(
+                'a', vs.Dict([('b', vs.Int())]), 'this is a very long field.',
+                {'m1': 1, 'm2': 2, 'm3': 3, 'm4': 4, 'm5': 5}
+            )
+        ),
+        (
+            'Field(key=a, value=Dict(fields=[Field(key=b, '
+            'value=Int())]), description=\'this is a very long field.\', '
+            'metadata={\'m1\': 1, \'m2\': 2, \'m3\': 3, \'m4\': 4, \'m5\': 5})'
+        )
+    )
 
   def test_json_conversion(self):
     def assert_json_conversion(f):
-      self.assertEqual(object_utils.from_json(f.to_json()), f)
+      self.assertEqual(utils.from_json(f.to_json()), f)
 
     assert_json_conversion(Field('a', vs.Int()))
     assert_json_conversion(Field('a', vs.Int(), 'description'))
@@ -342,58 +327,131 @@ class SchemaTest(unittest.TestCase):
   def test_eq(self):
     self.assertEqual(self._create_test_schema(), self._create_test_schema())
 
-  def test_format(self):
+  def test_repr(self):
     """Tests for Schema.format."""
     self.assertEqual(
-        self._create_test_schema().format(compact=True),
-        'Schema(a=Int(default=1), b=Bool(default=None, noneable=True), '
-        'c=Dict({d=List('
-        'Enum(default=0, values=[0, 1, None]), default=[0, 1]), '
-        'e=List('
-        'Dict({StrKey(regex=\'foo.*\')=Str()})), '
-        'f=Object(SimpleObject)}, noneable=True))')
+        repr(self._create_test_schema()),
+        (
+            "Schema(fields=[Field(key=a, value=Int(default=1), description="
+            "'Field a.'), Field(key=b, value=Bool(default=None, noneable="
+            "True), description='Field b.'), Field(key=c, value=Dict("
+            "fields=[Field(key=d, value=List(Enum(default=0, values=[0, 1, "
+            "None]), default=[0, 1]), description='Field d.'), Field(key=e, "
+            "value=List(Dict(fields=[Field(key=StrKey(regex='foo.*'), "
+            "value=Str(), description='Mapped values.')])), description='Field"
+            " e.'), Field(key=f, value=Object(SimpleObject), description="
+            "'Field f.')], noneable=True), description='Field c.')], "
+            "allow_nonconst_keys=False, metadata={'init_arg_list': []})"
+        )
+    )
 
+  def test_str(self):
+    self.maxDiff = None
     self.assertEqual(
-        inspect.cleandoc(self._create_test_schema().format(
-            compact=False, verbose=False)),
-        inspect.cleandoc("""Schema(
-          a = Int(default=1),
-          b = Bool(default=None, noneable=True),
-          c = Dict({
-            d = List(Enum(default=0, values=[0, 1, None]), default=[0, 1]),
-            e = List(Dict({
-              StrKey(regex=\'foo.*\') = Str()
-            })),
-            f = Object(SimpleObject)
-          }, noneable=True)
-        )"""))
+        str(self._create_test_schema()),
+        inspect.cleandoc("""
+        Schema(
+          fields=[
+            Field(
+              key=a,
+              value=Int(
+                default=1
+              ),
+              description='Field a.'
+            ),
+            Field(
+              key=b,
+              value=Bool(
+                default=None,
+                noneable=True
+              ),
+              description='Field b.'
+            ),
+            Field(
+              key=c,
+              value=Dict(
+                fields=[
+                  Field(
+                    key=d,
+                    value=List(
+                      Enum(
+                        default=0,
+                        values=[0, 1, None]
+                      ),
+                      default=[0, 1]
+                    ),
+                    description='Field d.'
+                  ),
+                  Field(
+                    key=e,
+                    value=List(
+                      Dict(
+                        fields=[
+                          Field(
+                            key=StrKey(regex='foo.*'),
+                            value=Str(),
+                            description='Mapped values.'
+                          )
+                        ]
+                      )
+                    ),
+                    description='Field e.'
+                  ),
+                  Field(
+                    key=f,
+                    value=Object(
+                      SimpleObject
+                    ),
+                    description='Field f.'
+                  )
+                ],
+                noneable=True
+              ),
+              description='Field c.'
+            )
+          ],
+          allow_nonconst_keys=False,
+          metadata={
+            'init_arg_list': []
+          }
+        )""")
+    )
 
+  def test_merge(self):
+    """Tests for Schema.merge."""
     self.assertEqual(
-        inspect.cleandoc(
-            # Equal to schema.format(compact=False, verbose=True)
-            str(self._create_test_schema())),
-        inspect.cleandoc("""Schema(
-            # Field a.
-            a = Int(default=1),
-
-            # Field b.
-            b = Bool(default=None, noneable=True),
-
-            # Field c.
-            c = Dict({
-              # Field d.
-              d = List(Enum(default=0, values=[0, 1, None]), default=[0, 1]),
-
-              # Field e.
-              e = List(Dict({
-                # Mapped values.
-                StrKey(regex=\'foo.*\') = Str()
-              })),
-
-              # Field f.
-              f = Object(SimpleObject)
-            }, noneable=True)
-          )"""))
+        Schema.merge([
+            class_schema.create_schema([
+                ('a', vs.Int()),
+                ('b', vs.Bool().noneable()),
+            ]),
+            class_schema.create_schema([
+                ('a', vs.Str()),
+                ('c', vs.Float()),
+            ]),
+        ]),
+        class_schema.create_schema([
+            ('a', vs.Int()),
+            ('b', vs.Bool().noneable()),
+            ('c', vs.Float()),
+        ]),
+    )
+    self.assertEqual(
+        Schema.merge([
+            class_schema.create_schema([
+                ('a', vs.Int()),
+                (ks.StrKey(), vs.Str().noneable()),
+            ], allow_nonconst_keys=True),
+            class_schema.create_schema([
+                ('c', vs.Float()),
+            ]),
+        ]),
+        class_schema.create_schema([
+            ('a', vs.Int()),
+            ('c', vs.Float()),
+            (ks.StrKey(), vs.Str().noneable()),
+        ], allow_nonconst_keys=True),
+    )
 
   def test_extend(self):
     """Tests for Schema.extend."""
@@ -541,7 +599,7 @@ class SchemaTest(unittest.TestCase):
     ], base_schema_list=[s], allow_nonconst_keys=True)
     self.assertEqual(s.dynamic_field, Field(ks.StrKey(), vs.Str()))
 
-  def test_Validate(self):
+  def test_validate(self):
     # Validate fully specified fields.
     self._create_test_schema().validate({
         'a': 1,
@@ -771,7 +829,7 @@ class SchemaTest(unittest.TestCase):
     schema = self._create_test_schema()
     schema.set_description('Foo')
     schema.set_name('Bar')
-    schema_copy = object_utils.from_json(schema.to_json())
+    schema_copy = utils.from_json(schema.to_json())
 
     # This compares fields only
     self.assertEqual(schema_copy, schema)
@@ -827,20 +885,31 @@ class CreateSchemaTest(unittest.TestCase):
     self.assertEqual(s['e'], Field('e', vs.Enum(0, [0, 1])))
     self.assertEqual(s.metadata, {'user_data': 2})
     self.assertEqual(s['f'], Field('f', vs.Int()))
-    self.assertEqual(s['f1'], Field('f1', vs.Int().noneable()))
+    self.assertEqual(
+        s['f1'], Field('f1', vs.Int().noneable(use_none_as_default=False))
+    )
     self.assertEqual(s['g'], Field('g', vs.Float()))
-    self.assertEqual(s['g1'], Field('g1', vs.Float().noneable()))
+    self.assertEqual(
+        s['g1'], Field('g1', vs.Float().noneable(use_none_as_default=False))
+    )
     self.assertEqual(s['h'], Field('h', vs.Bool()))
-    self.assertEqual(s['h1'], Field('h1', vs.Bool().noneable()))
+    self.assertEqual(
+        s['h1'], Field('h1', vs.Bool().noneable(use_none_as_default=False))
+    )
     self.assertEqual(s['i'], Field('i', vs.Str()))
-    self.assertEqual(s['i1'], Field('i1', vs.Str().noneable()))
+    self.assertEqual(
+        s['i1'], Field('i1', vs.Str().noneable(use_none_as_default=False))
+    )
     self.assertEqual(
         s['j'], Field('j', vs.Union([vs.Int(), vs.Float(), vs.Bool()]))
     )
     self.assertEqual(s['k'], Field('k', vs.List(vs.Any())))
     self.assertEqual(s['l'], Field('l', vs.List(vs.Int())))
     self.assertEqual(s['L'], Field('L', vs.List(vs.Int())))
-    self.assertEqual(s['l1'], Field('l1', vs.List(vs.Int()).noneable()))
+    self.assertEqual(
+        s['l1'],
+        Field('l1', vs.List(vs.Int()).noneable(use_none_as_default=False))
+    )
     self.assertEqual(
         s['l2'],
         Field('l2', vs.List(vs.Str()).set_default(['black', 'white'])),
@@ -855,6 +924,11 @@ class CreateSchemaTest(unittest.TestCase):
         TypeError, 'Metadata of schema should be a dict.'
     ):
       class_schema.create_schema([], metadata=1)
+
+    with self.assertRaisesRegex(
+        TypeError, 'Schema definition should be a dict.*a list.'
+    ):
+      class_schema.create_schema(1, metadata=1)
 
     with self.assertRaisesRegex(
         TypeError, 'Field definition should be tuples with 2 to 4 elements.'

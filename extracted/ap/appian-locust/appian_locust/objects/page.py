@@ -7,6 +7,7 @@ class PageType(Enum):
     REPORT = "report"
     RECORD = "recordType"
     INTERFACE = "interface"
+    PROCESS_HQ = "processHQ"
 
 
 class Page:

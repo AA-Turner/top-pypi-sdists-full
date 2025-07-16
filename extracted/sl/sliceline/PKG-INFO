@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sliceline
-Version: 0.2.18
+Version: 0.2.20
 Summary: ✂️ Fast slice finding for Machine Learning model debugging.
 License: BSD-3-Clause
 Author: Antoine de Daran
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: numpy (>=1.25,<2.0)
-Requires-Dist: scikit-learn (>=1.5.0,<2.0.0)
+Requires-Dist: scikit-learn (>=1.6.0,<2.0.0)
 Requires-Dist: scipy (>=1.12,<2.0)
 Project-URL: Documentation, https://sliceline.readthedocs.io/en/stable/
 Project-URL: Repository, https://github.com/DataDome/sliceline

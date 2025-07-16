@@ -32,7 +32,7 @@ def _get_version():
   if version is None:
     raise ValueError('`__version__` not defined in `pyglove/__init__.py`')
   if '--nightly' in sys.argv:
-    nightly_label = datetime.datetime.now().strftime('%Y%m%d')
+    nightly_label = datetime.datetime.now().strftime('%Y%m%d%H%M')
     version = f'{version}.dev{nightly_label}'
     sys.argv.remove('--nightly')
   return version
@@ -72,7 +72,7 @@ setup(
     packages=find_namespace_packages(include=['pyglove*']),
     install_requires=_parse_requirements('requirements.txt'),
     extras_require={},
-    requires_python='>=3.7',
+    requires_python='>=3.9',
     include_package_data=True,
     # PyPI package information.
     classifiers=[

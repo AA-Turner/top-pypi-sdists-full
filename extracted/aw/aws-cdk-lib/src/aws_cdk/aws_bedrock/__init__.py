@@ -9956,7 +9956,7 @@ class CfnDataSource(
 
             :param bucket_arn: The Amazon Resource Name (ARN) of the S3 bucket that contains your data.
             :param bucket_owner_account_id: The account ID for the owner of the S3 bucket.
-            :param inclusion_prefixes: A list of S3 prefixes to include certain files or content. For more information, see `Organizing objects using prefixes <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html>`_ .
+            :param inclusion_prefixes: A list of S3 prefixes to include certain files or content. This field is an array with a maximum of one item, which can contain a string that has a maximum length of 300 characters. For more information, see `Organizing objects using prefixes <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-s3datasourceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -10011,7 +10011,7 @@ class CfnDataSource(
         def inclusion_prefixes(self) -> typing.Optional[typing.List[builtins.str]]:
             '''A list of S3 prefixes to include certain files or content.
 
-            For more information, see `Organizing objects using prefixes <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html>`_ .
+            This field is an array with a maximum of one item, which can contain a string that has a maximum length of 300 characters. For more information, see `Organizing objects using prefixes <https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-prefixes.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-s3datasourceconfiguration.html#cfn-bedrock-datasource-s3datasourceconfiguration-inclusionprefixes
             '''
@@ -23213,7 +23213,12 @@ class CfnGuardrail(
                     output_action="outputAction",
                     output_enabled=False,
                     output_modalities=["outputModalities"]
-                )]
+                )],
+        
+                # the properties below are optional
+                content_filters_tier_config=bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
+                    tier_name="tierName"
+                )
             ),
             contextual_grounding_policy_config=bedrock.CfnGuardrail.ContextualGroundingPolicyConfigProperty(
                 filters_config=[bedrock.CfnGuardrail.ContextualGroundingFilterConfigProperty(
@@ -23270,7 +23275,12 @@ class CfnGuardrail(
                     input_enabled=False,
                     output_action="outputAction",
                     output_enabled=False
-                )]
+                )],
+        
+                # the properties below are optional
+                topics_tier_config=bedrock.CfnGuardrail.TopicsTierConfigProperty(
+                    tier_name="tierName"
+                )
             ),
             word_policy_config=bedrock.CfnGuardrail.WordPolicyConfigProperty(
                 managed_word_lists_config=[bedrock.CfnGuardrail.ManagedWordsConfigProperty(
@@ -23859,19 +23869,76 @@ class CfnGuardrail(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.ContentFiltersTierConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"tier_name": "tierName"},
+    )
+    class ContentFiltersTierConfigProperty:
+        def __init__(self, *, tier_name: builtins.str) -> None:
+            '''Guardrail tier config for content policy.
+
+            :param tier_name: Tier name for tier configuration in content filters policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterstierconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                content_filters_tier_config_property = bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
+                    tier_name="tierName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__41fd4ea54ea6af8c3dab6d3870ca7f484ac15185331f9fe5dc1ae49db7fe3954)
+                check_type(argname="argument tier_name", value=tier_name, expected_type=type_hints["tier_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "tier_name": tier_name,
+            }
+
+        @builtins.property
+        def tier_name(self) -> builtins.str:
+            '''Tier name for tier configuration in content filters policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentfilterstierconfig.html#cfn-bedrock-guardrail-contentfilterstierconfig-tiername
+            '''
+            result = self._values.get("tier_name")
+            assert result is not None, "Required property 'tier_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentFiltersTierConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.ContentPolicyConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"filters_config": "filtersConfig"},
+        name_mapping={
+            "filters_config": "filtersConfig",
+            "content_filters_tier_config": "contentFiltersTierConfig",
+        },
     )
     class ContentPolicyConfigProperty:
         def __init__(
             self,
             *,
             filters_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContentFilterConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            content_filters_tier_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.ContentFiltersTierConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains details about how to handle harmful content.
 
             :param filters_config: Contains the type of the content filter and how strongly it should apply to prompts and model responses.
+            :param content_filters_tier_config: Guardrail tier config for content policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentpolicyconfig.html
             :exampleMetadata: fixture=_generated
@@ -23895,15 +23962,23 @@ class CfnGuardrail(
                         output_action="outputAction",
                         output_enabled=False,
                         output_modalities=["outputModalities"]
-                    )]
+                    )],
+                
+                    # the properties below are optional
+                    content_filters_tier_config=bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
+                        tier_name="tierName"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3c9f736a4ece8c00be77ba5cd1cda628f4fd10884f3d7ed2c668ae9c1c654fb0)
                 check_type(argname="argument filters_config", value=filters_config, expected_type=type_hints["filters_config"])
+                check_type(argname="argument content_filters_tier_config", value=content_filters_tier_config, expected_type=type_hints["content_filters_tier_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "filters_config": filters_config,
             }
+            if content_filters_tier_config is not None:
+                self._values["content_filters_tier_config"] = content_filters_tier_config
 
         @builtins.property
         def filters_config(
@@ -23916,6 +23991,17 @@ class CfnGuardrail(
             result = self._values.get("filters_config")
             assert result is not None, "Required property 'filters_config' is missing"
             return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentFilterConfigProperty"]]], result)
+
+        @builtins.property
+        def content_filters_tier_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentFiltersTierConfigProperty"]]:
+            '''Guardrail tier config for content policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-contentpolicyconfig.html#cfn-bedrock-guardrail-contentpolicyconfig-contentfilterstierconfig
+            '''
+            result = self._values.get("content_filters_tier_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.ContentFiltersTierConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -25010,17 +25096,22 @@ class CfnGuardrail(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.TopicPolicyConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"topics_config": "topicsConfig"},
+        name_mapping={
+            "topics_config": "topicsConfig",
+            "topics_tier_config": "topicsTierConfig",
+        },
     )
     class TopicPolicyConfigProperty:
         def __init__(
             self,
             *,
             topics_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.TopicConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            topics_tier_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGuardrail.TopicsTierConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Contains details about topics that the guardrail should identify and deny.
 
             :param topics_config: A list of policies related to topics that the guardrail should deny.
+            :param topics_tier_config: Guardrail tier config for topic policy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicpolicyconfig.html
             :exampleMetadata: fixture=_generated
@@ -25043,15 +25134,23 @@ class CfnGuardrail(
                         input_enabled=False,
                         output_action="outputAction",
                         output_enabled=False
-                    )]
+                    )],
+                
+                    # the properties below are optional
+                    topics_tier_config=bedrock.CfnGuardrail.TopicsTierConfigProperty(
+                        tier_name="tierName"
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__a601b9bb5110351c09983ddf7f804dd1b1d64d78dffded374d89618a609277eb)
                 check_type(argname="argument topics_config", value=topics_config, expected_type=type_hints["topics_config"])
+                check_type(argname="argument topics_tier_config", value=topics_tier_config, expected_type=type_hints["topics_tier_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "topics_config": topics_config,
             }
+            if topics_tier_config is not None:
+                self._values["topics_tier_config"] = topics_tier_config
 
         @builtins.property
         def topics_config(
@@ -25065,6 +25164,17 @@ class CfnGuardrail(
             assert result is not None, "Required property 'topics_config' is missing"
             return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicConfigProperty"]]], result)
 
+        @builtins.property
+        def topics_tier_config(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicsTierConfigProperty"]]:
+            '''Guardrail tier config for topic policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicpolicyconfig.html#cfn-bedrock-guardrail-topicpolicyconfig-topicstierconfig
+            '''
+            result = self._values.get("topics_tier_config")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnGuardrail.TopicsTierConfigProperty"]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -25073,6 +25183,58 @@ class CfnGuardrail(
 
         def __repr__(self) -> str:
             return "TopicPolicyConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrock.CfnGuardrail.TopicsTierConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"tier_name": "tierName"},
+    )
+    class TopicsTierConfigProperty:
+        def __init__(self, *, tier_name: builtins.str) -> None:
+            '''Guardrail tier config for topic policy.
+
+            :param tier_name: Tier name for tier configuration in topic policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicstierconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrock as bedrock
+                
+                topics_tier_config_property = bedrock.CfnGuardrail.TopicsTierConfigProperty(
+                    tier_name="tierName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ea9a9d736464d561710ac65e26fa4428bfdcc80faf4bd465f6e27c5797559c34)
+                check_type(argname="argument tier_name", value=tier_name, expected_type=type_hints["tier_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "tier_name": tier_name,
+            }
+
+        @builtins.property
+        def tier_name(self) -> builtins.str:
+            '''Tier name for tier configuration in topic policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-guardrail-topicstierconfig.html#cfn-bedrock-guardrail-topicstierconfig-tiername
+            '''
+            result = self._values.get("tier_name")
+            assert result is not None, "Required property 'tier_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TopicsTierConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -25372,7 +25534,12 @@ class CfnGuardrailProps:
                         output_action="outputAction",
                         output_enabled=False,
                         output_modalities=["outputModalities"]
-                    )]
+                    )],
+            
+                    # the properties below are optional
+                    content_filters_tier_config=bedrock.CfnGuardrail.ContentFiltersTierConfigProperty(
+                        tier_name="tierName"
+                    )
                 ),
                 contextual_grounding_policy_config=bedrock.CfnGuardrail.ContextualGroundingPolicyConfigProperty(
                     filters_config=[bedrock.CfnGuardrail.ContextualGroundingFilterConfigProperty(
@@ -25429,7 +25596,12 @@ class CfnGuardrailProps:
                         input_enabled=False,
                         output_action="outputAction",
                         output_enabled=False
-                    )]
+                    )],
+            
+                    # the properties below are optional
+                    topics_tier_config=bedrock.CfnGuardrail.TopicsTierConfigProperty(
+                        tier_name="tierName"
+                    )
                 ),
                 word_policy_config=bedrock.CfnGuardrail.WordPolicyConfigProperty(
                     managed_word_lists_config=[bedrock.CfnGuardrail.ManagedWordsConfigProperty(
@@ -39044,9 +39216,17 @@ def _typecheckingstub__e931f7f6b53869d60aab0ecda0e56f276982aaf3a1ee755be3434f26d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__41fd4ea54ea6af8c3dab6d3870ca7f484ac15185331f9fe5dc1ae49db7fe3954(
+    *,
+    tier_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3c9f736a4ece8c00be77ba5cd1cda628f4fd10884f3d7ed2c668ae9c1c654fb0(
     *,
     filters_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentFilterConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    content_filters_tier_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.ContentFiltersTierConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -39137,6 +39317,14 @@ def _typecheckingstub__55baba87f7434d59d4b6be04489cbfbd90b857b82944e9437475de8bd
 def _typecheckingstub__a601b9bb5110351c09983ddf7f804dd1b1d64d78dffded374d89618a609277eb(
     *,
     topics_config: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.TopicConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    topics_tier_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGuardrail.TopicsTierConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea9a9d736464d561710ac65e26fa4428bfdcc80faf4bd465f6e27c5797559c34(
+    *,
+    tier_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

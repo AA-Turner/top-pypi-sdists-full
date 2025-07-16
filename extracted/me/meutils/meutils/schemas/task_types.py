@@ -185,7 +185,10 @@ class FluxTaskResponse(BaseModel):
                 if isinstance(status, list):
                     status = status[0]
 
-                status = status.lower()
+                if isinstance(status, dict): # fal
+                    self.status = "Error"
+
+                status = str(status).lower()
                 logger.debug(status)
 
                 if status.startswith(("pro", "inpro", "pending", "task_status_queu", "sub", "start", "run", "inqueue")):
@@ -200,6 +203,9 @@ class FluxTaskResponse(BaseModel):
                 if any(i in status for i in ("moder",)):
                     self.status = "Content Moderated"
 
+                if any(i in status for i in ("feature_not_supported",)):
+                    self.status = "Error"
+
         # fal 会误判其他渠道 todo 增强
         if (
                 self.status is None
@@ -208,7 +214,33 @@ class FluxTaskResponse(BaseModel):
         ):
             self.status = "Ready"
 
+            # bug
+            # {'detail': [{'input': 4.0,
+            #              'loc': ['body', 'upscale_factor'],
+            #              'msg': 'The output video resolution exceeds 4K limits '
+            #                     '(3840x2160).',
+            #              'type': 'feature_not_supported',
+            #              'url': 'https://docs.fal.ai/errors#feature_not_supported'}]}
 
+            # {
+            #   "detail": [
+            #     {
+            #       "loc": [
+            #         "body",
+            #         "audio_url"
+            #       ],
+            #       "msg": "Audio duration is too short. Minimum is 10 seconds, provided is 7.2 seconds.",
+            #       "type": "audio_duration_too_short",
+            #       "url": "https://docs.fal.ai/errors#audio_duration_too_short",
+            #       "ctx": {
+            #         "min_duration": 10,
+            #         "provided_duration": 7.2
+            #       },
+            #       "input": "https://s3.ffire.cc/files/jay_prompt.wav"
+            #     }
+            #   ]
+            # }
+            # Voice3f6ccdc71752639560
 if __name__ == '__main__':
     # print(TaskType("kling").name)
     #

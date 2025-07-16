@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec
-Version: 2025.5.1
+Version: 2025.7.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -58,7 +58,7 @@ Requires-Dist: dask; extra == 'dask'
 Requires-Dist: distributed; extra == 'dask'
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: ruff>=0.5; extra == 'dev'
 Provides-Extra: doc
 Requires-Dist: numpydoc; extra == 'doc'
 Requires-Dist: sphinx; extra == 'doc'
@@ -172,7 +172,7 @@ Requires-Dist: smbprotocol; extra == 'test-full'
 Requires-Dist: tqdm; extra == 'test-full'
 Requires-Dist: urllib3; extra == 'test-full'
 Requires-Dist: zarr; extra == 'test-full'
-Requires-Dist: zstandard; extra == 'test-full'
+Requires-Dist: zstandard; (python_version < '3.14') and extra == 'test-full'
 Provides-Extra: tqdm
 Requires-Dist: tqdm; extra == 'tqdm'
 Description-Content-Type: text/markdown
@@ -275,3 +275,11 @@ filesystem_spec repository to setup pre-commit hooks. ``black`` will now be run
 before you commit, reformatting any changed files. You can format without
 committing via ``pre-commit run`` or skip these checks with ``git commit
 --no-verify``.
+
+## Support
+
+Work on this repository is supported in part by:
+
+"Anaconda, Inc. - Advancing AI through open source."
+
+<a href="https://anaconda.com/"><img src="https://camo.githubusercontent.com/b8555ef2222598ed37ce38ac86955febbd25de7619931bb7dd3c58432181d3b6/68747470733a2f2f626565776172652e6f72672f636f6d6d756e6974792f6d656d626572732f616e61636f6e64612f616e61636f6e64612d6c617267652e706e67" alt="anaconda logo" width="40%"/></a>

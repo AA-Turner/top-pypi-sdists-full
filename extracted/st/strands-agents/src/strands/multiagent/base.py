@@ -6,9 +6,10 @@ Provides minimal foundation for multi-agent patterns (Swarm, Graph).
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Union
+from typing import Any, Union
 
 from ..agent import AgentResult
+from ..types.content import ContentBlock
 from ..types.event_loop import Metrics, Usage
 
 
@@ -58,9 +59,15 @@ class NodeResult:
 
 @dataclass
 class MultiAgentResult:
-    """Result from multi-agent execution with accumulated metrics."""
+    """Result from multi-agent execution with accumulated metrics.
 
-    results: dict[str, NodeResult]
+    The status field represents the outcome of the MultiAgentBase execution:
+    - COMPLETED: The execution was successfully accomplished
+    - FAILED: The execution failed or produced an error
+    """
+
+    status: Status = Status.PENDING
+    results: dict[str, NodeResult] = field(default_factory=lambda: {})
     accumulated_usage: Usage = field(default_factory=lambda: Usage(inputTokens=0, outputTokens=0, totalTokens=0))
     accumulated_metrics: Metrics = field(default_factory=lambda: Metrics(latencyMs=0))
     execution_count: int = 0
@@ -75,13 +82,11 @@ class MultiAgentBase(ABC):
     """
 
     @abstractmethod
-    # TODO: for task - multi-modal input (Message), list of messages
-    async def execute_async(self, task: str) -> MultiAgentResult:
-        """Execute task asynchronously."""
-        raise NotImplementedError("execute_async not implemented")
+    async def invoke_async(self, task: str | list[ContentBlock], **kwargs: Any) -> MultiAgentResult:
+        """Invoke asynchronously."""
+        raise NotImplementedError("invoke_async not implemented")
 
     @abstractmethod
-    # TODO: for task - multi-modal input (Message), list of messages
-    def execute(self, task: str) -> MultiAgentResult:
-        """Execute task synchronously."""
-        raise NotImplementedError("execute not implemented")
+    def __call__(self, task: str | list[ContentBlock], **kwargs: Any) -> MultiAgentResult:
+        """Invoke synchronously."""
+        raise NotImplementedError("__call__ not implemented")

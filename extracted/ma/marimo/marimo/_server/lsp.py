@@ -14,8 +14,6 @@ from marimo._dependencies.dependencies import DependencyManager
 from marimo._messaging.ops import Alert
 from marimo._server.utils import find_free_port
 from marimo._tracer import server_tracer
-from marimo._types.ids import CellId_t
-from marimo._utils.formatter import DefaultFormatter, FormatError
 from marimo._utils.paths import marimo_package_path
 
 LOGGER = _loggers.marimo_logger()
@@ -58,7 +56,7 @@ class BaseLspServer(LspServer):
 
         cmd = None
         try:
-            LOGGER.debug("Starting LSP server at port %s...", self.port)
+            LOGGER.info(f"Starting LSP {self.id} at port {self.port}")
             cmd = self.get_command()
 
             # Empty command means the server is not enabled
@@ -104,7 +102,7 @@ class BaseLspServer(LspServer):
                     variant="danger",
                 )
 
-            LOGGER.debug("Started LSP server at port %s", self.port)
+            LOGGER.info(f"Started LSP {self.id} at port {self.port}")
 
         except Exception as e:
             cmd_str = " ".join(cmd or [])
@@ -228,6 +226,50 @@ class PyLspServer(BaseLspServer):
         )
 
 
+class TyServer(BaseLspServer):
+    id = "ty"
+
+    def start(self) -> Optional[Alert]:
+        # ty is not required, so we don't want to alert or fail if it is not installed
+        if not DependencyManager.ty.has():
+            LOGGER.debug("ty is not installed. Skipping LSP server.")
+            return None
+        return super().start()
+
+    def validate_requirements(self) -> Union[str, Literal[True]]:
+        if not DependencyManager.ty.has():
+            return "ty is missing. Install it with `pip install ty`."
+
+        if not DependencyManager.which("node"):
+            return "node.js binary is missing. Install node at https://nodejs.org/."
+
+        return True
+
+    def get_command(self) -> list[str]:
+        from ty.__main__ import find_ty_bin  # type: ignore
+
+        lsp_bin = marimo_package_path() / "_lsp" / "index.cjs"
+        log_file = _loggers.get_log_directory() / "ty-lsp.log"
+
+        return [
+            "node",
+            str(lsp_bin),
+            "--port",
+            str(self.port),
+            "--lsp",
+            f"{find_ty_bin()} server",
+            "--log-file",
+            str(log_file),
+        ]
+
+    def missing_binary_alert(self) -> Alert:
+        return Alert(
+            title="Ty: Connection Error",
+            description="<span><a class='hyperlink' href='https://github.com/astral-sh/ty'>Install ty</a> for type checking support.</span>",
+            variant="danger",
+        )
+
+
 class NoopLspServer(LspServer):
     def start(self) -> None:
         pass
@@ -242,6 +284,7 @@ class NoopLspServer(LspServer):
 class CompositeLspServer(LspServer):
     LANGUAGE_SERVERS = {
         "pylsp": PyLspServer,
+        "ty": TyServer,
         "copilot": CopilotLspServer,
     }
 
@@ -312,27 +355,3 @@ def any_lsp_server_running(config: MarimoConfig) -> bool:
         for server in language_servers.values()
     )
     return (copilot_enabled is not False) or language_servers_enabled
-
-
-if DependencyManager.pylsp.has():
-    from pylsp import hookimpl
-
-    formatter = DefaultFormatter(line_length=88)
-
-    def format_signature(signature: str) -> str:
-        try:
-            signature_as_func = f"def {signature.strip()}:\n    pass"
-            dummy_cell_id = cast(CellId_t, "")
-            reformatted = formatter.format({dummy_cell_id: signature_as_func})[
-                dummy_cell_id
-            ]
-            signature = reformatted.removeprefix("def ").removesuffix(
-                ":\n    pass"
-            )
-        except (ModuleNotFoundError, FormatError):
-            pass
-        return "```python\n" + signature + "\n```\n"
-
-    @hookimpl
-    def pylsp_signatures_to_markdown(signatures: list[str]) -> str:
-        return format_signature("\n".join(signatures))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.33.0
+Version: 1.34.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -48,7 +48,9 @@ Provides-Extra: pandas
 Requires-Dist: snowflake-connector-python[pandas]<4.0.0,>=3.14.0; extra == "pandas"
 Provides-Extra: modin
 Requires-Dist: snowflake-connector-python[pandas]<4.0.0,>=3.14.0; extra == "modin"
-Requires-Dist: modin<0.34.0,>=0.32.0; extra == "modin"
+Requires-Dist: modin<0.35.0,>=0.33.0; extra == "modin"
+Requires-Dist: tqdm; extra == "modin"
+Requires-Dist: ipywidgets; extra == "modin"
 Provides-Extra: secure-local-storage
 Requires-Dist: snowflake-connector-python[secure-local-storage]<4.0.0,>=3.14.0; extra == "secure-local-storage"
 Provides-Extra: development
@@ -73,7 +75,9 @@ Requires-Dist: psutil; extra == "development"
 Requires-Dist: lxml; extra == "development"
 Provides-Extra: modin-development
 Requires-Dist: snowflake-connector-python[pandas]<4.0.0,>=3.14.0; extra == "modin-development"
-Requires-Dist: modin<0.34.0,>=0.32.0; extra == "modin-development"
+Requires-Dist: modin<0.35.0,>=0.33.0; extra == "modin-development"
+Requires-Dist: tqdm; extra == "modin-development"
+Requires-Dist: ipywidgets; extra == "modin-development"
 Requires-Dist: pytest<8.0.0; extra == "modin-development"
 Requires-Dist: pytest-cov; extra == "modin-development"
 Requires-Dist: wrapt; extra == "modin-development"
@@ -332,6 +336,72 @@ Please refer to [CONTRIBUTING.md][contributing].
 
 # Release History
 
+## 1.34.0 (2025-07-15)
+
+### Snowpark Python API Updates
+
+#### New Features
+
+- Added a new option `TRY_CAST` to `DataFrameReader`. When `TRY_CAST` is True columns are wrapped in a `TRY_CAST` statement rather than a hard cast when loading data.
+- Added a new option `USE_RELAXED_TYPES` to the `INFER_SCHEMA_OPTIONS` of `DataFrameReader`. When set to True this option casts all strings to max length strings and all numeric types to `DoubleType`.
+- Added debuggability improvements to eagerly validate dataframe schema metadata. Enable it using `snowflake.snowpark.context.configure_development_features()`.
+- Added a new function `snowflake.snowpark.dataframe.map_in_pandas` that allows users map a function across a dataframe. The mapping function takes an iterator of pandas dataframes as input and provides one as output.
+- Added a ttl cache to describe queries. Repeated queries in a 15 second interval will use the cached value rather than requery Snowflake.
+- Added a parameter `fetch_with_process` to `DataFrameReader.dbapi` (PrPr) to enable multiprocessing for parallel data fetching in
+local ingestion. By default, local ingestion uses multithreading. Multiprocessing may improve performance for CPU-bound tasks like Parquet file generation.
+- Added a new function `snowflake.snowpark.functions.model` that allows users to call methods of a model.
+
+#### Improvements
+
+- Added support for row validation using XSD schema using `rowValidationXSDPath` option when reading XML files with a row tag using `rowTag` option.
+- Improved SQL generation for `session.table().sample()` to generate a flat SQL statement.
+- Added support for complex column expression as input for `functions.explode`.
+- Added debuggability improvements to show which Python lines an SQL compilation error corresponds to. Enable it using `snowflake.snowpark.context.configure_development_features()`. This feature also depends on AST collection to be enabled in the session which can be done using `session.ast_enabled = True`.
+- Set enforce_ordering=True when calling `to_snowpark_pandas()` from a snowpark dataframe containing DML/DDL queries instead of throwing a NotImplementedError.
+
+#### Bug Fixes
+
+- Fixed a bug caused by redundant validation when creating an iceberg table.
+- Fixed a bug in `DataFrameReader.dbapi` (PrPr) where closing the cursor or connection could unexpectedly raise an error and terminate the program.
+- Fixed ambiguous column errors when using table functions in `DataFrame.select()` that have output columns matching the input DataFrame's columns. This improvement works when dataframe columns are provided as `Column` objects.
+- Fixed a bug where having a NULL in a column with DecimalTypes would cast the column to FloatTypes instead and lead to precision loss.
+
+### Snowpark Local Testing Updates
+
+#### Bug Fixes
+
+- Fixed a bug when processing windowed functions that lead to incorrect indexing in results.
+- When a scalar numeric is passed to fillna we will ignore non-numeric columns instead of producing an error.
+
+### Snowpark pandas API Updates
+
+#### New Features
+
+- Added support for `DataFrame.to_excel` and `Series.to_excel`.
+- Added support for `pd.read_feather`, `pd.read_orc`, and `pd.read_stata`.
+- Added support for `pd.explain_switch()` to return debugging information on hybrid execution decisions.
+- Support `pd.read_snowflake` when the global modin backend is `Pandas`.
+- Added support for `pd.to_dynamic_table`, `pd.to_iceberg`, and `pd.to_view`.
+
+#### Improvements
+
+- Added modin telemetry on API calls and hybrid engine switches.
+- Show more helpful error messages to Snowflake Notebook users when the `modin` or `pandas` version does not match our requirements.
+- Added a data type guard to the cost functions for hybrid execution mode (PrPr) which checks for data type compatibility.
+- Added automatic switching to the pandas backend in hybrid execution mode (PrPr) for many methods that are not directly implemented in Snowpark pandas.
+- Set the 'type' and other standard fields for Snowpark pandas telemetry.
+
+#### Dependency Updates
+
+- Added tqdm and ipywidgets as dependencies so that progress bars appear when switching between modin backends.
+- Updated the supported `modin` versions to >=0.33.0 and <0.35.0 (was previously >= 0.32.0 and <0.34.0).
+
+#### Bug Fixes
+
+- Fixed a bug in hybrid execution mode (PrPr) where certain Series operations would raise `TypeError: numpy.ndarray object is not callable`.
+- Fixed a bug in hybrid execution mode (PrPr) where calling numpy operations like `np.where` on modin objects with the Pandas backend would raise an `AttributeError`. This fix requires `modin` version 0.34.0 or newer.
+- Fixed issue in `df.melt` where the resulting values have an additional suffix applied.
+
 ## 1.33.0 (2025-06-19)
 
 ### Snowpark Python API Updates
@@ -359,7 +429,6 @@ Please refer to [CONTRIBUTING.md][contributing].
 - Added a new argument to `Dataframe.describe` called `strings_include_math_stats` that triggers `stddev` and `mean` to be calculated for String columns.
 - Added support for retrieving `Edge.properties` when retrieving lineage from `DGQL` in `DataFrame.lineage.trace`.
 - Added a parameter `table_exists` to `DataFrameWriter.save_as_table` that allows specifying if a table already exists. This allows skipping a table lookup that can be expensive.
-
 
 #### Bug Fixes
 
@@ -395,6 +464,7 @@ Please refer to [CONTRIBUTING.md][contributing].
 - Updated `modin` dependency constraint from 0.32.0 to >=0.32.0, <0.34.0. The latest version tested with Snowpark pandas is `modin` 0.33.1.
 
 #### New Features
+
 - Added support for **Hybrid Execution (PrPr)**. By running `from modin.config import AutoSwitchBackend; AutoSwitchBackend.enable()`, Snowpark pandas will automatically choose whether to run certain pandas operations locally or on Snowflake. This feature is disabled by default.
 
 #### Improvements
@@ -2221,7 +2291,7 @@ This is a re-release of 1.22.0. Please refer to the 1.22.0 release notes for det
 ### Bug Fixes
 
 - Fixed a bug that overwrote `paramstyle` to `qmark` when creating a Snowpark session.
-- Fixed a bug where `df.join(..., how="cross")` fails with `SnowparkJoinException: (1112): Unsupported using join type 'Cross'`.
+- Fixed a bug where `df.join(..., how="cross")` fails with `SnowparkJoinException: (1112): Unsupported using join type 'Cross'`.
 - Fixed a bug where querying a `DataFrame` column created from chained function calls used a wrong column name.
 
 ## 1.1.0 (2023-01-26)

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2024, Jonas Eschle, Jim Pivarski, Eduardo Rodrigues, and Henry Schreiner.
+# Copyright (c) 2019-2025, Saransh Chopra, Henry Schreiner, Eduardo Rodrigues, Jonas Eschle, and Jim Pivarski.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/vector for details.
@@ -105,16 +105,8 @@ def test(signature):
     analyze_function(functions[signature])
 
 
-# def test():
-#     for signature, function in functions.items():
-#         print(signature)
-#         analyze_function(function)
-
-
 def analyze_function(function):
     if function not in analyze_function.done:
-        # print(function.__module__ + "." + function.__name__)
-
         closure = dict(function.__globals__)
         if function.__closure__ is not None:
             for var, cell in zip(function.__code__.co_freevars, function.__closure__):
@@ -377,4 +369,8 @@ allowed_lib_functions = [
     "arccosh",
     "arctanh",
     "isclose",
+    # TODO: https://github.com/scikit-hep/vector/issues/615
+    # remove once https://github.com/cupy/cupy/issues/9143
+    # is fixed.
+    "where",
 ]

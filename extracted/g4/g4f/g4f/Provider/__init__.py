@@ -46,6 +46,7 @@ from .LegacyLMArena        import LegacyLMArena
 from .OIVSCodeSer2         import OIVSCodeSer2
 from .OIVSCodeSer0501      import OIVSCodeSer0501
 from .OperaAria            import OperaAria
+from .PenguinAI            import PenguinAI
 from .PerplexityLabs       import PerplexityLabs
 from .PollinationsAI       import PollinationsAI
 from .PollinationsImage    import PollinationsImage
@@ -53,6 +54,7 @@ from .Startnest            import Startnest
 from .TeachAnything        import TeachAnything
 from .Together             import Together
 from .WeWordle             import WeWordle
+from .YouTube              import YouTube
 from .Yqcloud              import Yqcloud
 
 import sys

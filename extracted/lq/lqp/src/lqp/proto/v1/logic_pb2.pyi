@@ -18,7 +18,6 @@ class PrimitiveType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 class RelValueType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     REL_VALUE_TYPE_UNSPECIFIED: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DECIMAL: _ClassVar[RelValueType]
     REL_VALUE_TYPE_DATE: _ClassVar[RelValueType]
     REL_VALUE_TYPE_DATETIME: _ClassVar[RelValueType]
     REL_VALUE_TYPE_NANOSECOND: _ClassVar[RelValueType]
@@ -40,7 +39,6 @@ PRIMITIVE_TYPE_FLOAT: PrimitiveType
 PRIMITIVE_TYPE_UINT128: PrimitiveType
 PRIMITIVE_TYPE_INT128: PrimitiveType
 REL_VALUE_TYPE_UNSPECIFIED: RelValueType
-REL_VALUE_TYPE_DECIMAL: RelValueType
 REL_VALUE_TYPE_DATE: RelValueType
 REL_VALUE_TYPE_DATETIME: RelValueType
 REL_VALUE_TYPE_NANOSECOND: RelValueType
@@ -57,11 +55,11 @@ REL_VALUE_TYPE_DECIMAL64: RelValueType
 REL_VALUE_TYPE_DECIMAL128: RelValueType
 
 class Declaration(_message.Message):
-    __slots__ = ("loop",)
+    __slots__ = ("algorithm",)
     DEF_FIELD_NUMBER: _ClassVar[int]
-    LOOP_FIELD_NUMBER: _ClassVar[int]
-    loop: Loop
-    def __init__(self, loop: _Optional[_Union[Loop, _Mapping]] = ..., **kwargs) -> None: ...
+    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
+    algorithm: Algorithm
+    def __init__(self, algorithm: _Optional[_Union[Algorithm, _Mapping]] = ..., **kwargs) -> None: ...
 
 class Def(_message.Message):
     __slots__ = ("name", "body", "attrs")
@@ -73,13 +71,73 @@ class Def(_message.Message):
     attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
     def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
 
+class Algorithm(_message.Message):
+    __slots__ = ("body",)
+    GLOBAL_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    body: Script
+    def __init__(self, body: _Optional[_Union[Script, _Mapping]] = ..., **kwargs) -> None: ...
+
+class Script(_message.Message):
+    __slots__ = ("constructs",)
+    CONSTRUCTS_FIELD_NUMBER: _ClassVar[int]
+    constructs: _containers.RepeatedCompositeFieldContainer[Construct]
+    def __init__(self, constructs: _Optional[_Iterable[_Union[Construct, _Mapping]]] = ...) -> None: ...
+
+class Construct(_message.Message):
+    __slots__ = ("loop", "instruction")
+    LOOP_FIELD_NUMBER: _ClassVar[int]
+    INSTRUCTION_FIELD_NUMBER: _ClassVar[int]
+    loop: Loop
+    instruction: Instruction
+    def __init__(self, loop: _Optional[_Union[Loop, _Mapping]] = ..., instruction: _Optional[_Union[Instruction, _Mapping]] = ...) -> None: ...
+
 class Loop(_message.Message):
     __slots__ = ("init", "body")
     INIT_FIELD_NUMBER: _ClassVar[int]
     BODY_FIELD_NUMBER: _ClassVar[int]
-    init: _containers.RepeatedCompositeFieldContainer[Def]
-    body: _containers.RepeatedCompositeFieldContainer[Declaration]
-    def __init__(self, init: _Optional[_Iterable[_Union[Def, _Mapping]]] = ..., body: _Optional[_Iterable[_Union[Declaration, _Mapping]]] = ...) -> None: ...
+    init: _containers.RepeatedCompositeFieldContainer[Instruction]
+    body: Script
+    def __init__(self, init: _Optional[_Iterable[_Union[Instruction, _Mapping]]] = ..., body: _Optional[_Union[Script, _Mapping]] = ...) -> None: ...
+
+class Instruction(_message.Message):
+    __slots__ = ("assign", "upsert")
+    ASSIGN_FIELD_NUMBER: _ClassVar[int]
+    UPSERT_FIELD_NUMBER: _ClassVar[int]
+    BREAK_FIELD_NUMBER: _ClassVar[int]
+    assign: Assign
+    upsert: Upsert
+    def __init__(self, assign: _Optional[_Union[Assign, _Mapping]] = ..., upsert: _Optional[_Union[Upsert, _Mapping]] = ..., **kwargs) -> None: ...
+
+class Assign(_message.Message):
+    __slots__ = ("name", "body", "attrs")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
+
+class Upsert(_message.Message):
+    __slots__ = ("name", "body", "attrs")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
+
+class Break(_message.Message):
+    __slots__ = ("name", "body", "attrs")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
 
 class Binding(_message.Message):
     __slots__ = ("var", "type")

@@ -159,6 +159,7 @@ class AlexaLogin:
         )
         self.authorization_code: Optional[str] = oauth.get("authorization_code")
         self.oauth_login: bool = oauth_login
+        self.csrf_token: Optional[str] = None
         self.proxy_url: str = ""
         _LOGGER.debug(
             "Login created for %s - %s",
@@ -573,6 +574,25 @@ class AlexaLogin:
         )
         await self.reset()
         return False
+
+    async def get_csrf_token(self) -> Optional[str]:
+        """Get an anti-CSRF token from an Amazon webpage."""
+        _LOGGER.debug("Getting CSRF token for %s", self._url)
+        resp = await self._session.get(
+            f"https://www.{self._url}/alexa-privacy/apd/rvh",
+            headers=self._headers,
+            ssl=self._ssl,
+        )
+        t = await resp.text()
+        bso = BeautifulSoup(t, "html.parser")
+        meta_tag = bso.find("meta", attrs={"name": "csrf-token"})
+        if meta_tag and "content" in meta_tag.attrs:
+            token = meta_tag["content"]
+            _LOGGER.debug("CSRF token found for %s: %s", self._url, token)
+            self.csrf_token = token
+            return token
+        _LOGGER.debug("No CSRF token found for %s", self._url)
+        return None
 
     def _create_session(self, force=False) -> None:
         if not self._session or force:

@@ -28,8 +28,8 @@
 #include "mimir/search/axiom_evaluators/grounded.hpp"
 #include "mimir/search/axiom_evaluators/grounded/event_handlers/default.hpp"
 #include "mimir/search/axiom_evaluators/lifted.hpp"
-#include "mimir/search/dense_state.hpp"
 #include "mimir/search/match_tree/match_tree.hpp"
+#include "mimir/search/state_unpacked.hpp"
 
 using namespace mimir::formalism;
 
@@ -53,7 +53,7 @@ DeleteRelaxedProblemExplorator::DeleteRelaxedProblemExplorator(Problem problem) 
 
     auto delete_free_applicable_action_generator = LiftedApplicableActionGeneratorImpl(m_delete_free_problem);
     auto delete_free_axiom_evalator = std::make_shared<LiftedAxiomEvaluatorImpl>(m_delete_free_problem);
-    auto delete_free_state_repository = StateRepositoryImpl(std::static_pointer_cast<IAxiomEvaluator>(delete_free_axiom_evalator));
+    auto delete_free_state_repository = std::make_shared<StateRepositoryImpl>(std::static_pointer_cast<IAxiomEvaluator>(delete_free_axiom_evalator));
 
     auto unrelaxed_objects_by_name = std::unordered_map<std::string, Object> {};
     for (const auto& object : m_problem->get_problem_and_domain_objects())
@@ -65,9 +65,8 @@ DeleteRelaxedProblemExplorator::DeleteRelaxedProblemExplorator(Problem problem) 
         m_delete_free_object_to_unrelaxed_object.emplace(object, unrelaxed_objects_by_name.at(object->get_name()));
     }
 
-    auto [initial_state, initial_metric_value] = delete_free_state_repository.get_or_create_initial_state();
+    auto [initial_state, initial_metric_value] = delete_free_state_repository->get_or_create_initial_state();
 
-    auto dense_state = DenseState(initial_state);
     auto state = initial_state;
 
     // Keep track of changes
@@ -77,24 +76,20 @@ DeleteRelaxedProblemExplorator::DeleteRelaxedProblemExplorator(Problem problem) 
     {
         reached_delete_free_explore_fixpoint = true;
 
-        auto num_atoms_before = delete_free_state_repository.get_reached_fluent_ground_atoms_bitset().count();
+        auto num_atoms_before = delete_free_state_repository->get_reached_fluent_ground_atoms_bitset().count();
 
         // Create and all applicable actions and apply them
-        // Attention1: we cannot just apply newly generated actions because conditional effects might trigger later.
-        // Attention2: we incrementally keep growing the atoms in the dense state.
-        for (const auto& action : delete_free_applicable_action_generator.create_applicable_action_generator(dense_state))
+        // Attention: we cannot just apply newly generated actions because conditional effects might trigger later.
+        for (const auto& action : delete_free_applicable_action_generator.create_applicable_action_generator(state))
         {
-            // Note that get_or_create_successor_state already modifies dense_state to be the successor state.
+            // Note that get_or_create_successor_state already modifies unpacked_state to be the successor state.
             // TODO(numeric): in the delete relaxation, we have to remove all numeric constraints and effects.
-            const auto [successor_state, metric_value] = delete_free_state_repository.get_or_create_successor_state(state, dense_state, action, 0);
+            auto [successor_state, metric_value] = delete_free_state_repository->get_or_create_successor_state(state, action, 0);
             state = successor_state;
         }
 
-        // Create and all applicable axioms and apply them
-        delete_free_axiom_evalator->generate_and_apply_axioms(dense_state);
-
         // Note: checking fluent atoms suffices because derived are implied by those.
-        auto num_atoms_after = delete_free_state_repository.get_reached_fluent_ground_atoms_bitset().count();
+        auto num_atoms_after = delete_free_state_repository->get_reached_fluent_ground_atoms_bitset().count();
 
         if (num_atoms_before != num_atoms_after)
         {
@@ -152,9 +147,9 @@ GroundAtomList<P> DeleteRelaxedProblemExplorator::create_ground_atoms() const
         boost::hana::at_key(m_delete_free_problem->get_repositories().get_hana_repositories(), boost::hana::type<GroundAtomImpl<P>> {});
     for (const auto& delete_free_ground_atom : delete_free_atom_repository)
     {
-        const auto predicate = get_predicate<P>(*m_problem, delete_free_ground_atom->get_predicate()->get_name());
+        const auto predicate = get_predicate<P>(*m_problem, delete_free_ground_atom.get_predicate()->get_name());
 
-        auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_atom->get_objects(), m_delete_free_object_to_unrelaxed_object);
+        auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_atom.get_objects(), m_delete_free_object_to_unrelaxed_object);
 
         auto ground_atom = m_problem->get_or_create_ground_atom(predicate, binding);
 
@@ -175,9 +170,9 @@ GroundActionList DeleteRelaxedProblemExplorator::create_ground_actions() const
          boost::hana::at_key(m_delete_free_problem->get_repositories().get_hana_repositories(), boost::hana::type<GroundActionImpl> {}))
     {
         // Map relaxed to unrelaxed actions and ground them with the same arguments.
-        for (const auto& action : m_delete_relax_transformer.get_unrelaxed_actions(delete_free_ground_action->get_action()))
+        for (const auto& action : m_delete_relax_transformer.get_unrelaxed_actions(delete_free_ground_action.get_action()))
         {
-            auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_action->get_objects(), m_delete_free_object_to_unrelaxed_object);
+            auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_action.get_objects(), m_delete_free_object_to_unrelaxed_object);
 
             auto grounded_action = m_problem->ground(action, std::move(binding));
 
@@ -199,9 +194,9 @@ GroundAxiomList DeleteRelaxedProblemExplorator::create_ground_axioms() const
          boost::hana::at_key(m_delete_free_problem->get_repositories().get_hana_repositories(), boost::hana::type<GroundAxiomImpl> {}))
     {
         // Map relaxed to unrelaxed actions and ground them with the same arguments.
-        for (const auto& axiom : m_delete_relax_transformer.get_unrelaxed_axioms(delete_free_ground_axiom->get_axiom()))
+        for (const auto& axiom : m_delete_relax_transformer.get_unrelaxed_axioms(delete_free_ground_axiom.get_axiom()))
         {
-            auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_axiom->get_objects(), m_delete_free_object_to_unrelaxed_object);
+            auto binding = translate_from_delete_free_to_unrelaxed_problem(delete_free_ground_axiom.get_objects(), m_delete_free_object_to_unrelaxed_object);
 
             auto ground_axiom = m_problem->ground(axiom, std::move(binding));
 
@@ -309,4 +304,4 @@ DeleteRelaxedProblemExplorator::create_grounded_applicable_action_generator(cons
 
 const Problem& DeleteRelaxedProblemExplorator::get_problem() const { return m_problem; }
 
-}  // namespace mimir
+}

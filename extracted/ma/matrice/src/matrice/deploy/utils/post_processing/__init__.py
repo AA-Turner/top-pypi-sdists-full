@@ -69,6 +69,10 @@ from .usecases.color_detection import ColorDetectionConfig
 from .usecases.fire_detection import FireSmokeUseCase, FireSmokeConfig
 from .usecases.license_plate_detection import LicensePlateConfig
 from .usecases.pothole_segmentation import PotholeConfig
+from .usecases.face_emotion import FaceEmotionConfig
+from .usecases.parking_space_detection import ParkingSpaceConfig
+from .usecases.underwater_pollution_detection import UnderwaterPlasticConfig
+from .usecases.pedestrian_detection import PedestrianDetectionConfig
 
 # Use case implementations
 from .usecases import (
@@ -81,8 +85,12 @@ from .usecases import (
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
     FireSmokeUseCase,
+    ParkingSpaceUseCase,
     FlareAnalysisUseCase,
-    PotholeSegmentationUseCase
+    PotholeSegmentationUseCase,
+    FaceEmotionUseCase,
+    UnderwaterPlasticUseCase,
+    PedestrianDetectionUseCase
 )
 
 # Register use cases automatically
@@ -97,6 +105,10 @@ _vehicle_monitoring = VehicleMonitoringUseCase()
 _fire_detection = FireSmokeUseCase()
 _flare_analysis = FlareAnalysisUseCase()
 _pothole_segmentation = PotholeSegmentationUseCase()
+_face_emotion = FaceEmotionUseCase()
+_parking_space_detection = ParkingSpaceUseCase()
+_underwater_pollution_detection = UnderwaterPlasticUseCase()
+_pedestrian_detection = PedestrianDetectionUseCase()
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -108,6 +120,10 @@ registry.register_use_case(_vehicle_monitoring.category,_vehicle_monitoring.name
 registry.register_use_case(_fire_detection.category,_fire_detection.name,FireSmokeUseCase)
 registry.register_use_case(_flare_analysis.category,_flare_analysis.name,FlareAnalysisUseCase)
 registry.register_use_case(_pothole_segmentation.category, _pothole_segmentation.name, PotholeSegmentationUseCase)
+registry.register_use_case(_face_emotion.category, _face_emotion.name, FaceEmotionUseCase)
+registry.register_use_case(_parking_space_detection.category, _parking_space_detection.name, ParkingSpaceUseCase )
+registry.register_use_case(_underwater_pollution_detection.category, _underwater_pollution_detection.name, UnderwaterPlasticUseCase)
+registry.register_use_case(_pedestrian_detection.category, _pedestrian_detection.name, PedestrianDetectionUseCase)
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
     # Geometry utilities
@@ -239,6 +255,7 @@ __all__ = [
     'CustomerServiceConfig',
     'ColorDetectionConfig',
     'LicensePlateConfig',
+    'ParkingSpaceConfig',
     'PotholeConfig',
     'VehicleMonitoringConfig',
     'ZoneConfig',
@@ -248,8 +265,11 @@ __all__ = [
     'config_manager',
     'ConfigValidationError',
     'FireSmokeConfig',
-    'FlareAnalysisConfig'
-    
+    'FlareAnalysisConfig',
+    'FaceEmotionConfig',
+    'UnderwaterPlasticConfig',
+    'PedestrianDetectionConfig',
+
     # Use case classes
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
@@ -261,7 +281,11 @@ __all__ = [
     'PotholeSegmentationUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
-    'FlareAnalysisUseCase'
+    'ParkingSpaceUseCase',
+    'FlareAnalysisUseCase',
+    'FaceEmotionUseCase',
+    'UnderwaterPlasticUseCase',
+    'PedestrianDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

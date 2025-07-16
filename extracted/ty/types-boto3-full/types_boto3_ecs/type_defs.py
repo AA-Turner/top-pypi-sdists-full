@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_ecs.type_defs import AttachmentStateChangeTypeDef
+    from types_boto3_ecs.type_defs import AdvancedConfigurationTypeDef
 
-    data: AttachmentStateChangeTypeDef = ...
+    data: AdvancedConfigurationTypeDef = ...
     ```
 """
 
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     AgentUpdateStatusType,
@@ -35,7 +35,9 @@ from .literals import (
     ContainerInstanceStatusType,
     CPUArchitectureType,
     DeploymentControllerTypeType,
+    DeploymentLifecycleHookStageType,
     DeploymentRolloutStateType,
+    DeploymentStrategyType,
     DesiredStatusType,
     DeviceCgroupPermissionType,
     EFSAuthorizationConfigIAMType,
@@ -59,6 +61,7 @@ from .literals import (
     ResourceTypeType,
     SchedulingStrategyType,
     ScopeType,
+    ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
     ServiceDeploymentStatusType,
     SettingNameType,
@@ -88,6 +91,7 @@ else:
 
 
 __all__ = (
+    "AdvancedConfigurationTypeDef",
     "AttachmentStateChangeTypeDef",
     "AttachmentTypeDef",
     "AttributeTypeDef",
@@ -147,6 +151,8 @@ __all__ = (
     "DeploymentConfigurationUnionTypeDef",
     "DeploymentControllerTypeDef",
     "DeploymentEphemeralStorageTypeDef",
+    "DeploymentLifecycleHookOutputTypeDef",
+    "DeploymentLifecycleHookTypeDef",
     "DeploymentTypeDef",
     "DeregisterContainerInstanceRequestTypeDef",
     "DeregisterContainerInstanceResponseTypeDef",
@@ -283,6 +289,7 @@ __all__ = (
     "RegisterTaskDefinitionRequestTypeDef",
     "RegisterTaskDefinitionResponseTypeDef",
     "RepositoryCredentialsTypeDef",
+    "ResolvedConfigurationTypeDef",
     "ResourceOutputTypeDef",
     "ResourceRequirementTypeDef",
     "ResourceTypeDef",
@@ -301,6 +308,9 @@ __all__ = (
     "ServiceConnectServiceOutputTypeDef",
     "ServiceConnectServiceResourceTypeDef",
     "ServiceConnectServiceTypeDef",
+    "ServiceConnectTestTrafficHeaderMatchRulesTypeDef",
+    "ServiceConnectTestTrafficHeaderRulesTypeDef",
+    "ServiceConnectTestTrafficRulesTypeDef",
     "ServiceConnectTlsCertificateAuthorityTypeDef",
     "ServiceConnectTlsConfigurationTypeDef",
     "ServiceDeploymentAlarmsTypeDef",
@@ -312,6 +322,7 @@ __all__ = (
     "ServiceManagedEBSVolumeConfigurationTypeDef",
     "ServiceManagedEBSVolumeConfigurationUnionTypeDef",
     "ServiceRegistryTypeDef",
+    "ServiceRevisionLoadBalancerTypeDef",
     "ServiceRevisionSummaryTypeDef",
     "ServiceRevisionTypeDef",
     "ServiceTypeDef",
@@ -379,6 +390,13 @@ __all__ = (
     "VpcLatticeConfigurationTypeDef",
     "WaiterConfigTypeDef",
 )
+
+
+class AdvancedConfigurationTypeDef(TypedDict):
+    alternateTargetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+    testListenerRule: NotRequired[str]
+    roleArn: NotRequired[str]
 
 
 class AttachmentStateChangeTypeDef(TypedDict):
@@ -612,15 +630,6 @@ DeploymentControllerTypeDef = TypedDict(
         "type": DeploymentControllerTypeType,
     },
 )
-
-
-class LoadBalancerTypeDef(TypedDict):
-    targetGroupArn: NotRequired[str]
-    loadBalancerName: NotRequired[str]
-    containerName: NotRequired[str]
-    containerPort: NotRequired[int]
-
-
 PlacementConstraintTypeDef = TypedDict(
     "PlacementConstraintTypeDef",
     {
@@ -720,6 +729,20 @@ class DeploymentAlarmsTypeDef(TypedDict):
 class DeploymentCircuitBreakerTypeDef(TypedDict):
     enable: bool
     rollback: bool
+
+
+class DeploymentLifecycleHookOutputTypeDef(TypedDict):
+    hookTargetArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    lifecycleStages: NotRequired[List[DeploymentLifecycleHookStageType]]
+    hookDetails: NotRequired[Dict[str, Any]]
+
+
+class DeploymentLifecycleHookTypeDef(TypedDict):
+    hookTargetArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    lifecycleStages: NotRequired[Sequence[DeploymentLifecycleHookStageType]]
+    hookDetails: NotRequired[Mapping[str, Any]]
 
 
 class DeploymentEphemeralStorageTypeDef(TypedDict):
@@ -1060,6 +1083,13 @@ TaskDefinitionPlacementConstraintTypeDef = TypedDict(
         "expression": NotRequired[str],
     },
 )
+
+
+class ServiceRevisionLoadBalancerTypeDef(TypedDict):
+    targetGroupArn: NotRequired[str]
+    productionListenerRule: NotRequired[str]
+
+
 ResourceTypeDef = TypedDict(
     "ResourceTypeDef",
     {
@@ -1079,14 +1109,13 @@ class RollbackTypeDef(TypedDict):
     serviceRevisionArn: NotRequired[str]
 
 
-class ServiceConnectClientAliasTypeDef(TypedDict):
-    port: int
-    dnsName: NotRequired[str]
-
-
 class TimeoutConfigurationTypeDef(TypedDict):
     idleTimeoutSeconds: NotRequired[int]
     perRequestTimeoutSeconds: NotRequired[int]
+
+
+class ServiceConnectTestTrafficHeaderMatchRulesTypeDef(TypedDict):
+    exact: str
 
 
 class ServiceConnectTlsCertificateAuthorityTypeDef(TypedDict):
@@ -1175,6 +1204,14 @@ class UpdateTaskProtectionRequestTypeDef(TypedDict):
     tasks: Sequence[str]
     protectionEnabled: bool
     expiresInMinutes: NotRequired[int]
+
+
+class LoadBalancerTypeDef(TypedDict):
+    targetGroupArn: NotRequired[str]
+    loadBalancerName: NotRequired[str]
+    containerName: NotRequired[str]
+    containerPort: NotRequired[int]
+    advancedConfiguration: NotRequired[AdvancedConfigurationTypeDef]
 
 
 class SubmitAttachmentStateChangesRequestTypeDef(TypedDict):
@@ -1481,6 +1518,9 @@ class DeploymentConfigurationOutputTypeDef(TypedDict):
     maximumPercent: NotRequired[int]
     minimumHealthyPercent: NotRequired[int]
     alarms: NotRequired[DeploymentAlarmsOutputTypeDef]
+    strategy: NotRequired[DeploymentStrategyType]
+    bakeTimeInMinutes: NotRequired[int]
+    lifecycleHooks: NotRequired[List[DeploymentLifecycleHookOutputTypeDef]]
 
 
 class DeploymentConfigurationTypeDef(TypedDict):
@@ -1488,6 +1528,9 @@ class DeploymentConfigurationTypeDef(TypedDict):
     maximumPercent: NotRequired[int]
     minimumHealthyPercent: NotRequired[int]
     alarms: NotRequired[DeploymentAlarmsTypeDef]
+    strategy: NotRequired[DeploymentStrategyType]
+    bakeTimeInMinutes: NotRequired[int]
+    lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
 
 
 class DescribeServicesRequestWaitExtraTypeDef(TypedDict):
@@ -1658,7 +1701,16 @@ class ListServiceDeploymentsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ResolvedConfigurationTypeDef(TypedDict):
+    loadBalancers: NotRequired[List[ServiceRevisionLoadBalancerTypeDef]]
+
+
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
+
+
+class ServiceConnectTestTrafficHeaderRulesTypeDef(TypedDict):
+    name: str
+    value: NotRequired[ServiceConnectTestTrafficHeaderMatchRulesTypeDef]
 
 
 class ServiceConnectTlsConfigurationTypeDef(TypedDict):
@@ -1825,6 +1877,7 @@ class ServiceDeploymentTypeDef(TypedDict):
     targetServiceRevision: NotRequired[ServiceRevisionSummaryTypeDef]
     status: NotRequired[ServiceDeploymentStatusType]
     statusReason: NotRequired[str]
+    lifecycleStage: NotRequired[ServiceDeploymentLifecycleStageType]
     deploymentConfiguration: NotRequired[DeploymentConfigurationOutputTypeDef]
     rollback: NotRequired[RollbackTypeDef]
     deploymentCircuitBreaker: NotRequired[ServiceDeploymentCircuitBreakerTypeDef]
@@ -1920,22 +1973,8 @@ class RegisterContainerInstanceRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 
-class ServiceConnectServiceOutputTypeDef(TypedDict):
-    portName: str
-    discoveryName: NotRequired[str]
-    clientAliases: NotRequired[List[ServiceConnectClientAliasTypeDef]]
-    ingressPortOverride: NotRequired[int]
-    timeout: NotRequired[TimeoutConfigurationTypeDef]
-    tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
-
-
-class ServiceConnectServiceTypeDef(TypedDict):
-    portName: str
-    discoveryName: NotRequired[str]
-    clientAliases: NotRequired[Sequence[ServiceConnectClientAliasTypeDef]]
-    ingressPortOverride: NotRequired[int]
-    timeout: NotRequired[TimeoutConfigurationTypeDef]
-    tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
+class ServiceConnectTestTrafficRulesTypeDef(TypedDict):
+    header: ServiceConnectTestTrafficHeaderRulesTypeDef
 
 
 class LinuxParametersTypeDef(TypedDict):
@@ -2189,18 +2228,10 @@ class TaskDefinitionTypeDef(TypedDict):
     enableFaultInjection: NotRequired[bool]
 
 
-class ServiceConnectConfigurationOutputTypeDef(TypedDict):
-    enabled: bool
-    namespace: NotRequired[str]
-    services: NotRequired[List[ServiceConnectServiceOutputTypeDef]]
-    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-
-
-class ServiceConnectConfigurationTypeDef(TypedDict):
-    enabled: bool
-    namespace: NotRequired[str]
-    services: NotRequired[Sequence[ServiceConnectServiceTypeDef]]
-    logConfiguration: NotRequired[LogConfigurationTypeDef]
+class ServiceConnectClientAliasTypeDef(TypedDict):
+    port: int
+    dnsName: NotRequired[str]
+    testTrafficRules: NotRequired[ServiceConnectTestTrafficRulesTypeDef]
 
 
 LinuxParametersUnionTypeDef = Union[LinuxParametersTypeDef, LinuxParametersOutputTypeDef]
@@ -2291,58 +2322,22 @@ class RegisterTaskDefinitionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-DeploymentTypeDef = TypedDict(
-    "DeploymentTypeDef",
-    {
-        "id": NotRequired[str],
-        "status": NotRequired[str],
-        "taskDefinition": NotRequired[str],
-        "desiredCount": NotRequired[int],
-        "pendingCount": NotRequired[int],
-        "runningCount": NotRequired[int],
-        "failedTasks": NotRequired[int],
-        "createdAt": NotRequired[datetime],
-        "updatedAt": NotRequired[datetime],
-        "capacityProviderStrategy": NotRequired[List[CapacityProviderStrategyItemTypeDef]],
-        "launchType": NotRequired[LaunchTypeType],
-        "platformVersion": NotRequired[str],
-        "platformFamily": NotRequired[str],
-        "networkConfiguration": NotRequired[NetworkConfigurationOutputTypeDef],
-        "rolloutState": NotRequired[DeploymentRolloutStateType],
-        "rolloutStateReason": NotRequired[str],
-        "serviceConnectConfiguration": NotRequired[ServiceConnectConfigurationOutputTypeDef],
-        "serviceConnectResources": NotRequired[List[ServiceConnectServiceResourceTypeDef]],
-        "volumeConfigurations": NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]],
-        "fargateEphemeralStorage": NotRequired[DeploymentEphemeralStorageTypeDef],
-        "vpcLatticeConfigurations": NotRequired[List[VpcLatticeConfigurationTypeDef]],
-    },
-)
+class ServiceConnectServiceOutputTypeDef(TypedDict):
+    portName: str
+    discoveryName: NotRequired[str]
+    clientAliases: NotRequired[List[ServiceConnectClientAliasTypeDef]]
+    ingressPortOverride: NotRequired[int]
+    timeout: NotRequired[TimeoutConfigurationTypeDef]
+    tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
 
 
-class ServiceRevisionTypeDef(TypedDict):
-    serviceRevisionArn: NotRequired[str]
-    serviceArn: NotRequired[str]
-    clusterArn: NotRequired[str]
-    taskDefinition: NotRequired[str]
-    capacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
-    launchType: NotRequired[LaunchTypeType]
-    platformVersion: NotRequired[str]
-    platformFamily: NotRequired[str]
-    loadBalancers: NotRequired[List[LoadBalancerTypeDef]]
-    serviceRegistries: NotRequired[List[ServiceRegistryTypeDef]]
-    networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
-    containerImages: NotRequired[List[ContainerImageTypeDef]]
-    guardDutyEnabled: NotRequired[bool]
-    serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationOutputTypeDef]
-    volumeConfigurations: NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]]
-    fargateEphemeralStorage: NotRequired[DeploymentEphemeralStorageTypeDef]
-    createdAt: NotRequired[datetime]
-    vpcLatticeConfigurations: NotRequired[List[VpcLatticeConfigurationTypeDef]]
-
-
-ServiceConnectConfigurationUnionTypeDef = Union[
-    ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
-]
+class ServiceConnectServiceTypeDef(TypedDict):
+    portName: str
+    discoveryName: NotRequired[str]
+    clientAliases: NotRequired[Sequence[ServiceConnectClientAliasTypeDef]]
+    ingressPortOverride: NotRequired[int]
+    timeout: NotRequired[TimeoutConfigurationTypeDef]
+    tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
 
 
 class ContainerDefinitionTypeDef(TypedDict):
@@ -2433,6 +2428,102 @@ class StartTaskRequestTypeDef(TypedDict):
     volumeConfigurations: NotRequired[Sequence[TaskVolumeConfigurationTypeDef]]
 
 
+class ServiceConnectConfigurationOutputTypeDef(TypedDict):
+    enabled: bool
+    namespace: NotRequired[str]
+    services: NotRequired[List[ServiceConnectServiceOutputTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+
+
+class ServiceConnectConfigurationTypeDef(TypedDict):
+    enabled: bool
+    namespace: NotRequired[str]
+    services: NotRequired[Sequence[ServiceConnectServiceTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationTypeDef]
+
+
+ContainerDefinitionUnionTypeDef = Union[
+    ContainerDefinitionTypeDef, ContainerDefinitionOutputTypeDef
+]
+ServiceVolumeConfigurationUnionTypeDef = Union[
+    ServiceVolumeConfigurationTypeDef, ServiceVolumeConfigurationOutputTypeDef
+]
+DeploymentTypeDef = TypedDict(
+    "DeploymentTypeDef",
+    {
+        "id": NotRequired[str],
+        "status": NotRequired[str],
+        "taskDefinition": NotRequired[str],
+        "desiredCount": NotRequired[int],
+        "pendingCount": NotRequired[int],
+        "runningCount": NotRequired[int],
+        "failedTasks": NotRequired[int],
+        "createdAt": NotRequired[datetime],
+        "updatedAt": NotRequired[datetime],
+        "capacityProviderStrategy": NotRequired[List[CapacityProviderStrategyItemTypeDef]],
+        "launchType": NotRequired[LaunchTypeType],
+        "platformVersion": NotRequired[str],
+        "platformFamily": NotRequired[str],
+        "networkConfiguration": NotRequired[NetworkConfigurationOutputTypeDef],
+        "rolloutState": NotRequired[DeploymentRolloutStateType],
+        "rolloutStateReason": NotRequired[str],
+        "serviceConnectConfiguration": NotRequired[ServiceConnectConfigurationOutputTypeDef],
+        "serviceConnectResources": NotRequired[List[ServiceConnectServiceResourceTypeDef]],
+        "volumeConfigurations": NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]],
+        "fargateEphemeralStorage": NotRequired[DeploymentEphemeralStorageTypeDef],
+        "vpcLatticeConfigurations": NotRequired[List[VpcLatticeConfigurationTypeDef]],
+    },
+)
+
+
+class ServiceRevisionTypeDef(TypedDict):
+    serviceRevisionArn: NotRequired[str]
+    serviceArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    taskDefinition: NotRequired[str]
+    capacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    launchType: NotRequired[LaunchTypeType]
+    platformVersion: NotRequired[str]
+    platformFamily: NotRequired[str]
+    loadBalancers: NotRequired[List[LoadBalancerTypeDef]]
+    serviceRegistries: NotRequired[List[ServiceRegistryTypeDef]]
+    networkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
+    containerImages: NotRequired[List[ContainerImageTypeDef]]
+    guardDutyEnabled: NotRequired[bool]
+    serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationOutputTypeDef]
+    volumeConfigurations: NotRequired[List[ServiceVolumeConfigurationOutputTypeDef]]
+    fargateEphemeralStorage: NotRequired[DeploymentEphemeralStorageTypeDef]
+    createdAt: NotRequired[datetime]
+    vpcLatticeConfigurations: NotRequired[List[VpcLatticeConfigurationTypeDef]]
+    resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
+
+
+ServiceConnectConfigurationUnionTypeDef = Union[
+    ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
+]
+
+
+class RegisterTaskDefinitionRequestTypeDef(TypedDict):
+    family: str
+    containerDefinitions: Sequence[ContainerDefinitionUnionTypeDef]
+    taskRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    networkMode: NotRequired[NetworkModeType]
+    volumes: NotRequired[Sequence[VolumeUnionTypeDef]]
+    placementConstraints: NotRequired[Sequence[TaskDefinitionPlacementConstraintTypeDef]]
+    requiresCompatibilities: NotRequired[Sequence[CompatibilityType]]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    pidMode: NotRequired[PidModeType]
+    ipcMode: NotRequired[IpcModeType]
+    proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
+    inferenceAccelerators: NotRequired[Sequence[InferenceAcceleratorTypeDef]]
+    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
+    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
+    enableFaultInjection: NotRequired[bool]
+
+
 class ServiceTypeDef(TypedDict):
     serviceArn: NotRequired[str]
     serviceName: NotRequired[str]
@@ -2472,56 +2563,6 @@ class DescribeServiceRevisionsResponseTypeDef(TypedDict):
     serviceRevisions: List[ServiceRevisionTypeDef]
     failures: List[FailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-ContainerDefinitionUnionTypeDef = Union[
-    ContainerDefinitionTypeDef, ContainerDefinitionOutputTypeDef
-]
-ServiceVolumeConfigurationUnionTypeDef = Union[
-    ServiceVolumeConfigurationTypeDef, ServiceVolumeConfigurationOutputTypeDef
-]
-
-
-class CreateServiceResponseTypeDef(TypedDict):
-    service: ServiceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteServiceResponseTypeDef(TypedDict):
-    service: ServiceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeServicesResponseTypeDef(TypedDict):
-    services: List[ServiceTypeDef]
-    failures: List[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateServiceResponseTypeDef(TypedDict):
-    service: ServiceTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RegisterTaskDefinitionRequestTypeDef(TypedDict):
-    family: str
-    containerDefinitions: Sequence[ContainerDefinitionUnionTypeDef]
-    taskRoleArn: NotRequired[str]
-    executionRoleArn: NotRequired[str]
-    networkMode: NotRequired[NetworkModeType]
-    volumes: NotRequired[Sequence[VolumeUnionTypeDef]]
-    placementConstraints: NotRequired[Sequence[TaskDefinitionPlacementConstraintTypeDef]]
-    requiresCompatibilities: NotRequired[Sequence[CompatibilityType]]
-    cpu: NotRequired[str]
-    memory: NotRequired[str]
-    tags: NotRequired[Sequence[TagTypeDef]]
-    pidMode: NotRequired[PidModeType]
-    ipcMode: NotRequired[IpcModeType]
-    proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
-    inferenceAccelerators: NotRequired[Sequence[InferenceAcceleratorTypeDef]]
-    ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
-    runtimePlatform: NotRequired[RuntimePlatformTypeDef]
-    enableFaultInjection: NotRequired[bool]
 
 
 class CreateServiceRequestTypeDef(TypedDict):
@@ -2567,6 +2608,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     platformVersion: NotRequired[str]
     forceNewDeployment: NotRequired[bool]
     healthCheckGracePeriodSeconds: NotRequired[int]
+    deploymentController: NotRequired[DeploymentControllerTypeDef]
     enableExecuteCommand: NotRequired[bool]
     enableECSManagedTags: NotRequired[bool]
     loadBalancers: NotRequired[Sequence[LoadBalancerTypeDef]]
@@ -2575,3 +2617,24 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+
+
+class CreateServiceResponseTypeDef(TypedDict):
+    service: ServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteServiceResponseTypeDef(TypedDict):
+    service: ServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeServicesResponseTypeDef(TypedDict):
+    services: List[ServiceTypeDef]
+    failures: List[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateServiceResponseTypeDef(TypedDict):
+    service: ServiceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef

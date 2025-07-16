@@ -1,79 +1,79 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: torch-optimi
-Version: 0.2.1
+Version: 0.3.0
 Summary: Fast, Modern, & Low Precision PyTorch Optimizers
+Keywords: Optimizers,PyTorch,Deep Learning,AI
+Author: Benjamin Warner
 Author-email: Benjamin Warner <me@benjaminwarner.dev>
 License: MIT License
-        
-        Copyright (c) 2023 Benjamin Warner
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
-Project-URL: Homepage, https://optimi.benjaminwarner.dev
-Project-URL: Bug Reports, https://github.com/warner-benjamin/optimi/issues
-Project-URL: Source, https://github.com/warner-benjamin/optimi
-Keywords: Optimizers,PyTorch,Deep Learning
+         
+         Copyright (c) 2023 Benjamin Warner
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.8
+Requires-Dist: torch>=2.2
+Requires-Dist: packaging>=23.0
+Requires-Python: >=3.10
+Project-URL: Bug Reports, https://github.com/warner-benjamin/optimi/issues
+Project-URL: Homepage, https://optimi.benjaminwarner.dev
+Project-URL: Source, https://github.com/warner-benjamin/optimi
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: torch>=1.13
-Requires-Dist: packaging>=21.3
-Provides-Extra: test
-Requires-Dist: pytest>=8.1.1; extra == "test"
-Requires-Dist: ruff>=0.3.2; extra == "test"
-Requires-Dist: pytest-md>=0.2.0; extra == "test"
-Requires-Dist: numpy>=1.23; extra == "test"
-Provides-Extra: docs
-Requires-Dist: mkdocs-material>=9.4.7; extra == "docs"
-Requires-Dist: mkdocstrings>=0.24.1; extra == "docs"
-Requires-Dist: mkdocstrings-python>=1.8.0; extra == "docs"
-Requires-Dist: black>=24.2.0; extra == "docs"
-Requires-Dist: mkdocs-caption>=1.0.0; extra == "docs"
-Provides-Extra: dev
-Requires-Dist: pytest>=8.1.1; extra == "dev"
-Requires-Dist: ruff>=0.3.2; extra == "dev"
-Requires-Dist: mkdocs-material>=9.4.7; extra == "dev"
-Requires-Dist: mkdocstrings>=0.24.1; extra == "dev"
-Requires-Dist: mkdocstrings-python>=1.8.0; extra == "dev"
-Requires-Dist: black>=24.2.0; extra == "dev"
-Requires-Dist: mkdocs-caption>=1.0.0; extra == "dev"
 
 # optimī
 
-### Fast, Modern, Memory Efficient, and Low Precision PyTorch Optimizers
+### Fast, Modern, and Low Precision PyTorch Optimizers
+
+[![Python Versions](https://img.shields.io/pypi/pyversions/torch-optimi)](https://pypi.org/project/torch-optimi/)
+[![PyPI Version](https://img.shields.io/pypi/v/torch-optimi)](https://pypi.org/project/torch-optimi/)
+[![PyPI Downloads](https://static.pepy.tech/badge/torch-optimi/month)](https://pepy.tech/projects/torch-optimi)
+[![Documentation](https://img.shields.io/badge/docs-available-brightgreen)](https://optimi.benjaminwarner.dev)
 
 optimi enables accurate low precision training via Kahan summation, integrates gradient release and optimizer accumulation for additional memory efficiency, supports fully decoupled weight decay, and features fast implementations of modern optimizers.
 
 ## Low Precision Training with Kahan Summation
 
-optimi optimizers can nearly reach or match the performance of mixed precision when [training in BFloat16 by using Kahan summation](https://optimi.benjaminwarner.dev/kahan_summation).
+optimi optimizers can match the performance of mixed precision when [training in pure BFloat16 by using Kahan summation](https://optimi.benjaminwarner.dev/kahan_summation).
 
-Training in BFloat16 with Kahan summation can reduce non-activation training memory usage by [37.5 to 45.5 percent](https://optimi.benjaminwarner.dev/kahan_summation/#memory-savings) when using an Adam optimizer. BFloat16 training increases single GPU [training speed by ~10 percent](https://optimi.benjaminwarner.dev/kahan_summation/#training-speedup) at the same batch size.
+![](https://ghp-cdn.benjaminwarner.dev/optimi/kahan_pretrain.png)
+
+Training in BFloat16 with Kahan summation can reduce non-activation training memory usage by [37 to 45 percent](https://optimi.benjaminwarner.dev/kahan_summation/#memory-savings) when using an Adam optimizer. BFloat16 training can increase single GPU [training speed up to 10 percent](https://optimi.benjaminwarner.dev/kahan_summation/#training-speedup) at the same batch size.
+
+## Fast Triton Implementations
+
+optimi's fused [Triton optimizers](https://optimi.benjaminwarner.dev/triton) are faster than PyTorch's fused Cuda optimizers, and nearly as fast as compiled optimizers without any hassle.
+
+![](https://ghp-cdn.benjaminwarner.dev/optimi/adamw_speed.png)
+
+optimi's Triton backend supports modern NVIDIA (Ampere or newer), AMD, and Intel GPUs, and is enabled by default for all optimizers.
+
+## Fully Decoupled Weight Decay
+
+In addition to supporting PyTorch-style decoupled weight decay, optimi optimizers also support [fully decoupled weight decay](https://optimi.benjaminwarner.dev/fully_decoupled_weight_decay).
+
+Fully decoupled weight decay decouples weight decay from the learning rate, more accurately following [*Decoupled Weight Decay Regularization*](https://arxiv.org/abs/1711.05101). This can help simplify hyperparameter tuning as the optimal weight decay is no longer tied to the learning rate.
 
 ## Gradient Release: Fused Backward and Optimizer Step
 
@@ -85,19 +85,21 @@ Unlike the current PyTorch implementation, optimi’s gradient release optimizer
 
 optimi optimizers can approximate gradient accumulation with gradient release by [accumulating gradients into the optimizer states](https://optimi.benjaminwarner.dev/optimizer_accumulation).
 
-## Fully Decoupled Weight Decay
-
-In addition to supporting PyTorch-style decoupled weight decay, optimi optimizers also support [fully decoupled weight decay](https://optimi.benjaminwarner.dev/fully_decoupled_weight_decay).
-
-Fully decoupled weight decay decouples weight decay from the learning rate, more accurately following [*Decoupled Weight Decay Regularization*](https://arxiv.org/abs/1711.05101). This can help simplify hyperparameter tuning as the optimal weight decay is no longer tied to the learning rate.
-
-## Foreach Implementations
-
-All optimi optimizers have fast [foreach implementations](https://optimi.benjaminwarner.dev/foreach), which can significantly outperform the for-loop versions. optimi reuses the gradient buffer for temporary variables to reduce foreach memory usage.
-
 ## Documentation
 
 <https://optimi.benjaminwarner.dev>
+
+## Optimizers
+
+optimi implements the following optimizers:
+- [Adam](https://optimi.benjaminwarner.dev/optimizers/adam)
+- [AdamW](https://optimi.benjaminwarner.dev/optimizers/adamw)
+- [Adan](https://optimi.benjaminwarner.dev/optimizers/adan)
+- [Lion](https://optimi.benjaminwarner.dev/optimizers/lion)
+- [RAdam](https://optimi.benjaminwarner.dev/optimizers/radam)
+- [Ranger](https://optimi.benjaminwarner.dev/optimizers/ranger)
+- [SGD](https://optimi.benjaminwarner.dev/optimizers/sgd)
+- [StableAdamW](https://optimi.benjaminwarner.dev/optimizers/stableadamw)
 
 ## Install
 
@@ -214,7 +216,3 @@ remove_gradient_release(model)
 optimi optimizers do not support compilation, differentiation, complex numbers, or have capturable versions.
 
 optimi Adam optimizers do not support AMSGrad and SGD does not support Nesterov momentum. Optimizers which debias updates (Adam optimizers and Adan) calculate the debias term per parameter group, not per parameter.
-
-## Optimizers
-
-optimi implements the following optimizers: [Adam](https://optimi.benjaminwarner.dev/optimizers/adam), [AdamW](https://optimi.benjaminwarner.dev/optimizers/adamw), [Adan](https://optimi.benjaminwarner.dev/optimizers/adan), [Lion](https://optimi.benjaminwarner.dev/optimizers/lion), [RAdam](https://optimi.benjaminwarner.dev/optimizers/radam), [Ranger](https://optimi.benjaminwarner.dev/optimizers/ranger), [SGD](https://optimi.benjaminwarner.dev/optimizers/sgd), & [StableAdamW](https://optimi.benjaminwarner.dev/optimizers/stableadamw)

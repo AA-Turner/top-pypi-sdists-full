@@ -1,4 +1,4 @@
-# Copyright 2023 The PyGlove Authors
+# Copyright 2025 The PyGlove Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,22 +11,184 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for pyglove.core.typing.annotation_conversion."""
-
 import inspect
+import sys
 import typing
 import unittest
 
+from pyglove.core import coding
 from pyglove.core.typing import annotated
 from pyglove.core.typing import annotation_conversion
 from pyglove.core.typing import key_specs as ks
 from pyglove.core.typing import value_specs as vs
 from pyglove.core.typing.class_schema import Field
+from pyglove.core.typing.class_schema import ForwardRef
 from pyglove.core.typing.class_schema import ValueSpec
 
 
 class Foo:
-  pass
+  class Bar:
+    pass
+
+
+_MODULE = sys.modules[__name__]
+
+
+class AnnotationFromStrTest(unittest.TestCase):
+  """Tests for annotation_from_str."""
+
+  def test_basic_types(self):
+    self.assertIsNone(annotation_conversion.annotation_from_str('None'))
+    self.assertEqual(annotation_conversion.annotation_from_str('str'), str)
+    self.assertEqual(annotation_conversion.annotation_from_str('int'), int)
+    self.assertEqual(annotation_conversion.annotation_from_str('float'), float)
+    self.assertEqual(annotation_conversion.annotation_from_str('bool'), bool)
+    self.assertEqual(annotation_conversion.annotation_from_str('list'), list)
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('list[int]'), list[int]
+    )
+    self.assertEqual(annotation_conversion.annotation_from_str('tuple'), tuple)
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('tuple[int]'), tuple[int]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('tuple[int, ...]'),
+        tuple[int, ...]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('tuple[int, str]'),
+        tuple[int, str]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('list[Foo]', _MODULE),
+        list[Foo]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('list[Foo.Bar]', _MODULE),
+        list[Foo.Bar]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('list[Foo.Baz]', _MODULE),
+        list[typing.ForwardRef('Foo.Baz', False, _MODULE)]
+    )
+
+  def test_generic_types(self):
+    self.assertEqual(
+        annotation_conversion.annotation_from_str('typing.List[str]', _MODULE),
+        typing.List[str]
+    )
+
+  def test_union(self):
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Union[str, typing.Union[int, float]]', _MODULE),
+        typing.Union[str, int, float]
+    )
+    if sys.version_info >= (3, 10):
+      self.assertEqual(
+          annotation_conversion.annotation_from_str(
+              'str | int | float', _MODULE),
+          typing.Union[str, int, float]
+      )
+
+  def test_literal(self):
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Literal[1, True, "a", \'"b"\', "\\"c\\"", "\\\\"]',
+            _MODULE
+        ),
+        typing.Literal[1, True, 'a', '"b"', '"c"', '\\']
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Literal[(1, 1), f"A {[1]}"]', _MODULE),
+        typing.Literal[(1, 1), 'A [1]']
+    )
+    with self.assertRaisesRegex(SyntaxError, 'Expected "\\["'):
+      annotation_conversion.annotation_from_str('typing.Literal', _MODULE)
+
+    with self.assertRaisesRegex(SyntaxError, 'Unexpected end of annotation'):
+      annotation_conversion.annotation_from_str('typing.Literal[1', _MODULE)
+
+    with self.assertRaisesRegex(
+        coding.CodeError, 'Function definition is not allowed'
+    ):
+      annotation_conversion.annotation_from_str(
+          'typing.Literal[lambda x: x]', _MODULE
+      )
+
+  def test_callable(self):
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Callable[int, int]', _MODULE),
+        typing.Callable[[int], int]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Callable[[int], int]', _MODULE),
+        typing.Callable[[int], int]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.Callable[..., None]', _MODULE),
+        typing.Callable[..., None]
+    )
+
+  def test_forward_ref(self):
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'AAA', _MODULE),
+        typing.ForwardRef(
+            'AAA', False, _MODULE
+        )
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.List[AAA]', _MODULE),
+        typing.List[
+            typing.ForwardRef(
+                'AAA', False, _MODULE
+            )
+        ]
+    )
+
+  def test_reloading(self):
+    setattr(_MODULE, '__reloading__', True)
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.List[Foo]', _MODULE),
+        typing.List[
+            typing.ForwardRef(
+                'Foo', False, _MODULE
+            )
+        ]
+    )
+    self.assertEqual(
+        annotation_conversion.annotation_from_str(
+            'typing.List[Foo.Bar]', _MODULE),
+        typing.List[
+            typing.ForwardRef(
+                'Foo.Bar', False, _MODULE
+            )
+        ]
+    )
+    delattr(_MODULE, '__reloading__')
+
+  def test_bad_annotation(self):
+    with self.assertRaisesRegex(SyntaxError, 'Expected type identifier'):
+      annotation_conversion.annotation_from_str('typing.List[]')
+
+    with self.assertRaisesRegex(SyntaxError, 'Expected "]"'):
+      annotation_conversion.annotation_from_str('typing.List[int')
+
+    with self.assertRaisesRegex(SyntaxError, 'Unexpected end of annotation'):
+      annotation_conversion.annotation_from_str('typing.List[int]1', _MODULE)
+
+    with self.assertRaisesRegex(SyntaxError, 'Expected "]"'):
+      annotation_conversion.annotation_from_str('typing.Callable[[x')
+
+    with self.assertRaisesRegex(TypeError, '.* does not exist'):
+      annotation_conversion.annotation_from_str('typing.Foo', _MODULE)
 
 
 class FieldFromAnnotationTest(unittest.TestCase):
@@ -73,6 +235,14 @@ class FieldFromAnnotationTest(unittest.TestCase):
     self.assertEqual(
         Field.from_annotation('x', str, 'A str', dict(x=1), auto_typing=True),
         Field('x', vs.Str(), 'A str', dict(x=1)))
+
+  def test_with_parent_module(self):
+    self.assertEqual(
+        Field.from_annotation(
+            'x', 'ValueSpecBase', auto_typing=True, parent_module=vs
+        ),
+        Field('x', vs.Object(vs.ValueSpecBase))
+    )
 
 
 class ValueSpecFromAnnotationTest(unittest.TestCase):
@@ -122,17 +292,24 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
 
   def test_none(self):
     self.assertEqual(
-        ValueSpec.from_annotation(None, False), vs.Any().freeze(None))
+        ValueSpec.from_annotation(None, False), vs.Object(type(None)))
     self.assertEqual(
-        ValueSpec.from_annotation(None, True), vs.Any().freeze(None))
+        ValueSpec.from_annotation('None', True), vs.Object(type(None)))
     self.assertEqual(
-        ValueSpec.from_annotation(
-            None, accept_value_as_annotation=True), vs.Any().noneable())
+        ValueSpec.from_annotation(None, True), vs.Object(type(None)))
+    self.assertEqual(
+        ValueSpec.from_annotation(None, accept_value_as_annotation=True),
+        vs.Any().noneable()
+    )
 
   def test_any(self):
     self.assertEqual(
         ValueSpec.from_annotation(typing.Any, False),
         vs.Any(annotation=typing.Any))
+    self.assertEqual(
+        ValueSpec.from_annotation('typing.Any', True, parent_module=_MODULE),
+        vs.Any(annotation=typing.Any)
+    )
     self.assertEqual(
         ValueSpec.from_annotation(typing.Any, True),
         vs.Any(annotation=typing.Any))
@@ -142,6 +319,7 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
 
   def test_bool(self):
     self.assertEqual(ValueSpec.from_annotation(bool, True), vs.Bool())
+    self.assertEqual(ValueSpec.from_annotation('bool', True), vs.Bool())
     self.assertEqual(
         ValueSpec.from_annotation(bool, False), vs.Any(annotation=bool))
     self.assertEqual(
@@ -149,6 +327,7 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
 
   def test_int(self):
     self.assertEqual(ValueSpec.from_annotation(int, True), vs.Int())
+    self.assertEqual(ValueSpec.from_annotation('int', True), vs.Int())
     self.assertEqual(ValueSpec.from_annotation(int, True, True), vs.Int())
     self.assertEqual(
         ValueSpec.from_annotation(int, False), vs.Any(annotation=int))
@@ -172,7 +351,9 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
         ValueSpec.from_annotation(str, False, True), vs.Any(annotation=str))
 
     self.assertEqual(
-        ValueSpec.from_annotation('A', False, False), vs.Any(annotation='A'))
+        ValueSpec.from_annotation('A', False, False),
+        vs.Any(annotation='A')
+    )
     self.assertEqual(
         ValueSpec.from_annotation('A', False, True), vs.Str('A'))
     self.assertEqual(
@@ -248,6 +429,11 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
     self.assertEqual(
         ValueSpec.from_annotation(
             typing.ForwardRef('Foo'), True), vs.Object(Foo))
+    self.assertEqual(
+        ValueSpec.from_annotation(
+            ForwardRef(sys.modules[__name__], 'Foo'),
+            True
+        ), vs.Object(Foo))
 
   def test_generic_class(self):
     X = typing.TypeVar('X')
@@ -273,11 +459,11 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
   def test_optional(self):
     self.assertEqual(
         ValueSpec.from_annotation(typing.Optional[int], True),
-        vs.Int().noneable())
+        vs.Int().noneable(use_none_as_default=False))
     if annotation_conversion._UnionType:
       self.assertEqual(
           ValueSpec.from_annotation(int | None, True),
-          vs.Int().noneable())
+          vs.Int().noneable(use_none_as_default=False))
 
   def test_union(self):
     self.assertEqual(
@@ -285,11 +471,19 @@ class ValueSpecFromAnnotationTest(unittest.TestCase):
         vs.Union([vs.Int(), vs.Str()]))
     self.assertEqual(
         ValueSpec.from_annotation(typing.Union[int, str, None], True),
-        vs.Union([vs.Int(), vs.Str()]).noneable())
+        vs.Union([vs.Int(), vs.Str()]).noneable(use_none_as_default=False))
     if annotation_conversion._UnionType:
       self.assertEqual(
-          ValueSpec.from_annotation(int | str, True),
-          vs.Union([vs.Int(), vs.Str()]))
+          ValueSpec.from_annotation(int | str | None, True),
+          vs.Union([vs.Int(), vs.Str()]).noneable(use_none_as_default=False))
+
+  def test_final(self):
+    self.assertEqual(
+        ValueSpec.from_annotation(
+            typing.Final[int], True
+        ).set_default(1),
+        vs.Int().freeze(1)
+    )
 
 
 if __name__ == '__main__':

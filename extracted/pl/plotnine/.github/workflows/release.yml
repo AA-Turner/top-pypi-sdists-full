@@ -6,19 +6,18 @@ on:
       - 'v[0-9]*'
 
 jobs:
-  # run-tests:
-  #   name: Run all tests
-  #   uses: ./.github/workflows/testing.yml
-  #   with:
-  #     skip_codecov: true
+  run-tests:
+    name: Run all tests
+    uses: ./.github/workflows/testing.yml
+    with:
+      skip_codecov: true
 
   check-semver-tag:
     name: Check if the tag is in semantic version format
-    # needs: [run-tests]
+    needs: [run-tests]
     runs-on: ubuntu-latest
     outputs:
-      tag_type: ${{ steps.check-tag.outputs.tag_type }}
-      publish_on: ${{ steps.check-tag.outputs.publish_on }}
+      publish_on: ${{ steps.variables.outputs.publish_on }}
 
     strategy:
       matrix:
@@ -28,28 +27,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
+      - name: Copy build utils
+        run: cp -r .github/utils ../utils
 
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
-      - name: Check for semantic version tag
-        id: check-tag
-        run: python tools/gha_check_semver.py
+      - name: Decide where to publish and create output variables
+        id: variables
+        run: uv run python ../utils/please.py set_publish_on
 
       - name: See outputs
-        shell: bash
-        run: |
-          echo "tag_type="${{ steps.check-tag.outputs.tag_type }}
-          echo "publish_on="${{ steps.check-tag.outputs.publish_on }}
+        run: echo "publish_on="${{ steps.variables.outputs.publish_on }}
 
   # Ref: https://github.com/pypa/gh-action-pypi-publish
   publish:
@@ -74,21 +65,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Install a specific version of uv
+        uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install a specific version of uv
-        uses: astral-sh/setup-uv@v3
-        with:
-          version: "latest"
-
-      - name: Make uv use system python
-        run: echo "UV_SYSTEM_PYTHON=true" >> $GITHUB_ENV
-
       - name: Install Packages
-        run: uv pip install build
+        run: uv run uv pip install build
 
       - name: Build a wheel and a source tarball
         run: make dist
@@ -110,7 +93,7 @@ jobs:
         if: ${{ needs.check-semver-tag.outputs.publish_on == 'testpypi' }}
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.PAT_PLOTNINE_WEBSITE }}
+          token: ${{ secrets.PLOTNINE_WEBSITE }}
           repository: has2k1/plotnine.org
           event-type: plotnine-pre-release
 
@@ -118,6 +101,6 @@ jobs:
         if: ${{ needs.check-semver-tag.outputs.publish_on == 'pypi' }}
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.PAT_PLOTNINE_WEBSITE }}
+          token: ${{ secrets.PLOTNINE_WEBSITE }}
           repository: has2k1/plotnine.org
           event-type: plotnine-release

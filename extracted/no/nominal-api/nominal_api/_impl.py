@@ -14266,19 +14266,19 @@ class module_DerivedSeriesMetadata(ConjureBeanType):
             'function_name': ConjureFieldDefinition('functionName', str),
             'function_description': ConjureFieldDefinition('functionDescription', str),
             'module_name': ConjureFieldDefinition('moduleName', str),
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
+            'application_resolved_parameters': ConjureFieldDefinition('applicationResolvedParameters', List[module_ModuleVariable]),
             'data_type': ConjureFieldDefinition('dataType', module_ValueType)
         }
 
-    __slots__: List[str] = ['_function_name', '_function_description', '_module_name', '_module_rid', '_asset_rid', '_data_type']
+    __slots__: List[str] = ['_function_name', '_function_description', '_module_name', '_module_application_rid', '_application_resolved_parameters', '_data_type']
 
-    def __init__(self, asset_rid: str, data_type: "module_ValueType", function_description: str, function_name: str, module_name: str, module_rid: str) -> None:
+    def __init__(self, application_resolved_parameters: List["module_ModuleVariable"], data_type: "module_ValueType", function_description: str, function_name: str, module_application_rid: str, module_name: str) -> None:
         self._function_name = function_name
         self._function_description = function_description
         self._module_name = module_name
-        self._module_rid = module_rid
-        self._asset_rid = asset_rid
+        self._module_application_rid = module_application_rid
+        self._application_resolved_parameters = application_resolved_parameters
         self._data_type = data_type
 
     @builtins.property
@@ -14294,12 +14294,14 @@ class module_DerivedSeriesMetadata(ConjureBeanType):
         return self._module_name
 
     @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
 
     @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
+    def application_resolved_parameters(self) -> List["module_ModuleVariable"]:
+        """The parameters and their values that were resolved when the module was applied to the asset.
+        """
+        return self._application_resolved_parameters
 
     @builtins.property
     def data_type(self) -> "module_ValueType":
@@ -15964,11 +15966,34 @@ module_internal_BatchGetResolvedModuleDefinitionsRequest.__qualname__ = "BatchGe
 module_internal_BatchGetResolvedModuleDefinitionsRequest.__module__ = "nominal_api.module_internal"
 
 
+class module_internal_BatchGetResolvedModuleDefinitionsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[module_internal_ResolvedModuleVersionDefinition])
+        }
+
+    __slots__: List[str] = ['_results']
+
+    def __init__(self, results: List["module_internal_ResolvedModuleVersionDefinition"]) -> None:
+        self._results = results
+
+    @builtins.property
+    def results(self) -> List["module_internal_ResolvedModuleVersionDefinition"]:
+        return self._results
+
+
+module_internal_BatchGetResolvedModuleDefinitionsResponse.__name__ = "BatchGetResolvedModuleDefinitionsResponse"
+module_internal_BatchGetResolvedModuleDefinitionsResponse.__qualname__ = "BatchGetResolvedModuleDefinitionsResponse"
+module_internal_BatchGetResolvedModuleDefinitionsResponse.__module__ = "nominal_api.module_internal"
+
+
 class module_internal_InternalModuleService(Service):
     """This service provides internal APIs related to modules.
     """
 
-    def batch_get_resolved_module_definitions(self, auth_header: str, request: "module_internal_BatchGetResolvedModuleDefinitionsRequest") -> List["module_internal_ResolvedModuleVersionDefinition"]:
+    def batch_get_resolved_module_definitions(self, auth_header: str, request: "module_internal_BatchGetResolvedModuleDefinitionsRequest") -> "module_internal_BatchGetResolvedModuleDefinitionsResponse":
         """Returns the resolved module definitions for the given module-asset pairs. If any of modules have not been
 applied to their corresponding asset, this will throw.
         """
@@ -15999,7 +16024,7 @@ applied to their corresponding asset, this will throw.
             json=_json)
 
         _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), List[module_internal_ResolvedModuleVersionDefinition], self._return_none_for_unknown_union_types)
+        return _decoder.decode(_response.json(), module_internal_BatchGetResolvedModuleDefinitionsResponse, self._return_none_for_unknown_union_types)
 
 
 module_internal_InternalModuleService.__name__ = "InternalModuleService"
@@ -16012,23 +16037,17 @@ class module_internal_ModuleApplicationReference(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_name': ConjureFieldDefinition('moduleName', str),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid)
         }
 
-    __slots__: List[str] = ['_module_name', '_asset_rid']
+    __slots__: List[str] = ['_module_application_rid']
 
-    def __init__(self, asset_rid: str, module_name: str) -> None:
-        self._module_name = module_name
-        self._asset_rid = asset_rid
-
-    @builtins.property
-    def module_name(self) -> str:
-        return self._module_name
+    def __init__(self, module_application_rid: str) -> None:
+        self._module_application_rid = module_application_rid
 
     @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
 
 
 module_internal_ModuleApplicationReference.__name__ = "ModuleApplicationReference"
@@ -16041,29 +16060,23 @@ class module_internal_ResolvedModuleVersionDefinition(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_name': ConjureFieldDefinition('moduleName', str),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
             'resolved_parameters': ConjureFieldDefinition('resolvedParameters', List[module_ModuleVariable]),
             'default_variables': ConjureFieldDefinition('defaultVariables', List[module_ModuleVariable]),
             'functions': ConjureFieldDefinition('functions', List[module_Function])
         }
 
-    __slots__: List[str] = ['_module_name', '_asset_rid', '_resolved_parameters', '_default_variables', '_functions']
+    __slots__: List[str] = ['_module_application_rid', '_resolved_parameters', '_default_variables', '_functions']
 
-    def __init__(self, asset_rid: str, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_name: str, resolved_parameters: List["module_ModuleVariable"]) -> None:
-        self._module_name = module_name
-        self._asset_rid = asset_rid
+    def __init__(self, default_variables: List["module_ModuleVariable"], functions: List["module_Function"], module_application_rid: str, resolved_parameters: List["module_ModuleVariable"]) -> None:
+        self._module_application_rid = module_application_rid
         self._resolved_parameters = resolved_parameters
         self._default_variables = default_variables
         self._functions = functions
 
     @builtins.property
-    def module_name(self) -> str:
-        return self._module_name
-
-    @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
 
     @builtins.property
     def resolved_parameters(self) -> List["module_ModuleVariable"]:
@@ -86514,6 +86527,8 @@ persistent_compute_api_SubscriptionId = str
 
 api_McapChannelTopic = str
 
+modules_api_ModuleApplicationRid = str
+
 scout_compute_api_VariableName = str
 
 scout_datasource_connection_api_MeasurementName = str
@@ -86668,8 +86683,6 @@ api_rids_EventRid = str
 
 persistent_compute_api_Milliseconds = int
 
-api_rids_StreamingConnectionRid = str
-
 ingest_api_IngestJobRid = str
 
 scout_compute_api_ErrorType = str
@@ -86682,9 +86695,13 @@ modules_api_ModuleRid = str
 
 timeseries_logicalseries_api_SchemaName = str
 
+scout_rids_api_MarkingRid = str
+
 scout_datasource_connection_api_BucketName = str
 
 api_S3Path = str
+
+api_rids_StreamingConnectionRid = str
 
 comments_api_ReactionRid = str
 

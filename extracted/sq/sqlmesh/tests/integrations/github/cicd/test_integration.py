@@ -846,7 +846,7 @@ def test_merge_pr_has_no_changes(
     assert GithubCheckConclusion(pr_checks_runs[2]["conclusion"]).is_skipped
     assert pr_checks_runs[2]["output"]["title"] == "PR Virtual Data Environment: hello_world_2"
     assert (
-        ":next_track_button: Skipped creating or updating PR Environment `hello_world_2`. No changes were detected compared to the prod environment."
+        ":next_track_button: Skipped creating or updating PR Environment `hello_world_2` :next_track_button:\n\nNo changes were detected compared to the prod environment."
         in pr_checks_runs[2]["output"]["summary"]
     )
 
@@ -1582,7 +1582,8 @@ def test_error_msg_when_applying_plan_with_bug(
     assert GithubCheckConclusion(pr_checks_runs[2]["conclusion"]).is_failure
     assert pr_checks_runs[2]["output"]["title"] == "PR Virtual Data Environment: hello_world_2"
     summary = pr_checks_runs[2]["output"]["summary"].replace("\n", "")
-    assert 'Failed models  **"memory"."sushi"."waiter_revenue_by_day"**' in summary
+    assert '**Skipped models*** `"memory"."sushi"."top_waiters"`' in summary
+    assert '**Failed models*** `"memory"."sushi"."waiter_revenue_by_day"`' in summary
     assert 'Binder Error: Referenced column "non_existing_col" not found in FROM clause!' in summary
 
     assert "SQLMesh - Prod Plan Preview" in controller._check_run_mapping

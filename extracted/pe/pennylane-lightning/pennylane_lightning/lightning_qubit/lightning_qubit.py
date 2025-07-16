@@ -15,8 +15,6 @@ r"""
 This module contains the LightningQubit class, a PennyLane simulator device that
 interfaces with C++ for fast linear algebra calculations.
 """
-import os
-import sys
 from dataclasses import replace
 from functools import reduce
 from pathlib import Path
@@ -25,6 +23,8 @@ from warnings import warn
 
 import numpy as np
 import pennylane as qml
+from numpy.random import BitGenerator, Generator, SeedSequence
+from numpy.typing import ArrayLike
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
 from pennylane.devices.capabilities import OperatorProperties
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
@@ -37,14 +37,13 @@ from pennylane.devices.preprocess import (
     validate_measurements,
     validate_observables,
 )
+from pennylane.exceptions import DeviceError
 from pennylane.measurements import MidMeasureMP
 from pennylane.operation import DecompositionUndefinedError, Operator
 from pennylane.ops import Conditional, PauliRot, Prod, SProd, Sum
-from pennylane.tape import QuantumScript
 from pennylane.transforms.core import TransformProgram
-from pennylane.typing import Result
 
-from pennylane_lightning.core.lightning_base import (
+from pennylane_lightning.lightning_base.lightning_base import (
     LightningBase,
     QuantumTape_or_Batch,
     Result_or_ResultBatch,
@@ -88,6 +87,13 @@ def stopping_condition(op: Operator) -> bool:
         return reduce(lambda x, y: x + (y != "I"), word, 0) > 2
     if op.name in ("C(SProd)", "C(Exp)"):
         return True
+
+    if (isinstance(op, Conditional) and stopping_condition(op.base)) or isinstance(
+        op, MidMeasureMP
+    ):
+        # Conditional and MidMeasureMP should not be decomposed
+        return True
+
     return _supports_operation(op.name)
 
 
@@ -131,7 +137,7 @@ def _supports_adjoint(circuit):
 
     try:
         prog((circuit,))
-    except (DecompositionUndefinedError, qml.DeviceError, AttributeError):
+    except (DecompositionUndefinedError, DeviceError, AttributeError):
         return False
     return True
 
@@ -140,7 +146,8 @@ def _adjoint_ops(op: qml.operation.Operator) -> bool:
     """Specify whether or not an Operator is supported by adjoint differentiation."""
 
     return not isinstance(op, (Conditional, MidMeasureMP, PauliRot)) and (
-        not qml.operation.is_trainable(op) or (op.num_params == 1 and op.has_generator)
+        not any(qml.math.requires_grad(d) for d in op.data)
+        or (op.num_params == 1 and op.has_generator)
     )
 
 
@@ -158,6 +165,7 @@ def _add_adjoint_transforms(program: TransformProgram) -> None:
 
     name = "adjoint + lightning.qubit"
     program.add_transform(no_sampling, name=name)
+    program.add_transform(qml.transforms.broadcast_expand)
     program.add_transform(
         decompose,
         stopping_condition=_adjoint_ops,
@@ -169,7 +177,6 @@ def _add_adjoint_transforms(program: TransformProgram) -> None:
     program.add_transform(
         validate_measurements, analytic_measurements=adjoint_measurements, name=name
     )
-    program.add_transform(qml.transforms.broadcast_expand)
     program.add_transform(validate_adjoint_trainable_params)
 
 
@@ -191,11 +198,6 @@ class LightningQubit(LightningBase):
             the expectation values. Defaults to ``None`` if not specified. Setting
             to ``None`` results in computing statistics like expectation values and
             variances analytically.
-        seed (Union[str, None, int, array_like[int], SeedSequence, BitGenerator, Generator]): A
-            seed-like parameter matching that of ``seed`` for ``numpy.random.default_rng``, or
-            a request to seed from numpy's global random number generator.
-            The default, ``seed="global"`` pulls a seed from NumPy's global generator. ``seed=None``
-            will pull a seed from the OS entropy.
         mcmc (bool): Determine whether to use the approximate Markov Chain Monte Carlo
             sampling method when generating samples.
         kernel_name (str): name of transition MCMC kernel. The current version supports
@@ -209,6 +211,11 @@ class LightningQubit(LightningBase):
         batch_obs (bool): Determine whether we process observables in parallel when
             computing the jacobian. This value is only relevant when the lightning
             qubit is built with OpenMP.
+        seed (Union[str, None, int, array_like[int], SeedSequence, BitGenerator, Generator]): A
+            seed-like parameter matching that of ``seed`` for ``numpy.random.default_rng``, or
+            a request to seed from numpy's global random number generator.
+            The default, ``seed="global"`` pulls a seed from NumPy's global generator. ``seed=None``
+            will pull a seed from the OS entropy.
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -234,8 +241,8 @@ class LightningQubit(LightningBase):
         c_dtype: Union[np.complex128, np.complex64] = np.complex128,
         shots: Union[int, List] = None,
         batch_obs: bool = False,
+        seed: Union[str, None, int, ArrayLike, SeedSequence, BitGenerator, Generator] = "global",
         # Markov Chain Monte Carlo (MCMC) sampling method arguments
-        seed: Union[str, int] = "global",
         mcmc: bool = False,
         kernel_name: str = "Local",
         num_burnin: int = 100,
@@ -251,6 +258,7 @@ class LightningQubit(LightningBase):
             wires=wires,
             c_dtype=c_dtype,
             shots=shots,
+            seed=seed,
             batch_obs=batch_obs,
         )
 
@@ -258,10 +266,6 @@ class LightningQubit(LightningBase):
         self._set_lightning_classes()
 
         # Markov Chain Monte Carlo (MCMC) sampling method specific options
-        # TODO: Investigate usefulness of creating numpy random generator
-        seed = np.random.randint(0, high=10000000) if seed == "global" else seed
-        self._rng = np.random.default_rng(seed)
-
         self._mcmc = mcmc
         if self._mcmc:
             if kernel_name not in [
@@ -309,8 +313,7 @@ class LightningQubit(LightningBase):
 
         for option, _ in config.device_options.items():
             if option not in self._device_options:
-                raise qml.DeviceError(f"device option {option} not present on {self}")
-
+                raise DeviceError(f"device option {option} not present on {self}")
         if config.gradient_method == "best":
             updated_values["gradient_method"] = "adjoint"
         if config.use_device_jacobian_product is None:
@@ -332,18 +335,20 @@ class LightningQubit(LightningBase):
             if option not in new_device_options:
                 new_device_options[option] = getattr(self, f"_{option}", None)
 
+        mcm_supported_methods = (
+            ("deferred", "tree-traversal", "one-shot", None)
+            if not qml.capture.enabled()
+            else ("deferred", "single-branch-statistics", None)
+        )
+
+        mcm_config = config.mcm_config
+
+        if (mcm_method := mcm_config.mcm_method) not in mcm_supported_methods:
+            raise DeviceError(f"mcm_method='{mcm_method}' is not supported with lightning.qubit")
+
         if qml.capture.enabled():
-            mcm_config = config.mcm_config
+
             mcm_updated_values = {}
-            if (mcm_method := mcm_config.mcm_method) not in (
-                "deferred",
-                "single-branch-statistics",
-                None,
-            ):
-                raise qml.DeviceError(
-                    f"mcm_method='{mcm_method}' is not supported with lightning.qubit "
-                    "when program capture is enabled."
-                )
 
             if mcm_method == "single-branch-statistics" and mcm_config.postselect_mode is not None:
                 warn(
@@ -352,8 +357,9 @@ class LightningQubit(LightningBase):
                     UserWarning,
                 )
                 mcm_updated_values["postselect_mode"] = None
-            if mcm_method is None:
+            elif mcm_method is None:
                 mcm_updated_values["mcm_method"] = "deferred"
+
             updated_values["mcm_config"] = replace(mcm_config, **mcm_updated_values)
 
         return replace(config, **updated_values, device_options=new_device_options)
@@ -439,6 +445,7 @@ class LightningQubit(LightningBase):
                     self._statevector,
                     mcmc=mcmc,
                     postselect_mode=execution_config.mcm_config.postselect_mode,
+                    mcm_method=execution_config.mcm_config.mcm_method,
                 )
             )
 
@@ -469,97 +476,13 @@ class LightningQubit(LightningBase):
             return True
         return _supports_adjoint(circuit=circuit)
 
-    def simulate(
-        self,
-        circuit: QuantumScript,
-        state: LightningStateVector,
-        mcmc: dict = None,
-        postselect_mode: str = None,
-    ) -> Result:
-        """Simulate a single quantum script.
-
-        Args:
-            circuit (QuantumTape): The single circuit to simulate
-            state (LightningStateVector): handle to Lightning state vector
-            mcmc (dict): Dictionary containing the Markov Chain Monte Carlo
-                parameters: mcmc, kernel_name, num_burnin. Descriptions of
-                these fields are found in :class:`~.LightningQubit`.
-            postselect_mode (str): Configuration for handling shots with mid-circuit measurement
-                postselection. Use ``"hw-like"`` to discard invalid shots and ``"fill-shots"`` to
-                keep the same number of shots. Default is ``None``.
-
-        Returns:
-            Tuple[TensorLike]: The results of the simulation
-
-        Note that this function can return measurements for non-commuting observables simultaneously.
-        """
-        if mcmc is None:
-            mcmc = {}
-        if circuit.shots and (any(isinstance(op, MidMeasureMP) for op in circuit.operations)):
-            results = []
-            aux_circ = qml.tape.QuantumScript(
-                circuit.operations,
-                circuit.measurements,
-                shots=[1],
-                trainable_params=circuit.trainable_params,
-            )
-            for _ in range(circuit.shots.total_shots):
-                state.reset_state()
-                mid_measurements = {}
-                final_state = state.get_final_state(
-                    aux_circ, mid_measurements=mid_measurements, postselect_mode=postselect_mode
-                )
-                results.append(
-                    LightningMeasurements(final_state, **mcmc).measure_final_state(
-                        aux_circ, mid_measurements=mid_measurements
-                    )
-                )
-            return tuple(results)
-
-        final_state = state.get_final_state(circuit)
-        return self.LightningMeasurements(final_state, **mcmc).measure_final_state(circuit)
-
     @staticmethod
     def get_c_interface():
         """Returns a tuple consisting of the device name, and
         the location to the shared object with the C/C++ device implementation.
         """
 
-        # The shared object file extension varies depending on the underlying operating system
-        file_extension = ""
-        OS = sys.platform
-        if OS == "linux":
-            file_extension = ".so"
-        elif OS == "darwin":
-            file_extension = ".dylib"
-        else:
-            raise RuntimeError(
-                f"'LightningSimulator' shared library not available for '{OS}' platform"
-            )  # pragma: no cover
-
-        lib_name = "liblightning_qubit_catalyst" + file_extension
-        package_root = Path(__file__).parent
-
-        # The absolute path of the plugin shared object varies according to the installation mode.
-
-        # Wheel mode:
-        # Fixed location at the root of the project
-        wheel_mode_location = package_root.parent / lib_name
-        if wheel_mode_location.is_file():
-            return "LightningSimulator", wheel_mode_location.as_posix()
-
-        # Editable mode:
-        # The build directory contains a folder which varies according to the platform:
-        #   lib.<system>-<architecture>-<python-id>"
-        # To avoid mismatching the folder name, we search for the shared object instead.
-        # TODO: locate where the naming convention of the folder is decided and replicate it here.
-        editable_mode_path = package_root.parent.parent / "build_lightning_qubit"
-        for path, _, files in os.walk(editable_mode_path):
-            if lib_name in files:
-                lib_location = (Path(path) / lib_name).as_posix()
-                return "LightningSimulator", lib_location
-
-        raise RuntimeError("'LightningSimulator' shared library not found")  # pragma: no cover
+        return LightningBase.get_c_interface_impl("LightningSimulator", "lightning_qubit")
 
 
 _supports_operation = LightningQubit.capabilities.supports_operation

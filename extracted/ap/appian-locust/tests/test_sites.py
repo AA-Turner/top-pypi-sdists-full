@@ -124,7 +124,8 @@ class TestSites(unittest.TestCase):
         for type_pair in [('InternalActionLink', 'action'),
                           ('InternalReportLink', 'report'),
                           ('SiteRecordTypeLink', 'recordType'),
-                          ('SiteInterfaceLink', 'interface')]:
+                          ('SiteInterfaceLink', 'interface'),
+                          ('SiteDataFabricInsightsLink', 'processHQ')]:
             original_link_type = type_pair[0]
             expected_link_type = type_pair[1]
             link_full = f"{{http://www.host.net/ae/types/2009}}{original_link_type}"
@@ -206,6 +207,30 @@ class TestSites(unittest.TestCase):
         with self.assertRaises(Exception) as e:
             self.sites_interactor.fetch_site_tab_record_json(site_name, page_name)
         self.assertEqual(f"No records found for site={site_name}, page={page_name}", e.exception.args[0])
+
+    def test_get_sites_process_hq(self) -> None:
+        site_name = "ssa-owl"
+        page_name = "page1"
+        link_type = "processHQ"
+
+        nav_resp = read_mock_file("sites_processHQ_nav.json")
+        page_resp = read_mock_file("sites_processHQ_page_resp.json")
+        ui_resp = read_mock_file("sites_processHQ_home_resp.json")
+
+        for endpoint in [f"/suite/rest/a/sites/latest/{site_name}/nav",
+                         f"/suite/rest/a/sites/latest/{site_name}/pages/{page_name}/nav"]:
+            self.custom_locust.set_response(endpoint, 200, nav_resp)
+
+        nav_ui = json.loads(nav_resp)
+        self.custom_locust.set_response(
+            f"/suite/rest/a/applications/latest/legacy/sites/{site_name}/page/{page_name}", 200, page_resp)
+        self.custom_locust.set_response(
+            f"/suite/rest/a/sites/latest/{site_name}/pages/{page_name}/{link_type}", 200, ui_resp)
+        self.custom_locust.set_default_response(200, ui_resp)
+
+        resp = self.sites_interactor.fetch_site_tab_json(site_name, page_name)
+
+        self.assertEqual(json.loads(page_resp), resp)
 
     def test_get_all_sites_with_groups(self) -> None:
         site_name = "test_site"

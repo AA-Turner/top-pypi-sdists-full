@@ -1041,6 +1041,7 @@ class CfnContainerFleet(
             )],
             log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
                 log_destination="logDestination",
+                log_group_arn="logGroupArn",
                 s3_bucket_name="s3BucketName"
             ),
             metric_groups=["metricGroups"],
@@ -2155,6 +2156,7 @@ class CfnContainerFleet(
         jsii_struct_bases=[],
         name_mapping={
             "log_destination": "logDestination",
+            "log_group_arn": "logGroupArn",
             "s3_bucket_name": "s3BucketName",
         },
     )
@@ -2163,6 +2165,7 @@ class CfnContainerFleet(
             self,
             *,
             log_destination: typing.Optional[builtins.str] = None,
+            log_group_arn: typing.Optional[builtins.str] = None,
             s3_bucket_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A method for collecting container logs for the fleet.
@@ -2170,6 +2173,7 @@ class CfnContainerFleet(
             Amazon GameLift Servers saves all standard output for each container in logs, including game session logs. You can select from the following methods:
 
             :param log_destination: The type of log collection to use for a fleet. - ``CLOUDWATCH`` -- (default value) Send logs to an Amazon CloudWatch log group that you define. Each container emits a log stream, which is organized in the log group. - ``S3`` -- Store logs in an Amazon S3 bucket that you define. This bucket must reside in the fleet's home AWS Region. - ``NONE`` -- Don't collect container logs.
+            :param log_group_arn: If log destination is ``CLOUDWATCH`` , logs are sent to the specified log group in Amazon CloudWatch.
             :param s3_bucket_name: If log destination is ``S3`` , logs are sent to the specified Amazon S3 bucket name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-logconfiguration.html
@@ -2183,16 +2187,20 @@ class CfnContainerFleet(
                 
                 log_configuration_property = gamelift.CfnContainerFleet.LogConfigurationProperty(
                     log_destination="logDestination",
+                    log_group_arn="logGroupArn",
                     s3_bucket_name="s3BucketName"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__287854cb20cec032892a9072e611adf774cd43dcc343c3ffdda539be73bce563)
                 check_type(argname="argument log_destination", value=log_destination, expected_type=type_hints["log_destination"])
+                check_type(argname="argument log_group_arn", value=log_group_arn, expected_type=type_hints["log_group_arn"])
                 check_type(argname="argument s3_bucket_name", value=s3_bucket_name, expected_type=type_hints["s3_bucket_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if log_destination is not None:
                 self._values["log_destination"] = log_destination
+            if log_group_arn is not None:
+                self._values["log_group_arn"] = log_group_arn
             if s3_bucket_name is not None:
                 self._values["s3_bucket_name"] = s3_bucket_name
 
@@ -2207,6 +2215,15 @@ class CfnContainerFleet(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-logconfiguration.html#cfn-gamelift-containerfleet-logconfiguration-logdestination
             '''
             result = self._values.get("log_destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def log_group_arn(self) -> typing.Optional[builtins.str]:
+            '''If log destination is ``CLOUDWATCH`` , logs are sent to the specified log group in Amazon CloudWatch.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-logconfiguration.html#cfn-gamelift-containerfleet-logconfiguration-loggrouparn
+            '''
+            result = self._values.get("log_group_arn")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -2617,6 +2634,7 @@ class CfnContainerFleetProps:
                 )],
                 log_configuration=gamelift.CfnContainerFleet.LogConfigurationProperty(
                     log_destination="logDestination",
+                    log_group_arn="logGroupArn",
                     s3_bucket_name="s3BucketName"
                 ),
                 metric_groups=["metricGroups"],
@@ -11015,6 +11033,7 @@ def _typecheckingstub__6f0d55ebb1c8fdd9364a92df8152f6c91294e481bedd64b3458f3dff3
 def _typecheckingstub__287854cb20cec032892a9072e611adf774cd43dcc343c3ffdda539be73bce563(
     *,
     log_destination: typing.Optional[builtins.str] = None,
+    log_group_arn: typing.Optional[builtins.str] = None,
     s3_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

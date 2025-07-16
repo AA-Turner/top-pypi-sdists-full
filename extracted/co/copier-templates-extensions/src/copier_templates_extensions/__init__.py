@@ -1,12 +1,16 @@
-"""Copier Templates Extensions package.
+"""Deprecated. Install `copier-template-extensions` instead."""
 
-Special Jinja2 extension for Copier that allows to load extensions
-using file paths relative to the template root instead of Python dotted paths.
-"""
+import warnings
 
-from __future__ import annotations
-
-from copier_templates_extensions._internal.context import ContextHook
-from copier_templates_extensions._internal.loader import TemplateExtensionLoader
+from copier_template_extensions import ContextHook, TemplateExtensionLoader
 
 __all__: list[str] = ["ContextHook", "TemplateExtensionLoader"]
+
+warnings.warn(
+    "This package is deprecated and renamed to `copier-template-extensions`. "
+    "Please install `copier-template-extensions` instead, and replace every occurrence "
+    "of `copier-templates-extensions` and `copier_templates_extensions` in your template with "
+    "`copier-template-extensions` and `copier_template_extensions` respectively.",
+    DeprecationWarning,
+    stacklevel=2,
+)

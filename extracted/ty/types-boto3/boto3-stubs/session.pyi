@@ -369,6 +369,7 @@ from types_boto3_s3.service_resource import S3ServiceResource
 from types_boto3_s3control.client import S3ControlClient
 from types_boto3_s3outposts.client import S3OutpostsClient
 from types_boto3_s3tables.client import S3TablesClient
+from types_boto3_s3vectors.client import S3VectorsClient
 from types_boto3_sagemaker.client import SageMakerClient
 from types_boto3_sagemaker_a2i_runtime.client import AugmentedAIRuntimeClient
 from types_boto3_sagemaker_edge.client import SagemakerEdgeManagerClient
@@ -6850,6 +6851,25 @@ class Session:
     ) -> S3TablesClient:
         """
         Create client for S3Tables service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["s3vectors"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> S3VectorsClient:
+        """
+        Create client for S3Vectors service.
         """
 
     @overload

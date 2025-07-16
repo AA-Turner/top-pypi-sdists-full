@@ -229,6 +229,8 @@ class _Sites(_Base):
             return PageType.RECORD
         elif "SiteInterfaceLink" in link_type:
             return PageType.INTERFACE
+        elif "SiteDataFabricInsightsLink" in link_type:
+            return PageType.PROCESS_HQ
         else:
             raise Exception(f"Invalid Link Type: {link_type}")
 

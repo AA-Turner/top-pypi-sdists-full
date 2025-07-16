@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: pyroma
-Version: 4.3.3
+Version: 5.0
 Summary: Test your project's packaging friendliness
 Home-page: https://github.com/regebro/pyroma
 Author: Lennart Regebro
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -29,13 +30,13 @@ Requires-Dist: docutils
 Requires-Dist: packaging
 Requires-Dist: pygments
 Requires-Dist: requests
-Requires-Dist: setuptools>=42
+Requires-Dist: setuptools>=61
 Requires-Dist: trove-classifiers>=2022.6.26
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: setuptools>=60; extra == "test"
 Requires-Dist: zest.releaser[recommended]; extra == "test"
-Dynamic: license-file
+Requires-Dist: flit_core<4,>=3.4; extra == "test"
 
 pyroma
 ======
@@ -174,6 +175,41 @@ Contributors:
 
 Changelog
 =========
+
+5.0 (2025-07-15)
+----------------
+
+- Re-releasing as final.
+
+
+5.0b2 (2025-07-10)
+------------------
+
+- Fixed a bug that failed to find license-expression fields.
+
+
+5.0b1 (2025-07-04)
+------------------
+
+- Changed the internal metadata names to match Core Metadata. This brings
+  less confusion, especially since setuptools and PyPI aren't exactly the
+  same either, so let's pick the offical standard and run with it.
+
+- Added a rating for if the wheel fails to build. Unfortunately it's
+  impossible to get a proper error out of it, so the message tells
+  you to run python -m build.
+
+
+5.0a1 (2025-07-02)
+------------------
+
+- Removed support for fetching data via monkey-patching setup.py.
+
+- Added a warning if you have only a setup.cfg, something that is
+  working with some tools, but is not officially supported.
+
+- Some general cleanups and simplifications thanks to those changes.
+
 
 4.3.3 (2025-07-03)
 ------------------

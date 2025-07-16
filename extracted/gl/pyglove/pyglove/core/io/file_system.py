@@ -52,6 +52,10 @@ class File(metaclass=abc.ABCMeta):
     """Returns the current position of the file."""
 
   @abc.abstractmethod
+  def flush(self) -> None:
+    """Flushes the written content to the storage."""
+
+  @abc.abstractmethod
   def close(self) -> None:
     """Closes the file."""
 
@@ -71,6 +75,10 @@ class FileSystem(metaclass=abc.ABCMeta):
       self, path: Union[str, os.PathLike[str]], mode: str = 'r', **kwargs
   ) -> File:
     """Opens a file with a path."""
+
+  @abc.abstractmethod
+  def chmod(self, path: Union[str, os.PathLike[str]], mode: int) -> None:
+    """Changes the permission of a file."""
 
   @abc.abstractmethod
   def exists(self, path: Union[str, os.PathLike[str]]) -> bool:
@@ -95,7 +103,7 @@ class FileSystem(metaclass=abc.ABCMeta):
       self,
       path: Union[str, os.PathLike[str]],
       mode: int = 0o777,
-      exist_ok: bool = False,
+      exist_ok: bool = True,
   ) -> None:
     """Makes a directory chain based on a path."""
 
@@ -112,7 +120,7 @@ class FileSystem(metaclass=abc.ABCMeta):
     """Removes a directory chain based on a path."""
 
 
-def _resolve_path(path: Union[str, os.PathLike[str]]) -> str:
+def resolve_path(path: Union[str, os.PathLike[str]]) -> str:
   if isinstance(path, str):
     return path
   elif hasattr(path, '__fspath__'):
@@ -148,6 +156,9 @@ class StdFile(File):
   def tell(self) -> int:
     return self._file_object.tell()
 
+  def flush(self) -> None:
+    self._file_object.flush()
+
   def close(self) -> None:
     self._file_object.close()
 
@@ -159,6 +170,9 @@ class StdFileSystem(FileSystem):
       self, path: Union[str, os.PathLike[str]], mode: str = 'r', **kwargs
   ) -> File:
     return StdFile(io.open(path, mode, **kwargs))
+
+  def chmod(self, path: Union[str, os.PathLike[str]], mode: int) -> None:
+    os.chmod(path, mode)
 
   def exists(self, path: Union[str, os.PathLike[str]]) -> bool:
     return os.path.exists(path)
@@ -178,14 +192,14 @@ class StdFileSystem(FileSystem):
       self,
       path: Union[str, os.PathLike[str]],
       mode: int = 0o777,
-      exist_ok: bool = False,
+      exist_ok: bool = True,
   ) -> None:
     os.makedirs(path, mode, exist_ok)
 
   def rm(self, path: Union[str, os.PathLike[str]]) -> None:
     os.remove(path)
 
-  def rmdir(self, path: Union[str, os.PathLike[str]]) -> None:
+  def rmdir(self, path: Union[str, os.PathLike[str]]) -> None:  # pytype: disable=signature-mismatch
     os.rmdir(path)
 
   def rmdirs(self, path: Union[str, os.PathLike[str]]) -> None:
@@ -220,6 +234,9 @@ class MemoryFile(File):
   def tell(self) -> int:
     return self._buffer.tell()
 
+  def flush(self) -> None:
+    pass
+
   def close(self) -> None:
     self.seek(0)
 
@@ -233,7 +250,7 @@ class MemoryFileSystem(FileSystem):
     self._prefix = prefix
 
   def _internal_path(self, path: Union[str, os.PathLike[str]]) -> str:
-    return '/' + _resolve_path(path).lstrip(self._prefix)
+    return '/' + resolve_path(path).lstrip(self._prefix)
 
   def _locate(self, path: Union[str, os.PathLike[str]]) -> Any:
     current = self._root
@@ -262,6 +279,10 @@ class MemoryFileSystem(FileSystem):
       raise FileNotFoundError(path)
     return file
 
+  def chmod(self, path: Union[str, os.PathLike[str]], mode: int) -> None:
+    # No-op.
+    del path, mode
+
   def exists(self, path: Union[str, os.PathLike[str]]) -> bool:
     return self._locate(path) is not None
 
@@ -277,7 +298,7 @@ class MemoryFileSystem(FileSystem):
   def _parent_and_name(
       self, path: Union[str, os.PathLike[str]]
   ) -> tuple[dict[str, Any], str]:
-    path = _resolve_path(path)
+    path = resolve_path(path)
     rpos = path.rfind('/')
     assert rpos >= 0, path
     name = path[rpos + 1:]
@@ -299,7 +320,7 @@ class MemoryFileSystem(FileSystem):
       self,
       path: Union[str, os.PathLike[str]],
       mode: int = 0o777,
-      exist_ok: bool = False,
+      exist_ok: bool = True,
   ) -> None:
     del mode
     current = self._root
@@ -326,7 +347,7 @@ class MemoryFileSystem(FileSystem):
       raise IsADirectoryError(path)
     del parent_dir[name]
 
-  def rmdir(self, path: Union[str, os.PathLike[str]]) -> None:
+  def rmdir(self, path: Union[str, os.PathLike[str]]) -> None:  # pytype: disable=signature-mismatch
     parent_dir, name = self._parent_and_name(path)
     entry = parent_dir.get(name)
     if entry is None:
@@ -372,7 +393,7 @@ class _FileSystemRegistry:
 
   def get(self, path: Union[str, os.PathLike[str]]) -> FileSystem:
     """Gets the file system for a path."""
-    path = _resolve_path(path)
+    path = resolve_path(path)
     for prefix, fs in self._filesystems:
       if path.startswith(prefix):
         return fs
@@ -401,6 +422,11 @@ def open(path: Union[str, os.PathLike[str]], mode: str = 'r', **kwargs) -> File:
   return _fs.get(path).open(path, mode, **kwargs)
 
 
+def chmod(path: Union[str, os.PathLike[str]], mode: int) -> None:
+  """Changes the permission of a file."""
+  _fs.get(path).chmod(path, mode)
+
+
 def readfile(
     path: Union[str, os.PathLike[str]],
     mode: str = 'r',
@@ -422,11 +448,14 @@ def writefile(
     content: Union[str, bytes],
     *,
     mode: str = 'w',
+    perms: Optional[int] = 0o664,   # Default to world-readable.
     **kwargs,
 ) -> None:
   """Writes content to a file."""
   with _fs.get(path).open(path, mode=mode, **kwargs) as f:
     f.write(content)
+  if perms is not None:
+    chmod(path, perms)
 
 
 def rm(path: Union[str, os.PathLike[str]]) -> None:
@@ -462,7 +491,7 @@ def mkdir(path: Union[str, os.PathLike[str]], mode: int = 0o777) -> None:
 def mkdirs(
     path: Union[str, os.PathLike[str]],
     mode: int = 0o777,
-    exist_ok: bool = False,
+    exist_ok: bool = True,
 ) -> None:
   """Makes a directory chain."""
   _fs.get(path).mkdirs(path, mode=mode, exist_ok=exist_ok)
@@ -475,4 +504,4 @@ def rmdir(path: Union[str, os.PathLike[str]]) -> bool:
 
 def rmdirs(path: Union[str, os.PathLike[str]]) -> bool:
   """Removes a directory chain until a parent directory is not empty."""
-  return _fs.get(path).rmdirs(path)
+  return _fs.get(path).rmdirs(path)  # pytype: disable=bad-return-type

@@ -12,9 +12,10 @@ from collections.abc import Iterable, Sequence
 from contextlib import suppress
 from copy import deepcopy
 from dataclasses import field
-from typing import TYPE_CHECKING, cast, overload
+from typing import TYPE_CHECKING
 from warnings import warn
 
+import mizani._colors.utils as color_utils
 import numpy as np
 import pandas as pd
 from pandas.core.groupby import DataFrameGroupBy
@@ -26,17 +27,17 @@ if TYPE_CHECKING:
     from typing import Any, Callable, Literal, TypeVar
 
     import numpy.typing as npt
-    from matplotlib.typing import ColorType
     from typing_extensions import TypeGuard
 
     from plotnine.typing import (
         AnyArrayLike,
-        AnySeries,
         DataLike,
         FloatArray,
         FloatArrayLike,
+        HorizontalJustification,
         IntArray,
-        SidePosition,
+        Side,
+        VerticalJustification,
     )
 
     T = TypeVar("T")
@@ -57,6 +58,8 @@ BOX_LOCATIONS: dict[str, tuple[float, float]] = {
     "center": (0.5, 0.5),
     "centre": (0.5, 0.5),
 }
+
+to_rgba = color_utils.to_rgba
 
 
 def is_scalar(val):
@@ -299,7 +302,7 @@ def ninteraction(df: pd.DataFrame, drop: bool = False) -> list[int]:
         return _id_var(df[df.columns[0]], drop)
 
     # Calculate individual ids
-    ids = df.apply(_id_var, axis=0)
+    ids = df.apply(_id_var, axis=0, drop=drop)
     ids = ids.reindex(columns=list(reversed(ids.columns)))
 
     # Calculate dimensions
@@ -310,8 +313,8 @@ def ninteraction(df: pd.DataFrame, drop: bool = False) -> list[int]:
 
     combs = np.array(np.hstack([1, np.cumprod(ndistinct[:-1])]))
     mat = np.array(ids)
-    res = (mat - 1) @ combs.T + 1
-    res = np.array(res).flatten().tolist()
+    _res = (mat - 1) @ combs.T + 1
+    res: list[int] = np.array(_res).flatten().tolist()
 
     if drop:
         return _id_var(res, drop)
@@ -344,6 +347,8 @@ def _id_var(x: AnyArrayLike, drop: bool = False) -> list[int]:
                 # NaNs are -1, we give them the highest code
                 nan_code = -1
                 new_nan_code = np.max(x.cat.codes) + 1
+                # TODO: We are assuming that x is of type Sequence[int|nan]
+                # is that accurate.
                 lst = [val if val != nan_code else new_nan_code for val in x]
             else:
                 lst = list(x.cat.codes + 1)
@@ -524,105 +529,6 @@ def remove_missing(
             msg.format(name, n - len(data), txt), PlotnineWarning, stacklevel=3
         )
     return data
-
-
-@overload
-def to_rgba(colors: ColorType, alpha: float) -> ColorType: ...
-
-
-@overload
-def to_rgba(
-    colors: Sequence[ColorType], alpha: float
-) -> Sequence[ColorType] | ColorType: ...
-
-
-@overload
-def to_rgba(
-    colors: AnySeries, alpha: AnySeries
-) -> Sequence[ColorType] | ColorType: ...
-
-
-def to_rgba(
-    colors: Sequence[ColorType] | AnySeries | ColorType,
-    alpha: float | Sequence[float] | AnySeries,
-) -> Sequence[ColorType] | ColorType:
-    """
-    Convert hex colors to rgba values.
-
-    Parameters
-    ----------
-    colors : iterable | str
-        colors to convert
-    alphas : iterable | float
-        alpha values
-
-    Returns
-    -------
-    out : ndarray | tuple
-        rgba color(s)
-
-    Notes
-    -----
-    Matplotlib plotting functions only accept scalar
-    alpha values. Hence no two objects with different
-    alpha values may be plotted in one call. This would
-    make plots with continuous alpha values innefficient.
-    However :), the colors can be rgba hex values or
-    list-likes and the alpha dimension will be respected.
-    """
-
-    def is_iterable(var):
-        return np.iterable(var) and not isinstance(var, str)
-
-    def has_alpha(c):
-        return (isinstance(c, tuple) and len(c) == 4) or (
-            isinstance(c, str) and len(c) == 9 and c[0] == "#"
-        )
-
-    def no_color(c):
-        return c is None or c.lower() in ("none", "")
-
-    def to_rgba_hex(c: ColorType, a: float) -> str:
-        """
-        Convert rgb color to rgba hex value
-
-        If color c has an alpha channel, then alpha value
-        a is ignored
-        """
-        from matplotlib.colors import colorConverter, to_hex
-
-        if c in ("None", "none"):
-            return c
-
-        _has_alpha = has_alpha(c)
-        c = to_hex(c, keep_alpha=_has_alpha)
-
-        if not _has_alpha:
-            arr = colorConverter.to_rgba(c, a)
-            return to_hex(arr, keep_alpha=True)
-
-        return c
-
-    if is_iterable(colors):
-        colors = cast(Sequence["ColorType"], colors)
-
-        if all(no_color(c) for c in colors):
-            return "none"
-
-        if isinstance(alpha, (Sequence, pd.Series)):
-            return [to_rgba_hex(c, a) for c, a in zip(colors, alpha)]
-        else:
-            return [to_rgba_hex(c, alpha) for c in colors]
-    else:
-        colors = cast("ColorType", colors)
-
-        if no_color(colors):
-            return colors
-
-        if isinstance(alpha, (Sequence, pd.Series)):
-            return [to_rgba_hex(colors, a) for a in alpha]
-        else:
-            return to_rgba_hex(colors, alpha)
 
 
 def groupby_apply(
@@ -1227,11 +1133,11 @@ def default_field(default: T) -> T:
     return field(default_factory=lambda: deepcopy(default))
 
 
-def get_opposite_side(s: SidePosition) -> SidePosition:
+def get_opposite_side(s: Side) -> Side:
     """
     Return the opposite side
     """
-    lookup: dict[SidePosition, SidePosition] = {
+    lookup: dict[Side, Side] = {
         "right": "left",
         "left": "right",
         "top": "bottom",
@@ -1241,7 +1147,7 @@ def get_opposite_side(s: SidePosition) -> SidePosition:
 
 
 def ensure_xy_location(
-    loc: SidePosition | Literal["center"] | float | tuple[float, float],
+    loc: Side | Literal["center"] | float | tuple[float, float],
 ) -> tuple[float, float]:
     """
     Convert input into (x, y) location
@@ -1264,3 +1170,40 @@ def ensure_xy_location(
         if isinstance(h, (int, float)) and isinstance(v, (int, float)):
             return (h, v)
     raise ValueError(f"Cannot make a location from '{loc}'")
+
+
+def ha_as_float(ha: HorizontalJustification | float) -> float:
+    """
+    Return horizontal alignment as a float
+    """
+    lookup = {"left": 0.0, "center": 0.5, "right": 1.0}
+    return lookup[ha] if isinstance(ha, str) else ha
+
+
+def va_as_float(va: VerticalJustification | float) -> float:
+    """
+    Return vertical alignment as a float
+    """
+    lookup = {
+        "top": 1.0,
+        "center": 0.5,
+        "bottom": 0.0,
+        # baseline and center_baseline are valid for texts but we do
+        # not handle them accurately
+        "baseline": 0.5,
+        "center_baseline": 0.5,
+    }
+    return lookup[va] if isinstance(va, str) else va
+
+
+def has_alpha_channel(c: str | tuple) -> bool:
+    """
+    Return True if c a color with an alpha value
+
+    Either a 9 character hex string e.g. #AABBCC88 or
+    an RGBA tuple e.g. (.6, .7, .8, .5)
+    """
+    if isinstance(c, str):
+        return c.startswith("#") and len(c) == 9
+    else:
+        return color_utils.is_color_tuple(c) and len(c) == 4

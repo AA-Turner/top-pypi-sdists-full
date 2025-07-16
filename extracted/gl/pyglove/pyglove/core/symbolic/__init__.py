@@ -86,6 +86,10 @@ from pyglove.core.symbolic.compounding import compound
 from pyglove.core.symbolic.compounding import compound_class
 from pyglove.core.symbolic.boilerplate import boilerplate_class
 
+from pyglove.core.symbolic.contextual_object import ContextualObject
+from pyglove.core.symbolic.contextual_object import ContextualAttribute
+from pyglove.core.symbolic.contextual_object import contextual_attribute
+
 # Inferential types.
 from pyglove.core.symbolic.base import Inferential
 
@@ -95,6 +99,7 @@ from pyglove.core.symbolic.inferred import ValueFromParentChain
 # Reference type.
 from pyglove.core.symbolic.ref import Ref
 from pyglove.core.symbolic.ref import maybe_ref
+from pyglove.core.symbolic.ref import deref
 
 # Symbolic operations.
 from pyglove.core.symbolic.base import traverse
@@ -119,6 +124,7 @@ from pyglove.core.symbolic.base import to_json
 from pyglove.core.symbolic.base import to_json_str
 from pyglove.core.symbolic.base import load
 from pyglove.core.symbolic.base import save
+from pyglove.core.symbolic.base import open_jsonl
 
 # Interfaces for pure symbolic objects.
 from pyglove.core.symbolic.pure_symbolic import PureSymbolic
@@ -139,12 +145,6 @@ from pyglove.core.symbolic.list import mark_as_insertion
 
 # Error types.
 from pyglove.core.symbolic.base import WritePermissionError
-
-# TODO(daiyip): internal dependencies, remove later.
-from pyglove.core.symbolic.schema_utils import formalize_schema
-from pyglove.core.symbolic.schema_utils import augment_schema
-from pyglove.core.symbolic.schema_utils import function_schema
-from pyglove.core.symbolic.schema_utils import update_schema
-
+from pyglove.core.symbolic.error_info import ErrorInfo
 
 # pylint: enable=g-bad-import-order

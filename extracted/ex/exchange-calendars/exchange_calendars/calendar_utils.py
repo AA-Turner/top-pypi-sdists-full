@@ -37,6 +37,7 @@ from .exchange_calendar_xkls import XKLSExchangeCalendar
 from .exchange_calendar_xkrx import XKRXExchangeCalendar
 from .exchange_calendar_xlim import XLIMExchangeCalendar
 from .exchange_calendar_xlis import XLISExchangeCalendar
+from .exchange_calendar_xlit import XLITExchangeCalendar
 from .exchange_calendar_xlon import XLONExchangeCalendar
 from .exchange_calendar_xlux import XLUXExchangeCalendar
 from .exchange_calendar_xmad import XMADExchangeCalendar
@@ -49,6 +50,7 @@ from .exchange_calendar_xosl import XOSLExchangeCalendar
 from .exchange_calendar_xpar import XPARExchangeCalendar
 from .exchange_calendar_xphs import XPHSExchangeCalendar
 from .exchange_calendar_xpra import XPRAExchangeCalendar
+from .exchange_calendar_xris import XRISExchangeCalendar
 from .exchange_calendar_xsau import XSAUExchangeCalendar
 from .exchange_calendar_xses import XSESExchangeCalendar
 from .exchange_calendar_xsgo import XSGOExchangeCalendar
@@ -57,6 +59,7 @@ from .exchange_calendar_xsto import XSTOExchangeCalendar
 from .exchange_calendar_xswx import XSWXExchangeCalendar
 from .exchange_calendar_xtae import XTAEExchangeCalendar
 from .exchange_calendar_xtai import XTAIExchangeCalendar
+from .exchange_calendar_xtal import XTALExchangeCalendar
 from .exchange_calendar_xtks import XTKSExchangeCalendar
 from .exchange_calendar_xtse import XTSEExchangeCalendar
 from .exchange_calendar_xwar import XWARExchangeCalendar
@@ -99,6 +102,7 @@ _default_calendar_factories = {
     "XKRX": XKRXExchangeCalendar,
     "XLIM": XLIMExchangeCalendar,
     "XLIS": XLISExchangeCalendar,
+    "XLIT": XLITExchangeCalendar,
     "XLON": XLONExchangeCalendar,
     "XLUX": XLUXExchangeCalendar,
     "XMAD": XMADExchangeCalendar,
@@ -111,6 +115,7 @@ _default_calendar_factories = {
     "XPAR": XPARExchangeCalendar,
     "XPHS": XPHSExchangeCalendar,
     "XPRA": XPRAExchangeCalendar,
+    "XRIS": XRISExchangeCalendar,
     "XSAU": XSAUExchangeCalendar,
     "XSES": XSESExchangeCalendar,
     "XSGO": XSGOExchangeCalendar,
@@ -119,6 +124,7 @@ _default_calendar_factories = {
     "XSWX": XSWXExchangeCalendar,
     "XTAE": XTAEExchangeCalendar,
     "XTAI": XTAIExchangeCalendar,
+    "XTAL": XTALExchangeCalendar,
     "XTKS": XTKSExchangeCalendar,
     "XTSE": XTSEExchangeCalendar,
     "XWAR": XWARExchangeCalendar,

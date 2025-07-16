@@ -1035,9 +1035,6 @@ class Sling:
                     csv_writer = csv.writer(csv_buffer)
                     csv_writer.writerow(headers)
                     header_line = csv_buffer.getvalue()
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Writing headers: {header_line.strip()}\n")
-                        sys.stderr.flush()
                     stdin.write(header_line.encode('utf-8'))
                     stdin.flush()
                     headers_written = True
@@ -1050,9 +1047,6 @@ class Sling:
                     row = [str(record.get(h, '')) for h in headers]
                     csv_writer.writerow(row)
                     csv_line = csv_buffer.getvalue()
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Writing row: {csv_line.strip()}\n")
-                        sys.stderr.flush()
                     stdin.write(csv_line.encode('utf-8'))
                     stdin.flush()
             
@@ -1133,10 +1127,6 @@ class Sling:
                         value = column[row_idx].as_py()  # Converts to native Python type
                         record[column_name] = value
                     
-                    if self.debug:
-                        sys.stderr.write(f"Debug: Arrow record: {record}\n")
-                        sys.stderr.flush()
-                    
                     yield record
                     
         except pa.lib.ArrowInvalid as e:
@@ -1164,22 +1154,14 @@ class Sling:
             if not first_line:
                 return
                 
-            if self.debug:
-                print(f"Debug: First line (headers): '{first_line}'")
-                
             # Parse headers
             headers = list(csv.reader([first_line]))[0]
-            
-            if self.debug:
-                print(f"Debug: Parsed headers: {headers}")
             
             # Read and parse remaining lines one by one
             for line in stdout:
                 line_str = line.decode('utf-8').strip()
                 if line_str:
                     try:
-                        if self.debug:
-                            print(f"Debug: Processing line: '{line_str}'")
                         values = list(csv.reader([line_str]))[0]
                         # Pad values if fewer than headers
                         while len(values) < len(headers):
@@ -1188,8 +1170,6 @@ class Sling:
                         values = values[:len(headers)]
                         # Create record dict
                         record = dict(zip(headers, values))
-                        if self.debug:
-                            print(f"Debug: Created record: {record}")
                         yield record
                     except Exception as e:
                         if self.debug:
@@ -1252,9 +1232,6 @@ class Sling:
             stdout = subprocess.PIPE
             
             try:
-                if self.debug:
-                    sys.stderr.write(f"Debug: Running streaming command: {' '.join(cmd)}\n")
-                    sys.stderr.flush()
                     
                 # Start process
                 process = subprocess.Popen(
@@ -1275,19 +1252,43 @@ class Sling:
             # Restore original stdout setting
             self.stdout = original_stdout
     
-    def stream(self) -> Iterable[Dict[str, Any]]:
+    def _stream_stderr_to_console(self, stderr_stream: IO) -> List[str]:
+        """Stream stderr to console and collect lines for error reporting"""
+        import threading
+        stderr_lines = []
+        
+        def read_stderr():
+            try:
+                for line in stderr_stream:
+                    line_str = line.decode('utf-8', errors='replace')
+                    # Print to stderr to maintain separation from stdout
+                    sys.stderr.write(line_str)
+                    sys.stderr.flush()
+                    # Also collect for potential error messages
+                    stderr_lines.append(line_str.rstrip())
+            except Exception:
+                pass  # Ignore errors in stderr thread
+        
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stderr_thread.start()
+        return stderr_lines
+
+    def stream(self, print_output: bool = True) -> Iterable[Dict[str, Any]]:
         """
         Execute the sling command and return output data as an iterator.
         
         If a target object is specified, this will execute normally and return an empty iterator.
         If no target object is specified, this will stream the output data.
         
+        Args:
+            print_output: If True, print stderr output live as it's generated
+        
         Returns:
             An iterator of records from the output stream
         """
         # If target object is specified, just run normally and return empty iterator
         if self.tgt_object:
-            self.run()
+            self.run(print_output=print_output)
             return iter([])  # Return empty iterator
 
         # Check if target object is specified
@@ -1302,11 +1303,25 @@ class Sling:
             # Start process
             process = self._make_stream_process()
             
+            # Start streaming stderr to console in background if requested
+            stderr_lines = []
+            if print_output:
+                stderr_lines = self._stream_stderr_to_console(process.stderr)
+            else:
+                # Just collect stderr for error reporting without printing
+                import threading
+                def collect_stderr():
+                    try:
+                        for line in process.stderr:
+                            line_str = line.decode('utf-8', errors='replace')
+                            stderr_lines.append(line_str.rstrip())
+                    except Exception:
+                        pass
+                stderr_thread = threading.Thread(target=collect_stderr, daemon=True)
+                stderr_thread.start()
+            
             # Handle input streaming
             if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
@@ -1321,8 +1336,8 @@ class Sling:
                 self.stdout = original_stdout
                 
                 if process.returncode != 0:
-                    # Read stderr for error message
-                    stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
+                    # Use collected stderr lines for error message
+                    stderr_output = '\n'.join(stderr_lines) if stderr_lines else "No stderr output captured"
                     raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
                     
         except Exception as e:
@@ -1330,12 +1345,15 @@ class Sling:
                 raise
             raise SlingError(f"Error executing sling streaming command: {str(e)}")
 
-    def stream_arrow(self) -> pa.ipc.RecordBatchStreamReader:
+    def stream_arrow(self, print_output: bool = True) -> pa.ipc.RecordBatchStreamReader:
         """
         Execute the sling command and return output data as an Arrow RecordBatchStreamReader.
         
         This method requires PyArrow to be installed and forces Arrow format for optimal performance.
         If a target object is specified, this will raise an error.
+        
+        Args:
+            print_output: If True, print stderr output live as it's generated
         
         Returns:
             A PyArrow RecordBatchStreamReader for the output stream
@@ -1363,11 +1381,25 @@ class Sling:
             # Start process
             process = self._make_stream_process()
             
+            # Start streaming stderr to console in background if requested
+            stderr_lines = []
+            if print_output:
+                stderr_lines = self._stream_stderr_to_console(process.stderr)
+            else:
+                # Just collect stderr for error reporting without printing
+                import threading
+                def collect_stderr():
+                    try:
+                        for line in process.stderr:
+                            line_str = line.decode('utf-8', errors='replace')
+                            stderr_lines.append(line_str.rstrip())
+                    except Exception:
+                        pass
+                stderr_thread = threading.Thread(target=collect_stderr, daemon=True)
+                stderr_thread.start()
+            
             # Handle input streaming
             if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
                 # Write input data directly in the main thread
                 self._write_input_data_sync(process.stdin, self.input)
             
@@ -1384,8 +1416,8 @@ class Sling:
                 self.stdout = original_stdout
                 
                 if process.returncode != 0:
-                    # Read stderr for error message
-                    stderr_output = process.stderr.read().decode('utf-8') if process.stderr else ""
+                    # Use collected stderr lines for error message
+                    stderr_output = '\n'.join(stderr_lines) if stderr_lines else "No stderr output captured"
                     raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_output}")
                     
         except Exception as e:
@@ -1393,12 +1425,15 @@ class Sling:
                 raise
             raise SlingError(f"Error executing sling streaming command: {str(e)}")
 
-    def run(self) -> None:
+    def run(self, print_output: bool = True) -> None:
         """
         Execute the sling command and wait for completion.
         
         This method requires a target object to write data to.
         If you need to get output data, use the stream() method instead.
+        
+        Args:
+            print_output: If True, print stdout and stderr output live as it's generated
         
         Raises:
             SlingError: If no target object is specified (use stream() instead)
@@ -1439,44 +1474,68 @@ class Sling:
                         stacklevel=2
                     )
                     _ARROW_WARNING_SHOWN = True
-            
-            if self.debug:
-                sys.stderr.write(f"Debug: Running command: {' '.join(cmd)}\n")
-                sys.stderr.flush()
                 
-            # Start process
-            process = subprocess.Popen(
-                cmd,
-                stdin=stdin,
-                stdout=subprocess.PIPE,  # Capture stdout for potential output
-                stderr=subprocess.PIPE,  # Capture stderr for error messages
-                env=env
-            )
-            
-            # Handle input streaming if provided
-            if self.input is not None:
-                if self.debug:
-                    sys.stderr.write("Debug: Starting input streaming\n")
-                    sys.stderr.flush()
-                # Write input data directly in the main thread
-                self._write_input_data_sync(process.stdin, self.input)
-            
-            # Wait for process to complete
-            stdout_output, stderr_output = process.communicate()
-            
-            # Always decode stderr for debugging
-            stderr_text = stderr_output.decode('utf-8') if stderr_output else ""
-            
-            if self.debug and stderr_text:
-                sys.stderr.write(f"Debug: Sling stderr output:\n{stderr_text}")
-                sys.stderr.flush()
-            
-            if process.returncode != 0:
-                raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_text}")
-            
-            # Print stdout if debug mode or if stdout was requested
-            if stdout_output and (self.debug or self.stdout):
-                print(stdout_output.decode('utf-8'), end='')
+            # Start process with appropriate stderr handling
+            if print_output:
+                # For live output, merge stderr into stdout
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=stdin,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,  # Merge stderr into stdout for live output
+                    env=env
+                )
+                
+                # Handle input streaming if provided
+                if self.input is not None:
+                    # Write input data in a separate thread to avoid blocking
+                    import threading
+                    def write_input():
+                        self._write_input_data_sync(process.stdin, self.input)
+                        process.stdin.close()
+                    input_thread = threading.Thread(target=write_input)
+                    input_thread.start()
+                
+                # Read and print output live
+                for line in process.stdout:
+                    line_str = line.decode('utf-8', errors='replace')
+                    print(line_str, end='', flush=True)
+                
+                # Wait for process to complete
+                process.wait()
+                
+                if self.input is not None:
+                    input_thread.join()
+                
+                if process.returncode != 0:
+                    raise SlingError(f"Sling command failed with return code: {process.returncode}")
+            else:
+                # Original behavior - capture output
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=stdin,
+                    stdout=subprocess.PIPE,  # Capture stdout for potential output
+                    stderr=subprocess.PIPE,  # Capture stderr for error messages
+                    env=env
+                )
+                
+                # Handle input streaming if provided
+                if self.input is not None:
+                    # Write input data directly in the main thread
+                    self._write_input_data_sync(process.stdin, self.input)
+                
+                # Wait for process to complete
+                stdout_output, stderr_output = process.communicate()
+                
+                # Always decode stderr for debugging
+                stderr_text = stderr_output.decode('utf-8') if stderr_output else ""
+                
+                if process.returncode != 0:
+                    raise SlingError(f"Sling command failed with return code: {process.returncode}\n{stderr_text}")
+                
+                # Print stdout if debug mode or if stdout was requested
+                if stdout_output and (self.debug or self.stdout):
+                    print(stdout_output.decode('utf-8'), end='')
                     
         except Exception as e:
             if isinstance(e, SlingError):

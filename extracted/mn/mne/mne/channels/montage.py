@@ -361,8 +361,7 @@ class DigMontage:
     def plot(
         self,
         *,
-        scale=None,
-        scale_factor=None,
+        scale=1.0,
         show_names=True,
         kind="topomap",
         show=True,
@@ -373,7 +372,6 @@ class DigMontage:
         return plot_montage(
             self,
             scale=scale,
-            scale_factor=scale_factor,
             show_names=show_names,
             kind=kind,
             show=show,
@@ -399,6 +397,7 @@ class DigMontage:
         temp_info = create_info(list(self._get_ch_pos()), 1000.0, "eeg")
         rename_channels(temp_info, mapping, allow_duplicates)
         self.ch_names = temp_info["ch_names"]
+        return self
 
     @verbose
     def save(self, fname, *, overwrite=False, verbose=None):
@@ -407,7 +406,7 @@ class DigMontage:
         Parameters
         ----------
         fname : path-like
-            The filename to use. Should end in .fif or .fif.gz.
+            The filename to use. Should end in ``-dig.fif`` or ``-dig.fif.gz``.
         %(overwrite)s
         %(verbose)s
 
@@ -722,7 +721,7 @@ def transform_to_head(montage):
     Returns
     -------
     montage : instance of DigMontage
-        The montage after transforming the points to head
+        A copy of the montage after transforming the points to head
         coordinate system.
 
     Notes
@@ -1289,7 +1288,7 @@ def _set_montage(info, montage, match_case=True, match_alias=False, on_missing="
             f"Not setting position{_pl(extra)} of {len(extra)} {types} "
             f"channel{_pl(extra)} found in montage:\n{names}\n"
             "Consider setting the channel types to be of "
-            f'{docdict["montage_types"]} '
+            f"{docdict['montage_types']} "
             "using inst.set_channel_types before calling inst.set_montage, "
             "or omit these channels when creating your montage."
         )

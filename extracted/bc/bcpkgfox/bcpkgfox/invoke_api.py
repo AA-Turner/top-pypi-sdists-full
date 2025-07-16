@@ -262,17 +262,32 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
 
             except:
                 self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+
                 # Request the code
                 for _ in range(50):  # Wait the extension to load
 
                     try:
-                        tools.find_element_with_wait(By.XPATH, '//*[@id="root"]/div/div[1]/div//div//input', timeout=1).send_keys('eliezer@bcfox.com.br')
+                        tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Insira aqui o seu email"]', timeout=1).send_keys('eliezer@bcfox.com.br')
                         time.sleep(1)
                         break
                     except:
                         self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
 
-                tools.find_element_with_wait(By.XPATH, '//button').click()
+                # Envia o código pro email, o for é só para tratativa de bugs
+                for _ in range(10):
+                    try:
+                        tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite aqui o código que enviamos para o seu e-mail"]', timeout=1)
+                        break
+
+                    except:
+                        try:
+                            element = tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Insira aqui o seu email"]', timeout=1)
+                            element.clear()
+                            element.send_keys('eliezer@bcfox.com.br')
+                            tools.find_element_with_wait(By.XPATH, '//button').click()
+                            time.sleep(1)
+                        except:
+                            break
 
                 # Attempts the new codes until success or requests limit
                 for _ in range(code_timeout):
@@ -285,7 +300,10 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                         CODE = response['CODIGO']
                         ID = response['ID']
 
-                        tools.find_element_with_wait(By.XPATH, '//input[@type="password"]').send_keys(CODE)
+                        element = tools.find_element_with_wait(By.XPATH, '//input[@type="password"]')
+                        element.clear()
+                        element.send_keys(CODE)
+
                         for _ in range(10):
                             try:
                                 tools.find_element_with_wait(By.XPATH, '//div/div[2]/button', timeout=2).click()
@@ -294,7 +312,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                                 break
 
                         # Check the code result
-                        for _ in range(7):
+                        for _ in range(30):
 
                             # Correct
                             try:
@@ -310,7 +328,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                             # Wrong
                             try:
                                 tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'Senha inválida')]", timeout=1)
-                                tools.find_element_with_wait(By.XPATH, "//button[text()='Voltar']", timeout=1)
+                                tools.find_element_with_wait(By.XPATH, "//button[text()='Voltar']", timeout=1).click()
                                 code_insertion = False
                                 break
 
@@ -329,15 +347,7 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                 raise TimeoutError('Código WHOOM não chegou dentro do timeout estabelecido')
 
             # Selects the system to access
-            try:
-                lines = tools.find_elements_with_wait(By.XPATH, '//*[@id="root"]/div[2]/div/div[1]/div/div[2]/div/div/div', timeout=5)
-            except:
-                try:
-                    lines = tools.find_elements_with_wait(By.XPATH, '//*[@id="root"]/div[2]/div/div[2]/div/div[2]/div/div/div', timeout=5)
-                except Exception as e:
-                    mostrar_mensagem('Não conseguiu achar o sistema no certificado')
-                    print(f'{e}\n\n\n\n\n\n')
-                    raise ValueError('Não conseguiu achar o sistema no certificado') from e
+            lines = tools.find_elements_with_wait(By.XPATH, '//div[@role="menu"]//div[@role="menuitem"]')
 
             finded = False
             div_list = []
@@ -401,43 +411,52 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
         def extension_check(self):
 
             self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+            time.sleep(3)
 
-            try:
-                tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=10).send_keys(self.system)
-                return
+            for _ in range(10):
 
-            except Exception as e:
+                # Caso a extensão já esteja instalada
+                try:
+                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=1)
+                    return
+                except: pass
+
+                try:
+                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Insira aqui o seu email"]', timeout=1)
+                    return
+                except: pass
+
+                # Caso a extensão não esteja instala
+                if 'This page has been blocked by Chrome' in driver.page_source:
+                    break
 
                 if 'eliezer@bcfox.com.br' in self.driver.page_source:
                     tools.find_element_with_wait(By.XPATH, "//span[text()='alterar']").click()
                     return
 
-                # Abrir uma nova aba
-                self.driver.execute_script("window.open('');")
+            # Abrir uma nova aba
+            self.driver.execute_script("window.open('');")
 
-                # Fechar a aba original
-                self.driver.close()
+            # Fechar a aba original
+            self.driver.close()
 
-                # Mudar para a nova aba
-                self.driver.switch_to.window(self.driver.window_handles[-1])
+            # Mudar para a nova aba
+            self.driver.switch_to.window(self.driver.window_handles[-1])
 
-                time.sleep(1)
+            time.sleep(1)
 
-                self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
+            self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
 
-                try:
-                    tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'no Chrome') or contains(text(), 'Usar') or contains(text(), 'Add to Chrome')]").click()
-                except Exception as e:
-                    return
-                time.sleep(5)
+            tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'no Chrome') or contains(text(), 'Usar') or contains(text(), 'Add to Chrome')]").click()
+            time.sleep(5)
 
-                # Envia TAB e ENTER do teclado físico
-                pyautogui.press('tab')
-                time.sleep(0.5)
-                pyautogui.press('enter')
-                time.sleep(5)
+            # Envia TAB e ENTER do teclado físico
+            pyautogui.press('tab')
+            time.sleep(0.5)
+            pyautogui.press('enter')
+            time.sleep(5)
 
-                self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
 
     tools = tool()
     api = invokes_whoom()

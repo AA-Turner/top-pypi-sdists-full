@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.204.0",
+    "version": "2.205.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -220,6 +220,7 @@ kwargs = json.loads(
         "aws_cdk.aws_notifications",
         "aws_cdk.aws_notificationscontacts",
         "aws_cdk.aws_oam",
+        "aws_cdk.aws_odb",
         "aws_cdk.aws_omics",
         "aws_cdk.aws_opensearchserverless",
         "aws_cdk.aws_opensearchservice",
@@ -324,7 +325,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.204.0.jsii.tgz"
+            "aws-cdk-lib@2.205.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

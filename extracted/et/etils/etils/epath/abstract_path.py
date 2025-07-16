@@ -1,4 +1,4 @@
-# Copyright 2024 The etils Authors.
+# Copyright 2025 The etils Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ class Path(pathlib.PurePosixPath):
 
   def is_file(self) -> bool:
     """Returns True if self is a file."""
-    return not self.is_dir()
+    return self.exists() and not self.is_dir()
 
   @abstractmethod
   def iterdir(self: _T) -> Iterator[_T]:
@@ -160,7 +160,7 @@ class Path(pathlib.PurePosixPath):
   @abstractmethod
   def mkdir(
       self,
-      mode: int = 0o777,
+      mode: Optional[int] = None,
       parents: bool = False,
       exist_ok: bool = False,
   ) -> None:

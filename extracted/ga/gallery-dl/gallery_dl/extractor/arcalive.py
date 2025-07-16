@@ -8,7 +8,6 @@
 
 from .common import Extractor, Message
 from .. import text, util, exception
-import re
 
 BASE_PATTERN = r"(?:https?://)?(?:www\.)?arca\.live"
 
@@ -27,7 +26,7 @@ class ArcaliveExtractor(Extractor):
         for article in self.articles():
             article["_extractor"] = ArcalivePostExtractor
             board = self.board or article.get("boardSlug") or "breaking"
-            url = "{}/b/{}/{}".format(self.root, board, article["id"])
+            url = f"{self.root}/b/{board}/{article['id']}"
             yield Message.Queue, url, article
 
 
@@ -52,8 +51,8 @@ class ArcalivePostExtractor(ArcaliveExtractor):
         post["count"] = len(files)
         post["date"] = text.parse_datetime(
             post["createdAt"][:19], "%Y-%m-%dT%H:%M:%S")
-        post["post_url"] = post_url = "{}/b/{}/{}".format(
-            self.root, post["boardSlug"], post["id"])
+        post["post_url"] = post_url = \
+            f"{self.root}/b/{post['boardSlug']}/{post['id']}"
         post["_http_headers"] = {"Referer": post_url + "?p=1"}
 
         yield Message.Directory, post
@@ -65,8 +64,8 @@ class ArcalivePostExtractor(ArcaliveExtractor):
     def _extract_files(self, post):
         files = []
 
-        for video, media in self._extract_media(post["content"]):
-
+        for video, media in util.re(r"<(?:img|vide(o)) ([^>]+)").findall(
+                post["content"]):
             if not self.emoticons and 'class="arca-emoticon"' in media:
                 continue
 
@@ -75,47 +74,44 @@ class ArcalivePostExtractor(ArcaliveExtractor):
             if not src:
                 continue
 
-            src = text.unescape(src.partition("?")[0])
+            src, _, query = text.unescape(src).partition("?")
             if src[0] == "/":
                 if src[1] == "/":
-                    url = "https:" + src
+                    url = "https:" + src.replace(
+                        "//ac-p.namu", "//ac-o.namu", 1)
                 else:
                     url = self.root + src
             else:
                 url = src
 
             fallback = ()
+            query = f"?type=orig&{query}"
             orig = text.extr(media, 'data-orig="', '"')
             if orig:
                 path, _, ext = url.rpartition(".")
                 if ext != orig:
-                    fallback = (url + "?type=orig",)
+                    fallback = (url + query,)
                     url = path + "." + orig
             elif video and self.gifs:
                 url_gif = url.rpartition(".")[0] + ".gif"
                 if self.gifs_fallback:
-                    fallback = (url + "?type=orig",)
+                    fallback = (url + query,)
                     url = url_gif
                 else:
                     response = self.request(
-                        url_gif + "?type=orig", method="HEAD", fatal=False)
+                        url_gif + query, method="HEAD", fatal=False)
                     if response.status_code < 400:
-                        fallback = (url + "?type=orig",)
+                        fallback = (url + query,)
                         url = url_gif
 
             files.append({
-                "url"   : url + "?type=orig",
+                "url"   : url + query,
                 "width" : text.parse_int(text.extr(media, 'width="', '"')),
                 "height": text.parse_int(text.extr(media, 'height="', '"')),
                 "_fallback": fallback,
             })
 
         return files
-
-    def _extract_media(self, content):
-        ArcalivePostExtractor._extract_media = extr = re.compile(
-            r"<(?:img|vide(o)) ([^>]+)").findall
-        return extr(content)
 
 
 class ArcaliveBoardExtractor(ArcaliveExtractor):
@@ -175,9 +171,8 @@ class ArcaliveAPI():
             return data
 
         self.log.debug("Server response: %s", data)
-        msg = data.get("message")
-        raise exception.StopExtraction(
-            "API request failed%s", ": " + msg if msg else "")
+        msg = f": {msg}" if (msg := data.get("message")) else ""
+        raise exception.AbortExtraction(f"API request failed{msg}")
 
     def _pagination(self, endpoint, params, key):
         while True:

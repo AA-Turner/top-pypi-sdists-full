@@ -1013,8 +1013,7 @@ class BaseRaw(
         if n_rejected > 0:
             if reject_by_annotation == "omit":
                 msg = (
-                    "Omitting {} of {} ({:.2%}) samples, retaining {}"
-                    " ({:.2%}) samples."
+                    "Omitting {} of {} ({:.2%}) samples, retaining {} ({:.2%}) samples."
                 )
                 logger.info(
                     msg.format(
@@ -1387,7 +1386,10 @@ class BaseRaw(
         sfreq = float(sfreq)
         o_sfreq = float(self.info["sfreq"])
         if _check_resamp_noop(sfreq, o_sfreq):
-            return self
+            if events is not None:
+                return self, events.copy()
+            else:
+                return self
 
         # When no event object is supplied, some basic detection of dropped
         # events is performed to generate a warning. Finding events can fail
@@ -1790,9 +1792,10 @@ class BaseRaw(
 
         split_size = _get_split_size(split_size)
         if not self.preload and fname in self.filenames:
+            extra = " and overwrite must be True" if not overwrite else ""
             raise ValueError(
-                "You cannot save data to the same file. Please use a different "
-                "filename."
+                "In order to save data to the same file, data need to be preloaded"
+                + extra
             )
 
         if self.preload:
@@ -2157,7 +2160,7 @@ class BaseRaw(
         for edge_samp in edge_samps:
             onset = _sync_onset(self, edge_samp / self.info["sfreq"], True)
             logger.debug(
-                f"Marking edge at {edge_samp} samples " f"(maps to {onset:0.3f} sec)"
+                f"Marking edge at {edge_samp} samples (maps to {onset:0.3f} sec)"
             )
             self.annotations.append(onset, 0.0, "BAD boundary")
             self.annotations.append(onset, 0.0, "EDGE boundary")
@@ -3187,7 +3190,7 @@ def concatenate_raws(
 
 
 @fill_doc
-def match_channel_orders(insts=None, copy=True, *, raws=None):
+def match_channel_orders(insts, copy=True):
     """Ensure consistent channel order across instances (Raw, Epochs, or Evoked).
 
     Parameters
@@ -3196,9 +3199,6 @@ def match_channel_orders(insts=None, copy=True, *, raws=None):
         List of :class:`~mne.io.Raw`, :class:`~mne.Epochs`,
         or :class:`~mne.Evoked` instances to order.
     %(copy_df)s
-    raws : list
-        This parameter is deprecated and will be removed in mne version 1.9.
-        Please use ``insts`` instead.
 
     Returns
     -------
@@ -3206,20 +3206,6 @@ def match_channel_orders(insts=None, copy=True, *, raws=None):
         List of instances (Raw, Epochs, or Evoked) with channel orders matched
         according to the order they had in the first item in the ``insts`` list.
     """
-    # XXX: remove "raws" parameter and logic below with MNE version 1.9
-    #      and remove default parameter value of insts
-    if raws is not None:
-        warn(
-            "The ``raws`` parameter is deprecated and will be removed in version "
-            "1.9. Use the ``insts`` parameter to suppress this warning.",
-            DeprecationWarning,
-        )
-        insts = raws
-    elif insts is None:
-        # both insts and raws is None
-        raise ValueError(
-            "You need to pass a list of Raw, Epochs, or Evoked to ``insts``."
-        )
     insts = deepcopy(insts) if copy else insts
     ch_order = insts[0].ch_names
     for inst in insts[1:]:

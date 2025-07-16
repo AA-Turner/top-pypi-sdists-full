@@ -5849,32 +5849,32 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_int_16(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_int_16(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint16_t svldnf1ub_s16(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.H, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint32_t svldnf1ub_s32(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1ub_s64(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_u_int_16(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_u_int_16(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint16_t svldnf1ub_u16(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.H, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_u_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_u_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint32_t svldnf1ub_u32(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_byte_non_faulting_zero_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_byte_non_faulting_zero_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1ub_u64(svbool_t pg, const uint8_t *base)  LDNF1B Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -5926,22 +5926,22 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_int_16_non_faulting_sign_extend_to_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_16_non_faulting_sign_extend_to_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint32_t svldnf1sh_s32(svbool_t pg, const int16_t *base)  LDNF1SH Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_int_16_non_faulting_sign_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_16_non_faulting_sign_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1sh_s64(svbool_t pg, const int16_t *base)  LDNF1SH Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_int_16_non_faulting_sign_extend_to_u_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_16_non_faulting_sign_extend_to_u_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint32_t svldnf1sh_u32(svbool_t pg, const int16_t *base)  LDNF1SH Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_int_16_non_faulting_sign_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_16_non_faulting_sign_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1sh_u64(svbool_t pg, const int16_t *base)  LDNF1SH Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -5971,12 +5971,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_int_32_non_faulting_sign_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_32_non_faulting_sign_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1sw_s64(svbool_t pg, const int32_t *base)  LDNF1SW Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_int_32_non_faulting_sign_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_int_32_non_faulting_sign_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1sw_u64(svbool_t pg, const int32_t *base)  LDNF1SW Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -5996,8 +5996,15 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_non_faulting(address: typing.Any) -> System.Numerics.Vector[int]:
+    @overload
+    def load_vector_non_faulting(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint8_t svldnf1[_u8](svbool_t pg, const uint8_t *base)  LDNF1B Zresult.B, Pg/Z, [Xbase, #0, MUL VL]"""
+        ...
+
+    @staticmethod
+    @overload
+    def load_vector_non_faulting(mask: System.Numerics.Vector[float], address: typing.Any) -> System.Numerics.Vector[float]:
+        """svfloat64_t svldnf1[_f64](svbool_t pg, const float64_t *base)  LDNF1D Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
@@ -6013,32 +6020,32 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_int_16(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_int_16(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint16_t svldnf1sb_s16(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.H, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint32_t svldnf1sb_s32(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1sb_s64(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_16(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_16(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint16_t svldnf1sb_u16(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.H, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint32_t svldnf1sb_u32(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_s_byte_non_faulting_sign_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1sb_u64(svbool_t pg, const int8_t *base)  LDNF1SB Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -6078,22 +6085,22 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_u_int_16_non_faulting_zero_extend_to_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_16_non_faulting_zero_extend_to_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint32_t svldnf1uh_s32(svbool_t pg, const uint16_t *base)  LDNF1H Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_u_int_16_non_faulting_zero_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_16_non_faulting_zero_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1uh_s64(svbool_t pg, const uint16_t *base)  LDNF1H Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_u_int_16_non_faulting_zero_extend_to_u_int_32(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_16_non_faulting_zero_extend_to_u_int_32(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint32_t svldnf1uh_u32(svbool_t pg, const uint16_t *base)  LDNF1H Zresult.S, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_u_int_16_non_faulting_zero_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_16_non_faulting_zero_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1uh_u64(svbool_t pg, const uint16_t *base)  LDNF1H Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -6123,12 +6130,12 @@ class Sve(System.Runtime.Intrinsics.Arm.AdvSimd, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def load_vector_u_int_32_non_faulting_zero_extend_to_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_32_non_faulting_zero_extend_to_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svint64_t svldnf1uw_s64(svbool_t pg, const uint32_t *base)  LDNF1W Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
     @staticmethod
-    def load_vector_u_int_32_non_faulting_zero_extend_to_u_int_64(address: typing.Any) -> System.Numerics.Vector[int]:
+    def load_vector_u_int_32_non_faulting_zero_extend_to_u_int_64(mask: System.Numerics.Vector[int], address: typing.Any) -> System.Numerics.Vector[int]:
         """svuint64_t svldnf1uw_u64(svbool_t pg, const uint32_t *base)  LDNF1W Zresult.D, Pg/Z, [Xbase, #0, MUL VL]"""
         ...
 
@@ -7118,6 +7125,30 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svuint8_t svbsl2n[_u8](svuint8_t op1, svuint8_t op2, svuint8_t op3)
           BSL2N Ztied1.D, Ztied1.D, Zop2.D, Zop3.D
+        """
+        ...
+
+    @staticmethod
+    def fused_add_halving(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svhadd[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svhadd[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svhadd[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UHADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UHADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UHADD Ztied2.B, Pg/M, Ztied2.B, Zop1.B
+        """
+        ...
+
+    @staticmethod
+    def fused_subtract_halving(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svhsub[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svhsub[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svhsub[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UHSUB Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UHSUB Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UHSUBR Ztied2.B, Pg/M, Ztied2.B, Zop1.B
         """
         ...
 

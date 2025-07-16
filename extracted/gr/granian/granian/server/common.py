@@ -160,7 +160,7 @@ class AbstractServer(Generic[WT]):
         self.workers_lifetime = workers_lifetime
         self.workers_kill_timeout = workers_kill_timeout
         self.factory = factory
-        self.working_dir = str(working_dir.resolve()) if working_dir else None
+        self.working_dir = working_dir
         self.env_files = env_files or ()
         self.static_path = (
             (static_path_route, str(static_path_mount.resolve()), str(static_path_expires))
@@ -449,18 +449,16 @@ class AbstractServer(Generic[WT]):
             sys.exit(1)
 
         # Use given or default filter rules
-        reload_filter = self.reload_filter or watchfiles.filters.DefaultFilter
-        # Extend `reload_filter` with explicit args
-        ignore_dirs = (*reload_filter.ignore_dirs, *self.reload_ignore_dirs)
-        ignore_entity_patterns = (
-            *reload_filter.ignore_entity_patterns,
+        reload_filter_cls = self.reload_filter or watchfiles.filters.DefaultFilter
+        # Extend `reload_filter` with provided args
+        reload_filter_cls.ignore_dirs = (*reload_filter_cls.ignore_dirs, *self.reload_ignore_dirs)
+        reload_filter_cls.ignore_entity_patterns = (
+            *reload_filter_cls.ignore_entity_patterns,
             *self.reload_ignore_patterns,
         )
-        ignore_paths = (*reload_filter.ignore_paths, *self.reload_ignore_paths)
+        reload_filter_cls.ignore_paths = (*reload_filter_cls.ignore_paths, *self.reload_ignore_paths)
         # Construct new filter
-        reload_filter = watchfiles.filters.DefaultFilter(
-            ignore_dirs=ignore_dirs, ignore_entity_patterns=ignore_entity_patterns, ignore_paths=ignore_paths
-        )
+        reload_filter = reload_filter_cls()
 
         self.startup(spawn_target, target_loader)
 

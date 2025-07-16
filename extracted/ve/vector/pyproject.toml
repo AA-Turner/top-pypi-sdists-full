@@ -52,9 +52,8 @@ optional-dependencies.awkward = [
 optional-dependencies.dev = [
   "awkward>=2",
   "dask-awkward",
-  "sympy",
   "nox",
-  "numba>=0.57; python_version<'3.13'",
+  "numba>=0.57; python_version<'3.14'",
   "papermill>=2.4",
   "pytest>=6",
   "pytest-cov>=3",
@@ -73,7 +72,7 @@ optional-dependencies.docs = [
   "sphinx-math-dollar",
 ]
 optional-dependencies.numba = [
-  "numba>=0.57; python_version<'3.13'",
+  "numba>=0.57; python_version<'3.14'",
 ]
 optional-dependencies.sympy = [
   "sympy",
@@ -139,8 +138,23 @@ isort.required-imports = [
 "docs/src/*.ipynb" = [
   "T20", "I001", "I002", "F811"
 ]
+"src/vector/__init__.py" = [
+  "PLC0415",
+]
+"src/vector/_methods.py" = [
+  "PLC0415",
+]
 "src/vector/backends/_numba_object.py" = [
   "PGH003",
+]
+"src/vector/backends/awkward.py" = [
+  "PLC0415",
+]
+"src/vector/backends/awkward_constructors.py" = [
+  "PLC0415",
+]
+"src/vector/backends/object.py" = [
+  "PLC0415",
 ]
 "tests/backends/test_operators.py" = [
   "SIM201",

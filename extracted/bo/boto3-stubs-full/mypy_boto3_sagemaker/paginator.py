@@ -73,6 +73,7 @@ Usage::
         ListPipelineExecutionStepsPaginator,
         ListPipelineExecutionsPaginator,
         ListPipelineParametersForExecutionPaginator,
+        ListPipelineVersionsPaginator,
         ListPipelinesPaginator,
         ListProcessingJobsPaginator,
         ListResourceCatalogsPaginator,
@@ -157,6 +158,7 @@ Usage::
     list_pipeline_execution_steps_paginator: ListPipelineExecutionStepsPaginator = client.get_paginator("list_pipeline_execution_steps")
     list_pipeline_executions_paginator: ListPipelineExecutionsPaginator = client.get_paginator("list_pipeline_executions")
     list_pipeline_parameters_for_execution_paginator: ListPipelineParametersForExecutionPaginator = client.get_paginator("list_pipeline_parameters_for_execution")
+    list_pipeline_versions_paginator: ListPipelineVersionsPaginator = client.get_paginator("list_pipeline_versions")
     list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
     list_processing_jobs_paginator: ListProcessingJobsPaginator = client.get_paginator("list_processing_jobs")
     list_resource_catalogs_paginator: ListResourceCatalogsPaginator = client.get_paginator("list_resource_catalogs")
@@ -310,6 +312,8 @@ from .type_defs import (
     ListPipelineParametersForExecutionResponseTypeDef,
     ListPipelinesRequestPaginateTypeDef,
     ListPipelinesResponseTypeDef,
+    ListPipelineVersionsRequestPaginateTypeDef,
+    ListPipelineVersionsResponseTypeDef,
     ListProcessingJobsRequestPaginateTypeDef,
     ListProcessingJobsResponseTypeDef,
     ListResourceCatalogsRequestPaginateTypeDef,
@@ -414,6 +418,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginator",
     "ListPipelineExecutionsPaginator",
     "ListPipelineParametersForExecutionPaginator",
+    "ListPipelineVersionsPaginator",
     "ListPipelinesPaginator",
     "ListProcessingJobsPaginator",
     "ListResourceCatalogsPaginator",
@@ -1743,6 +1748,27 @@ class ListPipelineParametersForExecutionPaginator(_ListPipelineParametersForExec
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineParametersForExecution.html#SageMaker.Paginator.ListPipelineParametersForExecution.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listpipelineparametersforexecutionpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListPipelineVersionsPaginatorBase = Paginator[ListPipelineVersionsResponseTypeDef]
+else:
+    _ListPipelineVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListPipelineVersionsPaginator(_ListPipelineVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineVersions.html#SageMaker.Paginator.ListPipelineVersions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listpipelineversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPipelineVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListPipelineVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineVersions.html#SageMaker.Paginator.ListPipelineVersions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listpipelineversionspaginator)
         """
 
 
