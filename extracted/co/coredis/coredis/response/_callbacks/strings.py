@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from coredis._utils import EncodingInsensitiveDict
 from coredis.response._callbacks import ResponseCallback, SimpleStringCallback
 from coredis.response.types import LCSMatch, LCSResult
@@ -7,13 +9,12 @@ from coredis.typing import (
     AnyStr,
     ResponsePrimitive,
     ResponseType,
-    ValueT,
 )
 
 
 class StringSetCallback(ResponseCallback[AnyStr | None, AnyStr | None, AnyStr | bool | None]):
-    def transform(self, response: AnyStr | None, **options: ValueT | None) -> AnyStr | bool | None:
-        if options.get("get"):
+    def transform(self, response: AnyStr | None, **options: Any) -> AnyStr | bool | None:
+        if self.options.get("get"):
             return response
         else:
             return SimpleStringCallback()(response)
@@ -23,13 +24,13 @@ class LCSCallback(
     ResponseCallback[
         list[ResponseType],
         dict[ResponsePrimitive, ResponseType],
-        AnyStr | int | LCSResult,
+        LCSResult,
     ]
 ):
     def transform(
         self,
         response: (list[ResponseType] | dict[ResponsePrimitive, ResponseType]),
-        **options: ValueT | None,
+        **options: Any,
     ) -> LCSResult:
         assert (
             isinstance(response, list)
@@ -52,7 +53,7 @@ class LCSCallback(
     def transform_3(
         self,
         response: dict[ResponsePrimitive, ResponseType],
-        **options: ValueT | None,
+        **options: Any,
     ) -> LCSResult:
         proxy = EncodingInsensitiveDict(response)
 

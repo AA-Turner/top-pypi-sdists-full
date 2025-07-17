@@ -1794,11 +1794,22 @@ class DataConnection(BaseDataConnection):
         from ibm_botocore.client import Config
 
         # Make sure endpoint_url startswith 'https://' prefix
-        if not self.connection.endpoint_url.startswith("https://"):
+        if hasattr(
+            self.connection, "endpoint_url"
+        ) and not self.connection.endpoint_url.startswith("https://"):
             self.connection.endpoint_url = "https://" + self.connection.endpoint_url
 
         try:
-            if hasattr(self.connection, "auth_endpoint") and hasattr(
+            if isinstance(self.connection, _AmazonS3Connection):
+                cos_client = resource(
+                    service_name="s3",
+                    endpoint_url=f"https://s3.{self.connection.region}.amazonaws.com",
+                    aws_access_key_id=self.connection.access_key,
+                    aws_secret_access_key=self.connection.secret_key,
+                    aws_session_token=self.connection.session_token,
+                )
+
+            elif hasattr(self.connection, "auth_endpoint") and hasattr(
                 self.connection, "api_key"
             ):
                 cos_client = resource(

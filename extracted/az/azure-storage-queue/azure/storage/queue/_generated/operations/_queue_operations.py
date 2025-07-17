@@ -1,4 +1,4 @@
-# pylint: disable=too-many-lines,too-many-statements
+# pylint: disable=line-too-long,useless-suppression
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -7,8 +7,9 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 import sys
-from typing import Any, Callable, Dict, List, Literal, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, List, Literal, Optional, TypeVar
 
+from azure.core import PipelineClient
 from azure.core.exceptions import (
     ClientAuthenticationError,
     HttpResponseError,
@@ -23,12 +24,13 @@ from azure.core.tracing.decorator import distributed_trace
 from azure.core.utils import case_insensitive_dict
 
 from .. import models as _models
-from .._serialization import Serializer
+from .._configuration import AzureQueueStorageConfiguration
+from .._serialization import Deserializer, Serializer
 
 if sys.version_info >= (3, 9):
     from collections.abc import MutableMapping
 else:
-    from typing import MutableMapping  # type: ignore  # pylint: disable=ungrouped-imports
+    from typing import MutableMapping  # type: ignore
 T = TypeVar("T")
 ClsType = Optional[Callable[[PipelineResponse[HttpRequest, HttpResponse], T, Dict[str, Any]], Any]]
 
@@ -260,10 +262,10 @@ class QueueOperations:
 
     def __init__(self, *args, **kwargs):
         input_args = list(args)
-        self._client = input_args.pop(0) if input_args else kwargs.pop("client")
-        self._config = input_args.pop(0) if input_args else kwargs.pop("config")
-        self._serialize = input_args.pop(0) if input_args else kwargs.pop("serializer")
-        self._deserialize = input_args.pop(0) if input_args else kwargs.pop("deserializer")
+        self._client: PipelineClient = input_args.pop(0) if input_args else kwargs.pop("client")
+        self._config: AzureQueueStorageConfiguration = input_args.pop(0) if input_args else kwargs.pop("config")
+        self._serialize: Serializer = input_args.pop(0) if input_args else kwargs.pop("serializer")
+        self._deserialize: Deserializer = input_args.pop(0) if input_args else kwargs.pop("deserializer")
 
     @distributed_trace
     def create(  # pylint: disable=inconsistent-return-statements
@@ -276,7 +278,7 @@ class QueueOperations:
         """creates a new queue under the given account.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param metadata: Optional. Include this parameter to specify that the queue's metadata be
@@ -293,7 +295,7 @@ class QueueOperations:
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,
@@ -344,7 +346,7 @@ class QueueOperations:
         """operation permanently deletes the specified queue.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param request_id_parameter: Provides a client-generated, opaque value with a 1 KB character
@@ -355,7 +357,7 @@ class QueueOperations:
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,
@@ -406,7 +408,7 @@ class QueueOperations:
         associated with the queue as name-values pairs.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param request_id_parameter: Provides a client-generated, opaque value with a 1 KB character
@@ -417,7 +419,7 @@ class QueueOperations:
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,
@@ -478,7 +480,7 @@ class QueueOperations:
         name-value pairs.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param metadata: Optional. Include this parameter to specify that the queue's metadata be
@@ -495,7 +497,7 @@ class QueueOperations:
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,
@@ -549,7 +551,7 @@ class QueueOperations:
         Shared Access Signatures.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param request_id_parameter: Provides a client-generated, opaque value with a 1 KB character
@@ -560,7 +562,7 @@ class QueueOperations:
         :rtype: list[~azure.storage.queue.models.SignedIdentifier]
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,
@@ -620,7 +622,7 @@ class QueueOperations:
         """sets stored access policies for the queue that may be used with Shared Access Signatures.
 
         :param timeout: The The timeout parameter is expressed in seconds. For more information, see <a
-         href="https://docs.microsoft.com/en-us/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
+         href="https://learn.microsoft.com/rest/api/storageservices/setting-timeouts-for-queue-service-operations>Setting
          Timeouts for Queue Service Operations.</a>. Default value is None.
         :type timeout: int
         :param request_id_parameter: Provides a client-generated, opaque value with a 1 KB character
@@ -633,7 +635,7 @@ class QueueOperations:
         :rtype: None
         :raises ~azure.core.exceptions.HttpResponseError:
         """
-        error_map: MutableMapping[int, Type[HttpResponseError]] = {
+        error_map: MutableMapping = {
             401: ClientAuthenticationError,
             404: ResourceNotFoundError,
             409: ResourceExistsError,

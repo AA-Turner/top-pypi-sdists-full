@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3",
-    version="1.39.6",
+    version="1.39.7",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 1.39.6 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for boto3 1.39.7 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["types-boto3-full>=1.39.0, <1.40.0"],
-        "boto3": ["boto3==1.39.6"],
+        "boto3": ["boto3==1.39.7"],
         "all": [
             "types-boto3-accessanalyzer>=1.39.0, <1.40.0",
             "types-boto3-account>=1.39.0, <1.40.0",
@@ -99,6 +99,8 @@ setup(
             "types-boto3-bedrock>=1.39.0, <1.40.0",
             "types-boto3-bedrock-agent>=1.39.0, <1.40.0",
             "types-boto3-bedrock-agent-runtime>=1.39.0, <1.40.0",
+            "types-boto3-bedrock-agentcore>=1.39.0, <1.40.0",
+            "types-boto3-bedrock-agentcore-control>=1.39.0, <1.40.0",
             "types-boto3-bedrock-data-automation>=1.39.0, <1.40.0",
             "types-boto3-bedrock-data-automation-runtime>=1.39.0, <1.40.0",
             "types-boto3-bedrock-runtime>=1.39.0, <1.40.0",
@@ -519,6 +521,8 @@ setup(
         "bedrock": ["types-boto3-bedrock>=1.39.0, <1.40.0"],
         "bedrock-agent": ["types-boto3-bedrock-agent>=1.39.0, <1.40.0"],
         "bedrock-agent-runtime": ["types-boto3-bedrock-agent-runtime>=1.39.0, <1.40.0"],
+        "bedrock-agentcore": ["types-boto3-bedrock-agentcore>=1.39.0, <1.40.0"],
+        "bedrock-agentcore-control": ["types-boto3-bedrock-agentcore-control>=1.39.0, <1.40.0"],
         "bedrock-data-automation": ["types-boto3-bedrock-data-automation>=1.39.0, <1.40.0"],
         "bedrock-data-automation-runtime": [
             "types-boto3-bedrock-data-automation-runtime>=1.39.0, <1.40.0"

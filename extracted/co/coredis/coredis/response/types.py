@@ -13,9 +13,9 @@ from coredis.typing import (
     Mapping,
     NamedTuple,
     OrderedDict,
+    RedisValueT,
     StringT,
     TypedDict,
-    ValueT,
 )
 
 #: Response from `CLIENT INFO <https://redis.io/commands/client-info>`__
@@ -112,8 +112,6 @@ class LibraryDefinition(TypedDict):
     name: StringT
     #: the engine used by the library
     engine: Literal["LUA"]
-    #: the library's description
-    description: StringT
     #: Mapping of function names to functions in the library
     functions: dict[StringT, FunctionDefinition]
     #: The library's source code
@@ -371,7 +369,7 @@ class ClusterNodeDetail(TypedDict):
     pong_recv: int
     link_state: str
     slots: list[int]
-    migrations: list[dict[str, ValueT]]
+    migrations: list[dict[str, RedisValueT]]
 
 
 class PubSubMessage(TypedDict):
@@ -405,3 +403,14 @@ class PubSubMessage(TypedDict):
     #:   this will be an :class:`int` corresponding to the  number of channels and patterns that the
     #:   connection is currently subscribed to.
     data: int | StringT
+
+
+class VectorData(TypedDict):
+    #: The quantization type as a string (``fp32``, ``bin`` or ``q8``)
+    quantization: str
+    #: Raw bytes representation of the vector
+    blob: bytes
+    #: The L2 norm of the vector before normalization
+    l2_norm: float
+    #: If the vector is quantized as q8, the quantization range
+    quantization_range: float

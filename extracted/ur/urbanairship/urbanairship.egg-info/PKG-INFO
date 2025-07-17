@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: urbanairship
-Version: 7.0.0
-Summary: ``urbanairship`` is a Python library for using the `Airship
+Version: 7.1.0
+Summary: ``urbanairship`` is a Python library for using the Airship REST
 Home-page: https://airship.com/
 Author: Airship Tools
 Author-email: tools@airship.com
@@ -51,14 +51,14 @@ Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 
-``urbanairship`` is a Python library for using the `Airship
-<http://airship.com/>`_ REST API for push notifications, message
+``urbanairship`` is a Python library for using the Airship REST
+API for push notifications, message
 center messages, email, and SMS.
 
 Requirements
 ============
 
-Python 3.6 or higher is required. Other requirements can be found in requirements.txt.
+Python 3.10 or higher is required. Other requirements can be found in requirements.txt.
 
 Questions
 =========

@@ -93,7 +93,7 @@ def setup(subparsers):
 
 def get_files_to_delete(args: argparse.Namespace, item) -> list:
     """Get files to delete based on command-line arguments."""
-    if args.all:
+    if args.all or args.file == []:
         files = list(item.get_files())
         args.cascade = True
     elif args.glob:
@@ -122,7 +122,12 @@ def delete_files(files, args, item, verbose):
     errors = False
 
     # Files that cannot be deleted via S3.
-    no_delete = ["_meta.xml", "_files.xml", "_meta.sqlite"]
+    no_delete = [
+        "_meta.xml",
+        "_files.xml",
+        "_meta.sqlite"
+        "_reviews.xml",
+    ]
 
     for f in files:
         if not f:
@@ -133,7 +138,11 @@ def delete_files(files, args, item, verbose):
         if any(f.name.endswith(s) for s in no_delete):
             continue
         if args.dry_run:
-            print(f" will delete: {item.identifier}/{f.name}", file=sys.stderr)
+            if args.cascade:
+                print(f" will delete: {item.identifier}/{f.name} and all derivatives",
+                      file=sys.stderr)
+            else:
+                print(f" will delete: {item.identifier}/{f.name}", file=sys.stderr)
             continue
         try:
             resp = f.delete(verbose=verbose,

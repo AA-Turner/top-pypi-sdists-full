@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coredis
-Version: 4.24.0
+Version: 5.0.0
 Summary: Python async client for Redis key-value store
 Home-page: https://github.com/alisaifee/coredis
 Author: Ali-Akber Saifee
@@ -14,7 +14,6 @@ Project-URL: Documentation, https://coredis.readthedocs.org
 Keywords: Redis,key-value store,asyncio
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
@@ -26,11 +25,11 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: async_timeout<6,>4
+Requires-Dist: beartype>=0.20
 Requires-Dist: deprecated>=1.2
-Requires-Dist: typing_extensions>=4.3
+Requires-Dist: typing_extensions>=4.13
 Requires-Dist: packaging<26,>=21
 Requires-Dist: pympler<2,>1
-Requires-Dist: wrapt<2,>=1.1.0
 Provides-Extra: recipes
 Requires-Dist: aiobotocore>=2.15.2; extra == "recipes"
 Requires-Dist: asyncache>=0.3.1; extra == "recipes"
@@ -79,9 +78,6 @@ coredis is an async redis client with support for redis server, cluster & sentin
   See the [Handbook](https://coredis.readthedocs.io/en/latest/handbook/index.html)
   and the [API Documentation](https://coredis.readthedocs.io/en/latest/api/index.html)
   for more details.
-
-> **Warning**
-> The command API does NOT mirror the official python [redis client](https://github.com/redis/redis-py). For details about the high level differences refer to [Divergence from aredis & redis-py](https://coredis.readthedocs.io/en/latest/history.html#divergence-from-aredis-redis-py)
 
 ______________________________________________________________________
 
@@ -201,7 +197,7 @@ Details about supported Redis modules and their commands can be found
 
 ## Compatibility
 
-coredis is tested against redis versions >= `6.4`
+coredis is tested against redis versions >= `7.0`
 The test matrix status can be reviewed
 [here](https://github.com/alisaifee/coredis/actions/workflows/main.yml)
 
@@ -221,7 +217,6 @@ coredis is additionally tested against:
 
 **coredis** is known to work with the following databases that have redis protocol compatibility:
 
-- [KeyDB](https://docs.keydb.dev/)
 - [Dragonfly](https://dragonflydb.io/)
 - [Redict](https://redict.io/)
 - [Valkey](https://github.com/valkey-io/valkey)

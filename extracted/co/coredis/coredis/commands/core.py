@@ -6,7 +6,8 @@ from typing import overload
 
 from deprecated.sphinx import versionadded
 
-from coredis._utils import defaultvalue, dict_to_flat_list, tuples_to_flat_list
+from coredis._json import json
+from coredis._utils import dict_to_flat_list, tuples_to_flat_list
 from coredis.commands import CommandMixin
 from coredis.commands._utils import (
     normalized_milliseconds,
@@ -20,19 +21,19 @@ from coredis.commands._validators import (
     mutually_inclusive_parameters,
 )
 from coredis.commands._wrappers import (
-    CacheConfig,
     ClusterCommandConfig,
     RedirectUsage,
     redis_command,
 )
 from coredis.commands.bitfield import BitFieldOperation
 from coredis.commands.constants import CommandFlag, CommandGroup, CommandName, NodeFlag
+from coredis.commands.request import CommandRequest
 from coredis.exceptions import (
     AuthorizationError,
-    ConnectionError,
     DataError,
     RedisError,
 )
+from coredis.modules.response._callbacks.json import JsonCallback
 from coredis.response._callbacks import (
     AnyStrCallback,
     BoolCallback,
@@ -48,6 +49,7 @@ from coredis.response._callbacks import (
     DictCallback,
     FloatCallback,
     IntCallback,
+    ItemOrTupleCallback,
     ListCallback,
     NoopCallback,
     OptionalAnyStrCallback,
@@ -118,6 +120,12 @@ from coredis.response._callbacks.streams import (
     XInfoCallback,
 )
 from coredis.response._callbacks.strings import LCSCallback, StringSetCallback
+from coredis.response._callbacks.vector_sets import (
+    VEmbCallback,
+    VInfoCallback,
+    VLinksCallback,
+    VSimCallback,
+)
 from coredis.response.types import (
     ClientInfo,
     ClusterNode,
@@ -134,15 +142,18 @@ from coredis.response.types import (
     StreamInfo,
     StreamPending,
     StreamPendingExt,
+    VectorData,
 )
 from coredis.tokens import PrefixToken, PureToken
 from coredis.typing import (
     AnyStr,
     CommandArgList,
+    JsonType,
     KeyT,
     Literal,
     Mapping,
     Parameters,
+    RedisValueT,
     ResponsePrimitive,
     ResponseType,
     StringT,
@@ -157,44 +168,42 @@ _Set = set
 
 class CoreCommands(CommandMixin[AnyStr]):
     @redis_command(CommandName.APPEND, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def append(self, key: KeyT, value: ValueT) -> int:
+    def append(self, key: KeyT, value: ValueT) -> CommandRequest[int]:
         """
         Append a value to a key
 
         :return: the length of the string after the append operation.
         """
 
-        return await self.execute_command(CommandName.APPEND, key, value, callback=IntCallback())
+        return self.create_request(CommandName.APPEND, key, value, callback=IntCallback())
 
     @redis_command(CommandName.DECR, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def decr(self, key: KeyT) -> int:
+    def decr(self, key: KeyT) -> CommandRequest[int]:
         """
         Decrement the integer value of a key by one
 
         :return: the value of :paramref:`key` after the decrement
         """
 
-        return await self.decrby(key, 1)
+        return self.decrby(key, 1)
 
     @redis_command(CommandName.DECRBY, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def decrby(self, key: KeyT, decrement: int) -> int:
+    def decrby(self, key: KeyT, decrement: int) -> CommandRequest[int]:
         """
         Decrement the integer value of a key by the given number
 
         :return: the value of :paramref:`key` after the decrement
         """
 
-        return await self.execute_command(
-            CommandName.DECRBY, key, decrement, callback=IntCallback()
-        )
+        return self.create_request(CommandName.DECRBY, key, decrement, callback=IntCallback())
 
     @redis_command(
         CommandName.GET,
         group=CommandGroup.STRING,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def get(self, key: KeyT) -> AnyStr | None:
+    def get(self, key: KeyT) -> CommandRequest[AnyStr | None]:
         """
         Get the value of a key
 
@@ -202,8 +211,10 @@ class CoreCommands(CommandMixin[AnyStr]):
          does not exist.
         """
 
-        return await self.execute_command(
-            CommandName.GET, key, callback=OptionalAnyStrCallback[AnyStr]()
+        return self.create_request(
+            CommandName.GET,
+            key,
+            callback=OptionalAnyStrCallback[AnyStr](),
         )
 
     @redis_command(
@@ -212,7 +223,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         flags={CommandFlag.FAST},
     )
-    async def getdel(self, key: KeyT) -> AnyStr | None:
+    def getdel(self, key: KeyT) -> CommandRequest[AnyStr | None]:
         """
         Get the value of a key and delete the key
 
@@ -221,7 +232,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          does not exist, or an error if the key's value type isn't a string.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GETDEL, key, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
@@ -232,7 +243,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         flags={CommandFlag.FAST},
     )
-    async def getex(
+    def getex(
         self,
         key: KeyT,
         ex: int | datetime.timedelta | None = None,
@@ -240,7 +251,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = None,
         pxat: int | datetime.datetime | None = None,
         persist: bool | None = None,
-    ) -> AnyStr | None:
+    ) -> CommandRequest[AnyStr | None]:
         """
         Get the value of a key and optionally set its expiration
 
@@ -264,25 +275,25 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = []
 
         if ex is not None:
-            command_arguments.append("EX")
+            command_arguments.append(PrefixToken.EX)
             command_arguments.append(normalized_seconds(ex))
 
         if px is not None:
-            command_arguments.append("PX")
+            command_arguments.append(PrefixToken.PX)
             command_arguments.append(normalized_milliseconds(px))
 
         if exat is not None:
-            command_arguments.append("EXAT")
+            command_arguments.append(PrefixToken.EXAT)
             command_arguments.append(normalized_time_seconds(exat))
 
         if pxat is not None:
-            command_arguments.append("PXAT")
+            command_arguments.append(PrefixToken.PXAT)
             command_arguments.append(normalized_time_milliseconds(pxat))
 
         if persist:
             command_arguments.append(PureToken.PERSIST)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GETEX,
             key,
             *command_arguments,
@@ -292,10 +303,10 @@ class CoreCommands(CommandMixin[AnyStr]):
     @redis_command(
         CommandName.GETRANGE,
         group=CommandGroup.STRING,
-        cache_config=CacheConfig(lambda *a, **k: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def getrange(self, key: KeyT, start: int, end: int) -> AnyStr:
+    def getrange(self, key: KeyT, start: int, end: int) -> CommandRequest[AnyStr]:
         """
         Get a substring of the string stored at a key
 
@@ -303,7 +314,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          determined by the offsets ``start`` and ``end`` (both are inclusive)
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GETRANGE, key, start, end, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -314,7 +325,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STRING,
         flags={CommandFlag.FAST},
     )
-    async def getset(self, key: KeyT, value: ValueT) -> AnyStr | None:
+    def getset(self, key: KeyT, value: ValueT) -> CommandRequest[AnyStr | None]:
         """
         Set the string value of a key and return its old value
 
@@ -322,12 +333,12 @@ class CoreCommands(CommandMixin[AnyStr]):
          :paramref:`key` did not exist.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GETSET, key, value, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @redis_command(CommandName.INCR, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def incr(self, key: KeyT) -> int:
+    def incr(self, key: KeyT) -> CommandRequest[int]:
         """
         Increment the integer value of a key by one
 
@@ -335,10 +346,14 @@ class CoreCommands(CommandMixin[AnyStr]):
          If no key exists, the value will be initialized as 1.
         """
 
-        return await self.incrby(key, 1)
+        return self.create_request(
+            CommandName.INCR,
+            key,
+            callback=IntCallback(),
+        )
 
     @redis_command(CommandName.INCRBY, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def incrby(self, key: KeyT, increment: int) -> int:
+    def incrby(self, key: KeyT, increment: int) -> CommandRequest[int]:
         """
         Increment the integer value of a key by the given amount
 
@@ -346,12 +361,10 @@ class CoreCommands(CommandMixin[AnyStr]):
           If no key exists, the value will be initialized as ``increment``
         """
 
-        return await self.execute_command(
-            CommandName.INCRBY, key, increment, callback=IntCallback()
-        )
+        return self.create_request(CommandName.INCRBY, key, increment, callback=IntCallback())
 
     @redis_command(CommandName.INCRBYFLOAT, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def incrbyfloat(self, key: KeyT, increment: int | float) -> float:
+    def incrbyfloat(self, key: KeyT, increment: int | float) -> CommandRequest[float]:
         """
         Increment the float value of a key by the given amount
 
@@ -359,22 +372,22 @@ class CoreCommands(CommandMixin[AnyStr]):
          If no key exists, the value will be initialized as ``increment``
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.INCRBYFLOAT, key, increment, callback=FloatCallback()
         )
 
     @overload
-    async def lcs(
+    def lcs(
         self,
         key1: KeyT,
         key2: KeyT,
-    ) -> AnyStr: ...
+    ) -> CommandRequest[AnyStr]: ...
 
     @overload
-    async def lcs(self, key1: KeyT, key2: KeyT, *, len_: Literal[True]) -> int: ...
+    def lcs(self, key1: KeyT, key2: KeyT, *, len_: Literal[True]) -> CommandRequest[int]: ...
 
     @overload
-    async def lcs(
+    def lcs(
         self,
         key1: KeyT,
         key2: KeyT,
@@ -383,7 +396,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         len_: bool | None = ...,
         minmatchlen: int | None = ...,
         withmatchlen: bool | None = ...,
-    ) -> LCSResult: ...
+    ) -> CommandRequest[LCSResult]: ...
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -392,7 +405,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STRING,
         flags={CommandFlag.READONLY},
     )
-    async def lcs(
+    def lcs(
         self,
         key1: KeyT,
         key2: KeyT,
@@ -401,7 +414,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         idx: bool | None = None,
         minmatchlen: int | None = None,
         withmatchlen: bool | None = None,
-    ) -> AnyStr | int | LCSResult:
+    ) -> CommandRequest[AnyStr] | CommandRequest[int] | CommandRequest[LCSResult]:
         """
         Find the longest common substring
 
@@ -428,24 +441,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         if withmatchlen is not None:
             command_arguments.append(PureToken.WITHMATCHLEN)
         if idx is not None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.LCS,
                 *command_arguments,
-                callback=LCSCallback[AnyStr](),
-                **{
-                    "len": len_,
-                    "idx": idx,
-                    "minmatchlen": minmatchlen,
-                    "withmatchlen": withmatchlen,
-                },
+                callback=LCSCallback(),
             )
         else:
             if len_ is not None:
-                return await self.execute_command(
+                return self.create_request(
                     CommandName.LCS, *command_arguments, callback=IntCallback()
                 )
             else:
-                return await self.execute_command(
+                return self.create_request(
                     CommandName.LCS,
                     *command_arguments,
                     callback=AnyStrCallback[AnyStr](),
@@ -457,39 +464,37 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STRING,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def mget(self, keys: Parameters[KeyT]) -> tuple[AnyStr | None, ...]:
+    def mget(self, keys: Parameters[KeyT]) -> CommandRequest[tuple[AnyStr | None, ...]]:
         """
         Returns values ordered identically to ``keys``
         """
 
-        return await self.execute_command(
-            CommandName.MGET, *keys, callback=TupleCallback[AnyStr | None]()
-        )
+        return self.create_request(CommandName.MGET, *keys, callback=TupleCallback[AnyStr | None]())
 
     @redis_command(
         CommandName.MSET,
         group=CommandGroup.STRING,
     )
-    async def mset(self, key_values: Mapping[KeyT, ValueT]) -> bool:
+    def mset(self, key_values: Mapping[KeyT, ValueT]) -> CommandRequest[bool]:
         """
         Sets multiple keys to multiple values
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MSET,
             *dict_to_flat_list(key_values),
             callback=SimpleStringCallback(),
         )
 
     @redis_command(CommandName.MSETNX, group=CommandGroup.STRING)
-    async def msetnx(self, key_values: Mapping[KeyT, ValueT]) -> bool:
+    def msetnx(self, key_values: Mapping[KeyT, ValueT]) -> CommandRequest[bool]:
         """
         Set multiple keys to multiple values, only if none of the keys exist
 
         :return: Whether all the keys were set
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MSETNX, *dict_to_flat_list(key_values), callback=BoolCallback()
         )
 
@@ -497,30 +502,26 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.PSETEX,
         group=CommandGroup.STRING,
     )
-    async def psetex(
+    def psetex(
         self,
         key: KeyT,
         milliseconds: int | datetime.timedelta,
         value: ValueT,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set the value and expiration in milliseconds of a key
         """
 
-        if isinstance(milliseconds, datetime.timedelta):
-            ms = int(milliseconds.microseconds / 1000)
-            milliseconds = (milliseconds.seconds + milliseconds.days * 24 * 3600) * 1000 + ms
-
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PSETEX,
             key,
-            milliseconds,
+            normalized_milliseconds(milliseconds),
             value,
             callback=SimpleStringCallback(),
         )
 
     @overload
-    async def set(
+    def set(
         self,
         key: KeyT,
         value: ValueT,
@@ -531,10 +532,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = ...,
         pxat: int | datetime.datetime | None = ...,
         keepttl: bool | None = ...,
-    ) -> bool: ...
+    ) -> CommandRequest[bool]: ...
 
     @overload
-    async def set(
+    def set(
         self,
         key: KeyT,
         value: ValueT,
@@ -546,7 +547,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = ...,
         pxat: int | datetime.datetime | None = ...,
         keepttl: bool | None = ...,
-    ) -> AnyStr | None: ...
+    ) -> CommandRequest[AnyStr | None]: ...
 
     @mutually_exclusive_parameters("ex", "px", "exat", "pxat", "keepttl")
     @redis_command(
@@ -558,7 +559,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             "get": {"version_introduced": "6.2.0"},
         },
     )
-    async def set(
+    def set(
         self,
         key: KeyT,
         value: ValueT,
@@ -570,7 +571,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         exat: int | datetime.datetime | None = None,
         pxat: int | datetime.datetime | None = None,
         keepttl: bool | None = None,
-    ) -> AnyStr | bool | None:
+    ) -> CommandRequest[AnyStr | bool | None]:
         """
         Set the string value of a key
 
@@ -593,19 +594,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = [key, value]
 
         if ex is not None:
-            command_arguments.append("EX")
+            command_arguments.append(PrefixToken.EX)
             command_arguments.append(normalized_seconds(ex))
 
         if px is not None:
-            command_arguments.append("PX")
+            command_arguments.append(PrefixToken.PX)
             command_arguments.append(normalized_milliseconds(px))
 
         if exat is not None:
-            command_arguments.append("EXAT")
+            command_arguments.append(PrefixToken.EXAT)
             command_arguments.append(normalized_time_seconds(exat))
 
         if pxat is not None:
-            command_arguments.append("PXAT")
+            command_arguments.append(PrefixToken.PXAT)
             command_arguments.append(normalized_time_milliseconds(pxat))
 
         if keepttl:
@@ -617,28 +618,27 @@ class CoreCommands(CommandMixin[AnyStr]):
         if condition:
             command_arguments.append(condition)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SET,
             *command_arguments,
-            get=get,
-            callback=StringSetCallback[AnyStr](),
+            callback=StringSetCallback[AnyStr](get=get),
         )
 
     @redis_command(
         CommandName.SETEX,
         group=CommandGroup.STRING,
     )
-    async def setex(
+    def setex(
         self,
         key: KeyT,
         value: ValueT,
         seconds: int | datetime.timedelta,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set the value of key :paramref:`key` to ``value`` that expires in ``seconds``
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SETEX,
             key,
             normalized_seconds(seconds),
@@ -647,15 +647,15 @@ class CoreCommands(CommandMixin[AnyStr]):
         )
 
     @redis_command(CommandName.SETNX, group=CommandGroup.STRING, flags={CommandFlag.FAST})
-    async def setnx(self, key: KeyT, value: ValueT) -> bool:
+    def setnx(self, key: KeyT, value: ValueT) -> CommandRequest[bool]:
         """
         Sets the value of key :paramref:`key` to ``value`` if key doesn't exist
         """
 
-        return await self.execute_command(CommandName.SETNX, key, value, callback=BoolCallback())
+        return self.create_request(CommandName.SETNX, key, value, callback=BoolCallback())
 
     @redis_command(CommandName.SETRANGE, group=CommandGroup.STRING)
-    async def setrange(self, key: KeyT, offset: int, value: ValueT) -> int:
+    def setrange(self, key: KeyT, offset: int, value: ValueT) -> CommandRequest[int]:
         """
         Overwrite bytes in the value of :paramref:`key` starting at ``offset`` with
         ``value``. If ``offset`` plus the length of ``value`` exceeds the
@@ -668,34 +668,32 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the length of the string after it was modified by the command.
         """
 
-        return await self.execute_command(
-            CommandName.SETRANGE, key, offset, value, callback=IntCallback()
-        )
+        return self.create_request(CommandName.SETRANGE, key, offset, value, callback=IntCallback())
 
     @redis_command(
         CommandName.STRLEN,
         group=CommandGroup.STRING,
-        cache_config=CacheConfig(lambda *a: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def strlen(self, key: KeyT) -> int:
+    def strlen(self, key: KeyT) -> CommandRequest[int]:
         """
         Get the length of the value stored in a key
 
         :return: the length of the string at :paramref:`key`, or ``0`` when :paramref:`key` does not
         """
 
-        return await self.execute_command(CommandName.STRLEN, key, callback=IntCallback())
+        return self.create_request(CommandName.STRLEN, key, callback=IntCallback())
 
     @redis_command(
         CommandName.SUBSTR,
         group=CommandGroup.STRING,
         version_deprecated="2.0.0",
         deprecation_reason="Use :meth:`getrange`",
-        cache_config=CacheConfig(lambda *a: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def substr(self, key: KeyT, start: int, end: int) -> AnyStr:
+    def substr(self, key: KeyT, start: int, end: int) -> CommandRequest[AnyStr]:
         """
         Get a substring of the string stored at a key
 
@@ -704,7 +702,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          provide an offset starting from the end of the string.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SUBSTR, key, start, end, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -712,12 +710,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLUSTER_ADDSLOTS,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_addslots(self, slots: Parameters[int]) -> bool:
+    def cluster_addslots(self, slots: Parameters[int]) -> CommandRequest[bool]:
         """
         Assign new hash slots to receiving node
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_ADDSLOTS, *slots, callback=SimpleStringCallback()
         )
 
@@ -727,7 +725,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="7.0.0",
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_addslotsrange(self, slots: Parameters[tuple[int, int]]) -> bool:
+    def cluster_addslotsrange(self, slots: Parameters[tuple[int, int]]) -> CommandRequest[bool]:
         """
         Assign new hash slots to receiving node
         """
@@ -736,7 +734,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         for slot in slots:
             command_arguments.extend(slot)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_ADDSLOTSRANGE,
             *command_arguments,
             callback=BoolCallback(),
@@ -744,16 +742,16 @@ class CoreCommands(CommandMixin[AnyStr]):
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.ASKING, group=CommandGroup.CLUSTER, flags={CommandFlag.FAST})
-    async def asking(self) -> bool:
+    def asking(self) -> CommandRequest[bool]:
         """
         Sent by cluster clients after an -ASK redirect
         """
 
-        return await self.execute_command(CommandName.ASKING, callback=BoolCallback())
+        return self.create_request(CommandName.ASKING, callback=BoolCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.CLUSTER_BUMPEPOCH, group=CommandGroup.CLUSTER)
-    async def cluster_bumpepoch(self) -> AnyStr:
+    def cluster_bumpepoch(self) -> CommandRequest[AnyStr]:
         """
         Advance the cluster config epoch
 
@@ -761,22 +759,20 @@ class CoreCommands(CommandMixin[AnyStr]):
          if the node already has the greatest config epoch in the cluster.
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_BUMPEPOCH, callback=AnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.CLUSTER_BUMPEPOCH, callback=AnyStrCallback[AnyStr]())
 
     @redis_command(
         CommandName.CLUSTER_COUNT_FAILURE_REPORTS,
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_count_failure_reports(self, node_id: StringT) -> int:
+    def cluster_count_failure_reports(self, node_id: StringT) -> CommandRequest[int]:
         """
         Return the number of failure reports active for a given node
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_COUNT_FAILURE_REPORTS,
             node_id,
             callback=IntCallback(),
@@ -787,38 +783,36 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.SLOT_ID),
     )
-    async def cluster_countkeysinslot(self, slot: int) -> int:
+    def cluster_countkeysinslot(self, slot: int) -> CommandRequest[int]:
         """
         Return the number of local keys in the specified hash slot
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_COUNTKEYSINSLOT,
             slot,
-            slot_id=slot,
+            execution_parameters={"slot_arguments_range": (0, 1)},
             callback=IntCallback(),
         )
 
     @redis_command(
         CommandName.CLUSTER_DELSLOTS,
         group=CommandGroup.CLUSTER,
-        cluster=ClusterCommandConfig(route=NodeFlag.SLOT_ID),
+        cluster=ClusterCommandConfig(
+            route=NodeFlag.SLOT_ID,
+            combine=ClusterBoolCombine(),
+        ),
     )
-    async def cluster_delslots(self, slots: Parameters[int]) -> bool:
+    def cluster_delslots(self, slots: Parameters[int]) -> CommandRequest[bool]:
         """
         Set hash slots as unbound in the cluster.
-        It determines by it self what node the slot is in and sends it there
+        It determines by itself what node the slot is in and sends it there
         """
-        return all(
-            [
-                await self.execute_command(
-                    CommandName.CLUSTER_DELSLOTS,
-                    slot,
-                    slot_id=slot,
-                    callback=SimpleStringCallback(),
-                )
-                for slot in slots
-            ]
+        return self.create_request(
+            CommandName.CLUSTER_DELSLOTS,
+            *slots,
+            callback=SimpleStringCallback(),
+            execution_parameters={"slot_arguments_range": (0, len(list(slots)))},
         )
 
     @versionadded(version="3.1.1")
@@ -826,34 +820,29 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLUSTER_DELSLOTSRANGE,
         version_introduced="7.0.0",
         group=CommandGroup.CLUSTER,
-        cluster=ClusterCommandConfig(route=NodeFlag.SLOT_ID),
+        cluster=ClusterCommandConfig(route=NodeFlag.SLOT_ID, combine=ClusterBoolCombine()),
     )
-    async def cluster_delslotsrange(self, slots: Parameters[tuple[int, int]]) -> bool:
+    def cluster_delslotsrange(self, slots: Parameters[tuple[int, int]]) -> CommandRequest[bool]:
         """
         Set hash slots as unbound in receiving node
         """
+        command_arguments: CommandArgList = list(itertools.chain(*slots))
 
-        return all(
-            [
-                await self.execute_command(
-                    CommandName.CLUSTER_DELSLOTSRANGE,
-                    slot_range[0],
-                    slot_range[1],
-                    slot_id=slot_range[0],
-                    callback=SimpleStringCallback(),
-                )
-                for slot_range in slots
-            ]
+        return self.create_request(
+            CommandName.CLUSTER_DELSLOTSRANGE,
+            *command_arguments,
+            execution_parameters={"slot_arguments_range": (0, len(command_arguments))},
+            callback=SimpleStringCallback(),
         )
 
     @redis_command(
         CommandName.CLUSTER_FAILOVER,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_failover(
+    def cluster_failover(
         self,
         options: Literal[PureToken.FORCE, PureToken.TAKEOVER] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Forces a replica to perform a manual failover of its master.
         """
@@ -863,7 +852,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if options is not None:
             command_arguments.append(options)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_FAILOVER,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -874,26 +863,24 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLUSTER_FLUSHSLOTS,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_flushslots(self) -> bool:
+    def cluster_flushslots(self) -> CommandRequest[bool]:
         """
         Delete a node's own slots information
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_FLUSHSLOTS, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.CLUSTER_FLUSHSLOTS, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.CLUSTER_FORGET,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_forget(self, node_id: StringT) -> bool:
+    def cluster_forget(self, node_id: StringT) -> CommandRequest[bool]:
         """
         remove a node via its node ID from the set of known nodes
         of the Redis Cluster node receiving the command
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_FORGET, node_id, callback=SimpleStringCallback()
         )
 
@@ -903,7 +890,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.SLOT_ID),
     )
-    async def cluster_getkeysinslot(self, slot: int, count: int) -> tuple[AnyStr, ...]:
+    def cluster_getkeysinslot(self, slot: int, count: int) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         Return local key names in the specified hash slot
 
@@ -912,10 +899,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         command_arguments: CommandArgList = [slot, count]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_GETKEYSINSLOT,
             *command_arguments,
-            slot_id=slot,
+            execution_parameters={"slot_arguments_range": (0, 1)},
             callback=TupleCallback[AnyStr](),
         )
 
@@ -924,24 +911,24 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_info(self) -> dict[str, str]:
+    def cluster_info(self) -> CommandRequest[dict[str, str]]:
         """
         Provides info about Redis Cluster node state
         """
 
-        return await self.execute_command(CommandName.CLUSTER_INFO, callback=ClusterInfoCallback())
+        return self.create_request(CommandName.CLUSTER_INFO, callback=ClusterInfoCallback())
 
     @redis_command(
         CommandName.CLUSTER_KEYSLOT,
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_keyslot(self, key: KeyT) -> int:
+    def cluster_keyslot(self, key: KeyT) -> CommandRequest[int]:
         """
         Returns the hash slot of the specified key
         """
 
-        return await self.execute_command(CommandName.CLUSTER_KEYSLOT, key, callback=IntCallback())
+        return self.create_request(CommandName.CLUSTER_KEYSLOT, key, callback=IntCallback())
 
     @versionadded(version="3.1.1")
     @redis_command(
@@ -949,7 +936,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="7.0.0",
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_links(self) -> list[dict[AnyStr, ResponsePrimitive]]:
+    def cluster_links(self) -> CommandRequest[list[dict[AnyStr, ResponsePrimitive]]]:
         """
         Returns a list of all TCP links to and from peer nodes in cluster
 
@@ -958,7 +945,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_LINKS, callback=ClusterLinksCallback[AnyStr]()
         )
 
@@ -967,9 +954,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_meet(
+    def cluster_meet(
         self, ip: StringT, port: int, cluster_bus_port: int | None = None
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Force a node cluster to handshake with another node.
         """
@@ -977,7 +964,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = [ip, port]
         if cluster_bus_port is not None:
             command_arguments.append(cluster_bus_port)
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_MEET,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -985,39 +972,35 @@ class CoreCommands(CommandMixin[AnyStr]):
 
     @versionadded(version="3.1.1")
     @redis_command(CommandName.CLUSTER_MYID, group=CommandGroup.CLUSTER)
-    async def cluster_myid(self) -> AnyStr:
+    def cluster_myid(self) -> CommandRequest[AnyStr]:
         """
         Return the node id
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_MYID, callback=AnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.CLUSTER_MYID, callback=AnyStrCallback[AnyStr]())
 
     @redis_command(
         CommandName.CLUSTER_NODES,
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_nodes(self) -> list[ClusterNodeDetail]:
+    def cluster_nodes(self) -> CommandRequest[list[ClusterNodeDetail]]:
         """
         Get Cluster config for the node
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_NODES, callback=ClusterNodesCallback()
-        )
+        return self.create_request(CommandName.CLUSTER_NODES, callback=ClusterNodesCallback())
 
     @redis_command(
         CommandName.CLUSTER_REPLICATE,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_replicate(self, node_id: StringT) -> bool:
+    def cluster_replicate(self, node_id: StringT) -> CommandRequest[bool]:
         """
         Reconfigure a node as a replica of the specified master node
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_REPLICATE, node_id, callback=SimpleStringCallback()
         )
 
@@ -1025,10 +1008,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLUSTER_RESET,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_reset(
+    def cluster_reset(
         self,
         hard_soft: Literal[PureToken.HARD, PureToken.SOFT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Reset a Redis Cluster node
         """
@@ -1038,7 +1021,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if hard_soft is not None:
             command_arguments.append(hard_soft)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_RESET,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -1052,25 +1035,23 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def cluster_saveconfig(self) -> bool:
+    def cluster_saveconfig(self) -> CommandRequest[bool]:
         """
         Forces the node to save cluster state on disk
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_SAVECONFIG, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.CLUSTER_SAVECONFIG, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.CLUSTER_SET_CONFIG_EPOCH,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_set_config_epoch(self, config_epoch: int) -> bool:
+    def cluster_set_config_epoch(self, config_epoch: int) -> CommandRequest[bool]:
         """
         Set the configuration epoch in a new node
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_SET_CONFIG_EPOCH,
             config_epoch,
             callback=SimpleStringCallback(),
@@ -1081,7 +1062,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLUSTER_SETSLOT,
         group=CommandGroup.CLUSTER,
     )
-    async def cluster_setslot(
+    def cluster_setslot(
         self,
         slot: int,
         *,
@@ -1089,12 +1070,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         migrating: StringT | None = None,
         node: StringT | None = None,
         stable: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Bind a hash slot to a specific node
         """
 
-        command_arguments: CommandArgList = []
+        command_arguments: CommandArgList = [slot]
 
         if importing is not None:
             command_arguments.extend([PrefixToken.IMPORTING, importing])
@@ -1108,9 +1089,8 @@ class CoreCommands(CommandMixin[AnyStr]):
         if stable is not None:
             command_arguments.append(PureToken.STABLE)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_SETSLOT,
-            slot,
             *command_arguments,
             callback=SimpleStringCallback(),
         )
@@ -1120,12 +1100,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_replicas(self, node_id: StringT) -> list[ClusterNodeDetail]:
+    def cluster_replicas(self, node_id: StringT) -> CommandRequest[list[ClusterNodeDetail]]:
         """
         List replica nodes of the specified master node
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_REPLICAS, node_id, callback=ClusterNodesCallback()
         )
 
@@ -1136,13 +1116,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_shards(
+    def cluster_shards(
         self,
-    ) -> list[dict[AnyStr, list[ValueT] | Mapping[AnyStr, ValueT]]]:
+    ) -> CommandRequest[list[dict[AnyStr, list[RedisValueT] | Mapping[AnyStr, RedisValueT]]]]:
         """
         Get mapping of cluster slots to nodes
         """
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_SHARDS, callback=ClusterShardsCallback[AnyStr]()
         )
 
@@ -1153,12 +1133,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CLUSTER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def cluster_slaves(self, node_id: StringT) -> list[ClusterNodeDetail]:
+    def cluster_slaves(self, node_id: StringT) -> CommandRequest[list[ClusterNodeDetail]]:
         """
         List replica nodes of the specified master node
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLUSTER_SLAVES, node_id, callback=ClusterNodesCallback()
         )
 
@@ -1169,32 +1149,30 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="7.0.0",
         deprecation_reason="Use :meth:`cluster_shards`",
     )
-    async def cluster_slots(
+    def cluster_slots(
         self,
-    ) -> dict[tuple[int, int], tuple[ClusterNode, ...]]:
+    ) -> CommandRequest[dict[tuple[int, int], tuple[ClusterNode, ...]]]:
         """
         Get mapping of Cluster slot to nodes
         """
 
-        return await self.execute_command(
-            CommandName.CLUSTER_SLOTS, callback=ClusterSlotsCallback()
-        )
+        return self.create_request(CommandName.CLUSTER_SLOTS, callback=ClusterSlotsCallback())
 
     @versionadded(version="3.2.0")
     @redis_command(CommandName.READONLY, group=CommandGroup.CLUSTER, flags={CommandFlag.FAST})
-    async def readonly(self) -> bool:
+    def readonly(self) -> CommandRequest[bool]:
         """
         Enables read queries for a connection to a cluster replica node
         """
-        return await self.execute_command(CommandName.READONLY, callback=SimpleStringCallback())
+        return self.create_request(CommandName.READONLY, callback=SimpleStringCallback())
 
     @versionadded(version="3.2.0")
     @redis_command(CommandName.READWRITE, group=CommandGroup.CLUSTER, flags={CommandFlag.FAST})
-    async def readwrite(self) -> bool:
+    def readwrite(self) -> CommandRequest[bool]:
         """
         Disables read queries for a connection to a cluster replica node
         """
-        return await self.execute_command(CommandName.READWRITE, callback=SimpleStringCallback())
+        return self.create_request(CommandName.READWRITE, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -1203,15 +1181,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"username": {"version_introduced": "6.0.0"}},
         redirect_usage=RedirectUsage(
             (
-                "Use the :paramref:`Redis.username` and :paramref:`Redis.password` "
-                "arguments when initializing the client to ensure that all connections "
-                "originating from this client are authenticated before being made available."
+                "Use the :paramref:`Redis.username` and :paramref:`Redis.password` arguments when initializing the client to ensure that all connections originating from this client are authenticated before being made available."
             ),
             True,
         ),
         flags={CommandFlag.FAST},
     )
-    async def auth(self, password: StringT, username: StringT | None = None) -> bool:
+    def auth(self, password: StringT, username: StringT | None = None) -> CommandRequest[bool]:
         """
         Authenticate to the server
         """
@@ -1221,7 +1197,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if username is not None:
             command_arguments.append(username)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.AUTH, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -1234,12 +1210,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
         flags={CommandFlag.FAST},
     )
-    async def echo(self, message: StringT) -> AnyStr:
+    def echo(self, message: StringT) -> CommandRequest[AnyStr]:
         "Echo the string back from the server"
 
-        return await self.execute_command(
-            CommandName.ECHO, message, callback=AnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.ECHO, message, callback=AnyStrCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -1248,13 +1222,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         flags={CommandFlag.FAST},
     )
-    async def hello(
+    def hello(
         self,
         protover: int | None = None,
         username: StringT | None = None,
         password: StringT | None = None,
         setname: StringT | None = None,
-    ) -> dict[AnyStr, AnyStr]:
+    ) -> CommandRequest[dict[AnyStr, AnyStr]]:
         """
         Handshake with Redis
 
@@ -1266,7 +1240,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(protover)
 
         if password:
-            command_arguments.append("AUTH")
+            command_arguments.append(PrefixToken.AUTH)
             command_arguments.append(username or "default")
             command_arguments.append(password)
 
@@ -1274,7 +1248,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PrefixToken.SETNAME)
             command_arguments.append(setname)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HELLO,
             *command_arguments,
             callback=DictCallback[AnyStr, AnyStr](),
@@ -1289,7 +1263,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
         flags={CommandFlag.FAST},
     )
-    async def ping(self, message: StringT | None = None) -> AnyStr:
+    def ping(self, message: StringT | None = None) -> CommandRequest[AnyStr]:
         """
         Ping the server
 
@@ -1301,7 +1275,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if message:
             command_arguments.append(message)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PING, *command_arguments, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -1311,21 +1285,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Use the `db` argument when initializing the client "
-                "to ensure that all connections originating from this client use the "
-                "desired database number"
+                "Use the `db` argument when initializing the client to ensure that all connections originating from this client use the desired database number"
             ),
             True,
         ),
         flags={CommandFlag.FAST},
     )
-    async def select(self, index: int) -> bool:
+    def select(self, index: int) -> CommandRequest[bool]:
         """
         Change the selected database for the current connection
         """
-        return await self.execute_command(
-            CommandName.SELECT, index, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.SELECT, index, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.QUIT,
@@ -1333,12 +1303,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         flags={CommandFlag.FAST},
         version_deprecated="7.1.240",
     )
-    async def quit(self) -> bool:
+    def quit(self) -> CommandRequest[bool]:
         """
         Close the connection
         """
 
-        return await self.execute_command(CommandName.QUIT, callback=SimpleStringCallback())
+        return self.create_request(CommandName.QUIT, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -1347,11 +1317,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         flags={CommandFlag.FAST},
     )
-    async def reset(self) -> None:
+    def reset(self) -> CommandRequest[None]:
         """
         Reset the connection
         """
-        await self.execute_command(CommandName.RESET, callback=NoopCallback[AnyStr]())
+        return self.create_request(CommandName.RESET, callback=NoopCallback[None]())
 
     @redis_command(
         CommandName.GEOADD,
@@ -1361,13 +1331,13 @@ class CoreCommands(CommandMixin[AnyStr]):
             "change": {"version_introduced": "6.2.0"},
         },
     )
-    async def geoadd(
+    def geoadd(
         self,
         key: KeyT,
         longitude_latitude_members: Parameters[tuple[int | float, int | float, ValueT]],
         condition: Literal[PureToken.NX, PureToken.XX] | None = None,
         change: bool | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Add one or more geospatial items in the geospatial index represented
         using a sorted set
@@ -1386,22 +1356,20 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         command_arguments.extend(tuples_to_flat_list(longitude_latitude_members))
 
-        return await self.execute_command(
-            CommandName.GEOADD, *command_arguments, callback=IntCallback()
-        )
+        return self.create_request(CommandName.GEOADD, *command_arguments, callback=IntCallback())
 
     @redis_command(
         CommandName.GEODIST,
         group=CommandGroup.GEO,
         flags={CommandFlag.READONLY},
     )
-    async def geodist(
+    def geodist(
         self,
         key: KeyT,
         member1: StringT,
         member2: StringT,
         unit: Literal[PureToken.M, PureToken.KM, PureToken.FT, PureToken.MI] | None = None,
-    ) -> float | None:
+    ) -> CommandRequest[float | None]:
         """
         Returns the distance between two members of a geospatial index
 
@@ -1412,7 +1380,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if unit:
             command_arguments.append(unit.lower())
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GEODIST, *command_arguments, callback=OptionalFloatCallback()
         )
 
@@ -1422,12 +1390,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GEO,
         flags={CommandFlag.READONLY},
     )
-    async def geohash(self, key: KeyT, members: Parameters[ValueT]) -> tuple[AnyStr, ...]:
+    def geohash(self, key: KeyT, members: Parameters[ValueT]) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         Returns members of a geospatial index as standard geohash strings
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GEOHASH, key, *members, callback=TupleCallback[AnyStr]()
         )
 
@@ -1437,9 +1405,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GEO,
         flags={CommandFlag.READONLY},
     )
-    async def geopos(
+    def geopos(
         self, key: KeyT, members: Parameters[ValueT]
-    ) -> tuple[GeoCoordinates | None, ...]:
+    ) -> CommandRequest[tuple[GeoCoordinates | None, ...]]:
         """
         Returns longitude and latitude of members of a geospatial index
 
@@ -1447,22 +1415,22 @@ class CoreCommands(CommandMixin[AnyStr]):
          by ``None`` entries.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.GEOPOS, key, *members, callback=GeoCoordinatessCallback()
         )
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
         latitude: int | float,
         radius: int | float,
         unit: Literal[PureToken.FT, PureToken.KM, PureToken.M, PureToken.MI],
-    ) -> tuple[AnyStr, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr, ...]]: ...
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1473,10 +1441,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         withcoord: Literal[True],
         withdist: bool | None = ...,
         withhash: bool | None = ...,
-    ) -> tuple[GeoSearchResult, ...]: ...
+    ) -> CommandRequest[tuple[GeoSearchResult, ...]]: ...
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1487,10 +1455,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         withcoord: bool | None = ...,
         withdist: Literal[True],
         withhash: bool | None = ...,
-    ) -> tuple[GeoSearchResult, ...]: ...
+    ) -> CommandRequest[tuple[GeoSearchResult, ...]]: ...
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1501,10 +1469,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         withcoord: bool | None = ...,
         withdist: bool | None = ...,
         withhash: Literal[True],
-    ) -> tuple[GeoSearchResult, ...]: ...
+    ) -> CommandRequest[tuple[GeoSearchResult, ...]]: ...
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1513,10 +1481,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         unit: Literal[PureToken.FT, PureToken.KM, PureToken.M, PureToken.MI],
         *,
         store: KeyT,
-    ) -> int: ...
+    ) -> CommandRequest[int]: ...
 
     @overload
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1528,7 +1496,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         withdist: bool | None = ...,
         withhash: bool | None = ...,
         storedist: KeyT,
-    ) -> int: ...
+    ) -> CommandRequest[int]: ...
 
     @redis_command(
         CommandName.GEORADIUS,
@@ -1543,7 +1511,7 @@ class CoreCommands(CommandMixin[AnyStr]):
     @mutually_exclusive_parameters("store", ("withdist", "withhash", "withcoord"))
     @mutually_exclusive_parameters("storedist", ("withdist", "withhash", "withcoord"))
     @mutually_inclusive_parameters("any_", leaders=("count",))
-    async def georadius(
+    def georadius(
         self,
         key: KeyT,
         longitude: int | float,
@@ -1559,7 +1527,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
         store: KeyT | None = None,
         storedist: KeyT | None = None,
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
+    ) -> CommandRequest[int | tuple[AnyStr | GeoSearchResult, ...]]:
         """
         Query a geospatial index to fetch members within the borders of the area
         specified with center location at :paramref:`longitude` and :paramref:`latitude`
@@ -1576,7 +1544,7 @@ class CoreCommands(CommandMixin[AnyStr]):
            stored.
         """
 
-        return await self._georadiusgeneric(
+        return self._georadiusgeneric(
             CommandName.GEORADIUS,
             key,
             longitude,
@@ -1605,7 +1573,7 @@ class CoreCommands(CommandMixin[AnyStr]):
     @mutually_exclusive_parameters("store", ("withdist", "withhash", "withcoord"))
     @mutually_exclusive_parameters("storedist", ("withdist", "withhash", "withcoord"))
     @mutually_inclusive_parameters("any_", leaders=("count",))
-    async def georadiusbymember(
+    def georadiusbymember(
         self,
         key: KeyT,
         member: ValueT,
@@ -1619,7 +1587,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
         store: KeyT | None = None,
         storedist: KeyT | None = None,
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
+    ) -> CommandRequest[int | tuple[AnyStr | GeoSearchResult, ...]]:
         """
         This command is exactly like :meth:`~Redis.georadius` with the sole difference
         that instead of searching from a coordinate, it searches from a member
@@ -1635,7 +1603,7 @@ class CoreCommands(CommandMixin[AnyStr]):
            stored.
         """
 
-        return await self._georadiusgeneric(
+        return self._georadiusgeneric(
             CommandName.GEORADIUSBYMEMBER,
             key,
             member,
@@ -1651,7 +1619,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             any_=any_,
         )
 
-    async def _georadiusgeneric(
+    def _georadiusgeneric(
         self,
         command: Literal[
             CommandName.GEORADIUS,
@@ -1667,7 +1635,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
         store: KeyT | None = None,
         storedist: KeyT | None = None,
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
+    ) -> CommandRequest[int] | CommandRequest[tuple[AnyStr | GeoSearchResult, ...]]:
         command_arguments: CommandArgList = list(args)
         options: dict[str, ValueT] = {}
         if unit:
@@ -1702,10 +1670,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         if storedist:
             command_arguments.extend([PrefixToken.STOREDIST, storedist])
             options["storedist"] = storedist
-
-        return await self.execute_command(
-            command, *command_arguments, **options, callback=GeoSearchCallback[AnyStr]()
-        )
+        if store or storedist:
+            return self.create_request(
+                command,
+                *command_arguments,
+                callback=IntCallback(),
+            )
+        else:
+            return self.create_request(
+                command,
+                *command_arguments,
+                callback=GeoSearchCallback[AnyStr](**options),
+            )
 
     @mutually_inclusive_parameters("longitude", "latitude")
     @mutually_inclusive_parameters("radius", "circle_unit")
@@ -1718,7 +1694,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GEO,
         flags={CommandFlag.READONLY},
     )
-    async def geosearch(
+    def geosearch(
         self,
         key: KeyT,
         member: ValueT | None = None,
@@ -1735,7 +1711,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         withcoord: bool | None = None,
         withdist: bool | None = None,
         withhash: bool | None = None,
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
+    ) -> CommandRequest[int | tuple[AnyStr | GeoSearchResult, ...]]:
         """
 
         :return:
@@ -1746,7 +1722,7 @@ class CoreCommands(CommandMixin[AnyStr]):
            `(name, distance, geohash, coordinate pair)``
         """
 
-        return await self._geosearchgeneric(
+        return self._geosearchgeneric(
             CommandName.GEOSEARCH,
             key,
             member=member,
@@ -1772,7 +1748,7 @@ class CoreCommands(CommandMixin[AnyStr]):
     @mutually_inclusive_parameters("any_", leaders=("count",))
     @mutually_exclusive_parameters("member", ("longitude", "latitude"))
     @redis_command(CommandName.GEOSEARCHSTORE, version_introduced="6.2.0", group=CommandGroup.GEO)
-    async def geosearchstore(
+    def geosearchstore(
         self,
         destination: KeyT,
         source: KeyT,
@@ -1788,12 +1764,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         any_: bool | None = None,
         storedist: bool | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         :return: The number of elements stored in the resulting set
         """
 
-        return await self._geosearchgeneric(
+        return self._geosearchgeneric(
             CommandName.GEOSEARCHSTORE,
             destination,
             source,
@@ -1815,7 +1791,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         )
 
     @overload
-    async def _geosearchgeneric(
+    def _geosearchgeneric(
         self,
         command: Literal[CommandName.GEOSEARCH],
         *args: ValueT,
@@ -1830,10 +1806,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = ...,
         any_: bool | None = ...,
         **kwargs: ValueT | None,
-    ) -> tuple[AnyStr | GeoSearchResult, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr | GeoSearchResult, ...]]: ...
 
     @overload
-    async def _geosearchgeneric(
+    def _geosearchgeneric(
         self,
         command: Literal[CommandName.GEOSEARCHSTORE],
         *args: ValueT,
@@ -1848,9 +1824,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = ...,
         any_: bool | None = ...,
         **kwargs: ValueT | None,
-    ) -> int: ...
+    ) -> CommandRequest[int]: ...
 
-    async def _geosearchgeneric(
+    def _geosearchgeneric(
         self,
         command: Literal[CommandName.GEOSEARCH, CommandName.GEOSEARCHSTORE],
         *args: ValueT,
@@ -1865,7 +1841,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         any_: bool | None = None,
         **kwargs: ValueT | None,
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
+    ) -> CommandRequest[int] | CommandRequest[tuple[AnyStr | GeoSearchResult, ...]]:
         command_arguments: CommandArgList = list(args)
 
         if member:
@@ -1907,259 +1883,381 @@ class CoreCommands(CommandMixin[AnyStr]):
                 command_arguments.append(byte_repr)
 
         if command == CommandName.GEOSEARCHSTORE:
-            return await self.execute_command(
-                command, *command_arguments, **kwargs, callback=IntCallback()
-            )
+            return self.create_request(command, *command_arguments, callback=IntCallback())
         else:
-            return await self.execute_command(
+            return self.create_request(
                 command,
                 *command_arguments,
-                **kwargs,
-                callback=GeoSearchCallback[AnyStr](),
+                callback=GeoSearchCallback[AnyStr](**kwargs),
             )
 
     @ensure_iterable_valid("fields")
     @redis_command(CommandName.HDEL, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    async def hdel(self, key: KeyT, fields: Parameters[StringT]) -> int:
+    def hdel(self, key: KeyT, fields: Parameters[StringT]) -> CommandRequest[int]:
         """Deletes ``fields`` from hash :paramref:`key`"""
 
-        return await self.execute_command(CommandName.HDEL, key, *fields, callback=IntCallback())
+        return self.create_request(CommandName.HDEL, key, *fields, callback=IntCallback())
 
     @redis_command(
         CommandName.HEXISTS,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def hexists(self, key: KeyT, field: StringT) -> bool:
+    def hexists(self, key: KeyT, field: StringT) -> CommandRequest[bool]:
         """
         Returns a boolean indicating if ``field`` exists within hash :paramref:`key`
         """
 
-        return await self.execute_command(CommandName.HEXISTS, key, field, callback=BoolCallback())
+        return self.create_request(CommandName.HEXISTS, key, field, callback=BoolCallback())
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HEXPIRE, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hexpire(
+    def hexpire(
         self,
         key: KeyT,
         seconds: int | datetime.timedelta,
         fields: Parameters[StringT],
         condition: Literal[PureToken.GT, PureToken.LT, PureToken.NX, PureToken.XX] | None = None,
-    ) -> tuple[int, ...]:
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Set expiry for hash field using relative time to expire (seconds)
         """
-        pieces: CommandArgList = [key, normalized_seconds(seconds)]
+        command_arguments: CommandArgList = [key, normalized_seconds(seconds)]
 
         if condition is not None:
-            pieces.append(condition)
-        pieces.append(PrefixToken.FIELDS)
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+            command_arguments.append(condition)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HEXPIRE, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HEXPIRE, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HEXPIRETIME, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hexpiretime(self, key: KeyT, fields: Parameters[StringT]) -> tuple[int, ...]:
+    def hexpiretime(
+        self, key: KeyT, fields: Parameters[StringT]
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Returns the expiration time of a hash field as a Unix timestamp, in seconds.
         """
-        pieces: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
-        pieces.extend(fields)
+        command_arguments: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HEXPIRETIME, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HEXPIRETIME, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HPEXPIRETIME, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hpexpiretime(self, key: KeyT, fields: Parameters[StringT]) -> tuple[int, ...]:
+    def hpexpiretime(
+        self, key: KeyT, fields: Parameters[StringT]
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Returns the expiration time of a hash field as a Unix timestamp, in msec.
         """
-        pieces: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
+        command_arguments: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
 
-        pieces.extend(fields)
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HPEXPIRETIME, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HPEXPIRETIME, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HPEXPIRE, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hpexpire(
+    def hpexpire(
         self,
         key: KeyT,
         milliseconds: int | datetime.timedelta,
         fields: Parameters[StringT],
         condition: Literal[PureToken.GT, PureToken.LT, PureToken.NX, PureToken.XX] | None = None,
-    ) -> tuple[int, ...]:
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Set expiry for hash field using relative time to expire (milliseconds)
         """
-        pieces: CommandArgList = [key, normalized_milliseconds(milliseconds)]
+        command_arguments: CommandArgList = [key, normalized_milliseconds(milliseconds)]
 
         if condition is not None:
-            pieces.append(condition)
-        pieces.append("FIELDS")
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+            command_arguments.append(condition)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HPEXPIRE, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HPEXPIRE, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HEXPIREAT, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hexpireat(
+    def hexpireat(
         self,
         key: KeyT,
         unix_time_seconds: int | datetime.datetime,
         fields: Parameters[StringT],
         condition: Literal[PureToken.GT, PureToken.LT, PureToken.NX, PureToken.XX] | None = None,
-    ) -> tuple[int, ...]:
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Set expiry for hash field using an absolute Unix timestamp (seconds)
         """
-        pieces: CommandArgList = [key, normalized_time_seconds(unix_time_seconds)]
+        command_arguments: CommandArgList = [key, normalized_time_seconds(unix_time_seconds)]
         if condition is not None:
-            pieces.append(condition)
-        pieces.append(PrefixToken.FIELDS)
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+            command_arguments.append(condition)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HEXPIREAT, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HEXPIREAT, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HPEXPIREAT, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hpexpireat(
+    def hpexpireat(
         self,
         key: KeyT,
         unix_time_milliseconds: int | datetime.datetime,
         fields: Parameters[StringT],
         condition: Literal[PureToken.GT, PureToken.LT, PureToken.NX, PureToken.XX] | None = None,
-    ) -> tuple[int, ...]:
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Set expiry for hash field using an absolute Unix timestamp (milliseconds)
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             key,
             normalized_time_milliseconds(unix_time_milliseconds),
         ]
 
         if condition is not None:
-            pieces.append(condition)
-        pieces.append(PrefixToken.FIELDS)
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+            command_arguments.append(condition)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HPEXPIREAT, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HPEXPIREAT, *command_arguments, callback=TupleCallback[int]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HPERSIST, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hpersist(self, key: KeyT, fields: Parameters[StringT]) -> tuple[int, ...]:
+    def hpersist(self, key: KeyT, fields: Parameters[StringT]) -> CommandRequest[tuple[int, ...]]:
         """
         Removes the expiration time for each specified field
         """
-        pieces: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
-        pieces.extend(fields)
+        command_arguments: CommandArgList = [key, PrefixToken.FIELDS, len(list(fields))]
+        command_arguments.extend(fields)
 
-        return await self.execute_command(
-            CommandName.HPERSIST, *pieces, callback=TupleCallback[int]()
+        return self.create_request(
+            CommandName.HPERSIST, *command_arguments, callback=TupleCallback[int]()
         )
 
     @redis_command(
         CommandName.HGET,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def hget(self, key: KeyT, field: StringT) -> AnyStr | None:
+    def hget(self, key: KeyT, field: StringT) -> CommandRequest[AnyStr | None]:
         """Returns the value of ``field`` within the hash :paramref:`key`"""
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HGET, key, field, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @redis_command(
         CommandName.HGETALL,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def hgetall(self, key: KeyT) -> dict[AnyStr, AnyStr]:
+    def hgetall(self, key: KeyT) -> CommandRequest[dict[AnyStr, AnyStr]]:
         """Returns a Python dict of the hash's name/value pairs"""
 
-        return await self.execute_command(
-            CommandName.HGETALL, key, callback=HGetAllCallback[AnyStr]()
+        return self.create_request(CommandName.HGETALL, key, callback=HGetAllCallback[AnyStr]())
+
+    @versionadded(version="5.0.0")
+    @mutually_exclusive_parameters("ex", "px", "exat", "pxat", "persist", required=True)
+    @redis_command(CommandName.HGETEX, version_introduced="8.0.0", group=CommandGroup.HASH)
+    def hgetex(
+        self,
+        key: KeyT,
+        fields: Parameters[StringT],
+        ex: int | datetime.timedelta | None = None,
+        px: int | datetime.timedelta | None = None,
+        exat: int | datetime.datetime | None = None,
+        pxat: int | datetime.datetime | None = None,
+        persist: bool | None = None,
+    ) -> CommandRequest[tuple[AnyStr | None, ...]]:
+        """
+        Get the value of one or more fields of a given hash key and optionally set their
+        expiration time or time-to-live (TTL).
+
+        :param key:  The key of the hash
+        :param fields: The fields to get values for
+        :param ex: Set the expiry of the fields to ``ex`` seconds
+        :param px: Set the expiry of the fields to ``px`` milliseconds
+        :param exat: Set the expiry of the fields to the specified time (in seconds)
+        :param exat: Set the expiry of the fields to the specified time (in milliseconds)
+        :param persist: Remove TTL from the fields
+        :return: the values of each of the fields requested (Missing fields are returned
+         as ``None``)
+        """
+        command_arguments: CommandArgList = [key]
+        if ex is not None:
+            command_arguments.extend([PrefixToken.EX, normalized_seconds(ex)])
+        elif px is not None:
+            command_arguments.extend([PrefixToken.PX, normalized_milliseconds(px)])
+        if exat is not None:
+            command_arguments.extend([PrefixToken.EXAT, normalized_time_seconds(exat)])
+        elif pxat is not None:
+            command_arguments.extend([PrefixToken.PXAT, normalized_time_milliseconds(pxat)])
+
+        if persist is not None:
+            command_arguments.append(PureToken.PERSIST)
+
+        command_arguments.extend([PrefixToken.FIELDS, len(list(fields)), *fields])
+        return self.create_request(
+            CommandName.HGETEX, *command_arguments, callback=TupleCallback[AnyStr | None]()
+        )
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.HGETDEL, version_introduced="8.0.0", group=CommandGroup.HASH)
+    def hgetdel(
+        self, key: KeyT, fields: Parameters[StringT]
+    ) -> CommandRequest[tuple[AnyStr | None, ...]]:
+        """
+        Get and delete the value of one or more fields of a given hash key. When the last field is deleted,
+        the key will also be deleted.
+
+        :param key: The key of the hash
+        :param fields: The fields to get and delete
+        :return: the values of the fields requested (Missing fields are returned
+         as ``None``)
+        """
+        return self.create_request(
+            CommandName.HGETDEL,
+            key,
+            PrefixToken.FIELDS,
+            len(list(fields)),
+            *fields,
+            callback=TupleCallback[AnyStr | None](),
         )
 
     @redis_command(CommandName.HINCRBY, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    async def hincrby(self, key: KeyT, field: StringT, increment: int) -> int:
+    def hincrby(self, key: KeyT, field: StringT, increment: int) -> CommandRequest[int]:
         """Increments the value of ``field`` in hash :paramref:`key` by ``increment``"""
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HINCRBY, key, field, increment, callback=IntCallback()
         )
 
     @redis_command(CommandName.HINCRBYFLOAT, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    async def hincrbyfloat(self, key: KeyT, field: StringT, increment: int | float) -> float:
+    def hincrbyfloat(
+        self, key: KeyT, field: StringT, increment: int | float
+    ) -> CommandRequest[float]:
         """
         Increments the value of ``field`` in hash :paramref:`key` by floating
         ``increment``
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HINCRBYFLOAT, key, field, increment, callback=FloatCallback()
         )
 
     @redis_command(
         CommandName.HKEYS,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def hkeys(self, key: KeyT) -> tuple[AnyStr, ...]:
+    def hkeys(self, key: KeyT) -> CommandRequest[tuple[AnyStr, ...]]:
         """Returns the list of keys within hash :paramref:`key`"""
 
-        return await self.execute_command(CommandName.HKEYS, key, callback=TupleCallback[AnyStr]())
+        return self.create_request(CommandName.HKEYS, key, callback=TupleCallback[AnyStr]())
 
     @redis_command(
         CommandName.HLEN,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def hlen(self, key: KeyT) -> int:
+    def hlen(self, key: KeyT) -> CommandRequest[int]:
         """Returns the number of elements in hash :paramref:`key`"""
 
-        return await self.execute_command(CommandName.HLEN, key, callback=IntCallback())
+        return self.create_request(CommandName.HLEN, key, callback=IntCallback())
 
     @redis_command(CommandName.HSET, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    async def hset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> int:
+    def hset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> CommandRequest[int]:
         """
         Sets ``field`` to ``value`` within hash :paramref:`key`
 
         :return: number of fields that were added
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HSET,
             key,
             *dict_to_flat_list(field_values),
             callback=IntCallback(),
         )
 
+    @versionadded(version="5.0.0")
+    @mutually_exclusive_parameters("ex", "px", "exat", "pxat", "keepttl", required=True)
+    @redis_command(CommandName.HSETEX, version_introduced="8.0.0", group=CommandGroup.HASH)
+    def hsetex(
+        self,
+        key: KeyT,
+        field_values: Mapping[StringT, ValueT],
+        condition: Literal[PureToken.FNX, PureToken.FXX] | None = None,
+        ex: int | datetime.timedelta | None = None,
+        px: int | datetime.timedelta | None = None,
+        exat: int | datetime.datetime | None = None,
+        pxat: int | datetime.datetime | None = None,
+        keepttl: bool | None = None,
+    ) -> CommandRequest[bool]:
+        """
+        Set the value of one or more fields of a given hash key, and optionally set their
+        expiration time or time-to-live (TTL).
+
+        :param key: The key of the hash
+        :param field_values: Mapping of fields and the values to set
+        :param condition: If ``FNX`` only set the fields if **none** of them exist,
+         if ``FXX`` only set the fields if **all** of them already exists
+        :param ex: Set the expiry of the fields to ``ex`` seconds
+        :param px: Set the expiry of the fields to ``px`` milliseconds
+        :param exat: Set the expiry of the fields to the specified time (in seconds)
+        :param exat: Set the expiry of the fields to the specified time (in milliseconds)
+        :param keepttl: Retain the TTL already associated with the fields
+        :return: ``True`` if all the fields were successfully set
+        """
+        command_arguments: CommandArgList = [key]
+        if condition is not None:
+            command_arguments.append(condition)
+        if ex is not None:
+            command_arguments.extend([PrefixToken.EX, normalized_seconds(ex)])
+        elif px is not None:
+            command_arguments.extend([PrefixToken.PX, normalized_milliseconds(px)])
+        if exat is not None:
+            command_arguments.extend([PrefixToken.EXAT, normalized_time_seconds(exat)])
+        elif pxat is not None:
+            command_arguments.extend([PrefixToken.PXAT, normalized_time_milliseconds(pxat)])
+
+        if keepttl is not None:
+            command_arguments.append(PureToken.KEEPTTL)
+        command_arguments.extend(
+            [PrefixToken.FIELDS, len(field_values), *dict_to_flat_list(field_values)]
+        )
+
+        return self.create_request(
+            CommandName.HSETEX,
+            *command_arguments,
+            callback=BoolCallback(),
+        )
+
     @redis_command(CommandName.HSETNX, group=CommandGroup.HASH, flags={CommandFlag.FAST})
-    async def hsetnx(self, key: KeyT, field: StringT, value: ValueT) -> bool:
+    def hsetnx(self, key: KeyT, field: StringT, value: ValueT) -> CommandRequest[bool]:
         """
         Sets ``field`` to ``value`` within hash :paramref:`key` if ``field`` does not
         exist.
@@ -2167,9 +2265,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: whether the field was created
         """
 
-        return await self.execute_command(
-            CommandName.HSETNX, key, field, value, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.HSETNX, key, field, value, callback=BoolCallback())
 
     @redis_command(
         CommandName.HMSET,
@@ -2178,82 +2274,88 @@ class CoreCommands(CommandMixin[AnyStr]):
         deprecation_reason="Use :meth:`hset` with multiple field-value pairs",
         flags={CommandFlag.FAST},
     )
-    async def hmset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> bool:
+    def hmset(self, key: KeyT, field_values: Mapping[StringT, ValueT]) -> CommandRequest[bool]:
         """
         Sets key to value within hash :paramref:`key` for each corresponding
-        key and value from the ``field_items`` dict.
+        key and value from the ``field_values`` dict.
         """
 
-        command_arguments: CommandArgList = []
+        command_arguments: CommandArgList = [key]
 
         for pair in field_values.items():
             command_arguments.extend(pair)
 
-        return await self.execute_command(
-            CommandName.HMSET, key, *command_arguments, callback=SimpleStringCallback()
+        return self.create_request(
+            CommandName.HMSET, *command_arguments, callback=SimpleStringCallback()
         )
 
     @ensure_iterable_valid("fields")
     @redis_command(
         CommandName.HMGET,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def hmget(self, key: KeyT, fields: Parameters[StringT]) -> tuple[AnyStr | None, ...]:
+    def hmget(
+        self, key: KeyT, fields: Parameters[StringT]
+    ) -> CommandRequest[tuple[AnyStr | None, ...]]:
         """Returns values ordered identically to ``fields``"""
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HMGET, key, *fields, callback=TupleCallback[AnyStr | None]()
         )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HTTL, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def httl(self, key: KeyT, fields: Parameters[StringT]) -> tuple[int, ...]:
+    def httl(self, key: KeyT, fields: Parameters[StringT]) -> CommandRequest[tuple[int, ...]]:
         """
         Returns the TTL in seconds of a hash field.
         """
-        pieces: CommandArgList = []
+        command_arguments: CommandArgList = []
 
-        pieces.append(key)
-        pieces.append(PrefixToken.FIELDS)
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+        command_arguments.append(key)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(CommandName.HTTL, *pieces, callback=TupleCallback[int]())
+        return self.create_request(
+            CommandName.HTTL, *command_arguments, callback=TupleCallback[int]()
+        )
 
     @versionadded(version="4.18.0")
     @redis_command(CommandName.HPTTL, version_introduced="7.4.0", group=CommandGroup.HASH)
-    async def hpttl(self, key: KeyT, fields: Parameters[StringT]) -> tuple[int, ...]:
+    def hpttl(self, key: KeyT, fields: Parameters[StringT]) -> CommandRequest[tuple[int, ...]]:
         """
         Returns the TTL in milliseconds of a hash field.
         """
-        pieces: CommandArgList = []
+        command_arguments: CommandArgList = []
 
-        pieces.append(key)
-        pieces.append(PrefixToken.FIELDS)
-        pieces.append(len(list(fields)))
-        pieces.extend(fields)
+        command_arguments.append(key)
+        command_arguments.append(PrefixToken.FIELDS)
+        command_arguments.append(len(list(fields)))
+        command_arguments.extend(fields)
 
-        return await self.execute_command(CommandName.HPTTL, *pieces, callback=TupleCallback[int]())
+        return self.create_request(
+            CommandName.HPTTL, *command_arguments, callback=TupleCallback[int]()
+        )
 
     @redis_command(
         CommandName.HVALS,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def hvals(self, key: KeyT) -> tuple[AnyStr, ...]:
+    def hvals(self, key: KeyT) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         Get all the values in a hash
 
         :return: list of values in the hash, or an empty list when :paramref:`key` does not exist.
         """
 
-        return await self.execute_command(CommandName.HVALS, key, callback=TupleCallback[AnyStr]())
+        return self.create_request(CommandName.HVALS, key, callback=TupleCallback[AnyStr]())
 
     @overload
-    async def hscan(
+    def hscan(
         self,
         key: KeyT,
         cursor: int | None = ...,
@@ -2261,30 +2363,30 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = ...,
         *,
         novalues: Literal[True],
-    ) -> tuple[int, tuple[AnyStr, ...]]: ...
+    ) -> CommandRequest[tuple[int, tuple[AnyStr, ...]]]: ...
 
     @overload
-    async def hscan(
+    def hscan(
         self,
         key: KeyT,
         cursor: int | None = None,
         match: StringT | None = None,
         count: int | None = None,
-    ) -> tuple[int, dict[AnyStr, AnyStr]]: ...
+    ) -> CommandRequest[tuple[int, dict[AnyStr, AnyStr]]]: ...
     @redis_command(
         CommandName.HSCAN,
         group=CommandGroup.HASH,
         flags={CommandFlag.READONLY},
         arguments={"novalues": {"version_introduced": "7.4.0"}},
     )
-    async def hscan(
+    def hscan(
         self,
         key: KeyT,
         cursor: int | None = None,
         match: StringT | None = None,
         count: int | None = None,
         novalues: bool | None = None,
-    ) -> tuple[int, dict[AnyStr, AnyStr] | tuple[AnyStr, ...]]:
+    ) -> CommandRequest[tuple[int, dict[AnyStr, AnyStr] | tuple[AnyStr, ...]]]:
         """
         Incrementally return key/value slices in a hash. Also returns a
         cursor pointing to the scan position.
@@ -2303,20 +2405,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         if novalues is not None:
             command_arguments.append(PureToken.NOVALUES)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HSCAN,
             *command_arguments,
-            novalues=novalues,
-            callback=HScanCallback[AnyStr](),
+            callback=HScanCallback[AnyStr](novalues=novalues),
         )
 
     @redis_command(
         CommandName.HSTRLEN,
         group=CommandGroup.HASH,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def hstrlen(self, key: KeyT, field: StringT) -> int:
+    def hstrlen(self, key: KeyT, field: StringT) -> CommandRequest[int]:
         """
         Get the length of the value of a hash field
 
@@ -2324,24 +2425,24 @@ class CoreCommands(CommandMixin[AnyStr]):
          or zero when ``field`` is not present in the hash or :paramref:`key` does not exist at all.
         """
 
-        return await self.execute_command(CommandName.HSTRLEN, key, field, callback=IntCallback())
+        return self.create_request(CommandName.HSTRLEN, key, field, callback=IntCallback())
 
     @overload
-    async def hrandfield(
+    def hrandfield(
         self,
         key: KeyT,
         *,
         withvalues: Literal[True],
         count: int = ...,
-    ) -> dict[AnyStr, AnyStr]: ...
+    ) -> CommandRequest[dict[AnyStr, AnyStr]]: ...
 
     @overload
-    async def hrandfield(
+    def hrandfield(
         self,
         key: KeyT,
         *,
         count: int = ...,
-    ) -> tuple[AnyStr, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr, ...]]: ...
 
     @redis_command(
         CommandName.HRANDFIELD,
@@ -2349,13 +2450,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.HASH,
         flags={CommandFlag.READONLY},
     )
-    async def hrandfield(
+    def hrandfield(
         self,
         key: KeyT,
         *,
         count: int | None = None,
         withvalues: bool | None = None,
-    ) -> AnyStr | tuple[AnyStr, ...] | dict[AnyStr, AnyStr] | None:
+    ) -> CommandRequest[AnyStr | tuple[AnyStr, ...] | dict[AnyStr, AnyStr] | None]:
         """
         Return a random field from the hash value stored at key.
 
@@ -2368,22 +2469,20 @@ class CoreCommands(CommandMixin[AnyStr]):
          their values from the hash.
 
         """
-        params: CommandArgList = []
+        command_arguments: CommandArgList = [key]
         options = {"withvalues": withvalues, "count": count}
 
         if count is not None:
-            params.append(count)
+            command_arguments.append(count)
 
         if withvalues:
-            params.append(PureToken.WITHVALUES)
+            command_arguments.append(PureToken.WITHVALUES)
             options["withvalues"] = True
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.HRANDFIELD,
-            key,
-            *params,
-            **options,
-            callback=HRandFieldCallback[AnyStr](),
+            *command_arguments,
+            callback=HRandFieldCallback[AnyStr](**options),
         )
 
     @redis_command(
@@ -2391,7 +2490,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.HYPERLOGLOG,
         flags={CommandFlag.FAST},
     )
-    async def pfadd(self, key: KeyT, *elements: ValueT) -> bool:
+    def pfadd(self, key: KeyT, *elements: ValueT) -> CommandRequest[bool]:
         """
         Adds the specified elements to the specified HyperLogLog.
 
@@ -2402,9 +2501,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if elements:
             command_arguments.extend(elements)
 
-        return await self.execute_command(
-            CommandName.PFADD, *command_arguments, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.PFADD, *command_arguments, callback=BoolCallback())
 
     @ensure_iterable_valid("keys")
     @redis_command(
@@ -2412,26 +2509,26 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.HYPERLOGLOG,
         flags={CommandFlag.READONLY},
     )
-    async def pfcount(self, keys: Parameters[KeyT]) -> int:
+    def pfcount(self, keys: Parameters[KeyT]) -> CommandRequest[int]:
         """
         Return the approximated cardinality of the set(s) observed by the HyperLogLog at key(s).
 
         :return: The approximated number of unique elements observed via :meth:`pfadd`.
         """
 
-        return await self.execute_command(CommandName.PFCOUNT, *keys, callback=IntCallback())
+        return self.create_request(CommandName.PFCOUNT, *keys, callback=IntCallback())
 
     @ensure_iterable_valid("sourcekeys")
     @redis_command(
         CommandName.PFMERGE,
         group=CommandGroup.HYPERLOGLOG,
     )
-    async def pfmerge(self, destkey: KeyT, sourcekeys: Parameters[KeyT]) -> bool:
+    def pfmerge(self, destkey: KeyT, sourcekeys: Parameters[KeyT]) -> CommandRequest[bool]:
         """
         Merge N different HyperLogLogs into a single one
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PFMERGE, destkey, *sourcekeys, callback=SimpleStringCallback()
         )
 
@@ -2441,17 +2538,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.GENERIC,
     )
-    async def copy(
+    def copy(
         self,
         source: KeyT,
         destination: KeyT,
         db: int | None = None,
         replace: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Copy a key
         """
-        command_arguments: CommandArgList = []
+        command_arguments: CommandArgList = [source, destination]
 
         if db is not None:
             command_arguments.extend([PrefixToken.DB, db])
@@ -2459,10 +2556,8 @@ class CoreCommands(CommandMixin[AnyStr]):
         if replace:
             command_arguments.append(PureToken.REPLACE)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COPY,
-            source,
-            destination,
             *command_arguments,
             callback=BoolCallback(),
         )
@@ -2473,29 +2568,32 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         cluster=ClusterCommandConfig(split=NodeFlag.PRIMARIES, combine=ClusterSum()),
     )
-    async def delete(self, keys: Parameters[KeyT]) -> int:
+    def delete(self, keys: Parameters[KeyT]) -> CommandRequest[int]:
         """
         Delete one or more keys specified by ``keys``
 
         :return: The number of keys that were removed.
         """
 
-        return await self.execute_command(CommandName.DEL, *keys, callback=IntCallback())
+        return self.create_request(CommandName.DEL, *keys, callback=IntCallback())
 
     @redis_command(
         CommandName.DUMP,
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def dump(self, key: KeyT) -> bytes:
+    def dump(self, key: KeyT) -> CommandRequest[bytes]:
         """
         Return a serialized version of the value stored at the specified key.
 
         :return: the serialized value
         """
 
-        return await self.execute_command(
-            CommandName.DUMP, key, decode=False, callback=NoopCallback[bytes]()
+        return self.create_request(
+            CommandName.DUMP,
+            key,
+            execution_parameters={"decode": False},
+            callback=NoopCallback[bytes](),
         )
 
     @ensure_iterable_valid("keys")
@@ -2505,14 +2603,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(split=NodeFlag.PRIMARIES, combine=ClusterSum()),
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def exists(self, keys: Parameters[KeyT]) -> int:
+    def exists(self, keys: Parameters[KeyT]) -> CommandRequest[int]:
         """
         Determine if a key exists
 
         :return: the number of keys that exist from those specified as arguments.
         """
 
-        return await self.execute_command(CommandName.EXISTS, *keys, callback=IntCallback())
+        return self.create_request(CommandName.EXISTS, *keys, callback=IntCallback())
 
     @redis_command(
         CommandName.EXPIRE,
@@ -2520,12 +2618,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"condition": {"version_introduced": "7.0.0"}},
         flags={CommandFlag.FAST},
     )
-    async def expire(
+    def expire(
         self,
         key: KeyT,
         seconds: int | datetime.timedelta,
         condition: Literal[PureToken.NX, PureToken.XX, PureToken.GT, PureToken.LT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set a key's time to live in seconds
 
@@ -2540,9 +2638,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if condition is not None:
             command_arguments.append(condition)
 
-        return await self.execute_command(
-            CommandName.EXPIRE, *command_arguments, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.EXPIRE, *command_arguments, callback=BoolCallback())
 
     @redis_command(
         CommandName.EXPIREAT,
@@ -2550,12 +2646,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"condition": {"version_introduced": "7.0.0"}},
         flags={CommandFlag.FAST},
     )
-    async def expireat(
+    def expireat(
         self,
         key: KeyT,
         unix_time_seconds: int | datetime.datetime,
         condition: Literal[PureToken.NX, PureToken.XX, PureToken.GT, PureToken.LT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set the expiration for a key to a specific time
 
@@ -2573,7 +2669,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if condition is not None:
             command_arguments.append(condition)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.EXPIREAT, *command_arguments, callback=BoolCallback()
         )
 
@@ -2584,7 +2680,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def expiretime(self, key: KeyT) -> datetime.datetime:
+    def expiretime(self, key: KeyT) -> CommandRequest[datetime.datetime]:
         """
         Get the expiration Unix timestamp for a key
 
@@ -2596,7 +2692,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(CommandName.EXPIRETIME, key, callback=ExpiryCallback())
+        return self.create_request(CommandName.EXPIRETIME, key, callback=ExpiryCallback())
 
     @redis_command(
         CommandName.KEYS,
@@ -2607,19 +2703,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         ),
         flags={CommandFlag.READONLY},
     )
-    async def keys(self, pattern: StringT = "*") -> _Set[AnyStr]:
+    def keys(self, pattern: StringT = "*") -> CommandRequest[_Set[AnyStr]]:
         """
         Find all keys matching the given pattern
 
         :return: keys matching ``pattern``.
         """
 
-        return await self.execute_command(CommandName.KEYS, pattern, callback=SetCallback[AnyStr]())
+        return self.create_request(CommandName.KEYS, pattern, callback=SetCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @mutually_inclusive_parameters("username", "password")
     @redis_command(CommandName.MIGRATE, group=CommandGroup.GENERIC)
-    async def migrate(
+    def migrate(
         self,
         host: StringT,
         port: int,
@@ -2631,7 +2727,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         auth: StringT | None = None,
         username: StringT | None = None,
         password: StringT | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Atomically transfer key(s) from a Redis instance to another one.
 
@@ -2650,18 +2746,18 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PureToken.REPLACE)
 
         if auth:
-            command_arguments.append("AUTH")
+            command_arguments.append(PrefixToken.AUTH)
             command_arguments.append(auth)
 
         if username and password:
-            command_arguments.append("AUTH2")
+            command_arguments.append(PrefixToken.AUTH2)
             command_arguments.append(username)
             command_arguments.append(password)
 
-        command_arguments.append("KEYS")
+        command_arguments.append(PrefixToken.KEYS)
         command_arguments.extend(keys)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MIGRATE,
             host,
             port,
@@ -2673,25 +2769,25 @@ class CoreCommands(CommandMixin[AnyStr]):
         )
 
     @redis_command(CommandName.MOVE, group=CommandGroup.GENERIC, flags={CommandFlag.FAST})
-    async def move(self, key: KeyT, db: int) -> bool:
+    def move(self, key: KeyT, db: int) -> CommandRequest[bool]:
         """Move a key to another database"""
 
-        return await self.execute_command(CommandName.MOVE, key, db, callback=BoolCallback())
+        return self.create_request(CommandName.MOVE, key, db, callback=BoolCallback())
 
     @redis_command(
         CommandName.OBJECT_ENCODING,
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def object_encoding(self, key: KeyT) -> AnyStr | None:
+    def object_encoding(self, key: KeyT) -> CommandRequest[AnyStr | None]:
         """
         Return the internal encoding for the object stored at :paramref:`key`
 
         :return: the encoding of the object, or ``None`` if the key doesn't exist
         """
 
-        return await self.execute_command(
-            CommandName.OBJECT_ENCODING, key, callback=AnyStrCallback[AnyStr]()
+        return self.create_request(
+            CommandName.OBJECT_ENCODING, key, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @redis_command(
@@ -2699,7 +2795,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def object_freq(self, key: KeyT) -> int:
+    def object_freq(self, key: KeyT) -> CommandRequest[int]:
         """
         Return the logarithmic access frequency counter for the object
         stored at :paramref:`key`
@@ -2707,14 +2803,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The counter's value.
         """
 
-        return await self.execute_command(CommandName.OBJECT_FREQ, key, callback=IntCallback())
+        return self.create_request(CommandName.OBJECT_FREQ, key, callback=IntCallback())
 
     @redis_command(
         CommandName.OBJECT_IDLETIME,
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def object_idletime(self, key: KeyT) -> int:
+    def object_idletime(self, key: KeyT) -> CommandRequest[int]:
         """
         Return the time in seconds since the last access to the object
         stored at :paramref:`key`
@@ -2722,27 +2818,27 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The idle time in seconds.
         """
 
-        return await self.execute_command(CommandName.OBJECT_IDLETIME, key, callback=IntCallback())
+        return self.create_request(CommandName.OBJECT_IDLETIME, key, callback=IntCallback())
 
     @redis_command(
         CommandName.OBJECT_REFCOUNT,
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def object_refcount(self, key: KeyT) -> int:
+    def object_refcount(self, key: KeyT) -> CommandRequest[int]:
         """
         Return the reference count of the object stored at :paramref:`key`
 
         :return: The number of references.
         """
 
-        return await self.execute_command(CommandName.OBJECT_REFCOUNT, key, callback=IntCallback())
+        return self.create_request(CommandName.OBJECT_REFCOUNT, key, callback=IntCallback())
 
     @redis_command(CommandName.PERSIST, group=CommandGroup.GENERIC, flags={CommandFlag.FAST})
-    async def persist(self, key: KeyT) -> bool:
+    def persist(self, key: KeyT) -> CommandRequest[bool]:
         """Removes an expiration on :paramref:`key`"""
 
-        return await self.execute_command(CommandName.PERSIST, key, callback=BoolCallback())
+        return self.create_request(CommandName.PERSIST, key, callback=BoolCallback())
 
     @redis_command(
         CommandName.PEXPIRE,
@@ -2750,12 +2846,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"condition": {"version_introduced": "7.0.0"}},
         flags={CommandFlag.FAST},
     )
-    async def pexpire(
+    def pexpire(
         self,
         key: KeyT,
         milliseconds: int | datetime.timedelta,
         condition: Literal[PureToken.NX, PureToken.XX, PureToken.GT, PureToken.LT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set a key's time to live in milliseconds
 
@@ -2767,9 +2863,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if condition is not None:
             command_arguments.append(condition)
 
-        return await self.execute_command(
-            CommandName.PEXPIRE, *command_arguments, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.PEXPIRE, *command_arguments, callback=BoolCallback())
 
     @redis_command(
         CommandName.PEXPIREAT,
@@ -2777,12 +2871,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"condition": {"version_introduced": "7.0.0"}},
         flags={CommandFlag.FAST},
     )
-    async def pexpireat(
+    def pexpireat(
         self,
         key: KeyT,
         unix_time_milliseconds: int | datetime.datetime,
         condition: Literal[PureToken.NX, PureToken.XX, PureToken.GT, PureToken.LT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set the expiration for a key as a UNIX timestamp specified in milliseconds
 
@@ -2798,7 +2892,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if condition is not None:
             command_arguments.append(condition)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PEXPIREAT, *command_arguments, callback=BoolCallback()
         )
 
@@ -2809,7 +2903,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def pexpiretime(self, key: KeyT) -> datetime.datetime:
+    def pexpiretime(self, key: KeyT) -> CommandRequest[datetime.datetime]:
         """
         Get the expiration Unix timestamp for a key in milliseconds
 
@@ -2821,8 +2915,10 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(
-            CommandName.PEXPIRETIME, key, unit="milliseconds", callback=ExpiryCallback()
+        return self.create_request(
+            CommandName.PEXPIRETIME,
+            key,
+            callback=ExpiryCallback(unit="milliseconds"),
         )
 
     @redis_command(
@@ -2830,14 +2926,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def pttl(self, key: KeyT) -> int:
+    def pttl(self, key: KeyT) -> CommandRequest[int]:
         """
         Returns the number of milliseconds until the key :paramref:`key` will expire
 
         :return: TTL in milliseconds, or a negative value in order to signal an error
         """
 
-        return await self.execute_command(CommandName.PTTL, key, callback=IntCallback())
+        return self.create_request(CommandName.PTTL, key, callback=IntCallback())
 
     @redis_command(
         CommandName.RANDOMKEY,
@@ -2845,45 +2941,41 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
         flags={CommandFlag.READONLY},
     )
-    async def randomkey(self) -> AnyStr | None:
+    def randomkey(self) -> CommandRequest[AnyStr | None]:
         """
         Returns the name of a random key
 
         :return: the random key, or ``None`` when the database is empty.
         """
 
-        return await self.execute_command(
-            CommandName.RANDOMKEY, callback=OptionalAnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.RANDOMKEY, callback=OptionalAnyStrCallback[AnyStr]())
 
     @redis_command(
         CommandName.RENAME,
         group=CommandGroup.GENERIC,
     )
-    async def rename(self, key: KeyT, newkey: KeyT) -> bool:
+    def rename(self, key: KeyT, newkey: KeyT) -> CommandRequest[bool]:
         """
         Rekeys key :paramref:`key` to ``newkey``
         """
 
-        return await self.execute_command(CommandName.RENAME, key, newkey, callback=BoolCallback())
+        return self.create_request(CommandName.RENAME, key, newkey, callback=BoolCallback())
 
     @redis_command(CommandName.RENAMENX, group=CommandGroup.GENERIC, flags={CommandFlag.FAST})
-    async def renamenx(self, key: KeyT, newkey: KeyT) -> bool:
+    def renamenx(self, key: KeyT, newkey: KeyT) -> CommandRequest[bool]:
         """
         Rekeys key :paramref:`key` to ``newkey`` if ``newkey`` doesn't already exist
 
         :return: False when ``newkey`` already exists.
         """
 
-        return await self.execute_command(
-            CommandName.RENAMENX, key, newkey, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.RENAMENX, key, newkey, callback=BoolCallback())
 
     @redis_command(
         CommandName.RESTORE,
         group=CommandGroup.GENERIC,
     )
-    async def restore(
+    def restore(
         self,
         key: KeyT,
         ttl: int | datetime.timedelta | datetime.datetime,
@@ -2892,12 +2984,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         absttl: bool | None = None,
         idletime: int | datetime.timedelta | None = None,
         freq: int | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Create a key using the provided serialized value, previously obtained using DUMP.
         """
 
-        params: CommandArgList = [
+        command_arguments: CommandArgList = [
             key,
             (
                 normalized_milliseconds(ttl)  # type: ignore
@@ -2908,19 +3000,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         ]
 
         if replace:
-            params.append(PureToken.REPLACE)
+            command_arguments.append(PureToken.REPLACE)
 
         if absttl:
-            params.append(PureToken.ABSTTL)
+            command_arguments.append(PureToken.ABSTTL)
 
         if idletime is not None:
-            params.extend(["IDLETIME", normalized_milliseconds(idletime)])
+            command_arguments.extend(["IDLETIME", normalized_milliseconds(idletime)])
 
         if freq:
-            params.extend(["FREQ", freq])
+            command_arguments.extend(["FREQ", freq])
 
-        return await self.execute_command(
-            CommandName.RESTORE, *params, callback=SimpleStringCallback()
+        return self.create_request(
+            CommandName.RESTORE, *command_arguments, callback=SimpleStringCallback()
         )
 
     @mutually_inclusive_parameters("offset", "count")
@@ -2928,7 +3020,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.SORT,
         group=CommandGroup.GENERIC,
     )
-    async def sort(
+    def sort(
         self,
         key: KeyT,
         gets: Parameters[KeyT] | None = None,
@@ -2938,7 +3030,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
         alpha: bool | None = None,
         store: KeyT | None = None,
-    ) -> tuple[AnyStr, ...] | int:
+    ) -> CommandRequest[tuple[AnyStr, ...] | int]:
         """
         Sort the elements in a list, set or sorted set
 
@@ -2975,11 +3067,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(store)
             options["store"] = True
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SORT,
             *command_arguments,
-            **options,
-            callback=SortCallback[AnyStr](),
+            callback=SortCallback[AnyStr](**options),
         )
 
     @mutually_inclusive_parameters("offset", "count")
@@ -2990,7 +3081,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         flags={CommandFlag.READONLY},
     )
-    async def sort_ro(
+    def sort_ro(
         self,
         key: KeyT,
         gets: Parameters[KeyT] | None = None,
@@ -2999,7 +3090,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
         alpha: bool | None = None,
-    ) -> tuple[AnyStr, ...]:
+    ) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         Sort the elements in a list, set or sorted set. Read-only variant of SORT.
 
@@ -3024,7 +3115,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if alpha is not None:
             command_arguments.append(PureToken.SORTING)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SORT_RO, *command_arguments, callback=TupleCallback[AnyStr]()
         )
 
@@ -3035,7 +3126,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(split=NodeFlag.PRIMARIES, combine=ClusterSum()),
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def touch(self, keys: Parameters[KeyT]) -> int:
+    def touch(self, keys: Parameters[KeyT]) -> CommandRequest[int]:
         """
         Alters the last access time of a key(s).
         Returns the number of existing keys specified.
@@ -3043,21 +3134,21 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The number of keys that were touched.
         """
 
-        return await self.execute_command(CommandName.TOUCH, *keys, callback=IntCallback())
+        return self.create_request(CommandName.TOUCH, *keys, callback=IntCallback())
 
     @redis_command(
         CommandName.TTL,
         group=CommandGroup.GENERIC,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def ttl(self, key: KeyT) -> int:
+    def ttl(self, key: KeyT) -> CommandRequest[int]:
         """
         Get the time to live for a key in seconds
 
         :return: TTL in seconds, or a negative value in order to signal an error
         """
 
-        return await self.execute_command(CommandName.TTL, key, callback=IntCallback())
+        return self.create_request(CommandName.TTL, key, callback=IntCallback())
 
     @ensure_iterable_valid("keys")
     @redis_command(
@@ -3066,7 +3157,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(split=NodeFlag.PRIMARIES, combine=ClusterSum()),
         flags={CommandFlag.FAST},
     )
-    async def unlink(self, keys: Parameters[KeyT]) -> int:
+    def unlink(self, keys: Parameters[KeyT]) -> CommandRequest[int]:
         """
         Delete a key asynchronously in another thread.
         Otherwise it is just as :meth:`delete`, but non blocking.
@@ -3074,21 +3165,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The number of keys that were unlinked.
         """
 
-        return await self.execute_command(CommandName.UNLINK, *keys, callback=IntCallback())
+        return self.create_request(CommandName.UNLINK, *keys, callback=IntCallback())
 
     @redis_command(
         CommandName.WAIT,
         group=CommandGroup.GENERIC,
         redirect_usage=RedirectUsage(
             (
-                "Use the :meth:`Redis.ensure_replication`  or "
-                ":meth:`RedisCluster.ensure_replication` context managers to ensure "
-                "a command is replicated to the number of replicas"
+                "Use the :meth:`Redis.ensure_replication`  or :meth:`RedisCluster.ensure_replication` context managers to ensure a command is replicated to the number of replicas"
             ),
             True,
         ),
     )
-    async def wait(self, numreplicas: int, timeout: int) -> int:
+    def wait(self, numreplicas: int, timeout: int) -> CommandRequest[int]:
         """
         Wait for the synchronous replication of all the write commands sent in the context of
         the current connection
@@ -3096,9 +3185,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the number of replicas the write was replicated to
         """
 
-        return await self.execute_command(
-            CommandName.WAIT, numreplicas, timeout, callback=IntCallback()
-        )
+        return self.create_request(CommandName.WAIT, numreplicas, timeout, callback=IntCallback())
 
     @versionadded(version="4.12.0")
     @redis_command(
@@ -3107,14 +3194,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.GENERIC,
         redirect_usage=RedirectUsage(
             (
-                "Use the :meth:`Redis.ensure_persistence`  or "
-                ":meth:`RedisCluster.ensure_persistence` context managers to ensure "
-                "a command is synced to the AOF of the number of local hosts or replicas"
+                "Use the :meth:`Redis.ensure_persistence`  or :meth:`RedisCluster.ensure_persistence` context managers to ensure a command is synced to the AOF of the number of local hosts or replicas"
             ),
             True,
         ),
     )
-    async def waitaof(self, numlocal: int, numreplicas: int, timeout: int) -> tuple[int, ...]:
+    def waitaof(
+        self, numlocal: int, numreplicas: int, timeout: int
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Wait for all write commands sent in the context of the current connection to be synced
         to AOF of local host and/or replicas
@@ -3122,7 +3209,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: a tuple of (numlocal, numreplicas) that the write commands were synced to
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.WAITAOF,
             numlocal,
             numreplicas,
@@ -3136,13 +3223,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(enabled=False),
         flags={CommandFlag.READONLY},
     )
-    async def scan(
+    def scan(
         self,
         cursor: int | None = 0,
         match: StringT | None = None,
         count: int | None = None,
         type_: StringT | None = None,
-    ) -> tuple[int, tuple[AnyStr, ...]]:
+    ) -> CommandRequest[tuple[int, tuple[AnyStr, ...]]]:
         """
         Incrementally iterate the keys space
         """
@@ -3157,7 +3244,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if type_ is not None:
             command_arguments.extend([PrefixToken.TYPE, type_])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SCAN, *command_arguments, callback=ScanCallback[AnyStr]()
         )
 
@@ -3167,14 +3254,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.LIST,
         flags={CommandFlag.BLOCKING},
     )
-    async def blmove(
+    def blmove(
         self,
         source: KeyT,
         destination: KeyT,
         wherefrom: Literal[PureToken.LEFT, PureToken.RIGHT],
         whereto: Literal[PureToken.LEFT, PureToken.RIGHT],
         timeout: int | float,
-    ) -> AnyStr | None:
+    ) -> CommandRequest[AnyStr | None]:
         """
         Pop an element from a list, push it to another list and return it;
         or block until one is available
@@ -3183,7 +3270,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the element being popped from :paramref:`source` and pushed to
          :paramref:`destination`
         """
-        params: CommandArgList = [
+        command_arguments: CommandArgList = [
             source,
             destination,
             wherefrom,
@@ -3191,8 +3278,8 @@ class CoreCommands(CommandMixin[AnyStr]):
             timeout,
         ]
 
-        return await self.execute_command(
-            CommandName.BLMOVE, *params, callback=OptionalAnyStrCallback[AnyStr]()
+        return self.create_request(
+            CommandName.BLMOVE, *command_arguments, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @versionadded(version="3.0.0")
@@ -3203,13 +3290,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.LIST,
         flags={CommandFlag.BLOCKING},
     )
-    async def blmpop(
+    def blmpop(
         self,
         keys: Parameters[KeyT],
         timeout: int | float,
         where: Literal[PureToken.LEFT, PureToken.RIGHT],
         count: int | None = None,
-    ) -> list[AnyStr | list[AnyStr]] | None:
+    ) -> CommandRequest[list[AnyStr | list[AnyStr]] | None]:
         """
         Pop elements from the first non empty list, or block until one is available
 
@@ -3226,7 +3313,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend([PrefixToken.COUNT, count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BLMPOP,
             *command_arguments,
             callback=OptionalListCallback[AnyStr | list[AnyStr]](),
@@ -3234,7 +3321,9 @@ class CoreCommands(CommandMixin[AnyStr]):
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.BLPOP, group=CommandGroup.LIST, flags={CommandFlag.BLOCKING})
-    async def blpop(self, keys: Parameters[KeyT], timeout: int | float) -> list[AnyStr] | None:
+    def blpop(
+        self, keys: Parameters[KeyT], timeout: int | float
+    ) -> CommandRequest[list[AnyStr] | None]:
         """
         Remove and get the first element in a list, or block until one is available
 
@@ -3246,13 +3335,15 @@ class CoreCommands(CommandMixin[AnyStr]):
            popped element.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BLPOP, *keys, timeout, callback=OptionalListCallback[AnyStr]()
         )
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.BRPOP, group=CommandGroup.LIST, flags={CommandFlag.BLOCKING})
-    async def brpop(self, keys: Parameters[KeyT], timeout: int | float) -> list[AnyStr] | None:
+    def brpop(
+        self, keys: Parameters[KeyT], timeout: int | float
+    ) -> CommandRequest[list[AnyStr] | None]:
         """
         Remove and get the last element in a list, or block until one is available
 
@@ -3264,7 +3355,7 @@ class CoreCommands(CommandMixin[AnyStr]):
            popped element.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BRPOP, *keys, timeout, callback=OptionalListCallback[AnyStr]()
         )
 
@@ -3275,9 +3366,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.LIST,
         flags={CommandFlag.BLOCKING},
     )
-    async def brpoplpush(
+    def brpoplpush(
         self, source: KeyT, destination: KeyT, timeout: int | float
-    ) -> AnyStr | None:
+    ) -> CommandRequest[AnyStr | None]:
         """
         Pop an element from a list, push it to another list and return it;
         or block until one is available
@@ -3286,7 +3377,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          :paramref:`destination`.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BRPOPLPUSH,
             source,
             destination,
@@ -3297,10 +3388,10 @@ class CoreCommands(CommandMixin[AnyStr]):
     @redis_command(
         CommandName.LINDEX,
         group=CommandGroup.LIST,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def lindex(self, key: KeyT, index: int) -> AnyStr | None:
+    def lindex(self, key: KeyT, index: int) -> CommandRequest[AnyStr | None]:
         """
 
         Get an element from a list by its index
@@ -3308,18 +3399,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the requested element, or ``None`` when ``index`` is out of range.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LINDEX, key, index, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @redis_command(CommandName.LINSERT, group=CommandGroup.LIST)
-    async def linsert(
+    def linsert(
         self,
         key: KeyT,
         where: Literal[PureToken.AFTER, PureToken.BEFORE],
         pivot: ValueT,
         element: ValueT,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Inserts element in the list stored at key either before or after the reference
         value pivot.
@@ -3328,51 +3419,51 @@ class CoreCommands(CommandMixin[AnyStr]):
          the value pivot was not found.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LINSERT, key, where, pivot, element, callback=IntCallback()
         )
 
     @redis_command(
         CommandName.LLEN,
         group=CommandGroup.LIST,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def llen(self, key: KeyT) -> int:
+    def llen(self, key: KeyT) -> CommandRequest[int]:
         """
         :return: the length of the list at :paramref:`key`.
         """
 
-        return await self.execute_command(CommandName.LLEN, key, callback=IntCallback())
+        return self.create_request(CommandName.LLEN, key, callback=IntCallback())
 
     @redis_command(CommandName.LMOVE, version_introduced="6.2.0", group=CommandGroup.LIST)
-    async def lmove(
+    def lmove(
         self,
         source: KeyT,
         destination: KeyT,
         wherefrom: Literal[PureToken.LEFT, PureToken.RIGHT],
         whereto: Literal[PureToken.LEFT, PureToken.RIGHT],
-    ) -> AnyStr | None:
+    ) -> CommandRequest[AnyStr | None]:
         """
         Pop an element from a list, push it to another list and return it
 
         :return: the element being popped and pushed.
         """
-        params = [source, destination, wherefrom, whereto]
+        command_arguments: CommandArgList = [source, destination, wherefrom, whereto]
 
-        return await self.execute_command(
-            CommandName.LMOVE, *params, callback=OptionalAnyStrCallback[AnyStr]()
+        return self.create_request(
+            CommandName.LMOVE, *command_arguments, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
     @versionadded(version="3.0.0")
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.LMPOP, version_introduced="7.0.0", group=CommandGroup.LIST)
-    async def lmpop(
+    def lmpop(
         self,
         keys: Parameters[KeyT],
         where: Literal[PureToken.LEFT, PureToken.RIGHT],
         count: int | None = None,
-    ) -> list[AnyStr | list[AnyStr]] | None:
+    ) -> CommandRequest[list[AnyStr | list[AnyStr]] | None]:
         """
         Pop elements from the first non empty list
 
@@ -3388,17 +3479,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend([PrefixToken.COUNT, count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LMPOP,
             *command_arguments,
             callback=OptionalListCallback[AnyStr | list[AnyStr]](),
         )
 
     @overload
-    async def lpop(self, key: KeyT) -> AnyStr | None: ...
+    def lpop(self, key: KeyT) -> CommandRequest[AnyStr | None]: ...
 
     @overload
-    async def lpop(self, key: KeyT, count: int) -> list[AnyStr] | None: ...
+    def lpop(self, key: KeyT, count: int) -> CommandRequest[list[AnyStr] | None]: ...
 
     @redis_command(
         CommandName.LPOP,
@@ -3406,7 +3497,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"count": {"version_introduced": "6.2.0"}},
         flags={CommandFlag.FAST},
     )
-    async def lpop(self, key: KeyT, count: int | None = None) -> AnyStr | list[AnyStr] | None:
+    def lpop(
+        self, key: KeyT, count: int | None = None
+    ) -> CommandRequest[AnyStr | None] | CommandRequest[list[AnyStr] | None]:
         """
         Remove and get the first :paramref:`count` elements in a list
 
@@ -3420,13 +3513,13 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(count)
 
         if count is not None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.LPOP,
                 key,
                 *command_arguments,
                 callback=OptionalListCallback[AnyStr](),
             )
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LPOP,
             key,
             *command_arguments,
@@ -3437,17 +3530,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.LPOS,
         version_introduced="6.0.6",
         group=CommandGroup.LIST,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def lpos(
+    def lpos(
         self,
         key: KeyT,
         element: ValueT,
         rank: int | None = None,
         count: int | None = None,
         maxlen: int | None = None,
-    ) -> int | list[int] | None:
+    ) -> CommandRequest[int | None] | CommandRequest[list[int] | None]:
         """
 
         Return the index of matching elements on a list
@@ -3471,55 +3564,53 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.extend([PrefixToken.MAXLEN, maxlen])
 
         if count is None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.LPOS, *command_arguments, callback=OptionalIntCallback()
             )
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LPOS, *command_arguments, callback=OptionalListCallback[int]()
         )
 
     @ensure_iterable_valid("elements")
     @redis_command(CommandName.LPUSH, group=CommandGroup.LIST, flags={CommandFlag.FAST})
-    async def lpush(self, key: KeyT, elements: Parameters[ValueT]) -> int:
+    def lpush(self, key: KeyT, elements: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Prepend one or multiple elements to a list
 
         :return: the length of the list after the push operations.
         """
-        return await self.execute_command(CommandName.LPUSH, key, *elements, callback=IntCallback())
+        return self.create_request(CommandName.LPUSH, key, *elements, callback=IntCallback())
 
     @ensure_iterable_valid("elements")
     @redis_command(CommandName.LPUSHX, group=CommandGroup.LIST, flags={CommandFlag.FAST})
-    async def lpushx(self, key: KeyT, elements: Parameters[ValueT]) -> int:
+    def lpushx(self, key: KeyT, elements: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Prepend an element to a list, only if the list exists
 
         :return: the length of the list after the push operation.
         """
 
-        return await self.execute_command(
-            CommandName.LPUSHX, key, *elements, callback=IntCallback()
-        )
+        return self.create_request(CommandName.LPUSHX, key, *elements, callback=IntCallback())
 
     @redis_command(
         CommandName.LRANGE,
         group=CommandGroup.LIST,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def lrange(self, key: KeyT, start: int, stop: int) -> list[AnyStr]:
+    def lrange(self, key: KeyT, start: int, stop: int) -> CommandRequest[list[AnyStr]]:
         """
         Get a range of elements from a list
 
         :return: list of elements in the specified range.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LRANGE, key, start, stop, callback=ListCallback[AnyStr]()
         )
 
     @redis_command(CommandName.LREM, group=CommandGroup.LIST)
-    async def lrem(self, key: KeyT, count: int, element: ValueT) -> int:
+    def lrem(self, key: KeyT, count: int, element: ValueT) -> CommandRequest[int]:
         """
         Removes the first :paramref:`count` occurrences of elements equal to ``element``
         from the list stored at :paramref:`key`.
@@ -3532,18 +3623,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the number of removed elements.
         """
 
-        return await self.execute_command(
-            CommandName.LREM, key, count, element, callback=IntCallback()
-        )
+        return self.create_request(CommandName.LREM, key, count, element, callback=IntCallback())
 
     @redis_command(
         CommandName.LSET,
         group=CommandGroup.LIST,
     )
-    async def lset(self, key: KeyT, index: int, element: ValueT) -> bool:
+    def lset(self, key: KeyT, index: int, element: ValueT) -> CommandRequest[bool]:
         """Sets ``index`` of list :paramref:`key` to ``element``"""
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LSET, key, index, element, callback=SimpleStringCallback()
         )
 
@@ -3551,7 +3640,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.LTRIM,
         group=CommandGroup.LIST,
     )
-    async def ltrim(self, key: KeyT, start: int, stop: int) -> bool:
+    def ltrim(self, key: KeyT, start: int, stop: int) -> CommandRequest[bool]:
         """
         Trims the list :paramref:`key`, removing all values not within the slice
         between ``start`` and ``stop``
@@ -3560,15 +3649,15 @@ class CoreCommands(CommandMixin[AnyStr]):
         Python slicing notation
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LTRIM, key, start, stop, callback=SimpleStringCallback()
         )
 
     @overload
-    async def rpop(self, key: KeyT) -> AnyStr | None: ...
+    def rpop(self, key: KeyT) -> CommandRequest[AnyStr | None]: ...
 
     @overload
-    async def rpop(self, key: KeyT, count: int) -> list[AnyStr] | None: ...
+    def rpop(self, key: KeyT, count: int) -> CommandRequest[list[AnyStr] | None]: ...
 
     @redis_command(
         CommandName.RPOP,
@@ -3576,7 +3665,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"count": {"version_introduced": "6.2.0"}},
         flags={CommandFlag.FAST},
     )
-    async def rpop(self, key: KeyT, count: int | None = None) -> AnyStr | list[AnyStr] | None:
+    def rpop(
+        self, key: KeyT, count: int | None = None
+    ) -> CommandRequest[AnyStr | None] | CommandRequest[list[AnyStr] | None]:
         """
         Remove and get the last elements in a list
 
@@ -3593,13 +3684,13 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.extend([count])
 
         if count is None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.RPOP,
                 key,
                 *command_arguments,
                 callback=OptionalAnyStrCallback[AnyStr](),
             )
-        return await self.execute_command(
+        return self.create_request(
             CommandName.RPOP,
             key,
             *command_arguments,
@@ -3612,14 +3703,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         deprecation_reason="Use :meth:`lmove` with the wherefrom and whereto arguments",
         group=CommandGroup.LIST,
     )
-    async def rpoplpush(self, source: KeyT, destination: KeyT) -> AnyStr | None:
+    def rpoplpush(self, source: KeyT, destination: KeyT) -> CommandRequest[AnyStr | None]:
         """
         Remove the last element in a list, prepend it to another list and return it
 
         :return: the element being popped and pushed.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.RPOPLPUSH,
             source,
             destination,
@@ -3632,14 +3723,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.LIST,
         flags={CommandFlag.FAST},
     )
-    async def rpush(self, key: KeyT, elements: Parameters[ValueT]) -> int:
+    def rpush(self, key: KeyT, elements: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Append an element(s) to a list
 
         :return: the length of the list after the push operation.
         """
 
-        return await self.execute_command(CommandName.RPUSH, key, *elements, callback=IntCallback())
+        return self.create_request(CommandName.RPUSH, key, *elements, callback=IntCallback())
 
     @ensure_iterable_valid("elements")
     @redis_command(
@@ -3647,16 +3738,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.LIST,
         flags={CommandFlag.FAST},
     )
-    async def rpushx(self, key: KeyT, elements: Parameters[ValueT]) -> int:
+    def rpushx(self, key: KeyT, elements: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Append a element(s) to a list, only if the list exists
 
         :return: the length of the list after the push operation.
         """
 
-        return await self.execute_command(
-            CommandName.RPUSHX, key, *elements, callback=IntCallback()
-        )
+        return self.create_request(CommandName.RPUSHX, key, *elements, callback=IntCallback())
 
     @ensure_iterable_valid("members")
     @redis_command(
@@ -3664,7 +3753,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.FAST},
     )
-    async def sadd(self, key: KeyT, members: Parameters[ValueT]) -> int:
+    def sadd(self, key: KeyT, members: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Add one or more members to a set
 
@@ -3672,15 +3761,15 @@ class CoreCommands(CommandMixin[AnyStr]):
          all the elements already present in the set.
         """
 
-        return await self.execute_command(CommandName.SADD, key, *members, callback=IntCallback())
+        return self.create_request(CommandName.SADD, key, *members, callback=IntCallback())
 
     @redis_command(
         CommandName.SCARD,
         group=CommandGroup.SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def scard(self, key: KeyT) -> int:
+    def scard(self, key: KeyT) -> CommandRequest[int]:
         """
         Returns the number of members in the set
 
@@ -3688,7 +3777,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          does not exist.
         """
 
-        return await self.execute_command(CommandName.SCARD, key, callback=IntCallback())
+        return self.create_request(CommandName.SCARD, key, callback=IntCallback())
 
     @ensure_iterable_valid("keys")
     @redis_command(
@@ -3696,24 +3785,24 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.READONLY},
     )
-    async def sdiff(self, keys: Parameters[KeyT]) -> _Set[AnyStr]:
+    def sdiff(self, keys: Parameters[KeyT]) -> CommandRequest[_Set[AnyStr]]:
         """
         Subtract multiple sets
 
         :return: members of the resulting set.
         """
 
-        return await self.execute_command(CommandName.SDIFF, *keys, callback=SetCallback[AnyStr]())
+        return self.create_request(CommandName.SDIFF, *keys, callback=SetCallback[AnyStr]())
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.SDIFFSTORE, group=CommandGroup.SET)
-    async def sdiffstore(self, keys: Parameters[KeyT], destination: KeyT) -> int:
+    def sdiffstore(self, keys: Parameters[KeyT], destination: KeyT) -> CommandRequest[int]:
         """
         Subtract multiple sets and store the resulting set in a key
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SDIFFSTORE, destination, *keys, callback=IntCallback()
         )
 
@@ -3723,25 +3812,25 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.READONLY},
     )
-    async def sinter(self, keys: Parameters[KeyT]) -> _Set[AnyStr]:
+    def sinter(self, keys: Parameters[KeyT]) -> CommandRequest[_Set[AnyStr]]:
         """
         Intersect multiple sets
 
         :return: members of the resulting set
         """
 
-        return await self.execute_command(CommandName.SINTER, *keys, callback=SetCallback[AnyStr]())
+        return self.create_request(CommandName.SINTER, *keys, callback=SetCallback[AnyStr]())
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.SINTERSTORE, group=CommandGroup.SET)
-    async def sinterstore(self, keys: Parameters[KeyT], destination: KeyT) -> int:
+    def sinterstore(self, keys: Parameters[KeyT], destination: KeyT) -> CommandRequest[int]:
         """
         Intersect multiple sets and store the resulting set in a key
 
         :return: the number of elements in the resulting set.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SINTERSTORE, destination, *keys, callback=IntCallback()
         )
 
@@ -3753,11 +3842,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.READONLY},
     )
-    async def sintercard(
+    def sintercard(
         self,
         keys: Parameters[KeyT],
         limit: int | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Intersect multiple sets and return the cardinality of the result
 
@@ -3770,47 +3859,47 @@ class CoreCommands(CommandMixin[AnyStr]):
         if limit is not None:
             command_arguments.extend(["LIMIT", limit])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SINTERCARD, *command_arguments, callback=IntCallback()
         )
 
     @redis_command(
         CommandName.SISMEMBER,
         group=CommandGroup.SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def sismember(self, key: KeyT, member: ValueT) -> bool:
+    def sismember(self, key: KeyT, member: ValueT) -> CommandRequest[bool]:
         """
         Determine if a given value is a member of a set
 
         :return: If the element is a member of the set. ``False`` if :paramref:`key` does not exist.
         """
 
-        return await self.execute_command(
-            CommandName.SISMEMBER, key, member, callback=BoolCallback()
-        )
+        return self.create_request(CommandName.SISMEMBER, key, member, callback=BoolCallback())
 
     @redis_command(
         CommandName.SMEMBERS,
         group=CommandGroup.SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def smembers(self, key: KeyT) -> _Set[AnyStr]:
+    def smembers(self, key: KeyT) -> CommandRequest[_Set[AnyStr]]:
         """Returns all members of the set"""
 
-        return await self.execute_command(CommandName.SMEMBERS, key, callback=SetCallback[AnyStr]())
+        return self.create_request(CommandName.SMEMBERS, key, callback=SetCallback[AnyStr]())
 
     @ensure_iterable_valid("members")
     @redis_command(
         CommandName.SMISMEMBER,
         version_introduced="6.2.0",
         group=CommandGroup.SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def smismember(self, key: KeyT, members: Parameters[ValueT]) -> tuple[bool, ...]:
+    def smismember(
+        self, key: KeyT, members: Parameters[ValueT]
+    ) -> CommandRequest[tuple[bool, ...]]:
         """
         Returns the membership associated with the given elements for a set
 
@@ -3818,21 +3907,19 @@ class CoreCommands(CommandMixin[AnyStr]):
          order as they are requested.
         """
 
-        return await self.execute_command(
-            CommandName.SMISMEMBER, key, *members, callback=BoolsCallback()
-        )
+        return self.create_request(CommandName.SMISMEMBER, key, *members, callback=BoolsCallback())
 
     @redis_command(
         CommandName.SMOVE,
         group=CommandGroup.SET,
         flags={CommandFlag.FAST},
     )
-    async def smove(self, source: KeyT, destination: KeyT, member: ValueT) -> bool:
+    def smove(self, source: KeyT, destination: KeyT, member: ValueT) -> CommandRequest[bool]:
         """
         Move a member from one set to another
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SMOVE, source, destination, member, callback=BoolCallback()
         )
 
@@ -3841,7 +3928,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.FAST},
     )
-    async def spop(self, key: KeyT, count: int | None = None) -> AnyStr | _Set[AnyStr] | None:
+    def spop(
+        self, key: KeyT, count: int | None = None
+    ) -> CommandRequest[AnyStr] | CommandRequest[_Set[AnyStr] | None]:
         """
         Remove and return one or multiple random members from a set
 
@@ -3853,26 +3942,23 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
 
         if count is not None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.SPOP,
                 key,
                 count,
-                count=count,
-                callback=SetCallback[AnyStr](),
+                callback=SetCallback[AnyStr](count=count),
             )
         else:
-            return await self.execute_command(
-                CommandName.SPOP, key, callback=AnyStrCallback[AnyStr]()
-            )
+            return self.create_request(CommandName.SPOP, key, callback=AnyStrCallback[AnyStr]())
 
     @redis_command(
         CommandName.SRANDMEMBER,
         group=CommandGroup.SET,
         flags={CommandFlag.READONLY},
     )
-    async def srandmember(
+    def srandmember(
         self, key: KeyT, count: int | None = None
-    ) -> AnyStr | _Set[AnyStr] | None:
+    ) -> CommandRequest[AnyStr | _Set[AnyStr]]:
         """
         Get one or multiple random members from a set
 
@@ -3889,12 +3975,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.append(count)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SRANDMEMBER,
             key,
             *command_arguments,
-            count=count,
-            callback=ItemOrSetCallback[AnyStr](),
+            callback=ItemOrSetCallback[AnyStr](count=count),
         )
 
     @ensure_iterable_valid("members")
@@ -3903,7 +3988,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.FAST},
     )
-    async def srem(self, key: KeyT, members: Parameters[ValueT]) -> int:
+    def srem(self, key: KeyT, members: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Remove one or more members from a set
 
@@ -3912,7 +3997,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          including non existing members.
         """
 
-        return await self.execute_command(CommandName.SREM, key, *members, callback=IntCallback())
+        return self.create_request(CommandName.SREM, key, *members, callback=IntCallback())
 
     @ensure_iterable_valid("keys")
     @redis_command(
@@ -3920,18 +4005,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SET,
         flags={CommandFlag.READONLY},
     )
-    async def sunion(self, keys: Parameters[KeyT]) -> _Set[AnyStr]:
+    def sunion(self, keys: Parameters[KeyT]) -> CommandRequest[_Set[AnyStr]]:
         """
         Add multiple sets
 
         :return: members of the resulting set.
         """
 
-        return await self.execute_command(CommandName.SUNION, *keys, callback=SetCallback[AnyStr]())
+        return self.create_request(CommandName.SUNION, *keys, callback=SetCallback[AnyStr]())
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.SUNIONSTORE, group=CommandGroup.SET)
-    async def sunionstore(self, keys: Parameters[KeyT], destination: KeyT) -> int:
+    def sunionstore(self, keys: Parameters[KeyT], destination: KeyT) -> CommandRequest[int]:
         """
         Add multiple sets and store the resulting set in a key
 
@@ -3939,7 +4024,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SUNIONSTORE, destination, *keys, callback=IntCallback()
         )
 
@@ -3949,13 +4034,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         cluster=ClusterCommandConfig(combine=ClusterEnsureConsistent()),
         flags={CommandFlag.READONLY},
     )
-    async def sscan(
+    def sscan(
         self,
         key: KeyT,
         cursor: int | None = 0,
         match: StringT | None = None,
         count: int | None = None,
-    ) -> tuple[int, _Set[AnyStr]]:
+    ) -> CommandRequest[tuple[int, _Set[AnyStr]]]:
         """
         Incrementally returns subsets of elements in a set. Also returns a
         cursor pointing to the scan position.
@@ -3971,7 +4056,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend(["COUNT", count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SSCAN, *command_arguments, callback=SScanCallback[AnyStr]()
         )
 
@@ -3983,13 +4068,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.BLOCKING},
     )
-    async def bzmpop(
+    def bzmpop(
         self,
         keys: Parameters[KeyT],
         timeout: int | float,
         where: Literal[PureToken.MAX, PureToken.MIN],
         count: int | None = None,
-    ) -> tuple[AnyStr, tuple[ScoredMember, ...]] | None:
+    ) -> CommandRequest[tuple[AnyStr, tuple[ScoredMember, ...]] | None]:
         """
         Remove and return members with scores in a sorted set or block until one is available
 
@@ -4004,7 +4089,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend(["COUNT", count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BZMPOP, *command_arguments, callback=ZMPopCallback[AnyStr]()
         )
 
@@ -4014,9 +4099,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.FAST, CommandFlag.BLOCKING},
     )
-    async def bzpopmax(
+    def bzpopmax(
         self, keys: Parameters[KeyT], timeout: int | float
-    ) -> tuple[AnyStr, AnyStr, float] | None:
+    ) -> CommandRequest[tuple[AnyStr, AnyStr, float] | None]:
         """
         Remove and return the member with the highest score from one or more sorted sets,
         or block until one is available.
@@ -4025,12 +4110,10 @@ class CoreCommands(CommandMixin[AnyStr]):
          where a member was popped, the second element is the popped member itself,
          and the third element is the score of the popped element.
         """
-        params: CommandArgList = []
-        params.extend(keys)
-        params.append(timeout)
+        command_arguments: CommandArgList = [*keys, timeout]
 
-        return await self.execute_command(
-            CommandName.BZPOPMAX, *params, callback=BZPopCallback[AnyStr]()
+        return self.create_request(
+            CommandName.BZPOPMAX, *command_arguments, callback=BZPopCallback[AnyStr]()
         )
 
     @ensure_iterable_valid("keys")
@@ -4039,9 +4122,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.FAST, CommandFlag.BLOCKING},
     )
-    async def bzpopmin(
+    def bzpopmin(
         self, keys: Parameters[KeyT], timeout: int | float
-    ) -> tuple[AnyStr, AnyStr, float] | None:
+    ) -> CommandRequest[tuple[AnyStr, AnyStr, float] | None]:
         """
         Remove and return the member with the lowest score from one or more sorted sets,
         or block until one is available
@@ -4051,12 +4134,10 @@ class CoreCommands(CommandMixin[AnyStr]):
          and the third element is the score of the popped element.
         """
 
-        params: CommandArgList = []
-        params.extend(keys)
-        params.append(timeout)
+        command_arguments: CommandArgList = [*keys, timeout]
 
-        return await self.execute_command(
-            CommandName.BZPOPMIN, *params, callback=BZPopCallback[AnyStr]()
+        return self.create_request(
+            CommandName.BZPOPMIN, *command_arguments, callback=BZPopCallback[AnyStr]()
         )
 
     @redis_command(
@@ -4065,7 +4146,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"comparison": {"version_introduced": "6.2.0"}},
         flags={CommandFlag.FAST},
     )
-    async def zadd(
+    def zadd(
         self,
         key: KeyT,
         member_scores: Mapping[StringT, int | float],
@@ -4073,7 +4154,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         comparison: Literal[PureToken.GT, PureToken.LT] | None = None,
         change: bool | None = None,
         increment: bool | None = None,
-    ) -> int | float | None:
+    ) -> CommandRequest[int | float]:
         """
         Add one or more members to a sorted set, or update its score if it already exists
 
@@ -4105,7 +4186,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         flat_member_scores = dict_to_flat_list(member_scores, reverse=True)
         command_arguments.extend(flat_member_scores)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZADD, key, *command_arguments, callback=ZAddCallback()
         )
 
@@ -4114,7 +4195,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zcard(self, key: KeyT) -> int:
+    def zcard(self, key: KeyT) -> CommandRequest[int]:
         """
         Get the number of members in a sorted set
 
@@ -4123,28 +4204,26 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(CommandName.ZCARD, key, callback=IntCallback())
+        return self.create_request(CommandName.ZCARD, key, callback=IntCallback())
 
     @redis_command(
         CommandName.ZCOUNT,
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zcount(
+    def zcount(
         self,
         key: KeyT,
         min_: ValueT,
         max_: ValueT,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Count the members in a sorted set with scores within the given values
 
         :return: the number of elements in the specified score range.
         """
 
-        return await self.execute_command(
-            CommandName.ZCOUNT, key, min_, max_, callback=IntCallback()
-        )
+        return self.create_request(CommandName.ZCOUNT, key, min_, max_, callback=IntCallback())
 
     @ensure_iterable_valid("keys")
     @redis_command(
@@ -4153,9 +4232,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zdiff(
+    def zdiff(
         self, keys: Parameters[KeyT], withscores: bool | None = None
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
         Subtract multiple sorted sets
 
@@ -4167,11 +4246,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         if withscores:
             command_arguments.append(PureToken.WITHSCORES)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZDIFF,
             *command_arguments,
-            withscores=withscores,
-            callback=ZMembersOrScoredMembers[AnyStr](),
+            callback=ZMembersOrScoredMembers[AnyStr](withscores=withscores),
         )
 
     @ensure_iterable_valid("keys")
@@ -4180,7 +4258,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.SORTED_SET,
     )
-    async def zdiffstore(self, keys: Parameters[KeyT], destination: KeyT) -> int:
+    def zdiffstore(self, keys: Parameters[KeyT], destination: KeyT) -> CommandRequest[int]:
         """
         Subtract multiple sorted sets and store the resulting sorted set in a new key
 
@@ -4188,7 +4266,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         command_arguments: CommandArgList = [len(list(keys)), *keys]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZDIFFSTORE,
             destination,
             *command_arguments,
@@ -4200,14 +4278,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.FAST},
     )
-    async def zincrby(self, key: KeyT, member: ValueT, increment: int) -> float:
+    def zincrby(self, key: KeyT, member: ValueT, increment: int) -> CommandRequest[float]:
         """
         Increment the score of a member in a sorted set
 
         :return: the new score of :paramref:`member`
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZINCRBY,
             key,
             increment,
@@ -4222,13 +4300,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zinter(
+    def zinter(
         self,
         keys: Parameters[KeyT],
         weights: Parameters[int] | None = None,
         aggregate: Literal[PureToken.MAX, PureToken.MIN, PureToken.SUM] | None = None,
         withscores: bool | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Intersect multiple sorted sets
@@ -4238,32 +4316,31 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self._zaggregate(
-            CommandName.ZINTER,
-            keys,
-            None,
-            weights,
-            aggregate,
-            withscores=withscores,
+        return self._zaggregate(
+            CommandName.ZINTER, keys, weights=weights, aggregate=aggregate, withscores=withscores
         )
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.ZINTERSTORE, group=CommandGroup.SORTED_SET)
-    async def zinterstore(
+    def zinterstore(
         self,
         keys: Parameters[KeyT],
         destination: KeyT,
         weights: Parameters[int] | None = None,
         aggregate: Literal[PureToken.MAX, PureToken.MIN, PureToken.SUM] | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Intersect multiple sorted sets and store the resulting sorted set in a new key
 
         :return: the number of elements in the resulting sorted set at :paramref:`destination`.
         """
 
-        return await self._zaggregate(
-            CommandName.ZINTERSTORE, keys, destination, weights, aggregate
+        return self._zaggregate(
+            CommandName.ZINTERSTORE,
+            keys,
+            destination=destination,
+            weights=weights,
+            aggregate=aggregate,
         )
 
     @versionadded(version="3.0.0")
@@ -4274,7 +4351,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zintercard(self, keys: Parameters[KeyT], limit: int | None = None) -> int:
+    def zintercard(self, keys: Parameters[KeyT], limit: int | None = None) -> CommandRequest[int]:
         """
         Intersect multiple sorted sets and return the cardinality of the result
 
@@ -4287,26 +4364,24 @@ class CoreCommands(CommandMixin[AnyStr]):
         if limit is not None:
             command_arguments.extend(["LIMIT", limit])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZINTERCARD, *command_arguments, callback=IntCallback()
         )
 
     @redis_command(
         CommandName.ZLEXCOUNT,
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zlexcount(self, key: KeyT, min_: ValueT, max_: ValueT) -> int:
+    def zlexcount(self, key: KeyT, min_: ValueT, max_: ValueT) -> CommandRequest[int]:
         """
         Count the number of members in a sorted set between a given lexicographical range
 
         :return: the number of elements in the specified score range.
         """
 
-        return await self.execute_command(
-            CommandName.ZLEXCOUNT, key, min_, max_, callback=IntCallback()
-        )
+        return self.create_request(CommandName.ZLEXCOUNT, key, min_, max_, callback=IntCallback())
 
     @versionadded(version="3.0.0")
     @ensure_iterable_valid("keys")
@@ -4315,12 +4390,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="7.0.0",
         group=CommandGroup.SORTED_SET,
     )
-    async def zmpop(
+    def zmpop(
         self,
         keys: Parameters[KeyT],
         where: Literal[PureToken.MAX, PureToken.MIN],
         count: int | None = None,
-    ) -> tuple[AnyStr, tuple[ScoredMember, ...]] | None:
+    ) -> CommandRequest[tuple[AnyStr, tuple[ScoredMember, ...]] | None]:
         """
         Remove and return members with scores in a sorted set
 
@@ -4332,7 +4407,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend(["COUNT", count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZMPOP, *command_arguments, callback=ZMPopCallback[AnyStr]()
         )
 
@@ -4341,10 +4416,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.ZMSCORE,
         version_introduced="6.2.0",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zmscore(self, key: KeyT, members: Parameters[ValueT]) -> tuple[float | None, ...]:
+    def zmscore(
+        self, key: KeyT, members: Parameters[ValueT]
+    ) -> CommandRequest[tuple[float | None, ...]]:
         """
         Get the score associated with the given members in a sorted set
 
@@ -4356,54 +4433,47 @@ class CoreCommands(CommandMixin[AnyStr]):
         if not members:
             raise DataError("ZMSCORE members must be a non-empty list")
 
-        return await self.execute_command(
-            CommandName.ZMSCORE, key, *members, callback=ZMScoreCallback()
-        )
+        return self.create_request(CommandName.ZMSCORE, key, *members, callback=ZMScoreCallback())
 
     @redis_command(
         CommandName.ZPOPMAX,
         group=CommandGroup.SORTED_SET,
     )
-    async def zpopmax(
+    def zpopmax(
         self, key: KeyT, count: int | None = None
-    ) -> ScoredMember | tuple[ScoredMember, ...] | None:
+    ) -> CommandRequest[ScoredMember | tuple[ScoredMember, ...] | None]:
         """
         Remove and return members with the highest scores in a sorted set
 
         :return: popped elements and scores.
         """
         args = (count is not None) and [count] or []
-        options = {"count": count}
-
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZPOPMAX,
             key,
             *args,
-            **options,
-            callback=ZSetScorePairCallback[AnyStr](),
+            callback=ZSetScorePairCallback[AnyStr](count=count),
         )
 
     @redis_command(
         CommandName.ZPOPMIN,
         group=CommandGroup.SORTED_SET,
     )
-    async def zpopmin(
+    def zpopmin(
         self, key: KeyT, count: int | None = None
-    ) -> ScoredMember | tuple[ScoredMember, ...] | None:
+    ) -> CommandRequest[ScoredMember | tuple[ScoredMember, ...] | None]:
         """
         Remove and return members with the lowest scores in a sorted set
 
         :return: popped elements and scores.
         """
         args = (count is not None) and [count] or []
-        options = {"count": count}
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZPOPMIN,
             key,
             *args,
-            callback=ZSetScorePairCallback[AnyStr](),
-            **options,
+            callback=ZSetScorePairCallback[AnyStr](count=count),
         )
 
     @redis_command(
@@ -4412,12 +4482,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zrandmember(
+    def zrandmember(
         self,
         key: KeyT,
         count: int | None = None,
         withscores: bool | None = None,
-    ) -> AnyStr | tuple[AnyStr, ...] | tuple[ScoredMember, ...] | None:
+    ) -> CommandRequest[AnyStr | tuple[AnyStr, ...] | tuple[ScoredMember, ...] | None]:
         """
         Get one or multiple random elements from a sorted set
 
@@ -4431,27 +4501,25 @@ class CoreCommands(CommandMixin[AnyStr]):
          If :paramref:`withscores` argument is used, the return is a list elements
          and their scores from the sorted set.
         """
-        params: CommandArgList = []
+        command_arguments: CommandArgList = [key]
         options = {}
 
         if count is not None:
-            params.append(count)
+            command_arguments.append(count)
             options["count"] = count
 
         if withscores:
-            params.append(PureToken.WITHSCORES)
+            command_arguments.append(PureToken.WITHSCORES)
             options["withscores"] = True
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZRANDMEMBER,
-            key,
-            *params,
-            callback=ZRandMemberCallback[AnyStr](),
-            **options,
+            *command_arguments,
+            callback=ZRandMemberCallback[AnyStr](**options),
         )
 
     @overload
-    async def zrange(
+    def zrange(
         self,
         key: KeyT,
         min_: int | ValueT,
@@ -4460,10 +4528,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         rev: bool | None = None,
         offset: int | None = None,
         count: int | None = None,
-    ) -> tuple[AnyStr, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr, ...]]: ...
 
     @overload
-    async def zrange(
+    def zrange(
         self,
         key: KeyT,
         min_: int | ValueT,
@@ -4474,7 +4542,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         *,
         withscores: Literal[True],
-    ) -> tuple[ScoredMember, ...]: ...
+    ) -> CommandRequest[tuple[ScoredMember, ...]]: ...
 
     @mutually_inclusive_parameters("offset", "count")
     @redis_command(
@@ -4486,10 +4554,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             "offset": {"version_introduced": "6.2.0"},
             "count": {"version_introduced": "6.2.0"},
         },
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def zrange(
+    def zrange(
         self,
         key: KeyT,
         min_: int | ValueT,
@@ -4499,7 +4567,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         offset: int | None = None,
         count: int | None = None,
         withscores: bool | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Return a range of members in a sorted set
@@ -4508,7 +4576,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          :paramref:`withscores` is given).
         """
 
-        return await self._zrange(
+        return self._zrange(
             CommandName.ZRANGE,
             key,
             min_,
@@ -4526,18 +4594,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="6.2.0",
         deprecation_reason=" Use :meth:`zrange` with the sortby=BYLEX argument",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("offset", "count")
-    async def zrangebylex(
+    def zrangebylex(
         self,
         key: KeyT,
         min_: ValueT,
         max_: ValueT,
         offset: int | None = None,
         count: int | None = None,
-    ) -> tuple[AnyStr, ...]:
+    ) -> CommandRequest[tuple[AnyStr, ...]]:
         """
 
         Return a range of members in a sorted set, by lexicographical range
@@ -4550,7 +4618,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if offset is not None and count is not None:
             command_arguments.extend(["LIMIT", offset, count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZRANGEBYLEX,
             *command_arguments,
             callback=TupleCallback[AnyStr](),
@@ -4561,11 +4629,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="6.2.0",
         deprecation_reason=" Use :meth:`zrange` with the sortby=BYSCORE argument",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("offset", "count")
-    async def zrangebyscore(
+    def zrangebyscore(
         self,
         key: KeyT,
         min_: int | float,
@@ -4573,7 +4641,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         withscores: bool | None = None,
         offset: int | None = None,
         count: int | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Return a range of members in a sorted set, by score
@@ -4590,11 +4658,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PureToken.WITHSCORES)
         options = {"withscores": withscores}
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZRANGEBYSCORE,
             *command_arguments,
-            callback=ZMembersOrScoredMembers[AnyStr](),
-            **options,
+            callback=ZMembersOrScoredMembers[AnyStr](**options),
         )
 
     @mutually_inclusive_parameters("offset", "count")
@@ -4603,7 +4670,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.SORTED_SET,
     )
-    async def zrangestore(
+    def zrangestore(
         self,
         dst: KeyT,
         src: KeyT,
@@ -4613,14 +4680,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         rev: bool | None = None,
         offset: int | None = None,
         count: int | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Store a range of members from sorted set into another key
 
         :return: the number of elements in the resulting sorted set
         """
 
-        return await self._zrange(
+        return self._zrange(
             CommandName.ZRANGESTORE,
             src,
             min_,
@@ -4637,12 +4704,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.ZRANK,
         arguments={"withscore": {"version_introduced": "7.1.240"}},
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zrank(
+    def zrank(
         self, key: KeyT, member: ValueT, withscore: bool | None = None
-    ) -> int | tuple[int, float] | None:
+    ) -> CommandRequest[int | tuple[int, float] | None]:
         """
         Determine the index of a member in a sorted set
 
@@ -4654,11 +4721,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         if withscore:
             command_arguments.append(PureToken.WITHSCORE)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZRANK,
             *command_arguments,
-            callback=ZRankCallback(),
-            withscore=withscore,
+            callback=ZRankCallback(withscore=withscore),
         )
 
     @ensure_iterable_valid("members")
@@ -4667,7 +4733,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.FAST},
     )
-    async def zrem(self, key: KeyT, members: Parameters[ValueT]) -> int:
+    def zrem(self, key: KeyT, members: Parameters[ValueT]) -> CommandRequest[int]:
         """
         Remove one or more members from a sorted set
 
@@ -4675,41 +4741,43 @@ class CoreCommands(CommandMixin[AnyStr]):
          members.
         """
 
-        return await self.execute_command(CommandName.ZREM, key, *members, callback=IntCallback())
+        return self.create_request(CommandName.ZREM, key, *members, callback=IntCallback())
 
     @redis_command(CommandName.ZREMRANGEBYLEX, group=CommandGroup.SORTED_SET)
-    async def zremrangebylex(self, key: KeyT, min_: ValueT, max_: ValueT) -> int:
+    def zremrangebylex(self, key: KeyT, min_: ValueT, max_: ValueT) -> CommandRequest[int]:
         """
         Remove all members in a sorted set between the given lexicographical range
 
         :return: the number of elements removed.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREMRANGEBYLEX, key, min_, max_, callback=IntCallback()
         )
 
     @redis_command(CommandName.ZREMRANGEBYRANK, group=CommandGroup.SORTED_SET)
-    async def zremrangebyrank(self, key: KeyT, start: int, stop: int) -> int:
+    def zremrangebyrank(self, key: KeyT, start: int, stop: int) -> CommandRequest[int]:
         """
         Remove all members in a sorted set within the given indexes
 
         :return: the number of elements removed.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREMRANGEBYRANK, key, start, stop, callback=IntCallback()
         )
 
     @redis_command(CommandName.ZREMRANGEBYSCORE, group=CommandGroup.SORTED_SET)
-    async def zremrangebyscore(self, key: KeyT, min_: int | float, max_: int | float) -> int:
+    def zremrangebyscore(
+        self, key: KeyT, min_: int | float, max_: int | float
+    ) -> CommandRequest[int]:
         """
         Remove all members in a sorted set within the given scores
 
         :return: the number of elements removed.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREMRANGEBYSCORE, key, min_, max_, callback=IntCallback()
         )
 
@@ -4718,16 +4786,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="6.2.0",
         deprecation_reason="Use :meth:`zrange` with the rev argument",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def zrevrange(
+    def zrevrange(
         self,
         key: KeyT,
         start: int,
         stop: int,
         withscores: bool | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Return a range of members in a sorted set, by index, with scores ordered from
@@ -4739,13 +4807,11 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if withscores:
             command_arguments.append(PureToken.WITHSCORES)
-        options = {"withscores": withscores}
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREVRANGE,
             *command_arguments,
-            callback=ZMembersOrScoredMembers[AnyStr](),
-            **options,
+            callback=ZMembersOrScoredMembers[AnyStr](withscores=withscores),
         )
 
     @redis_command(
@@ -4753,18 +4819,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="6.2.0",
         deprecation_reason="Use :meth:`zrange` with the rev and sort=BYLEX arguments",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("offset", "count")
-    async def zrevrangebylex(
+    def zrevrangebylex(
         self,
         key: KeyT,
         max_: ValueT,
         min_: ValueT,
         offset: int | None = None,
         count: int | None = None,
-    ) -> tuple[AnyStr, ...]:
+    ) -> CommandRequest[tuple[AnyStr, ...]]:
         """
 
         Return a range of members in a sorted set, by lexicographical range, ordered from
@@ -4778,7 +4844,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if offset is not None and count is not None:
             command_arguments.extend(["LIMIT", offset, count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREVRANGEBYLEX,
             *command_arguments,
             callback=TupleCallback[AnyStr](),
@@ -4789,11 +4855,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_deprecated="6.2.0",
         deprecation_reason="Use :meth:`zrange` with the rev and sort=BYSCORE arguments",
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("offset", "count")
-    async def zrevrangebyscore(
+    def zrevrangebyscore(
         self,
         key: KeyT,
         max_: int | float,
@@ -4801,7 +4867,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         withscores: bool | None = None,
         offset: int | None = None,
         count: int | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Return a range of members in a sorted set, by score, with scores ordered from high to low
@@ -4816,25 +4882,23 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if withscores:
             command_arguments.append(PureToken.WITHSCORES)
-        options = {"withscores": withscores}
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREVRANGEBYSCORE,
             *command_arguments,
-            **options,
-            callback=ZMembersOrScoredMembers[AnyStr](),
+            callback=ZMembersOrScoredMembers[AnyStr](withscores=withscores),
         )
 
     @redis_command(
         CommandName.ZREVRANK,
         arguments={"withscore": {"version_introduced": "7.1.240"}},
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zrevrank(
+    def zrevrank(
         self, key: KeyT, member: ValueT, withscore: bool | None = None
-    ) -> int | tuple[int, float] | None:
+    ) -> CommandRequest[int | tuple[int, float] | None]:
         """
         Determine the index of a member in a sorted set, with scores ordered from high to low
 
@@ -4844,11 +4908,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = [key, member]
         if withscore:
             command_arguments.append(PureToken.WITHSCORE)
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZREVRANK,
             *command_arguments,
-            callback=ZRankCallback(),
-            withscore=withscore,
+            callback=ZRankCallback(withscore=withscore),
         )
 
     @redis_command(
@@ -4856,13 +4919,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zscan(
+    def zscan(
         self,
         key: KeyT,
         cursor: int | None = 0,
         match: StringT | None = None,
         count: int | None = None,
-    ) -> tuple[int, tuple[ScoredMember, ...]]:
+    ) -> CommandRequest[tuple[int, tuple[ScoredMember, ...]]]:
         """
         Incrementally iterate sorted sets elements and associated scores
 
@@ -4875,25 +4938,25 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.extend(["COUNT", count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZSCAN, *command_arguments, callback=ZScanCallback[AnyStr]()
         )
 
     @redis_command(
         CommandName.ZSCORE,
         group=CommandGroup.SORTED_SET,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def zscore(self, key: KeyT, member: ValueT) -> float | None:
+    def zscore(self, key: KeyT, member: ValueT) -> CommandRequest[float | None]:
         """
         Get the score associated with the given member in a sorted set
 
         :return: the score of :paramref:`member` (a double precision floating point number),
-         represented as string or ``None`` if the member doesn't exist.
+         or ``None`` if the member doesn't exist.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ZSCORE, key, member, callback=OptionalFloatCallback()
         )
 
@@ -4904,13 +4967,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SORTED_SET,
         flags={CommandFlag.READONLY},
     )
-    async def zunion(
+    def zunion(
         self,
         keys: Parameters[KeyT],
         weights: Parameters[int] | None = None,
         aggregate: Literal[PureToken.SUM, PureToken.MIN, PureToken.MAX] | None = None,
         withscores: bool | None = None,
-    ) -> tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         """
 
         Add multiple sorted sets
@@ -4919,36 +4982,39 @@ class CoreCommands(CommandMixin[AnyStr]):
          :paramref:`withscores` is given).
         """
 
-        return await self._zaggregate(
+        return self._zaggregate(
             CommandName.ZUNION,
             keys,
-            None,
-            weights,
-            aggregate,
+            weights=weights,
+            aggregate=aggregate,
             withscores=withscores,
         )
 
     @ensure_iterable_valid("keys")
     @redis_command(CommandName.ZUNIONSTORE, group=CommandGroup.SORTED_SET)
-    async def zunionstore(
+    def zunionstore(
         self,
         keys: Parameters[KeyT],
         destination: KeyT,
         weights: Parameters[int] | None = None,
         aggregate: Literal[PureToken.SUM, PureToken.MIN, PureToken.MAX] | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Add multiple sorted sets and store the resulting sorted set in a new key
 
         :return: the number of elements in the resulting sorted set at :paramref:`destination`.
         """
 
-        return await self._zaggregate(
-            CommandName.ZUNIONSTORE, keys, destination, weights, aggregate
+        return self._zaggregate(
+            CommandName.ZUNIONSTORE,
+            keys,
+            destination=destination,
+            weights=weights,
+            aggregate=aggregate,
         )
 
     @overload
-    async def _zrange(
+    def _zrange(
         self,
         command: Literal[CommandName.ZRANGESTORE],
         key: KeyT,
@@ -4960,10 +5026,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         withscores: bool | None = ...,
         offset: int | None = ...,
         count: int | None = ...,
-    ) -> int: ...
+    ) -> CommandRequest[int]: ...
 
     @overload
-    async def _zrange(
+    def _zrange(
         self,
         command: Literal[CommandName.ZRANGE],
         key: KeyT,
@@ -4975,9 +5041,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         withscores: bool | None = ...,
         offset: int | None = ...,
         count: int | None = ...,
-    ) -> tuple[AnyStr | ScoredMember, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]: ...
 
-    async def _zrange(
+    def _zrange(
         self,
         command: Literal[CommandName.ZRANGE, CommandName.ZRANGESTORE],
         key: KeyT,
@@ -4989,7 +5055,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         withscores: bool | None = False,
         offset: int | None = None,
         count: int | None = None,
-    ) -> int | tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[int] | CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         command_arguments: CommandArgList = []
 
         if dest:
@@ -5007,43 +5073,47 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if withscores:
             command_arguments.append(PureToken.WITHSCORES)
-        options = {"withscores": withscores}
 
         if command == CommandName.ZRANGE:
-            return await self.execute_command(
+            return self.create_request(
                 command,
                 *command_arguments,
-                callback=ZMembersOrScoredMembers[AnyStr](),
-                **options,
+                callback=ZMembersOrScoredMembers[AnyStr](withscores=withscores),
             )
         else:
-            return await self.execute_command(
-                command, *command_arguments, callback=IntCallback(), **options
-            )
+            return self.create_request(command, *command_arguments, callback=IntCallback())
 
     @overload
-    async def _zaggregate(
+    def _zaggregate(
         self,
-        command: Literal[CommandName.ZUNIONSTORE, CommandName.ZINTERSTORE],
+        command: Literal[
+            CommandName.ZUNIONSTORE,
+            CommandName.ZINTERSTORE,
+        ],
         keys: Parameters[KeyT],
+        *,
         destination: KeyT | None = ...,
         weights: Parameters[int] | None = ...,
-        aggregate: PureToken | None = ...,
+        aggregate: Literal[PureToken.MAX, PureToken.MIN, PureToken.SUM] | None = ...,
         withscores: bool | None = ...,
-    ) -> int: ...
+    ) -> CommandRequest[int]: ...
 
     @overload
-    async def _zaggregate(
+    def _zaggregate(
         self,
-        command: Literal[CommandName.ZUNION, CommandName.ZINTER],
+        command: Literal[
+            CommandName.ZUNION,
+            CommandName.ZINTER,
+        ],
         keys: Parameters[KeyT],
+        *,
         destination: KeyT | None = ...,
         weights: Parameters[int] | None = ...,
-        aggregate: PureToken | None = ...,
+        aggregate: Literal[PureToken.MAX, PureToken.MIN, PureToken.SUM] | None = ...,
         withscores: bool | None = ...,
-    ) -> tuple[AnyStr | ScoredMember, ...]: ...
+    ) -> CommandRequest[tuple[AnyStr | ScoredMember, ...]]: ...
 
-    async def _zaggregate(
+    def _zaggregate(
         self,
         command: Literal[
             CommandName.ZUNION,
@@ -5052,11 +5122,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             CommandName.ZINTERSTORE,
         ],
         keys: Parameters[KeyT],
+        *,
         destination: KeyT | None = None,
         weights: Parameters[int] | None = None,
-        aggregate: PureToken | None = None,
+        aggregate: Literal[PureToken.MAX, PureToken.MIN, PureToken.SUM] | None = None,
         withscores: bool | None = None,
-    ) -> int | tuple[AnyStr | ScoredMember, ...]:
+    ) -> CommandRequest[int] | CommandRequest[tuple[AnyStr | ScoredMember, ...]]:
         command_arguments: CommandArgList = []
 
         if destination:
@@ -5078,15 +5149,16 @@ class CoreCommands(CommandMixin[AnyStr]):
             options = {"withscores": True}
 
         if command in [CommandName.ZUNIONSTORE, CommandName.ZINTERSTORE]:
-            return await self.execute_command(
-                command, *command_arguments, callback=IntCallback(), **options
-            )
-        else:
-            return await self.execute_command(
+            return self.create_request(
                 command,
                 *command_arguments,
-                callback=ZMembersOrScoredMembers[AnyStr](),
-                **options,
+                callback=IntCallback(),
+            )
+        else:
+            return self.create_request(
+                command,
+                *command_arguments,
+                callback=ZMembersOrScoredMembers[AnyStr](**options),
             )
 
     @ensure_iterable_valid("identifiers")
@@ -5095,7 +5167,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.FAST},
     )
-    async def xack(self, key: KeyT, group: StringT, identifiers: Parameters[ValueT]) -> int:
+    def xack(
+        self, key: KeyT, group: StringT, identifiers: Parameters[ValueT]
+    ) -> CommandRequest[int]:
         """
         Marks a pending message as correctly processed,
         effectively removing it from the pending entries list of the consumer group.
@@ -5104,7 +5178,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          that is, the IDs we were actually able to resolve in the PEL.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XACK, key, group, *identifiers, callback=IntCallback()
         )
 
@@ -5118,7 +5192,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         },
         flags={CommandFlag.FAST},
     )
-    async def xadd(
+    def xadd(
         self,
         key: KeyT,
         field_values: Mapping[StringT, ValueT],
@@ -5128,7 +5202,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         threshold: int | None = None,
         trim_operator: Literal[PureToken.EQUAL, PureToken.APPROXIMATELY] | None = None,
         limit: int | None = None,
-    ) -> AnyStr | None:
+    ) -> CommandRequest[AnyStr | None]:
         """
         Appends a new entry to a stream
 
@@ -5161,7 +5235,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         for kv in field_values.items():
             command_arguments.extend(list(kv))
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XADD,
             key,
             *command_arguments,
@@ -5173,37 +5247,37 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def xlen(self, key: KeyT) -> int:
+    def xlen(self, key: KeyT) -> CommandRequest[int]:
         """ """
 
-        return await self.execute_command(CommandName.XLEN, key, callback=IntCallback())
+        return self.create_request(CommandName.XLEN, key, callback=IntCallback())
 
     @redis_command(
         CommandName.XRANGE,
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY},
     )
-    async def xrange(
+    def xrange(
         self,
         key: KeyT,
         start: ValueT | None = None,
         end: ValueT | None = None,
         count: int | None = None,
-    ) -> tuple[StreamEntry, ...]:
+    ) -> CommandRequest[tuple[StreamEntry, ...]]:
         """
         Return a range of elements in a stream, with IDs matching the specified IDs interval
         """
 
         command_arguments: CommandArgList = [
-            defaultvalue(start, "-"),
-            defaultvalue(end, "+"),
+            start if start is not None else "-",
+            end if end is not None else "+",
         ]
 
         if count is not None:
-            command_arguments.append("COUNT")
+            command_arguments.append(PrefixToken.COUNT)
             command_arguments.append(count)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XRANGE, key, *command_arguments, callback=StreamRangeCallback()
         )
 
@@ -5212,27 +5286,27 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY},
     )
-    async def xrevrange(
+    def xrevrange(
         self,
         key: KeyT,
         end: ValueT | None = None,
         start: ValueT | None = None,
         count: int | None = None,
-    ) -> tuple[StreamEntry, ...]:
+    ) -> CommandRequest[tuple[StreamEntry, ...]]:
         """
         Return a range of elements in a stream, with IDs matching the specified
         IDs interval, in reverse order (from greater to smaller IDs) compared to XRANGE
         """
         command_arguments: CommandArgList = [
-            defaultvalue(end, "+"),
-            defaultvalue(start, "-"),
+            end if end is not None else "+",
+            start if start is not None else "-",
         ]
 
         if count is not None:
-            command_arguments.append("COUNT")
+            command_arguments.append(PrefixToken.COUNT)
             command_arguments.append(count)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XREVRANGE,
             key,
             *command_arguments,
@@ -5244,12 +5318,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY, CommandFlag.BLOCKING},
     )
-    async def xread(
+    def xread(
         self,
         streams: Mapping[ValueT, ValueT],
         count: int | None = None,
         block: int | datetime.timedelta | None = None,
-    ) -> dict[AnyStr, tuple[StreamEntry, ...]] | None:
+    ) -> CommandRequest[dict[AnyStr, tuple[StreamEntry, ...]] | None]:
         """
         Return never seen elements in multiple streams, with IDs greater than
         the ones reported by the caller for each stream. Can block.
@@ -5277,14 +5351,14 @@ class CoreCommands(CommandMixin[AnyStr]):
             ids.append(partial_stream[1])
         command_arguments.extend(ids)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XREAD,
             *command_arguments,
             callback=MultiStreamRangeCallback[AnyStr](),
         )
 
     @redis_command(CommandName.XREADGROUP, group=CommandGroup.STREAM, flags={CommandFlag.BLOCKING})
-    async def xreadgroup(
+    def xreadgroup(
         self,
         group: StringT,
         consumer: StringT,
@@ -5292,7 +5366,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         block: int | datetime.timedelta | None = None,
         noack: bool | None = None,
-    ) -> dict[AnyStr, tuple[StreamEntry, ...]] | None:
+    ) -> CommandRequest[dict[AnyStr, tuple[StreamEntry, ...]] | None]:
         """ """
         command_arguments: CommandArgList = [PrefixToken.GROUP, group, consumer]
 
@@ -5314,7 +5388,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(partial_stream[0])
             ids.append(partial_stream[1])
         command_arguments.extend(ids)
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XREADGROUP,
             *command_arguments,
             callback=MultiStreamRangeCallback[AnyStr](),
@@ -5327,7 +5401,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"idle": {"version_introduced": "6.2.0"}},
         flags={CommandFlag.READONLY},
     )
-    async def xpending(
+    def xpending(
         self,
         key: KeyT,
         group: StringT,
@@ -5336,7 +5410,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         count: int | None = None,
         idle: int | None = None,
         consumer: StringT | None = None,
-    ) -> tuple[StreamPendingExt, ...] | StreamPending:
+    ) -> CommandRequest[tuple[StreamPendingExt, ...] | StreamPending]:
         """
         Return information and entries from a stream consumer group pending
         entries list, that are messages fetched but never acknowledged.
@@ -5352,11 +5426,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         if consumer is not None:
             command_arguments.append(consumer)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XPENDING,
             *command_arguments,
-            count=count,
-            callback=PendingCallback(),
+            callback=PendingCallback(count=count),
         )
 
     @mutually_inclusive_parameters("trim_strategy", "threshold")
@@ -5365,14 +5438,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         arguments={"limit": {"version_introduced": "6.2.0"}},
     )
-    async def xtrim(
+    def xtrim(
         self,
         key: KeyT,
         trim_strategy: Literal[PureToken.MAXLEN, PureToken.MINID],
         threshold: int,
         trim_operator: Literal[PureToken.EQUAL, PureToken.APPROXIMATELY] | None = None,
         limit: int | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """ """
         command_arguments: CommandArgList = [trim_strategy]
 
@@ -5384,7 +5457,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if limit is not None:
             command_arguments.extend(["LIMIT", limit])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XTRIM, key, *command_arguments, callback=IntCallback()
         )
 
@@ -5394,27 +5467,25 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.FAST},
     )
-    async def xdel(self, key: KeyT, identifiers: Parameters[ValueT]) -> int:
+    def xdel(self, key: KeyT, identifiers: Parameters[ValueT]) -> CommandRequest[int]:
         """ """
 
-        return await self.execute_command(
-            CommandName.XDEL, key, *identifiers, callback=IntCallback()
-        )
+        return self.create_request(CommandName.XDEL, key, *identifiers, callback=IntCallback())
 
     @redis_command(
         CommandName.XINFO_CONSUMERS,
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY},
     )
-    async def xinfo_consumers(
+    def xinfo_consumers(
         self, key: KeyT, groupname: StringT
-    ) -> tuple[dict[AnyStr, AnyStr], ...]:
+    ) -> CommandRequest[tuple[dict[AnyStr, AnyStr], ...]]:
         """
         Get list of all consumers that belong to :paramref:`groupname` of the
         stream stored at :paramref:`key`
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XINFO_CONSUMERS,
             key,
             groupname,
@@ -5426,14 +5497,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY},
     )
-    async def xinfo_groups(self, key: KeyT) -> tuple[dict[AnyStr, AnyStr], ...]:
+    def xinfo_groups(self, key: KeyT) -> CommandRequest[tuple[dict[AnyStr, AnyStr], ...]]:
         """
         Get list of all consumers groups of the stream stored at :paramref:`key`
         """
 
-        return await self.execute_command(
-            CommandName.XINFO_GROUPS, key, callback=XInfoCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.XINFO_GROUPS, key, callback=XInfoCallback[AnyStr]())
 
     @mutually_inclusive_parameters("count", leaders=["full"])
     @redis_command(
@@ -5441,9 +5510,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.READONLY},
     )
-    async def xinfo_stream(
+    def xinfo_stream(
         self, key: KeyT, full: bool | None = None, count: int | None = None
-    ) -> StreamInfo:
+    ) -> CommandRequest[StreamInfo]:
         """
         Get information about the stream stored at :paramref:`key`
 
@@ -5454,17 +5523,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = []
 
         if full:
-            command_arguments.append("FULL")
+            command_arguments.append(PureToken.FULL)
 
             if count is not None:
-                command_arguments.extend(["COUNT", count])
+                command_arguments.extend([PrefixToken.COUNT, count])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XINFO_STREAM,
             key,
             *command_arguments,
-            full=full,
-            callback=StreamInfoCallback(),
+            callback=StreamInfoCallback(full=full),
         )
 
     @ensure_iterable_valid("identifiers")
@@ -5473,7 +5541,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.FAST},
     )
-    async def xclaim(
+    def xclaim(
         self,
         key: KeyT,
         group: StringT,
@@ -5486,7 +5554,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         force: bool | None = None,
         justid: bool | None = None,
         lastid: ValueT | None = None,
-    ) -> tuple[AnyStr, ...] | tuple[StreamEntry, ...]:
+    ) -> CommandRequest[tuple[AnyStr, ...] | tuple[StreamEntry, ...]]:
         """
         Changes (or acquires) ownership of a message in a consumer group, as
         if the message was delivered to the specified consumer.
@@ -5516,11 +5584,10 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if lastid is not None:
             command_arguments.extend([PrefixToken.LASTID, lastid])
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XCLAIM,
             *command_arguments,
-            justid=justid,
-            callback=ClaimCallback[AnyStr](),
+            callback=ClaimCallback[AnyStr](justid=justid),
         )
 
     @redis_command(
@@ -5528,14 +5595,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         arguments={"entriesread": {"version_introduced": "7.0.0"}},
         group=CommandGroup.STREAM,
     )
-    async def xgroup_create(
+    def xgroup_create(
         self,
         key: KeyT,
         groupname: StringT,
         identifier: ValueT | None = None,
         mkstream: bool | None = None,
         entriesread: int | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Create a consumer group.
         """
@@ -5551,7 +5618,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if entriesread is not None:
             command_arguments.extend([PrefixToken.ENTRIESREAD, entriesread])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XGROUP_CREATE,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -5563,9 +5630,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.STREAM,
     )
-    async def xgroup_createconsumer(
+    def xgroup_createconsumer(
         self, key: KeyT, groupname: StringT, consumername: StringT
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Create a consumer in a consumer group.
 
@@ -5573,7 +5640,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         command_arguments: CommandArgList = [key, groupname, consumername]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XGROUP_CREATECONSUMER,
             *command_arguments,
             callback=BoolCallback(),
@@ -5585,13 +5652,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         arguments={"entriesread": {"version_introduced": "7.0.0"}},
     )
-    async def xgroup_setid(
+    def xgroup_setid(
         self,
         key: KeyT,
         groupname: StringT,
         identifier: ValueT | None = None,
         entriesread: int | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set a consumer group to an arbitrary last delivered ID value.
         """
@@ -5605,34 +5672,36 @@ class CoreCommands(CommandMixin[AnyStr]):
         if entriesread is not None:
             command_arguments.extend([PrefixToken.ENTRIESREAD, entriesread])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XGROUP_SETID,
             *command_arguments,
             callback=SimpleStringCallback(),
         )
 
     @redis_command(CommandName.XGROUP_DESTROY, group=CommandGroup.STREAM)
-    async def xgroup_destroy(self, key: KeyT, groupname: StringT) -> int:
+    def xgroup_destroy(self, key: KeyT, groupname: StringT) -> CommandRequest[int]:
         """
         Destroy a consumer group.
 
         :return: The number of destroyed consumer groups
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XGROUP_DESTROY, key, groupname, callback=IntCallback()
         )
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.XGROUP_DELCONSUMER, group=CommandGroup.STREAM)
-    async def xgroup_delconsumer(self, key: KeyT, groupname: StringT, consumername: StringT) -> int:
+    def xgroup_delconsumer(
+        self, key: KeyT, groupname: StringT, consumername: StringT
+    ) -> CommandRequest[int]:
         """
         Delete a consumer from a consumer group.
 
         :return: The number of pending messages that the consumer had before it was deleted
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XGROUP_DELCONSUMER,
             key,
             groupname,
@@ -5647,7 +5716,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.STREAM,
         flags={CommandFlag.FAST},
     )
-    async def xautoclaim(
+    def xautoclaim(
         self,
         key: KeyT,
         group: StringT,
@@ -5656,10 +5725,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         start: ValueT,
         count: int | None = None,
         justid: bool | None = None,
-    ) -> (
+    ) -> CommandRequest[
         tuple[AnyStr, tuple[AnyStr, ...]]
         | tuple[AnyStr, tuple[StreamEntry, ...], tuple[AnyStr, ...]]
-    ):
+    ]:
         """
         Changes (or acquires) ownership of messages in a consumer group, as if the messages were
         delivered to the specified consumer.
@@ -5682,11 +5751,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         if justid is not None:
             command_arguments.append(PureToken.JUSTID)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.XAUTOCLAIM,
             *command_arguments,
-            justid=justid,
-            callback=AutoClaimCallback[AnyStr](),
+            callback=AutoClaimCallback[AnyStr](justid=justid),
         )
 
     @redis_command(
@@ -5696,28 +5764,28 @@ class CoreCommands(CommandMixin[AnyStr]):
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("start", "end")
-    async def bitcount(
+    def bitcount(
         self,
         key: KeyT,
         start: int | None = None,
         end: int | None = None,
         index_unit: Literal[PureToken.BIT, PureToken.BYTE] | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Returns the count of set bits in the value of :paramref:`key`.  Optional
         :paramref:`start` and :paramref:`end` parameters indicate which bytes to consider
 
         """
-        params: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
 
         if start is not None and end is not None:
-            params.append(start)
-            params.append(end)
+            command_arguments.append(start)
+            command_arguments.append(end)
 
         if index_unit is not None:
-            params.append(index_unit)
+            command_arguments.append(index_unit)
 
-        return await self.execute_command(CommandName.BITCOUNT, *params, callback=IntCallback())
+        return self.create_request(CommandName.BITCOUNT, *command_arguments, callback=IntCallback())
 
     def bitfield(self, key: KeyT) -> BitFieldOperation[AnyStr]:
         """
@@ -5745,13 +5813,15 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.BITOP,
         group=CommandGroup.BITMAP,
     )
-    async def bitop(self, keys: Parameters[KeyT], operation: StringT, destkey: KeyT) -> int:
+    def bitop(
+        self, keys: Parameters[KeyT], operation: StringT, destkey: KeyT
+    ) -> CommandRequest[int]:
         """
         Perform a bitwise operation using :paramref:`operation` between
         :paramref:`keys` and store the result in :paramref:`destkey`.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BITOP, operation, destkey, *keys, callback=IntCallback()
         )
 
@@ -5762,14 +5832,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         flags={CommandFlag.READONLY},
     )
     @mutually_inclusive_parameters("end", leaders=("start",))
-    async def bitpos(
+    def bitpos(
         self,
         key: KeyT,
         bit: int,
         start: int | None = None,
         end: int | None = None,
         index_unit: Literal[PureToken.BIT, PureToken.BYTE] | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
 
         Return the position of the first bit set to 1 or 0 in a string.
@@ -5800,62 +5870,58 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         if bit not in (0, 1):
             raise RedisError("bit must be 0 or 1")
-        params: CommandArgList = [key, bit]
+        command_arguments: CommandArgList = [key, bit]
 
         if start is not None:
-            params.append(start)
+            command_arguments.append(start)
 
         if start is not None and end is not None:
-            params.append(end)
+            command_arguments.append(end)
 
         if index_unit is not None:
-            params.append(index_unit)
+            command_arguments.append(index_unit)
 
-        return await self.execute_command(CommandName.BITPOS, *params, callback=IntCallback())
+        return self.create_request(CommandName.BITPOS, *command_arguments, callback=IntCallback())
 
     @redis_command(
         CommandName.GETBIT,
         group=CommandGroup.BITMAP,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def getbit(self, key: KeyT, offset: int) -> int:
+    def getbit(self, key: KeyT, offset: int) -> CommandRequest[int]:
         """
         Returns the bit value at offset in the string value stored at key
 
         :return: the bit value stored at :paramref:`offset`.
         """
 
-        return await self.execute_command(CommandName.GETBIT, key, offset, callback=IntCallback())
+        return self.create_request(CommandName.GETBIT, key, offset, callback=IntCallback())
 
     @redis_command(CommandName.SETBIT, group=CommandGroup.BITMAP)
-    async def setbit(self, key: KeyT, offset: int, value: int) -> int:
+    def setbit(self, key: KeyT, offset: int, value: int) -> CommandRequest[int]:
         """
         Flag the :paramref:`offset` in :paramref:`key` as :paramref:`value`.
         """
         value = value and 1 or 0
 
-        return await self.execute_command(
-            CommandName.SETBIT, key, offset, value, callback=IntCallback()
-        )
+        return self.create_request(CommandName.SETBIT, key, offset, value, callback=IntCallback())
 
     @redis_command(
         CommandName.PUBLISH,
         group=CommandGroup.PUBSUB,
     )
-    async def publish(self, channel: StringT, message: ValueT) -> int:
+    def publish(self, channel: StringT, message: ValueT) -> CommandRequest[int]:
         """
         Publish :paramref:`message` on :paramref:`channel`.
 
         :return: the number of subscribers the message was delivered to.
         """
 
-        return await self.execute_command(
-            CommandName.PUBLISH, channel, message, callback=IntCallback()
-        )
+        return self.create_request(CommandName.PUBLISH, channel, message, callback=IntCallback())
 
     @versionadded(version="3.6.0")
     @redis_command(CommandName.SPUBLISH, group=CommandGroup.PUBSUB, version_introduced="7.0.0")
-    async def spublish(self, channel: StringT, message: ValueT) -> int:
+    def spublish(self, channel: StringT, message: ValueT) -> CommandRequest[int]:
         """
         Publish :paramref:`message` on shard :paramref:`channel`.
 
@@ -5866,9 +5932,7 @@ class CoreCommands(CommandMixin[AnyStr]):
            is listening on a replica node, it will not be included in the count.
         """
 
-        return await self.execute_command(
-            CommandName.SPUBLISH, channel, message, callback=IntCallback()
-        )
+        return self.create_request(CommandName.SPUBLISH, channel, message, callback=IntCallback())
 
     @redis_command(
         CommandName.PUBSUB_CHANNELS,
@@ -5878,12 +5942,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterMergeSets(),
         ),
     )
-    async def pubsub_channels(self, pattern: StringT | None = None) -> _Set[AnyStr]:
+    def pubsub_channels(self, pattern: StringT | None = None) -> CommandRequest[_Set[AnyStr]]:
         """
         Return channels that have at least one subscriber
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PUBSUB_CHANNELS,
             pattern or b"*",
             callback=SetCallback[AnyStr](),
@@ -5899,12 +5963,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterMergeSets(),
         ),
     )
-    async def pubsub_shardchannels(self, pattern: StringT | None = None) -> _Set[AnyStr]:
+    def pubsub_shardchannels(self, pattern: StringT | None = None) -> CommandRequest[_Set[AnyStr]]:
         """
         Return shard channels that have at least one subscriber
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PUBSUB_SHARDCHANNELS,
             pattern or b"*",
             callback=SetCallback[AnyStr](),
@@ -5914,14 +5978,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.PUBSUB_NUMPAT,
         group=CommandGroup.PUBSUB,
     )
-    async def pubsub_numpat(self) -> int:
+    def pubsub_numpat(self) -> CommandRequest[int]:
         """
         Get the count of unique patterns pattern subscriptions
 
         :return: the number of patterns all the clients are subscribed to.
         """
 
-        return await self.execute_command(CommandName.PUBSUB_NUMPAT, callback=IntCallback())
+        return self.create_request(CommandName.PUBSUB_NUMPAT, callback=IntCallback())
 
     @redis_command(
         CommandName.PUBSUB_NUMSUB,
@@ -5931,7 +5995,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterMergeMapping[AnyStr, int](value_combine=sum),
         ),
     )
-    async def pubsub_numsub(self, *channels: StringT) -> dict[AnyStr, int]:
+    def pubsub_numsub(self, *channels: StringT) -> CommandRequest[dict[AnyStr, int]]:
         """
         Get the count of subscribers for channels
 
@@ -5942,7 +6006,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if channels:
             command_arguments.extend(channels)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PUBSUB_NUMSUB,
             *command_arguments,
             callback=DictCallback[AnyStr, int](),
@@ -5956,7 +6020,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterMergeMapping[AnyStr, int](value_combine=sum),
         ),
     )
-    async def pubsub_shardnumsub(self, *channels: StringT) -> dict[AnyStr, int]:
+    def pubsub_shardnumsub(self, *channels: StringT) -> CommandRequest[dict[AnyStr, int]]:
         """
         Get the count of subscribers for shard channels
 
@@ -5967,26 +6031,26 @@ class CoreCommands(CommandMixin[AnyStr]):
         if channels:
             command_arguments.extend(channels)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.PUBSUB_SHARDNUMSUB,
             *command_arguments,
             callback=DictCallback[AnyStr, int](),
         )
 
-    async def _eval(
+    def _eval(
         self,
         command: Literal[CommandName.EVAL, CommandName.EVAL_RO],
         script: ValueT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         _keys: list[KeyT] = list(keys) if keys else []
         command_arguments: CommandArgList = [script, len(_keys), *_keys]
 
         if args:
             command_arguments.extend(args)
 
-        return await self.execute_command(
+        return self.create_request(
             command, *command_arguments, callback=NoopCallback[ResponseType]()
         )
 
@@ -5994,12 +6058,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.EVAL,
         group=CommandGroup.SCRIPTING,
     )
-    async def eval(
+    def eval(
         self,
         script: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Execute the Lua :paramref:`script` with the key names and argument values
         in :paramref:`keys` and :paramref:`args`.
@@ -6007,7 +6071,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The result of the script as redis returns it
         """
 
-        return await self._eval(CommandName.EVAL, script, keys, args)
+        return self._eval(CommandName.EVAL, script, keys, args)
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -6016,12 +6080,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SCRIPTING,
         flags={CommandFlag.READONLY},
     )
-    async def eval_ro(
+    def eval_ro(
         self,
         script: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Read-only variant of :meth:`~Redis.eval` that cannot execute commands
         that modify data.
@@ -6029,32 +6093,32 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The result of the script as redis returns it
         """
 
-        return await self._eval(CommandName.EVAL_RO, script, keys, args)
+        return self._eval(CommandName.EVAL_RO, script, keys, args)
 
-    async def _evalsha(
+    def _evalsha(
         self,
         command: Literal[CommandName.EVALSHA, CommandName.EVALSHA_RO],
         sha1: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         _keys: list[KeyT] = list(keys) if keys else []
         command_arguments: CommandArgList = [sha1, len(_keys), *_keys]
 
         if args:
             command_arguments.extend(args)
 
-        return await self.execute_command(
+        return self.create_request(
             command, *command_arguments, callback=NoopCallback[ResponseType]()
         )
 
     @redis_command(CommandName.EVALSHA, group=CommandGroup.SCRIPTING)
-    async def evalsha(
+    def evalsha(
         self,
         sha1: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Execute the Lua script cached by it's :paramref:`sha` ref with the
         key names and argument values in :paramref:`keys` and :paramref:`args`.
@@ -6063,7 +6127,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The result of the script as redis returns it
         """
 
-        return await self._evalsha(CommandName.EVALSHA, sha1, keys, args)
+        return self._evalsha(CommandName.EVALSHA, sha1, keys, args)
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -6072,12 +6136,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SCRIPTING,
         flags={CommandFlag.READONLY},
     )
-    async def evalsha_ro(
+    def evalsha_ro(
         self,
         sha1: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Read-only variant of :meth:`~Redis.evalsha` that cannot execute commands
         that modify data.
@@ -6085,17 +6149,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: The result of the script as redis returns it
         """
 
-        return await self._evalsha(CommandName.EVALSHA_RO, sha1, keys, args)
+        return self._evalsha(CommandName.EVALSHA_RO, sha1, keys, args)
 
     @versionadded(version="3.0.0")
     @redis_command(
         CommandName.SCRIPT_DEBUG,
         group=CommandGroup.SCRIPTING,
     )
-    async def script_debug(
+    def script_debug(
         self,
         mode: Literal[PureToken.NO, PureToken.SYNC, PureToken.YES],
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set the debug mode for executed scripts
 
@@ -6113,7 +6177,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterAlignedBoolsCombine(),
         ),
     )
-    async def script_exists(self, sha1s: Parameters[StringT]) -> tuple[bool, ...]:
+    def script_exists(self, sha1s: Parameters[StringT]) -> CommandRequest[tuple[bool, ...]]:
         """
         Check if a script exists in the script cache by specifying the SHAs of
         each script as :paramref:`sha1s`.
@@ -6122,9 +6186,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          exists in the cache.
         """
 
-        return await self.execute_command(
-            CommandName.SCRIPT_EXISTS, *sha1s, callback=BoolsCallback()
-        )
+        return self.create_request(CommandName.SCRIPT_EXISTS, *sha1s, callback=BoolsCallback())
 
     @redis_command(
         CommandName.SCRIPT_FLUSH,
@@ -6135,10 +6197,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def script_flush(
+    def script_flush(
         self,
         sync_type: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Flushes all scripts from the script cache
         """
@@ -6147,7 +6209,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if sync_type:
             command_arguments = [sync_type]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SCRIPT_FLUSH, *command_arguments, callback=BoolCallback()
         )
 
@@ -6159,12 +6221,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterFirstNonException[bool](),
         ),
     )
-    async def script_kill(self) -> bool:
+    def script_kill(self) -> CommandRequest[bool]:
         """
         Kills the currently executing Lua script
         """
 
-        return await self.execute_command(CommandName.SCRIPT_KILL, callback=SimpleStringCallback())
+        return self.create_request(CommandName.SCRIPT_KILL, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.SCRIPT_LOAD,
@@ -6174,14 +6236,14 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def script_load(self, script: StringT) -> AnyStr:
+    def script_load(self, script: StringT) -> CommandRequest[AnyStr]:
         """
         Loads a Lua :paramref:`script` into the script cache.
 
         :return: The SHA1 digest of the script added into the script cache
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SCRIPT_LOAD, script, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -6191,12 +6253,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="7.0.0",
         group=CommandGroup.SCRIPTING,
     )
-    async def fcall(
+    def fcall(
         self,
         function: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Invoke a function
         """
@@ -6208,7 +6270,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             *(args or []),
         ]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FCALL, *command_arguments, callback=NoopCallback[ResponseType]()
         )
 
@@ -6219,12 +6281,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SCRIPTING,
         flags={CommandFlag.READONLY},
     )
-    async def fcall_ro(
+    def fcall_ro(
         self,
         function: StringT,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Read-only variant of :meth:`~coredis.Redis.fcall`
         """
@@ -6236,7 +6298,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             *(args or []),
         ]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FCALL_RO,
             *command_arguments,
             callback=NoopCallback[ResponseType](),
@@ -6252,12 +6314,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def function_delete(self, library_name: StringT) -> bool:
+    def function_delete(self, library_name: StringT) -> CommandRequest[bool]:
         """
         Delete a library and all its functions.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_DELETE, library_name, callback=SimpleStringCallback()
         )
 
@@ -6268,13 +6330,15 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SCRIPTING,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def function_dump(self) -> bytes:
+    def function_dump(self) -> CommandRequest[bytes]:
         """
         Dump all functions into a serialized binary payload
         """
 
-        return await self.execute_command(
-            CommandName.FUNCTION_DUMP, decode=False, callback=NoopCallback[bytes]()
+        return self.create_request(
+            CommandName.FUNCTION_DUMP,
+            execution_parameters={"decode": False},
+            callback=NoopCallback[bytes](),
         )
 
     @versionadded(version="3.1.0")
@@ -6287,9 +6351,9 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def function_flush(
+    def function_flush(
         self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Delete all functions
         """
@@ -6298,7 +6362,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if async_ is not None:
             command_arguments.append(async_)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_FLUSH,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -6314,14 +6378,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterFirstNonException[bool](),
         ),
     )
-    async def function_kill(self) -> bool:
+    def function_kill(self) -> CommandRequest[bool]:
         """
         Kill the function currently in execution.
         """
 
-        return await self.execute_command(
-            CommandName.FUNCTION_KILL, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.FUNCTION_KILL, callback=SimpleStringCallback())
 
     @versionadded(version="3.1.0")
     @redis_command(
@@ -6330,9 +6392,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SCRIPTING,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def function_list(
+    def function_list(
         self, libraryname: StringT | None = None, withcode: bool | None = None
-    ) -> Mapping[AnyStr, LibraryDefinition]:
+    ) -> CommandRequest[Mapping[AnyStr, LibraryDefinition]]:
         """
         List information about the functions registered under
         :paramref:`libraryname`
@@ -6345,7 +6407,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if withcode:
             command_arguments.append(PureToken.WITHCODE)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_LIST,
             *command_arguments,
             callback=FunctionListCallback[AnyStr](),
@@ -6361,11 +6423,11 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def function_load(
+    def function_load(
         self,
         function_code: StringT,
         replace: bool | None = None,
-    ) -> AnyStr:
+    ) -> CommandRequest[AnyStr]:
         """
         Load a library of functions.
         """
@@ -6376,7 +6438,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         command_arguments.append(function_code)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_LOAD,
             *command_arguments,
             callback=AnyStrCallback[AnyStr](),
@@ -6392,11 +6454,11 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def function_restore(
+    def function_restore(
         self,
         serialized_value: bytes,
         policy: Literal[PureToken.FLUSH, PureToken.APPEND, PureToken.REPLACE] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Restore all the functions on the given payload
         """
@@ -6405,7 +6467,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if policy is not None:
             command_arguments.append(policy)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_RESTORE,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -6420,14 +6482,16 @@ class CoreCommands(CommandMixin[AnyStr]):
             route=NodeFlag.RANDOM,
         ),
     )
-    async def function_stats(
+    def function_stats(
         self,
-    ) -> dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]:
+    ) -> CommandRequest[
+        dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]
+    ]:
         """
         Return information about the function currently running
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FUNCTION_STATS, callback=FunctionStatsCallback[AnyStr]()
         )
 
@@ -6435,16 +6499,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.BGREWRITEAOF,
         group=CommandGroup.CONNECTION,
     )
-    async def bgrewriteaof(self) -> bool:
+    def bgrewriteaof(self) -> CommandRequest[bool]:
         """Tell the Redis server to rewrite the AOF file from data in memory"""
 
-        return await self.execute_command(CommandName.BGREWRITEAOF, callback=SimpleStringCallback())
+        return self.create_request(CommandName.BGREWRITEAOF, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.BGSAVE,
         group=CommandGroup.CONNECTION,
     )
-    async def bgsave(self, schedule: bool | None = None) -> bool:
+    def bgsave(self, schedule: bool | None = None) -> CommandRequest[bool]:
         """
         Tells the Redis server to save its data to disk.  Unlike save(),
         this method is asynchronous and returns immediately.
@@ -6454,7 +6518,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if schedule:
             command_arguments.append(PureToken.SCHEDULE)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.BGSAVE,
             *command_arguments,
             callback=SimpleStringCallback(
@@ -6468,13 +6532,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.0.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_caching(self, mode: Literal[PureToken.NO, PureToken.YES]) -> bool:
+    def client_caching(self, mode: Literal[PureToken.NO, PureToken.YES]) -> CommandRequest[bool]:
         """
         Instruct the server about tracking or not keys in the next request
         """
         command_arguments: CommandArgList = [mode]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_CACHING,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -6488,7 +6552,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             "maxage": {"version_introduced": "7.4.0"},
         },
     )
-    async def client_kill(
+    def client_kill(
         self,
         ip_port: StringT | None = None,
         identifier: int | None = None,
@@ -6507,7 +6571,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         laddr: StringT | None = None,
         skipme: bool | None = None,
         maxage: int | None = None,
-    ) -> int | bool:
+    ) -> CommandRequest[int | bool]:
         """
         Disconnects the client at :paramref:`ip_port`
 
@@ -6540,7 +6604,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if skipme is not None:
             command_arguments.extend([PrefixToken.SKIPME, skipme and "yes" or "no"])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_KILL,
             *command_arguments,
             callback=SimpleStringOrIntCallback(),
@@ -6553,12 +6617,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             "identifiers": {"version_introduced": "6.2.0"},
         },
     )
-    async def client_list(
+    def client_list(
         self,
         type_: None
         | (Literal[PureToken.MASTER, PureToken.NORMAL, PureToken.PUBSUB, PureToken.REPLICA]) = None,
         identifiers: Parameters[int] | None = None,
-    ) -> tuple[ClientInfo, ...]:
+    ) -> CommandRequest[tuple[ClientInfo, ...]]:
         """
         Get client connections
 
@@ -6568,13 +6632,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         command_arguments: CommandArgList = []
 
         if type_:
-            command_arguments.extend(["TYPE", type_])
+            command_arguments.extend([PrefixToken.TYPE, type_])
 
         if identifiers is not None:
-            command_arguments.append("ID")
+            command_arguments.append(PrefixToken.IDENTIFIER)
             command_arguments.extend(identifiers)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_LIST, *command_arguments, callback=ClientListCallback()
         )
 
@@ -6582,14 +6646,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CLIENT_GETNAME,
         group=CommandGroup.CONNECTION,
     )
-    async def client_getname(self) -> AnyStr | None:
+    def client_getname(self) -> CommandRequest[AnyStr | None]:
         """
         Returns the current connection name
 
         :return: The connection name, or ``None`` if no name is set.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_GETNAME, callback=OptionalAnyStrCallback[AnyStr]()
         )
 
@@ -6598,20 +6662,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Use the :paramref:`Redis.client_name` argument when initializing the client "
-                "to ensure the client name is consistent across all connections originating "
-                "from the client"
+                "Use the :paramref:`Redis.client_name` argument when initializing the client to ensure the client name is consistent across all connections originating from the client"
             ),
             True,
         ),
     )
-    async def client_setname(self, connection_name: StringT) -> bool:
+    def client_setname(self, connection_name: StringT) -> CommandRequest[bool]:
         """
         Set the current connection name
         :return: If the connection name was successfully set.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_SETNAME, connection_name, callback=SimpleStringCallback()
         )
 
@@ -6623,32 +6685,30 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Coredis sets the library name and version by default during the handshake phase."
-                "Explicitly calling this command will only apply to the connection from the pool "
-                "that was used to send it and not for subsequent commands"
+                "Coredis sets the library name and version by default during the handshake phase.Explicitly calling this command will only apply to the connection from the pool that was used to send it and not for subsequent commands"
             ),
             True,
         ),
     )
-    async def client_setinfo(
+    def client_setinfo(
         self,
         lib_name: StringT | None = None,
         lib_ver: StringT | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Set client or connection specific info
 
         :param lib_name: name of the library
         :param lib_ver: version of the library
         """
-        pieces: CommandArgList = []
+        command_arguments: CommandArgList = []
         if lib_name:
-            pieces.extend([PrefixToken.LIB_NAME, lib_name])
+            command_arguments.extend([PrefixToken.LIB_NAME, lib_name])
         if lib_ver:
-            pieces.extend([PrefixToken.LIB_VER, lib_ver])
+            command_arguments.extend([PrefixToken.LIB_VER, lib_ver])
 
-        return await self.execute_command(
-            CommandName.CLIENT_SETINFO, *pieces, callback=SimpleStringCallback()
+        return self.create_request(
+            CommandName.CLIENT_SETINFO, *command_arguments, callback=SimpleStringCallback()
         )
 
     @redis_command(
@@ -6656,11 +6716,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         arguments={"mode": {"version_introduced": "6.2.0"}},
     )
-    async def client_pause(
+    def client_pause(
         self,
         timeout: int,
         mode: Literal[PureToken.WRITE, PureToken.ALL] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Stop processing commands from clients for some time
 
@@ -6672,7 +6732,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if mode is not None:
             command_arguments.append(mode)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_PAUSE,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -6684,24 +6744,22 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_unpause(self) -> bool:
+    def client_unpause(self) -> CommandRequest[bool]:
         """
         Resume processing of clients that were paused
 
         :return: The command returns ```True```
         """
 
-        return await self.execute_command(
-            CommandName.CLIENT_UNPAUSE, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.CLIENT_UNPAUSE, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.CLIENT_UNBLOCK, group=CommandGroup.CONNECTION)
-    async def client_unblock(
+    def client_unblock(
         self,
         client_id: int,
         timeout_error: Literal[PureToken.TIMEOUT, PureToken.ERROR] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Unblock a client blocked in a blocking command from a different connection
 
@@ -6712,7 +6770,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if timeout_error is not None:
             command_arguments.append(timeout_error)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_UNBLOCK, *command_arguments, callback=BoolCallback()
         )
 
@@ -6722,7 +6780,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.0.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_getredir(self) -> int:
+    def client_getredir(self) -> CommandRequest[int]:
         """
         Get tracking notifications redirection client ID if any
 
@@ -6732,18 +6790,18 @@ class CoreCommands(CommandMixin[AnyStr]):
          notifications to any client.
         """
 
-        return await self.execute_command(CommandName.CLIENT_GETREDIR, callback=IntCallback())
+        return self.create_request(CommandName.CLIENT_GETREDIR, callback=IntCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.CLIENT_ID, group=CommandGroup.CONNECTION)
-    async def client_id(self) -> int:
+    def client_id(self) -> CommandRequest[int]:
         """
         Returns the client ID for the current connection
 
         :return: The id of the client.
         """
 
-        return await self.execute_command(CommandName.CLIENT_ID, callback=IntCallback())
+        return self.create_request(CommandName.CLIENT_ID, callback=IntCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -6751,12 +6809,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_info(self) -> ClientInfo:
+    def client_info(self) -> CommandRequest[ClientInfo]:
         """
         Returns information about the current client connection.
         """
 
-        return await self.execute_command(CommandName.CLIENT_INFO, callback=ClientInfoCallback())
+        return self.create_request(CommandName.CLIENT_INFO, callback=ClientInfoCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -6764,18 +6822,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Use the :paramref:`Redis.noreply` argument when initializing the client "
-                "to ensure that all connections originating from this client disable "
-                "or enable replies. You can also use the :meth:`Redis.ignore_replies` "
-                "context manager to selectively execute certain commands without waiting "
-                "for a reply"
+                "Use the :paramref:`Redis.noreply` argument when initializing the client to ensure that all connections originating from this client disable or enable replies. You can also use the :meth:`Redis.ignore_replies` context manager to selectively execute certain commands without waiting for a reply"
             ),
             False,
         ),
     )
-    async def client_reply(
+    def client_reply(
         self, mode: Literal[PureToken.OFF, PureToken.ON, PureToken.SKIP]
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Instruct the server whether to reply to commands
         """
@@ -6787,7 +6841,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.0.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_tracking(
+    def client_tracking(
         self,
         status: Literal[PureToken.OFF, PureToken.ON],
         *prefixes: StringT,
@@ -6796,7 +6850,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         optin: bool | None = None,
         optout: bool | None = None,
         noloop: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Enable or disable server assisted client side caching support
 
@@ -6825,7 +6879,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if noloop is not None:
             command_arguments.append(PureToken.NOLOOP)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_TRACKING,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -6837,16 +6891,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.CONNECTION,
     )
-    async def client_trackinginfo(
+    def client_trackinginfo(
         self,
-    ) -> dict[AnyStr, AnyStr | _Set[AnyStr] | list[AnyStr]]:
+    ) -> CommandRequest[dict[AnyStr, AnyStr | _Set[AnyStr] | list[AnyStr]]]:
         """
         Return information about server assisted client side caching for the current connection
 
         :return: a mapping of tracking information sections and their respective values
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_TRACKINGINFO,
             callback=ClientTrackingInfoCallback[AnyStr](),
         )
@@ -6858,18 +6912,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Use :paramref:`Redis.noevict` argument when initializing the client "
-                "to ensure that all connections originating from this client use the "
-                "desired mode"
+                "Use :paramref:`Redis.noevict` argument when initializing the client to ensure that all connections originating from this client use the desired mode"
             ),
             True,
         ),
     )
-    async def client_no_evict(self, enabled: Literal[PureToken.ON, PureToken.OFF]) -> bool:
+    def client_no_evict(
+        self, enabled: Literal[PureToken.ON, PureToken.OFF]
+    ) -> CommandRequest[bool]:
         """
         Set client eviction mode for the current connection
         """
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_NO_EVICT, enabled, callback=SimpleStringCallback()
         )
 
@@ -6880,18 +6934,18 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.CONNECTION,
         redirect_usage=RedirectUsage(
             (
-                "Use :paramref:`Redis.notouch` argument when initializing the client "
-                "to ensure that all connections originating from this client use the "
-                "desired mode"
+                "Use :paramref:`Redis.notouch` argument when initializing the client to ensure that all connections originating from this client use the desired mode"
             ),
             True,
         ),
     )
-    async def client_no_touch(self, enabled: Literal[PureToken.OFF, PureToken.ON]) -> bool:
+    def client_no_touch(
+        self, enabled: Literal[PureToken.OFF, PureToken.ON]
+    ) -> CommandRequest[bool]:
         """
         Controls whether commands sent by the client will alter the LRU/LFU of the keys they access.
         """
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CLIENT_NO_TOUCH, enabled, callback=SimpleStringCallback()
         )
 
@@ -6900,19 +6954,19 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def dbsize(self) -> int:
+    def dbsize(self) -> CommandRequest[int]:
         """Returns the number of keys in the current database"""
 
-        return await self.execute_command(CommandName.DBSIZE, callback=IntCallback())
+        return self.create_request(CommandName.DBSIZE, callback=IntCallback())
 
     @redis_command(
         CommandName.DEBUG_OBJECT,
         group=CommandGroup.SERVER,
     )
-    async def debug_object(self, key: KeyT) -> dict[str, str | int]:
+    def debug_object(self, key: KeyT) -> CommandRequest[dict[str, str | int]]:
         """Returns version specific meta information about a given key"""
 
-        return await self.execute_command(CommandName.DEBUG_OBJECT, key, callback=DebugCallback())
+        return self.create_request(CommandName.DEBUG_OBJECT, key, callback=DebugCallback())
 
     @mutually_inclusive_parameters("host", "port")
     @versionadded(version="3.0.0")
@@ -6921,14 +6975,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.2.0",
         group=CommandGroup.SERVER,
     )
-    async def failover(
+    def failover(
         self,
         host: StringT | None = None,
         port: int | None = None,
         force: bool | None = None,
         abort: bool | None = None,
         timeout: int | datetime.timedelta | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Start a coordinated failover between this server and one of its replicas.
 
@@ -6950,7 +7004,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PrefixToken.TIMEOUT)
             command_arguments.append(normalized_milliseconds(timeout))
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FAILOVER, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -6962,16 +7016,16 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def flushall(
+    def flushall(
         self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """Deletes all keys in all databases on the current host"""
         command_arguments: CommandArgList = []
 
         if async_:
             command_arguments.append(async_)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FLUSHALL, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -6983,14 +7037,16 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def flushdb(self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None) -> bool:
+    def flushdb(
+        self, async_: Literal[PureToken.ASYNC, PureToken.SYNC] | None = None
+    ) -> CommandRequest[bool]:
         """Deletes all keys in the current database"""
         command_arguments: CommandArgList = []
 
         if async_:
             command_arguments.append(async_)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.FLUSHDB, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -6999,10 +7055,10 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def info(
+    def info(
         self,
         *sections: StringT,
-    ) -> dict[str, ResponseType]:
+    ) -> CommandRequest[dict[str, ResponseType]]:
         """
         Get information and statistics about the server
 
@@ -7011,39 +7067,37 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.INFO,
             *sections,
             callback=InfoCallback(),
         )
 
     @redis_command(CommandName.LASTSAVE, group=CommandGroup.SERVER, flags={CommandFlag.FAST})
-    async def lastsave(self) -> datetime.datetime:
+    def lastsave(self) -> CommandRequest[datetime.datetime]:
         """
         Get the time of the last successful save to disk
         """
 
-        return await self.execute_command(CommandName.LASTSAVE, callback=DateTimeCallback())
+        return self.create_request(CommandName.LASTSAVE, callback=DateTimeCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.LATENCY_DOCTOR, group=CommandGroup.SERVER)
-    async def latency_doctor(self) -> AnyStr:
+    def latency_doctor(self) -> CommandRequest[AnyStr]:
         """
         Return a human readable latency analysis report.
         """
 
-        return await self.execute_command(
-            CommandName.LATENCY_DOCTOR, callback=AnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.LATENCY_DOCTOR, callback=AnyStrCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.LATENCY_GRAPH, group=CommandGroup.SERVER)
-    async def latency_graph(self, event: StringT) -> AnyStr:
+    def latency_graph(self, event: StringT) -> CommandRequest[AnyStr]:
         """
         Return a latency graph for the event.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LATENCY_GRAPH, event, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -7053,12 +7107,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="7.0.0",
         group=CommandGroup.SERVER,
     )
-    async def latency_histogram(self, *commands: StringT) -> dict[AnyStr, dict[AnyStr, ValueT]]:
+    def latency_histogram(
+        self, *commands: StringT
+    ) -> CommandRequest[dict[AnyStr, dict[AnyStr, RedisValueT]]]:
         """
         Return the cumulative distribution of latencies of a subset of commands or all.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LATENCY_HISTOGRAM,
             *commands,
             callback=LatencyHistogramCallback[AnyStr](),
@@ -7069,7 +7125,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.LATENCY_HISTORY,
         group=CommandGroup.SERVER,
     )
-    async def latency_history(self, event: StringT) -> tuple[list[int], ...]:
+    def latency_history(self, event: StringT) -> CommandRequest[tuple[list[int], ...]]:
         """
         Return timestamp-latency samples for the event.
 
@@ -7079,7 +7135,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         command_arguments: CommandArgList = [event]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LATENCY_HISTORY,
             *command_arguments,
             callback=TupleCallback[list[int]](),
@@ -7090,21 +7146,21 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.LATENCY_LATEST,
         group=CommandGroup.SERVER,
     )
-    async def latency_latest(self) -> dict[AnyStr, tuple[int, int, int]]:
+    def latency_latest(self) -> CommandRequest[dict[AnyStr, tuple[int, int, int]]]:
         """
         Return the latest latency samples for all events.
 
         :return: Mapping of event name to (timestamp, latest, all-time) triplet
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LATENCY_LATEST,
             callback=LatencyCallback[AnyStr](),
         )
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.LATENCY_RESET, group=CommandGroup.SERVER)
-    async def latency_reset(self, *events: StringT) -> int:
+    def latency_reset(self, *events: StringT) -> CommandRequest[int]:
         """
         Reset latency data for one or more events.
 
@@ -7112,30 +7168,28 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
         command_arguments: CommandArgList = list(events) if events else []
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.LATENCY_RESET, *command_arguments, callback=IntCallback()
         )
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.MEMORY_DOCTOR, group=CommandGroup.SERVER)
-    async def memory_doctor(self) -> AnyStr:
+    def memory_doctor(self) -> CommandRequest[AnyStr]:
         """
         Outputs memory problems report
         """
 
-        return await self.execute_command(
-            CommandName.MEMORY_DOCTOR, callback=AnyStrCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.MEMORY_DOCTOR, callback=AnyStrCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.MEMORY_MALLOC_STATS, group=CommandGroup.SERVER)
-    async def memory_malloc_stats(self) -> AnyStr:
+    def memory_malloc_stats(self) -> CommandRequest[AnyStr]:
         """
         Show allocator internal stats
         :return: the memory allocator's internal statistics report
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MEMORY_MALLOC_STATS, callback=AnyStrCallback[AnyStr]()
         )
 
@@ -7145,26 +7199,26 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.ALL, combine=ClusterBoolCombine()),
     )
-    async def memory_purge(self) -> bool:
+    def memory_purge(self) -> CommandRequest[bool]:
         """
         Ask the allocator to release memory
         """
 
-        return await self.execute_command(CommandName.MEMORY_PURGE, callback=SimpleStringCallback())
+        return self.create_request(CommandName.MEMORY_PURGE, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
         CommandName.MEMORY_STATS,
         group=CommandGroup.SERVER,
     )
-    async def memory_stats(self) -> dict[AnyStr, ValueT]:
+    def memory_stats(self) -> CommandRequest[dict[AnyStr, ValueT]]:
         """
         Show memory usage details
         :return: mapping of memory usage metrics and their values
 
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MEMORY_STATS,
             callback=DictCallback[AnyStr, ValueT](),
         )
@@ -7175,7 +7229,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         flags={CommandFlag.READONLY},
     )
-    async def memory_usage(self, key: KeyT, *, samples: int | None = None) -> int | None:
+    def memory_usage(self, key: KeyT, *, samples: int | None = None) -> CommandRequest[int | None]:
         """
         Estimate the memory usage of a key
 
@@ -7188,7 +7242,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if samples is not None:
             command_arguments.extend([PrefixToken.SAMPLES, samples])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MEMORY_USAGE, *command_arguments, callback=OptionalIntCallback()
         )
 
@@ -7197,13 +7251,13 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.ALL, combine=ClusterEnsureConsistent()),
     )
-    async def save(self) -> bool:
+    def save(self) -> CommandRequest[bool]:
         """
         Tells the Redis server to save its data to disk,
         blocking until the save is complete
         """
 
-        return await self.execute_command(CommandName.SAVE, callback=SimpleStringCallback())
+        return self.create_request(CommandName.SAVE, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.SHUTDOWN,
@@ -7214,14 +7268,14 @@ class CoreCommands(CommandMixin[AnyStr]):
             "abort": {"version_introduced": "7.0.0"},
         },
     )
-    async def shutdown(
+    def shutdown(
         self,
         nosave_save: Literal[PureToken.NOSAVE, PureToken.SAVE] | None = None,
         *,
         now: bool | None = None,
         force: bool | None = None,
         abort: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """Stops Redis server"""
         command_arguments: CommandArgList = []
 
@@ -7235,20 +7289,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         if abort is not None:
             command_arguments.append(PureToken.ABORT)
 
-        try:
-            response = await self.execute_command(
-                CommandName.SHUTDOWN,
-                *command_arguments,
-                callback=SimpleStringCallback(),
-            )
-            if abort is not None:
-                return response
-        except ConnectionError:
-            # a ConnectionError here is expected
-            return True
-
-        if abort is None:
-            raise RedisError("Unexpected error performing shutdown")
+        return self.create_request(
+            CommandName.SHUTDOWN,
+            *command_arguments,
+            callback=SimpleStringCallback(),
+        )
 
     @redis_command(
         CommandName.SLAVEOF,
@@ -7256,7 +7301,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         deprecation_reason="Use :meth:`replicaof`",
         group=CommandGroup.SERVER,
     )
-    async def slaveof(self, host: StringT | None = None, port: int | None = None) -> bool:
+    def slaveof(self, host: StringT | None = None, port: int | None = None) -> CommandRequest[bool]:
         """
         Sets the server to be a replicated slave of the instance identified
         by the :paramref:`host` and :paramref:`port`.
@@ -7264,19 +7309,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         """
 
         if host is None and port is None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.SLAVEOF, b"NO", b"ONE", callback=SimpleStringCallback()
             )
         assert host and port
-        return await self.execute_command(
-            CommandName.SLAVEOF, host, port, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.SLAVEOF, host, port, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.SLOWLOG_GET,
         group=CommandGroup.SERVER,
     )
-    async def slowlog_get(self, count: int | None = None) -> tuple[SlowLogInfo, ...]:
+    def slowlog_get(self, count: int | None = None) -> CommandRequest[tuple[SlowLogInfo, ...]]:
         """
         Gets the entries from the slowlog. If :paramref:`count` is specified, get the
         most recent :paramref:`count` items.
@@ -7286,57 +7329,57 @@ class CoreCommands(CommandMixin[AnyStr]):
         if count is not None:
             command_arguments.append(count)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SLOWLOG_GET, *command_arguments, callback=SlowlogCallback()
         )
 
     @redis_command(CommandName.SLOWLOG_LEN, group=CommandGroup.SERVER)
-    async def slowlog_len(self) -> int:
+    def slowlog_len(self) -> CommandRequest[int]:
         """Gets the number of items in the slowlog"""
 
-        return await self.execute_command(CommandName.SLOWLOG_LEN, callback=IntCallback())
+        return self.create_request(CommandName.SLOWLOG_LEN, callback=IntCallback())
 
     @redis_command(
         CommandName.SLOWLOG_RESET,
         group=CommandGroup.SERVER,
     )
-    async def slowlog_reset(self) -> bool:
+    def slowlog_reset(self) -> CommandRequest[bool]:
         """Removes all items in the slowlog"""
 
-        return await self.execute_command(
-            CommandName.SLOWLOG_RESET, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.SLOWLOG_RESET, callback=SimpleStringCallback())
 
     @redis_command(CommandName.TIME, group=CommandGroup.SERVER, flags={CommandFlag.FAST})
-    async def time(self) -> datetime.datetime:
+    def time(self) -> CommandRequest[datetime.datetime]:
         """
         Returns the server time as a 2-item tuple of ints:
         (seconds since epoch, microseconds into this second).
         """
 
-        return await self.execute_command(CommandName.TIME, callback=TimeCallback[AnyStr]())
+        return self.create_request(CommandName.TIME, callback=TimeCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(
         CommandName.REPLICAOF,
         group=CommandGroup.SERVER,
     )
-    async def replicaof(self, host: StringT | None = None, port: int | None = None) -> bool:
+    def replicaof(
+        self, host: StringT | None = None, port: int | None = None
+    ) -> CommandRequest[bool]:
         """
         Make the server a replica of another instance, or promote it as master.
         """
 
         if host is None and port is None:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.REPLICAOF, b"NO", b"ONE", callback=SimpleStringCallback()
             )
         assert host and port
-        return await self.execute_command(
+        return self.create_request(
             CommandName.REPLICAOF, host, port, callback=SimpleStringCallback()
         )
 
     @redis_command(CommandName.ROLE, group=CommandGroup.SERVER, flags={CommandFlag.FAST})
-    async def role(self) -> RoleInfo:
+    def role(self) -> CommandRequest[RoleInfo]:
         """
         Provides information on the role of a Redis instance in the context of replication,
         by returning if the instance is currently a master, slave, or sentinel.
@@ -7345,17 +7388,17 @@ class CoreCommands(CommandMixin[AnyStr]):
         or the list of monitored master names (if the role is sentinel).
         """
 
-        return await self.execute_command(CommandName.ROLE, callback=RoleCallback())
+        return self.create_request(CommandName.ROLE, callback=RoleCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(CommandName.SWAPDB, group=CommandGroup.SERVER, flags={CommandFlag.FAST})
-    async def swapdb(self, index1: int, index2: int) -> bool:
+    def swapdb(self, index1: int, index2: int) -> CommandRequest[bool]:
         """
         Swaps two Redis databases
         """
         command_arguments: CommandArgList = [index1, index2]
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.SWAPDB, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -7364,7 +7407,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         flags={CommandFlag.READONLY, CommandFlag.FAST},
     )
-    async def lolwut(self, version: int | None = None) -> AnyStr:
+    def lolwut(self, version: int | None = None) -> CommandRequest[str]:
         """
         Get the Redis version and a piece of generative computer art
         """
@@ -7373,8 +7416,11 @@ class CoreCommands(CommandMixin[AnyStr]):
         if version is not None:
             command_arguments.extend([PrefixToken.VERSION, version])
 
-        return await self.execute_command(
-            CommandName.LOLWUT, *command_arguments, callback=AnyStrCallback[AnyStr]()
+        return self.create_request(
+            CommandName.LOLWUT,
+            *command_arguments,
+            callback=NoopCallback[str](),
+            execution_parameters={"decode": True},
         )
 
     @versionadded(version="3.0.0")
@@ -7384,7 +7430,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def acl_cat(self, categoryname: StringT | None = None) -> tuple[AnyStr, ...]:
+    def acl_cat(self, categoryname: StringT | None = None) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         List the ACL categories or the commands inside a category
 
@@ -7399,7 +7445,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if categoryname:
             command_arguments.append(categoryname)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ACL_CAT, *command_arguments, callback=TupleCallback[AnyStr]()
         )
 
@@ -7414,7 +7460,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def acl_deluser(self, usernames: Parameters[StringT]) -> int:
+    def acl_deluser(self, usernames: Parameters[StringT]) -> CommandRequest[int]:
         """
         Remove the specified ACL users and the associated rules
 
@@ -7424,9 +7470,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          certain users may not exist.
         """
 
-        return await self.execute_command(
-            CommandName.ACL_DELUSER, *usernames, callback=IntCallback()
-        )
+        return self.create_request(CommandName.ACL_DELUSER, *usernames, callback=IntCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7437,7 +7481,9 @@ class CoreCommands(CommandMixin[AnyStr]):
             route=NodeFlag.RANDOM,
         ),
     )
-    async def acl_dryrun(self, username: StringT, command: StringT, *args: ValueT) -> bool:
+    def acl_dryrun(
+        self, username: StringT, command: StringT, *args: ValueT
+    ) -> CommandRequest[bool]:
         """
         Returns whether the user can execute the given command without executing the command.
         """
@@ -7446,7 +7492,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if args:
             command_arguments.extend(args)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ACL_DRYRUN,
             *command_arguments,
             callback=SimpleStringCallback(AuthorizationError),
@@ -7459,7 +7505,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def acl_genpass(self, bits: int | None = None) -> AnyStr:
+    def acl_genpass(self, bits: int | None = None) -> CommandRequest[AnyStr]:
         """
         Generate a pseudorandom secure password to use for ACL users
 
@@ -7473,7 +7519,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if bits is not None:
             command_arguments.append(bits)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ACL_GENPASS,
             *command_arguments,
             callback=AnyStrCallback[AnyStr](),
@@ -7488,12 +7534,14 @@ class CoreCommands(CommandMixin[AnyStr]):
             route=NodeFlag.RANDOM,
         ),
     )
-    async def acl_getuser(self, username: StringT) -> dict[AnyStr, list[AnyStr] | _Set[AnyStr]]:
+    def acl_getuser(
+        self, username: StringT
+    ) -> CommandRequest[dict[AnyStr, list[AnyStr] | _Set[AnyStr]]]:
         """
         Get the rules for a specific ACL user
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ACL_GETUSER,
             username,
             callback=DictCallback[AnyStr, list[AnyStr] | _Set[AnyStr]](),
@@ -7506,12 +7554,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def acl_list(self) -> tuple[AnyStr, ...]:
+    def acl_list(self) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         List the current ACL rules in ACL config file format
         """
 
-        return await self.execute_command(CommandName.ACL_LIST, callback=TupleCallback[AnyStr]())
+        return self.create_request(CommandName.ACL_LIST, callback=TupleCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7520,7 +7568,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.ALL, combine=ClusterEnsureConsistent()),
     )
-    async def acl_load(self) -> bool:
+    def acl_load(self) -> CommandRequest[bool]:
         """
         Reload the ACLs from the configured ACL file
 
@@ -7534,7 +7582,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(CommandName.ACL_LOAD, callback=SimpleStringCallback())
+        return self.create_request(CommandName.ACL_LOAD, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @mutually_exclusive_parameters("count", "reset")
@@ -7543,9 +7591,9 @@ class CoreCommands(CommandMixin[AnyStr]):
         version_introduced="6.0.0",
         group=CommandGroup.SERVER,
     )
-    async def acl_log(
+    def acl_log(
         self, count: int | None = None, reset: bool | None = None
-    ) -> bool | tuple[dict[AnyStr, ResponsePrimitive] | None, ...]:
+    ) -> CommandRequest[bool] | CommandRequest[tuple[dict[AnyStr, ResponsePrimitive] | None, ...]]:
         """
         List latest events denied because of ACLs in place
 
@@ -7563,11 +7611,11 @@ class CoreCommands(CommandMixin[AnyStr]):
             command_arguments.append(PureToken.RESET)
 
         if reset:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.ACL_LOG, *command_arguments, callback=SimpleStringCallback()
             )
         else:
-            return await self.execute_command(
+            return self.create_request(
                 CommandName.ACL_LOG,
                 *command_arguments,
                 callback=ACLLogCallback[AnyStr](),
@@ -7583,7 +7631,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def acl_save(self) -> bool:
+    def acl_save(self) -> CommandRequest[bool]:
         """
         Save the current ACL rules in the configured ACL file
 
@@ -7593,7 +7641,7 @@ class CoreCommands(CommandMixin[AnyStr]):
 
         """
 
-        return await self.execute_command(CommandName.ACL_SAVE, callback=SimpleStringCallback())
+        return self.create_request(CommandName.ACL_SAVE, callback=SimpleStringCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7605,25 +7653,24 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterEnsureConsistent(),
         ),
     )
-    async def acl_setuser(
+    def acl_setuser(
         self,
         username: StringT,
         *rules: StringT,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Modify or create the rules for a specific ACL user
 
 
         :return: True if successful. If the rules contain errors, the error is returned.
         """
-        command_arguments: CommandArgList = []
+        command_arguments: CommandArgList = [username]
 
         if rules:
             command_arguments.extend(rules)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.ACL_SETUSER,
-            username,
             *command_arguments,
             callback=SimpleStringCallback(),
         )
@@ -7635,12 +7682,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def acl_users(self) -> tuple[AnyStr, ...]:
+    def acl_users(self) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         List the username of all the configured ACL rules
         """
 
-        return await self.execute_command(CommandName.ACL_USERS, callback=TupleCallback[AnyStr]())
+        return self.create_request(CommandName.ACL_USERS, callback=TupleCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7649,7 +7696,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def acl_whoami(self) -> AnyStr:
+    def acl_whoami(self) -> CommandRequest[AnyStr]:
         """
         Return the name of the user associated to the current connection
 
@@ -7657,7 +7704,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         :return: the username of the current connection.
         """
 
-        return await self.execute_command(CommandName.ACL_WHOAMI, callback=AnyStrCallback[AnyStr]())
+        return self.create_request(CommandName.ACL_WHOAMI, callback=AnyStrCallback[AnyStr]())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7665,7 +7712,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command(self) -> dict[str, Command]:
+    def command(self) -> CommandRequest[dict[str, Command]]:
         """
         Get Redis command details
 
@@ -7673,7 +7720,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          in random order.
         """
 
-        return await self.execute_command(CommandName.COMMAND, callback=CommandCallback())
+        return self.create_request(CommandName.COMMAND, callback=CommandCallback())
 
     @versionadded(version="3.0.0")
     @redis_command(
@@ -7681,14 +7728,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_count(self) -> int:
+    def command_count(self) -> CommandRequest[int]:
         """
         Get total number of Redis commands
 
         :return: number of commands returned by ``COMMAND``
         """
 
-        return await self.execute_command(CommandName.COMMAND_COUNT, callback=IntCallback())
+        return self.create_request(CommandName.COMMAND_COUNT, callback=IntCallback())
 
     @versionadded(version="3.1.0")
     @redis_command(
@@ -7697,14 +7744,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_docs(
+    def command_docs(
         self, *command_names: StringT
-    ) -> dict[AnyStr, dict[AnyStr, ResponseType]]:
+    ) -> CommandRequest[dict[AnyStr, dict[AnyStr, ResponseType]]]:
         """
         Mapping of commands to a dictionary containing it's documentation
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COMMAND_DOCS,
             *command_names,
             callback=CommandDocCallback[AnyStr](),
@@ -7717,16 +7764,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_getkeys(
+    def command_getkeys(
         self, command: StringT, arguments: Parameters[ValueT]
-    ) -> tuple[AnyStr, ...]:
+    ) -> CommandRequest[tuple[AnyStr, ...]]:
         """
         Extract keys given a full Redis command
 
         :return: Keys from your command.
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COMMAND_GETKEYS,
             command,
             *arguments,
@@ -7741,16 +7788,16 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_getkeysandflags(
+    def command_getkeysandflags(
         self, command: StringT, arguments: Parameters[ValueT]
-    ) -> dict[AnyStr, _Set[AnyStr]]:
+    ) -> CommandRequest[dict[AnyStr, _Set[AnyStr]]]:
         """
         Extract keys from a full Redis command and their usage flags.
 
         :return: Mapping of keys from your command to flags
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COMMAND_GETKEYSANDFLAGS,
             command,
             *arguments,
@@ -7763,14 +7810,14 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_info(self, *command_names: StringT) -> dict[str, Command]:
+    def command_info(self, *command_names: StringT) -> CommandRequest[dict[str, Command]]:
         """
         Get specific Redis command details, or all when no argument is given.
 
         :return: mapping of command details.
 
         """
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COMMAND_INFO, *command_names, callback=CommandCallback()
         )
 
@@ -7782,12 +7829,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def command_list(
+    def command_list(
         self,
         module: StringT | None = None,
         aclcat: StringT | None = None,
         pattern: StringT | None = None,
-    ) -> _Set[AnyStr]:
+    ) -> CommandRequest[_Set[AnyStr]]:
         """
         Get an array of Redis command names
         """
@@ -7805,7 +7852,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if pattern is not None:
             command_arguments.extend([PrefixToken.PATTERN, pattern])
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.COMMAND_LIST, *command_arguments, callback=SetCallback[AnyStr]()
         )
 
@@ -7814,12 +7861,12 @@ class CoreCommands(CommandMixin[AnyStr]):
         CommandName.CONFIG_GET,
         group=CommandGroup.SERVER,
     )
-    async def config_get(self, parameters: Parameters[StringT]) -> dict[AnyStr, AnyStr]:
+    def config_get(self, parameters: Parameters[StringT]) -> CommandRequest[dict[AnyStr, AnyStr]]:
         """
         Get the values of configuration parameters
         """
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CONFIG_GET,
             *parameters,
             callback=DictCallback[AnyStr, AnyStr](),
@@ -7833,10 +7880,10 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def config_set(self, parameter_values: Mapping[StringT, ValueT]) -> bool:
+    def config_set(self, parameter_values: Mapping[StringT, ValueT]) -> CommandRequest[bool]:
         """Sets configuration parameters to the given values"""
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.CONFIG_SET,
             *itertools.chain(*parameter_values.items()),
             callback=SimpleStringCallback(),
@@ -7850,22 +7897,18 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def config_resetstat(self) -> bool:
+    def config_resetstat(self) -> CommandRequest[bool]:
         """Resets runtime statistics"""
 
-        return await self.execute_command(
-            CommandName.CONFIG_RESETSTAT, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.CONFIG_RESETSTAT, callback=SimpleStringCallback())
 
     @redis_command(CommandName.CONFIG_REWRITE, group=CommandGroup.SERVER)
-    async def config_rewrite(self) -> bool:
+    def config_rewrite(self) -> CommandRequest[bool]:
         """
         Rewrites config file with the minimal change to reflect running config
         """
 
-        return await self.execute_command(
-            CommandName.CONFIG_REWRITE, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.CONFIG_REWRITE, callback=SimpleStringCallback())
 
     @versionadded(version="3.2.0")
     @redis_command(
@@ -7873,7 +7916,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         group=CommandGroup.SERVER,
         cluster=ClusterCommandConfig(route=NodeFlag.RANDOM),
     )
-    async def module_list(self) -> tuple[dict[AnyStr, ResponsePrimitive], ...]:
+    def module_list(self) -> CommandRequest[tuple[dict[AnyStr, ResponsePrimitive], ...]]:
         """
         List all modules loaded by the server
 
@@ -7881,9 +7924,7 @@ class CoreCommands(CommandMixin[AnyStr]):
          containing a mapping with ``name`` and ``ver``
         """
 
-        return await self.execute_command(
-            CommandName.MODULE_LIST, callback=ModuleInfoCallback[AnyStr]()
-        )
+        return self.create_request(CommandName.MODULE_LIST, callback=ModuleInfoCallback[AnyStr]())
 
     @versionadded(version="3.2.0")
     @redis_command(
@@ -7894,7 +7935,7 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def module_load(self, path: StringT, *args: str | bytes | int | float) -> bool:
+    def module_load(self, path: StringT, *args: str | bytes | int | float) -> CommandRequest[bool]:
         """
         Load a module
         """
@@ -7903,7 +7944,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if args:
             command_arguments.extend(args)
 
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MODULE_LOAD, *command_arguments, callback=SimpleStringCallback()
         )
 
@@ -7917,12 +7958,12 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def module_loadex(
+    def module_loadex(
         self,
         path: StringT,
         configs: dict[StringT, ValueT] | None = None,
         args: Parameters[ValueT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Loads a module from a dynamic library at runtime with configuration directives.
         """
@@ -7935,7 +7976,7 @@ class CoreCommands(CommandMixin[AnyStr]):
         if args:
             command_arguments.append(PrefixToken.ARGS)
             command_arguments.extend(args)
-        return await self.execute_command(
+        return self.create_request(
             CommandName.MODULE_LOADEX,
             *command_arguments,
             callback=SimpleStringCallback(),
@@ -7950,28 +7991,410 @@ class CoreCommands(CommandMixin[AnyStr]):
             combine=ClusterBoolCombine(),
         ),
     )
-    async def module_unload(self, name: StringT) -> bool:
+    def module_unload(self, name: StringT) -> CommandRequest[bool]:
         """
         Unload a module
         """
 
-        return await self.execute_command(
-            CommandName.MODULE_UNLOAD, name, callback=SimpleStringCallback()
-        )
+        return self.create_request(CommandName.MODULE_UNLOAD, name, callback=SimpleStringCallback())
 
     @redis_command(
         CommandName.TYPE,
         group=CommandGroup.GENERIC,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.FAST, CommandFlag.READONLY},
     )
-    async def type(self, key: KeyT) -> AnyStr | None:
+    def type(self, key: KeyT) -> CommandRequest[AnyStr | None]:
         """
         Determine the type stored at key
 
         :return: type of :paramref:`key`, or ``None`` when :paramref:`key` does not exist.
         """
 
-        return await self.execute_command(
-            CommandName.TYPE, key, callback=OptionalAnyStrCallback[AnyStr]()
+        return self.create_request(CommandName.TYPE, key, callback=OptionalAnyStrCallback[AnyStr]())
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VADD, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vadd(
+        self,
+        key: KeyT,
+        element: ValueT,
+        values: Parameters[float | int] | bytes,
+        reduce: int | None = None,
+        cas: bool | None = None,
+        quantization: Literal[PureToken.BIN, PureToken.NOQUANT, PureToken.Q8] | None = None,
+        ef: int | None = None,
+        attributes: JsonType | None = None,
+        numlinks: int | None = None,
+    ) -> CommandRequest[bool]:
+        """
+        Add a new element into the vector set specified by key
+
+        :param key: The key containing the vector set
+        :param element: The name of the element being added to the vector set
+        :param values: either a byte representation of a 32-bit floating point (FP32) blob of values
+         or a sequence of doubles representing the vector.
+        :param reduce: dimensions to reduce the vector values to
+        :param cas: whether to add using check-and-set
+        :param quantization: The quantization type to use
+        :param ef: exploration factor to use when connecting the element to the existing graph
+        :param attributes: json attributes to associate with the element
+        :param numlinks: maximum number of connections each node in the graph will have with other
+         nodes.
+
+        :return: ``True`` if the element was successfully added to the vector set
+        """
+        command_arguments: CommandArgList = [key]
+        if reduce is not None:
+            command_arguments.extend([PureToken.REDUCE, reduce])
+
+        if isinstance(values, bytes):
+            command_arguments.extend([PureToken.FP32, values])
+        else:
+            command_arguments.extend([PureToken.VALUES, len(list(values)), *values])
+
+        command_arguments.append(element)
+        if cas is not None:
+            command_arguments.append(PureToken.CAS)
+        if quantization is not None:
+            command_arguments.append(quantization)
+        if ef is not None:
+            command_arguments.extend([PrefixToken.EF, ef])
+        if attributes:
+            command_arguments.extend([PrefixToken.SETATTR, json.dumps(attributes)])
+        if numlinks:
+            command_arguments.extend([PrefixToken.M, numlinks])
+
+        return self.create_request(CommandName.VADD, *command_arguments, callback=BoolCallback())
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VREM, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vrem(self, key: KeyT, element: ValueT) -> CommandRequest[bool]:
+        """
+        Remove an element from a vector set.
+
+        :param key: The key containing the vector set
+        :param element: The element to remove
+
+        :return: ``True`` if the element was successfully deleted from the set
+        """
+
+        return self.create_request(CommandName.VREM, key, element, callback=BoolCallback())
+
+    @overload
+    def vsim(
+        self,
+        key: KeyT,
+        *,
+        element: StringT | None = ...,
+        values: Parameters[float] | bytes | None = ...,
+        count: int | None = ...,
+        epsilon: float | None = ...,
+        ef: int | None = ...,
+        filter: StringT | None = ...,
+        filter_ef: int | None = ...,
+        truth: bool | None = ...,
+    ) -> CommandRequest[tuple[AnyStr, ...]]: ...
+    @overload
+    def vsim(
+        self,
+        key: KeyT,
+        *,
+        element: StringT | None = ...,
+        values: Parameters[float] | bytes | None = ...,
+        withscores: Literal[True],
+        count: int | None = ...,
+        epsilon: float | None = ...,
+        ef: int | None = ...,
+        filter: StringT | None = ...,
+        filter_ef: int | None = ...,
+        truth: bool | None = ...,
+    ) -> CommandRequest[dict[AnyStr, float]]: ...
+    @overload
+    def vsim(
+        self,
+        key: KeyT,
+        *,
+        element: StringT | None = ...,
+        values: Parameters[float] | bytes | None = ...,
+        withattribs: Literal[True],
+        count: int | None = ...,
+        epsilon: float | None = ...,
+        ef: int | None = ...,
+        filter: StringT | None = ...,
+        filter_ef: int | None = ...,
+        truth: bool | None = ...,
+    ) -> CommandRequest[dict[AnyStr, JsonType]]: ...
+    @overload
+    def vsim(
+        self,
+        key: KeyT,
+        *,
+        element: StringT | None = ...,
+        values: Parameters[float] | bytes | None = ...,
+        withscores: Literal[True],
+        withattribs: Literal[True],
+        count: int | None = ...,
+        epsilon: float | None = ...,
+        ef: int | None = ...,
+        filter: StringT | None = ...,
+        filter_ef: int | None = ...,
+        truth: bool | None = ...,
+    ) -> CommandRequest[dict[AnyStr, tuple[float, JsonType]]]: ...
+
+    @versionadded(version="5.0.0")
+    @mutually_exclusive_parameters("values", "element", required=True)
+    @redis_command(
+        CommandName.VSIM,
+        version_introduced="8.0.0",
+        group=CommandGroup.VECTOR_SET,
+        arguments={"withattribs": {"version_introduced": "8.1.240"}},
+    )
+    def vsim(
+        self,
+        key: KeyT,
+        *,
+        element: StringT | None = None,
+        values: Parameters[float] | bytes | None = None,
+        withscores: bool | None = None,
+        withattribs: bool | None = None,
+        count: int | None = None,
+        epsilon: float | None = None,
+        ef: int | None = None,
+        filter: StringT | None = None,
+        filter_ef: int | None = None,
+        truth: bool | None = None,
+    ) -> CommandRequest[
+        tuple[AnyStr, ...]
+        | dict[AnyStr, float]
+        | dict[AnyStr, JsonType]
+        | dict[AnyStr, tuple[float, JsonType]]
+    ]:
+        """
+        Return elements similar to a given vector or element
+
+        :param key: The key containing the vector set
+        :param element: An existing element to find similar elements for
+        :param values: either a byte representation of a 32-bit floating point (FP32) blob of values
+         or a sequence of doubles representing the vector to use as the similarity reference.
+        :param withscores: whether to return similarity scores for each result
+        :param withattribs: whether to include attributes for for each result
+        :param count: number of results to limit to
+        :param epsilon: distance threshold; results with distance greater than this are
+         excluded.
+        :param ef: Search exploration factor
+        :param filter: Expression to restrict matching elements
+        :param filter_ef: limits the number of filtering attempts
+        :param truth: forces an exact linear scan of all elements bypassing the HSNW graph
+        :return: the matching elements or a mapping of the matching elements to their scores
+         if :paramref:`withscores` is ``True`` and/or their attributes if :paramref:`withattribs`
+         is ``True``
+        """
+        command_arguments: CommandArgList = [key]
+        if values is not None:
+            if isinstance(values, bytes):
+                command_arguments.extend([PureToken.FP32, values])
+            else:
+                _values: list[float] = list(values)
+                command_arguments.extend([PureToken.VALUES, len(_values), *_values])
+        if element:
+            command_arguments.extend([PureToken.ELE, element])
+
+        if withscores:
+            command_arguments.append(PureToken.WITHSCORES)
+        if withattribs:
+            command_arguments.append(PureToken.WITHATTRIBS)
+        if count is not None:
+            command_arguments.extend([PrefixToken.COUNT, count])
+        if ef is not None:
+            command_arguments.extend([PrefixToken.EF, ef])
+        if epsilon is not None:
+            command_arguments.extend([PrefixToken.EPSILON, epsilon])
+        if filter is not None:
+            command_arguments.extend([PrefixToken.FILTER, filter])
+        if filter_ef is not None:
+            command_arguments.extend([PrefixToken.FILTER_EF, filter_ef])
+        if truth:
+            command_arguments.append(PureToken.TRUTH)
+        return self.create_request(
+            CommandName.VSIM,
+            *command_arguments,
+            callback=VSimCallback[AnyStr](withscores=withscores, withattribs=withattribs),
+        )
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VDIM, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vdim(self, key: KeyT) -> CommandRequest[int]:
+        """
+        Return the dimension of vectors in the vector set
+
+        :param key: The key containing the vector set
+        :return: The dimensions of the vectors in the vector set
+        """
+        return self.create_request(CommandName.VDIM, key, callback=IntCallback())
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VCARD, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vcard(self, key: KeyT) -> CommandRequest[int]:
+        """
+        Return the number of elements in a vector set
+
+        :param key: The key containing the vector set
+        :return: The number of elements in the vector set
+
+        """
+        return self.create_request(CommandName.VCARD, key, callback=IntCallback())
+
+    @overload
+    def vemb(self, key: KeyT, element: StringT) -> CommandRequest[tuple[float, ...] | None]: ...
+    @overload
+    def vemb(
+        self, key: KeyT, element: StringT, raw: Literal[True]
+    ) -> CommandRequest[VectorData | None]: ...
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VEMB, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vemb(
+        self, key: KeyT, element: StringT, raw: bool | None = None
+    ) -> CommandRequest[tuple[float, ...] | VectorData | None]:
+        """
+        Return the vector associated with an element
+
+        :param key: The key containing the vector set
+        :param element: The name of the vector to retrieve
+        :param raw: Whether to return the raw result
+
+        :return: A tuple of floating point values representing the vector.
+         if :paramref:`raw` is ``True`` the raw vector along with its metadata
+         will be returned as a :class:`~coredis.response.types.VectorData` mapping.
+        """
+        command_arguments: CommandArgList = [key, element]
+        if raw:
+            command_arguments.append(PureToken.RAW)
+        return self.create_request(
+            CommandName.VEMB,
+            *command_arguments,
+            execution_parameters={"decode": not raw},
+            callback=VEmbCallback(raw=raw),
+        )
+
+    @overload
+    def vlinks(
+        self, key: KeyT, element: StringT
+    ) -> CommandRequest[tuple[tuple[AnyStr, ...], ...] | None]: ...
+    @overload
+    def vlinks(
+        self, key: KeyT, element: StringT, withscores: Literal[True]
+    ) -> CommandRequest[tuple[dict[AnyStr, float], ...] | None]: ...
+
+    @versionadded(version="5.0.0")
+    @redis_command(
+        CommandName.VLINKS,
+        version_introduced="8.0.0",
+        group=CommandGroup.VECTOR_SET,
+    )
+    def vlinks(
+        self, key: KeyT, element: StringT, withscores: bool | None = None
+    ) -> CommandRequest[tuple[tuple[AnyStr, ...] | dict[AnyStr, float], ...] | None]:
+        """
+        Return the neighbors of an element at each layer in the HNSW graph
+
+        :param key: The key containing the vector set
+        :param element: The element to find neighbours for
+        :param withscores: Whether to return scores with neighbours
+
+        :return: A tuple containing tuples of connected neighbours for each layer of the HSNW graph.
+         If :paramref:`withscores` is ``True`` each layer will instead be a mapping
+         of neighbours to scores. The last entry of the top level tuple is the lowest layer of
+         the HSNW graph.
+        """
+        command_arguments: CommandArgList = [key, element]
+
+        if withscores:
+            command_arguments.append(PureToken.WITHSCORES)
+        return self.create_request(
+            CommandName.VLINKS,
+            *command_arguments,
+            callback=VLinksCallback[AnyStr](withscores=withscores),
+        )
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VINFO, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vinfo(self, key: KeyT) -> CommandRequest[dict[AnyStr, AnyStr | int] | None]:
+        """
+        Return information about a vector set
+
+        :param key: The key containing the vector set
+        :return: mapping of attributes and values describing the vector set
+
+        """
+        return self.create_request(CommandName.VINFO, key, callback=VInfoCallback[AnyStr]())
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VSETATTR, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vsetattr(self, key: KeyT, element: StringT, attributes: JsonType) -> CommandRequest[bool]:
+        """
+        Associate or remove the JSON attributes of elements
+
+        :param key: The key containing the vector set
+        :param element: The element to set the attributes for
+        :param attributes: JSON serializable values to set as attributes
+
+
+        :return: ``True`` if the attributes were successfully set
+        """
+        command_arguments: CommandArgList = [key, element]
+        command_arguments.append(json.dumps(attributes))
+
+        return self.create_request(
+            CommandName.VSETATTR, *command_arguments, callback=BoolCallback()
+        )
+
+    @versionadded(version="5.0.0")
+    @redis_command(CommandName.VGETATTR, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET)
+    def vgetattr(self, key: KeyT, element: StringT) -> CommandRequest[JsonType]:
+        """
+        Retrieve the JSON attributes of elements
+
+        :param key: The key containing the vector set
+        :param element: The element to get the attributes for
+
+        :return: the attributes of the element or None if they don't
+         exist.
+        """
+        command_arguments: CommandArgList = [key, element]
+        return self.create_request(
+            CommandName.VGETATTR, *command_arguments, callback=JsonCallback()
+        )
+
+    @overload
+    def vrandmember(self, key: KeyT) -> CommandRequest[AnyStr | None]: ...
+    @overload
+    def vrandmember(self, key: KeyT, count: int) -> CommandRequest[tuple[AnyStr | None, ...]]: ...
+    @versionadded(version="5.0.0")
+    @redis_command(
+        CommandName.VRANDMEMBER, version_introduced="8.0.0", group=CommandGroup.VECTOR_SET
+    )
+    def vrandmember(
+        self, key: KeyT, count: int | None = None
+    ) -> CommandRequest[tuple[AnyStr | None, ...] | AnyStr | None]:
+        """
+        Return one or multiple random members from a vector set
+
+        :param key: The key containing the vector set
+        :param count: The number of random elements to return
+
+
+        :return: A random element from the set or a list of
+         random elements if :paramref:`count` is specificied.
+         If :paramref:`count` is negative, duplicates may occur.
+        """
+        command_arguments: CommandArgList = [key]
+        if count is not None:
+            command_arguments.append(count)
+
+        return self.create_request(
+            CommandName.VRANDMEMBER,
+            *command_arguments,
+            callback=ItemOrTupleCallback[AnyStr | None](),
         )

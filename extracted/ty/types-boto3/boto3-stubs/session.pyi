@@ -62,6 +62,10 @@ from types_boto3_bcm_pricing_calculator.client import (
 from types_boto3_bedrock.client import BedrockClient
 from types_boto3_bedrock_agent.client import AgentsforBedrockClient
 from types_boto3_bedrock_agent_runtime.client import AgentsforBedrockRuntimeClient
+from types_boto3_bedrock_agentcore.client import BedrockAgentCoreDataPlaneFrontingLayerClient
+from types_boto3_bedrock_agentcore_control.client import (
+    BedrockAgentCoreControlPlaneFrontingLayerClient,
+)
 from types_boto3_bedrock_data_automation.client import DataAutomationforBedrockClient
 from types_boto3_bedrock_data_automation_runtime.client import RuntimeforBedrockDataAutomationClient
 from types_boto3_bedrock_runtime.client import BedrockRuntimeClient
@@ -1284,6 +1288,44 @@ class Session:
     ) -> AgentsforBedrockRuntimeClient:
         """
         Create client for AgentsforBedrockRuntime service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["bedrock-agentcore"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> BedrockAgentCoreDataPlaneFrontingLayerClient:
+        """
+        Create client for BedrockAgentCoreDataPlaneFrontingLayer service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["bedrock-agentcore-control"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> BedrockAgentCoreControlPlaneFrontingLayerClient:
+        """
+        Create client for BedrockAgentCoreControlPlaneFrontingLayer service.
         """
 
     @overload

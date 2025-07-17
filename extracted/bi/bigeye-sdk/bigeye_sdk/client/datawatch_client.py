@@ -164,7 +164,7 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
         self._auth = auth
         self.config = workspace_config
 
-    def _call_datawatch_impl(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None):
+    def _call_datawatch_impl(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None, proxies: dict = {}):
         try:
             fq_url = f'{self._base_url}{url}'
             log.info(f'Request Type: {method.name}; URL: {fq_url}; Body: {body}')
@@ -177,7 +177,8 @@ class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):
                 'headers': headers,
                 'data': body,
                 'params': params,
-                'timeout': timeout
+                'timeout': timeout,
+                'proxies': proxies
             }
 
             if isinstance(self._auth, APIKeyAuth):

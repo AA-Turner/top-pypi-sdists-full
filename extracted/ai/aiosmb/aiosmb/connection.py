@@ -164,6 +164,7 @@ class SMBConnection:
 		self.keepalive_task = None
 		self.keepalive_timeout = 15
 		self.connection_closed_evt = None
+		self.login_ok = False
 		# TODO: turn it back on 
 		self.supress_keepalive = False
 		self.activity_at = None
@@ -286,7 +287,7 @@ class SMBConnection:
 				self.activity_at = datetime.datetime.utcnow()
 
 				if msg_data is None:
-					raise SMBConnectionTerminated()
+					raise SMBConnectionTerminated(self.target.get_hostname_or_ip() if self.target is not None else 'Unknown target')
 
 				if msg_data[0] < 252:
 					raise Exception('Unknown SMB packet type %s' % msg_data[0])
@@ -390,6 +391,7 @@ class SMBConnection:
 			
 			self.keepalive_task = asyncio.create_task(self.keepalive())
 			
+			self.login_ok = True
 			return True, None
 		except Exception as e:
 			await self.disconnect()
@@ -470,6 +472,9 @@ class SMBConnection:
 		
 		self.status = SMBConnectionStatus.CLOSED
 		
+		if self.incoming_task is not None:
+			self.incoming_task.cancel()
+		
 		if self.network_connection is not None:
 			await self.network_connection.close()
 			await asyncio.sleep(0)
@@ -477,8 +482,7 @@ class SMBConnection:
 		if self.keepalive_task is not None:
 			self.keepalive_task.cancel()
 		
-		if self.incoming_task is not None:
-			self.incoming_task.cancel()		
+		
 
 	async def keepalive(self):
 		"""
@@ -680,7 +684,7 @@ class SMBConnection:
 			while status == NTStatus.MORE_PROCESSING_REQUIRED and maxiter > 0:
 				command = SESSION_SETUP_REQ()
 				try:
-					command.Buffer, res, err  = await self.gssapi.authenticate(authdata, spn=self.target.to_target_string())
+					command.Buffer, res, err  = await self.gssapi.authenticate(authdata, spn=self.target.to_target_string(), target=self.target)
 					if err is not None:
 						raise err
 					if fake_auth == True:
@@ -690,7 +694,7 @@ class SMBConnection:
 					#logger.exception('GSSAPI auth failed!')
 					#TODO: Clear this up, kerberos lib needs it's own exceptions!
 					if str(e).find('Preauth') != -1:
-						raise SMBKerberosPreauthFailed()
+						raise SMBKerberosPreauthFailed(str(e))
 					else:
 						raise e
 						#raise SMBKerberosPreauthFailed()

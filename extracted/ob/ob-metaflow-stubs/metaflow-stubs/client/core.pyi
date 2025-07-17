@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-15T20:32:21.484150                                                            #
+# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-16T21:13:36.352735                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import typing
-    import datetime
-    import tempfile
     import tarfile
-    import metaflow.events
     import metaflow.client.core
+    import tempfile
+    import datetime
+    import metaflow.events
+    import typing
 
 from ..metaflow_current import current as current
 from ..events import Trigger as Trigger
@@ -23,7 +23,6 @@ from ..exception import MetaflowInvalidPathspec as MetaflowInvalidPathspec
 from ..exception import MetaflowNamespaceMismatch as MetaflowNamespaceMismatch
 from ..exception import MetaflowNotFound as MetaflowNotFound
 from ..includefile import IncludedFile as IncludedFile
-from ..packaging_sys import ContentType as ContentType
 from .filecache import FileCache as FileCache
 
 TYPE_CHECKING: bool
@@ -37,6 +36,8 @@ ENVIRONMENTS: list
 METADATA_PROVIDERS: list
 
 CONTROL_TASK_TAG: str
+
+INFO_FILE: str
 
 class Metadata(tuple, metaclass=type):
     """

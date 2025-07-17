@@ -9,9 +9,9 @@ from coredis.response.types import LibraryDefinition
 from coredis.typing import (
     AnyStr,
     Mapping,
+    RedisValueT,
     ResponsePrimitive,
     ResponseType,
-    ValueT,
 )
 
 
@@ -19,10 +19,11 @@ class FunctionListCallback(
     ResponseCallback[list[ResponseType], list[ResponseType], Mapping[AnyStr, LibraryDefinition]]
 ):
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> Mapping[AnyStr, LibraryDefinition]:
         libraries = [
-            EncodingInsensitiveDict(flat_pairs_to_dict(cast(list[ValueT], library)))
+            EncodingInsensitiveDict(flat_pairs_to_dict(cast(list[RedisValueT], library)))
             for library in response
         ]
         transformed = EncodingInsensitiveDict()
@@ -36,11 +37,10 @@ class FunctionListCallback(
             library["functions"] = functions
             transformed[lib_name] = EncodingInsensitiveDict(
                 LibraryDefinition(
-                    name=library["name"],
+                    name=library["library_name"],
                     engine=library["engine"],
-                    description=library["description"],
                     functions=library["functions"],
-                    library_code=library["library_code"],
+                    library_code=library.get("library_code", None),
                 )
             )
         return transformed
@@ -62,7 +62,6 @@ class FunctionStatsCallback(
     def transform(
         self,
         response: list[ResponseType],
-        **options: ValueT | None,
     ) -> dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]:
         transformed = flat_pairs_to_dict(response)
         key = cast(AnyStr, b"engines" if b"engines" in transformed else "engines")
@@ -82,6 +81,5 @@ class FunctionStatsCallback(
             AnyStr,
             AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None,
         ],
-        **options: ValueT | None,
     ) -> dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]:
         return response

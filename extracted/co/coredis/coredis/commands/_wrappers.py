@@ -1,38 +1,24 @@
 from __future__ import annotations
 
-import contextlib
 import dataclasses
 import functools
-import random
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Any, cast
 
 from packaging import version
 
-from coredis.cache import AbstractCache, SupportsSampling
 from coredis.commands._utils import check_version, redis_command_link
 from coredis.commands.constants import CommandFlag, CommandGroup, CommandName, NodeFlag
-from coredis.globals import COMMAND_FLAGS, READONLY_COMMANDS
+from coredis.commands.request import CommandRequest
+from coredis.globals import CACHEABLE_COMMANDS, COMMAND_FLAGS, READONLY_COMMANDS
 from coredis.response._callbacks import ClusterMultiNodeCallback
 from coredis.typing import (
-    AsyncIterator,
     Callable,
-    Coroutine,
     NamedTuple,
     P,
     R,
-    ResponseType,
     add_runtime_checks,
 )
-
-if TYPE_CHECKING:
-    pass
-
-
-@dataclasses.dataclass
-class CacheConfig:
-    key_func: Callable[..., bytes]
 
 
 class RedirectUsage(NamedTuple):
@@ -48,7 +34,6 @@ class CommandDetails:
     version_deprecated: version.Version | None
     _arguments: dict[str, dict[str, str]] | None
     cluster: ClusterCommandConfig
-    cache_config: CacheConfig | None
     flags: set[CommandFlag]
     redirect_usage: RedirectUsage | None
     arguments: dict[str, version.Version] = dataclasses.field(
@@ -76,75 +61,13 @@ class ClusterCommandConfig:
             NodeFlag.ALL,
             NodeFlag.PRIMARIES,
             NodeFlag.REPLICAS,
+            NodeFlag.SLOT_ID,
         ]
-
-
-@dataclasses.dataclass
-class CommandCache:
-    command: bytes
-    cache_config: CacheConfig | None
-
-    @contextlib.asynccontextmanager
-    async def __call__(
-        self,
-        func: Callable[P, Coroutine[Any, Any, R]],
-        *args: P.args,
-        **kwargs: P.kwargs,
-    ) -> AsyncIterator[R]:
-        from coredis.modules.base import ModuleGroup
-
-        client = args[0]
-        if isinstance(args[0], ModuleGroup):
-            client = args[0].client
-
-        cache = getattr(client, "cache")
-        noreply = getattr(client, "noreply")
-        if not (self.cache_config and cache) or noreply:
-            yield await func(*args, **kwargs)
-        else:
-            assert isinstance(cache, AbstractCache)
-            if not cache.healthy:
-                yield await func(*args, **kwargs)
-            else:
-                key = self.cache_config.key_func(*args[1:], **kwargs)
-                try:
-                    cached = cast(
-                        R,
-                        cache.get(
-                            self.command,
-                            key,
-                            *args[1:],  # type: ignore
-                            *kwargs.items(),  # type: ignore
-                        ),
-                    )
-                    if isinstance(cache, SupportsSampling) and not random.random() * 100.0 < min(
-                        100.0, cache.confidence
-                    ):
-                        actual = await func(*args, **kwargs)
-                        cache.feedback(
-                            self.command,
-                            key,
-                            *args[1:],  # type: ignore
-                            *kwargs.items(),  # type: ignore
-                            match=(actual == cached),
-                        )
-                        yield actual
-                    else:
-                        yield cached
-                except KeyError:
-                    response = await func(*args, **kwargs)
-                    cache.put(
-                        self.command,
-                        key,
-                        *args[1:],  # type: ignore
-                        *kwargs.items(),  # type: ignore
-                        value=cast(ResponseType, response),
-                    )
-                    yield response
 
 
 def redis_command(
     command_name: CommandName,
+    *,
     group: CommandGroup | None = None,
     version_introduced: str | None = None,
     version_deprecated: str | None = None,
@@ -153,15 +76,17 @@ def redis_command(
     arguments: dict[str, dict[str, str]] | None = None,
     flags: set[CommandFlag] | None = None,
     cluster: ClusterCommandConfig = ClusterCommandConfig(),
-    cache_config: CacheConfig | None = None,
-) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
+    cacheable: bool | None = None,
+) -> Callable[[Callable[P, CommandRequest[R]]], Callable[P, CommandRequest[R]]]:
     readonly = False
     if flags and CommandFlag.READONLY in flags:
         READONLY_COMMANDS.add(command_name)
         readonly = True
 
-    if not readonly and cache_config:  # noqa
+    if not readonly and cacheable:  # noqa
         raise RuntimeError(f"Can't decorate non readonly command {command_name} with cache config")
+    if cacheable:
+        CACHEABLE_COMMANDS.add(command_name)
 
     COMMAND_FLAGS[command_name] = flags or set()
 
@@ -172,39 +97,34 @@ def redis_command(
         version.Version(version_deprecated) if version_deprecated else None,
         arguments,
         cluster or ClusterCommandConfig(),
-        cache_config,
         flags or set(),
         redirect_usage,
     )
 
     def wrapper(
-        func: Callable[P, Coroutine[Any, Any, R]],
-    ) -> Callable[P, Coroutine[Any, Any, R]]:
-        command_cache = CommandCache(command_name, cache_config)
+        func: Callable[P, CommandRequest[R]],
+    ) -> Callable[P, CommandRequest[R]]:
         runtime_checkable = add_runtime_checks(func)
 
         @functools.wraps(func)
-        async def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
-            from coredis.client import Redis, RedisCluster
+        def wrapped(*args: P.args, **kwargs: P.kwargs) -> CommandRequest[R]:
+            from coredis import Redis, RedisCluster
 
-            client = args[0]
-            is_regular_client = isinstance(client, (Redis, RedisCluster))
-            runtime_checking = not getattr(client, "noreply", None) and is_regular_client
+            is_regular_client = isinstance(args[0], (Redis, RedisCluster))
             if redirect_usage and is_regular_client:
                 if redirect_usage.warn:
                     warnings.warn(redirect_usage.reason, UserWarning, stacklevel=2)
                 else:
                     raise NotImplementedError(redirect_usage.reason)
-            callable = runtime_checkable if runtime_checking else func
-            await check_version(
-                client,  # type: ignore
+            runtime_checking = not getattr(args[0], "noreply", None) and is_regular_client
+            check_version(
+                args[0],  # type: ignore
                 func.__name__,
                 command_details,
                 deprecation_reason,
                 kwargs,
             )
-            async with command_cache(callable, *args, **kwargs) as response:
-                return response
+            return (func if not runtime_checking else runtime_checkable)(*args, **kwargs)
 
         wrapped.__doc__ = textwrap.dedent(wrapped.__doc__ or "")
         if group:
@@ -236,7 +156,7 @@ Compatibility:
                 wrapped.__doc__ += f"""
 - :paramref:`{argument}`: New in :redis-version:`{min_version}`
 """
-        if cache_config:
+        if cacheable:
             wrapped.__doc__ += """
 .. hint:: Supports client side caching
 """

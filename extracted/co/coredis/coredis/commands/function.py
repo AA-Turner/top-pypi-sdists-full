@@ -9,6 +9,7 @@ from typing import Any, ClassVar, cast
 from deprecated.sphinx import versionadded
 
 from coredis._utils import EncodingInsensitiveDict, nativestr
+from coredis.commands.request import CommandRequest
 from coredis.exceptions import FunctionError
 from coredis.typing import (
     TYPE_CHECKING,
@@ -18,6 +19,7 @@ from coredis.typing import (
     Generator,
     Generic,
     KeyT,
+    MutableMapping,
     P,
     Parameters,
     R,
@@ -90,7 +92,7 @@ class Library(Generic[AnyStr]):
         return c
 
     @property
-    def functions(self) -> dict[str, Function[AnyStr]]:
+    def functions(self) -> MutableMapping[str, Function[AnyStr]]:
         """
         mapping of function names to :class:`~coredis.commands.function.Function`
         instances that can be directly called.
@@ -107,10 +109,10 @@ class Library(Generic[AnyStr]):
         return False
 
     async def initialize(self: LibraryT, replace: bool = False) -> LibraryT:
-        from coredis.pipeline import ClusterPipelineImpl, PipelineImpl  # type: ignore
+        from coredis.pipeline import ClusterPipeline, Pipeline
 
         self._functions.clear()
-        if isinstance(self.client, (PipelineImpl, ClusterPipelineImpl)):
+        if isinstance(self.client, (Pipeline, ClusterPipeline)):
             redis_client = self.client.client
         else:
             redis_client = self.client
@@ -148,7 +150,7 @@ class Library(Generic[AnyStr]):
         ),
         runtime_checks: bool = False,
         readonly: bool | None = None,
-    ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
+    ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, CommandRequest[R]]]:
         """
         Decorator for wrapping methods of subclasses of :class:`Library`
         as entry points to the functions contained in the library. This allows
@@ -171,7 +173,7 @@ class Library(Generic[AnyStr]):
 
             import coredis
             from coredis.commands import Library
-            from coredis.typing import KeyT, ValueT
+            from coredis.typing import KeyT, RedisValueT
             from typing import List
 
             class MyAwesomeLibrary(Library):
@@ -219,22 +221,24 @@ class Library(Generic[AnyStr]):
                 \"\"\"
 
                 @Library.wraps("echo")
-                async def echo(self, value: ValueT) -> ValueT: ...
+                def echo(self, value: ValueT) -> CommandRequest[RedisValueT]: ...
 
-                @Library.wraps("ping")
-                async def ping(self) -> str: ...
+                @Library.wraps("ping"print(c)
+                )
+                def ping(self) -> CommandRequest[str]: ...
 
                 @Library.wraps("get")
-                async def get(self, key: KeyT) -> ValueT: ...
+                def get(self, key: KeyT) -> CommandRequest[ValueT]: ...
 
                 @Library.wraps("hmmget")
-                async def hmmget(self, *keys: KeyT, **fields_with_values: ValueT): ...
+                def hmmget(self, *keys: KeyT, **fields_with_values: RedisValueT):
                 \"\"\"
                 Return values of ``fields_with_values`` on a first come first serve
                 basis from the hashes at ``keys``. Since ``fields_with_values`` is a mapping
                 the keys are mapped to hash fields and the values are used
                 as defaults if they are not found in any of the hashes at ``keys``
                 \"\"\"
+                ...
 
             client = coredis.Redis()
             lib = await MyAwesomeLibrary(client, replace=True)
@@ -270,7 +274,7 @@ class Library(Generic[AnyStr]):
         :return: A function that has a signature mirroring the decorated function.
         """
 
-        def wrapper(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+        def wrapper(func: Callable[P, Awaitable[R]]) -> Callable[P, CommandRequest[R]]:
             sig = inspect.signature(func)
             first_arg: str = list(sig.parameters.keys())[0]
             runtime_check_wrapper = add_runtime_checks if not runtime_checks else safe_beartype
@@ -324,15 +328,13 @@ class Library(Generic[AnyStr]):
 
             @runtime_check_wrapper
             @functools.wraps(func)
-            async def _inner(*args: P.args, **kwargs: P.kwargs) -> R:
+            def _inner(*args: P.args, **kwargs: P.kwargs) -> CommandRequest[R]:
                 instance, keys, arguments = split_args(*args, **kwargs)
                 if (func := instance.functions.get(function_name, None)) is None:
                     raise AttributeError(
                         f"Library {instance.name} has no registered function {function_name}"
                     )
-                # TODO: atleast lie with a cast.
-                #  mypy doesn't like the cast
-                return await func(keys, arguments, readonly=readonly)  # type: ignore
+                return cast(CommandRequest[R], func(keys, arguments, readonly=readonly))
 
             return _inner
 
@@ -378,14 +380,14 @@ class Function(Generic[AnyStr]):
     def __await__(self) -> Generator[Any, None, Function[AnyStr]]:
         return self.initialize().__await__()
 
-    async def __call__(
+    def __call__(
         self,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
         *,
         client: coredis.client.Client[AnyStr] | None = None,
         readonly: bool | None = None,
-    ) -> ResponseType:
+    ) -> CommandRequest[ResponseType]:
         """
         Wrapper to call :meth:`~coredis.Redis.fcall` with the
         function named :paramref:`Function.name` registered under
@@ -401,6 +403,6 @@ class Function(Generic[AnyStr]):
             readonly = self.readonly
 
         if readonly:
-            return await client.fcall_ro(self.name, keys or [], args or [])
+            return client.fcall_ro(self.name, keys or [], args or [])
         else:
-            return await client.fcall(self.name, keys or [], args or [])
+            return client.fcall(self.name, keys or [], args or [])

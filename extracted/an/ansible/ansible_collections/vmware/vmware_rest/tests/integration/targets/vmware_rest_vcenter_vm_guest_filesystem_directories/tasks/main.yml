@@ -1,14 +1,18 @@
 ---
 - name: Test vmware_rest_vm_guest_filesystem_directories module on a real vCenter
+  # https://github.com/ansible-collections/cloud.common/issues/179
+  environment:
+    VMWARE_HOST: "{{ vcenter_hostname }}"
+    VMWARE_USER: "{{ vcenter_username }}"
+    VMWARE_PASSWORD: "{{ vcenter_password }}"
+    VMWARE_VALIDATE_CERTS: "False"
+    VMWARE_PORT: "{{ vcenter_port }}"
   block:
-    - name: Import eco-vcenter common vars
-      ansible.builtin.include_vars:
-        file: ../group_vars.yml
-      tags: eco-vcenter-ci
-
     - name: Create VM from template
-      ansible.builtin.include_tasks: ../../action_on_vm/create_vm_from_template.yml
+      ansible.builtin.include_role:
+        name: prepare_vm
       vars:
+        prepare_vm_state: present
         resource_pool_name: "{{ test_resource_pool_name }}"
         resource_pool_parent_name: "{{ vcenter_resource_pool }}"
         vm_name: "{{ test_vm_name }}"
@@ -16,11 +20,11 @@
     - name: Power on VM
       vmware.vmware_rest.vcenter_vm_power:
         state: start
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
 
     - name: Wait until VM is ready
       vmware.vmware_rest.vcenter_vm_tools_info:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
       register: vm_tools_info
       until:
         - vm_tools_info is not failed
@@ -30,7 +34,7 @@
 
     - name: Create a directory in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         path: "{{ path_tmp.dir }}"
         create_parents: true
         credentials:
@@ -47,11 +51,11 @@
     - name: Verify changed true
       ansible.builtin.assert:
         that:
-          - vm_dir_info.changed
+          - vm_dir_info is ansible.builtin.changed
 
     - name: Create directory with name duplication in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         path: "{{ path_tmp.dir }}"
         create_parents: true
         credentials:
@@ -68,12 +72,12 @@
     - name: Verify no changes
       ansible.builtin.assert:
         that:
-          - not vm_dir_info.changed
+          - vm_dir_info is not ansible.builtin.changed
           - vm_dir_info.value.error_type == "ALREADY_EXISTS"
 
     - name: Move directory in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         path: "{{ path_tmp.dir }}"
         new_path: "{{ path_tmp.new_dir }}"
         create_parents: true
@@ -92,11 +96,11 @@
     - name: Verify changed true
       ansible.builtin.assert:
         that:
-          - vm_dir_info.changed
+          - vm_dir_info is ansible.builtin.changed
 
     - name: Create a directory in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         path: "{{ path_tmp.dir }}"
         create_parents: true
         credentials:
@@ -113,11 +117,11 @@
     - name: Verify changed true
       ansible.builtin.assert:
         that:
-          - vm_dir_info.changed
+          - vm_dir_info is ansible.builtin.changed
 
     - name: Create a temporary directory in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         suffix: test
         prefix: test
         credentials:
@@ -135,12 +139,12 @@
     - name: Verify changed true
       ansible.builtin.assert:
         that:
-          - vm_dir_info_temp.changed
-          - vm_dir_info_temp.value
-  
+          - vm_dir_info_temp is ansible.builtin.changed
+          - vm_dir_info_temp.value is defined and vm_dir_info_temp.value != ''
+
     - name: Delete directories in /tmp
       vmware.vmware_rest.vcenter_vm_guest_filesystem_directories:
-        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        vm: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
         path: "{{ item }}"
         credentials:
           interactive_session: false
@@ -171,11 +175,13 @@
 
   always:
     - name: Delete VM
-      ansible.builtin.include_tasks: ../../action_on_vm/delete_vm.yml
+      ansible.builtin.include_role:
+        name: prepare_vm
       vars:
-        vm_id: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name) }}"
+        prepare_vm_state: absent
+        vm_id: "{{ lookup('vmware.vmware_rest.vm_moid', test_vm_name, **vmware_rest_auth_vars) }}"
 
     - name: Delete resource pool
       vmware.vmware_rest.vcenter_resourcepool:
-        resource_pool: "{{ lookup('vmware.vmware_rest.resource_pool_moid', test_resource_pool_name) }}"
+        resource_pool: "{{ lookup('vmware.vmware_rest.resource_pool_moid', test_resource_pool_name, **vmware_rest_auth_vars) }}"
         state: absent

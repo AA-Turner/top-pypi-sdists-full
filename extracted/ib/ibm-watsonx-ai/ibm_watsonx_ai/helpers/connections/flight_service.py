@@ -9,13 +9,14 @@ import sys
 import time
 import threading
 import queue
-import pandas as pd
 from random import random
 
 from ast import literal_eval
 from contextlib import nullcontext
 from functools import partial
 from typing import List, Optional, Iterable, Generator
+
+import pandas as pd
 
 from ibm_watsonx_ai.utils.autoai.errors import InvalidSamplingType, CorruptedData
 from ibm_watsonx_ai.utils.autoai.enums import PredictionType, SamplingTypes
@@ -32,58 +33,20 @@ from ibm_watsonx_ai.utils.utils import (
     _get_expiration_datetime_from_headers,
 )
 
+
 is_lib_installed(lib_name="pyarrow", install=True)
 import pyarrow as pa
 from pyarrow import flight
-from pyarrow.lib import ArrowException
 from warnings import warn
 from math import ceil
-from ibm_watsonx_ai.wml_client_error import WMLClientError
+
+from .utils.flight_utils import SimplyCallback, CallbackSchema, HeaderMiddlewareFactory
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PARTITIONS_NUM = 4
 DEFAULT_BATCH_SIZE_FLIGHT_COMMAND = 10000
 DEFAULT_BATCH_SIZE_FLIGHT_COMMAND_BINARY_READ = 1000
-
-
-class FakeCallback:
-    def __init__(self):
-        self.logger = logger
-
-    def status_message(self, msg: str):
-        self.logger.debug(msg)
-
-
-class HeaderMiddleware(flight.ClientMiddleware):
-    def __init__(self, headers: dict):
-        super().__init__()
-        self.headers = headers
-
-    def sending_headers(self):
-        authorization_header = self.headers.get("Authorization")
-        if not authorization_header or not (
-            authorization_header.startswith("Bearer")
-            or authorization_header.startswith("Basic")
-        ):
-            raise WMLClientError(
-                "The authorization header is missing or does not contain supported token type. Allowed token types: Bearer, Basic"
-            )
-
-        headers = {"Authorization": authorization_header}
-
-        if impersonate_header := self.headers.get("impersonate"):
-            headers.update({"Impersonate": impersonate_header})
-
-        return headers
-
-
-class HeaderMiddlewareFactory(flight.ClientMiddlewareFactory):
-    def __init__(self, headers: dict):
-        self.headers = headers
-
-    def start_call(self, info):
-        return HeaderMiddleware(self.headers)
 
 
 class FlightConnection:
@@ -179,7 +142,7 @@ class FlightConnection:
         connection_id: Optional[str] = None,
         data_location: Optional[dict] = None,
         enable_subsampling: Optional[bool] = False,
-        callback: Optional["Callback"] = None,
+        callback: Optional[CallbackSchema] = None,
         data_batch_size_limit: Optional[int] = 1073741824,  # 1GB in Bytes
         logical_batch_size_limit: Optional[int] = None,
         flight_parameters: dict = None,
@@ -252,7 +215,9 @@ class FlightConnection:
         # --- end note
 
         # callback is used in the backend to send status messages
-        self.callback = callback if callback is not None else FakeCallback()
+        self.callback = (
+            callback if callback is not None else SimplyCallback(logger=logger)
+        )
         self.max_retry_time = max_retry_time
 
         # Handle logical_batch_size_limit parameter set up
@@ -345,7 +310,7 @@ class FlightConnection:
             location=f"grpc+tls://{self.flight_location}:{self.flight_port}",
             disable_server_verification=True,
             override_hostname=self.flight_location,
-            middleware=[HeaderMiddlewareFactory(self.headers)],
+            middleware=[HeaderMiddlewareFactory(headers=self.headers)],
             **self.additional_connection_args,
         )
         return self
@@ -542,7 +507,7 @@ class FlightConnection:
                     ):
                         raise e
 
-                except Exception as e:
+                except flight.FlightUnavailableError as e:
                     last_exception = e
                     if "failed to connect to all addresses" in str(e):
                         logger.debug(

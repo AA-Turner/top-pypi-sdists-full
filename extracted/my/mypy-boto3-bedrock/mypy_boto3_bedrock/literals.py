@@ -29,6 +29,7 @@ __all__ = (
     "AuthorizationStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
+    "CustomModelDeploymentStatusType",
     "CustomizationTypeType",
     "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
@@ -56,6 +57,7 @@ __all__ = (
     "InferenceProfileTypeType",
     "InferenceTypeType",
     "JobStatusDetailsType",
+    "ListCustomModelDeploymentsPaginatorName",
     "ListCustomModelsPaginatorName",
     "ListEvaluationJobsPaginatorName",
     "ListGuardrailsPaginatorName",
@@ -104,6 +106,7 @@ ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
+CustomModelDeploymentStatusType = Literal["Active", "Creating", "Failed"]
 CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
@@ -171,6 +174,7 @@ InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
 ]
+ListCustomModelDeploymentsPaginatorName = Literal["list_custom_model_deployments"]
 ListCustomModelsPaginatorName = Literal["list_custom_models"]
 ListEvaluationJobsPaginatorName = Literal["list_evaluation_jobs"]
 ListGuardrailsPaginatorName = Literal["list_guardrails"]
@@ -264,6 +268,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -496,6 +502,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -556,6 +563,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -644,6 +652,7 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_custom_model_deployments",
     "list_custom_models",
     "list_evaluation_jobs",
     "list_guardrails",

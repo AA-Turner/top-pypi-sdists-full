@@ -5,6 +5,7 @@ from datetime import timedelta
 from ..commands._utils import normalized_milliseconds
 from ..commands._wrappers import ClusterCommandConfig
 from ..commands.constants import CommandGroup, CommandName, NodeFlag
+from ..commands.request import CommandRequest
 from ..response._callbacks import (
     ClusterEnsureConsistent,
     ClusterMergeSets,
@@ -19,9 +20,9 @@ from ..typing import (
     KeyT,
     Literal,
     Parameters,
+    RedisValueT,
     ResponsePrimitive,
     StringT,
-    ValueT,
 )
 from .base import Module, ModuleGroup, module_command
 from .response._callbacks.graph import (
@@ -51,12 +52,12 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def query(
+    def query(
         self,
         graph: KeyT,
         query: StringT,
         timeout: int | timedelta | None = None,
-    ) -> GraphQueryResult[AnyStr]:
+    ) -> CommandRequest[GraphQueryResult[AnyStr]]:
         """
         Executes the given query against a specified graph
 
@@ -65,17 +66,16 @@ class Graph(ModuleGroup[AnyStr]):
         :param timeout: The maximum amount of time (milliseconds) to wait for the query to complete
         :return: The result set of the executed query.
         """
-        pieces: CommandArgList = [graph, query]
+        command_arguments: CommandArgList = [graph, query]
 
         if timeout is not None:
-            pieces.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
+            command_arguments.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
 
-        pieces.append(b"--compact")
-        return await self.execute_module_command(
+        command_arguments.append(b"--compact")
+        return self.client.create_request(
             CommandName.GRAPH_QUERY,
-            *pieces,
-            callback=QueryCallback[AnyStr](graph),
-            query=query,
+            *command_arguments,
+            callback=QueryCallback[AnyStr](graph, query=query),
         )
 
     @module_command(
@@ -84,12 +84,12 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="2.2.8",
         group=COMMAND_GROUP,
     )
-    async def ro_query(
+    def ro_query(
         self,
         graph: KeyT,
         query: StringT,
         timeout: int | timedelta | None = None,
-    ) -> GraphQueryResult[AnyStr]:
+    ) -> CommandRequest[GraphQueryResult[AnyStr]]:
         """
         Executes a given read only query against a specified graph
 
@@ -98,16 +98,15 @@ class Graph(ModuleGroup[AnyStr]):
         :param timeout: The maximum amount of time (milliseconds) to wait for the query to complete.
         :return: The result set for the read-only query or an error if a write query was given.
         """
-        pieces: CommandArgList = [graph, query]
+        command_arguments: CommandArgList = [graph, query]
         if timeout is not None:
-            pieces.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
-        pieces.append(b"--compact")
+            command_arguments.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
+        command_arguments.append(b"--compact")
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_RO_QUERY,
-            *pieces,
-            callback=QueryCallback[AnyStr](graph),
-            query=query,
+            *command_arguments,
+            callback=QueryCallback[AnyStr](graph, query=query),
         )
 
     @module_command(
@@ -116,7 +115,7 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def delete(self, graph: KeyT) -> bool:
+    def delete(self, graph: KeyT) -> CommandRequest[bool]:
         """
         Completely removes the graph and all of its entities
 
@@ -125,7 +124,7 @@ class Graph(ModuleGroup[AnyStr]):
         :param graph: The name of the graph to be deleted.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_DELETE,
             graph,
             callback=SimpleStringCallback(prefix_match=True, ok_values={"Graph removed"}),
@@ -137,7 +136,7 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="2.0.0",
         group=COMMAND_GROUP,
     )
-    async def explain(self, graph: KeyT, query: StringT) -> list[AnyStr]:
+    def explain(self, graph: KeyT, query: StringT) -> CommandRequest[list[AnyStr]]:
         """
 
         Constructs a query execution plan for the given :paramref:`graph` and
@@ -149,7 +148,7 @@ class Graph(ModuleGroup[AnyStr]):
         :return: A list of strings representing the query execution plan.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_EXPLAIN, graph, query, callback=ListCallback[AnyStr]()
         )
 
@@ -159,12 +158,12 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="2.0.0",
         group=COMMAND_GROUP,
     )
-    async def profile(
+    def profile(
         self,
         graph: KeyT,
         query: StringT,
         timeout: int | timedelta | None = None,
-    ) -> list[AnyStr]:
+    ) -> CommandRequest[list[AnyStr]]:
         """
         Executes a query and returns an execution plan augmented with metrics for each
         operation's execution
@@ -175,11 +174,13 @@ class Graph(ModuleGroup[AnyStr]):
         :return: A string representation of a query execution plan, with details on results produced
          by and time spent in each operation.
         """
-        pieces: CommandArgList = [graph, query]
+        command_arguments: CommandArgList = [graph, query]
         if timeout is not None:
-            pieces.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
-        return await self.execute_module_command(
-            CommandName.GRAPH_PROFILE, *pieces, callback=ListCallback[AnyStr]()
+            command_arguments.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
+        return self.client.create_request(
+            CommandName.GRAPH_PROFILE,
+            *command_arguments,
+            callback=ListCallback[AnyStr](),
         )
 
     @module_command(
@@ -189,9 +190,9 @@ class Graph(ModuleGroup[AnyStr]):
         arguments={"reset": {"version_introduced": "2.12.0"}},
         group=COMMAND_GROUP,
     )
-    async def slowlog(
+    def slowlog(
         self, graph: KeyT, reset: bool = False
-    ) -> tuple[GraphSlowLogInfo, ...] | bool:
+    ) -> CommandRequest[tuple[GraphSlowLogInfo, ...]] | CommandRequest[bool]:
         """
         Returns a list containing up to 10 of the slowest queries issued against the given graph
 
@@ -199,18 +200,18 @@ class Graph(ModuleGroup[AnyStr]):
         :param reset: If ``True``, the slowlog will be reset
         :return: The slowlog for the given graph or ``True`` if the slowlog was reset
         """
-        pieces: CommandArgList = [graph]
+        command_arguments: CommandArgList = [graph]
         if reset:
-            pieces.append(PureToken.RESET)
-            return await self.execute_module_command(
+            command_arguments.append(PureToken.RESET)
+            return self.client.create_request(
                 CommandName.GRAPH_SLOWLOG,
-                *pieces,
+                *command_arguments,
                 callback=SimpleStringCallback(),
             )
         else:
-            return await self.execute_module_command(
+            return self.client.create_request(
                 CommandName.GRAPH_SLOWLOG,
-                *pieces,
+                *command_arguments,
                 callback=GraphSlowLogCallback(),
             )
 
@@ -223,9 +224,9 @@ class Graph(ModuleGroup[AnyStr]):
             route=NodeFlag.RANDOM,
         ),
     )
-    async def config_get(
+    def config_get(
         self, name: StringT
-    ) -> dict[AnyStr, ResponsePrimitive] | ResponsePrimitive:
+    ) -> CommandRequest[dict[AnyStr, ResponsePrimitive] | ResponsePrimitive]:
         """
         Retrieves a RedisGraph configuration
 
@@ -233,7 +234,7 @@ class Graph(ModuleGroup[AnyStr]):
         :return: The value of the configuration parameter. If :paramref:`name`
          is ``*``, a mapping of all configuration parameters to their values
         """
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_CONFIG_GET,
             name,
             callback=ConfigGetCallback[AnyStr](),
@@ -249,7 +250,7 @@ class Graph(ModuleGroup[AnyStr]):
             combine=ClusterEnsureConsistent[AnyStr](),
         ),
     )
-    async def config_set(self, name: StringT, value: ValueT) -> bool:
+    def config_set(self, name: StringT, value: RedisValueT) -> CommandRequest[bool]:
         """
         Updates a RedisGraph configuration
 
@@ -257,7 +258,7 @@ class Graph(ModuleGroup[AnyStr]):
         :param value: The value to set the configuration parameter to.
         :return: True if the configuration parameter was set successfully, False otherwise.
         """
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_CONFIG_SET, name, value, callback=SimpleStringCallback()
         )
 
@@ -271,16 +272,14 @@ class Graph(ModuleGroup[AnyStr]):
             combine=ClusterMergeSets[AnyStr](),
         ),
     )
-    async def list(self) -> set[AnyStr]:
+    def list(self) -> CommandRequest[set[AnyStr]]:
         """
         Lists all graph keys in the keyspace
 
         :return: A list of graph keys in the keyspace.
         """
 
-        return await self.execute_module_command(
-            CommandName.GRAPH_LIST, callback=SetCallback[AnyStr]()
-        )
+        return self.client.create_request(CommandName.GRAPH_LIST, callback=SetCallback[AnyStr]())
 
     @module_command(
         CommandName.GRAPH_CONSTRAINT_DROP,
@@ -288,14 +287,14 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="2.12.0",
         group=COMMAND_GROUP,
     )
-    async def constraint_drop(
+    def constraint_drop(
         self,
         graph: KeyT,
         type: Literal[PureToken.MANDATORY, PureToken.UNIQUE],
         node: StringT | None = None,
         relationship: StringT | None = None,
         properties: Parameters[StringT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Deletes a constraint from specified graph
 
@@ -307,18 +306,18 @@ class Graph(ModuleGroup[AnyStr]):
 
         :return: True if the constraint was successfully dropped, False otherwise.
         """
-        pieces: CommandArgList = [graph, type]
+        command_arguments: CommandArgList = [graph, type]
         if node is not None:
-            pieces.extend([PrefixToken.NODE, node])
+            command_arguments.extend([PrefixToken.NODE, node])
         if relationship is not None:
-            pieces.extend([PrefixToken.RELATIONSHIP, relationship])
+            command_arguments.extend([PrefixToken.RELATIONSHIP, relationship])
         if properties:
             _props: list[StringT] = list(properties)
-            pieces.extend([PrefixToken.PROPERTIES, len(_props), *_props])
+            command_arguments.extend([PrefixToken.PROPERTIES, len(_props), *_props])
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.GRAPH_CONSTRAINT_DROP,
-            *pieces,
+            *command_arguments,
             callback=SimpleStringCallback(),
         )
 
@@ -328,14 +327,14 @@ class Graph(ModuleGroup[AnyStr]):
         version_introduced="2.12.0",
         group=COMMAND_GROUP,
     )
-    async def constraint_create(
+    def constraint_create(
         self,
         graph: KeyT,
         type: Literal[PureToken.MANDATORY, PureToken.UNIQUE],
         node: StringT | None = None,
         relationship: StringT | None = None,
         properties: Parameters[StringT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Creates a constraint on specified graph
 
@@ -347,17 +346,17 @@ class Graph(ModuleGroup[AnyStr]):
         :param properties: The properties to apply the constraint to.
         :return: True if the constraint was created successfully, False otherwise.
         """
-        pieces: CommandArgList = [graph, type]
+        command_arguments: CommandArgList = [graph, type]
 
         if node is not None:
-            pieces.extend([PrefixToken.NODE, node])
+            command_arguments.extend([PrefixToken.NODE, node])
         if relationship is not None:
-            pieces.extend([PrefixToken.RELATIONSHIP, relationship])
+            command_arguments.extend([PrefixToken.RELATIONSHIP, relationship])
         if properties:
             _props: list[StringT] = list(properties)
-            pieces.extend([PrefixToken.PROPERTIES, len(_props), *_props])
-        return await self.execute_module_command(
+            command_arguments.extend([PrefixToken.PROPERTIES, len(_props), *_props])
+        return self.client.create_request(
             CommandName.GRAPH_CONSTRAINT_CREATE,
-            *pieces,
+            *command_arguments,
             callback=SimpleStringCallback(ok_values={"PENDING"}),
         )

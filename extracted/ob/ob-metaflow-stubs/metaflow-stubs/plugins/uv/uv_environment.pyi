@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-15T20:32:21.565728                                                            #
+# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-16T21:13:36.417933                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ if typing.TYPE_CHECKING:
     import metaflow.metaflow_environment
 
 from ...exception import MetaflowException as MetaflowException
-from ...packaging_sys import ContentType as ContentType
 
 class UVException(metaflow.exception.MetaflowException, metaclass=type):
     ...

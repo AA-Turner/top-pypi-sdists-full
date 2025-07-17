@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peakrdl-regblock
-Version: 1.1.0
+Version: 1.1.1
 Summary: Compile SystemRDL into a SystemVerilog control/status register (CSR) block
 Author: Alex Mykyta
 License: GPLv3

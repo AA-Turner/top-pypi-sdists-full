@@ -20,6 +20,11 @@ from ..usecases.face_emotion import FaceEmotionConfig, FaceEmotionUseCase
 from ..usecases.parking_space_detection import ParkingSpaceConfig, ParkingSpaceUseCase
 from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig, UnderwaterPlasticUseCase
 from ..usecases.pedestrian_detection import PedestrianDetectionConfig, PedestrianDetectionUseCase
+from ..usecases.car_damage_detection import CarDamageConfig, CarDamageDetectionUseCase
+from ..usecases.age_detection import AgeDetectionUseCase, AgeDetectionConfig
+from ..usecases.weld_defect_detection import WeldDefectUseCase,WeldDefectConfig
+from ..usecases.price_tag_detection import PriceTagUseCase, PriceTagConfig
+from ..usecases.mask_detection import MaskDetectionConfig, MaskDetectionUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -34,9 +39,14 @@ __all__ = [
     'PotholeSegmentationUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
+    'MaskDetectionUseCase',
+    'CarDamageDetectionUseCase',
     'FaceEmotionUseCase',
     'UnderwaterPlasticUseCase',
     'PedestrianDetectionUseCase',
+    'AgeDetectionUseCase',
+    'WeldDefectUseCase',
+    'PriceTagUseCase',
     'PeopleCountingConfig',
     'PotholeConfig',
     'CustomerServiceConfig',
@@ -46,9 +56,14 @@ __all__ = [
     'ColorDetectionConfig',
     'VehicleMonitoringConfig',
     'ParkingSpaceConfig',
+    'MaskDetectionConfig',
     'FireSmokeConfig',
+    'CarDamageConfig',
     'FlareAnalysisConfig',
     'FaceEmotionConfig',
-    'UnderwaterPlasticUseCase',
+    'UnderwaterPlasticConfig',
     'PedestrianDetectionConfig',
+    'AgeDetectionConfig',
+    'WeldDefectConfig',
+    'PriceTagConfig'
 ]

@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-import os
-import sys
 from codecs import decode
 from collections.abc import Mapping
-from contextlib import AbstractContextManager
-from dataclasses import dataclass, field
-from functools import singledispatch, wraps
+from functools import cache, partial, singledispatch
 from importlib.util import find_spec
-from inspect import Parameter, signature
-from pathlib import Path
 from types import EllipsisType
 from typing import TYPE_CHECKING, TypeVar
 from warnings import warn
@@ -18,10 +12,9 @@ import h5py
 import numpy as np
 import pandas as pd
 import scipy
-import scipy.sparse
 from packaging.version import Version
-
-from .exceptiongroups import add_note  # noqa: F401
+from zarr import Array as ZarrArray  # noqa: F401
+from zarr import Group as ZarrGroup
 
 if TYPE_CHECKING:
     from typing import Any
@@ -30,24 +23,9 @@ if TYPE_CHECKING:
 # scipy sparse array comapt #
 #############################
 
+
 CSMatrix = scipy.sparse.csr_matrix | scipy.sparse.csc_matrix
-
-CAN_USE_SPARSE_ARRAY = Version(scipy.__version__) >= Version("1.11")
-
-if TYPE_CHECKING or CAN_USE_SPARSE_ARRAY:
-    SpArray = scipy.sparse.sparray
-    CSArray = scipy.sparse.csr_array | scipy.sparse.csc_array
-else:
-
-    class SpArray:
-        @staticmethod
-        def __repr__():
-            return "mock scipy.sparse.sparray"
-
-    class CSArray:
-        @staticmethod
-        def __repr__():
-            return "mock scipy.sparse._cs_array"
+CSArray = scipy.sparse.csr_array | scipy.sparse.csc_array
 
 
 class Empty:
@@ -72,51 +50,19 @@ H5File = h5py.File
 
 
 #############################
-# stdlib
-#############################
-
-
-if sys.version_info >= (3, 11):
-    from contextlib import chdir
-else:
-
-    @dataclass
-    class chdir(AbstractContextManager):
-        path: Path
-        _old_cwd: list[Path] = field(default_factory=list)
-
-        def __enter__(self) -> None:
-            self._old_cwd.append(Path())
-            os.chdir(self.path)
-
-        def __exit__(self, *_exc_info) -> None:
-            os.chdir(self._old_cwd.pop())
-
-
-#############################
 # Optional deps
 #############################
-
-if find_spec("zarr") or TYPE_CHECKING:
+@cache
+def is_zarr_v2() -> bool:
     import zarr
+    from packaging.version import Version
 
-    if Version(zarr.__version__).major > 2:
-        msg = "zarr-python major version > 2 is not supported"
-        raise ImportError(msg)
+    return Version(zarr.__version__) < Version("3.0.0")
 
-    from zarr.core import Array as ZarrArray
-    from zarr.hierarchy import Group as ZarrGroup
-else:
 
-    class ZarrArray:
-        @staticmethod
-        def __repr__():
-            return "mock zarr.core.Array"
-
-    class ZarrGroup:
-        @staticmethod
-        def __repr__():
-            return "mock zarr.core.Group"
+if is_zarr_v2():
+    msg = "anndata will no longer support zarr v2 in the near future. Please prepare to upgrade to zarr>=3."
+    warn(msg, DeprecationWarning, stacklevel=2)
 
 
 if find_spec("awkward") or TYPE_CHECKING:
@@ -151,6 +97,37 @@ else:
         @staticmethod
         def __repr__():
             return "mock dask.array.core.Array"
+
+
+if find_spec("xarray") or TYPE_CHECKING:
+    import xarray
+    from xarray import DataArray as XDataArray
+    from xarray import Dataset as XDataset
+    from xarray import Variable as XVariable
+    from xarray.backends import BackendArray as XBackendArray
+    from xarray.backends.zarr import ZarrArrayWrapper as XZarrArrayWrapper
+else:
+    xarray = None
+
+    class XDataArray:
+        def __repr__(self) -> str:
+            return "mock DataArray"
+
+    class XDataset:
+        def __repr__(self) -> str:
+            return "mock Dataset"
+
+    class XVariable:
+        def __repr__(self) -> str:
+            return "mock Variable"
+
+    class XZarrArrayWrapper:
+        def __repr__(self) -> str:
+            return "mock ZarrArrayWrapper"
+
+    class XBackendArray:
+        def __repr__(self) -> str:
+            return "mock BackendArray"
 
 
 # https://github.com/scverse/anndata/issues/1749
@@ -198,9 +175,26 @@ else:
             return "mock cupy.ndarray"
 
 
+if find_spec("legacy_api_wrap") or TYPE_CHECKING:
+    from legacy_api_wrap import legacy_api  # noqa: TID251
+
+    old_positionals = partial(legacy_api, category=FutureWarning)
+else:
+
+    def old_positionals(*old_positionals):
+        return lambda func: func
+
+
 #############################
 # IO helpers
 #############################
+
+
+NULLABLE_NUMPY_STRING_TYPE = (
+    np.dtype("O")
+    if Version(np.__version__) < Version("2")
+    else np.dtypes.StringDType(na_object=pd.NA)
+)
 
 
 @singledispatch
@@ -228,15 +222,12 @@ def _read_attr_hdf5(
     attr = attrs[name]
     attr_id = attrs.get_id(name)
     dtype = h5py.check_string_dtype(attr_id.dtype)
-    if dtype is None:
+    if dtype is None or dtype.length is None:  # variable-length string, no problem
         return attr
-    else:
-        if dtype.length is None:  # variable-length string, no problem
-            return attr
-        elif len(attr_id.shape) == 0:  # Python bytestring
-            return attr.decode("utf-8")
-        else:  # NumPy array
-            return [decode(s, "utf-8") for s in attr]
+    elif len(attr_id.shape) == 0:  # Python bytestring
+        return attr.decode("utf-8")
+    else:  # NumPy array
+        return [decode(s, "utf-8") for s in attr]
 
 
 def _from_fixed_length_strings(value):
@@ -264,7 +255,7 @@ def _from_fixed_length_strings(value):
 
 
 def _decode_structured_array(
-    arr: np.ndarray, dtype: np.dtype | None = None, copy: bool = False
+    arr: np.ndarray, *, dtype: np.dtype | None = None, copy: bool = False
 ) -> np.ndarray:
     """
     h5py 3.0 now reads all strings as bytes. There is a helper method which can convert these to strings,
@@ -319,7 +310,7 @@ def _require_group_write_dataframe(
 ) -> Group_T:
     if len(df.columns) > 5_000 and isinstance(f, H5Group):
         # actually 64kb is the limit, but this should be a conservative estimate
-        return f.create_group(name, track_order=True, *args, **kwargs)
+        return f.create_group(name, *args, track_order=True, **kwargs)
     return f.require_group(name, *args, **kwargs)
 
 
@@ -368,11 +359,12 @@ def _move_adj_mtx(d):
             and isinstance(n[k], scipy.sparse.spmatrix | np.ndarray)
             and len(n[k].shape) == 2
         ):
-            warn(
-                f"Moving element from .uns['neighbors']['{k}'] to .obsp['{k}'].\n\n"
-                "This is where adjacency matrices should go now.",
-                FutureWarning,
+            msg = (
+                f"Moving element from .uns['neighbors'][{k!r}] to .obsp[{k!r}].\n\n"
+                "This is where adjacency matrices should go now."
             )
+            # 5: caller -> 4: legacy_api_wrap -> 3: `AnnData.__init__` -> 2: `_init_as_actual` → 1: here
+            warn(msg, FutureWarning, stacklevel=5)
             obsp[k] = n.pop(k)
 
 
@@ -384,60 +376,6 @@ def _find_sparse_matrices(d: Mapping, n: int, keys: tuple, paths: list):
         elif scipy.sparse.issparse(v) and v.shape == (n, n):
             paths.append((*keys, k))
     return paths
-
-
-# This function was adapted from scikit-learn
-# github.com/scikit-learn/scikit-learn/blob/master/sklearn/utils/validation.py
-def _deprecate_positional_args(func=None, *, version: str = "1.0 (renaming of 0.25)"):
-    """Decorator for methods that issues warnings for positional arguments.
-    Using the keyword-only argument syntax in pep 3102, arguments after the
-    * will issue a warning when passed as a positional argument.
-
-    Parameters
-    ----------
-    func
-        Function to check arguments on.
-    version
-        The version when positional arguments will result in error.
-    """
-
-    def _inner_deprecate_positional_args(f):
-        sig = signature(f)
-        kwonly_args = []
-        all_args = []
-
-        for name, param in sig.parameters.items():
-            if param.kind == Parameter.POSITIONAL_OR_KEYWORD:
-                all_args.append(name)
-            elif param.kind == Parameter.KEYWORD_ONLY:
-                kwonly_args.append(name)
-
-        @wraps(f)
-        def inner_f(*args, **kwargs):
-            extra_args = len(args) - len(all_args)
-            if extra_args <= 0:
-                return f(*args, **kwargs)
-
-            # extra_args > 0
-            args_msg = [
-                f"{name}={arg}"
-                for name, arg in zip(kwonly_args[:extra_args], args[-extra_args:])
-            ]
-            args_msg = ", ".join(args_msg)
-            warn(
-                f"Pass {args_msg} as keyword args. From version {version} passing "
-                "these as positional arguments will result in an error",
-                FutureWarning,
-            )
-            kwargs.update(zip(sig.parameters, args))
-            return f(**kwargs)
-
-        return inner_f
-
-    if func is not None:
-        return _inner_deprecate_positional_args(func)
-
-    return _inner_deprecate_positional_args
 
 
 def _transpose_by_block(dask_array: DaskArray) -> DaskArray:

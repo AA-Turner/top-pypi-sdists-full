@@ -50,6 +50,7 @@ from urllib.parse import urlparse, parse_qs
 if TYPE_CHECKING:
     from ibm_watsonx_ai import APIClient
     from ibm_watsonx_ai.lifecycle import SpecStates
+    from ibm_watsonx_ai.foundation_models.inference import ModelInference
     import pandas
 
 lib_checker = LibraryChecker()
@@ -1729,7 +1730,7 @@ class Deployments(WMLResource):
         deployment_id: str,
         inference_type: Literal["text", "text_stream", "chat", "chat_stream"],
         params: dict | None = None,
-    ) -> Any:
+    ) -> "ModelInference":
         """Based on provided deployment_id and params get ModelInference object.
         Verify that the deployment with the given deployment_id has generating methods.
         """
@@ -1782,19 +1783,21 @@ class Deployments(WMLResource):
                 .get("status", {})
                 .get("serving_urls", [])
             )
-        if inference_type in ["text", "text_stream"]:
-            if generated_url not in inference_url_list:
 
-                if all(
-                    "/text/generation" not in inference_url
-                    for inference_url in inference_url_list
-                ):
-                    raise WMLClientError(
-                        Messages.get_message(
-                            deployment_id,
-                            message_id="fm_deployment_has_not_inference_for_generation",
-                        )
-                    )
+        if (
+            inference_type in ["text", "text_stream"]
+            and generated_url not in inference_url_list
+            and all(
+                "/text/generation" not in inference_url
+                for inference_url in inference_url_list
+            )
+        ):
+            raise WMLClientError(
+                Messages.get_message(
+                    deployment_id,
+                    message_id="fm_deployment_has_not_inference_for_generation",
+                )
+            )
 
         return ModelInference(
             deployment_id=deployment_id, params=params, api_client=self._client
@@ -2005,32 +2008,76 @@ class Deployments(WMLResource):
         )
 
     def chat(
-        self, deployment_id: str, messages: ListType[dict], context: str | None = None
+        self,
+        deployment_id: str,
+        messages: ListType[dict],
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> dict:
         d_inference = self._get_model_inference(deployment_id, "chat")
-
-        return d_inference.chat(messages=messages, context=context)
+        return d_inference.chat(
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
     def chat_stream(
-        self, deployment_id: str, messages: ListType[dict], context: str | None = None
+        self,
+        deployment_id: str,
+        messages: ListType[dict],
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> Generator:
         d_inference = self._get_model_inference(deployment_id, "chat_stream")
-
-        return d_inference.chat_stream(messages=messages, context=context)
+        return d_inference.chat_stream(
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
     async def achat(
-        self, deployment_id: str, messages: ListType[dict], context: str | None = None
+        self,
+        deployment_id: str,
+        messages: ListType[dict],
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> dict:
         d_inference = self._get_model_inference(deployment_id, "chat")
-
-        return await d_inference.achat(messages=messages, context=context)
+        return await d_inference.achat(
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
     async def achat_stream(
-        self, deployment_id: str, messages: ListType[dict], context: str | None = None
+        self,
+        deployment_id: str,
+        messages: ListType[dict],
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto"] | None = None,
     ) -> AsyncGenerator:
         d_inference = self._get_model_inference(deployment_id, "chat_stream")
-
-        return await d_inference.achat_stream(messages=messages, context=context)
+        return await d_inference.achat_stream(
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
 
     def run_ai_service(
         self,

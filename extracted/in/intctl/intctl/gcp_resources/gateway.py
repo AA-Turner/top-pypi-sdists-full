@@ -47,7 +47,7 @@ def setup_https_gateway(cfg: dict, status: StatusManager):
     ip_name = f"gateway-manager-ip-{workspace}".lower()
     gateway_name = f"intellithing-gateway-{workspace}".lower()
     domain = cfg.get("domain")
-    gatewayClassName = "gke-l7-gxlb"
+    gatewayClassName = "gke-l7-global-external-managed"
     
     
     print("⏳ Checking for ongoing GKE operations before enabling Gateway API addon...")
@@ -216,7 +216,7 @@ metadata:
   name: {gateway_name}
   namespace: intellithing
 spec:
-  gatewayClassName: gke-l7-gxlb
+  gatewayClassName: gke-l7-global-external-managed
   listeners:
   - name: http
     protocol: HTTP
@@ -249,9 +249,23 @@ spec:
   hostnames:
   - "{domain}"
   rules:
-  - backendRefs:
+  - matches: [] 
+    backendRefs:
     - name: gateway-manager-deployment
       port: 80
+---
+apiVersion: networking.gke.io/v1
+kind: GCPBackendPolicy
+metadata:
+  name: gateway-manager-long-timeout-policy
+  namespace: intellithing
+spec:
+  targetRef:
+    group: ""
+    kind: Service
+    name: gateway-manager-deployment
+  default:
+    timeoutSec: 900     
 """
 
 
@@ -268,7 +282,6 @@ spec:
 
     print("✅ Gateway manifests applied successfully.")
     
-   
    
     # 5. Wait for the Gateway to be Accepted & Programmed
     print("⏳ Waiting for Gateway to be Accepted & Programmed…")

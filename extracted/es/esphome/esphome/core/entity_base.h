@@ -3,6 +3,12 @@
 #include <string>
 #include <cstdint>
 #include "string_ref.h"
+#include "helpers.h"
+#include "log.h"
+
+#ifdef USE_DEVICES
+#include "device.h"
+#endif
 
 namespace esphome {
 
@@ -49,6 +55,17 @@ class EntityBase {
   std::string get_icon() const;
   void set_icon(const char *icon);
 
+#ifdef USE_DEVICES
+  // Get/set this entity's device id
+  uint32_t get_device_id() const {
+    if (this->device_ == nullptr) {
+      return 0;  // No device set, return 0
+    }
+    return this->device_->get_device_id();
+  }
+  void set_device(Device *device) { this->device_ = device; }
+#endif
+
   // Check if this entity has state
   bool has_state() const { return this->flags_.has_state; }
 
@@ -63,8 +80,13 @@ class EntityBase {
 
   StringRef name_;
   const char *object_id_c_str_{nullptr};
+#ifdef USE_ENTITY_ICON
   const char *icon_c_str_{nullptr};
+#endif
   uint32_t object_id_hash_{};
+#ifdef USE_DEVICES
+  Device *device_{};
+#endif
 
   // Bit-packed flags to save memory (1 byte instead of 5)
   struct EntityFlags {
@@ -99,4 +121,58 @@ class EntityBase_UnitOfMeasurement {  // NOLINT(readability-identifier-naming)
   const char *unit_of_measurement_{nullptr};  ///< Unit of measurement override
 };
 
+/**
+ * An entity that has a state.
+ * @tparam T The type of the state
+ */
+template<typename T> class StatefulEntityBase : public EntityBase {
+ public:
+  virtual bool has_state() const { return this->state_.has_value(); }
+  virtual const T &get_state() const { return this->state_.value(); }
+  virtual T get_state_default(T default_value) const { return this->state_.value_or(default_value); }
+  void invalidate_state() { this->set_state_({}); }
+
+  void add_full_state_callback(std::function<void(optional<T> previous, optional<T> current)> &&callback) {
+    if (this->full_state_callbacks_ == nullptr)
+      this->full_state_callbacks_ = new CallbackManager<void(optional<T> previous, optional<T> current)>();  // NOLINT
+    this->full_state_callbacks_->add(std::move(callback));
+  }
+  void add_on_state_callback(std::function<void(T)> &&callback) {
+    if (this->state_callbacks_ == nullptr)
+      this->state_callbacks_ = new CallbackManager<void(T)>();  // NOLINT
+    this->state_callbacks_->add(std::move(callback));
+  }
+
+  void set_trigger_on_initial_state(bool trigger_on_initial_state) {
+    this->trigger_on_initial_state_ = trigger_on_initial_state;
+  }
+
+ protected:
+  optional<T> state_{};
+  /**
+   * Set a new state for this entity. This will trigger callbacks only if the new state is different from the previous.
+   *
+   * @param state The new state.
+   * @return True if the state was changed, false if it was the same as before.
+   */
+  bool set_state_(const optional<T> &state) {
+    if (this->state_ != state) {
+      // call the full state callbacks with the previous and new state
+      if (this->full_state_callbacks_ != nullptr)
+        this->full_state_callbacks_->call(this->state_, state);
+      // trigger legacy callbacks only if the new state is valid and either the trigger on initial state is enabled or
+      // the previous state was valid
+      auto had_state = this->has_state();
+      this->state_ = state;
+      if (this->state_callbacks_ != nullptr && state.has_value() && (this->trigger_on_initial_state_ || had_state))
+        this->state_callbacks_->call(state.value());
+      return true;
+    }
+    return false;
+  }
+  bool trigger_on_initial_state_{true};
+  // callbacks with full state and previous state
+  CallbackManager<void(optional<T> previous, optional<T> current)> *full_state_callbacks_{};
+  CallbackManager<void(T)> *state_callbacks_{};
+};
 }  // namespace esphome

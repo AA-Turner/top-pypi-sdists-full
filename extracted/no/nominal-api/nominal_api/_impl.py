@@ -14635,19 +14635,25 @@ class module_ModuleApplication(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'rid': ConjureFieldDefinition('rid', modules_api_ModuleApplicationRid),
             'module': ConjureFieldDefinition('module', module_ModuleRef),
             'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid),
             'applied_at': ConjureFieldDefinition('appliedAt', str),
             'applied_by': ConjureFieldDefinition('appliedBy', scout_rids_api_UserRid)
         }
 
-    __slots__: List[str] = ['_module', '_asset_rid', '_applied_at', '_applied_by']
+    __slots__: List[str] = ['_rid', '_module', '_asset_rid', '_applied_at', '_applied_by']
 
-    def __init__(self, applied_at: str, applied_by: str, asset_rid: str, module: "module_ModuleRef") -> None:
+    def __init__(self, applied_at: str, applied_by: str, asset_rid: str, module: "module_ModuleRef", rid: str) -> None:
+        self._rid = rid
         self._module = module
         self._asset_rid = asset_rid
         self._applied_at = applied_at
         self._applied_by = applied_by
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
 
     @builtins.property
     def module(self) -> "module_ModuleRef":
@@ -15079,6 +15085,38 @@ to assets. The Modules Service provides the api for managing these collections a
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_SearchModuleApplicationsResponse, self._return_none_for_unknown_union_types)
+
+    def update_module_application(self, auth_header: str, request: "module_UpdateModuleApplicationRequest") -> "module_UpdateModuleApplicationResponse":
+        """Update a module application.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/module/applications/update'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), module_UpdateModuleApplicationResponse, self._return_none_for_unknown_union_types)
 
     def get_derived_series(self, auth_header: str, request: "module_GetDerivedSeriesRequest") -> "module_GetDerivedSeriesResponse":
         """Get the derived series from modules applied to an asset.
@@ -15831,23 +15869,17 @@ class module_UnapplyModuleRequest(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid)
         }
 
-    __slots__: List[str] = ['_module_rid', '_asset_rid']
+    __slots__: List[str] = ['_module_application_rid']
 
-    def __init__(self, asset_rid: str, module_rid: str) -> None:
-        self._module_rid = module_rid
-        self._asset_rid = asset_rid
-
-    @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
+    def __init__(self, module_application_rid: str) -> None:
+        self._module_application_rid = module_application_rid
 
     @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
 
 
 module_UnapplyModuleRequest.__name__ = "UnapplyModuleRequest"
@@ -15876,6 +15908,64 @@ class module_UnapplyModuleResponse(ConjureBeanType):
 module_UnapplyModuleResponse.__name__ = "UnapplyModuleResponse"
 module_UnapplyModuleResponse.__qualname__ = "UnapplyModuleResponse"
 module_UnapplyModuleResponse.__module__ = "nominal_api.module"
+
+
+class module_UpdateModuleApplicationRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid),
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_module_application_rid', '_module_rid', '_asset_rid']
+
+    def __init__(self, asset_rid: str, module_application_rid: str, module_rid: str) -> None:
+        self._module_application_rid = module_application_rid
+        self._module_rid = module_rid
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+module_UpdateModuleApplicationRequest.__name__ = "UpdateModuleApplicationRequest"
+module_UpdateModuleApplicationRequest.__qualname__ = "UpdateModuleApplicationRequest"
+module_UpdateModuleApplicationRequest.__module__ = "nominal_api.module"
+
+
+class module_UpdateModuleApplicationResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'result': ConjureFieldDefinition('result', module_ModuleApplication)
+        }
+
+    __slots__: List[str] = ['_result']
+
+    def __init__(self, result: "module_ModuleApplication") -> None:
+        self._result = result
+
+    @builtins.property
+    def result(self) -> "module_ModuleApplication":
+        return self._result
+
+
+module_UpdateModuleApplicationResponse.__name__ = "UpdateModuleApplicationResponse"
+module_UpdateModuleApplicationResponse.__qualname__ = "UpdateModuleApplicationResponse"
+module_UpdateModuleApplicationResponse.__module__ = "nominal_api.module"
 
 
 class module_UpdateModuleRequest(ConjureBeanType):
@@ -15929,6 +16019,8 @@ class module_ValueType(ConjureEnumType):
     '''TIMESTAMP_CONSTANT'''
     INTEGER_CONSTANT = 'INTEGER_CONSTANT'
     '''INTEGER_CONSTANT'''
+    DOUBLE_CONSTANT = 'DOUBLE_CONSTANT'
+    '''DOUBLE_CONSTANT'''
     ASSET_RID = 'ASSET_RID'
     '''ASSET_RID'''
     UNKNOWN = 'UNKNOWN'
@@ -37783,6 +37875,202 @@ scout_compute_api_ArithmeticSeries.__qualname__ = "ArithmeticSeries"
 scout_compute_api_ArithmeticSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ArraySeries(ConjureUnionType):
+    _numeric1d: Optional["scout_compute_api_Numeric1dArraySeries"] = None
+    _enum1d: Optional["scout_compute_api_Enum1dArraySeries"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric1d': ConjureFieldDefinition('numeric1d', scout_compute_api_Numeric1dArraySeries),
+            'enum1d': ConjureFieldDefinition('enum1d', scout_compute_api_Enum1dArraySeries)
+        }
+
+    def __init__(
+            self,
+            numeric1d: Optional["scout_compute_api_Numeric1dArraySeries"] = None,
+            enum1d: Optional["scout_compute_api_Enum1dArraySeries"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric1d is not None) + (enum1d is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric1d is not None:
+                self._numeric1d = numeric1d
+                self._type = 'numeric1d'
+            if enum1d is not None:
+                self._enum1d = enum1d
+                self._type = 'enum1d'
+
+        elif type_of_union == 'numeric1d':
+            if numeric1d is None:
+                raise ValueError('a union value must not be None')
+            self._numeric1d = numeric1d
+            self._type = 'numeric1d'
+        elif type_of_union == 'enum1d':
+            if enum1d is None:
+                raise ValueError('a union value must not be None')
+            self._enum1d = enum1d
+            self._type = 'enum1d'
+
+    @builtins.property
+    def numeric1d(self) -> Optional["scout_compute_api_Numeric1dArraySeries"]:
+        return self._numeric1d
+
+    @builtins.property
+    def enum1d(self) -> Optional["scout_compute_api_Enum1dArraySeries"]:
+        return self._enum1d
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ArraySeriesVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ArraySeriesVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric1d' and self.numeric1d is not None:
+            return visitor._numeric1d(self.numeric1d)
+        if self._type == 'enum1d' and self.enum1d is not None:
+            return visitor._enum1d(self.enum1d)
+
+
+scout_compute_api_ArraySeries.__name__ = "ArraySeries"
+scout_compute_api_ArraySeries.__qualname__ = "ArraySeries"
+scout_compute_api_ArraySeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ArraySeriesVisitor:
+
+    @abstractmethod
+    def _numeric1d(self, numeric1d: "scout_compute_api_Numeric1dArraySeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum1d(self, enum1d: "scout_compute_api_Enum1dArraySeries") -> Any:
+        pass
+
+
+scout_compute_api_ArraySeriesVisitor.__name__ = "ArraySeriesVisitor"
+scout_compute_api_ArraySeriesVisitor.__qualname__ = "ArraySeriesVisitor"
+scout_compute_api_ArraySeriesVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ArrowArrayPlot(ConjureUnionType):
+    _paged_numeric: Optional["scout_compute_api_PagedNumericArrayPlot"] = None
+    _paged_enum: Optional["scout_compute_api_PagedEnumArrayPlot"] = None
+    _bucketed_numeric: Optional["scout_compute_api_BucketedNumericArrayPlot"] = None
+    _bucketed_enum: Optional["scout_compute_api_BucketedEnumArrayPlot"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'paged_numeric': ConjureFieldDefinition('pagedNumeric', scout_compute_api_PagedNumericArrayPlot),
+            'paged_enum': ConjureFieldDefinition('pagedEnum', scout_compute_api_PagedEnumArrayPlot),
+            'bucketed_numeric': ConjureFieldDefinition('bucketedNumeric', scout_compute_api_BucketedNumericArrayPlot),
+            'bucketed_enum': ConjureFieldDefinition('bucketedEnum', scout_compute_api_BucketedEnumArrayPlot)
+        }
+
+    def __init__(
+            self,
+            paged_numeric: Optional["scout_compute_api_PagedNumericArrayPlot"] = None,
+            paged_enum: Optional["scout_compute_api_PagedEnumArrayPlot"] = None,
+            bucketed_numeric: Optional["scout_compute_api_BucketedNumericArrayPlot"] = None,
+            bucketed_enum: Optional["scout_compute_api_BucketedEnumArrayPlot"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (paged_numeric is not None) + (paged_enum is not None) + (bucketed_numeric is not None) + (bucketed_enum is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if paged_numeric is not None:
+                self._paged_numeric = paged_numeric
+                self._type = 'pagedNumeric'
+            if paged_enum is not None:
+                self._paged_enum = paged_enum
+                self._type = 'pagedEnum'
+            if bucketed_numeric is not None:
+                self._bucketed_numeric = bucketed_numeric
+                self._type = 'bucketedNumeric'
+            if bucketed_enum is not None:
+                self._bucketed_enum = bucketed_enum
+                self._type = 'bucketedEnum'
+
+        elif type_of_union == 'pagedNumeric':
+            if paged_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._paged_numeric = paged_numeric
+            self._type = 'pagedNumeric'
+        elif type_of_union == 'pagedEnum':
+            if paged_enum is None:
+                raise ValueError('a union value must not be None')
+            self._paged_enum = paged_enum
+            self._type = 'pagedEnum'
+        elif type_of_union == 'bucketedNumeric':
+            if bucketed_numeric is None:
+                raise ValueError('a union value must not be None')
+            self._bucketed_numeric = bucketed_numeric
+            self._type = 'bucketedNumeric'
+        elif type_of_union == 'bucketedEnum':
+            if bucketed_enum is None:
+                raise ValueError('a union value must not be None')
+            self._bucketed_enum = bucketed_enum
+            self._type = 'bucketedEnum'
+
+    @builtins.property
+    def paged_numeric(self) -> Optional["scout_compute_api_PagedNumericArrayPlot"]:
+        return self._paged_numeric
+
+    @builtins.property
+    def paged_enum(self) -> Optional["scout_compute_api_PagedEnumArrayPlot"]:
+        return self._paged_enum
+
+    @builtins.property
+    def bucketed_numeric(self) -> Optional["scout_compute_api_BucketedNumericArrayPlot"]:
+        return self._bucketed_numeric
+
+    @builtins.property
+    def bucketed_enum(self) -> Optional["scout_compute_api_BucketedEnumArrayPlot"]:
+        return self._bucketed_enum
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_ArrowArrayPlotVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_ArrowArrayPlotVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'pagedNumeric' and self.paged_numeric is not None:
+            return visitor._paged_numeric(self.paged_numeric)
+        if self._type == 'pagedEnum' and self.paged_enum is not None:
+            return visitor._paged_enum(self.paged_enum)
+        if self._type == 'bucketedNumeric' and self.bucketed_numeric is not None:
+            return visitor._bucketed_numeric(self.bucketed_numeric)
+        if self._type == 'bucketedEnum' and self.bucketed_enum is not None:
+            return visitor._bucketed_enum(self.bucketed_enum)
+
+
+scout_compute_api_ArrowArrayPlot.__name__ = "ArrowArrayPlot"
+scout_compute_api_ArrowArrayPlot.__qualname__ = "ArrowArrayPlot"
+scout_compute_api_ArrowArrayPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_ArrowArrayPlotVisitor:
+
+    @abstractmethod
+    def _paged_numeric(self, paged_numeric: "scout_compute_api_PagedNumericArrayPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _paged_enum(self, paged_enum: "scout_compute_api_PagedEnumArrayPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _bucketed_numeric(self, bucketed_numeric: "scout_compute_api_BucketedNumericArrayPlot") -> Any:
+        pass
+
+    @abstractmethod
+    def _bucketed_enum(self, bucketed_enum: "scout_compute_api_BucketedEnumArrayPlot") -> Any:
+        pass
+
+
+scout_compute_api_ArrowArrayPlotVisitor.__name__ = "ArrowArrayPlotVisitor"
+scout_compute_api_ArrowArrayPlotVisitor.__qualname__ = "ArrowArrayPlotVisitor"
+scout_compute_api_ArrowArrayPlotVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_ArrowBucketedEnumPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -38562,6 +38850,34 @@ scout_compute_api_BucketedCartesianPlot.__qualname__ = "BucketedCartesianPlot"
 scout_compute_api_BucketedCartesianPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_BucketedEnumArrayPlot(ConjureBeanType):
+    """The array is flattened out into a an arrow stream of bucketed primitive results, with an extra column to
+indicate the index of the array that the bucket corresponds to.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+        }
+
+    __slots__: List[str] = ['_arrow_binary']
+
+    def __init__(self, arrow_binary: Any) -> None:
+        self._arrow_binary = arrow_binary
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for a bucketed N-dimensional enum array plot.
+        """
+        return self._arrow_binary
+
+
+scout_compute_api_BucketedEnumArrayPlot.__name__ = "BucketedEnumArrayPlot"
+scout_compute_api_BucketedEnumArrayPlot.__qualname__ = "BucketedEnumArrayPlot"
+scout_compute_api_BucketedEnumArrayPlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_BucketedEnumPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -38653,6 +38969,34 @@ class scout_compute_api_BucketedGeoPlotVisitor:
 scout_compute_api_BucketedGeoPlotVisitor.__name__ = "BucketedGeoPlotVisitor"
 scout_compute_api_BucketedGeoPlotVisitor.__qualname__ = "BucketedGeoPlotVisitor"
 scout_compute_api_BucketedGeoPlotVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_BucketedNumericArrayPlot(ConjureBeanType):
+    """The array is flattened out into a an arrow stream of bucketed primitive results, with an extra column to
+indicate the index of the array that the bucket corresponds to.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType)
+        }
+
+    __slots__: List[str] = ['_arrow_binary']
+
+    def __init__(self, arrow_binary: Any) -> None:
+        self._arrow_binary = arrow_binary
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for a bucketed N-dimensional numeric array plot.
+        """
+        return self._arrow_binary
+
+
+scout_compute_api_BucketedNumericArrayPlot.__name__ = "BucketedNumericArrayPlot"
+scout_compute_api_BucketedNumericArrayPlot.__qualname__ = "BucketedNumericArrayPlot"
+scout_compute_api_BucketedNumericArrayPlot.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_BucketedNumericPlot(ConjureBeanType):
@@ -39535,6 +39879,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
     _numeric: Optional["scout_compute_api_NumericSeries"] = None
     _log: Optional["scout_compute_api_LogSeries"] = None
     _ranges: Optional["scout_compute_api_RangeSeries"] = None
+    _array: Optional["scout_compute_api_ArraySeries"] = None
     _curve_fit: Optional["scout_compute_api_CurveFit"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
 
@@ -39545,6 +39890,7 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
             'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries),
             'ranges': ConjureFieldDefinition('ranges', scout_compute_api_RangeSeries),
+            'array': ConjureFieldDefinition('array', scout_compute_api_ArraySeries),
             'curve_fit': ConjureFieldDefinition('curveFit', scout_compute_api_CurveFit),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference)
         }
@@ -39555,12 +39901,13 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             numeric: Optional["scout_compute_api_NumericSeries"] = None,
             log: Optional["scout_compute_api_LogSeries"] = None,
             ranges: Optional["scout_compute_api_RangeSeries"] = None,
+            array: Optional["scout_compute_api_ArraySeries"] = None,
             curve_fit: Optional["scout_compute_api_CurveFit"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (curve_fit is not None) + (raw is not None) != 1:
+            if (enum is not None) + (numeric is not None) + (log is not None) + (ranges is not None) + (array is not None) + (curve_fit is not None) + (raw is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if enum is not None:
@@ -39575,6 +39922,9 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             if ranges is not None:
                 self._ranges = ranges
                 self._type = 'ranges'
+            if array is not None:
+                self._array = array
+                self._type = 'array'
             if curve_fit is not None:
                 self._curve_fit = curve_fit
                 self._type = 'curveFit'
@@ -39602,6 +39952,11 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._ranges = ranges
             self._type = 'ranges'
+        elif type_of_union == 'array':
+            if array is None:
+                raise ValueError('a union value must not be None')
+            self._array = array
+            self._type = 'array'
         elif type_of_union == 'curveFit':
             if curve_fit is None:
                 raise ValueError('a union value must not be None')
@@ -39630,6 +39985,10 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
         return self._ranges
 
     @builtins.property
+    def array(self) -> Optional["scout_compute_api_ArraySeries"]:
+        return self._array
+
+    @builtins.property
     def curve_fit(self) -> Optional["scout_compute_api_CurveFit"]:
         return self._curve_fit
 
@@ -39648,6 +40007,8 @@ class scout_compute_api_ComputeNode(ConjureUnionType):
             return visitor._log(self.log)
         if self._type == 'ranges' and self.ranges is not None:
             return visitor._ranges(self.ranges)
+        if self._type == 'array' and self.array is not None:
+            return visitor._array(self.array)
         if self._type == 'curveFit' and self.curve_fit is not None:
             return visitor._curve_fit(self.curve_fit)
         if self._type == 'raw' and self.raw is not None:
@@ -39675,6 +40036,10 @@ class scout_compute_api_ComputeNodeVisitor:
 
     @abstractmethod
     def _ranges(self, ranges: "scout_compute_api_RangeSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _array(self, array: "scout_compute_api_ArraySeries") -> Any:
         pass
 
     @abstractmethod
@@ -39798,6 +40163,7 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     _enum_histogram: Optional["scout_compute_api_EnumHistogramPlot"] = None
     _curve_fit: Optional["scout_compute_api_CurveFitResult"] = None
     _grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None
+    _array: Optional["scout_compute_api_ArrowArrayPlot"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -39825,7 +40191,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             'numeric_histogram': ConjureFieldDefinition('numericHistogram', scout_compute_api_NumericHistogramPlot),
             'enum_histogram': ConjureFieldDefinition('enumHistogram', scout_compute_api_EnumHistogramPlot),
             'curve_fit': ConjureFieldDefinition('curveFit', scout_compute_api_CurveFitResult),
-            'grouped': ConjureFieldDefinition('grouped', scout_compute_api_GroupedComputeNodeResponses)
+            'grouped': ConjureFieldDefinition('grouped', scout_compute_api_GroupedComputeNodeResponses),
+            'array': ConjureFieldDefinition('array', scout_compute_api_ArrowArrayPlot)
         }
 
     def __init__(
@@ -39854,10 +40221,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             enum_histogram: Optional["scout_compute_api_EnumHistogramPlot"] = None,
             curve_fit: Optional["scout_compute_api_CurveFitResult"] = None,
             grouped: Optional["scout_compute_api_GroupedComputeNodeResponses"] = None,
+            array: Optional["scout_compute_api_ArrowArrayPlot"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) != 1:
+            if (range is not None) + (ranges_summary is not None) + (range_value is not None) + (numeric is not None) + (bucketed_numeric is not None) + (numeric_point is not None) + (arrow_numeric is not None) + (arrow_bucketed_numeric is not None) + (enum is not None) + (enum_point is not None) + (bucketed_enum is not None) + (arrow_enum is not None) + (arrow_bucketed_enum is not None) + (paged_log is not None) + (log_point is not None) + (cartesian is not None) + (bucketed_cartesian is not None) + (bucketed_cartesian3d is not None) + (bucketed_geo is not None) + (frequency_domain is not None) + (numeric_histogram is not None) + (enum_histogram is not None) + (curve_fit is not None) + (grouped is not None) + (array is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if range is not None:
@@ -39932,6 +40300,9 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             if grouped is not None:
                 self._grouped = grouped
                 self._type = 'grouped'
+            if array is not None:
+                self._array = array
+                self._type = 'array'
 
         elif type_of_union == 'range':
             if range is None:
@@ -40053,6 +40424,11 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._grouped = grouped
             self._type = 'grouped'
+        elif type_of_union == 'array':
+            if array is None:
+                raise ValueError('a union value must not be None')
+            self._array = array
+            self._type = 'array'
 
     @builtins.property
     def range(self) -> Optional[List["scout_compute_api_Range"]]:
@@ -40150,6 +40526,10 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
     def grouped(self) -> Optional["scout_compute_api_GroupedComputeNodeResponses"]:
         return self._grouped
 
+    @builtins.property
+    def array(self) -> Optional["scout_compute_api_ArrowArrayPlot"]:
+        return self._array
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_ComputeNodeResponseVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_ComputeNodeResponseVisitor'.format(visitor.__class__.__name__))
@@ -40201,6 +40581,8 @@ class scout_compute_api_ComputeNodeResponse(ConjureUnionType):
             return visitor._curve_fit(self.curve_fit)
         if self._type == 'grouped' and self.grouped is not None:
             return visitor._grouped(self.grouped)
+        if self._type == 'array' and self.array is not None:
+            return visitor._array(self.array)
 
 
 scout_compute_api_ComputeNodeResponse.__name__ = "ComputeNodeResponse"
@@ -40304,6 +40686,10 @@ class scout_compute_api_ComputeNodeResponseVisitor:
 
     @abstractmethod
     def _grouped(self, grouped: "scout_compute_api_GroupedComputeNodeResponses") -> Any:
+        pass
+
+    @abstractmethod
+    def _array(self, array: "scout_compute_api_ArrowArrayPlot") -> Any:
         pass
 
 
@@ -41564,6 +41950,65 @@ class scout_compute_api_DerivativeSeries(ConjureBeanType):
 scout_compute_api_DerivativeSeries.__name__ = "DerivativeSeries"
 scout_compute_api_DerivativeSeries.__qualname__ = "DerivativeSeries"
 scout_compute_api_DerivativeSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DerivedSeries(ConjureUnionType):
+    """Represents a derived series within a compute graph.
+This is a series that is derived from a function within a module.
+    """
+    _module_application: Optional["scout_compute_api_ModuleApplicationDerivedSeries"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_application': ConjureFieldDefinition('moduleApplication', scout_compute_api_ModuleApplicationDerivedSeries)
+        }
+
+    def __init__(
+            self,
+            module_application: Optional["scout_compute_api_ModuleApplicationDerivedSeries"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (module_application is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if module_application is not None:
+                self._module_application = module_application
+                self._type = 'moduleApplication'
+
+        elif type_of_union == 'moduleApplication':
+            if module_application is None:
+                raise ValueError('a union value must not be None')
+            self._module_application = module_application
+            self._type = 'moduleApplication'
+
+    @builtins.property
+    def module_application(self) -> Optional["scout_compute_api_ModuleApplicationDerivedSeries"]:
+        return self._module_application
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_DerivedSeriesVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_DerivedSeriesVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'moduleApplication' and self.module_application is not None:
+            return visitor._module_application(self.module_application)
+
+
+scout_compute_api_DerivedSeries.__name__ = "DerivedSeries"
+scout_compute_api_DerivedSeries.__qualname__ = "DerivedSeries"
+scout_compute_api_DerivedSeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DerivedSeriesVisitor:
+
+    @abstractmethod
+    def _module_application(self, module_application: "scout_compute_api_ModuleApplicationDerivedSeries") -> Any:
+        pass
+
+
+scout_compute_api_DerivedSeriesVisitor.__name__ = "DerivedSeriesVisitor"
+scout_compute_api_DerivedSeriesVisitor.__qualname__ = "DerivedSeriesVisitor"
+scout_compute_api_DerivedSeriesVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_DoubleConstant(ConjureUnionType):
@@ -44581,6 +45026,49 @@ scout_compute_api_Minimum.__qualname__ = "Minimum"
 scout_compute_api_Minimum.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ModuleApplicationDerivedSeries(ConjureBeanType):
+    """A reference to a derived series resulting from applying a module to an asset.
+The referenced module must be applied to the referenced asset.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', scout_compute_api_StringConstant),
+            'function_name': ConjureFieldDefinition('functionName', scout_compute_api_StringConstant),
+            'function_args': ConjureFieldDefinition('functionArgs', Dict[scout_compute_api_VariableName, scout_compute_api_VariableValue])
+        }
+
+    __slots__: List[str] = ['_module_application_rid', '_function_name', '_function_args']
+
+    def __init__(self, function_args: Dict[str, "scout_compute_api_VariableValue"], function_name: "scout_compute_api_StringConstant", module_application_rid: "scout_compute_api_StringConstant") -> None:
+        self._module_application_rid = module_application_rid
+        self._function_name = function_name
+        self._function_args = function_args
+
+    @builtins.property
+    def module_application_rid(self) -> "scout_compute_api_StringConstant":
+        """A reference to the module application that produced this derived series.
+        """
+        return self._module_application_rid
+
+    @builtins.property
+    def function_name(self) -> "scout_compute_api_StringConstant":
+        return self._function_name
+
+    @builtins.property
+    def function_args(self) -> Dict[str, "scout_compute_api_VariableValue"]:
+        """Map of function input names to their values. The function inputs must match the function's parameter
+names and types. Because all function parameters have default values when the module is applied to the asset, this can be empty.
+        """
+        return self._function_args
+
+
+scout_compute_api_ModuleApplicationDerivedSeries.__name__ = "ModuleApplicationDerivedSeries"
+scout_compute_api_ModuleApplicationDerivedSeries.__qualname__ = "ModuleApplicationDerivedSeries"
+scout_compute_api_ModuleApplicationDerivedSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NegativeValueConfiguration(ConjureUnionType):
     _allow_negative_values: Optional["scout_compute_api_AllowNegativeValues"] = None
     _set_negative_values_to_zero: Optional["scout_compute_api_SetNegativeValuesToZero"] = None
@@ -46437,6 +46925,41 @@ scout_compute_api_PageTokenVisitor.__qualname__ = "PageTokenVisitor"
 scout_compute_api_PageTokenVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_PagedEnumArrayPlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[scout_compute_api_PageToken])
+        }
+
+    __slots__: List[str] = ['_arrow_binary', '_next_page_token']
+
+    def __init__(self, arrow_binary: Any, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
+        self._arrow_binary = arrow_binary
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for a page of an N-dimensional enum array plot.
+        """
+        return self._arrow_binary
+
+    @builtins.property
+    def next_page_token(self) -> Optional["scout_compute_api_PageToken"]:
+        """The token to retrieve the next page of arrays in the direction originally requested (exclusive - not
+included in these results). May be empty if there are no further values in the requested time range in the
+direction originally requested.
+        """
+        return self._next_page_token
+
+
+scout_compute_api_PagedEnumArrayPlot.__name__ = "PagedEnumArrayPlot"
+scout_compute_api_PagedEnumArrayPlot.__qualname__ = "PagedEnumArrayPlot"
+scout_compute_api_PagedEnumArrayPlot.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_PagedLogPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -46474,6 +46997,41 @@ direction originally requested.
 scout_compute_api_PagedLogPlot.__name__ = "PagedLogPlot"
 scout_compute_api_PagedLogPlot.__qualname__ = "PagedLogPlot"
 scout_compute_api_PagedLogPlot.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_PagedNumericArrayPlot(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'arrow_binary': ConjureFieldDefinition('arrowBinary', BinaryType),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[scout_compute_api_PageToken])
+        }
+
+    __slots__: List[str] = ['_arrow_binary', '_next_page_token']
+
+    def __init__(self, arrow_binary: Any, next_page_token: Optional["scout_compute_api_PageToken"] = None) -> None:
+        self._arrow_binary = arrow_binary
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def arrow_binary(self) -> Any:
+        """The raw binary containing Arrow IPC stream for a page of an N-dimensional numeric array plot.
+        """
+        return self._arrow_binary
+
+    @builtins.property
+    def next_page_token(self) -> Optional["scout_compute_api_PageToken"]:
+        """The token to retrieve the next page of arrays in the direction originally requested (exclusive - not
+included in these results). May be empty if there are no further values in the requested time range in the
+direction originally requested.
+        """
+        return self._next_page_token
+
+
+scout_compute_api_PagedNumericArrayPlot.__name__ = "PagedNumericArrayPlot"
+scout_compute_api_PagedNumericArrayPlot.__qualname__ = "PagedNumericArrayPlot"
+scout_compute_api_PagedNumericArrayPlot.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_ParameterInput(ConjureBeanType):
@@ -48645,6 +49203,7 @@ class scout_compute_api_Series(ConjureUnionType):
     _enum: Optional["scout_compute_api_EnumSeries"] = None
     _numeric: Optional["scout_compute_api_NumericSeries"] = None
     _log: Optional["scout_compute_api_LogSeries"] = None
+    _array: Optional["scout_compute_api_ArraySeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -48652,7 +49211,8 @@ class scout_compute_api_Series(ConjureUnionType):
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
             'enum': ConjureFieldDefinition('enum', scout_compute_api_EnumSeries),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_api_NumericSeries),
-            'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries)
+            'log': ConjureFieldDefinition('log', scout_compute_api_LogSeries),
+            'array': ConjureFieldDefinition('array', scout_compute_api_ArraySeries)
         }
 
     def __init__(
@@ -48661,10 +49221,11 @@ class scout_compute_api_Series(ConjureUnionType):
             enum: Optional["scout_compute_api_EnumSeries"] = None,
             numeric: Optional["scout_compute_api_NumericSeries"] = None,
             log: Optional["scout_compute_api_LogSeries"] = None,
+            array: Optional["scout_compute_api_ArraySeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) != 1:
+            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
@@ -48679,6 +49240,9 @@ class scout_compute_api_Series(ConjureUnionType):
             if log is not None:
                 self._log = log
                 self._type = 'log'
+            if array is not None:
+                self._array = array
+                self._type = 'array'
 
         elif type_of_union == 'raw':
             if raw is None:
@@ -48700,6 +49264,11 @@ class scout_compute_api_Series(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._log = log
             self._type = 'log'
+        elif type_of_union == 'array':
+            if array is None:
+                raise ValueError('a union value must not be None')
+            self._array = array
+            self._type = 'array'
 
     @builtins.property
     def raw(self) -> Optional["scout_compute_api_Reference"]:
@@ -48717,6 +49286,10 @@ class scout_compute_api_Series(ConjureUnionType):
     def log(self) -> Optional["scout_compute_api_LogSeries"]:
         return self._log
 
+    @builtins.property
+    def array(self) -> Optional["scout_compute_api_ArraySeries"]:
+        return self._array
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_SeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_SeriesVisitor'.format(visitor.__class__.__name__))
@@ -48728,6 +49301,8 @@ class scout_compute_api_Series(ConjureUnionType):
             return visitor._numeric(self.numeric)
         if self._type == 'log' and self.log is not None:
             return visitor._log(self.log)
+        if self._type == 'array' and self.array is not None:
+            return visitor._array(self.array)
 
 
 scout_compute_api_Series.__name__ = "Series"
@@ -48751,6 +49326,10 @@ class scout_compute_api_SeriesVisitor:
 
     @abstractmethod
     def _log(self, log: "scout_compute_api_LogSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _array(self, array: "scout_compute_api_ArraySeries") -> Any:
         pass
 
 
@@ -50695,6 +51274,7 @@ class scout_compute_api_VariableValue(ConjureUnionType):
     _duration: Optional["scout_run_api_Duration"] = None
     _integer: Optional[int] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
     _series: Optional["scout_compute_api_SeriesSpec"] = None
     _string: Optional[str] = None
     _string_set: Optional[List[str]] = None
@@ -50708,6 +51288,7 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             'duration': ConjureFieldDefinition('duration', scout_run_api_Duration),
             'integer': ConjureFieldDefinition('integer', int),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries),
             'series': ConjureFieldDefinition('series', scout_compute_api_SeriesSpec),
             'string': ConjureFieldDefinition('string', str),
             'string_set': ConjureFieldDefinition('stringSet', List[str]),
@@ -50721,6 +51302,7 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             duration: Optional["scout_run_api_Duration"] = None,
             integer: Optional[int] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             series: Optional["scout_compute_api_SeriesSpec"] = None,
             string: Optional[str] = None,
             string_set: Optional[List[str]] = None,
@@ -50728,7 +51310,7 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (double is not None) + (compute_node is not None) + (duration is not None) + (integer is not None) + (channel is not None) + (series is not None) + (string is not None) + (string_set is not None) + (timestamp is not None) != 1:
+            if (double is not None) + (compute_node is not None) + (duration is not None) + (integer is not None) + (channel is not None) + (derived is not None) + (series is not None) + (string is not None) + (string_set is not None) + (timestamp is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if double is not None:
@@ -50746,6 +51328,9 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             if channel is not None:
                 self._channel = channel
                 self._type = 'channel'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
             if series is not None:
                 self._series = series
                 self._type = 'series'
@@ -50784,6 +51369,11 @@ class scout_compute_api_VariableValue(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._channel = channel
             self._type = 'channel'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
         elif type_of_union == 'series':
             if series is None:
                 raise ValueError('a union value must not be None')
@@ -50826,6 +51416,10 @@ class scout_compute_api_VariableValue(ConjureUnionType):
         return self._channel
 
     @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
+    @builtins.property
     def series(self) -> Optional["scout_compute_api_SeriesSpec"]:
         return self._series
 
@@ -50854,6 +51448,8 @@ class scout_compute_api_VariableValue(ConjureUnionType):
             return visitor._integer(self.integer)
         if self._type == 'channel' and self.channel is not None:
             return visitor._channel(self.channel)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
         if self._type == 'series' and self.series is not None:
             return visitor._series(self.series)
         if self._type == 'string' and self.string is not None:
@@ -50889,6 +51485,10 @@ class scout_compute_api_VariableValueVisitor:
 
     @abstractmethod
     def _channel(self, channel: "scout_compute_api_ChannelSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
     @abstractmethod
@@ -53126,6 +53726,83 @@ class scout_compute_resolved_api_ArithmeticSeriesNode(ConjureBeanType):
 scout_compute_resolved_api_ArithmeticSeriesNode.__name__ = "ArithmeticSeriesNode"
 scout_compute_resolved_api_ArithmeticSeriesNode.__qualname__ = "ArithmeticSeriesNode"
 scout_compute_resolved_api_ArithmeticSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ArraySeriesNode(ConjureUnionType):
+    _numeric1d: Optional["scout_compute_resolved_api_NumericArraySeriesNode"] = None
+    _enum1d: Optional["scout_compute_resolved_api_EnumArraySeriesNode"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric1d': ConjureFieldDefinition('numeric1d', scout_compute_resolved_api_NumericArraySeriesNode),
+            'enum1d': ConjureFieldDefinition('enum1d', scout_compute_resolved_api_EnumArraySeriesNode)
+        }
+
+    def __init__(
+            self,
+            numeric1d: Optional["scout_compute_resolved_api_NumericArraySeriesNode"] = None,
+            enum1d: Optional["scout_compute_resolved_api_EnumArraySeriesNode"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric1d is not None) + (enum1d is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric1d is not None:
+                self._numeric1d = numeric1d
+                self._type = 'numeric1d'
+            if enum1d is not None:
+                self._enum1d = enum1d
+                self._type = 'enum1d'
+
+        elif type_of_union == 'numeric1d':
+            if numeric1d is None:
+                raise ValueError('a union value must not be None')
+            self._numeric1d = numeric1d
+            self._type = 'numeric1d'
+        elif type_of_union == 'enum1d':
+            if enum1d is None:
+                raise ValueError('a union value must not be None')
+            self._enum1d = enum1d
+            self._type = 'enum1d'
+
+    @builtins.property
+    def numeric1d(self) -> Optional["scout_compute_resolved_api_NumericArraySeriesNode"]:
+        return self._numeric1d
+
+    @builtins.property
+    def enum1d(self) -> Optional["scout_compute_resolved_api_EnumArraySeriesNode"]:
+        return self._enum1d
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_resolved_api_ArraySeriesNodeVisitor):
+            raise ValueError('{} is not an instance of scout_compute_resolved_api_ArraySeriesNodeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric1d' and self.numeric1d is not None:
+            return visitor._numeric1d(self.numeric1d)
+        if self._type == 'enum1d' and self.enum1d is not None:
+            return visitor._enum1d(self.enum1d)
+
+
+scout_compute_resolved_api_ArraySeriesNode.__name__ = "ArraySeriesNode"
+scout_compute_resolved_api_ArraySeriesNode.__qualname__ = "ArraySeriesNode"
+scout_compute_resolved_api_ArraySeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ArraySeriesNodeVisitor:
+
+    @abstractmethod
+    def _numeric1d(self, numeric1d: "scout_compute_resolved_api_NumericArraySeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum1d(self, enum1d: "scout_compute_resolved_api_EnumArraySeriesNode") -> Any:
+        pass
+
+
+scout_compute_resolved_api_ArraySeriesNodeVisitor.__name__ = "ArraySeriesNodeVisitor"
+scout_compute_resolved_api_ArraySeriesNodeVisitor.__qualname__ = "ArraySeriesNodeVisitor"
+scout_compute_resolved_api_ArraySeriesNodeVisitor.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_BandPassConfiguration(ConjureBeanType):
@@ -58058,6 +58735,7 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
     _enum: Optional["scout_compute_resolved_api_EnumSeriesNode"] = None
     _numeric: Optional["scout_compute_resolved_api_NumericSeriesNode"] = None
     _log: Optional["scout_compute_resolved_api_LogSeriesNode"] = None
+    _array: Optional["scout_compute_resolved_api_ArraySeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -58065,7 +58743,8 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             'raw': ConjureFieldDefinition('raw', scout_compute_resolved_api_RawUntypedSeriesNode),
             'enum': ConjureFieldDefinition('enum', scout_compute_resolved_api_EnumSeriesNode),
             'numeric': ConjureFieldDefinition('numeric', scout_compute_resolved_api_NumericSeriesNode),
-            'log': ConjureFieldDefinition('log', scout_compute_resolved_api_LogSeriesNode)
+            'log': ConjureFieldDefinition('log', scout_compute_resolved_api_LogSeriesNode),
+            'array': ConjureFieldDefinition('array', scout_compute_resolved_api_ArraySeriesNode)
         }
 
     def __init__(
@@ -58074,10 +58753,11 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             enum: Optional["scout_compute_resolved_api_EnumSeriesNode"] = None,
             numeric: Optional["scout_compute_resolved_api_NumericSeriesNode"] = None,
             log: Optional["scout_compute_resolved_api_LogSeriesNode"] = None,
+            array: Optional["scout_compute_resolved_api_ArraySeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) != 1:
+            if (raw is not None) + (enum is not None) + (numeric is not None) + (log is not None) + (array is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
@@ -58092,6 +58772,9 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             if log is not None:
                 self._log = log
                 self._type = 'log'
+            if array is not None:
+                self._array = array
+                self._type = 'array'
 
         elif type_of_union == 'raw':
             if raw is None:
@@ -58113,6 +58796,11 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._log = log
             self._type = 'log'
+        elif type_of_union == 'array':
+            if array is None:
+                raise ValueError('a union value must not be None')
+            self._array = array
+            self._type = 'array'
 
     @builtins.property
     def raw(self) -> Optional["scout_compute_resolved_api_RawUntypedSeriesNode"]:
@@ -58130,6 +58818,10 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
     def log(self) -> Optional["scout_compute_resolved_api_LogSeriesNode"]:
         return self._log
 
+    @builtins.property
+    def array(self) -> Optional["scout_compute_resolved_api_ArraySeriesNode"]:
+        return self._array
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_SeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_SeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -58141,6 +58833,8 @@ class scout_compute_resolved_api_SeriesNode(ConjureUnionType):
             return visitor._numeric(self.numeric)
         if self._type == 'log' and self.log is not None:
             return visitor._log(self.log)
+        if self._type == 'array' and self.array is not None:
+            return visitor._array(self.array)
 
 
 scout_compute_resolved_api_SeriesNode.__name__ = "SeriesNode"
@@ -58164,6 +58858,10 @@ class scout_compute_resolved_api_SeriesNodeVisitor:
 
     @abstractmethod
     def _log(self, log: "scout_compute_resolved_api_LogSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _array(self, array: "scout_compute_resolved_api_ArraySeriesNode") -> Any:
         pass
 
 

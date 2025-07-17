@@ -8,13 +8,13 @@ from coredis.typing import (
     AnyStr,
     ResponsePrimitive,
     ResponseType,
-    ValueT,
 )
 
 
 class CommandCallback(ResponseCallback[list[ResponseType], list[ResponseType], dict[str, Command]]):
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> dict[str, Command]:
         commands: dict[str, Command] = {}
 
@@ -53,7 +53,8 @@ class CommandKeyFlagCallback(
     ResponseCallback[list[ResponseType], list[ResponseType], dict[AnyStr, set[AnyStr]]]
 ):
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> dict[AnyStr, set[AnyStr]]:
         return {k[0]: set(k[1]) for k in response}
 
@@ -66,7 +67,8 @@ class CommandDocCallback(
     ]
 ):
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> dict[AnyStr, dict[AnyStr, ResponseType]]:
         cmd_mapping = flat_pairs_to_dict(response)
         for cmd, doc in cmd_mapping.items():
@@ -74,11 +76,11 @@ class CommandDocCallback(
             cmd_mapping[cmd]["arguments"] = [
                 flat_pairs_to_dict(arg) for arg in cmd_mapping[cmd].get("arguments", [])
             ]
-        return cmd_mapping
+            cmd_mapping[cmd] = dict(cmd_mapping[cmd])
+        return dict(cmd_mapping)
 
     def transform_3(
         self,
         response: dict[ResponsePrimitive, ResponseType],
-        **options: ValueT | None,
     ) -> dict[AnyStr, dict[AnyStr, ResponseType]]:
         return response  # noqa

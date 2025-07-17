@@ -34,7 +34,7 @@ from aiosmb.protocol.smb2.commands import *
 
 
 class SMBClient(aiocmd.PromptToolkitCmd):
-	def __init__(self, url = None, silent = False, no_dce = False):
+	def __init__(self, url = None, silent = False, no_dce = False, nosig = False):
 		aiocmd.PromptToolkitCmd.__init__(self, ignore_sigint=False) #Setting this to false, since True doesnt work on windows...
 		self.conn_url:str = None
 		if url is not None:
@@ -43,6 +43,7 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 		self.machine:SMBMachine = None
 		self.is_anon:bool = False
 		self.silent:bool = silent
+		self.nosig:bool = nosig
 		self.no_dce:bool = no_dce # diables ANY use of the DCE protocol (eg. share listing) This is useful for new(er) windows servers where they forbid the users to use any form of DCE
 
 		self.shares:Dict[str, SMBShare] = {} #name -> share
@@ -124,8 +125,7 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 				self.conn_url = SMBConnectionFactory.from_url(url)
 
 			cred = self.conn_url.get_credential()				
-			
-			self.connection  = self.conn_url.get_connection()
+			self.connection  = self.conn_url.get_connection(nosign=self.nosig)
 			
 			logger.debug(self.conn_url.get_credential())
 			logger.debug(self.conn_url.get_target())
@@ -142,6 +142,7 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 				print('Login success')
 			return True, None
 		except Exception as e:
+			traceback.print_exc()
 			return self.handle_exception(e, 'Login failed!')
 
 	async def do_logout(self):
@@ -533,6 +534,9 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 	def _use_completions(self):
 		return SMBPathCompleter(get_current_dirs = lambda: list(self.shares.keys()))
 
+	def _cat_completions(self):
+		return SMBPathCompleter(get_current_dirs = self.get_current_files)
+
 
 	async def do_services(self):
 		"""Lists remote services"""
@@ -715,8 +719,39 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 			return True, None
 		
 		except Exception as e:
-			return self.handle_exception(e)	
+			return self.handle_exception(e)
+			
+	async def do_cat(self, file_name):
+		"""Prints the content of a file to the console."""
+		try:
+			matched = []
+			if file_name not in self.__current_directory.files:
+				
+				for fn in fnmatch.filter(list(self.__current_directory.files.keys()), file_name):
+					matched.append(fn)
+				if len(matched) == 0:
+					print('File with name %s is not present in the directory %s' % (file_name, self.__current_directory.name))
+					return False, None
+			else:
+				matched.append(file_name)
+			
+			for file_name in matched:
+				file_obj = self.__current_directory.files[file_name]
+				print('---------------------- %s ----------------------' % file_obj.fullpath)
+				async for data, err in self.machine.get_file_data(file_obj):
+					if err is not None:
+						raise err
+					if data is None:
+						break
+					try:
+						print(data.decode())
+					except:
+						print(data)
+			return True, None
 
+		except Exception as e:
+			return self.handle_exception(e)
+	
 	async def do_get(self, file_name):
 		"""Download a file from the remote share to the current folder"""
 		try:
@@ -808,6 +843,7 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 				total_size = 0
 				dir_obj = self.__current_directory.subdirs[dir_name]
 				basedirname = os.path.basename(dir_obj.name) + time.strftime("%Y%m%d_%H%M%S")
+				os.makedirs(basedirname, exist_ok=True)
 				with tqdm.tqdm(desc = 'Downloading files...', total=0, unit='B', unit_scale=True, unit_divisor=1024) as pbar:
 					async for lfile, entry in get_directory(basedirname, dir_obj):
 						if maxfsize is not None and entry.size > maxfsize:
@@ -1193,6 +1229,16 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 			return True, None
 		except Exception as e:
 			return self.handle_exception(e)
+		
+	async def do_sharewritetest(self):
+		try:
+			async for share, writable, err in self.machine.share_write_test():
+				if err is not None:
+					raise err
+				print('%s %s' % (share.name, writable))
+			return True, None
+		except Exception as e:
+			return self.handle_exception(e)
 
 	async def do_pipetest(self, data = 'HELLO!'):
 		""" pipetest """
@@ -1239,8 +1285,8 @@ class SMBClient(aiocmd.PromptToolkitCmd):
 				await pipe.close()
 	
 
-async def amain(smb_url:str, commands:List[str] = [], silent:bool = False, continue_on_error:bool = False, no_interactive:bool=False):
-	client = SMBClient(smb_url, silent = silent)
+async def amain(smb_url:str, commands:List[str] = [], silent:bool = False, continue_on_error:bool = False, no_interactive:bool=False, nosig:bool=False):
+	client = SMBClient(smb_url, silent = silent, nosig=nosig)
 	if len(commands) == 0:
 		if no_interactive is True:
 			print('Not starting interactive!')
@@ -1284,6 +1330,7 @@ def main():
 	parser.add_argument('-s', '--silent', action='store_true', help='do not print banner')
 	parser.add_argument('-n', '--no-interactive', action='store_true')
 	parser.add_argument('-c', '--continue-on-error', action='store_true', help='When in batch execution mode, execute all commands even if one fails')
+	parser.add_argument('--nosig', action='store_true', help='Disable SMB signing (SMB2 only)')
 	parser.add_argument('smb_url', help = 'Connection string that describes the authentication and target. Example: smb+ntlm-password://TEST\\Administrator:password@10.10.10.2')
 	parser.add_argument('commands', nargs='*')
 	
@@ -1310,7 +1357,8 @@ def main():
 			args.commands, 
 			args.silent, 
 			args.continue_on_error, 
-			args.no_interactive
+			args.no_interactive,
+			args.nosig
 		)
 	)
 

@@ -8909,9 +8909,9 @@ class UpdatePartitionRequestTypeDef(TypedDict):
 
 class CreateTableRequestTypeDef(TypedDict):
     DatabaseName: str
-    TableInput: TableInputTypeDef
     CatalogId: NotRequired[str]
     Name: NotRequired[str]
+    TableInput: NotRequired[TableInputTypeDef]
     PartitionIndexes: NotRequired[Sequence[PartitionIndexTypeDef]]
     TransactionId: NotRequired[str]
     OpenTableFormatInput: NotRequired[OpenTableFormatInputTypeDef]

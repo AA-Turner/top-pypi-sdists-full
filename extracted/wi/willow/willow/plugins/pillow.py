@@ -1,11 +1,7 @@
 from io import BytesIO
 
 try:
-    # Need to import Pillow's AVIF plugin here to make it register. The next import
-    # will replace the default AVIF plugin with pillow_heif's.
-    # Otherwise the inverse might happen and the wrong AVIF plugin will be used.
-    from PIL import AvifImagePlugin  # noqa: F401
-    from pillow_heif import AvifImagePlugin, HeifImagePlugin  # noqa: F811, F401
+    from pillow_heif import HeifImagePlugin  # noqa: F401
 except ImportError:
     pass
 
@@ -304,6 +300,14 @@ class PillowImage(Image):
         elif image.mode == "CMYK":
             image = image.convert("RGB")
 
+        # Pillow 11.2 and older used to silently clip 32-bit I-mode images to 16
+        # bits, which is the maximum PNG supports. This is silent behavior
+        # deprecated in Pillow 11.3 but we explicitly want to retain it for
+        # backwards compatibility.
+        # See: https://pillow.readthedocs.io/en/stable/releasenotes/11.3.0.html#saving-i-mode-images-as-png
+        if image.mode == "I":
+            image = image.convert("I;16")
+
         # Pillow only checks presence of optimize kwarg, not its value
         if optimize:
             kwargs["optimize"] = True
@@ -429,7 +433,12 @@ class PillowImage(Image):
     def save_as_avif(self, f, quality=80, lossless=False, apply_optimizers=True):
         kwargs = {"quality": quality}
         if lossless:
-            kwargs = {"quality": -1, "chroma": 444}
+            kwargs = {
+                # Quality of 100 implies lossless (according to libavif documentation)
+                "quality": 100,
+                # When encoding lossless images, don't use chroma subsampling (4:4:4 retains the most information)
+                "subsampling": "4:4:4",
+            }
 
         image = self.image
         icc_profile = self.get_icc_profile()

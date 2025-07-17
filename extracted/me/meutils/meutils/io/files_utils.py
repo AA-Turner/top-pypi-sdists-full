@@ -230,7 +230,7 @@ async def get_file_duration(filename: str = ".mp4", url: Optional[str] = None, c
     headers = {
         "Range": "bytes=0-8191"
     }
-    async with httpx.AsyncClient(timeout=200) as client:
+    async with httpx.AsyncClient(timeout=200, follow_redirects=True) as client:
         for i in range(2):
             if url:
                 response = await client.get(url=url, headers=headers)
@@ -244,7 +244,7 @@ async def get_file_duration(filename: str = ".mp4", url: Optional[str] = None, c
 
             tag = TinyTag.get(filename=filename, file_obj=io.BytesIO(content), ignore_errors=False)
 
-            logger.debug(tag.duration)
+            logger.debug(f"duration: {tag.duration}")
             if tag.duration:
                 break
             else:
@@ -320,14 +320,16 @@ if __name__ == '__main__':
     # print(guess_mime_type("http://admin.ilovechatgpt.top/file/ceshiwendangdocx_31118702.docx "))
 
     url = "https://juzhen-1318772386.cos.ap-guangzhou.myqcloud.com/mj/2025/06/07/7b347a36-8146-4d3d-a5dc-0b8dc365817d.png"
-
     # r = arun(to_bytes(url))
 
     print(mimetypes.guess_type(url)[0])
 
-    url = "https://lmdbk.com/5.mp4"
+    # url = "https://lmdbk.com/5.mp4"
     # url = "https://v3.fal.media/files/kangaroo/y5-1YTGpun17eSeggZMzX_video-1733468228.mp4"
-    content = requests.get(url).content
+    # content = requests.get(url).content
+
+    url = "https://fal.media/files/koala/8teUPbRRMtAUTORDvqy0l.mp4"
+
     with timer():
         # arun(get_file_duration(content=content))
         arun(get_file_duration(url=url))

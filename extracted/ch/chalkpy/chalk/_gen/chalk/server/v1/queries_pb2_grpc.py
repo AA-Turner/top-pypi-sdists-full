@@ -35,6 +35,16 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.FromString,
         )
+        self.AggregateQueryErrors = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/AggregateQueryErrors",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsResponse.FromString,
+        )
+        self.ListMetaQueryRuns = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueryRuns",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.FromString,
+        )
 
 
 class QueriesServiceServicer(object):
@@ -64,6 +74,18 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def AggregateQueryErrors(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMetaQueryRuns(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +108,16 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.GetQueryPlan,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.SerializeToString,
+        ),
+        "AggregateQueryErrors": grpc.unary_unary_rpc_method_handler(
+            servicer.AggregateQueryErrors,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsResponse.SerializeToString,
+        ),
+        "ListMetaQueryRuns": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueryRuns,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.QueriesService", rpc_method_handlers)
@@ -202,6 +234,64 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/GetQueryPlan",
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.GetQueryPlanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def AggregateQueryErrors(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/AggregateQueryErrors",
+            chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.AggregateQueryErrorsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueryRuns(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueryRuns",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.FromString,
             options,
             channel_credentials,
             insecure,

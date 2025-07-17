@@ -34,6 +34,7 @@ from ansys.api.edb.v1.edb_messages_pb2 import (
     DoublesPropertyMessage,
     EDBInternalIdMessage,
     EDBObjCollectionMessage,
+    EDBObjCollectionPropertyMessage,
     EDBObjMessage,
     EDBObjNameMessage,
     EDBObjPairMessage,
@@ -83,14 +84,9 @@ from ansys.api.edb.v1.hfss_simulation_setup_pb2 import (
 )
 from ansys.api.edb.v1.hierarchy_obj_pb2 import ObjectNameInLayoutMessage
 from ansys.api.edb.v1.inst_array_pb2 import InstArrayCreationMessage
-from ansys.api.edb.v1.layout_pb2 import (
-    LayoutConvertP2VMessage,
-    LayoutExpandedExtentMessage,
-    LayoutGetItemsMessage,
-)
+from ansys.api.edb.v1.layout_pb2 import LayoutConvertP2VMessage, LayoutExpandedExtentMessage
 from ansys.api.edb.v1.material_def_pb2 import MaterialDefPropertiesMessage
 from ansys.api.edb.v1.mcad_model_pb2 import *  # noqa
-from ansys.api.edb.v1.net_pb2 import NetGetLayoutObjMessage
 from ansys.api.edb.v1.package_def_pb2 import HeatSinkMessage, SetHeatSinkMessage
 from ansys.api.edb.v1.padstack_inst_term_pb2 import (
     PadstackInstTermCreationsMessage,
@@ -118,12 +114,17 @@ from ansys.api.edb.v1.point_term_pb2 import (
 )
 from ansys.api.edb.v1.polygon_data_pb2 import *  # noqa
 from ansys.api.edb.v1.port_post_processing_prop_pb2 import PortPostProcessingPropMessage
-from ansys.api.edb.v1.refs_pb2 import LayerRefMessage, LayerRefPropertyMessage, NetRefMessage
+from ansys.api.edb.v1.refs_pb2 import (
+    LayerRefMessage,
+    LayerRefPropertyMessage,
+    LayerRefsPropertyMessage,
+    NetRefMessage,
+)
 from ansys.api.edb.v1.rlc_pb2 import RlcMessage
+from ansys.api.edb.v1.s_parameter_model_pb2 import SParameterModelMessage
 from ansys.api.edb.v1.simulation_setup_pb2 import MatrixConvergenceEntryMessage
-from ansys.api.edb.v1.sparameter_model_pb2 import SParameterModelMessage
 from ansys.api.edb.v1.spice_model_pb2 import SpiceModelMessage, SpiceModelNewTerminalPinMessage
-from ansys.api.edb.v1.structure3d_pb2 import ClosureMessage, SetClosureMessage
+from ansys.api.edb.v1.structure_3d_pb2 import ClosureMessage, SetClosureMessage
 from ansys.api.edb.v1.term_inst_pb2 import TermInstCreationMessage
 from ansys.api.edb.v1.term_inst_term_pb2 import (
     TermInstTermCreationMessage,
@@ -505,11 +506,6 @@ def point3d_message(point3d):
 def point_3d_property_message(target, val):
     """Convert to a ``Point3DPropertyMessage`` object."""
     return Point3DPropertyMessage(target=edb_obj_message(target), value=point3d_message(val))
-
-
-def layout_get_items_message(layout, item_type):
-    """Convert to a ``LayoutGetItemsMessage`` object."""
-    return LayoutGetItemsMessage(layout=layout.msg, obj_type=item_type.value)
 
 
 def layout_expanded_extent_message(
@@ -924,6 +920,16 @@ def layer_ref_message(layer):
         return LayerRefMessage(id=edb_obj_message(layer.msg))
 
 
+def layer_refs_message(layer):
+    """Convert to a ``LayerRefsMessage`` object."""
+    if layer is None:
+        return None
+    elif isinstance(layer, list):
+        return [layer_ref_message(l) for l in layer]
+    else:
+        return [layer_ref_message(layer)]
+
+
 def net_ref_message(net):
     """Convert to a ``NetRefMessage`` object."""
     if type(net) == str:
@@ -1075,14 +1081,14 @@ def layer_ref_property_message(edb_obj, layer_ref):
     return LayerRefPropertyMessage(edb_obj=edb_obj.msg, layer_ref=layer_ref_message(layer_ref))
 
 
+def layer_refs_property_message(edb_obj, layer_refs):
+    """Convert to a ``LayerRefsPropertyMessage`` object."""
+    return LayerRefsPropertyMessage(edb_obj=edb_obj.msg, layer_refs=layer_refs_message(layer_refs))
+
+
 def double_property_message(edb_obj, double):
     """Convert to a ``DoublePropertyMessage`` object."""
     return DoublePropertyMessage(target=edb_obj.msg, value=double)
-
-
-def net_get_layout_obj_message(obj, layout_obj_type):
-    """Convert to a ``NetGetLayoutObjMessage`` object."""
-    return NetGetLayoutObjMessage(net=edb_obj_message(obj), obj_type=layout_obj_type.value)
 
 
 def differential_pair_creation_message(layout, name, pos_net, neg_net):
@@ -1375,6 +1381,13 @@ def broadband_solution_msg(broadband_adapt_sol):
         max_passes=broadband_adapt_sol.max_num_passes,
         low_frequency=broadband_adapt_sol.low_frequency,
         high_frequency=broadband_adapt_sol.high_frequency,
+    )
+
+
+def edb_obj_collection_property_message(target, edb_objs):
+    """Convert to a ``EDBObjCollectionPropertyMessage`` object."""
+    return EDBObjCollectionPropertyMessage(
+        target=target.msg, edb_objs=edb_obj_collection_message(edb_objs)
     )
 
 

@@ -58,6 +58,7 @@ __all__ = (
     "OrderByType",
     "OutputFormatType",
     "PaginatorName",
+    "PolicyScopeType",
     "PolicyTypeType",
     "QueryLanguageType",
     "QueryStatusType",
@@ -77,7 +78,7 @@ AnomalyDetectorStatusType = Literal[
     "ANALYZING", "DELETED", "FAILED", "INITIALIZING", "PAUSED", "TRAINING"
 ]
 DataProtectionStatusType = Literal["ACTIVATED", "ARCHIVED", "DELETED", "DISABLED"]
-DeliveryDestinationTypeType = Literal["CWL", "FH", "S3"]
+DeliveryDestinationTypeType = Literal["CWL", "FH", "S3", "XRAY"]
 DescribeConfigurationTemplatesPaginatorName = Literal["describe_configuration_templates"]
 DescribeDeliveriesPaginatorName = Literal["describe_deliveries"]
 DescribeDeliveryDestinationsPaginatorName = Literal["describe_delivery_destinations"]
@@ -121,6 +122,7 @@ OCSFVersionType = Literal["V1.1"]
 OpenSearchResourceStatusTypeType = Literal["ACTIVE", "ERROR", "NOT_FOUND"]
 OrderByType = Literal["LastEventTime", "LogStreamName"]
 OutputFormatType = Literal["json", "parquet", "plain", "raw", "w3c"]
+PolicyScopeType = Literal["ACCOUNT", "RESOURCE"]
 PolicyTypeType = Literal[
     "DATA_PROTECTION_POLICY",
     "FIELD_INDEX_POLICY",
@@ -210,6 +212,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",

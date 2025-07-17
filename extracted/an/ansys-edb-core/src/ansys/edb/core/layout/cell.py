@@ -12,7 +12,11 @@ from ansys.edb.core.layout import layout
 from ansys.edb.core.primitive.primitive import Primitive
 from ansys.edb.core.session import StubAccessor, StubType
 from ansys.edb.core.simulation_setup.simulation_setup import SimulationSetup
-from ansys.edb.core.utility.hfss_extent_info import HfssExtentInfo
+from ansys.edb.core.utility.hfss_extent_info import (
+    HfssExtentInfo,
+    HFSSExtentInfoType,
+    OpenRegionType,
+)
 from ansys.edb.core.utility.temperature_settings import TemperatureSettings
 from ansys.edb.core.utility.value import Value
 
@@ -93,11 +97,11 @@ _HFSS_EXTENT_MESSAGE_HELPER = {
     },
     "HfssExtentsType": {
         "msg": _translate_hfss_extents_enums,
-        "val": HfssExtentInfo.HFSSExtentInfoType,
+        "val": HFSSExtentInfoType,
     },
     "HfssExtentsOpenRegionType": {
         "msg": _translate_hfss_extents_enums,
-        "val": HfssExtentInfo.OpenRegionType,
+        "val": OpenRegionType,
     },
 }
 
@@ -136,7 +140,7 @@ class Cell(ObjBase, variable_server.VariableServer):
         msg : EDBObjMessage
         """
         ObjBase.__init__(self, msg)
-        variable_server.VariableServer.__init__(self, msg)
+        variable_server.VariableServer.__init__(self, self)
 
     @classmethod
     def create(cls, db, cell_type, cell_name):

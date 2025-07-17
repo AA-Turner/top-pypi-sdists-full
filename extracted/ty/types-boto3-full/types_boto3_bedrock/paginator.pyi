@@ -12,6 +12,7 @@ Usage::
 
     from types_boto3_bedrock.client import BedrockClient
     from types_boto3_bedrock.paginator import (
+        ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
         ListEvaluationJobsPaginator,
         ListGuardrailsPaginator,
@@ -29,6 +30,7 @@ Usage::
     session = Session()
     client: BedrockClient = session.client("bedrock")
 
+    list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
     list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
     list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
     list_guardrails_paginator: ListGuardrailsPaginator = client.get_paginator("list_guardrails")
@@ -52,6 +54,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListCustomModelDeploymentsRequestPaginateTypeDef,
+    ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestPaginateTypeDef,
     ListCustomModelsResponseTypeDef,
     ListEvaluationJobsRequestPaginateTypeDef,
@@ -84,6 +88,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
     "ListEvaluationJobsPaginator",
     "ListGuardrailsPaginator",
@@ -97,6 +102,24 @@ __all__ = (
     "ListPromptRoutersPaginator",
     "ListProvisionedModelThroughputsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListCustomModelDeploymentsPaginatorBase = Paginator[ListCustomModelDeploymentsResponseTypeDef]
+else:
+    _ListCustomModelDeploymentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCustomModelDeploymentsPaginator(_ListCustomModelDeploymentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListCustomModelDeployments.html#Bedrock.Paginator.ListCustomModelDeployments)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listcustommodeldeploymentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCustomModelDeploymentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCustomModelDeploymentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListCustomModelDeployments.html#Bedrock.Paginator.ListCustomModelDeployments.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listcustommodeldeploymentspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListCustomModelsPaginatorBase = Paginator[ListCustomModelsResponseTypeDef]

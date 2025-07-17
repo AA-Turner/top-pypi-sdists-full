@@ -64,6 +64,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
         super().__init__("pothole_segmentation")
         self.category = "infrastructure"
         self.categories = ["pothole"]
+        self.relevant_categories = ["pothole"]
 
         # Optional smoothing tracker
         self.smoothing_tracker = None
@@ -300,7 +301,8 @@ class PotholeSegmentationUseCase(BaseProcessor):
             alerts = self._check_alerts(pothole_summary, config)
             metrics = self._calculate_metrics(pothole_summary, config, context)
             model_metadata = self._generate_model_metadata(config)
-
+            stream_info.get("input_settings", {})["model_metadata"] = model_metadata
+            
             predictions = self._extract_predictions(processed_data, config)
             summary_text = self._generate_summary(pothole_summary, general_summary, alerts)
 
@@ -333,7 +335,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
             result.insights = insights
             result.predictions = predictions
             result.metrics = metrics
-            result.model_metadata = model_metadata
+            
 
             return result
 
@@ -363,7 +365,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
 
         return processed_data
 
-    def _generate_model_metadata(self, config) -> list[dict]:
+    def _generate_model_metadata(self, config) -> dict:
         """
         Generate model metadata to be included in the processing result.
 
@@ -372,10 +374,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
             - index_to_category mapping from config
             - categories/classes used for detection
         """
-        model_metadata = [
-            {"key": "index_to_category", "value": config.index_to_category},
-            {"key": "classes", "value": self.categories}
-        ]
+        model_metadata = {"index_to_category":config.index_to_category,"target_classes": self.relevant_categories }
         return model_metadata
 
     def _apply_bbox_smoothing(self, data: List[Dict[str, Any]], config: PotholeConfig) -> List[Dict[str, Any]]:

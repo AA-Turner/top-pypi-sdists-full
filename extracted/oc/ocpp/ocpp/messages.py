@@ -1,5 +1,5 @@
-""" Module containing classes that model the several OCPP messages types. It
-also contain some helper functions for packing and unpacking messages.  """
+"""Module containing classes that model the several OCPP messages types. It
+also contain some helper functions for packing and unpacking messages."""
 
 from __future__ import annotations
 
@@ -138,7 +138,7 @@ def get_validator(
     is used to parse floats. It must be a callable taking 1 argument. By
     default it is `float()`, but certain schema's require `decimal.Decimal()`.
     """
-    if ocpp_version not in ["1.6", "2.0", "2.0.1"]:
+    if ocpp_version not in ["1.6", "2.0", "2.0.1", "2.1"]:
         raise ValueError
 
     schemas_dir = "v" + ocpp_version.replace(".", "")
@@ -147,7 +147,7 @@ def get_validator(
     if message_type_id == MessageType.CallResult:
         schema_name += "Response"
     elif message_type_id == MessageType.Call:
-        if ocpp_version in ["2.0", "2.0.1"]:
+        if ocpp_version in ["2.0", "2.0.1", "2.1"]:
             schema_name += "Request"
 
     if ocpp_version == "2.0":
@@ -209,11 +209,12 @@ def _validate_payload(message: Union[Call, CallResult], ocpp_version: str) -> No
         # parser for floats.
         if ocpp_version == "1.6" and (
             (
-                type(message) == Call
+                isinstance(message, Call)
                 and message.action in ["SetChargingProfile", "RemoteStartTransaction"]
-            )  # noqa
+            )
             or (
-                type(message) == CallResult and message.action == "GetCompositeSchedule"
+                isinstance(message, CallResult)
+                and message.action == "GetCompositeSchedule"
             )
         ):
             validator = get_validator(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.13.71
+Version: 0.13.72
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -57,7 +57,7 @@ Requires-Dist: elastic-transport==8.17.1
 Requires-Dist: elasticsearch==8.10.1
 Requires-Dist: enum-compat==0.0.3
 Requires-Dist: et-xmlfile==2.0.0
-Requires-Dist: facebook-business==20.0.0
+Requires-Dist: facebook-business==23.0.0
 Requires-Dist: filelock==3.17.0
 Requires-Dist: flatten-json==0.1.14
 Requires-Dist: frozenlist==1.5.0

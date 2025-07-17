@@ -2,7 +2,7 @@
 
 #
 # Dell OpenManage Ansible Modules
-# Version 9.12.0
+# Version 9.12.2
 # Copyright (C) 2025 Dell Inc.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -90,7 +90,12 @@ class TestIDRACCpuInfo(object):
 
     @pytest.fixture
     def idrac_redfish_object(self, module_params):
-        iDRACRedfishAPI.get_server_generation = [14]
+        iDRACRedfishAPI._get_session_resource_collection = MagicMock(
+            return_value={
+                "SESSION": "/redfish/v1/SessionService/Sessions",
+                "SESSION_ID": "/redfish/v1/SessionService/Sessions/{Id}",
+            }
+        )
         idrac_redfish_obj = iDRACRedfishAPI(module_params)
         return idrac_redfish_obj
 
@@ -104,7 +109,7 @@ class TestIDRACCpuInfo(object):
         return obj
 
     def test_get_cpu_system_info(self, mocker, module_params):
-        iDRACRedfishAPI.get_server_generation = [14]
+        iDRACRedfishAPI.get_server_generation = (17, '1.20.30', 'iDRAC 10')
         mocker.patch(MODULE_UTIL_PATH + INVOKE_REQUEST,
                      self.mock_get_dynamic_idrac_invoke_request)
         idrac_obj = iDRACRedfishAPI(module_params=module_params)
@@ -112,7 +117,7 @@ class TestIDRACCpuInfo(object):
         assert resp == expected_resp
 
     def test_get_controller_enclosure_sensor_info(self, mocker, module_params):
-        iDRACRedfishAPI.get_server_generation = [14]
+        iDRACRedfishAPI.get_server_generation = (17, '1.20.30', 'iDRAC 10')
         mocker.patch(MODULE_UTIL_PATH + INVOKE_REQUEST,
                      self.mock_get_dynamic_idrac_invoke_request)
         idrac_obj = iDRACRedfishAPI(module_params=module_params)

@@ -18,8 +18,6 @@ class TopKGen(BaseGen):
     max_increment: int = 100
     min_increment: int = 1
 
-    def __post_init__(self):
-        self.values = [self._rand_str(self.subval_size) for _ in range(100)]
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def topk_reserve(self, pipe: redis.client.Pipeline, key: str) -> None:
@@ -42,7 +40,9 @@ class TopKGen(BaseGen):
         # Classification: additive
         
         # Generate items to add
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_command))]
+        items = [self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_command))]
+        for item in items:
+            self._put_rand_value(KEY_TYPE, item)
         pipe.execute_command("TOPK.ADD", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
@@ -53,7 +53,7 @@ class TopKGen(BaseGen):
         args = ["TOPK.INCRBY", key]
         num_items = random.randint(1, self.max_items_per_command)
         for _ in range(num_items):
-            item = random.choice(self.values)
+            item = self._get_rand_value(key) or self._rand_str(self.subval_size)
             increment = random.randint(self.min_increment, self.max_increment)
             args.extend([item, str(increment)])
         
@@ -64,7 +64,7 @@ class TopKGen(BaseGen):
         # Classification: lookup
         
         # Query multiple items
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_command))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_command))]
         pipe.execute_command("TOPK.QUERY", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
@@ -72,7 +72,7 @@ class TopKGen(BaseGen):
         # Classification: lookup
         
         # Count multiple items
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_command))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_command))]
         pipe.execute_command("TOPK.COUNT", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)

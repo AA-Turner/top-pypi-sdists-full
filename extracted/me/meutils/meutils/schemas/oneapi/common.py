@@ -24,7 +24,6 @@ MINIMAX_VIDEO = 3
 
 FAL = 3
 FAL_MODELS = {
-    'fal-elevenlabs-tts-turbo-v2.5': 0.3,
     'fal-kling-video-lipsync-audio-to-video': 0.5,
 
     'fal-pixverse-v4.5-effects': 1,
@@ -48,12 +47,20 @@ FAL_MODELS = {
     'fal-flux-pro-kontext-max-text-to-image': 0.08 * 3,
     'fal-flux-pro-kontext-max-multi': 0.08 * 3,
 
-    # hailuo
+    # minimax hailuo
     "fal-ai/minimax/hailuo-02/standard/text-to-video": 0.27 * FAL,  # 6 10
     "fal-ai/minimax/hailuo-02/standard/image-to-video": 0.27 * FAL,  # 6 10
 
     "fal-ai/minimax/hailuo-02/pro/text-to-video": 0.48 * FAL,
     "fal-ai/minimax/hailuo-02/pro/image-to-video": 0.48 * FAL,
+
+    "fal-ai/minimax/voice-clone": 5,
+
+    # vidu
+    "fal-ai/vidu/q1/text-to-video": 0.4 * FAL,
+    "fal-ai/vidu/q1/image-to-video": 0.4 * FAL,
+    "fal-ai/vidu/q1/start-end-to-video": 0.4 * FAL,
+    "fal-ai/vidu/q1/reference-to-video": 0.4 * FAL,
 
 }
 
@@ -471,12 +478,20 @@ MODEL_PRICE = {
 MODEL_RATIO = {
     # elevenlabs
     "elevenlabs/scribe_v1": 3 * 0.03 * 1000 / 60 / 2,  # Your request will cost $0.03 per minute of audio transcribed
+    "elevenlabs/eleven_multilingual_v2": 3 * 0.1 * 1000 / 2,
     "elevenlabs/eleven_turbo_v2_5": 3 * 0.05 * 1000 / 2,  # Your request will cost $0.05 per thousand characters.
+
+    "fal-elevenlabs-speech-to-text": 3 * 0.03 * 1000 / 60 / 2,
+    'fal-elevenlabs-tts-turbo-v2.5': 3 * 0.05 * 1000 / 2,
+    'fal-elevenlabs-tts-multilingual-v2': 3 * 0.1 * 1000 / 2,
 
     # fal 按量计费
     "fal-topaz-upscale-video": 3 * 0.1 * 1000 / 2,
     "fal-luma-dream-machine-ray-2-reframe": 3 * 0.2 * 1000 / 2,
     "fal-luma-dream-machine-ray-2-flash-reframe": 3 * 0.06 * 1000 / 2,
+
+    "fal-minimax-speech-02-hd": 3 * 0.06 * 1000 / 2,
+    "fal-minimax-speech-02-turbo": 3 * 0.1 * 1000 / 2,
 
     # 智能体
     "gpt-4-plus": 2.5,
@@ -1654,4 +1669,7 @@ if __name__ == '__main__':
 
     print([k for k in MODEL_PRICE if k.startswith(('chat-',))] | xjoin(","))
 
-    # print(','.join(FAL))
+
+
+
+    print(','.join(FAL_MODELS)) #  fal 按次

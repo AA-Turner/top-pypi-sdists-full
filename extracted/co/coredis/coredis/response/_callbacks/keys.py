@@ -9,7 +9,6 @@ from coredis.typing import (
     ResponseType,
     StringT,
     TypeGuard,
-    ValueT,
 )
 
 
@@ -21,7 +20,8 @@ class SortCallback(
     ]
 ):
     def transform(
-        self, response: int | list[AnyStr], **options: ValueT | None
+        self,
+        response: int | list[AnyStr],
     ) -> int | tuple[AnyStr, ...]:
         if isinstance(response, list):
             return tuple(response)
@@ -35,7 +35,8 @@ class ScanCallback(
         return isinstance(response[0], (str, bytes)) and isinstance(response[1], list)
 
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> tuple[int, tuple[AnyStr, ...]]:
         assert self.guard(response)
         cursor, r = response
@@ -43,9 +44,12 @@ class ScanCallback(
 
 
 class ExpiryCallback(DateTimeCallback):
-    def transform(self, response: int, **options: ValueT | None) -> datetime:
+    def transform(
+        self,
+        response: int,
+    ) -> datetime:
         if response > 0:
-            return super().transform(response, **options)
+            return super().transform(response)
         else:
             if response == -2:
                 raise NoKeyError()

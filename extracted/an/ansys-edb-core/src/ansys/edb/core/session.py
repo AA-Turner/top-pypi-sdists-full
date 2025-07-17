@@ -1,10 +1,18 @@
 """Session manager for gRPC."""
+from __future__ import annotations
+
+from collections import defaultdict
 from contextlib import contextmanager
 from enum import Enum
+import errno
+import json
+import os
 from shutil import which
+import socket
 from struct import pack, unpack
 import subprocess
 from sys import modules
+from typing import List
 
 from ansys.api.edb.v1.arc_data_pb2_grpc import ArcDataServiceStub
 from ansys.api.edb.v1.board_bend_def_pb2_grpc import BoardBendDefServiceStub
@@ -36,9 +44,16 @@ from ansys.api.edb.v1.die_property_pb2_grpc import DiePropertyServiceStub
 from ansys.api.edb.v1.dielectric_material_model_pb2_grpc import DielectricMaterialModelServiceStub
 from ansys.api.edb.v1.differential_pair_pb2_grpc import DifferentialPairServiceStub
 from ansys.api.edb.v1.djordjecvic_sarkar_model_pb2_grpc import DjordjecvicSarkarModelServiceStub
+from ansys.api.edb.v1.edb_error_manager_pb2_grpc import EDBErrorManagerServiceStub
 from ansys.api.edb.v1.edge_term_pb2_grpc import EdgeServiceStub, EdgeTerminalServiceStub
 from ansys.api.edb.v1.extended_net_pb2_grpc import ExtendedNetServiceStub
 from ansys.api.edb.v1.group_pb2_grpc import GroupServiceStub
+from ansys.api.edb.v1.hfss_pi_simulation_settings_pb2_grpc import (
+    HFSSPIGeneralSettingsServiceStub,
+    HFSSPINetProcessingSettingsServiceStub,
+    HFSSPIPowerGroundNetsServiceStub,
+    HFSSPISignalNetsSettingsServiceStub,
+)
 from ansys.api.edb.v1.hfss_simulation_settings_pb2_grpc import (
     DCRSettingsServiceStub,
     HFSSAdvancedMeshingSettingsServiceStub,
@@ -52,6 +67,7 @@ from ansys.api.edb.v1.hierarchy_obj_pb2_grpc import HierarchyObjectServiceStub
 from ansys.api.edb.v1.ic_component_property_pb2_grpc import ICComponentPropertyServiceStub
 from ansys.api.edb.v1.inst_array_pb2_grpc import InstArrayServiceStub
 from ansys.api.edb.v1.io_component_property_pb2_grpc import IOComponentPropertyServiceStub
+from ansys.api.edb.v1.io_manager_pb2_grpc import IOManagerServiceStub
 from ansys.api.edb.v1.layer_collection_pb2_grpc import LayerCollectionServiceStub
 from ansys.api.edb.v1.layer_map_pb2_grpc import LayerMapServiceStub
 from ansys.api.edb.v1.layer_pb2_grpc import LayerServiceStub
@@ -77,8 +93,8 @@ from ansys.api.edb.v1.material_property_thermal_modifier_pb2_grpc import (
 from ansys.api.edb.v1.mcad_model_pb2_grpc import McadModelServiceStub
 from ansys.api.edb.v1.model_pb2_grpc import ModelServiceStub
 from ansys.api.edb.v1.multipole_debye_model_pb2_grpc import MultipoleDebyeModelServiceStub
+from ansys.api.edb.v1.net_class_pb2_grpc import NetClassServiceStub
 from ansys.api.edb.v1.net_pb2_grpc import NetServiceStub
-from ansys.api.edb.v1.netclass_pb2_grpc import NetClassServiceStub
 from ansys.api.edb.v1.netlist_model_pb2_grpc import NetlistModelServiceStub
 from ansys.api.edb.v1.package_def_pb2_grpc import PackageDefServiceStub
 from ansys.api.edb.v1.padstack_def_data_pb2_grpc import PadstackDefDataServiceStub
@@ -94,7 +110,18 @@ from ansys.api.edb.v1.point_term_pb2_grpc import PointTerminalServiceStub
 from ansys.api.edb.v1.polygon_data_pb2_grpc import PolygonDataServiceStub
 from ansys.api.edb.v1.polygon_pb2_grpc import PolygonServiceStub
 from ansys.api.edb.v1.port_property_pb2_grpc import PortPropertyServiceStub
+from ansys.api.edb.v1.primitive_instance_collection_pb2_grpc import (
+    PrimitiveInstanceCollectionServiceStub,
+)
 from ansys.api.edb.v1.primitive_pb2_grpc import PrimitiveServiceStub
+from ansys.api.edb.v1.q3d_simulation_settings_pb2_grpc import (
+    Q3DAdvancedMeshingSettingsServiceStub,
+    Q3DAdvancedSettingsServiceStub,
+    Q3DCGSettingsServiceStub,
+    Q3DDCRLSettingsServiceStub,
+    Q3DGeneralSettingsServiceStub,
+    Q3DSettingsServiceStub,
+)
 from ansys.api.edb.v1.r_tree_pb2_grpc import RTreeServiceStub
 from ansys.api.edb.v1.raptor_x_simulation_settings_pb2_grpc import (
     RaptorXAdvancedSettingsServiceStub,
@@ -102,6 +129,17 @@ from ansys.api.edb.v1.raptor_x_simulation_settings_pb2_grpc import (
 )
 from ansys.api.edb.v1.rectangle_pb2_grpc import RectangleServiceStub
 from ansys.api.edb.v1.rlc_component_property_pb2_grpc import RLCComponentPropertyServiceStub
+from ansys.api.edb.v1.s_parameter_model_pb2_grpc import SParameterModelServiceStub
+from ansys.api.edb.v1.si_wave_dcir_simulation_settings_pb2_grpc import (
+    SIWaveDCIRSimulationSettingsServiceStub,
+)
+from ansys.api.edb.v1.si_wave_simulation_settings_pb2_grpc import (
+    SIWaveAdvancedSettingsServiceStub,
+    SIWaveDCAdvancedSettingsServiceStub,
+    SIWaveDCSettingsServiceStub,
+    SIWaveGeneralSettingsServiceStub,
+    SIWaveSParameterSettingsServiceStub,
+)
 from ansys.api.edb.v1.simulation_settings_pb2_grpc import (
     AdvancedMeshingSettingsServiceStub,
     AdvancedSettingsServiceStub,
@@ -110,26 +148,15 @@ from ansys.api.edb.v1.simulation_settings_pb2_grpc import (
     SolverSettingsServiceStub,
 )
 from ansys.api.edb.v1.simulation_setup_pb2_grpc import SimulationSetupServiceStub
-from ansys.api.edb.v1.siwave_dcir_simulation_settings_pb2_grpc import (
-    SIWaveDCIRSimulationSettingsServiceStub,
-)
-from ansys.api.edb.v1.siwave_simulation_settings_pb2_grpc import (
-    SIWaveAdvancedSettingsServiceStub,
-    SIWaveDCAdvancedSettingsServiceStub,
-    SIWaveDCSettingsServiceStub,
-    SIWaveGeneralSettingsServiceStub,
-    SIWaveSParameterSettingsServiceStub,
-)
 from ansys.api.edb.v1.solder_ball_property_pb2_grpc import SolderBallPropertyServiceStub
-from ansys.api.edb.v1.sparameter_model_pb2_grpc import SParameterModelServiceStub
 from ansys.api.edb.v1.spice_model_pb2_grpc import SpiceModelServiceStub
 from ansys.api.edb.v1.stackup_layer_pb2_grpc import StackupLayerServiceStub
-from ansys.api.edb.v1.structure3d_pb2_grpc import Structure3DServiceStub
+from ansys.api.edb.v1.structure_3d_pb2_grpc import Structure3DServiceStub
 from ansys.api.edb.v1.term_inst_pb2_grpc import TerminalInstanceServiceStub
 from ansys.api.edb.v1.term_inst_term_pb2_grpc import TerminalInstanceTerminalServiceStub
 from ansys.api.edb.v1.term_pb2_grpc import TerminalServiceStub
 from ansys.api.edb.v1.text_pb2_grpc import TextServiceStub
-from ansys.api.edb.v1.transform3d_pb2_grpc import Transform3DServiceStub
+from ansys.api.edb.v1.transform_3d_pb2_grpc import Transform3DServiceStub
 from ansys.api.edb.v1.transform_pb2_grpc import TransformServiceStub
 from ansys.api.edb.v1.value_pb2_grpc import ValueServiceStub
 from ansys.api.edb.v1.variable_server_pb2_grpc import VariableServerServiceStub
@@ -140,7 +167,9 @@ import grpc
 
 from ansys.edb.core.inner import LOGGER
 from ansys.edb.core.inner.exceptions import EDBSessionException, ErrorCode
-from ansys.edb.core.inner.interceptors import ExceptionInterceptor, LoggingInterceptor
+from ansys.edb.core.inner.interceptors import ExceptionInterceptor, IOInterceptor
+
+DEFAULT_ADDRESS = "localhost"
 
 # The session module singleton
 MOD = modules[__name__]
@@ -150,12 +179,12 @@ MOD.current_session = None
 class StubAccessor(object):
     """Provides a descriptor for assignig a specific stub to a model."""
 
-    def __init__(self, stub_type):
+    def __init__(self, stub_type: StubType):
         """Initialize a descriptor stub with a name and stub service.
 
         Parameters
         ----------
-        stub_type : StubType
+        stub_type : .StubType
         """
         self.__stub_name = stub_type.name
 
@@ -168,21 +197,22 @@ class StubAccessor(object):
 
 # Helper class for storing data used by the session
 class _Session:
-    def __init__(self, ip_address, port_num, ansys_em_root):
+    def __init__(self, ip_address: str, port_num: int, ansys_em_root: str, dump_traffic_log: bool):
         if MOD.current_session is not None:
             raise EDBSessionException(ErrorCode.STARTUP_MULTI_SESSIONS)
 
-        self.ip_address = ip_address or "localhost"
-        self.port_num = port_num
+        self.ip_address = ip_address or DEFAULT_ADDRESS
+        self.port_num = port_num or _find_available_port()
         self.ansys_em_root = ansys_em_root
         self.channel = None
         self.local_server_proc = None
         self.stubs = None
         self.session = None
+        self.rpc_counter = defaultdict(int) if dump_traffic_log else None
         self.interceptors = [
             # on reversed order of interception
+            IOInterceptor(LOGGER, self.rpc_counter),
             ExceptionInterceptor(LOGGER),
-            LoggingInterceptor(LOGGER),
         ]
 
     def __enter__(self):
@@ -199,17 +229,17 @@ class _Session:
         self.stubs = {stub.name: stub.value(self.channel) for stub in StubType}
 
     @property
-    def server_url(self):
+    def server_url(self) -> str:
         return "{}:{}".format(self.ip_address, self.port_num)
 
     @property
-    def server_executable(self):
+    def server_executable(self) -> str | None:
         if self.is_launch():
             return which(cmd="EDB_RPC_Server", path=self.ansys_em_root)
         else:
             return None
 
-    def server_arguments(self):
+    def server_arguments(self) -> List[str]:
         args = []
 
         if self.port_num is not None:
@@ -218,17 +248,17 @@ class _Session:
 
         return args
 
-    def stub(self, name):
+    def stub(self, name: str):
         if self.is_active():
             return self.stubs.get(name)
 
-    def is_active(self):
+    def is_active(self) -> bool:
         return self.channel is not None and self.stubs is not None
 
-    def is_local(self):
+    def is_local(self) -> bool:
         return self.ip_address == "localhost"
 
-    def is_launch(self):
+    def is_launch(self) -> bool:
         return self.ansys_em_root is not None
 
     def connect(self):
@@ -244,6 +274,10 @@ class _Session:
         self._initialize_stubs()
 
     def disconnect(self):
+        if self.rpc_counter is not None:
+            print(
+                "pyedb-core session traffic:" + os.linesep + json.dumps(self.rpc_counter, indent=4)
+            )
         if self.stubs is not None:
             self.stubs = None
 
@@ -414,6 +448,10 @@ class StubType(Enum):
     hfss_solver_sim_settings = HFSSSolverSettingsServiceStub
     hfss_dcr_sim_settings = DCRSettingsServiceStub
     hfss_sim_setup = HfssSimulationSetupServiceStub
+    hfss_pi_general_sim_settings = HFSSPIGeneralSettingsServiceStub
+    hfss_pi_net_processing_sim_settings = HFSSPINetProcessingSettingsServiceStub
+    hfss_pi_power_ground_sim_settings = HFSSPIPowerGroundNetsServiceStub
+    hfss_pi_signal_nets_sim_settings = HFSSPISignalNetsSettingsServiceStub
     sim_setup = SimulationSetupServiceStub
     sim_settings = SimulationSettingsServiceStub
     sim_settings_options = SettingsOptionsServiceStub
@@ -429,25 +467,38 @@ class StubType(Enum):
     raptor_x_general_sim_settings = RaptorXGeneralSettingsServiceStub
     raptor_x_adv_sim_settings = RaptorXAdvancedSettingsServiceStub
     layout_component = LayoutComponentServiceStub
+    io_manager = IOManagerServiceStub
+    primitive_instance_collection = PrimitiveInstanceCollectionServiceStub
+    edb_error_manager = EDBErrorManagerServiceStub
+    q3d_advanced_sim_settings = Q3DAdvancedSettingsServiceStub
+    q3d_advanced_meshing_sim_settings = Q3DAdvancedMeshingSettingsServiceStub
+    q3d_cg_sim_settings = Q3DCGSettingsServiceStub
+    q3d_dcrl_sim_settings = Q3DDCRLSettingsServiceStub
+    q3d_general_sim_settings = Q3DGeneralSettingsServiceStub
+    q3d_sim_settings = Q3DSettingsServiceStub
 
 
-def attach_session(ip_address=None, port_num=50051):
+def attach_session(
+    ip_address: str | None = None, port_num: int = 50051, dump_traffic_log: bool = False
+):
     """Attach a session to a port running the EDB API server.
 
     Parameters
     ----------
-    ip_address : str, default: None
+    ip_address : str or None, default: None
         IP address of the machine that is running the server. The default is ``None``,
         in which case localhost is used.
     port_num : int, default: 50051
         Port number that the server is listening on.
+    dump_traffic_log : bool, default: False
+        Flag indicating if the network traffic log should be dumped when the session is disconnected.
     """
-    MOD.current_session = _Session(ip_address, port_num, None)
+    MOD.current_session = _Session(ip_address, port_num, None, dump_traffic_log)
     MOD.current_session.connect()
     return MOD.current_session
 
 
-def launch_session(ansys_em_root, port_num=None):
+def launch_session(ansys_em_root: str, port_num: int | None = None, dump_traffic_log: bool = False):
     r"""Launch a local session to an EDB API server.
 
     The session must be manually disconnected after use by calling session.disconnect()
@@ -456,9 +507,11 @@ def launch_session(ansys_em_root, port_num=None):
     ----------
     ansys_em_root : str
         Directory where the ``EDB_RPC_Server.exe`` file is installed.
-    port_num : int, default: None
-        Port number to listen on. The default is ``None``, in which
-        case localhost is used.
+    port_num : int or None, default: None
+        Port number to listen on. The default is ``None``, in which case a port in [50051, 60000]
+        is selected.
+    dump_traffic_log : bool, default: False
+        Flag indicating if the network traffic log should be dumped when the session is disconnected.
 
     Examples
     --------
@@ -471,7 +524,7 @@ def launch_session(ansys_em_root, port_num=None):
     ip_address = None  # remote launch is not supported yet
 
     try:
-        _ensure_session(ansys_em_root, port_num, ip_address)
+        _ensure_session(ansys_em_root, port_num, ip_address, dump_traffic_log)
         return MOD.current_session
     except Exception as e:  # noqa
         if MOD.current_session is not None:
@@ -480,22 +533,30 @@ def launch_session(ansys_em_root, port_num=None):
 
 
 @contextmanager
-def session(ansys_em_root, port_num, ip_address=None):
+def session(
+    ansys_em_root: str,
+    port_num: int | None = None,
+    ip_address: str | None = None,
+    dump_traffic_log: bool = False,
+):
     r"""Launch a local session to an EDB API server in a context manager.
 
     Parameters
     ----------
     ansys_em_root : str
         Directory where the ``EDB_RPC_Server.exe`` file is installed.
-    port_num : int
-        Port number to listen on.
-    ip_address : str, default: None
+    port_num : int or None, default: None
+        Port number to listen on. The default is ``None``, in which case a port in [50051, 60000]
+        is selected.
+    ip_address : str or None, default: None
         IP address where the server executable file is running. The default is ``None``, in which
         case localhost is used.
 
         .. note::
            This parameter is currently not supported. In future releases, this parameter is to
            support remotely running the API on another machine.
+    dump_traffic_log : bool, default: False
+        Flag indicating if the network traffic log should be dumped when the session is disconnected
 
     Examples
     --------
@@ -505,7 +566,7 @@ def session(ansys_em_root, port_num, ip_address=None):
     >>>    # program goes here
     """
     try:
-        _ensure_session(ansys_em_root, port_num, ip_address)
+        _ensure_session(ansys_em_root, port_num, ip_address, dump_traffic_log)
         yield
     except EDBSessionException:
         raise
@@ -515,47 +576,49 @@ def session(ansys_em_root, port_num, ip_address=None):
         MOD.current_session.disconnect()
 
 
-def get_layer_collection_stub():
+def get_layer_collection_stub() -> LayerCollectionServiceStub:
     """Get the layer collection stub.
 
     Returns
     -------
-    LayerCollectionServiceStub
+    .LayerCollectionServiceStub
     """
     return StubAccessor(StubType.layer_collection).__get__()
 
 
-def get_stackup_layer_stub():
+def get_stackup_layer_stub() -> StackupLayerServiceStub:
     """Get the stackup layer stub.
 
     Returns
     -------
-    StackupLayerServiceStub
+    .StackupLayerServiceStub
     """
     return StubAccessor(StubType.stackup_layer).__get__()
 
 
-def get_via_layer_stub():
+def get_via_layer_stub() -> ViaLayerServiceStub:
     """Get the via layer stub.
 
     Returns
     -------
-    ViaLayerServiceStub
+    .ViaLayerServiceStub
     """
     return StubAccessor(StubType.via_layer).__get__()
 
 
-def get_variable_server_stub():
+def get_variable_server_stub() -> VariableServerServiceStub:
     """Get the variable server stub.
 
     Returns
     -------
-    VariableServerServiceStub
+    .VariableServerServiceStub
     """
     return StubAccessor(StubType.variable_server).__get__()
 
 
-def _ensure_session(ansys_em_root, port_num, ip_address):
+def _ensure_session(
+    ansys_em_root: str, port_num: int, ip_address: str | None, dump_traffic_log: bool
+):
     """Check for a running local session and create one if it doesn't exist.
 
     Parameters
@@ -564,12 +627,40 @@ def _ensure_session(ansys_em_root, port_num, ip_address):
         Directory where the ``EDB_RPC_Server.exe`` file is installed.
     port_num : int
         Port number to listen on.
-    ip_address : str, default: None
+    ip_address : str or None
         IP address where the server executable file is running.
+    dump_traffic_log : bool
+        Flag indicating if the network traffic log should be dumped when the session is disconnected.
     """
     if MOD.current_session is not None:
         if MOD.current_session.port_num != port_num:
             raise EDBSessionException(ErrorCode.STARTUP_MULTI_SESSIONS)
     else:
-        MOD.current_session = _Session(ip_address, port_num, ansys_em_root)
+        MOD.current_session = _Session(ip_address, port_num, ansys_em_root, dump_traffic_log)
         MOD.current_session.connect()
+
+
+def _find_available_port(
+    interface: str = None, start_port: int = 50051, end_port: int = 60000
+) -> int:
+    """Find an available port in the given range.
+
+    Parameters
+    ----------
+    interface : str, default: :data:`DEFAULT_ADDRESS`
+        Interface to check for available ports.
+    start_port : int, default: ``50051``
+        First port number to check.
+    end_port : int, default: ``60000``
+        Last port number to check.
+
+    Returns
+    -------
+    int
+        First available port in the range.
+    """
+    for port in range(start_port, end_port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            if sock.connect_ex((interface or DEFAULT_ADDRESS, port)) == errno.ECONNREFUSED:
+                return port
+    raise RuntimeError("No available ports found")

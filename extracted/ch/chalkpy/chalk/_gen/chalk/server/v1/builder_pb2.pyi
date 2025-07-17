@@ -1007,6 +1007,18 @@ class StartBranchResponse(_message.Message):
     state: BranchScalingState
     def __init__(self, state: _Optional[_Union[BranchScalingState, str]] = ...) -> None: ...
 
+class ScaleBranchRequest(_message.Message):
+    __slots__ = ("replicas",)
+    REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    replicas: int
+    def __init__(self, replicas: _Optional[int] = ...) -> None: ...
+
+class ScaleBranchResponse(_message.Message):
+    __slots__ = ("state",)
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    state: BranchScalingState
+    def __init__(self, state: _Optional[_Union[BranchScalingState, str]] = ...) -> None: ...
+
 class KafkaTopic(_message.Message):
     __slots__ = ("name", "partitions", "replication", "retention_ms")
     NAME_FIELD_NUMBER: _ClassVar[int]

@@ -32,6 +32,9 @@ class ExtractConfig(pydantic.BaseModel):
     system_prompt: typing.Optional[str]
     use_reasoning: typing.Optional[bool] = pydantic.Field(description="Whether to use reasoning for the extraction.")
     cite_sources: typing.Optional[bool] = pydantic.Field(description="Whether to cite sources for the extraction.")
+    confidence_scores: typing.Optional[bool] = pydantic.Field(
+        description="Whether to fetch confidence scores for the extraction."
+    )
     chunk_mode: typing.Optional[DocumentChunkMode] = pydantic.Field(
         description="The mode to use for chunking the document."
     )

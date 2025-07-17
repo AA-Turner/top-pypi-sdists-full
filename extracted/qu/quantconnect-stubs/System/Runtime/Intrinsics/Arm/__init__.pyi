@@ -7012,7 +7012,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_pairwise_widening(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_pairwise_widening_and_add(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svadalp[_s16]_m(svbool_t pg, svint16_t op1, svint8_t op2)
         svint16_t svadalp[_s16]_x(svbool_t pg, svint16_t op1, svint8_t op2)
@@ -7057,7 +7057,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_wide_lower(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svaddwb[_s16](svint16_t op1, svint8_t op2)
           SADDWB Zresult.H, Zop1.H, Zop2.B
@@ -7065,15 +7065,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_widening_lower(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svint16_t svaddlb[_s16](svint8_t op1, svint8_t op2)
-          SADDLB Zresult.H, Zop1.B, Zop2.B
-        """
-        ...
-
-    @staticmethod
-    def add_widening_lower_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_widening_even_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svaddlbt[_s16](svint8_t op1, svint8_t op2)
           SADDLBT Zresult.H, Zop1.B, Zop2.B
@@ -7081,15 +7073,7 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def add_widening_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svint16_t svaddlt[_s16](svint8_t op1, svint8_t op2)
-          SADDLT Zresult.H, Zop1.B, Zop2.B
-        """
-        ...
-
-    @staticmethod
-    def add_wide_upper(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+    def add_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svint16_t svaddwt[_s16](svint16_t op1, svint8_t op2)
           SADDWT Zresult.H, Zop1.H, Zop2.B
@@ -7165,6 +7149,150 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint8_t sveortb[_s8](svint8_t even, svint8_t op1, svint8_t op2)
           EORTB Zd.B, Zn.B, Zm.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_add_by_selected_scalar(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmla_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          MLA Ztied1.H, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmul_lane[_s16](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          MUL Zresult.H, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmullb_lane[_s32](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SMULLB Zresult.S, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_even_and_add(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmlalb_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SMLALB Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_even_and_subtract(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmlslb_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SMLSLB Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmullt_lane[_s32](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SMULLT Zresult.S, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_odd_and_add(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmlalt_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SMLALT Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_by_selected_scalar_widening_odd_and_subtract(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svmlslt_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SMLSLT Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_subtract_by_selected_scalar(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmls_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          MLS Ztied1.H, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmullb[_s16](svint8_t op1, svint8_t op2)
+          SMULLB Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_even_and_add(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmlalb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SMLALB Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_even_and_subtract(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmlslb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SMLSLB Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmullt[_s16](svint8_t op1, svint8_t op2)
+          SMULLT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_odd_and_add(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmlalt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SMLALT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_widening_odd_and_subtract(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svmlslt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SMLSLT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def polynomial_multiply(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svpmul[_u8](svuint8_t op1, svuint8_t op2)
+          PMUL Zresult.B, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint16_t svpmullb[_u16](svuint8_t op1, svuint8_t op2)
+          PMULLB Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def polynomial_multiply_widening_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint16_t svpmullt[_u16](svuint8_t op1, svuint8_t op2)
+          PMULLT Zresult.H, Zop1.B, Zop2.B
         """
         ...
 
@@ -7417,6 +7545,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def subtract_borrow_widening_even(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svsbclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          SBCLB Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
+    def subtract_borrow_widening_odd(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint32_t svsbclt[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
+          SBCLT Ztied1.S, Zop_2.S, Zop_3.S
+        """
+        ...
+
+    @staticmethod
     def subtract_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svsubhnb[_u16](svuint16_t op1, svuint16_t op2)
@@ -7442,19 +7586,6 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
           UQSUB Ztied1.B, Pg/M, Ztied1.B, Zop2.B
           UQSUBR Ztied2.B, Pg/M, Ztied2.B, Zop1.B
           UQSUB Zresult.B, Zop1.B, Zop2.B
-        """
-        ...
-
-    @staticmethod
-    def subtract_saturate_reversed(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svuint8_t svqsubr[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
-        svuint8_t svqsubr[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
-        svuint8_t svqsubr[_u8]_z(svbool_t pg, svuint8_t op1, svuint8_t op2)
-          UQSUBR Ztied1.B, Pg/M, Ztied1.B, Zop2.B
-          UQSUBR Ztied1.B, Pg/M, Ztied1.B, Zop2.B
-          UQSUB Ztied2.B, Pg/M, Ztied2.B, Zop1.B
-          UQSUB Zresult.B, Zop2.B, Zop1.B
         """
         ...
 
@@ -7487,22 +7618,6 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint16_t svsubltb[_s16](svint8_t op1, svint8_t op2)
           SSUBLTB Zresult.H, Zop1.B, Zop2.B
-        """
-        ...
-
-    @staticmethod
-    def subtract_with_borrow_widening_lower(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svuint32_t svsbclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
-          SBCLB Ztied1.S, Zop_2.S, Zop_3.S
-        """
-        ...
-
-    @staticmethod
-    def subtract_with_borrow_widening_upper(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
-        """
-        svuint32_t svsbclt[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
-          SBCLT Ztied1.S, Zop_2.S, Zop_3.S
         """
         ...
 

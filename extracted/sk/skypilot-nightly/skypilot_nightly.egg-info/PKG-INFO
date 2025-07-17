@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250715
+Version: 1.0.0.dev20250716
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -118,7 +118,7 @@ Requires-Dist: vastai-sdk>=0.1.12; extra == "vast"
 Provides-Extra: vsphere
 Requires-Dist: pyvmomi==8.0.1.0.2; extra == "vsphere"
 Provides-Extra: nebius
-Requires-Dist: nebius>=0.2.0; extra == "nebius"
+Requires-Dist: nebius>=0.2.37; extra == "nebius"
 Requires-Dist: awscli>=1.27.10; extra == "nebius"
 Requires-Dist: botocore>=1.29.10; extra == "nebius"
 Requires-Dist: boto3>=1.26.1; extra == "nebius"
@@ -174,7 +174,7 @@ Requires-Dist: azure-core>=1.24.0; extra == "all"
 Requires-Dist: azure-common; extra == "all"
 Requires-Dist: vastai-sdk>=0.1.12; extra == "all"
 Requires-Dist: pyvmomi==8.0.1.0.2; extra == "all"
-Requires-Dist: nebius>=0.2.0; extra == "all"
+Requires-Dist: nebius>=0.2.37; extra == "all"
 Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
 Requires-Dist: boto3>=1.26.1; extra == "all"

@@ -126,22 +126,6 @@ def _TuningDataset_to_mldev(
   return to_object
 
 
-def _TuningValidationDataset_to_mldev(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-  to_object: dict[str, Any] = {}
-  if getv(from_object, ['gcs_uri']) is not None:
-    raise ValueError('gcs_uri parameter is not supported in Gemini API.')
-
-  if getv(from_object, ['vertex_dataset_resource']) is not None:
-    raise ValueError(
-        'vertex_dataset_resource parameter is not supported in Gemini API.'
-    )
-
-  return to_object
-
-
 def _CreateTuningJobConfig_to_mldev(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -286,20 +270,6 @@ def _ListTuningJobsParameters_to_vertex(
   return to_object
 
 
-def _TuningExample_to_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-  to_object: dict[str, Any] = {}
-  if getv(from_object, ['text_input']) is not None:
-    raise ValueError('text_input parameter is not supported in Vertex AI.')
-
-  if getv(from_object, ['output']) is not None:
-    raise ValueError('output parameter is not supported in Vertex AI.')
-
-  return to_object
-
-
 def _TuningDataset_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -434,15 +404,6 @@ def _CreateTuningJobParameters_to_vertex(
   return to_object
 
 
-def _TunedModelCheckpoint_from_mldev(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-  to_object: dict[str, Any] = {}
-
-  return to_object
-
-
 def _TunedModel_from_mldev(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -561,7 +522,7 @@ def _ListTuningJobsResponse_from_mldev(
   return to_object
 
 
-def _Operation_from_mldev(
+def _TuningOperation_from_mldev(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
@@ -955,7 +916,7 @@ class Tunings(_api_module.BaseModule):
       base_model: str,
       training_dataset: types.TuningDatasetOrDict,
       config: Optional[types.CreateTuningJobConfigOrDict] = None,
-  ) -> types.Operation:
+  ) -> types.TuningOperation:
     """Creates a supervised fine-tuning job and returns the TuningJob object.
 
     Args:
@@ -1009,9 +970,9 @@ class Tunings(_api_module.BaseModule):
     response_dict = '' if not response.body else json.loads(response.body)
 
     if not self._api_client.vertexai:
-      response_dict = _Operation_from_mldev(response_dict)
+      response_dict = _TuningOperation_from_mldev(response_dict)
 
-    return_value = types.Operation._from_response(
+    return_value = types.TuningOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
 
@@ -1299,7 +1260,7 @@ class AsyncTunings(_api_module.BaseModule):
       base_model: str,
       training_dataset: types.TuningDatasetOrDict,
       config: Optional[types.CreateTuningJobConfigOrDict] = None,
-  ) -> types.Operation:
+  ) -> types.TuningOperation:
     """Creates a supervised fine-tuning job and returns the TuningJob object.
 
     Args:
@@ -1353,9 +1314,9 @@ class AsyncTunings(_api_module.BaseModule):
     response_dict = '' if not response.body else json.loads(response.body)
 
     if not self._api_client.vertexai:
-      response_dict = _Operation_from_mldev(response_dict)
+      response_dict = _TuningOperation_from_mldev(response_dict)
 
-    return_value = types.Operation._from_response(
+    return_value = types.TuningOperation._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
     )
 

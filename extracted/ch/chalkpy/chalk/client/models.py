@@ -1400,6 +1400,16 @@ class FeatureObservationDeletionRequest(BaseModel):
     The primary keys of the observations that should be targeted for deletion.
     """
 
+    retain_offline: bool = False
+    """
+    If True, the given observations will not be removed from the offline store. (False by default)
+    """
+
+    retain_online: bool = False
+    """
+    If True, the given observations will not be removed from the online store. (False by default)
+    """
+
 
 class FeatureObservationDeletionResponse(BaseModel):
     """
@@ -1416,6 +1426,16 @@ class FeatureDropRequest(BaseModel):
 
     features: List[str]
     """Names of the features that should be dropped."""
+
+    retain_offline: bool = False
+    """
+    If True, the given features will not be removed from the offline store. (False by default)
+    """
+
+    retain_online: bool = False
+    """
+    If True, the given features will not be removed from the online store. (False by default)
+    """
 
 
 class FeatureDropResponse(BaseModel):

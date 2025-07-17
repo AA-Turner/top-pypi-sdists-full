@@ -18,6 +18,7 @@ from .._core.anndata import AnnData
 from .._core.file_backing import filename
 from .._core.sparse_dataset import BaseCompressedSparseDataset
 from ..compat import (
+    CSMatrix,
     _clean_uns,
     _decode_structured_array,
     _from_fixed_length_strings,
@@ -29,6 +30,7 @@ from .utils import (
     H5PY_V3,
     _read_legacy_raw,
     idx_chunks_along_axis,
+    no_write_dataset_2d,
     report_read_key_on_error,
     report_write_key_on_error,
 )
@@ -39,11 +41,11 @@ if TYPE_CHECKING:
     from typing import Any, Literal
 
     from .._core.file_backing import AnnDataFileManager
-    from ..compat import CSMatrix
 
 T = TypeVar("T")
 
 
+@no_write_dataset_2d
 def write_h5ad(
     filepath: PathLike[str] | str,
     adata: AnnData,
@@ -85,14 +87,14 @@ def write_h5ad(
         f.attrs.setdefault("encoding-version", "0.1.0")
 
         if "X" in as_dense and isinstance(
-            adata.X, sparse.spmatrix | BaseCompressedSparseDataset
+            adata.X, CSMatrix | BaseCompressedSparseDataset
         ):
             write_sparse_as_dense(f, "X", adata.X, dataset_kwargs=dataset_kwargs)
         elif not (adata.isbacked and Path(adata.filename) == Path(filepath)):
             # If adata.isbacked, X should already be up to date
             write_elem(f, "X", adata.X, dataset_kwargs=dataset_kwargs)
         if "raw/X" in as_dense and isinstance(
-            adata.raw.X, sparse.spmatrix | BaseCompressedSparseDataset
+            adata.raw.X, CSMatrix | BaseCompressedSparseDataset
         ):
             write_sparse_as_dense(
                 f, "raw/X", adata.raw.X, dataset_kwargs=dataset_kwargs
@@ -174,7 +176,7 @@ def read_h5ad_backed(
 
 def read_h5ad(
     filename: PathLike[str] | str,
-    backed: Literal["r", "r+"] | bool | None = None,
+    backed: Literal["r", "r+"] | bool | None = None,  # noqa: FBT001
     *,
     as_sparse: Sequence[str] = (),
     as_sparse_fmt: type[CSMatrix] = sparse.csr_matrix,
@@ -221,10 +223,7 @@ def read_h5ad(
     if as_sparse_fmt not in (sparse.csr_matrix, sparse.csc_matrix):
         msg = "Dense formats can only be read to CSR or CSC matrices at this time."
         raise NotImplementedError(msg)
-    if isinstance(as_sparse, str):
-        as_sparse = [as_sparse]
-    else:
-        as_sparse = list(as_sparse)
+    as_sparse = [as_sparse] if isinstance(as_sparse, str) else list(as_sparse)
     for i in range(len(as_sparse)):
         if as_sparse[i] in {("raw", "X"), "raw.X"}:
             as_sparse[i] = "raw/X"
@@ -245,7 +244,7 @@ def read_h5ad(
                         # This is covering up backwards compat in the anndata initializer
                         # In most cases we should be able to call `func(elen[k])` instead
                         k: read_dispatched(elem[k], callback)
-                        for k in elem.keys()
+                        for k in elem
                         if not k.startswith("raw.")
                     }
                 )
@@ -297,11 +296,11 @@ def _read_raw(
 @report_read_key_on_error
 def read_dataframe_legacy(dataset: h5py.Dataset) -> pd.DataFrame:
     """Read pre-anndata 0.7 dataframes."""
-    warn(
-        f"'{dataset.name}' was written with a very old version of AnnData. "
-        "Consider rewriting it.",
-        OldFormatWarning,
+    msg = (
+        f"{dataset.name!r} was written with a very old version of AnnData. "
+        "Consider rewriting it."
     )
+    warn(msg, OldFormatWarning, stacklevel=2)
     if H5PY_V3:
         df = pd.DataFrame(
             _decode_structured_array(

@@ -181,6 +181,10 @@ class ChatCompletion(BaseCompletion):
         extra_headers=None,
         **kwargs,
     ) -> Union[OpenAIChatCompletion, Generator[ChatCompletionChunk, None, None]]:
+        if "model" in kwargs:
+            raise ValueError(
+                "Pass model as a parameter to the constructor of LLM instead of passing it as a parameter to the create method"
+            )
         model_id = self._create_setup()
         params = self._build_request_params(
             model_id,

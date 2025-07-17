@@ -429,10 +429,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
     def _get_vm_config(self, properties, node, vmid, vmtype, name):
         ret = self._get_json(f"{self.proxmox_url}/api2/json/nodes/{node}/{vmtype}/{vmid}/config")
 
-        properties[self._fact('node')] = node
-        properties[self._fact('vmid')] = vmid
-        properties[self._fact('vmtype')] = vmtype
-
         plaintext_configs = [
             'description',
         ]
@@ -551,6 +547,10 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         properties = dict()
         name, vmid = item['name'], item['vmid']
 
+        properties[self._fact('node')] = node
+        properties[self._fact('vmid')] = vmid
+        properties[self._fact('vmtype')] = ittype
+
         # get status, config and snapshots if want_facts == True
         want_facts = self.get_option('want_facts')
         if want_facts:
@@ -665,7 +665,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         for o in ('url', 'user', 'password', 'token_id', 'token_secret'):
             v = self.get_option(o)
             if self.templar.is_template(v):
-                v = self.templar.template(v, disable_lookups=False)
+                v = self.templar.template(v)
             setattr(self, f'proxmox_{o}', v)
 
         # some more cleanup and validation

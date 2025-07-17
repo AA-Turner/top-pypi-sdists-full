@@ -33,6 +33,9 @@ class StructParseConf(pydantic.BaseModel):
     struct_mode: typing.Optional[StructMode] = pydantic.Field(
         description="The struct mode to use for the structured parsing."
     )
+    fetch_logprobs: typing.Optional[bool] = pydantic.Field(
+        description="Whether to fetch logprobs for the structured parsing."
+    )
     handle_missing: typing.Optional[bool] = pydantic.Field(
         description="Whether to handle missing fields in the schema."
     )

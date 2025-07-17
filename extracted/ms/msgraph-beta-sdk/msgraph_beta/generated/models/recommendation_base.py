@@ -63,7 +63,7 @@ class RecommendationBase(Entity, Parsable):
     release_type: Optional[str] = None
     # Description of the impact on users of the remediation. Only applies to recommendations with category set to identitySecureScore.
     remediation_impact: Optional[str] = None
-    # The required licenses to view the recommendation. The possible values are: notApplicable, microsoftEntraIdFree, microsoftEntraIdP1, microsoftEntraIdP2, microsoftEntraIdGovernance, microsoftEntraWorkloadId, unknownFutureValue.
+    # The required licenses to view the recommendation. The possible values are: notApplicable, microsoftEntraIdFree, microsoftEntraIdP1, microsoftEntraIdP2, microsoftEntraIdGovernance, microsoftEntraWorkloadId, unknownFutureValue, aatp. Use the Prefer: include-unknown-enum-members request header to get the following values from this evolvable enum: aatp.
     required_licenses: Optional[RequiredLicenses] = None
     # The status property
     status: Optional[RecommendationStatus] = None

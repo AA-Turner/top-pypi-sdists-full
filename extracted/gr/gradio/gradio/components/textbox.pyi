@@ -232,6 +232,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -256,6 +257,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -281,6 +283,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -305,6 +308,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -330,6 +334,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -354,6 +359,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -379,6 +385,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -403,6 +410,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -428,6 +436,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -452,6 +461,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -477,6 +487,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -501,6 +512,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -526,6 +538,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -550,6 +563,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...
@@ -575,6 +589,7 @@ class Textbox(FormComponent):
         concurrency_id: str | None = None,
         show_api: bool = True,
         key: int | str | tuple[int | str, ...] | None = None,
+        api_description: str | None | Literal[False] = None,
     
         ) -> Dependency:
         """
@@ -599,6 +614,7 @@ class Textbox(FormComponent):
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
             show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
+            api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
         
         """
         ...

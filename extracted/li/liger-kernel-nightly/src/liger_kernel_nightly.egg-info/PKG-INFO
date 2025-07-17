@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: liger_kernel_nightly
-Version: 0.6.0.dev20250714030838
+Version: 0.6.0.dev20250716142659
 Summary: Efficient Triton kernels for LLM Training
 License: BSD 2-CLAUSE LICENSE
         Copyright 2024 LinkedIn Corporation 
@@ -411,7 +411,7 @@ loss.backward()
 
 - For issues, create a Github ticket in this repository
 - For open discussion, join [our discord channel on GPUMode](https://discord.com/channels/1189498204333543425/1275130785933951039)
-- For formal collaboration, send an email to yannchen@linkedin.com and zhipwang@linkedin.com
+- For formal collaboration, send an email to Yanning Chen(yannchen@linkedin.com) and Zhipeng Wang(zhipwang@linkedin.com)
 
 ## Cite this work
 
@@ -420,11 +420,11 @@ Biblatex entry:
 @article{hsu2024ligerkernelefficienttriton,
       title={Liger Kernel: Efficient Triton Kernels for LLM Training},
       author={Pin-Lun Hsu and Yun Dai and Vignesh Kothapalli and Qingquan Song and Shao Tang and Siyu Zhu and Steven Shimizu and Shivam Sahni and Haowen Ning and Yanning Chen and Zhipeng Wang},
-      year={2024},
+      year={2025},
       eprint={2410.10989},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2410.10989},
+      url={https://openreview.net/forum?id=36SjAIT42G},
       journal={Proceedings of the ICML 2025 Workshop on Championing Opensource Development in Machine Learning (CODEML ’25)},
 }
 ```

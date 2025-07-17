@@ -53,6 +53,9 @@ else:
 
 __all__ = (
     "CancelHarvestJobRequestTypeDef",
+    "CdnAuthConfigurationOutputTypeDef",
+    "CdnAuthConfigurationTypeDef",
+    "CdnAuthConfigurationUnionTypeDef",
     "ChannelGroupListConfigurationTypeDef",
     "ChannelListConfigurationTypeDef",
     "CreateChannelGroupRequestTypeDef",
@@ -180,6 +183,14 @@ class CancelHarvestJobRequestTypeDef(TypedDict):
     OriginEndpointName: str
     HarvestJobName: str
     ETag: NotRequired[str]
+
+class CdnAuthConfigurationOutputTypeDef(TypedDict):
+    CdnIdentifierSecretArns: List[str]
+    SecretsRoleArn: str
+
+class CdnAuthConfigurationTypeDef(TypedDict):
+    CdnIdentifierSecretArns: Sequence[str]
+    SecretsRoleArn: str
 
 class ChannelGroupListConfigurationTypeDef(TypedDict):
     ChannelGroupName: str
@@ -406,12 +417,6 @@ class PutChannelPolicyRequestTypeDef(TypedDict):
     ChannelName: str
     Policy: str
 
-class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
-    ChannelGroupName: str
-    ChannelName: str
-    OriginEndpointName: str
-    Policy: str
-
 class ResetChannelStateRequestTypeDef(TypedDict):
     ChannelGroupName: str
     ChannelName: str
@@ -439,6 +444,10 @@ class UpdateChannelGroupRequestTypeDef(TypedDict):
     ChannelGroupName: str
     ETag: NotRequired[str]
     Description: NotRequired[str]
+
+CdnAuthConfigurationUnionTypeDef = Union[
+    CdnAuthConfigurationTypeDef, CdnAuthConfigurationOutputTypeDef
+]
 
 class CreateChannelGroupResponseTypeDef(TypedDict):
     ChannelGroupName: str
@@ -476,6 +485,7 @@ class GetOriginEndpointPolicyResponseTypeDef(TypedDict):
     ChannelName: str
     OriginEndpointName: str
     Policy: str
+    CdnAuthConfiguration: CdnAuthConfigurationOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListChannelGroupsResponseTypeDef(TypedDict):
@@ -704,6 +714,13 @@ class OriginEndpointListConfigurationTypeDef(TypedDict):
     DashManifests: NotRequired[List[ListDashManifestConfigurationTypeDef]]
     MssManifests: NotRequired[List[ListMssManifestConfigurationTypeDef]]
     ForceEndpointErrorConfiguration: NotRequired[ForceEndpointErrorConfigurationOutputTypeDef]
+
+class PutOriginEndpointPolicyRequestTypeDef(TypedDict):
+    ChannelGroupName: str
+    ChannelName: str
+    OriginEndpointName: str
+    Policy: str
+    CdnAuthConfiguration: NotRequired[CdnAuthConfigurationUnionTypeDef]
 
 DashDvbSettingsUnionTypeDef = Union[DashDvbSettingsTypeDef, DashDvbSettingsOutputTypeDef]
 

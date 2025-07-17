@@ -350,7 +350,7 @@ class App(FastAPI):
                 import gradio.mcp
             except ImportError as e:
                 raise ImportError(
-                    "In order to use `mcp_server=True`, you must install gradio with the `mcp` extra. Please install it with `pip install gradio[mcp]`"
+                    'In order to use `mcp_server=True`, you must install gradio with the `mcp` extra. Please install it with `pip install "gradio[mcp]"`'
                 ) from e
             try:
                 blocks.mcp_server_obj = gradio.mcp.GradioMCPServer(blocks)
@@ -1426,7 +1426,6 @@ class App(FastAPI):
                         ):
                             raise HTTPException(
                                 status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Session not found.",
                             )
 
                         heartbeat_rate = 15
@@ -1482,6 +1481,7 @@ class App(FastAPI):
                 except BaseException as e:
                     message = UnexpectedErrorMessage(
                         message=str(e),
+                        session_not_found=isinstance(e, HTTPException),
                     )
                     response = process_msg(message)
                     if isinstance(e, asyncio.CancelledError):

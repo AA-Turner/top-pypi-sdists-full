@@ -446,7 +446,7 @@ class ExprGetSubscript(_message.Message):
     ) -> None: ...
 
 class ExprCall(_message.Message):
-    __slots__ = ("func", "args", "kwargs")
+    __slots__ = ("func", "args", "kwargs", "repr_override")
     class KwargsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -460,14 +460,17 @@ class ExprCall(_message.Message):
     FUNC_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
     KWARGS_FIELD_NUMBER: _ClassVar[int]
+    REPR_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     func: LogicalExprNode
     args: _containers.RepeatedCompositeFieldContainer[LogicalExprNode]
     kwargs: _containers.MessageMap[str, LogicalExprNode]
+    repr_override: str
     def __init__(
         self,
         func: _Optional[_Union[LogicalExprNode, _Mapping]] = ...,
         args: _Optional[_Iterable[_Union[LogicalExprNode, _Mapping]]] = ...,
         kwargs: _Optional[_Mapping[str, LogicalExprNode]] = ...,
+        repr_override: _Optional[str] = ...,
     ) -> None: ...
 
 class ExprLiteral(_message.Message):

@@ -224,3 +224,193 @@ class GetQueryPlanResponse(_message.Message):
     QUERY_PLAN_FIELD_NUMBER: _ClassVar[int]
     query_plan: QueryPlan
     def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...
+
+class AggregatedQueryError(_message.Message):
+    __slots__ = ("sample_error", "count", "first_seen", "last_seen")
+    SAMPLE_ERROR_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    FIRST_SEEN_FIELD_NUMBER: _ClassVar[int]
+    LAST_SEEN_FIELD_NUMBER: _ClassVar[int]
+    sample_error: QueryErrorMeta
+    count: int
+    first_seen: _timestamp_pb2.Timestamp
+    last_seen: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        sample_error: _Optional[_Union[QueryErrorMeta, _Mapping]] = ...,
+        count: _Optional[int] = ...,
+        first_seen: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        last_seen: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class AggregateQueryErrorsRequest(_message.Message):
+    __slots__ = ("start_date", "end_date", "filters", "page_size", "page_token")
+    START_DATE_FIELD_NUMBER: _ClassVar[int]
+    END_DATE_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    start_date: _timestamp_pb2.Timestamp
+    end_date: _timestamp_pb2.Timestamp
+    filters: QueryErrorFilters
+    page_size: int
+    page_token: str
+    def __init__(
+        self,
+        start_date: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_date: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        filters: _Optional[_Union[QueryErrorFilters, _Mapping]] = ...,
+        page_size: _Optional[int] = ...,
+        page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class AggregateQueryErrorsResponse(_message.Message):
+    __slots__ = ("aggregated_errors", "next_page_token")
+    AGGREGATED_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    aggregated_errors: _containers.RepeatedCompositeFieldContainer[AggregatedQueryError]
+    next_page_token: str
+    def __init__(
+        self,
+        aggregated_errors: _Optional[_Iterable[_Union[AggregatedQueryError, _Mapping]]] = ...,
+        next_page_token: _Optional[str] = ...,
+    ) -> None: ...
+
+class MetaQueryRun(_message.Message):
+    __slots__ = (
+        "id",
+        "meta_query_id",
+        "external_id",
+        "created_at",
+        "query_plan_id",
+        "correlation_id",
+        "has_errors",
+        "agent_id",
+        "branch_name",
+        "deployment_id",
+        "has_plan_stages",
+        "duration",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    EXTERNAL_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    HAS_PLAN_STAGES_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    meta_query_id: str
+    external_id: str
+    created_at: _timestamp_pb2.Timestamp
+    query_plan_id: str
+    correlation_id: str
+    has_errors: bool
+    agent_id: str
+    branch_name: str
+    deployment_id: str
+    has_plan_stages: bool
+    duration: float
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        meta_query_id: _Optional[str] = ...,
+        external_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_plan_id: _Optional[str] = ...,
+        correlation_id: _Optional[str] = ...,
+        has_errors: bool = ...,
+        agent_id: _Optional[str] = ...,
+        branch_name: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        has_plan_stages: bool = ...,
+        duration: _Optional[float] = ...,
+    ) -> None: ...
+
+class MetaQueryRunWithMeta(_message.Message):
+    __slots__ = ("id", "run", "latency")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    LATENCY_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    run: MetaQueryRun
+    latency: float
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        run: _Optional[_Union[MetaQueryRun, _Mapping]] = ...,
+        latency: _Optional[float] = ...,
+    ) -> None: ...
+
+class ListMetaQueryRunsRequest(_message.Message):
+    __slots__ = (
+        "include_latency",
+        "min_latency_ms",
+        "query_plan_id",
+        "meta_query_id",
+        "meta_query_name",
+        "id_filter",
+        "branch_filter",
+        "agent_id",
+        "root_ns_pkey",
+        "cursor",
+        "limit",
+        "start",
+        "end",
+        "has_errors",
+    )
+    INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
+    MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_PLAN_ID_FIELD_NUMBER: _ClassVar[int]
+    META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    META_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FILTER_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    ROOT_NS_PKEY_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    HAS_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    include_latency: bool
+    min_latency_ms: float
+    query_plan_id: str
+    meta_query_id: int
+    meta_query_name: str
+    id_filter: str
+    branch_filter: str
+    agent_id: str
+    root_ns_pkey: str
+    cursor: _timestamp_pb2.Timestamp
+    limit: int
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    has_errors: bool
+    def __init__(
+        self,
+        include_latency: bool = ...,
+        min_latency_ms: _Optional[float] = ...,
+        query_plan_id: _Optional[str] = ...,
+        meta_query_id: _Optional[int] = ...,
+        meta_query_name: _Optional[str] = ...,
+        id_filter: _Optional[str] = ...,
+        branch_filter: _Optional[str] = ...,
+        agent_id: _Optional[str] = ...,
+        root_ns_pkey: _Optional[str] = ...,
+        cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        has_errors: bool = ...,
+    ) -> None: ...
+
+class ListMetaQueryRunsResponse(_message.Message):
+    __slots__ = ("query_runs",)
+    QUERY_RUNS_FIELD_NUMBER: _ClassVar[int]
+    query_runs: _containers.RepeatedCompositeFieldContainer[MetaQueryRunWithMeta]
+    def __init__(self, query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...) -> None: ...

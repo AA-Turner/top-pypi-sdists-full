@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: local-attention
-Version: 1.11.1
+Version: 1.11.2
 Summary: Local attention, window with lookback, for language modeling
 Home-page: https://github.com/lucidrains/local-attention
 Author: Phil Wang
@@ -24,5 +24,6 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary

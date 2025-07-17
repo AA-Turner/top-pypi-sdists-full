@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.112
+Version: 0.3.113
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -53,7 +53,7 @@ Requires-Dist: textual<v3.0.0,>=0.86.2
 Requires-Dist: typing_extensions>=4.9.0
 Requires-Dist: zipp>=3.19.1
 Provides-Extra: dev
-Requires-Dist: anthropic; extra == "dev"
+Requires-Dist: anthropic>=0.52.0; extra == "dev"
 Requires-Dist: aioboto3; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
 Requires-Dist: google-cloud-aiplatform; extra == "dev"
@@ -66,7 +66,7 @@ Requires-Dist: markdown; extra == "dev"
 Requires-Dist: mcp>=1.10.0; extra == "dev"
 Requires-Dist: mistralai; extra == "dev"
 Requires-Dist: moto[server]; extra == "dev"
-Requires-Dist: mypy>=1.16.0; extra == "dev"
+Requires-Dist: mypy>=1.17.0; extra == "dev"
 Requires-Dist: nbformat; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: pandas>=2.0.0; extra == "dev"
@@ -79,9 +79,12 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-dotenv; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pytest-watcher; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff==0.9.6; extra == "dev"
 Requires-Dist: textual-dev>=0.86.2; extra == "dev"
+Requires-Dist: transformer-lens; extra == "dev"
 Requires-Dist: trio; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: pyarrow-stubs; extra == "dev"

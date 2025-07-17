@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-kfpytorch
-Version: 1.16.1
+Version: 1.16.2
 Summary: K8s based Pytorch plugin for Flytekit
 Author: flyteorg
 Author-email: admin@flyte.org

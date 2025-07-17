@@ -149,7 +149,7 @@ class CredSSPClientNative:
 			return self.__internal_ssl_tunnel.data_out(data), to_continue, err
 		return data, to_continue, err
 	
-	async def authenticate(self, token, flags = None, certificate = None, spn = None, remote_credguard = False):
+	async def authenticate(self, token, flags = None, certificate = None, spn = None, remote_credguard = False, **kwargs):
 		try:
 			# certificate is optional, as the actual usage of this protocol depends on the upper layer
 			# In some cases (like RDP) the certificate is provided by the RDP serrver, but this means that CredSSP will not support encryption/decryption in this level
@@ -258,7 +258,7 @@ class CredSSPClientNative:
 						if verification_data != ClientServerHash:
 							raise Exception('CredSSP - Server verification failed!')
 					elif self.version in [2,3,4]:
-						if verification_data != self.__pubkey:
+						if verification_data[1:] != self.__pubkey[1:]:
 							raise Exception('CredSSP - Server verification failed!')
 					
 					# Signatures verified, now we can send the final auth token with the password

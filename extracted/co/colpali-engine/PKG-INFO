@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: colpali_engine
-Version: 0.3.11
+Version: 0.3.12
 Summary: The code used to train and run inference with the ColPali architecture.
 Project-URL: homepage, https://github.com/illuin-tech/colpali
 Author-email: Manuel Faysse <manuel.faysse@illuin.tech>, Hugues Sibille <hugues.sibille@illuin.tech>, Tony Wu <tony.wu@illuin.tech>
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Requires-Dist: numpy
-Requires-Dist: peft<0.16.0,>=0.14.0
+Requires-Dist: peft<0.17.0,>=0.14.0
 Requires-Dist: pillow>=10.0.0
 Requires-Dist: requests
 Requires-Dist: scipy
@@ -29,7 +29,7 @@ Requires-Dist: datasets>=2.19.1; extra == 'all'
 Requires-Dist: einops<1.0.0,>=0.8.0; extra == 'all'
 Requires-Dist: matplotlib<4.0.0,>=3.9.0; extra == 'all'
 Requires-Dist: mteb<2,>=1.16.3; extra == 'all'
-Requires-Dist: pillow<11.3.0,>=10.0.0; extra == 'all'
+Requires-Dist: pillow<11.4.0,>=10.0.0; extra == 'all'
 Requires-Dist: pytest>=8.0.0; extra == 'all'
 Requires-Dist: ruff>=0.4.0; extra == 'all'
 Requires-Dist: seaborn<1.0.0,>=0.13.2; extra == 'all'
@@ -47,7 +47,7 @@ Requires-Dist: bitsandbytes; extra == 'train'
 Requires-Dist: configue>=5.0.0; extra == 'train'
 Requires-Dist: datasets>=2.19.1; extra == 'train'
 Requires-Dist: mteb<2,>=1.16.3; extra == 'train'
-Requires-Dist: pillow<11.3.0,>=10.0.0; extra == 'train'
+Requires-Dist: pillow<11.4.0,>=10.0.0; extra == 'train'
 Requires-Dist: typer>=0.15.1; extra == 'train'
 Description-Content-Type: text/markdown
 
@@ -209,7 +209,7 @@ from colpali_engine.interpretability import (
 from colpali_engine.models import ColPali, ColPaliProcessor
 from colpali_engine.utils.torch_utils import get_torch_device
 
-model_name = "vidore/colpali-v1.2"
+model_name = "vidore/colpali-v1.3"
 device = get_torch_device("auto")
 
 # Load the model
@@ -340,52 +340,6 @@ image_embeddings = token_pooler.pool_embeddings(
 ```
 
 </details>
-
-Alternatively, you can use the `LambdaTokenPooler` to define your own custom pooling function:
-
-<details>
-<summary><strong>🔽 Click to expand code snippet</strong></summary>
-
-```python
-import torch
-from typing import Dict, Tuple
-
-from colpali_engine.compression.token_pooling import LambdaTokenPooler
-
-def custom_pooling(embedding: torch.Tensor) -> torch.Tensor:
-    """
-    Custom pooling function that reduces sequence length by half.
-    """
-
-    token_length = embedding.size(0)
-    # Resize to half the original length by averaging pairs of tokens
-    half_length = token_length // 2 + (token_length % 2)
-    pooled_embeddings = torch.zeros((half_length, embedding.size(1)), dtype=embedding.dtype, device=embedding.device)
-    
-    for i in range(half_length):
-        start_idx = i * 2
-        end_idx = min(start_idx + 2, token_length)
-        cluster_indices = torch.arange(start_idx, end_idx)
-        pooled_embeddings[i] = embedding[cluster_indices].mean(dim=0)
-        pooled_embeddings[i] = torch.nn.functional.normalize(pooled_embeddings[i], p=2, dim=-1)
-        
-    return pooled_embeddings
-
-pooler = LambdaTokenPooler(pool_func=custom_pooling)
-
-# Dummy multivector embeddings
-list_embeddings = [
-    torch.rand(10, 768),
-    torch.rand(20, 768),
-]
-
-# Pool the embeddings
-outputs = pooler.pool_embeddings(list_embeddings)
-```
-
-</details>
-
-The custom pooling function should take a 2D tensor (token_length, embedding_dim) as input and return a tensor of shape (num_clusters, embedding_dim) representing the pooled embeddings.
 
 ### Training
 

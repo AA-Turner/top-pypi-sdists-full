@@ -6,7 +6,6 @@ from coredis.response._utils import flat_pairs_to_dict
 from coredis.typing import (
     AnyStr,
     ResponseType,
-    ValueT,
 )
 
 
@@ -18,13 +17,15 @@ class ClientTrackingInfoCallback(
     ]
 ):
     def transform(
-        self, response: ResponseType, **options: ValueT | None
+        self,
+        response: ResponseType,
     ) -> dict[AnyStr, AnyStr | set[AnyStr] | list[AnyStr]]:
         response = EncodingInsensitiveDict(flat_pairs_to_dict(response))
         response["flags"] = set(response["flags"])
         return dict(response)
 
     def transform_3(
-        self, response: ResponseType, **options: ValueT | None
+        self,
+        response: ResponseType,
     ) -> dict[AnyStr, AnyStr | set[AnyStr] | list[AnyStr]]:
         return response

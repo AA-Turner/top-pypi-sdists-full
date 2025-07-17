@@ -8,7 +8,7 @@ from intctl.config import load_config
 from dotenv import load_dotenv
 load_dotenv()
 
-API_BASE_URL = os.getenv("INTELLITHING_API_BASE_URL", "http://34.39.118.103")
+API_BASE_URL = os.getenv("INTELLITHING_API_BASE_URL", "https://intellithing-5e80f679-0b36-4a61-a643-eafeae0db479.intellithing.io/workspace")
 
 def _handle_api_error(response: requests.Response):
     """A helper to parse and display API errors."""

@@ -61,7 +61,7 @@ AI_SERVICES_LATEST_CONTENT_HREF_PATTERN = "{}/v4/ai_services/{}/content"
 AI_SERVICES_HREF_PATTERN = "{}/v4/ai_services"
 
 IAM_TOKEN_API = "{}&grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey"
-IAM_TOKEN_URL = "{}/oidc/token"
+IAM_TOKEN_URL = "{}/identity/token"
 AWS_TOKEN_URL = "{}/api/2.0/apikeys/token"
 PROD_SVT_URL = [
     "https://ca-tor.ml.cloud.ibm.com",

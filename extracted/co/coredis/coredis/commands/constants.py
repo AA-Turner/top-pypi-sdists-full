@@ -351,6 +351,9 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     HPEXPIRETIME = b"HPEXPIRETIME"  # Since redis: 7.4.0
     HPTTL = b"HPTTL"  # Since redis: 7.4.0
     HTTL = b"HTTL"  # Since redis: 7.4.0
+    HGETDEL = b"HGETDEL"  # Since redis: 8.0.0
+    HGETEX = b"HGETEX"  # Since redis: 8.0.0
+    HSETEX = b"HSETEX"  # Since redis: 8.0.0
     HMSET = b"HMSET"  # Deprecated in redis: 4.0.0
 
     #: Commands for hyperloglog
@@ -419,6 +422,19 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     XTRIM = b"XTRIM"  # Since redis: 5.0.0
     XAUTOCLAIM = b"XAUTOCLAIM"  # Since redis: 6.2.0
     XGROUP_CREATECONSUMER = b"XGROUP CREATECONSUMER"  # Since redis: 6.2.0
+
+    #: Commands for vector_set
+    VADD = b"VADD"  # Since redis: 8.0.0
+    VREM = b"VREM"  # Since redis: 8.0.0
+    VSIM = b"VSIM"  # Since redis: 8.0.0
+    VDIM = b"VDIM"  # Since redis: 8.0.0
+    VCARD = b"VCARD"  # Since redis: 8.0.0
+    VEMB = b"VEMB"  # Since redis: 8.0.0
+    VLINKS = b"VLINKS"  # Since redis: 8.0.0
+    VINFO = b"VINFO"  # Since redis: 8.0.0
+    VSETATTR = b"VSETATTR"  # Since redis: 8.0.0
+    VGETATTR = b"VGETATTR"  # Since redis: 8.0.0
+    VRANDMEMBER = b"VRANDMEMBER"  # Since redis: 8.0.0
 
     #: Commands for json
     JSON_DEL = b"JSON.DEL"  # Since RedisJSON: 1.0.0
@@ -549,9 +565,6 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     FT_ALIASUPDATE = b"FT.ALIASUPDATE"  # Since search: 1.0.0
     FT_ALIASDEL = b"FT.ALIASDEL"  # Since search: 1.0.0
     FT_TAGVALS = b"FT.TAGVALS"  # Since search: 1.0.0
-    FT_CONFIG_SET = b"FT.CONFIG SET"  # Since search: 1.0.0
-    FT_CONFIG_GET = b"FT.CONFIG GET"  # Since search: 1.0.0
-    FT_CONFIG_HELP = b"FT.CONFIG HELP"  # Since search: 1.0.0
     FT_SEARCH = b"FT.SEARCH"  # Since search: 1.0.0
     FT_AGGREGATE = b"FT.AGGREGATE"  # Since search: 1.1.0
     FT_CURSOR_READ = b"FT.CURSOR READ"  # Since search: 1.1.0
@@ -565,6 +578,9 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
     FT_DROPINDEX = b"FT.DROPINDEX"  # Since search: 2.0.0
     FT__LIST = b"FT._LIST"  # Since search: 2.0.0
     FT_PROFILE = b"FT.PROFILE"  # Since search: 2.2.0
+    FT_CONFIG_SET = b"FT.CONFIG SET"  # Deprecated in search: 8.0.0
+    FT_CONFIG_GET = b"FT.CONFIG GET"  # Deprecated in search: 8.0.0
+    FT_CONFIG_HELP = b"FT.CONFIG HELP"  # Deprecated in search: 8.0.0
 
     #: Commands for suggestion
     FT_SUGADD = b"FT.SUGADD"  # Since search: 1.0.0
@@ -624,6 +640,7 @@ class CommandGroup(enum.Enum):
     TIMESERIES = "timeseries"
     TOPK = "topk"
     TRANSACTIONS = "transactions"
+    VECTOR_SET = "vector_set"
 
 
 class NodeFlag(enum.Enum):

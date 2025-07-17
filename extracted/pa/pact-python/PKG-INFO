@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pact-python
-Version: 2.3.1
+Version: 2.3.2
 Summary: Tool for creating and verifying consumer-driven contracts using the Pact framework.
-Project-URL: Homepage, https://pact.io
-Project-URL: Repository, https://github.com/pact-foundation/pact-python
-Project-URL: Documentation, https://docs.pact.io
 Project-URL: Bug Tracker, https://github.com/pact-foundation/pact-python/issues
 Project-URL: Changelog, https://github.com/pact-foundation/pact-python/blob/main/CHANGELOG.md
-Author-email: Matthew Balvanz <matthew.balvanz@workiva.com>, Joshua Ellis <josh@jpellis.me>
+Project-URL: Documentation, https://docs.pact.io
+Project-URL: Homepage, https://pact.io
+Project-URL: Repository, https://github.com/pact-foundation/pact-python
+Author-email: Joshua Ellis <josh@jpellis.me>, Matthew Balvanz <matthew.balvanz@workiva.com>
 Maintainer-email: Joshua Ellis <josh@jpellis.me>
 License: MIT License
         
@@ -51,7 +51,7 @@ Requires-Python: >=3.9
 Requires-Dist: cffi~=1.0
 Requires-Dist: click~=8.0
 Requires-Dist: fastapi~=0.0
-Requires-Dist: psutil~=6.0
+Requires-Dist: psutil~=7.0
 Requires-Dist: requests~=2.0
 Requires-Dist: six~=1.0
 Requires-Dist: typing-extensions~=4.0; python_version < '3.10'
@@ -69,14 +69,14 @@ Requires-Dist: mkdocs-section-index~=0.3; extra == 'devel'
 Requires-Dist: mkdocstrings[python]~=0.23; extra == 'devel'
 Requires-Dist: mkdocs~=1.5; extra == 'devel'
 Requires-Dist: mock~=5.0; extra == 'devel'
-Requires-Dist: mypy==1.14.1; extra == 'devel'
+Requires-Dist: mypy==1.15.0; extra == 'devel'
 Requires-Dist: pytest-asyncio~=0.0; extra == 'devel'
 Requires-Dist: pytest-bdd~=8.0; extra == 'devel'
 Requires-Dist: pytest-cov~=6.0; extra == 'devel'
 Requires-Dist: pytest-rerunfailures~=15.0; extra == 'devel'
 Requires-Dist: pytest-xdist~=3.0; extra == 'devel'
 Requires-Dist: pytest~=8.0; extra == 'devel'
-Requires-Dist: ruff==0.9.2; extra == 'devel'
+Requires-Dist: ruff==0.11.8; extra == 'devel'
 Requires-Dist: testcontainers~=4.0; extra == 'devel'
 Requires-Dist: types-cffi~=1.0; extra == 'devel'
 Requires-Dist: types-requests~=2.0; extra == 'devel'
@@ -101,7 +101,7 @@ Requires-Dist: pytest-xdist~=3.0; extra == 'devel-test'
 Requires-Dist: pytest~=8.0; extra == 'devel-test'
 Requires-Dist: testcontainers~=4.0; extra == 'devel-test'
 Provides-Extra: devel-types
-Requires-Dist: mypy==1.14.1; extra == 'devel-types'
+Requires-Dist: mypy==1.15.0; extra == 'devel-types'
 Requires-Dist: types-cffi~=1.0; extra == 'devel-types'
 Requires-Dist: types-requests~=2.0; extra == 'devel-types'
 Description-Content-Type: text/markdown

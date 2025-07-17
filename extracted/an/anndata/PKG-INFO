@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anndata
-Version: 0.11.4
+Version: 0.12.0
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata
@@ -18,94 +18,101 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.10
-Requires-Dist: array-api-compat!=1.5,>1.4
-Requires-Dist: exceptiongroup; python_version < '3.11'
-Requires-Dist: h5py>=3.7
+Requires-Python: >=3.11
+Requires-Dist: array-api-compat>=1.7.1
+Requires-Dist: h5py>=3.8
+Requires-Dist: legacy-api-wrap
 Requires-Dist: natsort
-Requires-Dist: numpy>=1.23
+Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24.2
-Requires-Dist: pandas!=2.1.0rc0,!=2.1.2,>=1.4
-Requires-Dist: scipy>1.8
+Requires-Dist: pandas!=2.1.2,>=2.1.0
+Requires-Dist: scipy>=1.12
+Requires-Dist: zarr!=3.0.*,>=2.18.7
 Provides-Extra: cu11
 Requires-Dist: cupy-cuda11x; extra == 'cu11'
 Provides-Extra: cu12
 Requires-Dist: cupy-cuda12x; extra == 'cu12'
 Provides-Extra: dask
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2022.09.2; extra == 'dask'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2023.5.1; extra == 'dask'
 Provides-Extra: dev
-Requires-Dist: awkward>=2.3; extra == 'dev'
-Requires-Dist: boltons; extra == 'dev'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2022.09.2; extra == 'dev'
-Requires-Dist: dask[distributed]; extra == 'dev'
-Requires-Dist: filelock; extra == 'dev'
 Requires-Dist: hatch-vcs; extra == 'dev'
-Requires-Dist: httpx; extra == 'dev'
-Requires-Dist: joblib; extra == 'dev'
-Requires-Dist: loompy>=3.0.5; extra == 'dev'
-Requires-Dist: matplotlib; extra == 'dev'
-Requires-Dist: openpyxl; extra == 'dev'
-Requires-Dist: pyarrow; extra == 'dev'
-Requires-Dist: pytest-cov>=2.10; extra == 'dev'
-Requires-Dist: pytest-memray; extra == 'dev'
-Requires-Dist: pytest-mock; extra == 'dev'
-Requires-Dist: pytest-randomly; extra == 'dev'
-Requires-Dist: pytest-xdist[psutil]; extra == 'dev'
-Requires-Dist: pytest<8.3.4,>=8.2; extra == 'dev'
-Requires-Dist: scanpy>=1.9.8; extra == 'dev'
-Requires-Dist: scikit-learn; extra == 'dev'
 Requires-Dist: towncrier>=24.8.0; extra == 'dev'
-Requires-Dist: zarr<3; extra == 'dev'
 Provides-Extra: dev-doc
 Requires-Dist: towncrier>=24.8.0; extra == 'dev-doc'
 Provides-Extra: doc
 Requires-Dist: awkward>=2.3; extra == 'doc'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2023.5.1; extra == 'doc'
 Requires-Dist: ipython; extra == 'doc'
 Requires-Dist: myst-nb; extra == 'doc'
 Requires-Dist: myst-parser; extra == 'doc'
-Requires-Dist: readthedocs-sphinx-search; extra == 'doc'
-Requires-Dist: scanpydoc[theme,typehints]>=0.15.1; extra == 'doc'
+Requires-Dist: scanpydoc[theme,typehints]>=0.15.3; extra == 'doc'
 Requires-Dist: sphinx-autodoc-typehints>=2.2.0; extra == 'doc'
 Requires-Dist: sphinx-book-theme>=1.1.0; extra == 'doc'
 Requires-Dist: sphinx-copybutton; extra == 'doc'
 Requires-Dist: sphinx-design>=0.5.0; extra == 'doc'
-Requires-Dist: sphinx-issues; extra == 'doc'
+Requires-Dist: sphinx-issues>=5.0.1; extra == 'doc'
 Requires-Dist: sphinx-toolbox>=3.8.0; extra == 'doc'
 Requires-Dist: sphinx>=8.2.1; extra == 'doc'
 Requires-Dist: sphinxext-opengraph; extra == 'doc'
 Requires-Dist: towncrier>=24.8.0; extra == 'doc'
-Requires-Dist: zarr<3; extra == 'doc'
 Provides-Extra: gpu
 Requires-Dist: cupy; extra == 'gpu'
+Provides-Extra: lazy
+Requires-Dist: aiohttp; extra == 'lazy'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2023.5.1; extra == 'lazy'
+Requires-Dist: requests; extra == 'lazy'
+Requires-Dist: xarray>=2025.06.1; extra == 'lazy'
 Provides-Extra: test
-Requires-Dist: awkward>=2.3; extra == 'test'
+Requires-Dist: aiohttp; extra == 'test'
+Requires-Dist: awkward>=2.3.2; extra == 'test'
 Requires-Dist: boltons; extra == 'test'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2022.09.2; extra == 'test'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2023.5.1; extra == 'test'
 Requires-Dist: dask[distributed]; extra == 'test'
 Requires-Dist: filelock; extra == 'test'
-Requires-Dist: httpx; extra == 'test'
+Requires-Dist: httpx<1.0; extra == 'test'
 Requires-Dist: joblib; extra == 'test'
 Requires-Dist: loompy>=3.0.5; extra == 'test'
 Requires-Dist: matplotlib; extra == 'test'
 Requires-Dist: openpyxl; extra == 'test'
 Requires-Dist: pyarrow; extra == 'test'
-Requires-Dist: pytest-cov>=2.10; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-memray; extra == 'test'
 Requires-Dist: pytest-mock; extra == 'test'
 Requires-Dist: pytest-randomly; extra == 'test'
 Requires-Dist: pytest-xdist[psutil]; extra == 'test'
 Requires-Dist: pytest<8.3.4,>=8.2; extra == 'test'
-Requires-Dist: scanpy>=1.9.8; extra == 'test'
+Requires-Dist: requests; extra == 'test'
+Requires-Dist: scanpy>=1.10; extra == 'test'
 Requires-Dist: scikit-learn; extra == 'test'
-Requires-Dist: zarr<3; extra == 'test'
+Requires-Dist: xarray>=2025.06.1; extra == 'test'
+Provides-Extra: test-min
+Requires-Dist: awkward>=2.3.2; extra == 'test-min'
+Requires-Dist: boltons; extra == 'test-min'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,<2025.2.0,>=2023.5.1; extra == 'test-min'
+Requires-Dist: dask[distributed]; extra == 'test-min'
+Requires-Dist: filelock; extra == 'test-min'
+Requires-Dist: httpx<1.0; extra == 'test-min'
+Requires-Dist: joblib; extra == 'test-min'
+Requires-Dist: loompy>=3.0.5; extra == 'test-min'
+Requires-Dist: matplotlib; extra == 'test-min'
+Requires-Dist: openpyxl; extra == 'test-min'
+Requires-Dist: pyarrow; extra == 'test-min'
+Requires-Dist: pytest-cov; extra == 'test-min'
+Requires-Dist: pytest-memray; extra == 'test-min'
+Requires-Dist: pytest-mock; extra == 'test-min'
+Requires-Dist: pytest-randomly; extra == 'test-min'
+Requires-Dist: pytest-xdist[psutil]; extra == 'test-min'
+Requires-Dist: pytest<8.3.4,>=8.2; extra == 'test-min'
+Requires-Dist: scanpy>=1.10; extra == 'test-min'
+Requires-Dist: scikit-learn; extra == 'test-min'
 Description-Content-Type: text/markdown
 
-[![Build Status](https://dev.azure.com/scverse/anndata/_apis/build/status/scverse.anndata?branchName=main)](https://dev.azure.com/scverse/anndata/_build)
+[![Tests](https://github.com/scverse/anndata/actions/workflows/test-cpu.yml/badge.svg)](https://github.com/scverse/anndata/actions)
 [![Conda](https://img.shields.io/conda/vn/conda-forge/anndata.svg)](https://anaconda.org/conda-forge/anndata)
 [![Coverage](https://codecov.io/gh/scverse/anndata/branch/main/graph/badge.svg?token=IN1mJN1Wi8)](https://codecov.io/gh/scverse/anndata)
 [![Docs](https://readthedocs.com/projects/icb-anndata/badge/?version=latest)](https://anndata.readthedocs.io)

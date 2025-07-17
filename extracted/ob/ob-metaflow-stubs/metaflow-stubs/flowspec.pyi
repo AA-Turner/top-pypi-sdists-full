@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-15T20:32:21.471340                                                            #
+# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-16T21:13:36.341009                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.unbounded_foreach
-    import metaflow.flowspec
     import metaflow.datastore.inputs
+    import typing
     import metaflow.exception
+    import metaflow.flowspec
 
 from . import parameters as parameters
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter
@@ -23,10 +23,10 @@ from .exception import MissingInMergeArtifactsException as MissingInMergeArtifac
 from .exception import MetaflowInternalError as MetaflowInternalError
 from .exception import UnhandledInMergeArtifactsException as UnhandledInMergeArtifactsException
 from .user_configs.config_parameters import ConfigValue as ConfigValue
-from .user_decorators.mutable_flow import MutableFlow as MutableFlow
-from .user_decorators.mutable_step import MutableStep as MutableStep
-from .user_decorators.user_flow_decorator import FlowMutator as FlowMutator
-from .user_decorators.user_step_decorator import StepMutator as StepMutator
+from .user_configs.config_decorators import CustomFlowDecorator as CustomFlowDecorator
+from .user_configs.config_decorators import CustomStepDecorator as CustomStepDecorator
+from .user_configs.config_decorators import MutableFlow as MutableFlow
+from .user_configs.config_decorators import MutableStep as MutableStep
 
 TYPE_CHECKING: bool
 

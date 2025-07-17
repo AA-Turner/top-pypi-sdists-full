@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.8.0
+Version: 1.8.1
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: bam4d <bam4d@mistral.ai>
 License-Expression: Apache-2.0

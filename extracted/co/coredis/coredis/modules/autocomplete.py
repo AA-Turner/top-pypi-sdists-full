@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from deprecated.sphinx import versionadded
 
-from ..commands._wrappers import CacheConfig
 from ..commands.constants import CommandFlag, CommandGroup, CommandName
+from ..commands.request import CommandRequest
 from ..response._callbacks import BoolCallback, IntCallback
 from ..tokens import PrefixToken, PureToken
 from ..typing import AnyStr, CommandArgList, KeyT, StringT
@@ -24,14 +24,14 @@ class Autocomplete(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def sugadd(
+    def sugadd(
         self,
         key: KeyT,
         string: StringT,
         score: int | float,
         increment_score: bool | None = None,
         payload: StringT | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Adds a suggestion string to an auto-complete suggestion dictionary
 
@@ -43,14 +43,14 @@ class Autocomplete(ModuleGroup[AnyStr]):
         :param payload: Saves an extra payload with the suggestion, that can be
          fetched when calling :meth:`sugget` by using :paramref:`sugget.withpayloads`
         """
-        pieces: CommandArgList = [key, string, score]
+        command_arguments: CommandArgList = [key, string, score]
         if increment_score:
-            pieces.append(PureToken.INCREMENT)
+            command_arguments.append(PureToken.INCREMENT)
         if payload:
-            pieces.extend([PrefixToken.PAYLOAD, payload])
+            command_arguments.extend([PrefixToken.PAYLOAD, payload])
 
-        return await self.execute_module_command(
-            CommandName.FT_SUGADD, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.FT_SUGADD, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -58,10 +58,10 @@ class Autocomplete(ModuleGroup[AnyStr]):
         module=MODULE,
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
         flags={CommandFlag.READONLY},
     )
-    async def sugget(
+    def sugget(
         self,
         key: KeyT,
         prefix: StringT,
@@ -70,7 +70,7 @@ class Autocomplete(ModuleGroup[AnyStr]):
         withscores: bool | None = None,
         withpayloads: bool | None = None,
         max_suggestions: int | None = None,
-    ) -> tuple[AutocompleteSuggestion[AnyStr], ...] | tuple[()]:
+    ) -> CommandRequest[tuple[AutocompleteSuggestion[AnyStr], ...] | tuple[()]]:
         """
         Gets completion suggestions for a prefix
 
@@ -82,23 +82,21 @@ class Autocomplete(ModuleGroup[AnyStr]):
         :param withpayloads: If True, returns optional payloads saved along with the suggestions.
         :param max_suggestions: Limits the results to a maximum of ``max_suggestions``
         """
-        pieces: CommandArgList = [key, prefix]
+        command_arguments: CommandArgList = [key, prefix]
         if fuzzy:
-            pieces.append(PureToken.FUZZY)
+            command_arguments.append(PureToken.FUZZY)
         if withscores:
-            pieces.append(PureToken.WITHSCORES)
+            command_arguments.append(PureToken.WITHSCORES)
         if withpayloads:
-            pieces.append(PureToken.WITHPAYLOADS)
+            command_arguments.append(PureToken.WITHPAYLOADS)
         if max_suggestions is not None:
-            pieces.append(PureToken.MAX)
-            pieces.append(max_suggestions)
+            command_arguments.append(PureToken.MAX)
+            command_arguments.append(max_suggestions)
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_SUGGET,
-            *pieces,
-            callback=AutocompleteCallback[AnyStr](),
-            withscores=withscores,
-            withpayloads=withpayloads,
+            *command_arguments,
+            callback=AutocompleteCallback[AnyStr](withscores=withscores, withpayloads=withpayloads),
         )
 
     @module_command(
@@ -107,7 +105,7 @@ class Autocomplete(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def sugdel(self, key: KeyT, string: StringT) -> bool:
+    def sugdel(self, key: KeyT, string: StringT) -> CommandRequest[bool]:
         """
         Deletes a string from a suggestion index
 
@@ -115,10 +113,10 @@ class Autocomplete(ModuleGroup[AnyStr]):
         :param string: The suggestion string to index.
 
         """
-        pieces: CommandArgList = [key, string]
+        command_arguments: CommandArgList = [key, string]
 
-        return await self.execute_module_command(
-            CommandName.FT_SUGDEL, *pieces, callback=BoolCallback()
+        return self.client.create_request(
+            CommandName.FT_SUGDEL, *command_arguments, callback=BoolCallback()
         )
 
     @module_command(
@@ -127,14 +125,14 @@ class Autocomplete(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def suglen(self, key: KeyT) -> int:
+    def suglen(self, key: KeyT) -> CommandRequest[int]:
         """
         Gets the size of an auto-complete suggestion dictionary
 
         :param key: The key of the suggestion dictionary.
         """
-        pieces: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
 
-        return await self.execute_module_command(
-            CommandName.FT_SUGLEN, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.FT_SUGLEN, *command_arguments, callback=IntCallback()
         )

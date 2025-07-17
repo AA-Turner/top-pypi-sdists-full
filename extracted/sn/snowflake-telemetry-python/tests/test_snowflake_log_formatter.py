@@ -18,16 +18,21 @@ class TestSnowflakeLogFormatter(unittest.TestCase):
 
     def test_normal_log(self):
         """ Does the logger produce the correct output? """
-        self.root_logger.warning('foo', extra={"test": 123, "code.lineno": 35})
+        self.root_logger.warning('foo', extra={"body": 123, "code.lineno": 35})
         expected_log_message = {
+            "scope": {
+                "name": "test",
+            },
             "body": "foo",
             "severity_text": "WARN",
-            "code.lineno": 21,
-            "code.function": "test_normal_log",
-            "test": 123
+            "attributes": {
+                "code.lineno": 21,
+                "code.function": "test_normal_log",
+                "body": 123
+            }
         }
         actual_log_message = json.loads(self.stream.getvalue())
-        actual_filepath = actual_log_message.pop("code.filepath")
+        actual_filepath = actual_log_message["attributes"].pop("code.filepath")
         self.assertIn("snowflake-telemetry-python/tests/test_snowflake_log_formatter.py", actual_filepath)
         self.assertEqual(expected_log_message, actual_log_message)
 
@@ -39,17 +44,22 @@ class TestSnowflakeLogFormatter(unittest.TestCase):
             self.root_logger.exception("\"test exception\"")
 
         expected_log_message = {
+            "scope": {
+                "name": "test",
+            },
             "body": "\"test exception\"",
             "severity_text": "ERROR",
-            "code.lineno": 39,
-            "code.function": "test_exception_log",
-            "exception.type": "ZeroDivisionError",
-            "exception.message": "division by zero",
+            "attributes": {
+                "code.lineno": 44,
+                "code.function": "test_exception_log",
+                "exception.type": "ZeroDivisionError",
+                "exception.message": "division by zero",
+            }
         }
         actual_log_message = json.loads(self.stream.getvalue(), strict=False)
-        actual_log_message.pop("code.filepath")
-        actual_stacktrace = actual_log_message.pop("exception.stacktrace")
-        self.assertIn("line 37, in test_exception_log\n", actual_stacktrace)
+        actual_log_message["attributes"].pop("code.filepath")
+        actual_stacktrace = actual_log_message["attributes"].pop("exception.stacktrace")
+        self.assertIn("line 42, in test_exception_log\n", actual_stacktrace)
         self.assertIn("ZeroDivisionError: division by zero\n", actual_stacktrace)
         self.assertEqual(expected_log_message, actual_log_message)
 
@@ -60,5 +70,5 @@ class TestSnowflakeLogFormatter(unittest.TestCase):
         self.assertEqual("WARN", SnowflakeLogFormatter.get_severity_text("warning"))
         self.assertEqual("DEBUG", SnowflakeLogFormatter.get_severity_text("debug"))
         self.assertEqual("ERROR", SnowflakeLogFormatter.get_severity_text("error"))
-        self.assertEqual("TRACE", SnowflakeLogFormatter.get_severity_text("notset"))
-        self.assertEqual("TRACE", SnowflakeLogFormatter.get_severity_text("random"))
+        self.assertEqual("UNSPECIFIED", SnowflakeLogFormatter.get_severity_text("notset"))
+        self.assertEqual("UNSPECIFIED", SnowflakeLogFormatter.get_severity_text("random"))

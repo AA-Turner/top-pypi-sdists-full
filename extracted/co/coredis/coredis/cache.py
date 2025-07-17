@@ -18,11 +18,9 @@ from coredis.typing import (
     Literal,
     ModuleType,
     OrderedDict,
-    Protocol,
+    RedisValueT,
     ResponseType,
     TypeVar,
-    ValueT,
-    runtime_checkable,
 )
 
 asizeof: ModuleType | None = None
@@ -73,16 +71,16 @@ class CacheStats:
             counter.clear()
             counter[b"__coredis__internal__stats__total"] = total
 
-    def hit(self, key: ValueT) -> None:
+    def hit(self, key: RedisValueT) -> None:
         self.hits[b(key)] += 1
 
-    def miss(self, key: ValueT) -> None:
+    def miss(self, key: RedisValueT) -> None:
         self.misses[b(key)] += 1
 
-    def invalidate(self, key: ValueT) -> None:
+    def invalidate(self, key: RedisValueT) -> None:
         self.invalidations[b(key)] += 1
 
-    def mark_dirty(self, key: ValueT) -> None:
+    def mark_dirty(self, key: RedisValueT) -> None:
         self.dirty[b(key)] += 1
 
     @property
@@ -135,23 +133,60 @@ class AbstractCache(ABC):
         ...
 
     @abstractmethod
-    def get(self, command: bytes, key: bytes, *args: ValueT) -> ResponseType:
+    def get(self, command: bytes, key: RedisValueT, *args: RedisValueT) -> ResponseType:
         """
         Fetch the cached response for command/key/args combination
         """
         ...
 
     @abstractmethod
-    def put(self, command: bytes, key: bytes, *args: ValueT, value: ResponseType) -> None:
+    def put(
+        self, command: bytes, key: RedisValueT, *args: RedisValueT, value: ResponseType
+    ) -> None:
         """
         Cache the response for command/key/args combination
         """
         ...
 
     @abstractmethod
-    def invalidate(self, *keys: ValueT) -> None:
+    def invalidate(self, *keys: RedisValueT) -> None:
         """
         Invalidate any cached entries for the provided keys
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def stats(self) -> CacheStats:
+        """
+        Returns the current stats for the cache
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def confidence(self) -> float:
+        """
+        Confidence in cached values between 0 - 100. Lower values
+        will result in the client discarding and / or validating the
+        cached responses
+        """
+        ...
+
+    @abstractmethod
+    def feedback(self, command: bytes, key: RedisValueT, *args: RedisValueT, match: bool) -> None:
+        """
+        Provide feedback about a key as having either a match or drift from the actual
+        server side value
+        """
+        ...
+
+    @abstractmethod
+    def get_client_id(self, connection: BaseConnection) -> int | None:
+        """
+        If the cache supports receiving invalidation events from the server
+        return the ``client_id`` that the :paramref:`connection` should send
+        redirects to.
         """
         ...
 
@@ -166,69 +201,6 @@ class AbstractCache(ABC):
     def shutdown(self) -> None:
         """
         Explicitly shutdown the cache
-        """
-        ...
-
-
-@runtime_checkable
-class SupportsStats(Protocol):
-    """
-    Protocol of a cache that provides cache statistics
-    """
-
-    @property
-    @abstractmethod
-    def stats(self) -> CacheStats:
-        """
-        Returns the current stats for the cache
-        """
-        ...
-
-
-@runtime_checkable
-class SupportsSampling(Protocol):
-    """
-    If a cache implements :class:`SupportsSampling`, methods that support
-    caching will sample the response from the cache and test it against an uncached
-    response from the server based on the confidence returned by :attr:`confidence`.
-    The outcome of the validation will be fed back to the cache using :meth:`feedback`
-    and in the case that there was no match, the uncached response will be returned.
-    """
-
-    @property
-    @abstractmethod
-    def confidence(self) -> float:
-        """
-        Confidence in cached values between 0 - 100. Lower values
-        will result in the client discarding and / or validating the
-        cached responses
-        """
-        ...
-
-    @abstractmethod
-    def feedback(self, command: bytes, key: bytes, *args: ValueT, match: bool) -> None:
-        """
-        Provide feedback about a key as having either a match or drift from the actual
-        server side value
-        """
-        ...
-
-
-@runtime_checkable
-class SupportsClientTracking(Protocol):
-    """
-    If a cache implements :class:`SupportsClientTracking`, the :class:`~coredis.Redis`
-    and :class:`~coredis.RedisCluster` clients will ensure that the client
-    returned by :meth:`get_client_id` is set using the :meth:`~coredis.Redis.client_tracking`
-    command on any connection returned by the clients.
-    """
-
-    @abstractmethod
-    def get_client_id(self, connection: BaseConnection) -> int | None:
-        """
-        If the cache supports receiving invalidation events from the server
-        return the ``client_id`` that the :paramref:`connection` should send
-        redirects to.
         """
         ...
 
@@ -276,7 +248,7 @@ class LRUCache(Generic[ET]):
     def clear(self) -> None:
         self.__cache.clear()
 
-    def popitem(self) -> bool:
+    def popitem(self) -> tuple[Any, Any] | None:
         """
         Recursively remove the oldest entry. If
         the oldest entry is another LRUCache trigger
@@ -287,14 +259,14 @@ class LRUCache(Generic[ET]):
             oldest = next(iter(self.__cache))
             item = self.__cache[oldest]
         except StopIteration:
-            return False
+            return None
 
         if isinstance(item, LRUCache):
-            if item.popitem():
-                return True
-        self.__cache.popitem(last=False)
-
-        return True
+            if popped := item.popitem():
+                return popped
+        if entry := self.__cache.popitem(last=False):
+            return entry
+        return None
 
     def shrink(self) -> None:
         """
@@ -304,11 +276,11 @@ class LRUCache(Generic[ET]):
         """
 
         if self.max_bytes > 0 and asizeof is not None:
-            while asizeof.asizeof(self.__cache) > self.max_bytes:
-                if not self.popitem():
-                    # nothing left to remove
-
+            cur_size = asizeof.asizeof(self.__cache)
+            while cur_size > self.max_bytes:
+                if (popped := self.popitem()) is None:
                     return
+                cur_size -= asizeof.asizeof(popped[0]) + asizeof.asizeof(popped[1])
 
     def __repr__(self) -> str:
         if asizeof is not None:
@@ -316,7 +288,7 @@ class LRUCache(Generic[ET]):
                 f"LruCache<max_items={self.max_items}, "
                 f"current_items={len(self.__cache)}, "
                 f"max_bytes={self.max_bytes}, "
-                f"current_size_bytes={asizeof.asizeof(self)}>"
+                f"current_size_bytes={asizeof.asizeof(self.__cache)}>"
             )
         else:
             return f"LruCache<max_items={self.max_items}, current_items={len(self.__cache)}, "
@@ -329,9 +301,6 @@ class LRUCache(Generic[ET]):
 class NodeTrackingCache(
     Sidecar,
     AbstractCache,
-    SupportsStats,
-    SupportsSampling,
-    SupportsClientTracking,
 ):
     """
     An LRU cache that uses server assisted client caching
@@ -392,7 +361,7 @@ class NodeTrackingCache(
     def stats(self) -> CacheStats:
         return self.__stats
 
-    def get(self, command: bytes, key: bytes, *args: ValueT) -> ResponseType:
+    def get(self, command: bytes, key: RedisValueT, *args: RedisValueT) -> ResponseType:
         try:
             cached = self.__cache.get(b(key)).get(command).get(make_hashable(*args))
             self.__stats.hit(key)
@@ -402,17 +371,19 @@ class NodeTrackingCache(
             self.__stats.miss(key)
             raise
 
-    def put(self, command: bytes, key: bytes, *args: ValueT, value: ResponseType) -> None:
+    def put(
+        self, command: bytes, key: RedisValueT, *args: RedisValueT, value: ResponseType
+    ) -> None:
         self.__cache.setdefault(b(key), LRUCache()).setdefault(command, LRUCache()).insert(
             make_hashable(*args), value
         )
 
-    def invalidate(self, *keys: ValueT) -> None:
+    def invalidate(self, *keys: RedisValueT) -> None:
         for key in keys:
             self.__stats.invalidate(key)
             self.__cache.remove(b(key))
 
-    def feedback(self, command: bytes, key: bytes, *args: ValueT, match: bool) -> None:
+    def feedback(self, command: bytes, key: RedisValueT, *args: RedisValueT, match: bool) -> None:
         if not match:
             self.__stats.mark_dirty(key)
             self.invalidate(key)
@@ -509,7 +480,7 @@ class NodeTrackingCache(
                 break
 
 
-class ClusterTrackingCache(AbstractCache, SupportsStats, SupportsSampling, SupportsClientTracking):
+class ClusterTrackingCache(AbstractCache):
     """
     An LRU cache for redis cluster that uses server assisted client caching
     to ensure local cache entries are invalidated if any operations are performed
@@ -616,7 +587,7 @@ class ClusterTrackingCache(AbstractCache, SupportsStats, SupportsSampling, Suppo
         except KeyError:
             return None
 
-    def get(self, command: bytes, key: bytes, *args: ValueT) -> ResponseType:
+    def get(self, command: bytes, key: RedisValueT, *args: RedisValueT) -> ResponseType:
         try:
             cached = self.__cache.get(b(key)).get(command).get(make_hashable(*args))
             self.__stats.hit(key)
@@ -626,17 +597,19 @@ class ClusterTrackingCache(AbstractCache, SupportsStats, SupportsSampling, Suppo
             self.__stats.miss(key)
             raise
 
-    def put(self, command: bytes, key: bytes, *args: ValueT, value: ResponseType) -> None:
+    def put(
+        self, command: bytes, key: RedisValueT, *args: RedisValueT, value: ResponseType
+    ) -> None:
         self.__cache.setdefault(b(key), LRUCache()).setdefault(command, LRUCache()).insert(
             make_hashable(*args), value
         )
 
-    def invalidate(self, *keys: ValueT) -> None:
+    def invalidate(self, *keys: RedisValueT) -> None:
         for key in keys:
             self.__stats.invalidate(key)
             self.__cache.remove(b(key))
 
-    def feedback(self, command: bytes, key: bytes, *args: ValueT, match: bool) -> None:
+    def feedback(self, command: bytes, key: RedisValueT, *args: RedisValueT, match: bool) -> None:
         if not match:
             self.__stats.mark_dirty(key)
             self.invalidate(key)
@@ -663,7 +636,7 @@ class ClusterTrackingCache(AbstractCache, SupportsStats, SupportsSampling, Suppo
         self.shutdown()
 
 
-class TrackingCache(AbstractCache, SupportsStats, SupportsSampling, SupportsClientTracking):
+class TrackingCache(AbstractCache):
     """
     An LRU cache that uses server assisted client caching to ensure local cache entries
     are invalidated if any operations are performed on the keys by another client.
@@ -772,20 +745,22 @@ class TrackingCache(AbstractCache, SupportsStats, SupportsSampling, SupportsClie
 
         return None
 
-    def get(self, command: bytes, key: bytes, *args: ValueT) -> ResponseType:
+    def get(self, command: bytes, key: RedisValueT, *args: RedisValueT) -> ResponseType:
         assert self.instance
 
         return self.instance.get(command, key, *args)
 
-    def put(self, command: bytes, key: bytes, *args: ValueT, value: ResponseType) -> None:
+    def put(
+        self, command: bytes, key: RedisValueT, *args: RedisValueT, value: ResponseType
+    ) -> None:
         if self.instance:
             self.instance.put(command, key, *args, value=value)
 
-    def invalidate(self, *keys: ValueT) -> None:
+    def invalidate(self, *keys: RedisValueT) -> None:
         if self.instance:
             self.instance.invalidate(*keys)
 
-    def feedback(self, command: bytes, key: bytes, *args: ValueT, match: bool) -> None:
+    def feedback(self, command: bytes, key: RedisValueT, *args: RedisValueT, match: bool) -> None:
         if self.instance:
             self.instance.feedback(command, key, *args, match=match)
 

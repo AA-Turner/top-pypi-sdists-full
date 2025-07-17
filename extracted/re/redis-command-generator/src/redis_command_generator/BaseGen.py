@@ -4,12 +4,13 @@ import string
 import threading
 import json
 import time
-from typing import Callable
+from typing import Any, Callable, Optional
 from simple_parsing import parse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from contextlib import contextmanager
 from pathlib import Path
 from functools import wraps
+from queue import Queue
 
 JSON_PATH = str(Path(__file__).parent / "distributions.json")
 
@@ -52,6 +53,31 @@ def exception_wrapper():
             (not ("LSET" in str(e) and "no such key" in str(e)))):
             raise e
 
+class KeyedLimitedRandomQueue:
+    def __init__(self, max_size_per_key=100):
+        self.max_size_per_key = max_size_per_key
+        self.queues = {}
+        self.lock = threading.RLock()
+    
+    def put(self, key, item):
+        with self.lock:
+            if key not in self.queues:
+                self.queues[key] = Queue(maxsize=self.max_size_per_key)
+            
+            queue = self.queues[key]
+            if queue.full():
+                queue.get()  # Remove oldest item
+            queue.put(item)
+    
+    def get(self, key):
+        with self.lock:
+            if key in self.queues:
+                try:
+                    return random.choice(self.queues[key].queue)
+                except:
+                    pass
+            return None
+
 class RedisObj():
     """
     A wrapper class for the redis.Redis client that intercepts method calls
@@ -92,6 +118,8 @@ class BaseGen():
     maxmemory_bytes: int = None  # Override INFO's maxmemory (useful when unavailable, for e.g. in cluster mode)
     print_prefix: str = "COMMAND GENERATOR: "
     identical_values_across_hosts: bool = False  # Generate identical commands across connections, or allow value conflicts
+    max_generated_values_per_type: int = 100  # Maximum number of values to generate for each type
+    keyed_limited_random_queue: Optional[KeyedLimitedRandomQueue] = None
     
     ttl_low: int = 15
     ttl_high: int = 300
@@ -133,6 +161,14 @@ class BaseGen():
             cursor, keys = redis_obj.scan(self.scan_cursors[conn][type], match=scan_match)
         self.scan_cursors[conn][type] = cursor
         return random.choice(keys) if keys else None
+
+    def _put_rand_value(self, key: str, value: Any) -> None:
+        assert self.keyed_limited_random_queue is not None
+        self.keyed_limited_random_queue.put(key, value)
+
+    def _get_rand_value(self, key: str) -> Optional[Any]:        
+        assert self.keyed_limited_random_queue is not None
+        return self.keyed_limited_random_queue.get(key)
     
     def _check_mem_cap(self, redis_obj: redis.Redis):
         info = redis_obj.info()
@@ -178,7 +214,8 @@ class BaseGen():
             if cmd not in method_names:
                 raise ValueError(f"Command '{cmd}' not found in generator")
     
-    def _run(self, stop_event: threading.Event = None) -> None:
+    def _run(self, stop_event: threading.Event = None, keyed_limited_random_queue: KeyedLimitedRandomQueue = KeyedLimitedRandomQueue(100)) -> None:
+        self.keyed_limited_random_queue = keyed_limited_random_queue
         self.file = open(self.logfile, 'w') if self.logfile else None
         rl = []  # Redis connections list
         redis_pipes = []

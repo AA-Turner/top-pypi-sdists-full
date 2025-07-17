@@ -5207,7 +5207,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
-    def momersion(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], min_period: typing.Optional[int], full_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.MomersionIndicator:
+    def momersion(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], min_period: typing.Optional[int], full_period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.Momersion:
         """
         Creates a new Momersion indicator.
         

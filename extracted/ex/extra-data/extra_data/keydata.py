@@ -144,28 +144,10 @@ class KeyData:
 
     @property
     def source_file_paths(self):
-        paths = []
+        paths = dict()
         for chunk in self._data_chunks:
-            if chunk.dataset.is_virtual:
-                mappings = chunk.dataset.virtual_sources()
-                for vspace, filename, _, _ in mappings:
-                    if filename in paths:
-                        continue  # Already got it
-
-                    # Does the mapping overlap with this chunk of selected data?
-                    # We can assume that each mapping is a simple, contiguous
-                    # block, and only selection on the first dimension matters.
-                    starts, ends = vspace.get_select_bounds()
-                    map_start, map_stop = starts[0], ends[0]
-                    ck = chunk.slice
-                    if (map_stop > ck.start) and (map_start < ck.stop):
-                        paths.append(filename)
-
-                # Include 1 source file even if no trains are selected
-                if (not paths) and mappings:
-                    paths.append(mappings[0].file_name)
-            else:
-                paths.append(chunk.file.filename)
+            paths |= dict.fromkeys(chunk.source_file_paths)
+        paths = list(paths.keys())
 
         # Fallback for virtual overview files where no data was recorded for
         # this source, so there's no mapping to point to.
@@ -327,7 +309,7 @@ class KeyData:
 
             return res
 
-    def as_single_value(self, rtol=1e-5, atol=0.0, reduce_by='median'):
+    def as_single_value(self, rtol=1e-5, atol=0.0, reduce_by=None):
         """Retrieve a single reduced value if within tolerances.
 
         The relative and absolute tolerances *rtol* and *atol* work the
@@ -340,12 +322,32 @@ class KeyData:
         the first value encountered. By default, 'median' is used.
 
         If within tolerances, the reduced value is returned.
+
+        For non-numerical keys like strings, the method instead always
+        checks for uniqueness and returns such a value, if present.
         """
 
         data = self.ndarray()
 
         if len(data) == 0:
             raise NoDataError(self.source, self.key)
+
+        if not np.issubdtype(self.dtype, np.number):
+            # Handle non-numeric types first.
+
+            if reduce_by is not None:
+                raise TypeError('custom reduce method not supported for '
+                                'non-numeric type')
+
+            unique_values = np.unique(data, axis=None)
+
+            if len(unique_values) > 1:
+                raise ValueError(f'str values are not unique: {unique_values}')
+
+            return unique_values[0]
+
+        elif reduce_by is None:
+            reduce_by = 'median'
 
         if callable(reduce_by):
             value = reduce_by(data)
@@ -395,6 +397,16 @@ class KeyData:
                 out[dest_cursor:dest_chunk_end], source_sel=slices
             )
             dest_cursor = dest_chunk_end
+
+        if out.dtype.hasobject:
+            # Can current only occur for string properties, convert from
+            # object array of bytes to to object array of strings.
+            # This will fail for structured dtypes containing strings,
+            # but such are not known to us yet.
+            out = np.array(
+                [x.decode('utf8', 'surrogateescape') for x in out.flat],
+                dtype=object
+            ).reshape(out.shape)
 
         return out
 

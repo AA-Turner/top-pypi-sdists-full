@@ -133,13 +133,12 @@ class SupervisedFineTuningJob:
 
     @property
     def url(self) -> str:
+        base_url = "dev.fireworks.ai" if "dev." in FIREWORKS_API_BASE_URL else "app.fireworks.ai"
         if self.id is None:
-            return f"https://{FIREWORKS_API_BASE_URL}/dashboard/fine-tuning"
-        base_url = "dev.fireworks.ai" if "dev." in FIREWORKS_API_BASE_URL else "fireworks.ai"
+            return f"https://{base_url}/dashboard/fine-tuning"
         return f"https://{base_url}/dashboard/fine-tuning/supervised/{self.id}"
 
     def _create_request(self) -> SyncCreateSupervisedFineTuningJobRequest:
-        dataset_id = self.dataset_or_id.name if isinstance(self.dataset_or_id, Dataset) else self.dataset_or_id
         request = SyncCreateSupervisedFineTuningJobRequest(
             supervised_fine_tuning_job=self._proto,
         )

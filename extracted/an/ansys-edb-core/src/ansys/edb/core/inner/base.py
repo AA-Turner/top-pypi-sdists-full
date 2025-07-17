@@ -2,6 +2,8 @@
 
 from ansys.api.edb.v1.edb_messages_pb2 import EDBObjMessage
 
+from ansys.edb.core.utility.io_manager import get_buffer, get_cache, get_io_manager
+
 
 class ObjBase:
     """Provides the base object that all gRPC-related models extend from."""
@@ -13,7 +15,7 @@ class ObjBase:
         ----------
         msg : EDBObjMessage
         """
-        self._id = 0 if msg is None else msg.id
+        self.msg = msg
 
     @property
     def is_null(self):
@@ -21,6 +23,8 @@ class ObjBase:
 
         This property is read-only.
         """
+        if (buffer := get_buffer()) is not None:
+            buffer.flush()
         return self.id == 0
 
     @property
@@ -37,14 +41,29 @@ class ObjBase:
     def msg(self):
         """:obj:`EDBObjMessage`: Protobuf message that represents the object's ID.
 
-        This property can only be set to ``None``.
+        This property can only be set to :obj:`None`.
         """
-        return EDBObjMessage(id=self.id)
+        msg = EDBObjMessage(id=self.id)
+        io_mgr = get_io_manager()
+        if io_mgr.is_enabled:
+            if self._is_future:
+                msg.is_future = True
+            io_mgr.active_request_edb_obj_msg_mgr.add_active_request_edb_obj_msg(msg)
+        return msg
 
     @msg.setter
-    def msg(self, val):
-        if val is None:
+    def msg(self, msg):
+        if msg is None:
             self._id = 0
+            return
+        self._id = msg.id
+        self._is_future = msg.is_future
+        if self._is_future:
+            if (buffer := get_buffer()) is not None:
+                buffer.add_future_ref(self)
+        else:
+            if (cache := get_cache()) is not None:
+                cache.add_from_cache_msg(msg)
 
 
 class TypeField(object):

@@ -15,9 +15,6 @@ class CuckooGen(BaseGen):
     max_items_per_insert: int = 10
     max_generated_header_size: int = 20
 
-    def __post_init__(self):
-        self.values = [self._rand_str(self.subval_size) for _ in range(100)]
-
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def cf_reserve(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: initialization
@@ -33,13 +30,15 @@ class CuckooGen(BaseGen):
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def cf_add(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: additive
-        value = random.choice(self.values)
+        value = self._rand_str(self.subval_size)
+        self._put_rand_value(KEY_TYPE, value)
         pipe.execute_command("CF.ADD", key, value)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def cf_addnx(self, pipe: redis.client.Pipeline, key: str) -> None:
        # Classification: additive
-        value = random.choice(self.values)
+        value = self._rand_str(self.subval_size)
+        self._put_rand_value(KEY_TYPE, value)
         pipe.execute_command("CF.ADDNX", key, value)
 
     def cf_insert_common(self, pipe: redis.client.Pipeline, key: Optional[str], args: Optional[list] = None) -> None:
@@ -83,24 +82,24 @@ class CuckooGen(BaseGen):
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def cf_exists(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: lookup
-        item = random.choice(self.values)
+        item = self._get_rand_value(key) or self._rand_str(self.subval_size)
         pipe.execute_command("CF.EXISTS", key, item)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def cf_mexists(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: lookup
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_insert))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_insert))]
         pipe.execute_command("CF.MEXISTS", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def cf_count(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: lookup
-        pipe.execute_command("CF.COUNT", key, random.choice(self.values))
+        pipe.execute_command("CF.COUNT", key, self._get_rand_value(key) or self._rand_str(self.subval_size))
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def cf_del(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: removal
-        pipe.execute_command("CF.DEL", key, random.choice(self.values))
+        pipe.execute_command("CF.DEL", key, self._get_rand_value(key) or self._rand_str(self.subval_size))
 
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)

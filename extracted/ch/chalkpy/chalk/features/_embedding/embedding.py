@@ -221,7 +221,7 @@ def embed(
                     def fn(image_data: bytes):
                         if not isinstance(image_data, bytes):  # pyright: ignore
                             raise Exception("Image data must be type `bytes`.")
-                        image = Image.open(BytesIO(image_data))
+                        image = Image.open(BytesIO(image_data)).convert("RGB")
                         resized_image = image.resize(
                             (model_variables["image_size"], model_variables["image_size"])  # pyright: ignore
                         )

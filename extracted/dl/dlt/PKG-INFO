@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.13.0
+Version: 1.14.1
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -53,8 +53,7 @@ Requires-Dist: tzdata>=2022.1
 Requires-Dist: win-precise-time>=1.4.2; os_name == 'nt' and python_version < '3.13'
 Provides-Extra: athena
 Requires-Dist: botocore>=1.28; extra == 'athena'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'athena'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'athena'
+Requires-Dist: pyarrow>=16.0.0; extra == 'athena'
 Requires-Dist: pyathena>=2.9.6; extra == 'athena'
 Requires-Dist: s3fs>=2022.4.0; extra == 'athena'
 Provides-Extra: az
@@ -64,8 +63,7 @@ Requires-Dist: db-dtypes>=1.2.0; extra == 'bigquery'
 Requires-Dist: gcsfs>=2022.4.0; extra == 'bigquery'
 Requires-Dist: google-cloud-bigquery>=2.26.0; extra == 'bigquery'
 Requires-Dist: grpcio>=1.50.0; extra == 'bigquery'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'bigquery'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'bigquery'
+Requires-Dist: pyarrow>=16.0.0; extra == 'bigquery'
 Provides-Extra: cli
 Requires-Dist: cron-descriptor>=1.2.32; extra == 'cli'
 Requires-Dist: pip>=23.0.0; extra == 'cli'
@@ -75,8 +73,7 @@ Requires-Dist: adlfs>=2024.7.0; extra == 'clickhouse'
 Requires-Dist: clickhouse-connect>=0.7.7; extra == 'clickhouse'
 Requires-Dist: clickhouse-driver>=0.2.7; extra == 'clickhouse'
 Requires-Dist: gcsfs>=2022.4.0; extra == 'clickhouse'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'clickhouse'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'clickhouse'
+Requires-Dist: pyarrow>=16.0.0; extra == 'clickhouse'
 Requires-Dist: s3fs>=2022.4.0; extra == 'clickhouse'
 Provides-Extra: databricks
 Requires-Dist: databricks-sdk>=0.38.0; extra == 'databricks'
@@ -84,11 +81,9 @@ Requires-Dist: databricks-sql-connector<4,>=2.9.3; (python_version <= '3.12') an
 Requires-Dist: databricks-sql-connector>=3.6.0; (python_version >= '3.13') and extra == 'databricks'
 Provides-Extra: deltalake
 Requires-Dist: deltalake>=0.25.1; extra == 'deltalake'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'deltalake'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'deltalake'
+Requires-Dist: pyarrow>=16.0.0; extra == 'deltalake'
 Provides-Extra: dremio
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'dremio'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'dremio'
+Requires-Dist: pyarrow>=16.0.0; extra == 'dremio'
 Provides-Extra: duckdb
 Requires-Dist: duckdb>=0.9; extra == 'duckdb'
 Provides-Extra: filesystem
@@ -103,25 +98,21 @@ Provides-Extra: gs
 Requires-Dist: gcsfs>=2022.4.0; extra == 'gs'
 Provides-Extra: lancedb
 Requires-Dist: lancedb>=0.22.0; (python_version < '3.13') and extra == 'lancedb'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'lancedb'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'lancedb'
+Requires-Dist: pyarrow>=16.0.0; extra == 'lancedb'
 Requires-Dist: tantivy>=0.22.0; extra == 'lancedb'
 Provides-Extra: motherduck
 Requires-Dist: duckdb>=0.9; extra == 'motherduck'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'motherduck'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'motherduck'
+Requires-Dist: pyarrow>=16.0.0; extra == 'motherduck'
 Provides-Extra: mssql
 Requires-Dist: pyodbc>=4.0.39; (python_version < '3.13') and extra == 'mssql'
 Provides-Extra: parquet
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'parquet'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'parquet'
+Requires-Dist: pyarrow>=16.0.0; extra == 'parquet'
 Provides-Extra: postgis
 Requires-Dist: psycopg2-binary>=2.9.1; extra == 'postgis'
 Provides-Extra: postgres
 Requires-Dist: psycopg2-binary>=2.9.1; extra == 'postgres'
 Provides-Extra: pyiceberg
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'pyiceberg'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'pyiceberg'
+Requires-Dist: pyarrow>=16.0.0; extra == 'pyiceberg'
 Requires-Dist: pyiceberg>=0.9.1; extra == 'pyiceberg'
 Requires-Dist: sqlalchemy>=1.4; extra == 'pyiceberg'
 Provides-Extra: qdrant
@@ -142,11 +133,16 @@ Requires-Dist: alembic>1.10.0; extra == 'sqlalchemy'
 Requires-Dist: sqlalchemy>=1.4; extra == 'sqlalchemy'
 Provides-Extra: synapse
 Requires-Dist: adlfs>=2024.7.0; extra == 'synapse'
-Requires-Dist: pyarrow>=16.0.0; (python_version < '3.13') and extra == 'synapse'
-Requires-Dist: pyarrow>=18.0.0; (python_version >= '3.13') and extra == 'synapse'
+Requires-Dist: pyarrow>=16.0.0; extra == 'synapse'
 Requires-Dist: pyodbc>=4.0.39; (python_version < '3.13') and extra == 'synapse'
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client>=3.22; extra == 'weaviate'
+Provides-Extra: workspace
+Requires-Dist: duckdb>=0.9; extra == 'workspace'
+Requires-Dist: ibis-framework[duckdb]>=10.5.0; (python_version >= '3.10') and extra == 'workspace'
+Requires-Dist: marimo>=0.14.5; extra == 'workspace'
+Requires-Dist: pandas>=2.1.4; extra == 'workspace'
+Requires-Dist: pyarrow>=16.0.0; extra == 'workspace'
 Description-Content-Type: text/markdown
 
 <h1 align="center">

@@ -1,4 +1,3 @@
-import itertools
 import os
 import re
 
@@ -23,40 +22,31 @@ def read_requirements(path):
         return [line.strip() for line in f.readlines()]
 
 
-other_extras_requires = {
-    "gcp": [
-        "google-api-python-client",
-        "google-cloud-secret-manager",
-        "google-cloud-compute",
-        "google-cloud-resource-manager",
-        "google-cloud-filestore",
-        "google-cloud-storage",
-        "google-cloud-redis",
-        "google-cloud-certificate-manager",
-    ],
-}
+_gcp_extra_requires = [
+    "google-api-python-client",
+    "google-cloud-secret-manager",
+    "google-cloud-compute",
+    "google-cloud-resource-manager",
+    "google-cloud-filestore",
+    "google-cloud-storage",
+    "google-cloud-redis",
+    "google-cloud-certificate-manager",
+]
 
-
-# Flattens the values (List[str]) of each extra_requires into one List[str]
-# Currently this assumes all packages defined in each extra is mutually exclusive
-all_extras_requires_dependencies = ["ray>=1.4.0"] + list(
-    itertools.chain.from_iterable(other_extras_requires.values())
-)
-all_extras_requires = {"all": all_extras_requires_dependencies}
-
-internal_extras_requires_dependencies = [
-    "terminado==0.10.1",
-    "tornado",
-] + all_extras_requires_dependencies
-internal_extras_requires = {"backend": internal_extras_requires_dependencies}
+_all_extra_requires = _gcp_extra_requires + ["ray>=2.0.0"]
 
 # If adding new webterminal deps,
 # Update backend/server/services/application_templates_service.py
 # to prevent users from uninstalling them.
+_backend_extra_requires = _gcp_extra_requires + [
+    "terminado",
+    "tornado",
+]
+
 extras_require = {
-    **internal_extras_requires,
-    **other_extras_requires,
-    **all_extras_requires,
+    "gcp": _gcp_extra_requires,
+    "all": _all_extra_requires,
+    "backend": _backend_extra_requires,
 }
 
 

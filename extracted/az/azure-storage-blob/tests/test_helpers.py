@@ -4,14 +4,57 @@
 # license information.
 # --------------------------------------------------------------------------
 
+import requests
+from datetime import datetime, timezone
 from io import IOBase, UnsupportedOperation
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from typing_extensions import Self
 
-from azure.core.pipeline.transport import HttpTransport, RequestsTransportResponse
+from azure.core.pipeline.transport import RequestsTransport, RequestsTransportResponse
 from azure.core.rest import HttpRequest
+from azure.storage.blob._serialize import get_api_version
 from requests import Response
 from urllib3 import HTTPResponse
+
+
+def _build_base_file_share_headers(bearer_token_string: str, content_length: int = 0) -> Dict[str, Any]:
+    return {
+        'Authorization': bearer_token_string,
+        'Content-Length': str(content_length),
+        'x-ms-date': datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        'x-ms-version': get_api_version({}),
+        'x-ms-file-request-intent': 'backup',
+    }
+
+
+def _create_file_share_oauth(
+    share_name: str,
+    file_name: str,
+    bearer_token_string: str,
+    storage_account_name: str,
+    data: bytes
+) -> Tuple[str, str]:
+    base_url = f"https://{storage_account_name}.file.core.windows.net/{share_name}"
+
+    # Creates file share
+    with requests.Session() as session:
+        session.put(
+            url=base_url,
+            headers=_build_base_file_share_headers(bearer_token_string),
+            params={'restype': 'share'}
+        )
+
+        # Creates the file itself
+        headers = _build_base_file_share_headers(bearer_token_string)
+        headers.update({'x-ms-content-length': '1024', 'x-ms-type': 'file'})
+        session.put(url=base_url + "/" + file_name, headers=headers)
+
+        # Upload the supplied data to the file
+        headers = _build_base_file_share_headers(bearer_token_string, 1024)
+        headers.update({'x-ms-range': 'bytes=0-1023', 'x-ms-write': 'update'})
+        session.put(url=base_url + "/" + file_name, headers=headers, data=data, params={'comp': 'range'})
+
+    return file_name, base_url
 
 
 class ProgressTracker:
@@ -49,7 +92,7 @@ class NonSeekableStream(IOBase):
         return self.wrapped_stream.tell()
 
 
-class MockHttpClientResponse(Response):
+class MockClientResponse(Response):
     def __init__(
         self, url: str,
         body_bytes: bytes,
@@ -57,7 +100,7 @@ class MockHttpClientResponse(Response):
         status: int = 200,
         reason: str = "OK"
     ) -> None:
-        super(MockHttpClientResponse).__init__()
+        super(MockClientResponse).__init__()
         self._url = url
         self._body = body_bytes
         self._content = body_bytes
@@ -70,9 +113,9 @@ class MockHttpClientResponse(Response):
         self.raw = HTTPResponse()
 
 
-class MockStorageTransport(HttpTransport):
+class MockLegacyTransport(RequestsTransport):
     """
-    This transport returns legacy http response objects from azure core and is
+    This transport returns http response objects from azure core pipelines and is
     intended only to test our backwards compatibility support.
     """
     def send(self, request: HttpRequest, **kwargs: Any) -> RequestsTransportResponse:
@@ -89,7 +132,7 @@ class MockStorageTransport(HttpTransport):
 
             rest_response = RequestsTransportResponse(
                 request=request,
-                requests_response=MockHttpClientResponse(
+                requests_response=MockClientResponse(
                     request.url,
                     b"Hello World!",
                     headers,
@@ -99,7 +142,7 @@ class MockStorageTransport(HttpTransport):
             # get_blob_properties
             rest_response = RequestsTransportResponse(
                 request=request,
-                requests_response=MockHttpClientResponse(
+                requests_response=MockClientResponse(
                     request.url,
                     b"",
                     {
@@ -112,7 +155,7 @@ class MockStorageTransport(HttpTransport):
             # upload_blob
             rest_response = RequestsTransportResponse(
                 request=request,
-                requests_response=MockHttpClientResponse(
+                requests_response=MockClientResponse(
                     request.url,
                     b"",
                     {
@@ -126,7 +169,7 @@ class MockStorageTransport(HttpTransport):
             # delete_blob
             rest_response = RequestsTransportResponse(
                 request=request,
-                requests_response=MockHttpClientResponse(
+                requests_response=MockClientResponse(
                     request.url,
                     b"",
                     {
@@ -137,7 +180,7 @@ class MockStorageTransport(HttpTransport):
                 )
             )
         else:
-            raise ValueError("The request is not accepted as part of MockStorageTransport.")
+            raise ValueError("The request is not accepted as part of MockLegacyTransport.")
         return rest_response
 
     def __enter__(self) -> Self:

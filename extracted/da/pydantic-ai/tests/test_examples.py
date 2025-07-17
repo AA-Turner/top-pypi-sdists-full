@@ -149,6 +149,7 @@ def test_docs_examples(  # noqa: C901
     env.set('CO_API_KEY', 'testing')
     env.set('MISTRAL_API_KEY', 'testing')
     env.set('ANTHROPIC_API_KEY', 'testing')
+    env.set('HF_TOKEN', 'hf_testing')
     env.set('AWS_ACCESS_KEY_ID', 'testing')
     env.set('AWS_SECRET_ACCESS_KEY', 'testing')
     env.set('AWS_DEFAULT_REGION', 'us-east-1')
@@ -205,7 +206,9 @@ def test_docs_examples(  # noqa: C901
             eval_example.lint_ruff(example)
 
     if opt_test.startswith('skip'):
-        print(opt_test[4:].lstrip(' -') or 'running code skipped')
+        pytest.skip(opt_test[4:].lstrip(' -') or 'running code skipped')
+    elif opt_test.startswith('ci_only') and os.environ.get('GITHUB_ACTIONS', '').lower() != 'true':
+        pytest.skip(opt_test[7:].lstrip(' -') or 'running code skipped in local tests')  # pragma: no cover
     else:
         test_globals: dict[str, str] = {'__name__': dunder_name}
 

@@ -26,6 +26,25 @@ def test_memory_newline() -> None:
         [
             {
                 "source": "Error reading config file {filename!r}:\n{error_msg}",
+                "context": "Greeting used in emails",
+                "target": "Fehler der Konfigurationsdatei {filename!r}:\n{error_msg}",
+                "source_language": "en",
+                "target_language": "de",
+                "origin": "myproject/mycomponent",
+                "category": 10000004,
+                "status": 1,
+            }
+        ],
+        "weblate-memory.schema.json",
+    )
+
+
+def test_memory_without_optional() -> None:
+    """Test memory entry without optional fields."""
+    validate_schema(
+        [
+            {
+                "source": "Error reading config file {filename!r}:\n{error_msg}",
                 "target": "Fehler der Konfigurationsdatei {filename!r}:\n{error_msg}",
                 "source_language": "en",
                 "target_language": "de",
@@ -79,7 +98,7 @@ def test_userdata() -> None:
 
 
 def test_backup() -> None:
-    """Test memory schema being valid."""
+    """Test backup schema being valid."""
     backup_without_teams = {
         "metadata": {
             "version": "4.13",
@@ -152,7 +171,7 @@ def test_backup() -> None:
 
 
 def test_backup_blank_url() -> None:
-    """Test memory schema being valid."""
+    """Test backup schema being valid with blank url."""
     validate_schema(
         {
             "metadata": {
@@ -182,7 +201,7 @@ def test_backup_blank_url() -> None:
 
 
 def test_backup_unicode_url() -> None:
-    """Test memory schema being valid."""
+    """Test backup schema being valid with unicode URL."""
     validate_schema(
         {
             "metadata": {
@@ -212,7 +231,7 @@ def test_backup_unicode_url() -> None:
 
 
 def test_component() -> None:
-    """Test memory schema being valid."""
+    """Test component schema being valid."""
     data = {
         "component": {
             "name": "Demo",
@@ -436,6 +455,20 @@ invalid_body = {
     "component": "test",
 }
 
+body_with_context = {
+    "change_id": 10,
+    "action": "Contributor joined",
+    "timestamp": "2025-07-15T09:30:14.898792+00:00",
+    "url": "http://example.com/translate/test/test/cs/?checksum=6412684aaf018e8e",
+    "author": "testuser",
+    "user": "testuser",
+    "project": "test",
+    "component": "test",
+    "translation": "cs",
+    "source": ["Hello, world!\n"],
+    "context": "test-context",
+}
+
 
 def test_weblate_messaging_merge() -> None:
     """Test Weblate Messaging schema to validate a repository merge event."""
@@ -483,3 +516,8 @@ def test_weblate_invalid_body() -> None:
         is_invalid = True
 
     assert is_invalid
+
+
+def test_weblate_body_with_context() -> None:
+    """Test Weblate Messaging schema to validate body with a context field."""
+    validate_schema(body_with_context, "weblate-messaging.schema.json")

@@ -5,6 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .configurable_data_source_names import ConfigurableDataSourceNames
+from .data_source_reader_version_metadata import DataSourceReaderVersionMetadata
 from .pipeline_data_source_component import PipelineDataSourceComponent
 from .pipeline_data_source_custom_metadata_value import PipelineDataSourceCustomMetadataValue
 from .pipeline_data_source_status import PipelineDataSourceStatus
@@ -30,7 +31,7 @@ class PipelineDataSource(pydantic.BaseModel):
     source_type: ConfigurableDataSourceNames
     custom_metadata: typing.Optional[typing.Dict[str, typing.Optional[PipelineDataSourceCustomMetadataValue]]]
     component: PipelineDataSourceComponent = pydantic.Field(description="Component that implements the data source")
-    version_metadata: typing.Optional[typing.Dict[str, typing.Any]]
+    version_metadata: typing.Optional[DataSourceReaderVersionMetadata]
     project_id: str
     data_source_id: str = pydantic.Field(description="The ID of the data source.")
     pipeline_id: str = pydantic.Field(description="The ID of the pipeline.")

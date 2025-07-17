@@ -186,7 +186,7 @@ class ClusterKwargs(TypedDict, total=False):
     package_sync_fail_on: Literal["critical-only", "warning-or-higher", "any"]
     package_sync_use_uv_installer: bool
     private_to_creator: bool | None
-    use_best_zone: bool
+    use_best_zone: bool | None
     allow_cross_zone: bool
     compute_purchase_option: Literal["on-demand", "spot", "spot_with_fallback"] | None
     spot_policy: Literal["on-demand", "spot", "spot_with_fallback"] | None
@@ -513,7 +513,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         package_sync_fail_on: Literal["critical-only", "warning-or-higher", "any"] = "critical-only",
         package_sync_use_uv_installer: bool = True,
         private_to_creator: bool | None = None,
-        use_best_zone: bool = True,
+        use_best_zone: bool | None = None,
         allow_cross_zone: bool = False,
         # "compute_purchase_option" is the old name for "spot_policy"
         # someday we should deprecate and then remove compute_purchase_option
@@ -795,7 +795,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
             scheduler_gpu = bool(scheduler_gpu)
         self.scheduler_gpu = scheduler_gpu
 
-        self.use_best_zone = use_best_zone
+        # use best zone by default, unless user explicitly specified zone name
+        self.use_best_zone = not ((backend_options or {}).get("zone_name")) if use_best_zone is None else use_best_zone
         self.allow_cross_zone = allow_cross_zone
 
         self.spot_policy = spot_policy

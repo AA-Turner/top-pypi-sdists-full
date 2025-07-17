@@ -39,7 +39,8 @@ options:
             system.
         - '     - sysprep_xml (string): All settings specified in a XML format. This
             is the content of a typical answer.xml file that is used by System administrators
-            during the Windows image customization. Check https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/update-windows-settings-and-scripts-create-your-own-answer-file-sxs
+            during the Windows image customization. Check
+            https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/update-windows-settings-and-scripts-create-your-own-answer-file-sxs
             Exactly one of WindowsConfiguration.sysprep or WindowsConfiguration.sysprep-xml
             must be specified.'
         - If unset, sysprep settings will not be applied to the windows guest operating
@@ -458,18 +459,23 @@ PAYLOAD_FORMAT = {
 }  # pylint: disable=line-too-long
 
 from ansible.module_utils.basic import env_fallback
+import os
 
-try:
-    from ansible_collections.cloud.common.plugins.module_utils.turbo.exceptions import (
-        EmbeddedModuleFailure,
-    )
-    from ansible_collections.cloud.common.plugins.module_utils.turbo.module import (
-        AnsibleTurboModule as AnsibleModule,
-    )
+if os.getenv("VMWARE_ENABLE_TURBO", False):
+    try:
+        from ansible_collections.cloud.common.plugins.module_utils.turbo.exceptions import (
+            EmbeddedModuleFailure,
+        )
+        from ansible_collections.cloud.common.plugins.module_utils.turbo.module import (
+            AnsibleTurboModule as AnsibleModule,
+        )
 
-    AnsibleModule.collection_name = "vmware.vmware_rest"
-except ImportError:
+        AnsibleModule.collection_name = "vmware.vmware_rest"
+    except ImportError:
+        from ansible.module_utils.basic import AnsibleModule
+else:
     from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.vmware.vmware_rest.plugins.module_utils.vmware_rest import (
     exists,
     gen_args,

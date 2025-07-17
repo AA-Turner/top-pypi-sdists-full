@@ -1,14 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tronpy
-Version: 0.5.0
+Version: 0.6.1
 Summary: TRON Python client library
-Home-page: https://github.com/andelf/tronpy
-Author: andelf
-Author-email: andelf@gmail.com
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
-Provides-Extra: mnemonic
+Project-URL: Homepage, https://github.com/andelf/tronpy
+Project-URL: Repository, https://github.com/andelf/tronpy
+Project-URL: Documentation, https://tronpy.readthedocs.io
+Author-email: andelf <andelf@gmail.com>, MrNaif2018 <chuff184@gmail.com>
+License-Expression: MIT
 License-File: LICENSE
+Keywords: api,blockchain,tron
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Requires-Dist: base58
+Requires-Dist: coincurve
+Requires-Dist: eth-abi<6.0.0,>=5.0.0
+Requires-Dist: httpx
+Requires-Dist: pycryptodome<4
+Requires-Dist: requests
+Provides-Extra: mnemonic
+Requires-Dist: mnemonic==0.20; extra == 'mnemonic'
+Provides-Extra: offline
+Requires-Dist: protobuf; extra == 'offline'
+Description-Content-Type: text/markdown
 
 # tronpy
 

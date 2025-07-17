@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-checkpoint-postgres
-Version: 2.0.22
+Version: 2.0.23
 Summary: Library with a Postgres implementation of LangGraph checkpoint saver.
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT

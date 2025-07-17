@@ -87,9 +87,7 @@ DimensionNameType = Literal["DeviceId", "GatewayId"]
 DlClassType = Literal["ClassB", "ClassC"]
 DownlinkModeType = Literal["CONCURRENT", "SEQUENTIAL", "USING_UPLINK_GATEWAY"]
 EventNotificationPartnerTypeType = Literal["Sidewalk"]
-EventNotificationResourceTypeType = Literal[
-    "FuotaTask", "SidewalkAccount", "WirelessDevice", "WirelessGateway"
-]
+EventNotificationResourceTypeType = Literal["SidewalkAccount", "WirelessDevice", "WirelessGateway"]
 EventNotificationTopicStatusType = Literal["Disabled", "Enabled"]
 EventType = Literal["ack", "discovered", "lost", "nack", "passthrough"]
 ExpressionTypeType = Literal["MqttTopic", "RuleName"]
@@ -113,12 +111,7 @@ FuotaTaskStatusType = Literal[
 ]
 FuotaTaskTypeType = Literal["LoRaWAN"]
 IdentifierTypeType = Literal[
-    "DevEui",
-    "FuotaTaskId",
-    "GatewayEui",
-    "PartnerAccountId",
-    "WirelessDeviceId",
-    "WirelessGatewayId",
+    "DevEui", "GatewayEui", "PartnerAccountId", "WirelessDeviceId", "WirelessGatewayId"
 ]
 ImportTaskStatusType = Literal[
     "COMPLETE", "DELETING", "FAILED", "INITIALIZED", "INITIALIZING", "PENDING"
@@ -250,6 +243,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",

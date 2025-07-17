@@ -348,7 +348,7 @@ class TrueStrengthIndex(QuantConnect.Indicators.Indicator, QuantConnect.Indicato
         ...
 
 
-class MomersionIndicator(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+class Momersion(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     Oscillator indicator that measures momentum and mean-reversion over a specified
     period n.
@@ -369,7 +369,7 @@ class MomersionIndicator(QuantConnect.Indicators.WindowIndicator[QuantConnect.In
     @overload
     def __init__(self, name: str, min_period: typing.Optional[int], full_period: int) -> None:
         """
-        Initializes a new instance of the MomersionIndicator class.
+        Initializes a new instance of the Momersion class.
         
         :param name: The name.
         :param min_period: The minimum period.
@@ -380,7 +380,7 @@ class MomersionIndicator(QuantConnect.Indicators.WindowIndicator[QuantConnect.In
     @overload
     def __init__(self, min_period: typing.Optional[int], full_period: int) -> None:
         """
-        Initializes a new instance of the MomersionIndicator class.
+        Initializes a new instance of the Momersion class.
         
         :param min_period: The minimum period.
         :param full_period: The full period.
@@ -390,7 +390,7 @@ class MomersionIndicator(QuantConnect.Indicators.WindowIndicator[QuantConnect.In
     @overload
     def __init__(self, full_period: int) -> None:
         """
-        Initializes a new instance of the MomersionIndicator class.
+        Initializes a new instance of the Momersion class.
         
         :param full_period: The full period.
         """
@@ -3875,6 +3875,43 @@ class WilderAccumulativeSwingIndex(QuantConnect.Indicators.TradeBarIndicator, Qu
 
     def reset(self) -> None:
         """Resets this indicator to its initial state."""
+        ...
+
+
+class MomersionIndicator(QuantConnect.Indicators.Momersion):
+    """
+    Legacy name for the Momersion indicator, maintained for backwards compatibility.
+    This oscillator measures the balance between momentum and mean-reversion over a specified period.
+    """
+
+    @overload
+    def __init__(self, name: str, min_period: typing.Optional[int], full_period: int) -> None:
+        """
+        Initializes a new instance of the MomersionIndicator class.
+        
+        :param name: The name.
+        :param min_period: The minimum period.
+        :param full_period: The full period.
+        """
+        ...
+
+    @overload
+    def __init__(self, min_period: typing.Optional[int], full_period: int) -> None:
+        """
+        Initializes a new instance of the MomersionIndicator class.
+        
+        :param min_period: The minimum period.
+        :param full_period: The full period.
+        """
+        ...
+
+    @overload
+    def __init__(self, full_period: int) -> None:
+        """
+        Initializes a new instance of the MomersionIndicator class.
+        
+        :param full_period: The full period.
+        """
         ...
 
 

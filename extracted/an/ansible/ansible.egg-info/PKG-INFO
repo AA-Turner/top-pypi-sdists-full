@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible
-Version: 11.7.0
+Version: 11.8.0
 Summary: Radically simple IT automation
 Home-page: https://ansible.com/
 Author: Ansible, Inc.
@@ -27,7 +27,7 @@ Classifier: License :: OSI Approved :: GNU General Public License v3 or later (G
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: ansible-core~=2.18.6
+Requires-Dist: ansible-core~=2.18.7
 Dynamic: license-file
 
 ..

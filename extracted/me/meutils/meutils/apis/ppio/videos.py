@@ -12,7 +12,9 @@ from meutils.pipe import *
 from meutils.db.redis_db import redis_aclient
 from meutils.apis.utils import make_request
 from meutils.schemas.hailuo_types import VideoRequest, VideoResponse, Video
-from meutils.config_utils.lark_utils import get_next_token_for_polling
+from meutils.config_utils.lark_utils import get_series, get_next_token_for_polling, get_next_token
+from meutils.llm.check_utils import check_token_for_ppinfra as check_token
+from meutils.notice.feishu import send_message_for_volc as send_message
 
 from fastapi import APIRouter, File, UploadFile, Query, Form, Depends, Request, HTTPException, status, BackgroundTasks
 
@@ -20,9 +22,15 @@ base_url = "https://api.ppinfra.com/v3"
 feishu_url = "https://xchatllm.feishu.cn/sheets/Z59Js10DbhT8wdt72LachSDlnlf?sheet=b0e241"
 
 
+async def get_valid_token():
+    _ = await get_next_token(feishu_url, check_token, min_points=18000, ttl=600)
+    logger.debug(_)
+    return _
+
+
 # minimax-hailuo-02-6s-768p minimax-hailuo-02-6s-768p minimax-hailuo-02-6s-1080p
 async def create_task(request: VideoRequest, api_key: Optional[str] = None):
-    api_key = api_key or await get_next_token_for_polling(feishu_url)
+    api_key = api_key or await get_valid_token()  # 轮询
 
     payload = {
 
@@ -140,7 +148,7 @@ if __name__ == '__main__':
         duration=6,
         resolution="768P",
     )
-
+    api_key = None
     r = arun(create_task(request, api_key=api_key))
 
     # arun(get_task("d8b048d0-5c54-42ef-a691-3feab31693fe"))
@@ -148,3 +156,5 @@ if __name__ == '__main__':
     # print(request.model_dump_json(exclude_none=True))
 
     # arun(get_task("959d759e-da77-42f9-95c5-c29cccc6a894"))
+
+    # arun(get_valid_token())

@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3-full",
-    version="1.39.5",
+    version="1.39.7",
     packages=[
         "types_boto3_accessanalyzer",
         "types_boto3_account",
@@ -56,6 +56,8 @@ setup(
         "types_boto3_bedrock",
         "types_boto3_bedrock_agent",
         "types_boto3_bedrock_agent_runtime",
+        "types_boto3_bedrock_agentcore",
+        "types_boto3_bedrock_agentcore_control",
         "types_boto3_bedrock_data_automation",
         "types_boto3_bedrock_data_automation_runtime",
         "types_boto3_bedrock_runtime",
@@ -429,7 +431,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for boto3 1.39.5 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for boto3 1.39.7 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -495,6 +497,8 @@ setup(
         "types_boto3_bedrock": ["py.typed", "*.pyi"],
         "types_boto3_bedrock_agent": ["py.typed", "*.pyi"],
         "types_boto3_bedrock_agent_runtime": ["py.typed", "*.pyi"],
+        "types_boto3_bedrock_agentcore": ["py.typed", "*.pyi"],
+        "types_boto3_bedrock_agentcore_control": ["py.typed", "*.pyi"],
         "types_boto3_bedrock_data_automation": ["py.typed", "*.pyi"],
         "types_boto3_bedrock_data_automation_runtime": ["py.typed", "*.pyi"],
         "types_boto3_bedrock_runtime": ["py.typed", "*.pyi"],

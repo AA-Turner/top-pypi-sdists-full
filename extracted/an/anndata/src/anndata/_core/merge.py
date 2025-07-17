@@ -4,44 +4,48 @@ Code for merging/ concatenating AnnData objects.
 
 from __future__ import annotations
 
-import typing
 from collections import OrderedDict
 from collections.abc import Callable, Mapping, MutableSet
 from functools import partial, reduce, singledispatch
 from itertools import repeat
 from operator import and_, or_, sub
-from typing import Literal, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeVar
 from warnings import warn
 
 import numpy as np
 import pandas as pd
+import scipy
 from natsort import natsorted
+from packaging.version import Version
 from scipy import sparse
-from scipy.sparse import spmatrix
 
+from anndata._core.file_backing import to_memory
 from anndata._warnings import ExperimentalFeatureWarning
 
 from ..compat import (
-    CAN_USE_SPARSE_ARRAY,
     AwkArray,
+    CSArray,
+    CSMatrix,
     CupyArray,
     CupyCSRMatrix,
     CupySparseMatrix,
     DaskArray,
-    SpArray,
     _map_cat_to_str,
 )
 from ..utils import asarray, axis_len, warn_once
 from .anndata import AnnData
 from .index import _subset, make_slice
+from .xarray import Dataset2D
 
-if typing.TYPE_CHECKING:
-    from collections.abc import Collection, Iterable, Sequence
+if TYPE_CHECKING:
+    from collections.abc import Collection, Generator, Iterable, Sequence
     from typing import Any
 
     from pandas.api.extensions import ExtensionDtype
 
-    from ..compat import CSArray, CSMatrix
+    from anndata._types import Join_T
+
+    from ..compat import XDataArray, XDataset
 
 T = TypeVar("T")
 
@@ -117,10 +121,16 @@ def equal(a, b) -> bool:
     b = asarray(b)
     if a.ndim == b.ndim == 0:
         return bool(a == b)
-    return np.array_equal(a, b)
+    a_na = (
+        pd.isna(a) if a.dtype.names is None else np.False_
+    )  # pd.isna doesn't work for record arrays
+    b_na = pd.isna(b) if b.dtype.names is None else np.False_
+    return np.array_equal(a_na, b_na) and np.array_equal(a[~a_na], b[~b_na])
 
 
 @equal.register(pd.DataFrame)
+@equal.register(Dataset2D)
+@equal.register(pd.Series)
 def equal_dataframe(a, b) -> bool:
     return a.equals(b)
 
@@ -134,10 +144,9 @@ def equal_dask_array(a, b) -> bool:
         return True
     if a.shape != b.shape:
         return False
-    if isinstance(b, DaskArray):
-        if tokenize(a) == tokenize(b):
-            return True
-    if isinstance(a._meta, spmatrix):
+    if isinstance(b, DaskArray) and tokenize(a) == tokenize(b):
+        return True
+    if isinstance(a._meta, CSMatrix):
         # TODO: Maybe also do this in the other case?
         return da.map_blocks(equal, a, b, drop_axis=(0, 1)).all()
     else:
@@ -162,13 +171,8 @@ def equal_cupyarray(a, b) -> bool:
     return bool(cp.array_equal(a, b, equal_nan=True))
 
 
-@equal.register(pd.Series)
-def equal_series(a, b) -> bool:
-    return a.equals(b)
-
-
-@equal.register(sparse.spmatrix)
-@equal.register(SpArray)
+@equal.register(CSMatrix)
+@equal.register(CSArray)
 @equal.register(CupySparseMatrix)
 def equal_sparse(a, b) -> bool:
     # It's a weird api, don't blame me
@@ -176,11 +180,20 @@ def equal_sparse(a, b) -> bool:
 
     xp = array_api_compat.array_namespace(a.data)
 
-    if isinstance(b, CupySparseMatrix | spmatrix | SpArray):
+    if isinstance(b, CupySparseMatrix | CSMatrix | CSArray):
         if isinstance(a, CupySparseMatrix):
             # Comparison broken for CSC matrices
             # https://github.com/cupy/cupy/issues/7757
             a, b = CupyCSRMatrix(a), CupyCSRMatrix(b)
+        if Version(scipy.__version__) >= Version("1.16.0rc1"):
+            # TODO: https://github.com/scipy/scipy/issues/23068
+            return bool(
+                a.format == b.format
+                and (a.shape == b.shape)
+                and np.all(a.indptr == b.indptr)
+                and np.all(a.indices == b.indices)
+                and np.all((a.data == b.data) | (np.isnan(a.data) & np.isnan(b.data)))
+            )
         comp = a != b
         if isinstance(comp, bool):
             return not comp
@@ -208,12 +221,18 @@ def equal_awkward(a, b) -> bool:
 
 
 def as_sparse(x, *, use_sparse_array: bool = False) -> CSMatrix | CSArray:
-    if not isinstance(x, spmatrix | SpArray):
-        if CAN_USE_SPARSE_ARRAY and use_sparse_array:
-            return sparse.csr_array(x)
-        return sparse.csr_matrix(x)
-    else:
-        return x
+    if not isinstance(x, CSMatrix | CSArray):
+        in_memory_array_class = (
+            sparse.csr_array if use_sparse_array else sparse.csr_matrix
+        )
+        if isinstance(x, DaskArray):
+            x = x.map_blocks(
+                sparse.csr_matrix,
+                meta=sparse.csr_matrix(x._meta),
+                dtype=x.dtype,
+            ).compute()
+        return in_memory_array_class(x)
+    return x
 
 
 def as_cp_sparse(x) -> CupySparseMatrix:
@@ -227,7 +246,9 @@ def as_cp_sparse(x) -> CupySparseMatrix:
         return cpsparse.csr_matrix(x)
 
 
-def unify_dtypes(dfs: Iterable[pd.DataFrame]) -> list[pd.DataFrame]:
+def unify_dtypes(
+    dfs: Iterable[pd.DataFrame | Dataset2D],
+) -> list[pd.DataFrame | Dataset2D]:
     """
     Attempts to unify datatypes from multiple dataframes.
 
@@ -248,11 +269,11 @@ def unify_dtypes(dfs: Iterable[pd.DataFrame]) -> list[pd.DataFrame]:
     else:
         dfs = [df.copy(deep=False) for df in dfs]
 
-    new_dtypes = {}
-    for col in dtypes.keys():
-        target_dtype = try_unifying_dtype(dtypes[col])
-        if target_dtype is not None:
-            new_dtypes[col] = target_dtype
+    new_dtypes = {
+        col: target_dtype
+        for col, dtype in dtypes.items()
+        if (target_dtype := try_unifying_dtype(dtype)) is not None
+    }
 
     for df in dfs:
         for col, dtype in new_dtypes.items():
@@ -262,7 +283,7 @@ def unify_dtypes(dfs: Iterable[pd.DataFrame]) -> list[pd.DataFrame]:
     return dfs
 
 
-def try_unifying_dtype(
+def try_unifying_dtype(  # noqa PLR0911, PLR0912
     col: Sequence[np.dtype | ExtensionDtype],
 ) -> pd.core.dtypes.base.ExtensionDtype | None:
     """
@@ -287,13 +308,39 @@ def try_unifying_dtype(
                 ordered = ordered | dtype.ordered
             elif not pd.isnull(dtype):
                 return None
-        if len(dtypes) > 0 and not ordered:
+        if len(dtypes) > 0:
             categories = reduce(
                 lambda x, y: x.union(y),
-                [dtype.categories for dtype in dtypes if not pd.isnull(dtype)],
+                (dtype.categories for dtype in dtypes if not pd.isnull(dtype)),
             )
 
-            return pd.CategoricalDtype(natsorted(categories), ordered=False)
+            if not ordered:
+                return pd.CategoricalDtype(natsorted(categories), ordered=False)
+            else:  # for xarray Datasets, see https://github.com/pydata/xarray/issues/10247
+                categories_intersection = reduce(
+                    lambda x, y: x.intersection(y),
+                    (
+                        dtype.categories
+                        for dtype in dtypes
+                        if not pd.isnull(dtype) and len(dtype.categories) > 0
+                    ),
+                )
+                if len(categories_intersection) < len(categories):
+                    return object
+                else:
+                    same_orders = all(
+                        dtype.ordered
+                        for dtype in dtypes
+                        if not pd.isnull(dtype) and len(dtype.categories) > 0
+                    )
+                    same_orders &= all(
+                        np.all(categories == dtype.categories)
+                        for dtype in dtypes
+                        if not pd.isnull(dtype) and len(dtype.categories) > 0
+                    )
+                    if same_orders:
+                        return next(iter(dtypes))
+                    return object
     # Boolean
     elif all(pd.api.types.is_bool_dtype(dtype) or dtype is None for dtype in col):
         if any(dtype is None for dtype in col):
@@ -304,7 +351,7 @@ def try_unifying_dtype(
         return None
 
 
-def check_combinable_cols(cols: list[pd.Index], join: Literal["inner", "outer"]):
+def check_combinable_cols(cols: list[pd.Index], join: Join_T):
     """Given columns for a set of dataframes, checks if the can be combined.
 
     Looks for if there are duplicated column names that would show up in the result.
@@ -439,7 +486,7 @@ def _merge_nested(
     vals = [d[k] for d in ds if k in d]
     if len(vals) == 0:
         return MissingVal
-    elif all(isinstance(v, Mapping) for v in vals):
+    elif all(isinstance(v, Mapping) and not isinstance(v, Dataset2D) for v in vals):
         new_map = merge_nested(vals, keys_join, value_join)
         if len(new_map) == 0:
             return MissingVal
@@ -529,7 +576,7 @@ class Reindexer:
     def __call__(self, el, *, axis=1, fill_value=None):
         return self.apply(el, axis=axis, fill_value=fill_value)
 
-    def apply(self, el, *, axis, fill_value=None):
+    def apply(self, el, *, axis, fill_value=None):  # noqa: PLR0911
         """
         Reindex element so el[axis] is aligned to self.new_idx.
 
@@ -537,9 +584,9 @@ class Reindexer:
         """
         if self.no_change and (axis_len(el, axis) == len(self.old_idx)):
             return el
-        if isinstance(el, pd.DataFrame):
-            return self._apply_to_df(el, axis=axis, fill_value=fill_value)
-        elif isinstance(el, spmatrix | SpArray | CupySparseMatrix):
+        if isinstance(el, pd.DataFrame | Dataset2D):
+            return self._apply_to_df_like(el, axis=axis, fill_value=fill_value)
+        elif isinstance(el, CSMatrix | CSArray | CupySparseMatrix):
             return self._apply_to_sparse(el, axis=axis, fill_value=fill_value)
         elif isinstance(el, AwkArray):
             return self._apply_to_awkward(el, axis=axis, fill_value=fill_value)
@@ -550,7 +597,7 @@ class Reindexer:
         else:
             return self._apply_to_array(el, axis=axis, fill_value=fill_value)
 
-    def _apply_to_df(self, el: pd.DataFrame, *, axis, fill_value=None):
+    def _apply_to_df_like(self, el: pd.DataFrame | Dataset2D, *, axis, fill_value=None):
         if fill_value is None:
             fill_value = np.nan
         return el.reindex(self.new_idx, axis=axis, fill_value=fill_value)
@@ -616,9 +663,9 @@ class Reindexer:
             el, indexer, axis=axis, allow_fill=True, fill_value=fill_value
         )
 
-    def _apply_to_sparse(
+    def _apply_to_sparse(  # noqa: PLR0912
         self, el: CSMatrix | CSArray, *, axis, fill_value=None
-    ) -> spmatrix:
+    ) -> CSMatrix:
         if isinstance(el, CupySparseMatrix):
             from cupyx.scipy import sparse
         else:
@@ -640,7 +687,7 @@ class Reindexer:
             shape[axis] = len(self.new_idx)
             shape = tuple(shape)
             if fill_value == 0:
-                if isinstance(el, SpArray):
+                if isinstance(el, CSArray):
                     memory_class = sparse.csr_array
                 else:
                     memory_class = sparse.csr_matrix
@@ -654,7 +701,7 @@ class Reindexer:
             idxmtx_dtype = xp.promote_types(el.dtype, xp.array(fill_value).dtype)
         else:
             idxmtx_dtype = bool
-        if isinstance(el, SpArray):
+        if isinstance(el, CSArray):
             memory_class = sparse.coo_array
         else:
             memory_class = sparse.coo_matrix
@@ -714,9 +761,7 @@ class Reindexer:
         return self.old_idx.get_indexer(self.new_idx)
 
 
-def merge_indices(
-    inds: Iterable[pd.Index], join: Literal["inner", "outer"]
-) -> pd.Index:
+def merge_indices(inds: Iterable[pd.Index], join: Join_T) -> pd.Index:
     if join == "inner":
         return reduce(lambda x, y: x.intersection(y), inds)
     elif join == "outer":
@@ -732,8 +777,8 @@ def default_fill_value(els):
     This is largely due to backwards compat, and might not be the ideal solution.
     """
     if any(
-        isinstance(el, spmatrix | SpArray)
-        or (isinstance(el, DaskArray) and isinstance(el._meta, spmatrix | SpArray))
+        isinstance(el, CSMatrix | CSArray)
+        or (isinstance(el, DaskArray) and isinstance(el._meta, CSMatrix | CSArray))
         for el in els
     ):
         return 0
@@ -769,11 +814,25 @@ def np_bool_to_pd_bool_array(df: pd.DataFrame):
     return df
 
 
-def concat_arrays(arrays, reindexers, axis=0, index=None, fill_value=None):
+def concat_arrays(  # noqa: PLR0911, PLR0912
+    arrays, reindexers, axis=0, index=None, fill_value=None, *, force_lazy: bool = False
+):
+    from anndata.experimental.backed._compat import Dataset2D
+
     arrays = list(arrays)
     if fill_value is None:
         fill_value = default_fill_value(arrays)
 
+    if any(isinstance(a, Dataset2D) for a in arrays):
+        if any(isinstance(a, pd.DataFrame) for a in arrays):
+            arrays = [to_memory(a) if isinstance(a, Dataset2D) else a for a in arrays]
+        elif not all(isinstance(a, Dataset2D) for a in arrays):
+            msg = f"Cannot concatenate a Dataset2D with other array types {[type(a) for a in arrays if not isinstance(a, Dataset2D)]}."
+            raise ValueError(msg)
+        else:
+            return concat_dataset2d_on_annot_axis(
+                arrays, join="outer", force_lazy=force_lazy
+            )
     if any(isinstance(a, pd.DataFrame) for a in arrays):
         # TODO: This is hacky, 0 is a sentinel for outer_concat_aligned_mapping
         if not all(
@@ -784,7 +843,7 @@ def concat_arrays(arrays, reindexers, axis=0, index=None, fill_value=None):
             raise NotImplementedError(msg)
         # TODO: behaviour here should be chosen through a merge strategy
         df = pd.concat(
-            unify_dtypes(f(x) for f, x in zip(reindexers, arrays)),
+            unify_dtypes(f(x) for f, x in zip(reindexers, arrays, strict=True)),
             axis=axis,
             ignore_index=True,
         )
@@ -799,7 +858,9 @@ def concat_arrays(arrays, reindexers, axis=0, index=None, fill_value=None):
             msg = "Cannot concatenate an AwkwardArray with other array types."
             raise NotImplementedError(msg)
 
-        return ak.concatenate([f(a) for f, a in zip(reindexers, arrays)], axis=axis)
+        return ak.concatenate(
+            [f(a) for f, a in zip(reindexers, arrays, strict=True)], axis=axis
+        )
     elif any(isinstance(a, CupySparseMatrix) for a in arrays):
         import cupyx.scipy.sparse as cpsparse
 
@@ -812,7 +873,7 @@ def concat_arrays(arrays, reindexers, axis=0, index=None, fill_value=None):
         return sparse_stack(
             [
                 f(as_cp_sparse(a), axis=1 - axis, fill_value=fill_value)
-                for f, a in zip(reindexers, arrays)
+                for f, a in zip(reindexers, arrays, strict=True)
             ],
             format="csr",
         )
@@ -825,36 +886,43 @@ def concat_arrays(arrays, reindexers, axis=0, index=None, fill_value=None):
         return cp.concatenate(
             [
                 f(cp.asarray(x), fill_value=fill_value, axis=1 - axis)
-                for f, x in zip(reindexers, arrays)
+                for f, x in zip(reindexers, arrays, strict=True)
             ],
             axis=axis,
         )
-    elif any(isinstance(a, spmatrix | SpArray) for a in arrays):
+    elif any(isinstance(a, CSMatrix | CSArray) for a in arrays):
         sparse_stack = (sparse.vstack, sparse.hstack)[axis]
-        use_sparse_array = any(issubclass(type(a), SpArray) for a in arrays)
-        return sparse_stack(
+        use_sparse_array = any(issubclass(type(a), CSArray) for a in arrays)
+        mat = sparse_stack(
             [
                 f(
                     as_sparse(a, use_sparse_array=use_sparse_array),
                     axis=1 - axis,
                     fill_value=fill_value,
                 )
-                for f, a in zip(reindexers, arrays)
+                for f, a in zip(reindexers, arrays, strict=True)
             ],
             format="csr",
         )
+        return mat
     else:
         return np.concatenate(
             [
                 f(x, fill_value=fill_value, axis=1 - axis)
-                for f, x in zip(reindexers, arrays)
+                for f, x in zip(reindexers, arrays, strict=True)
             ],
             axis=axis,
         )
 
 
 def inner_concat_aligned_mapping(
-    mappings, *, reindexers=None, index=None, axis=0, concat_axis=None
+    mappings,
+    *,
+    reindexers=None,
+    index=None,
+    axis=0,
+    concat_axis=None,
+    force_lazy: bool = False,
 ):
     if concat_axis is None:
         concat_axis = axis
@@ -869,7 +937,9 @@ def inner_concat_aligned_mapping(
         else:
             cur_reindexers = reindexers
 
-        result[k] = concat_arrays(els, cur_reindexers, index=index, axis=concat_axis)
+        result[k] = concat_arrays(
+            els, cur_reindexers, index=index, axis=concat_axis, force_lazy=force_lazy
+        )
     return result
 
 
@@ -908,7 +978,7 @@ def gen_outer_reindexers(els, shapes, new_index: pd.Index, *, axis=0):
             (lambda x: x)
             if not_missing(el)
             else (lambda _, shape=shape: pd.DataFrame(index=range(shape)))
-            for el, shape in zip(els, shapes)
+            for el, shape in zip(els, shapes, strict=True)
         ]
     elif any(isinstance(el, AwkArray) for el in els if not_missing(el)):
         import awkward as ak
@@ -965,7 +1035,14 @@ def missing_element(
 
 
 def outer_concat_aligned_mapping(
-    mappings, *, reindexers=None, index=None, axis=0, concat_axis=None, fill_value=None
+    mappings,
+    *,
+    reindexers=None,
+    index=None,
+    axis=0,
+    concat_axis=None,
+    fill_value=None,
+    force_lazy: bool = False,
 ):
     if concat_axis is None:
         concat_axis = axis
@@ -1001,12 +1078,13 @@ def outer_concat_aligned_mapping(
                     fill_value=fill_value,
                     off_axis_size=off_axis_size,
                 )
-                for el, n in zip(els, ns)
+                for el, n in zip(els, ns, strict=True)
             ],
             cur_reindexers,
             axis=concat_axis,
             index=index,
             fill_value=fill_value,
+            force_lazy=force_lazy,
         )
     return result
 
@@ -1015,14 +1093,15 @@ def concat_pairwise_mapping(
     mappings: Collection[Mapping], shapes: Collection[int], join_keys=intersect_keys
 ):
     result = {}
-    if any(any(isinstance(v, SpArray) for v in m.values()) for m in mappings):
+    if any(any(isinstance(v, CSArray) for v in m.values()) for m in mappings):
         sparse_class = sparse.csr_array
     else:
         sparse_class = sparse.csr_matrix
 
     for k in join_keys(mappings):
         els = [
-            m.get(k, sparse_class((s, s), dtype=bool)) for m, s in zip(mappings, shapes)
+            m.get(k, sparse_class((s, s), dtype=bool))
+            for m, s in zip(mappings, shapes, strict=True)
         ]
         if all(isinstance(el, CupySparseMatrix | CupyArray) for el in els):
             result[k] = _cp_block_diag(els, format="csr")
@@ -1051,7 +1130,7 @@ def merge_outer(mappings, batch_keys, *, join_index="-", merge=merge_unique):
     all_keys = union_keys(mappings)
     out = merge(mappings)
     for key in all_keys.difference(out.keys()):
-        for b, m in zip(batch_keys, mappings):
+        for b, m in zip(batch_keys, mappings, strict=True):
             val = m.get(key, None)
             if val is not None:
                 out[f"{key}{join_index}{b}"] = val
@@ -1072,7 +1151,11 @@ def _resolve_axis(
 def axis_indices(adata: AnnData, axis: Literal["obs", 0, "var", 1]) -> pd.Index:
     """Helper function to get adata.{dim}_names."""
     _, axis_name = _resolve_axis(axis)
-    return getattr(adata, f"{axis_name}_names")
+    attr = getattr(adata, axis_name)
+    if isinstance(attr, Dataset2D):
+        return attr.true_index
+    else:
+        return attr.index
 
 
 # TODO: Resolve https://github.com/scverse/anndata/issues/678 and remove this function
@@ -1099,11 +1182,228 @@ def concat_Xs(adatas, reindexers, axis, fill_value):
         return concat_arrays(Xs, reindexers, axis=axis, fill_value=fill_value)
 
 
-def concat(
-    adatas: Collection[AnnData] | typing.Mapping[str, AnnData],
+def make_dask_col_from_extension_dtype(
+    col: XDataArray, *, use_only_object_dtype: bool = False
+) -> DaskArray:
+    """
+    Creates dask arrays from :class:`pandas.api.extensions.ExtensionArray` dtype :class:`xarray.DataArray`s.
+
+    Parameters
+    ----------
+    col
+        The columns to be converted
+    use_only_object_dtype
+        Whether or not to cast all :class:`pandas.api.extensions.ExtensionArray` dtypes to `object` type, by default False
+
+    Returns
+    -------
+    A :class:`dask.Array`: representation of the column.
+    """
+    import dask.array as da
+
+    from anndata._io.specs.lazy_methods import (
+        compute_chunk_layout_for_axis_size,
+        get_chunksize,
+        maybe_open_h5,
+    )
+    from anndata.compat import XDataArray
+    from anndata.compat import xarray as xr
+    from anndata.experimental import read_elem_lazy
+
+    base_path_or_zarr_group = col.attrs.get("base_path_or_zarr_group")
+    elem_name = col.attrs.get("elem_name")
+    if (
+        base_path_or_zarr_group is not None and elem_name is not None
+    ):  # lazy, backed by store
+        dims = col.dims
+        coords = col.coords.copy()
+        with maybe_open_h5(base_path_or_zarr_group, elem_name) as f:
+            maybe_chunk_size = get_chunksize(read_elem_lazy(f))
+            chunk_size = (
+                compute_chunk_layout_for_axis_size(
+                    1000 if maybe_chunk_size is None else maybe_chunk_size[0],
+                    col.shape[0],
+                ),
+            )
+
+        def get_chunk(block_info=None):
+            # reopening is important to get around h5py's unserializable lock in processes
+            with maybe_open_h5(base_path_or_zarr_group, elem_name) as f:
+                v = read_elem_lazy(f)
+                variable = xr.Variable(
+                    data=xr.core.indexing.LazilyIndexedArray(v), dims=dims
+                )
+                data_array = XDataArray(
+                    variable,
+                    coords=coords,
+                    dims=dims,
+                )
+                idx = tuple(
+                    slice(start, stop)
+                    for start, stop in block_info[None]["array-location"]
+                )
+                chunk = np.array(data_array.data[idx])
+            return chunk
+
+        if col.dtype == "category" or col.dtype == "string" or use_only_object_dtype:  # noqa PLR1714
+            dtype = "object"
+        else:
+            dtype = col.dtype.numpy_dtype
+        return da.map_blocks(
+            get_chunk,
+            chunks=chunk_size,
+            meta=np.array([], dtype=dtype),
+            dtype=dtype,
+        )
+
+    return da.from_array(col.values, chunks=-1)  # in-memory
+
+
+def make_xarray_extension_dtypes_dask(
+    annotations: Iterable[Dataset2D], *, use_only_object_dtype: bool = False
+) -> Generator[XDataset, None, None]:
+    """
+    Creates a generator of Dataset2D objects with dask arrays in place of :class:`pandas.api.extensions.ExtensionArray` dtype columns.
+
+    Parameters
+    ----------
+    annotations
+        The datasets to be altered
+    use_only_object_dtype
+        Whether or not to cast all :class:`pandas.api.extensions.ExtensionArray` dtypes to `object` type, by default False
+
+    Yields
+    ------
+    An altered dataset.
+    """
+    for a in annotations:
+        extension_cols = {
+            col for col in a.columns if pd.api.types.is_extension_array_dtype(a[col])
+        }
+
+        yield a.copy(
+            data={
+                name: (
+                    make_dask_col_from_extension_dtype(
+                        col, use_only_object_dtype=use_only_object_dtype
+                    )
+                    if name in extension_cols
+                    else col
+                )
+                for name, col in a._items()
+            }
+        )
+
+
+DS_CONCAT_DUMMY_INDEX_NAME = "concat_index"
+
+
+def concat_dataset2d_on_annot_axis(
+    annotations: Iterable[Dataset2D],
+    join: Join_T,
+    *,
+    force_lazy: bool,
+    concat_indices: pd.Index | None = None,
+) -> Dataset2D:
+    """Create a concatenate dataset from a list of :class:`~anndata.experimental.backed.Dataset2D` objects.
+    The goal of this function is to mimic `pd.concat(..., ignore_index=True)` so has some complicated logic
+    for handling the "index" to ensure (a) nothing is loaded into memory and (b) the true index is always tracked.
+
+    Parameters
+    ----------
+    annotations
+        The :class:`~anndata.experimental.backed.Dataset2D` objects to be concatenated.
+    join
+        Type of join operation
+    force_lazy
+        Whether to lazily concatenate elements using dask even when eager concatenation is possible.
+    concat_indices
+        Already calculated indices to be used as the index on the concatenated object.
+
+    Returns
+    -------
+    Concatenated :class:`~anndata.experimental.backed.Dataset2D`
+    """
+    from anndata._core.xarray import Dataset2D
+    from anndata._io.specs.lazy_methods import DUMMY_RANGE_INDEX_KEY
+    from anndata.compat import xarray as xr
+
+    annotations_re_indexed = []
+    have_backed = any(a.is_backed for a in annotations)
+    if have_backed or force_lazy:
+        annotations = make_xarray_extension_dtypes_dask(annotations)
+    else:
+        annotations = unify_dtypes(annotations)
+    for a in annotations:
+        old_key = a.index_dim
+        is_fake_index = old_key != a.true_index_dim
+        # First create a dummy index
+        a.ds.coords[DS_CONCAT_DUMMY_INDEX_NAME] = (
+            old_key,
+            pd.RangeIndex(a.shape[0]),
+        )
+        # Set all the dimensions to this new dummy index
+        ds_swapped = a.ds.swap_dims({old_key: DS_CONCAT_DUMMY_INDEX_NAME})
+        # Move the old coordinate into a variable
+        old_coord = ds_swapped.coords[old_key]
+        del ds_swapped.coords[old_key]
+        ds_swapped[old_key] = old_coord
+        a = Dataset2D(ds_swapped)
+        if not is_fake_index:
+            a.true_index_dim = old_key
+        annotations_re_indexed.append(a)
+    # Concat along the dummy index
+    ds_concat = xr.concat(
+        [a.ds for a in annotations_re_indexed],
+        join=join,
+        dim=DS_CONCAT_DUMMY_INDEX_NAME,
+    )
+    ds_concat.attrs.pop("indexing_key", None)
+    # Wrapping allows us to use the Dataset2D methods
+    # directly for setting certain attrs/coords without duplicating here.
+    ds_concat_2d = Dataset2D(ds_concat)
+    ds_concat_2d.is_backed = have_backed
+    if concat_indices is not None:
+        concat_indices.name = DS_CONCAT_DUMMY_INDEX_NAME
+        ds_concat_2d.index = concat_indices
+        ds_concat = ds_concat_2d.ds
+    else:
+        ds_concat.coords[DS_CONCAT_DUMMY_INDEX_NAME] = pd.RangeIndex(
+            ds_concat.coords[DS_CONCAT_DUMMY_INDEX_NAME].shape[0]
+        )
+    # Drop any lingering dimensions (swap doesn't delete)
+    ds_concat = ds_concat.drop_dims(
+        d for d in ds_concat.dims if d != DS_CONCAT_DUMMY_INDEX_NAME
+    )
+    # Create a new true index and then delete the columns resulting from the concatenation for each index.
+    # This includes the dummy column (which is neither a dimension nor a true indexing column)
+    if concat_indices is None:
+        index = xr.concat(
+            [a.true_xr_index for a in annotations_re_indexed],
+            dim=DS_CONCAT_DUMMY_INDEX_NAME,
+        )
+        # prevent duplicate values
+        index.coords[DS_CONCAT_DUMMY_INDEX_NAME] = ds_concat.coords[
+            DS_CONCAT_DUMMY_INDEX_NAME
+        ]
+        ds_concat.coords[DS_CONCAT_DUMMY_INDEX_NAME] = index
+    for key in {
+        true_index
+        for a in annotations_re_indexed
+        if (true_index := a.true_index_dim) != a.index_dim
+    }:
+        del ds_concat[key]
+    if DUMMY_RANGE_INDEX_KEY in ds_concat:
+        del ds_concat[DUMMY_RANGE_INDEX_KEY]
+    ds_concat_2d = Dataset2D(ds_concat)
+    return ds_concat_2d
+
+
+def concat(  # noqa: PLR0912, PLR0913, PLR0915
+    adatas: Collection[AnnData] | Mapping[str, AnnData],
     *,
     axis: Literal["obs", 0, "var", 1] = "obs",
-    join: Literal["inner", "outer"] = "inner",
+    join: Join_T = "inner",
     merge: StrategiesLiteral | Callable | None = None,
     uns_merge: StrategiesLiteral | Callable | None = None,
     label: str | None = None,
@@ -1111,6 +1411,7 @@ def concat(
     index_unique: str | None = None,
     fill_value: Any | None = None,
     pairwise: bool = False,
+    force_lazy: bool = False,
 ) -> AnnData:
     """Concatenates AnnData objects along an axis.
 
@@ -1136,6 +1437,8 @@ def concat(
         * `"unique"`: Elements for which there is only one possible value.
         * `"first"`: The first element seen at each from each position.
         * `"only"`: Elements that show up in only one of the objects.
+
+        For :class:`xarray.Dataset` objects, we use their :func:`xarray.merge` with `override` to stay lazy.
     uns_merge
         How the elements of `.uns` are selected. Uses the same set of strategies as
         the `merge` argument, except applied recursively.
@@ -1157,6 +1460,9 @@ def concat(
     pairwise
         Whether pairwise elements along the concatenated dimension should be included.
         This is False by default, since the resulting arrays are often not meaningful.
+    force_lazy
+        Whether to lazily concatenate elements using dask even when eager concatenation is possible.
+        At the moment, this only affects obs/var and elements of obsm/varm that are xarray Datasets.
 
     Notes
     -----
@@ -1300,6 +1606,10 @@ def concat(
     >>> dict(ad.concat([a, b, c], uns_merge="first").uns)
     {'a': 1, 'b': 2, 'c': {'c.a': 3, 'c.b': 4, 'c.c': 5}}
     """
+
+    from anndata._core.xarray import Dataset2D
+    from anndata.compat import xarray as xr
+
     # Argument normalization
     merge = resolve_merge_strategy(merge)
     uns_merge = resolve_merge_strategy(uns_merge)
@@ -1346,19 +1656,57 @@ def concat(
 
     # Annotation for concatenation axis
     check_combinable_cols([getattr(a, axis_name).columns for a in adatas], join=join)
-    concat_annot = pd.concat(
-        unify_dtypes(getattr(a, axis_name) for a in adatas),
-        join=join,
-        ignore_index=True,
+    annotations = [getattr(a, axis_name) for a in adatas]
+    are_any_annotations_dataframes = any(
+        isinstance(a, pd.DataFrame) for a in annotations
     )
-    concat_annot.index = concat_indices
+    if are_any_annotations_dataframes:
+        annotations_in_memory = (
+            to_memory(a) if isinstance(a, Dataset2D) else a for a in annotations
+        )
+        concat_annot = pd.concat(
+            unify_dtypes(annotations_in_memory),
+            join=join,
+            ignore_index=True,
+        )
+        concat_annot.index = concat_indices
+    else:
+        concat_annot = concat_dataset2d_on_annot_axis(
+            annotations,
+            join,
+            force_lazy=force_lazy,
+            concat_indices=concat_indices,
+        )
     if label is not None:
         concat_annot[label] = label_col
 
     # Annotation for other axis
-    alt_annot = merge_dataframes(
-        [getattr(a, alt_axis_name) for a in adatas], alt_indices, merge
+    alt_annotations = [getattr(a, alt_axis_name) for a in adatas]
+    are_any_alt_annotations_dataframes = any(
+        isinstance(a, pd.DataFrame) for a in alt_annotations
     )
+    if are_any_alt_annotations_dataframes:
+        alt_annotations_in_memory = [
+            to_memory(a) if isinstance(a, Dataset2D) else a for a in alt_annotations
+        ]
+        alt_annot = merge_dataframes(alt_annotations_in_memory, alt_indices, merge)
+    else:
+        # TODO: figure out mapping of our merge to theirs instead of just taking first, although this appears to be
+        # the only "lazy" setting so I'm not sure we really want that.
+        # Because of xarray's merge upcasting, it's safest to simply assume that all dtypes are objects.
+        annotations_with_only_dask = list(
+            make_xarray_extension_dtypes_dask(
+                alt_annotations, use_only_object_dtype=True
+            )
+        )
+        annotations_with_only_dask = [
+            a.ds.rename({a.true_index_dim: "merge_index"})
+            for a in annotations_with_only_dask
+        ]
+        alt_annot = Dataset2D(
+            xr.merge(annotations_with_only_dask, join=join, compat="override")
+        )
+        alt_annot.true_index_dim = "merge_index"
 
     X = concat_Xs(adatas, reindexers, axis=axis, fill_value=fill_value)
 
@@ -1382,6 +1730,7 @@ def concat(
         axis=axis,
         concat_axis=0,
         index=concat_indices,
+        force_lazy=force_lazy,
     )
     if pairwise:
         concat_pairwise = concat_pairwise_mapping(
@@ -1396,7 +1745,7 @@ def concat(
     alt_mapping = merge(
         [
             {k: r(v, axis=0) for k, v in getattr(a, f"{alt_axis_name}m").items()}
-            for r, a in zip(reindexers, adatas)
+            for r, a in zip(reindexers, adatas, strict=True)
         ],
     )
     alt_pairwise = merge(
@@ -1405,7 +1754,7 @@ def concat(
                 k: r(r(v, axis=0), axis=1)
                 for k, v in getattr(a, f"{alt_axis_name}p").items()
             }
-            for r, a in zip(reindexers, adatas)
+            for r, a in zip(reindexers, adatas, strict=True)
         ]
     )
     uns = uns_merge([a.uns for a in adatas])
@@ -1431,11 +1780,11 @@ def concat(
             axis=axis,
         )
     elif any(has_raw):
-        warn(
+        msg = (
             "Only some AnnData objects have `.raw` attribute, "
-            "not concatenating `.raw` attributes.",
-            UserWarning,
+            "not concatenating `.raw` attributes."
         )
+        warn(msg, UserWarning, stacklevel=2)
     return AnnData(
         **{
             "X": X,

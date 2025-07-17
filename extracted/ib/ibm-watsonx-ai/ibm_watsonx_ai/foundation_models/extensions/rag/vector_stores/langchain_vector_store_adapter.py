@@ -441,12 +441,16 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
         docs = self._as_langchain_documents(content)
         if docs:
             # Take only unique ID document. Get two lists, one with ids, one with documents
+            # For some documents, not all chars can be encoded properly.
+            # In such cases, replace invalid chars by question marks, i.e. setting errors="replace"
             return tuple(
                 map(  # type: ignore[return-value]
                     list,
                     zip(
                         *{
-                            hashlib.sha256(str(doc).encode()).hexdigest(): doc
+                            hashlib.sha256(
+                                str(doc).encode(errors="replace")
+                            ).hexdigest(): doc
                             for doc in docs
                         }.items()
                     ),

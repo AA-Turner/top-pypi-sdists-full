@@ -5,7 +5,6 @@ from coredis.typing import (
     AnyStr,
     ResponsePrimitive,
     Sequence,
-    ValueT,
 )
 
 
@@ -19,7 +18,6 @@ class ACLLogCallback(
     def transform(
         self,
         response: list[Sequence[ResponsePrimitive] | None],
-        **options: ValueT | None,
     ) -> tuple[dict[AnyStr, ResponsePrimitive] | None, ...]:
         return tuple(
             DictCallback[AnyStr, ResponsePrimitive]()(r, version=self.version)
@@ -30,6 +28,5 @@ class ACLLogCallback(
     def transform_3(
         self,
         response: list[dict[AnyStr, ResponsePrimitive] | None],
-        **options: ValueT | None,
     ) -> tuple[dict[AnyStr, ResponsePrimitive] | None, ...]:
         return tuple(response)

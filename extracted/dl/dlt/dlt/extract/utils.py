@@ -73,9 +73,9 @@ def get_data_item_format(items: TDataItems) -> TDataItemFormat:
     """
 
     # if incoming item is hints meta, check if item format is forced
-    from dlt.extract.hints import SqlModel
+    from dlt.destinations.dataset.relation import ReadableDBAPIRelation
 
-    if isinstance(items, SqlModel):
+    if isinstance(items, ReadableDBAPIRelation):
         return "model"
 
     if not pyarrow and not pandas:

@@ -45,11 +45,6 @@ def sizes(request):
     return request.param
 
 
-@pytest.fixture(params=["h5ad", "zarr"])
-def diskfmt(request):
-    return request.param
-
-
 @pytest.fixture
 def adata(sizes):
     import dask.array as da
@@ -135,6 +130,8 @@ def test_dask_distributed_write(
                 ad.io.write_elem(g, "", orig)
             return
         ad.io.write_elem(g, "", orig)
+        # TODO: See https://github.com/zarr-developers/zarr-python/issues/2716
+        g = as_group(pth, mode="r")
         curr = ad.io.read_elem(g)
 
     with pytest.raises(AssertionError):

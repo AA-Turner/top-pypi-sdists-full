@@ -1,5 +1,6 @@
 import itertools
-from typing import Any, Generator, List, Optional, Tuple, Union
+from collections.abc import Generator
+from typing import Any, Optional, Union
 
 from Crypto.Hash import keccak
 from eth_utils import decode_hex
@@ -33,7 +34,7 @@ class Contract:
         *,
         bytecode: Union[str, bytes] = "",
         name: str = None,
-        abi: Optional[Union[dict, List[dict]]] = None,
+        abi: Optional[Union[dict, list[dict]]] = None,
         user_resource_percent: int = 100,
         origin_energy_limit: int = 1,
         origin_address: str = None,
@@ -203,7 +204,7 @@ class ContractEvents:
         try:
             return self[event]
         except KeyError:
-            raise AttributeError(f"contract has no method named '{event}'")
+            raise AttributeError(f"contract has no method named '{event}'") from None
 
     def __dir__(self):
         return [event["name"] for event in self._contract.abi if event.get("type", "").lower() == "event"]
@@ -221,7 +222,7 @@ class ContractEvent:
     def process_receipt(self, txn_receipt: dict) -> Generator:
         return self.parse_logs(txn_receipt["log"])
 
-    def parse_logs(self, logs: List[dict]):
+    def parse_logs(self, logs: list[dict]):
         for log in logs:
             if log["address"] != self._contract.contract_address:
                 continue
@@ -274,7 +275,7 @@ class ContractFunctions:
         try:
             return self[method]
         except KeyError:
-            raise AttributeError(f"contract has no method named '{method}'")
+            raise AttributeError(f"contract has no method named '{method}'") from None
 
     def __dir__(self):
         return [method["name"] for method in self._contract.abi if method.get("type", "").lower() == "function"]
@@ -295,8 +296,7 @@ class ContractConstructor:
 
     def __str__(self):
         types = ", ".join(arg.get("type", "") + " " + arg.get("name", "") for arg in self.inputs)
-        ret = f"construct({types})"
-        return ret
+        return f"construct({types})"
 
     @property
     def input_type(self) -> str:
@@ -324,7 +324,7 @@ class ContractConstructor:
                 try:
                     args.append(kwargs[arg["name"]])
                 except KeyError:
-                    raise TypeError("missing argument '{}'".format(arg["name"]))
+                    raise TypeError("missing argument '{}'".format(arg["name"])) from None
             parameter = trx_abi.encode_single(self.input_type, args).hex()
 
         return parameter
@@ -406,7 +406,7 @@ class ContractMethod:
                 try:
                     args.append(kwargs[arg["name"]])
                 except KeyError:
-                    raise TypeError("missing argument '{}'".format(arg["name"]))
+                    raise TypeError("missing argument '{}'".format(arg["name"])) from None
             parameter = trx_abi.encode_single(self.input_type, args).hex()
         else:
             raise TypeError(f"wrong number of arguments, require {len(self.inputs)}")
@@ -424,19 +424,18 @@ class ContractMethod:
 
             return self.parse_output(ret)
 
-        else:
-            return self._client.trx._build_transaction(
-                "TriggerSmartContract",
-                {
-                    "owner_address": to_hex_address(self._owner_address),
-                    "contract_address": to_hex_address(self._contract.contract_address),
-                    "data": self.function_signature_hash + parameter,
-                    "call_token_value": self.call_token_value,
-                    "call_value": self.call_value,
-                    "token_id": self.call_token_id,
-                },
-                method=self,
-            )
+        return self._client.trx._build_transaction(
+            "TriggerSmartContract",
+            {
+                "owner_address": to_hex_address(self._owner_address),
+                "contract_address": to_hex_address(self._contract.contract_address),
+                "data": self.function_signature_hash + parameter,
+                "call_token_value": self.call_token_value,
+                "call_value": self.call_value,
+                "token_id": self.call_token_id,
+            },
+            method=self,
+        )
 
     @property
     def name(self) -> str:
@@ -456,8 +455,7 @@ class ContractMethod:
             if "components" not in entry:
                 raise ValueError("ABIEncoderV2 used, ABI should be set by hand")
             return "({}){}".format(",".join(self.__format_json_abi_type_entry(arg) for arg in entry["components"]), surfix)
-        else:
-            return entry.get("type", "")
+        return entry.get("type", "")
 
     @property
     def function_signature(self) -> str:
@@ -548,13 +546,14 @@ class ShieldedTRC20:
         self,
         zkey: dict,
         notes: Union[list, dict],
-        *to: Union[Tuple[str, int], Tuple[str, int, str]],
+        *to: Union[tuple[str, int], tuple[str, int, str]],
     ) -> "tronpy.tron.TransactionBuilder":
         """Transfer from z-address to z-address."""
         if isinstance(notes, (dict,)):
             notes = [notes]
 
-        assert 1 <= len(notes) <= 2
+        if not 1 <= len(notes) <= 2:
+            raise ValueError("transfer must have 1 or 2 notes")
 
         spends = []
         spend_amount = 0
@@ -572,10 +571,7 @@ class ShieldedTRC20:
             addr = recv[0]
             amount = recv[1]
             receive_amount += amount
-            if len(recv) == 3:
-                memo = recv[2]
-            else:
-                memo = ""
+            memo = recv[2] if len(recv) == 3 else ""
 
             rcm = self.get_rcm()
 
@@ -607,7 +603,7 @@ class ShieldedTRC20:
         )
 
     def burn(
-        self, zkey: dict, note: dict, *to: Union[Tuple[str, int], Tuple[str, int, str]]
+        self, zkey: dict, note: dict, *to: Union[tuple[str, int], tuple[str, int, str]]
     ) -> "tronpy.tron.TransactionBuilder":
         """Burn, transfer from z-address to T-address."""
         spends = []
@@ -626,10 +622,7 @@ class ShieldedTRC20:
         for receive in to:
             addr = receive[0]
             amount = receive[1]
-            if len(receive) == 3:
-                memo = receive[2]
-            else:
-                memo = ""
+            memo = receive[2] if len(receive) == 3 else ""
 
             if addr.startswith("ztron1"):
                 change_amount += amount
@@ -721,7 +714,7 @@ class ShieldedTRC20:
         return ret.get("noteTxs", [])
 
     # (root, path)
-    def get_path(self, position: int = 0) -> Tuple[str, str]:
+    def get_path(self, position: int = 0) -> tuple[str, str]:
         root, path = self.shielded.functions.getPath(position)
         root = root.hex()
         path = "".join(p.hex() for p in path)

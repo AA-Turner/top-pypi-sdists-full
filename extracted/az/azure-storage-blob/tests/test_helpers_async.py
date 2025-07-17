@@ -3,12 +3,60 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import asyncio
+import aiohttp
+from collections import deque
+from datetime import datetime, timezone
 from io import IOBase, UnsupportedOperation
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+from unittest.mock import Mock, AsyncMock
 
 from azure.core.pipeline.transport import AioHttpTransportResponse, AsyncHttpTransport
 from azure.core.rest import HttpRequest
+from azure.storage.blob._serialize import get_api_version
 from aiohttp import ClientResponse
+from aiohttp.streams import StreamReader
+from aiohttp.client_proto import ResponseHandler
+
+
+def _build_base_file_share_headers(bearer_token_string: str, content_length: int = 0) -> Dict[str, Any]:
+    return {
+        'Authorization': bearer_token_string,
+        'Content-Length': str(content_length),
+        'x-ms-date': datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        'x-ms-version': get_api_version({}),
+        'x-ms-file-request-intent': 'backup',
+    }
+
+
+async def _create_file_share_oauth(
+    share_name: str,
+    file_name: str,
+    bearer_token_string: str,
+    storage_account_name: str,
+    data: bytes
+) -> Tuple[str, str]:
+    base_url = f"https://{storage_account_name}.file.core.windows.net/{share_name}"
+
+    async with aiohttp.ClientSession() as session:
+        # Creates file share
+        await session.put(
+            url=base_url,
+            headers=_build_base_file_share_headers(bearer_token_string),
+            params={'restype': 'share'}
+        )
+
+        # Creates the file itself
+        headers = _build_base_file_share_headers(bearer_token_string)
+        headers.update({'x-ms-content-length': '1024', 'x-ms-type': 'file'})
+        await session.put(url=base_url + "/" + file_name, headers=headers)
+
+        # Upload the supplied data to the file
+        headers = _build_base_file_share_headers(bearer_token_string, 1024)
+        headers.update({'x-ms-range': 'bytes=0-1023', 'x-ms-write': 'update'})
+        await session.put(url=base_url + "/" + file_name, headers=headers, data=data, params={'comp': 'range'})
+
+    return file_name, base_url
 
 
 class ProgressTracker:
@@ -82,11 +130,15 @@ class MockAioHttpClientResponse(ClientResponse):
         self._loop = None
         self.status = status
         self.reason = reason
+        self.content = StreamReader(ResponseHandler(asyncio.get_event_loop()), 65535)
+        self.content.total_bytes = len(body_bytes)
+        self.content._buffer = deque([body_bytes])
+        self.content._eof = True
 
 
-class MockStorageTransport(AsyncHttpTransport):
+class MockLegacyTransport(AsyncHttpTransport):
     """
-    This transport returns legacy http response objects from azure core and is 
+    This transport returns legacy http response objects from azure core and is
     intended only to test our backwards compatibility support.
     """
     async def send(self, request: HttpRequest, **kwargs: Any) -> AioHttpTransportResponse:
@@ -155,7 +207,7 @@ class MockStorageTransport(AsyncHttpTransport):
                 decompress=False
             )
         else:
-            raise ValueError("The request is not accepted as part of MockStorageTransport.")
+            raise ValueError("The request is not accepted as part of MockLegacyTransport.")
 
         await rest_response.load_body()
         return rest_response

@@ -1,9 +1,7 @@
 import unittest
 import glob
 import os
-import fs
-import fs.copy
-import fs.path
+import fontTools.misc.filesystem as fs
 from fontTools.ufoLib import UFOReader, UFOFileStructure
 from defcon import Font, Glyph, Color, Component, Anchor, Guideline
 from defcon.test.testTools import (
@@ -189,7 +187,7 @@ class LayerTest(unittest.TestCase):
                         # make a simple change to a glyph
                         fileSystem = openTestFontAsFileSystem(font.path)
                         g = font.layers[None]["A"]
-                        path = fs.path.join("glyphs", "A_.glif")
+                        path = "glyphs/A_.glif"
                         t = fileSystem.readbytes(path)
                         t += b"<!-- test -->"
                         fileSystem.writebytes(path, t)
@@ -208,13 +206,13 @@ class LayerTest(unittest.TestCase):
 
                     # add a glyph
                     fileSystem = openTestFontAsFileSystem(font.path)
-                    path = fs.path.join("glyphs", "A_.glif")
+                    path = "glyphs/A_.glif"
                     t = fileSystem.readbytes(path)
                     t = t.replace(b'<glyph name="A" format="1">',
                                   b'<glyph name="XYZ" format="1">')
-                    path = fs.path.join("glyphs", "XYZ.glif")
+                    path = "glyphs/XYZ.glif"
                     fileSystem.writebytes(path, t)
-                    path = fs.path.join("glyphs", "contents.plist")
+                    path = "glyphs/contents.plist"
                     with fileSystem.open(path, "rb") as f:
                         plist = load(f)
                     savePlist = dict(plist)
@@ -231,10 +229,10 @@ class LayerTest(unittest.TestCase):
                 with Font(path) as font:
                     g = font["XYZ"]
                     fileSystem = openTestFontAsFileSystem(font.path)
-                    path = fs.path.join("glyphs", "contents.plist")
+                    path = "glyphs/contents.plist"
                     with fileSystem.open(path, "wb") as f:
                         dump(savePlist, f)
-                    path = fs.path.join("glyphs", "XYZ.glif")
+                    path = "glyphs/XYZ.glif"
                     fileSystem.remove(path)
                     closeTestFontAsFileSystem(fileSystem, font.path)
                     with UFOReader(font.path) as reader:

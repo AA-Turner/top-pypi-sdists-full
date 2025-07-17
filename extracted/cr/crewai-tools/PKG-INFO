@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.51.1
+Version: 0.55.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -8,7 +8,7 @@ Project-URL: Documentation, https://docs.crewai.com
 Author-email: João Moura <joaomdmoura@gmail.com>
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
-Requires-Dist: chromadb>=0.4.22
+Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
 Requires-Dist: crewai>=0.140.0
 Requires-Dist: docker>=7.1.0

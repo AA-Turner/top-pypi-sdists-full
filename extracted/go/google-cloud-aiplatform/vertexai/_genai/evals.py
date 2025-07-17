@@ -205,6 +205,13 @@ def _PointwiseMetricInstance_to_vertex(
     if getv(from_object, ["json_instance"]) is not None:
         setv(to_object, ["jsonInstance"], getv(from_object, ["json_instance"]))
 
+    if getv(from_object, ["content_map_instance"]) is not None:
+        setv(
+            to_object,
+            ["contentMapInstance"],
+            getv(from_object, ["content_map_instance"]),
+        )
+
     return to_object
 
 
@@ -649,6 +656,13 @@ def _EvaluateInstancesRequestParameters_to_vertex(
             ),
         )
 
+    if getv(from_object, ["rubric_based_metric_input"]) is not None:
+        setv(
+            to_object,
+            ["rubricBasedMetricInput"],
+            getv(from_object, ["rubric_based_metric_input"]),
+        )
+
     if getv(from_object, ["autorater_config"]) is not None:
         setv(
             to_object,
@@ -664,11 +678,77 @@ def _EvaluateInstancesRequestParameters_to_vertex(
     return to_object
 
 
+def _RubricGenerationSpec_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["prompt_template"]) is not None:
+        setv(
+            to_object,
+            ["promptTemplate"],
+            getv(from_object, ["prompt_template"]),
+        )
+
+    if getv(from_object, ["generator_model_config"]) is not None:
+        setv(
+            to_object,
+            ["model_config"],
+            getv(from_object, ["generator_model_config"]),
+        )
+
+    if getv(from_object, ["rubric_content_type"]) is not None:
+        setv(
+            to_object,
+            ["rubricContentType"],
+            getv(from_object, ["rubric_content_type"]),
+        )
+
+    if getv(from_object, ["rubric_type_ontology"]) is not None:
+        setv(
+            to_object,
+            ["rubricTypeOntology"],
+            getv(from_object, ["rubric_type_ontology"]),
+        )
+
+    return to_object
+
+
+def _GenerateInstanceRubricsRequest_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["contents"]) is not None:
+        setv(to_object, ["contents"], getv(from_object, ["contents"]))
+
+    if getv(from_object, ["rubric_generation_spec"]) is not None:
+        setv(
+            to_object,
+            ["rubricGenerationSpec"],
+            _RubricGenerationSpec_to_vertex(
+                getv(from_object, ["rubric_generation_spec"]), to_object
+            ),
+        )
+
+    if getv(from_object, ["config"]) is not None:
+        setv(to_object, ["config"], getv(from_object, ["config"]))
+
+    return to_object
+
+
 def _EvaluateInstancesResponse_from_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     to_object: dict[str, Any] = {}
+
+    if getv(from_object, ["rubricBasedMetricResult"]) is not None:
+        setv(
+            to_object,
+            ["rubric_based_metric_result"],
+            getv(from_object, ["rubricBasedMetricResult"]),
+        )
 
     if getv(from_object, ["bleuResults"]) is not None:
         setv(to_object, ["bleu_results"], getv(from_object, ["bleuResults"]))
@@ -703,20 +783,6 @@ def _EvaluateInstancesResponse_from_vertex(
     if getv(from_object, ["rougeResults"]) is not None:
         setv(to_object, ["rouge_results"], getv(from_object, ["rougeResults"]))
 
-    if getv(from_object, ["rubricBasedInstructionFollowingResult"]) is not None:
-        setv(
-            to_object,
-            ["rubric_based_instruction_following_result"],
-            getv(from_object, ["rubricBasedInstructionFollowingResult"]),
-        )
-
-    if getv(from_object, ["summarizationVerbosityResult"]) is not None:
-        setv(
-            to_object,
-            ["summarization_verbosity_result"],
-            getv(from_object, ["summarizationVerbosityResult"]),
-        )
-
     if getv(from_object, ["toolCallValidResults"]) is not None:
         setv(
             to_object,
@@ -745,46 +811,74 @@ def _EvaluateInstancesResponse_from_vertex(
             getv(from_object, ["toolParameterKvMatchResults"]),
         )
 
-    if getv(from_object, ["trajectoryAnyOrderMatchResults"]) is not None:
+    return to_object
+
+
+def _RubricContentProperty_from_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["description"]) is not None:
+        setv(to_object, ["description"], getv(from_object, ["description"]))
+
+    return to_object
+
+
+def _RubricContent_from_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["property"]) is not None:
         setv(
             to_object,
-            ["trajectory_any_order_match_results"],
-            getv(from_object, ["trajectoryAnyOrderMatchResults"]),
+            ["property"],
+            _RubricContentProperty_from_vertex(
+                getv(from_object, ["property"]), to_object
+            ),
         )
 
-    if getv(from_object, ["trajectoryExactMatchResults"]) is not None:
+    return to_object
+
+
+def _Rubric_from_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["rubricId"]) is not None:
+        setv(to_object, ["rubric_id"], getv(from_object, ["rubricId"]))
+
+    if getv(from_object, ["content"]) is not None:
         setv(
             to_object,
-            ["trajectory_exact_match_results"],
-            getv(from_object, ["trajectoryExactMatchResults"]),
+            ["content"],
+            _RubricContent_from_vertex(getv(from_object, ["content"]), to_object),
         )
 
-    if getv(from_object, ["trajectoryInOrderMatchResults"]) is not None:
-        setv(
-            to_object,
-            ["trajectory_in_order_match_results"],
-            getv(from_object, ["trajectoryInOrderMatchResults"]),
-        )
+    if getv(from_object, ["type"]) is not None:
+        setv(to_object, ["type"], getv(from_object, ["type"]))
 
-    if getv(from_object, ["trajectoryPrecisionResults"]) is not None:
-        setv(
-            to_object,
-            ["trajectory_precision_results"],
-            getv(from_object, ["trajectoryPrecisionResults"]),
-        )
+    if getv(from_object, ["importance"]) is not None:
+        setv(to_object, ["importance"], getv(from_object, ["importance"]))
 
-    if getv(from_object, ["trajectoryRecallResults"]) is not None:
-        setv(
-            to_object,
-            ["trajectory_recall_results"],
-            getv(from_object, ["trajectoryRecallResults"]),
-        )
+    return to_object
 
-    if getv(from_object, ["trajectorySingleToolUseResults"]) is not None:
+
+def _GenerateInstanceRubricsResponse_from_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+    if getv(from_object, ["generatedRubrics"]) is not None:
         setv(
             to_object,
-            ["trajectory_single_tool_use_results"],
-            getv(from_object, ["trajectorySingleToolUseResults"]),
+            ["generated_rubrics"],
+            [
+                _Rubric_from_vertex(item, to_object)
+                for item in getv(from_object, ["generatedRubrics"])
+            ],
         )
 
     return to_object
@@ -807,6 +901,7 @@ class Evals(_api_module.BaseModule):
         tool_parameter_kv_match_input: Optional[
             types.ToolParameterKVMatchInputOrDict
         ] = None,
+        rubric_based_metric_input: Optional[types.RubricBasedMetricInputOrDict] = None,
         autorater_config: Optional[types.AutoraterConfigOrDict] = None,
         config: Optional[types.EvaluateInstancesConfigOrDict] = None,
     ) -> types.EvaluateInstancesResponse:
@@ -822,6 +917,7 @@ class Evals(_api_module.BaseModule):
             tool_name_match_input=tool_name_match_input,
             tool_parameter_key_match_input=tool_parameter_key_match_input,
             tool_parameter_kv_match_input=tool_parameter_kv_match_input,
+            rubric_based_metric_input=rubric_based_metric_input,
             autorater_config=autorater_config,
             config=config,
         )
@@ -863,6 +959,62 @@ class Evals(_api_module.BaseModule):
             response_dict = _EvaluateInstancesResponse_from_vertex(response_dict)
 
         return_value = types.EvaluateInstancesResponse._from_response(
+            response=response_dict, kwargs=parameter_model.model_dump()
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
+    def _generate_rubrics(
+        self,
+        *,
+        contents: list[genai_types.ContentOrDict],
+        rubric_generation_spec: types.RubricGenerationSpecOrDict,
+        config: Optional[types.RubricGenerationConfigOrDict] = None,
+    ) -> types.GenerateInstanceRubricsResponse:
+        """Generates rubrics for a given prompt."""
+
+        parameter_model = types._GenerateInstanceRubricsRequest(
+            contents=contents,
+            rubric_generation_spec=rubric_generation_spec,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError("This method is only supported in the Vertex AI client.")
+        else:
+            request_dict = _GenerateInstanceRubricsRequest_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = ":generateInstanceRubrics".format_map(request_url_dict)
+            else:
+                path = ":generateInstanceRubrics"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = self._api_client.request("post", path, request_dict, http_options)
+
+        response_dict = "" if not response.body else json.loads(response.body)
+
+        if self._api_client.vertexai:
+            response_dict = _GenerateInstanceRubricsResponse_from_vertex(response_dict)
+
+        return_value = types.GenerateInstanceRubricsResponse._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
         )
 
@@ -1051,6 +1203,113 @@ class Evals(_api_module.BaseModule):
 
         return return_value
 
+    def generate_rubrics(
+        self,
+        *,
+        src: Union[str, "pd.DataFrame"],
+        prompt_template: str,
+        rubric_group_name: str,
+        generator_model_config: Optional["types.AutoraterConfigOrDict"] = None,
+        rubric_content_type: Optional["types.RubricContentType"] = None,
+        rubric_type_ontology: Optional[list[str]] = None,
+        config: Optional[types.RubricGenerationConfigOrDict] = None,
+    ) -> "pd.DataFrame":
+        """Generates rubrics for each prompt in the source and adds them as a new column
+
+        structured as a dictionary.
+
+        Args:
+            src: The source of the prompts. Can be a string (path to a local
+              file, a GCS path, or a BigQuery table) or a Pandas DataFrame. The
+              loaded data must contain either a 'prompt' column (for text) or a
+              'request' column (for text or multimodal Gemini Content).
+            prompt_template: Template for the rubric generation prompt. If using
+              a 'prompt' column, use {prompt} as the placeholder. If using a
+              'request' column, this template is passed to the service along
+              with the content.
+            rubric_group_name: Name for the key within the dictionary in the new
+              column.
+            generator_model_config: Optional. Configuration for the model used
+              in rubric generation, including the model name (e.g.,
+              "gemini-1.5-flash") within the 'autorater_model' field.
+            rubric_content_type: Optional. The type of rubric content to be
+              generated.
+            rubric_type_ontology: Optional. A pre-defined list of allowed types
+              for generated rubrics.
+
+        Returns:
+            DataFrame with an added column named `rubric_groups`. Each cell in
+            this column contains a dictionary like: {rubric_group_name:
+            [list[Rubric]]}.
+        """
+        try:
+            prompts_df = _evals_common._load_dataframe(self._api_client, src)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load prompt dataset from source: {src}. Error: {e}"
+            )
+
+        if "prompt" not in prompts_df.columns and "request" not in prompts_df.columns:
+            raise ValueError("Loaded dataset must have a 'prompt' or 'request' column.")
+        if not rubric_group_name:
+            raise ValueError("rubric_group_name cannot be empty.")
+
+        input_column = "request" if "request" in prompts_df.columns else "prompt"
+        logger.info(
+            f"Generating rubrics for {len(prompts_df)} prompts from column"
+            f" '{input_column}', group: '{rubric_group_name}'..."
+        )
+        all_rubric_groups = []
+
+        spec_dict = {
+            "prompt_template": prompt_template,
+            "rubric_content_type": rubric_content_type,
+            "rubric_type_ontology": rubric_type_ontology,
+            "generator_model_config": generator_model_config,
+        }
+        spec_dict = {k: v for k, v in spec_dict.items() if v is not None}
+        spec = types.RubricGenerationSpec.model_validate(spec_dict)
+
+        for _, row in prompts_df.iterrows():
+            input_data = row[input_column]
+            if isinstance(input_data, str):
+                contents = [types.Content(parts=[types.Part(text=input_data)])]
+            elif isinstance(input_data, list):
+                contents = input_data
+            else:
+                logger.warning(
+                    "Skipping row: Unexpected input format in column"
+                    f" '{input_column}'."
+                )
+                all_rubric_groups.append({rubric_group_name: []})
+                continue
+
+            current_spec = spec.model_copy(deep=True)
+
+            try:
+                response = self._generate_rubrics(
+                    contents=contents,
+                    rubric_generation_spec=current_spec,
+                    config=config,
+                )
+                rubric_group = {rubric_group_name: response.generated_rubrics}
+                all_rubric_groups.append(rubric_group)
+            except Exception as e:
+                logger.error(
+                    "Rubric generation failed for input: %s... Error: %s",
+                    str(input_data)[:50],
+                    e,
+                )
+                all_rubric_groups.append({rubric_group_name: []})
+
+        prompts_with_rubrics = prompts_df.copy()
+        prompts_with_rubrics["rubric_groups"] = all_rubric_groups
+        logger.info(
+            "Rubric generation complete. Added column 'rubric_groups' with key"
+            f" '{rubric_group_name}'."
+        )
+        return prompts_with_rubrics
+
 
 class AsyncEvals(_api_module.BaseModule):
     async def _evaluate_instances(
@@ -1069,6 +1328,7 @@ class AsyncEvals(_api_module.BaseModule):
         tool_parameter_kv_match_input: Optional[
             types.ToolParameterKVMatchInputOrDict
         ] = None,
+        rubric_based_metric_input: Optional[types.RubricBasedMetricInputOrDict] = None,
         autorater_config: Optional[types.AutoraterConfigOrDict] = None,
         config: Optional[types.EvaluateInstancesConfigOrDict] = None,
     ) -> types.EvaluateInstancesResponse:
@@ -1084,6 +1344,7 @@ class AsyncEvals(_api_module.BaseModule):
             tool_name_match_input=tool_name_match_input,
             tool_parameter_key_match_input=tool_parameter_key_match_input,
             tool_parameter_kv_match_input=tool_parameter_kv_match_input,
+            rubric_based_metric_input=rubric_based_metric_input,
             autorater_config=autorater_config,
             config=config,
         )
@@ -1127,6 +1388,64 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _EvaluateInstancesResponse_from_vertex(response_dict)
 
         return_value = types.EvaluateInstancesResponse._from_response(
+            response=response_dict, kwargs=parameter_model.model_dump()
+        )
+
+        self._api_client._verify_response(return_value)
+        return return_value
+
+    async def _generate_rubrics(
+        self,
+        *,
+        contents: list[genai_types.ContentOrDict],
+        rubric_generation_spec: types.RubricGenerationSpecOrDict,
+        config: Optional[types.RubricGenerationConfigOrDict] = None,
+    ) -> types.GenerateInstanceRubricsResponse:
+        """Generates rubrics for a given prompt."""
+
+        parameter_model = types._GenerateInstanceRubricsRequest(
+            contents=contents,
+            rubric_generation_spec=rubric_generation_spec,
+            config=config,
+        )
+
+        request_url_dict: Optional[dict[str, str]]
+        if not self._api_client.vertexai:
+            raise ValueError("This method is only supported in the Vertex AI client.")
+        else:
+            request_dict = _GenerateInstanceRubricsRequest_to_vertex(parameter_model)
+            request_url_dict = request_dict.get("_url")
+            if request_url_dict:
+                path = ":generateInstanceRubrics".format_map(request_url_dict)
+            else:
+                path = ":generateInstanceRubrics"
+
+        query_params = request_dict.get("_query")
+        if query_params:
+            path = f"{path}?{urlencode(query_params)}"
+        # TODO: remove the hack that pops config.
+        request_dict.pop("config", None)
+
+        http_options: Optional[types.HttpOptions] = None
+        if (
+            parameter_model.config is not None
+            and parameter_model.config.http_options is not None
+        ):
+            http_options = parameter_model.config.http_options
+
+        request_dict = _common.convert_to_dict(request_dict)
+        request_dict = _common.encode_unserializable_types(request_dict)
+
+        response = await self._api_client.async_request(
+            "post", path, request_dict, http_options
+        )
+
+        response_dict = "" if not response.body else json.loads(response.body)
+
+        if self._api_client.vertexai:
+            response_dict = _GenerateInstanceRubricsResponse_from_vertex(response_dict)
+
+        return_value = types.GenerateInstanceRubricsResponse._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
         )
 

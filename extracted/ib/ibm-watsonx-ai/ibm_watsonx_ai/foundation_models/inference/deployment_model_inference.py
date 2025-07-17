@@ -112,7 +112,12 @@ class DeploymentModelInference(BaseModelInference):
         )
 
         return self._send_deployment_chat_payload(
-            deployment_chat_url=infer_chat_url, messages=messages, context=context
+            deployment_chat_url=infer_chat_url,
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
         )
 
     def chat_stream(
@@ -136,6 +141,9 @@ class DeploymentModelInference(BaseModelInference):
             deployment_chat_stream_url=infer_chat_url,
             messages=messages,
             context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
         )
 
     async def achat(
@@ -154,7 +162,12 @@ class DeploymentModelInference(BaseModelInference):
         )
 
         return await self._asend_deployment_chat_payload(
-            deployment_chat_url=infer_chat_url, messages=messages, context=context
+            deployment_chat_url=infer_chat_url,
+            messages=messages,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
         )
 
     async def achat_stream(
@@ -178,6 +191,9 @@ class DeploymentModelInference(BaseModelInference):
             deployment_chat_stream_url=infer_chat_url,
             messages=messages,
             context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
         )
 
     @overload

@@ -4839,7 +4839,7 @@ class IntegManifest:
 
         :param test_cases: test cases.
         :param version: Version of the manifest.
-        :param enable_lookups: Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitely testing lookups. Default: false
+        :param enable_lookups: Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
         :param synth_context: Additional context to use when performing a synth. Any context provided here will override any default context Default: - no additional context
         '''
         if __debug__:
@@ -4877,7 +4877,7 @@ class IntegManifest:
 
         If lookups are enabled
         then ``stackUpdateWorkflow`` must be set to false.
-        Lookups should only be enabled when you are explicitely testing
+        Lookups should only be enabled when you are explicitly testing
         lookups.
 
         :default: false

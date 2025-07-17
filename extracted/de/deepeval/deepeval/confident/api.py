@@ -51,23 +51,19 @@ class HttpMethods(Enum):
 
 
 class Endpoints(Enum):
-    DATASET_ENDPOINT = "/v1/dataset"
-    DATASET_QUEUE_ENDPOINT = "/v1/dataset/queue"
+    DATASET_ENDPOINT = "/v1/datasets"
+    DATASET_QUEUE_ENDPOINT = "/v1/datasets/:alias/queue"
+
     TEST_RUN_ENDPOINT = "/v1/test-run"
     TRACES_ENDPOINT = "/v1/traces"
     FEEDBACK_ENDPOINT = "/v1/feedback"
     PROMPT_ENDPOINT = "/v1/prompt"
     RECOMMEND_ENDPOINT = "/v1/recommend-metrics"
     EVALUATE_ENDPOINT = "/evaluate"
-    GUARD_ENDPOINT = "/guard"
-    GUARDRAILS_ENDPOINT = "/guardrails"
-    BASELINE_ATTACKS_ENDPOINT = "/generate-baseline-attacks"
+
     EVALUATE_THREAD_ENDPOINT = "/v1/evaluate/threads/:threadId"
     EVALUATE_TRACE_ENDPOINT = "/v1/evaluate/traces/:traceUuid"
     EVALUATE_SPAN_ENDPOINT = "/v1/evaluate/spans/:spanUuid"
-
-    # DEPRECATED
-    TRACING_ENDPOINT = "/v1/tracing"
 
 
 class Api:

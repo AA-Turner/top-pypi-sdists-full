@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: runpod
-Version: 1.7.12
-Summary: 🐍 | Python library for RunPod API and serverless worker SDK.
+Version: 1.7.13
+Summary: 🐍 | Python library for Runpod API and serverless worker SDK.
 Home-page: https://runpod.io
-Author: RunPod
-Author-email: RunPod <engineer@runpod.io>, Justin Merrell <justin.merrell@runpod.io>
+Author: Runpod
+Author-email: Runpod <engineer@runpod.io>
 License: MIT License
 Project-URL: Homepage, https://runpod.io
 Project-URL: Documentation, https://docs.runpod.io
@@ -35,6 +35,7 @@ Requires-Dist: click>=8.1.7
 Requires-Dist: colorama<0.4.7,>=0.2.5
 Requires-Dist: cryptography<46.0.0
 Requires-Dist: fastapi[all]>=0.94.0
+Requires-Dist: filelock>=3.0.0
 Requires-Dist: paramiko>=3.3.1
 Requires-Dist: prettytable>=3.9.0
 Requires-Dist: py-cpuinfo>=9.0.0
@@ -45,15 +46,6 @@ Requires-Dist: tomlkit>=0.12.2
 Requires-Dist: tqdm-loggable>=0.1.4
 Requires-Dist: urllib3>=1.26.6
 Requires-Dist: watchdog>=3.0.0
-Provides-Extra: test
-Requires-Dist: asynctest; extra == "test"
-Requires-Dist: nest_asyncio; extra == "test"
-Requires-Dist: faker; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest-timeout; extra == "test"
-Requires-Dist: pytest-watch; extra == "test"
-Requires-Dist: pytest; extra == "test"
 Dynamic: author
 Dynamic: home-page
 Dynamic: license-file
@@ -68,8 +60,6 @@ Dynamic: requires-python
 
 [![CI | End-to-End Runpod Python Tests](https://github.com/runpod/runpod-python/actions/workflows/CI-e2e.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-e2e.yml)
 
-[![CI | Code Quality](https://github.com/runpod/runpod-python/actions/workflows/CI-pylint.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-pylint.yml)
-&nbsp;
 [![CI | Unit Tests](https://github.com/runpod/runpod-python/actions/workflows/CI-pytests.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-pytests.yml)
 &nbsp;
 [![CI | CodeQL](https://github.com/runpod/runpod-python/actions/workflows/CI-codeql.yml/badge.svg)](https://github.com/runpod/runpod-python/actions/workflows/CI-codeql.yml)
@@ -97,10 +87,14 @@ Welcome to the official Python library for Runpod API &amp; SDK.
 # Install the latest release version
 pip install runpod
 
-# or
+# Using uv (faster alternative)
+uv add runpod
 
 # Install the latest development version (main branch)
 pip install git+https://github.com/runpod/runpod-python.git
+
+# Or with uv
+uv add git+https://github.com/runpod/runpod-python.git
 ```
 
 *Python 3.8 or higher is required to use the latest version of this package.*
@@ -134,7 +128,7 @@ def is_even(job):
 runpod.serverless.start({"handler": is_even})
 ```
 
-Make sure that this file is ran when your container starts. This can be accomplished by calling it in the docker command when you set up a template at [runpod.io/console/serverless/user/templates](https://www.runpod.io/console/serverless/user/templates) or by setting it as the default command in your Dockerfile.
+Make sure that this file is ran when your container starts. This can be accomplished by calling it in the docker command when you set up a template at [console.runpod.io/serverless/user/templates](https://console.runpod.io/serverless/user/templates) or by setting it as the default command in your Dockerfile.
 
 See our [blog post](https://www.runpod.io/blog/serverless-create-a-basic-api) for creating a basic Serverless API, or view the [details docs](https://docs.runpod.io/serverless-ai/custom-apis) for more information.
 
@@ -158,7 +152,7 @@ runpod.api_key = "your_runpod_api_key_found_under_settings"
 
 ### Endpoints
 
-You can interact with RunPod endpoints via a `run` or `run_sync` method.
+You can interact with Runpod endpoints via a `run` or `run_sync` method.
 
 ```python
 endpoint = runpod.Endpoint("ENDPOINT_ID")

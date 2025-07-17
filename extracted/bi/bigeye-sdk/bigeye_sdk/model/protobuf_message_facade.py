@@ -63,7 +63,9 @@ completeness_metrics = [
 
 uniqueness_metrics = [
     SimplePredefinedMetricName.COUNT_DISTINCT,
-    SimplePredefinedMetricName.COUNT_DUPLICATES
+    SimplePredefinedMetricName.COUNT_DUPLICATES,
+    SimplePredefinedMetricName.PERCENT_DISTINCT,
+    SimplePredefinedMetricName.PERCENT_DUPLICATES
 ]
 
 distribution_metrics = [

@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Union
 
 import tronpy
 from tronpy import keys
@@ -55,19 +55,18 @@ class AsyncContractMethod(ContractMethod):
 
             return self.parse_output(ret)
 
-        else:
-            return self._client.trx._build_transaction(
-                "TriggerSmartContract",
-                {
-                    "owner_address": keys.to_hex_address(self._owner_address),
-                    "contract_address": keys.to_hex_address(self._contract.contract_address),
-                    "data": self.function_signature_hash + parameter,
-                    "call_token_value": self.call_token_value,
-                    "call_value": self.call_value,
-                    "token_id": self.call_token_id,
-                },
-                method=self,
-            )
+        return self._client.trx._build_transaction(
+            "TriggerSmartContract",
+            {
+                "owner_address": keys.to_hex_address(self._owner_address),
+                "contract_address": keys.to_hex_address(self._contract.contract_address),
+                "data": self.function_signature_hash + parameter,
+                "call_token_value": self.call_token_value,
+                "call_value": self.call_value,
+                "token_id": self.call_token_id,
+            },
+            method=self,
+        )
 
 
 # noinspection PyProtectedMember
@@ -126,13 +125,14 @@ class AsyncShieldedTRC20(ShieldedTRC20):
         self,
         zkey: dict,
         notes: Union[list, dict],
-        *to: Union[Tuple[str, int], Tuple[str, int, str]],
+        *to: Union[tuple[str, int], tuple[str, int, str]],
     ) -> "tronpy.async_tron.AsyncTransactionBuilder":
         """Transfer from z-address to z-address."""
         if isinstance(notes, (dict,)):
             notes = [notes]
 
-        assert 1 <= len(notes) <= 2
+        if not 1 <= len(notes) <= 2:
+            raise ValueError("transfer must have 1 or 2 notes")
 
         spends = []
         spend_amount = 0
@@ -150,10 +150,7 @@ class AsyncShieldedTRC20(ShieldedTRC20):
             addr = recv[0]
             amount = recv[1]
             receive_amount += amount
-            if len(recv) == 3:
-                memo = recv[2]
-            else:
-                memo = ""
+            memo = recv[2] if len(recv) == 3 else ""
 
             rcm = await self.get_rcm()
 
@@ -185,7 +182,7 @@ class AsyncShieldedTRC20(ShieldedTRC20):
         )
 
     async def burn(
-        self, zkey: dict, note: dict, *to: Union[Tuple[str, int], Tuple[str, int, str]]
+        self, zkey: dict, note: dict, *to: Union[tuple[str, int], tuple[str, int, str]]
     ) -> "tronpy.async_tron.AsyncTransactionBuilder":
         """Burn, transfer from z-address to T-address."""
         spends = []
@@ -204,10 +201,7 @@ class AsyncShieldedTRC20(ShieldedTRC20):
         for receive in to:
             addr = receive[0]
             amount = receive[1]
-            if len(receive) == 3:
-                memo = receive[2]
-            else:
-                memo = ""
+            memo = receive[2] if len(receive) == 3 else ""
 
             if addr.startswith("ztron1"):
                 change_amount += amount

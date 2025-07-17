@@ -2112,7 +2112,96 @@ service = ecs.FargateService(self, "FargateService",
 )
 ```
 
-## Daemon scheduling strategy
+## ECS Native Blue/Green Deployment
+
+Amazon ECS supports native blue/green deployments that allow you to deploy new versions of your services with zero downtime. This deployment strategy creates a new set of tasks (green) alongside the existing tasks (blue), then shifts traffic from the old version to the new version.
+
+[Amazon ECS blue/green deployments](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-blue-green.html)
+
+### Using Escape Hatches for Blue/Green Features
+
+The new blue/green deployment features are added to CloudFormation but not yet available in the CDK L2 constructs, you can use escape hatches to access them through the L1 (CfnService) construct.
+
+#### Load Balancer Advanced Configuration
+
+Configure advanced load balancer settings for blue/green deployments with alternate target groups and listener rules:
+
+```python
+# service: ecs.FargateService
+
+
+cfn_service = service.node.default_child
+cfn_service.load_balancers = [ecs.CfnService.LoadBalancerProperty(
+    container_name="web",
+    container_port=80,
+    target_group_arn="arn:aws:elasticloadbalancing:region:account:targetgroup/production",
+    advanced_configuration=ecs.CfnService.AdvancedConfigurationProperty(
+        alternate_target_group_arn="arn:aws:elasticloadbalancing:region:account:targetgroup/test",
+        production_listener_rule="arn:aws:elasticloadbalancing:region:account:listener-rule/production-rule",
+        test_listener_rule="arn:aws:elasticloadbalancing:region:account:listener-rule/test-rule",
+        role_arn="arn:aws:iam::account:role/ecs-blue-green-role"
+    )
+)]
+```
+
+#### Blue/Green Deployment Configuration
+
+Configure deployment strategy with bake time and lifecycle hooks:
+
+```python
+# service: ecs.FargateService
+
+
+cfn_service = service.node.default_child
+cfn_service.deployment_configuration = ecs.CfnService.DeploymentConfigurationProperty(
+    maximum_percent=200,
+    minimum_healthy_percent=100,
+    strategy="BLUE_GREEN",
+    bake_time_in_minutes=15,
+    lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
+        hook_target_arn="arn:aws:lambda:region:account:function:pre-deployment-hook",
+        role_arn="arn:aws:iam::account:role/deployment-hook-role",
+        lifecycle_stages=["PRE_STOP", "POST_START"]
+    )]
+)
+```
+
+#### Service Connect Test Traffic Rules
+
+Configure test traffic routing for Service Connect during blue/green deployments:
+
+```python
+# cluster: ecs.Cluster
+# task_definition: ecs.TaskDefinition
+
+
+service = ecs.FargateService(self, "Service",
+    cluster=cluster,
+    task_definition=task_definition
+)
+
+cfn_service = service.node.default_child
+cfn_service.service_connect_configuration = ecs.CfnService.ServiceConnectConfigurationProperty(
+    enabled=True,
+    services=[ecs.CfnService.ServiceConnectServiceProperty(
+        port_name="api",
+        client_aliases=[ecs.CfnService.ServiceConnectClientAliasProperty(
+            port=80,
+            dns_name="my-service",
+            test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                    name="x-canary-test",
+                    value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                        exact="beta-version"
+                    )
+                )
+            )
+        )]
+    )]
+)
+```
+
+## Daemon Scheduling Strategy
 
 You can specify whether service use Daemon scheduling strategy by specifying `daemon` option in Service constructs. See [differences between Daemon and Replica scheduling strategy](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html)
 
@@ -8553,159 +8642,23 @@ class CfnService(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html
     :cloudformationResource: AWS::ECS::Service
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_ecs as ecs
+        # service: ecs.FargateService
         
-        cfn_service = ecs.CfnService(self, "MyCfnService",
-            availability_zone_rebalancing="availabilityZoneRebalancing",
-            capacity_provider_strategy=[ecs.CfnService.CapacityProviderStrategyItemProperty(
-                base=123,
-                capacity_provider="capacityProvider",
-                weight=123
-            )],
-            cluster="cluster",
-            deployment_configuration=ecs.CfnService.DeploymentConfigurationProperty(
-                alarms=ecs.CfnService.DeploymentAlarmsProperty(
-                    alarm_names=["alarmNames"],
-                    enable=False,
-                    rollback=False
-                ),
-                deployment_circuit_breaker=ecs.CfnService.DeploymentCircuitBreakerProperty(
-                    enable=False,
-                    rollback=False
-                ),
-                maximum_percent=123,
-                minimum_healthy_percent=123
-            ),
-            deployment_controller=ecs.CfnService.DeploymentControllerProperty(
-                type="type"
-            ),
-            desired_count=123,
-            enable_ecs_managed_tags=False,
-            enable_execute_command=False,
-            health_check_grace_period_seconds=123,
-            launch_type="launchType",
-            load_balancers=[ecs.CfnService.LoadBalancerProperty(
-                container_name="containerName",
-                container_port=123,
-                load_balancer_name="loadBalancerName",
-                target_group_arn="targetGroupArn"
-            )],
-            network_configuration=ecs.CfnService.NetworkConfigurationProperty(
-                awsvpc_configuration=ecs.CfnService.AwsVpcConfigurationProperty(
-                    assign_public_ip="assignPublicIp",
-                    security_groups=["securityGroups"],
-                    subnets=["subnets"]
-                )
-            ),
-            placement_constraints=[ecs.CfnService.PlacementConstraintProperty(
-                type="type",
         
-                # the properties below are optional
-                expression="expression"
-            )],
-            placement_strategies=[ecs.CfnService.PlacementStrategyProperty(
-                type="type",
-        
-                # the properties below are optional
-                field="field"
-            )],
-            platform_version="platformVersion",
-            propagate_tags="propagateTags",
-            role="role",
-            scheduling_strategy="schedulingStrategy",
-            service_connect_configuration=ecs.CfnService.ServiceConnectConfigurationProperty(
-                enabled=False,
-        
-                # the properties below are optional
-                log_configuration=ecs.CfnService.LogConfigurationProperty(
-                    log_driver="logDriver",
-                    options={
-                        "options_key": "options"
-                    },
-                    secret_options=[ecs.CfnService.SecretProperty(
-                        name="name",
-                        value_from="valueFrom"
-                    )]
-                ),
-                namespace="namespace",
-                services=[ecs.CfnService.ServiceConnectServiceProperty(
-                    port_name="portName",
-        
-                    # the properties below are optional
-                    client_aliases=[ecs.CfnService.ServiceConnectClientAliasProperty(
-                        port=123,
-        
-                        # the properties below are optional
-                        dns_name="dnsName"
-                    )],
-                    discovery_name="discoveryName",
-                    ingress_port_override=123,
-                    timeout=ecs.CfnService.TimeoutConfigurationProperty(
-                        idle_timeout_seconds=123,
-                        per_request_timeout_seconds=123
-                    ),
-                    tls=ecs.CfnService.ServiceConnectTlsConfigurationProperty(
-                        issuer_certificate_authority=ecs.CfnService.ServiceConnectTlsCertificateAuthorityProperty(
-                            aws_pca_authority_arn="awsPcaAuthorityArn"
-                        ),
-        
-                        # the properties below are optional
-                        kms_key="kmsKey",
-                        role_arn="roleArn"
-                    )
-                )]
-            ),
-            service_name="serviceName",
-            service_registries=[ecs.CfnService.ServiceRegistryProperty(
-                container_name="containerName",
-                container_port=123,
-                port=123,
-                registry_arn="registryArn"
-            )],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            task_definition="taskDefinition",
-            volume_configurations=[ecs.CfnService.ServiceVolumeConfigurationProperty(
-                name="name",
-        
-                # the properties below are optional
-                managed_ebs_volume=ecs.CfnService.ServiceManagedEBSVolumeConfigurationProperty(
-                    role_arn="roleArn",
-        
-                    # the properties below are optional
-                    encrypted=False,
-                    filesystem_type="filesystemType",
-                    iops=123,
-                    kms_key_id="kmsKeyId",
-                    size_in_gi_b=123,
-                    snapshot_id="snapshotId",
-                    tag_specifications=[ecs.CfnService.EBSTagSpecificationProperty(
-                        resource_type="resourceType",
-        
-                        # the properties below are optional
-                        propagate_tags="propagateTags",
-                        tags=[CfnTag(
-                            key="key",
-                            value="value"
-                        )]
-                    )],
-                    throughput=123,
-                    volume_initialization_rate=123,
-                    volume_type="volumeType"
-                )
-            )],
-            vpc_lattice_configurations=[ecs.CfnService.VpcLatticeConfigurationProperty(
-                port_name="portName",
-                role_arn="roleArn",
-                target_group_arn="targetGroupArn"
+        cfn_service = service.node.default_child
+        cfn_service.deployment_configuration = ecs.CfnService.DeploymentConfigurationProperty(
+            maximum_percent=200,
+            minimum_healthy_percent=100,
+            strategy="BLUE_GREEN",
+            bake_time_in_minutes=15,
+            lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
+                hook_target_arn="arn:aws:lambda:region:account:function:pre-deployment-hook",
+                role_arn="arn:aws:iam::account:role/deployment-hook-role",
+                lifecycle_stages=["PRE_STOP", "POST_START"]
             )]
         )
     '''
@@ -9268,6 +9221,109 @@ class CfnService(
         jsii.set(self, "vpcLatticeConfigurations", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.AdvancedConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "alternate_target_group_arn": "alternateTargetGroupArn",
+            "production_listener_rule": "productionListenerRule",
+            "role_arn": "roleArn",
+            "test_listener_rule": "testListenerRule",
+        },
+    )
+    class AdvancedConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alternate_target_group_arn: builtins.str,
+            production_listener_rule: typing.Optional[builtins.str] = None,
+            role_arn: typing.Optional[builtins.str] = None,
+            test_listener_rule: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param alternate_target_group_arn: 
+            :param production_listener_rule: 
+            :param role_arn: 
+            :param test_listener_rule: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                advanced_configuration_property = ecs.CfnService.AdvancedConfigurationProperty(
+                    alternate_target_group_arn="alternateTargetGroupArn",
+                
+                    # the properties below are optional
+                    production_listener_rule="productionListenerRule",
+                    role_arn="roleArn",
+                    test_listener_rule="testListenerRule"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c3f25e48977935912f7b78499d7be554157bd31ec2fadc2d811e82880622bfdf)
+                check_type(argname="argument alternate_target_group_arn", value=alternate_target_group_arn, expected_type=type_hints["alternate_target_group_arn"])
+                check_type(argname="argument production_listener_rule", value=production_listener_rule, expected_type=type_hints["production_listener_rule"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument test_listener_rule", value=test_listener_rule, expected_type=type_hints["test_listener_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "alternate_target_group_arn": alternate_target_group_arn,
+            }
+            if production_listener_rule is not None:
+                self._values["production_listener_rule"] = production_listener_rule
+            if role_arn is not None:
+                self._values["role_arn"] = role_arn
+            if test_listener_rule is not None:
+                self._values["test_listener_rule"] = test_listener_rule
+
+        @builtins.property
+        def alternate_target_group_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-alternatetargetgrouparn
+            '''
+            result = self._values.get("alternate_target_group_arn")
+            assert result is not None, "Required property 'alternate_target_group_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def production_listener_rule(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-productionlistenerrule
+            '''
+            result = self._values.get("production_listener_rule")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def test_listener_rule(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-advancedconfiguration.html#cfn-ecs-service-advancedconfiguration-testlistenerrule
+            '''
+            result = self._values.get("test_listener_rule")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AdvancedConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.AwsVpcConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -9662,9 +9718,12 @@ class CfnService(
         jsii_struct_bases=[],
         name_mapping={
             "alarms": "alarms",
+            "bake_time_in_minutes": "bakeTimeInMinutes",
             "deployment_circuit_breaker": "deploymentCircuitBreaker",
+            "lifecycle_hooks": "lifecycleHooks",
             "maximum_percent": "maximumPercent",
             "minimum_healthy_percent": "minimumHealthyPercent",
+            "strategy": "strategy",
         },
     )
     class DeploymentConfigurationProperty:
@@ -9672,16 +9731,22 @@ class CfnService(
             self,
             *,
             alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.DeploymentAlarmsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bake_time_in_minutes: typing.Optional[jsii.Number] = None,
             deployment_circuit_breaker: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.DeploymentCircuitBreakerProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            lifecycle_hooks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.DeploymentLifecycleHookProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             maximum_percent: typing.Optional[jsii.Number] = None,
             minimum_healthy_percent: typing.Optional[jsii.Number] = None,
+            strategy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Optional deployment parameters that control how many tasks run during a deployment and the ordering of stopping and starting tasks.
 
             :param alarms: Information about the CloudWatch alarms.
+            :param bake_time_in_minutes: 
             :param deployment_circuit_breaker: .. epigraph:: The deployment circuit breaker can only be used for services using the rolling update ( ``ECS`` ) deployment type. The *deployment circuit breaker* determines whether a service deployment will fail if the service can't reach a steady state. If you use the deployment circuit breaker, a service deployment will transition to a failed state and stop launching new tasks. If you use the rollback option, when a service deployment fails, the service is rolled back to the last deployment that completed successfully. For more information, see `Rolling update <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html>`_ in the *Amazon Elastic Container Service Developer Guide*
+            :param lifecycle_hooks: 
             :param maximum_percent: If a service is using the rolling update ( ``ECS`` ) deployment type, the ``maximumPercent`` parameter represents an upper limit on the number of your service's tasks that are allowed in the ``RUNNING`` or ``PENDING`` state during a deployment, as a percentage of the ``desiredCount`` (rounded down to the nearest integer). This parameter enables you to define the deployment batch size. For example, if your service is using the ``REPLICA`` service scheduler and has a ``desiredCount`` of four tasks and a ``maximumPercent`` value of 200%, the scheduler may start four new tasks before stopping the four older tasks (provided that the cluster resources required to do this are available). The default ``maximumPercent`` value for a service using the ``REPLICA`` service scheduler is 200%. The Amazon ECS scheduler uses this parameter to replace unhealthy tasks by starting replacement tasks first and then stopping the unhealthy tasks, as long as cluster resources for starting replacement tasks are available. For more information about how the scheduler replaces unhealthy tasks, see `Amazon ECS services <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html>`_ . If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and tasks in the service use the EC2 launch type, the *maximum percent* value is set to the default value. The *maximum percent* value is used to define the upper limit on the number of the tasks in the service that remain in the ``RUNNING`` state while the container instances are in the ``DRAINING`` state. .. epigraph:: You can't specify a custom ``maximumPercent`` value for a service that uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and has tasks that use the EC2 launch type. If the service uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types, and the tasks in the service use the Fargate launch type, the maximum percent value is not used. The value is still returned when describing your service.
             :param minimum_healthy_percent: If a service is using the rolling update ( ``ECS`` ) deployment type, the ``minimumHealthyPercent`` represents a lower limit on the number of your service's tasks that must remain in the ``RUNNING`` state during a deployment, as a percentage of the ``desiredCount`` (rounded up to the nearest integer). This parameter enables you to deploy without using additional cluster capacity. For example, if your service has a ``desiredCount`` of four tasks and a ``minimumHealthyPercent`` of 50%, the service scheduler may stop two existing tasks to free up cluster capacity before starting two new tasks. If any tasks are unhealthy and if ``maximumPercent`` doesn't allow the Amazon ECS scheduler to start replacement tasks, the scheduler stops the unhealthy tasks one-by-one — using the ``minimumHealthyPercent`` as a constraint — to clear up capacity to launch replacement tasks. For more information about how the scheduler replaces unhealthy tasks, see `Amazon ECS services <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html>`_ . For services that *do not* use a load balancer, the following should be noted: - A service is considered healthy if all essential containers within the tasks in the service pass their health checks. - If a task has no essential containers with a health check defined, the service scheduler will wait for 40 seconds after a task reaches a ``RUNNING`` state before the task is counted towards the minimum healthy percent total. - If a task has one or more essential containers with a health check defined, the service scheduler will wait for the task to reach a healthy status before counting it towards the minimum healthy percent total. A task is considered healthy when all essential containers within the task have passed their health checks. The amount of time the service scheduler can wait for is determined by the container health check settings. For services that *do* use a load balancer, the following should be noted: - If a task has no essential containers with a health check defined, the service scheduler will wait for the load balancer target group health check to return a healthy status before counting the task towards the minimum healthy percent total. - If a task has an essential container with a health check defined, the service scheduler will wait for both the task to reach a healthy status and the load balancer target group health check to return a healthy status before counting the task towards the minimum healthy percent total. The default value for a replica service for ``minimumHealthyPercent`` is 100%. The default ``minimumHealthyPercent`` value for a service using the ``DAEMON`` service schedule is 0% for the AWS CLI , the AWS SDKs, and the APIs and 50% for the AWS Management Console. The minimum number of healthy tasks during a deployment is the ``desiredCount`` multiplied by the ``minimumHealthyPercent`` /100, rounded up to the nearest integer value. If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and is running tasks that use the EC2 launch type, the *minimum healthy percent* value is set to the default value. The *minimum healthy percent* value is used to define the lower limit on the number of the tasks in the service that remain in the ``RUNNING`` state while the container instances are in the ``DRAINING`` state. .. epigraph:: You can't specify a custom ``minimumHealthyPercent`` value for a service that uses either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and has tasks that use the EC2 launch type. If a service is using either the blue/green ( ``CODE_DEPLOY`` ) or ``EXTERNAL`` deployment types and is running tasks that use the Fargate launch type, the minimum healthy percent value is not used, although it is returned when describing your service.
+            :param strategy: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -9698,29 +9763,45 @@ class CfnService(
                         enable=False,
                         rollback=False
                     ),
+                    bake_time_in_minutes=123,
                     deployment_circuit_breaker=ecs.CfnService.DeploymentCircuitBreakerProperty(
                         enable=False,
                         rollback=False
                     ),
+                    lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
+                        hook_target_arn="hookTargetArn",
+                        lifecycle_stages=["lifecycleStages"],
+                        role_arn="roleArn"
+                    )],
                     maximum_percent=123,
-                    minimum_healthy_percent=123
+                    minimum_healthy_percent=123,
+                    strategy="strategy"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d809d14e704a11675cbface3b43579e5f8f2a29c9b48e27608c625a3f01cb3a6)
                 check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+                check_type(argname="argument bake_time_in_minutes", value=bake_time_in_minutes, expected_type=type_hints["bake_time_in_minutes"])
                 check_type(argname="argument deployment_circuit_breaker", value=deployment_circuit_breaker, expected_type=type_hints["deployment_circuit_breaker"])
+                check_type(argname="argument lifecycle_hooks", value=lifecycle_hooks, expected_type=type_hints["lifecycle_hooks"])
                 check_type(argname="argument maximum_percent", value=maximum_percent, expected_type=type_hints["maximum_percent"])
                 check_type(argname="argument minimum_healthy_percent", value=minimum_healthy_percent, expected_type=type_hints["minimum_healthy_percent"])
+                check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if alarms is not None:
                 self._values["alarms"] = alarms
+            if bake_time_in_minutes is not None:
+                self._values["bake_time_in_minutes"] = bake_time_in_minutes
             if deployment_circuit_breaker is not None:
                 self._values["deployment_circuit_breaker"] = deployment_circuit_breaker
+            if lifecycle_hooks is not None:
+                self._values["lifecycle_hooks"] = lifecycle_hooks
             if maximum_percent is not None:
                 self._values["maximum_percent"] = maximum_percent
             if minimum_healthy_percent is not None:
                 self._values["minimum_healthy_percent"] = minimum_healthy_percent
+            if strategy is not None:
+                self._values["strategy"] = strategy
 
         @builtins.property
         def alarms(
@@ -9732,6 +9813,14 @@ class CfnService(
             '''
             result = self._values.get("alarms")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DeploymentAlarmsProperty"]], result)
+
+        @builtins.property
+        def bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-baketimeinminutes
+            '''
+            result = self._values.get("bake_time_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         @builtins.property
         def deployment_circuit_breaker(
@@ -9747,6 +9836,16 @@ class CfnService(
             '''
             result = self._values.get("deployment_circuit_breaker")
             return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.DeploymentCircuitBreakerProperty"]], result)
+
+        @builtins.property
+        def lifecycle_hooks(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.DeploymentLifecycleHookProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-lifecyclehooks
+            '''
+            result = self._values.get("lifecycle_hooks")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnService.DeploymentLifecycleHookProperty"]]]], result)
 
         @builtins.property
         def maximum_percent(self) -> typing.Optional[jsii.Number]:
@@ -9802,6 +9901,14 @@ class CfnService(
             '''
             result = self._values.get("minimum_healthy_percent")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def strategy(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentconfiguration.html#cfn-ecs-service-deploymentconfiguration-strategy
+            '''
+            result = self._values.get("strategy")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9866,6 +9973,92 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "DeploymentControllerProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.DeploymentLifecycleHookProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "hook_target_arn": "hookTargetArn",
+            "lifecycle_stages": "lifecycleStages",
+            "role_arn": "roleArn",
+        },
+    )
+    class DeploymentLifecycleHookProperty:
+        def __init__(
+            self,
+            *,
+            hook_target_arn: builtins.str,
+            lifecycle_stages: typing.Sequence[builtins.str],
+            role_arn: builtins.str,
+        ) -> None:
+            '''
+            :param hook_target_arn: 
+            :param lifecycle_stages: 
+            :param role_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                deployment_lifecycle_hook_property = ecs.CfnService.DeploymentLifecycleHookProperty(
+                    hook_target_arn="hookTargetArn",
+                    lifecycle_stages=["lifecycleStages"],
+                    role_arn="roleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__81d51cf744a434ad2ba13fc9f3dea23611c28b28f4a9414d8324cf57768cea5e)
+                check_type(argname="argument hook_target_arn", value=hook_target_arn, expected_type=type_hints["hook_target_arn"])
+                check_type(argname="argument lifecycle_stages", value=lifecycle_stages, expected_type=type_hints["lifecycle_stages"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "hook_target_arn": hook_target_arn,
+                "lifecycle_stages": lifecycle_stages,
+                "role_arn": role_arn,
+            }
+
+        @builtins.property
+        def hook_target_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-hooktargetarn
+            '''
+            result = self._values.get("hook_target_arn")
+            assert result is not None, "Required property 'hook_target_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def lifecycle_stages(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-lifecyclestages
+            '''
+            result = self._values.get("lifecycle_stages")
+            assert result is not None, "Required property 'lifecycle_stages' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentlifecyclehook.html#cfn-ecs-service-deploymentlifecyclehook-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeploymentLifecycleHookProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9972,6 +10165,7 @@ class CfnService(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.LoadBalancerProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "advanced_configuration": "advancedConfiguration",
             "container_name": "containerName",
             "container_port": "containerPort",
             "load_balancer_name": "loadBalancerName",
@@ -9982,6 +10176,7 @@ class CfnService(
         def __init__(
             self,
             *,
+            advanced_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.AdvancedConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             container_name: typing.Optional[builtins.str] = None,
             container_port: typing.Optional[jsii.Number] = None,
             load_balancer_name: typing.Optional[builtins.str] = None,
@@ -9993,6 +10188,7 @@ class CfnService(
 
             Services with tasks that use the ``awsvpc`` network mode (for example, those with the Fargate launch type) only support Application Load Balancers and Network Load Balancers. Classic Load Balancers are not supported. Also, when you create any target groups for these services, you must choose ``ip`` as the target type, not ``instance`` . Tasks that use the ``awsvpc`` network mode are associated with an elastic network interface, not an Amazon EC2 instance.
 
+            :param advanced_configuration: 
             :param container_name: The name of the container (as it appears in a container definition) to associate with the load balancer. You need to specify the container name when configuring the target group for an Amazon ECS load balancer.
             :param container_port: The port on the container to associate with the load balancer. This port must correspond to a ``containerPort`` in the task definition the tasks in the service are using. For tasks that use the EC2 launch type, the container instance they're launched on must allow ingress traffic on the ``hostPort`` of the port mapping.
             :param load_balancer_name: The name of the load balancer to associate with the Amazon ECS service or task set. If you are using an Application Load Balancer or a Network Load Balancer the load balancer name parameter should be omitted.
@@ -10008,6 +10204,14 @@ class CfnService(
                 from aws_cdk import aws_ecs as ecs
                 
                 load_balancer_property = ecs.CfnService.LoadBalancerProperty(
+                    advanced_configuration=ecs.CfnService.AdvancedConfigurationProperty(
+                        alternate_target_group_arn="alternateTargetGroupArn",
+                
+                        # the properties below are optional
+                        production_listener_rule="productionListenerRule",
+                        role_arn="roleArn",
+                        test_listener_rule="testListenerRule"
+                    ),
                     container_name="containerName",
                     container_port=123,
                     load_balancer_name="loadBalancerName",
@@ -10016,11 +10220,14 @@ class CfnService(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__251c3999c1586967f7c9091782e6a113831e05b5f853b910cad8c8e75f654def)
+                check_type(argname="argument advanced_configuration", value=advanced_configuration, expected_type=type_hints["advanced_configuration"])
                 check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
                 check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
                 check_type(argname="argument load_balancer_name", value=load_balancer_name, expected_type=type_hints["load_balancer_name"])
                 check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if advanced_configuration is not None:
+                self._values["advanced_configuration"] = advanced_configuration
             if container_name is not None:
                 self._values["container_name"] = container_name
             if container_port is not None:
@@ -10029,6 +10236,16 @@ class CfnService(
                 self._values["load_balancer_name"] = load_balancer_name
             if target_group_arn is not None:
                 self._values["target_group_arn"] = target_group_arn
+
+        @builtins.property
+        def advanced_configuration(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.AdvancedConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-loadbalancer.html#cfn-ecs-service-loadbalancer-advancedconfiguration
+            '''
+            result = self._values.get("advanced_configuration")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.AdvancedConfigurationProperty"]], result)
 
         @builtins.property
         def container_name(self) -> typing.Optional[builtins.str]:
@@ -10621,7 +10838,11 @@ class CfnService(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnService.ServiceConnectClientAliasProperty",
         jsii_struct_bases=[],
-        name_mapping={"port": "port", "dns_name": "dnsName"},
+        name_mapping={
+            "port": "port",
+            "dns_name": "dnsName",
+            "test_traffic_rules": "testTrafficRules",
+        },
     )
     class ServiceConnectClientAliasProperty:
         def __init__(
@@ -10629,6 +10850,7 @@ class CfnService(
             *,
             port: jsii.Number,
             dns_name: typing.Optional[builtins.str] = None,
+            test_traffic_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceConnectTestTrafficRulesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Each alias ("endpoint") is a fully-qualified name and port number that other tasks ("clients") can use to connect to this service.
 
@@ -10638,6 +10860,7 @@ class CfnService(
 
             :param port: The listening port number for the Service Connect proxy. This port is available inside of all of the tasks within the same namespace. To avoid changing your applications in client Amazon ECS services, set this to the same port that the client application uses by default. For more information, see `Service Connect <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
             :param dns_name: The ``dnsName`` is the name that you use in the applications of client tasks to connect to this service. The name must be a valid DNS name but doesn't need to be fully-qualified. The name can include up to 127 characters. The name can include lowercase letters, numbers, underscores (_), hyphens (-), and periods (.). The name can't start with a hyphen. If this parameter isn't specified, the default value of ``discoveryName.namespace`` is used. If the ``discoveryName`` isn't specified, the port mapping name from the task definition is used in ``portName.namespace`` . To avoid changing your applications in client Amazon ECS services, set this to the same name that the client application uses by default. For example, a few common names are ``database`` , ``db`` , or the lowercase name of a database, such as ``mysql`` or ``redis`` . For more information, see `Service Connect <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service-connect.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
+            :param test_traffic_rules: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectclientalias.html
             :exampleMetadata: fixture=_generated
@@ -10652,18 +10875,31 @@ class CfnService(
                     port=123,
                 
                     # the properties below are optional
-                    dns_name="dnsName"
+                    dns_name="dnsName",
+                    test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                        header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                            name="name",
+                
+                            # the properties below are optional
+                            value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                                exact="exact"
+                            )
+                        )
+                    )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__7552e3d2b970cfb26552bec096b0680acf8bc8c7b59096bbf5a210dd3266fd35)
                 check_type(argname="argument port", value=port, expected_type=type_hints["port"])
                 check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
+                check_type(argname="argument test_traffic_rules", value=test_traffic_rules, expected_type=type_hints["test_traffic_rules"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "port": port,
             }
             if dns_name is not None:
                 self._values["dns_name"] = dns_name
+            if test_traffic_rules is not None:
+                self._values["test_traffic_rules"] = test_traffic_rules
 
         @builtins.property
         def port(self) -> jsii.Number:
@@ -10693,6 +10929,16 @@ class CfnService(
             '''
             result = self._values.get("dns_name")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def test_traffic_rules(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnectclientalias.html#cfn-ecs-service-serviceconnectclientalias-testtrafficrules
+            '''
+            result = self._values.get("test_traffic_rules")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10767,7 +11013,17 @@ class CfnService(
                             port=123,
                 
                             # the properties below are optional
-                            dns_name="dnsName"
+                            dns_name="dnsName",
+                            test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                                header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                                    name="name",
+                
+                                    # the properties below are optional
+                                    value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                                        exact="exact"
+                                    )
+                                )
+                            )
                         )],
                         discovery_name="discoveryName",
                         ingress_port_override=123,
@@ -10930,7 +11186,17 @@ class CfnService(
                         port=123,
                 
                         # the properties below are optional
-                        dns_name="dnsName"
+                        dns_name="dnsName",
+                        test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                            header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                                name="name",
+                
+                                # the properties below are optional
+                                value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                                    exact="exact"
+                                )
+                            )
+                        )
                     )],
                     discovery_name="discoveryName",
                     ingress_port_override=123,
@@ -11056,6 +11322,193 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "ServiceConnectServiceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class ServiceConnectTestTrafficRulesHeaderProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param name: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheader.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                service_connect_test_traffic_rules_header_property = ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                        exact="exact"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__95be6c123aaeddaea0658f43268bed3cd0c9fdafbb6f8eb86f2cfa3ece72131e)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheader.html#cfn-ecs-service-serviceconnecttesttrafficrulesheader-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(
+            self,
+        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheader.html#cfn-ecs-service-serviceconnecttesttrafficrulesheader-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceConnectTestTrafficRulesHeaderProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty",
+        jsii_struct_bases=[],
+        name_mapping={"exact": "exact"},
+    )
+    class ServiceConnectTestTrafficRulesHeaderValueProperty:
+        def __init__(self, *, exact: builtins.str) -> None:
+            '''
+            :param exact: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheadervalue.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                service_connect_test_traffic_rules_header_value_property = ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                    exact="exact"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__00399c48ee323c2a3961b9504adf57d82b84cf123d2dd023433fc918ac78282f)
+                check_type(argname="argument exact", value=exact, expected_type=type_hints["exact"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "exact": exact,
+            }
+
+        @builtins.property
+        def exact(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrulesheadervalue.html#cfn-ecs-service-serviceconnecttesttrafficrulesheadervalue-exact
+            '''
+            result = self._values.get("exact")
+            assert result is not None, "Required property 'exact' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceConnectTestTrafficRulesHeaderValueProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnService.ServiceConnectTestTrafficRulesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"header": "header"},
+    )
+    class ServiceConnectTestTrafficRulesProperty:
+        def __init__(
+            self,
+            *,
+            header: typing.Union[_IResolvable_da3f097b, typing.Union["CfnService.ServiceConnectTestTrafficRulesHeaderProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param header: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrules.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                service_connect_test_traffic_rules_property = ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                    header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                            exact="exact"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__38ae0ce4b02d72c8b4b7583b571baf645aed5c2d7b9e970baefceb7ffc5abed3)
+                check_type(argname="argument header", value=header, expected_type=type_hints["header"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "header": header,
+            }
+
+        @builtins.property
+        def header(
+            self,
+        ) -> typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesHeaderProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-serviceconnecttesttrafficrules.html#cfn-ecs-service-serviceconnecttesttrafficrules-header
+            '''
+            result = self._values.get("header")
+            assert result is not None, "Required property 'header' is missing"
+            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnService.ServiceConnectTestTrafficRulesHeaderProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServiceConnectTestTrafficRulesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12021,12 +12474,19 @@ class CfnServiceProps:
                         enable=False,
                         rollback=False
                     ),
+                    bake_time_in_minutes=123,
                     deployment_circuit_breaker=ecs.CfnService.DeploymentCircuitBreakerProperty(
                         enable=False,
                         rollback=False
                     ),
+                    lifecycle_hooks=[ecs.CfnService.DeploymentLifecycleHookProperty(
+                        hook_target_arn="hookTargetArn",
+                        lifecycle_stages=["lifecycleStages"],
+                        role_arn="roleArn"
+                    )],
                     maximum_percent=123,
-                    minimum_healthy_percent=123
+                    minimum_healthy_percent=123,
+                    strategy="strategy"
                 ),
                 deployment_controller=ecs.CfnService.DeploymentControllerProperty(
                     type="type"
@@ -12037,6 +12497,14 @@ class CfnServiceProps:
                 health_check_grace_period_seconds=123,
                 launch_type="launchType",
                 load_balancers=[ecs.CfnService.LoadBalancerProperty(
+                    advanced_configuration=ecs.CfnService.AdvancedConfigurationProperty(
+                        alternate_target_group_arn="alternateTargetGroupArn",
+            
+                        # the properties below are optional
+                        production_listener_rule="productionListenerRule",
+                        role_arn="roleArn",
+                        test_listener_rule="testListenerRule"
+                    ),
                     container_name="containerName",
                     container_port=123,
                     load_balancer_name="loadBalancerName",
@@ -12088,7 +12556,17 @@ class CfnServiceProps:
                             port=123,
             
                             # the properties below are optional
-                            dns_name="dnsName"
+                            dns_name="dnsName",
+                            test_traffic_rules=ecs.CfnService.ServiceConnectTestTrafficRulesProperty(
+                                header=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderProperty(
+                                    name="name",
+            
+                                    # the properties below are optional
+                                    value=ecs.CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty(
+                                        exact="exact"
+                                    )
+                                )
+                            )
                         )],
                         discovery_name="discoveryName",
                         ingress_port_override=123,
@@ -27367,34 +27845,28 @@ class FargateServiceProps(BaseServiceOptions):
             
             # cluster: ecs.Cluster
             # task_definition: ecs.TaskDefinition
+            # elb_alarm: cw.Alarm
             
-            service_name = "MyFargateService"
+            
             service = ecs.FargateService(self, "Service",
-                service_name=service_name,
                 cluster=cluster,
                 task_definition=task_definition,
-                min_healthy_percent=100
+                min_healthy_percent=100,
+                deployment_alarms=ecs.DeploymentAlarmConfig(
+                    alarm_names=[elb_alarm.alarm_name],
+                    behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
+                )
             )
             
-            cpu_metric = cw.Metric(
-                metric_name="CPUUtilization",
-                namespace="AWS/ECS",
-                period=Duration.minutes(5),
-                statistic="Average",
-                dimensions_map={
-                    "ClusterName": cluster.cluster_name,
-                    # Using `service.serviceName` here will cause a circular dependency
-                    "ServiceName": service_name
-                }
-            )
-            my_alarm = cw.Alarm(self, "CPUAlarm",
-                alarm_name="cpuAlarmName",
-                metric=cpu_metric,
+            # Defining a deployment alarm after the service has been created
+            cpu_alarm_name = "MyCpuMetricAlarm"
+            cw.Alarm(self, "CPUAlarm",
+                alarm_name=cpu_alarm_name,
+                metric=service.metric_cpu_utilization(),
                 evaluation_periods=2,
                 threshold=80
             )
-            
-            service.enable_deployment_alarms([my_alarm.alarm_name],
+            service.enable_deployment_alarms([cpu_alarm_name],
                 behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
             )
         '''
@@ -42904,34 +43376,28 @@ class FargateService(
         
         # cluster: ecs.Cluster
         # task_definition: ecs.TaskDefinition
+        # elb_alarm: cw.Alarm
         
-        service_name = "MyFargateService"
+        
         service = ecs.FargateService(self, "Service",
-            service_name=service_name,
             cluster=cluster,
             task_definition=task_definition,
-            min_healthy_percent=100
+            min_healthy_percent=100,
+            deployment_alarms=ecs.DeploymentAlarmConfig(
+                alarm_names=[elb_alarm.alarm_name],
+                behavior=ecs.AlarmBehavior.ROLLBACK_ON_ALARM
+            )
         )
         
-        cpu_metric = cw.Metric(
-            metric_name="CPUUtilization",
-            namespace="AWS/ECS",
-            period=Duration.minutes(5),
-            statistic="Average",
-            dimensions_map={
-                "ClusterName": cluster.cluster_name,
-                # Using `service.serviceName` here will cause a circular dependency
-                "ServiceName": service_name
-            }
-        )
-        my_alarm = cw.Alarm(self, "CPUAlarm",
-            alarm_name="cpuAlarmName",
-            metric=cpu_metric,
+        # Defining a deployment alarm after the service has been created
+        cpu_alarm_name = "MyCpuMetricAlarm"
+        cw.Alarm(self, "CPUAlarm",
+            alarm_name=cpu_alarm_name,
+            metric=service.metric_cpu_utilization(),
             evaluation_periods=2,
             threshold=80
         )
-        
-        service.enable_deployment_alarms([my_alarm.alarm_name],
+        service.enable_deployment_alarms([cpu_alarm_name],
             behavior=ecs.AlarmBehavior.FAIL_ON_ALARM
         )
     '''
@@ -44294,6 +44760,16 @@ def _typecheckingstub__e2af64fb9defca157f1246b9e5c27f87c21cd5930eb232ddeb8f17161
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c3f25e48977935912f7b78499d7be554157bd31ec2fadc2d811e82880622bfdf(
+    *,
+    alternate_target_group_arn: builtins.str,
+    production_listener_rule: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    test_listener_rule: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__40010db1fb42b63f942b5b11b7277545c2a1bffc42369636da9c14f813a744c5(
     *,
     assign_public_ip: typing.Optional[builtins.str] = None,
@@ -44332,9 +44808,12 @@ def _typecheckingstub__b2dbcb552902e6050bf0a575d5654d1d6ff74c24d93692dd2b9a98d50
 def _typecheckingstub__d809d14e704a11675cbface3b43579e5f8f2a29c9b48e27608c625a3f01cb3a6(
     *,
     alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DeploymentAlarmsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bake_time_in_minutes: typing.Optional[jsii.Number] = None,
     deployment_circuit_breaker: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DeploymentCircuitBreakerProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    lifecycle_hooks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.DeploymentLifecycleHookProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     maximum_percent: typing.Optional[jsii.Number] = None,
     minimum_healthy_percent: typing.Optional[jsii.Number] = None,
+    strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44342,6 +44821,15 @@ def _typecheckingstub__d809d14e704a11675cbface3b43579e5f8f2a29c9b48e27608c625a3f
 def _typecheckingstub__e9921934df7686d8808e649b9ab979d2747a6f8cba336af2424f597839d2103f(
     *,
     type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81d51cf744a434ad2ba13fc9f3dea23611c28b28f4a9414d8324cf57768cea5e(
+    *,
+    hook_target_arn: builtins.str,
+    lifecycle_stages: typing.Sequence[builtins.str],
+    role_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44357,6 +44845,7 @@ def _typecheckingstub__ac73ec1d9d94d0e545ad276e88baeb61d67c664fed33ac2082b94f93d
 
 def _typecheckingstub__251c3999c1586967f7c9091782e6a113831e05b5f853b910cad8c8e75f654def(
     *,
+    advanced_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.AdvancedConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     container_name: typing.Optional[builtins.str] = None,
     container_port: typing.Optional[jsii.Number] = None,
     load_balancer_name: typing.Optional[builtins.str] = None,
@@ -44409,6 +44898,7 @@ def _typecheckingstub__7552e3d2b970cfb26552bec096b0680acf8bc8c7b59096bbf5a210dd3
     *,
     port: jsii.Number,
     dns_name: typing.Optional[builtins.str] = None,
+    test_traffic_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceConnectTestTrafficRulesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -44431,6 +44921,28 @@ def _typecheckingstub__047411a3798b037ac5ad218c8ed5492e98c896db58ad86ac1acde082c
     ingress_port_override: typing.Optional[jsii.Number] = None,
     timeout: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.TimeoutConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceConnectTlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95be6c123aaeddaea0658f43268bed3cd0c9fdafbb6f8eb86f2cfa3ece72131e(
+    *,
+    name: builtins.str,
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceConnectTestTrafficRulesHeaderValueProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00399c48ee323c2a3961b9504adf57d82b84cf123d2dd023433fc918ac78282f(
+    *,
+    exact: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38ae0ce4b02d72c8b4b7583b571baf645aed5c2d7b9e970baefceb7ffc5abed3(
+    *,
+    header: typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceConnectTestTrafficRulesHeaderProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass

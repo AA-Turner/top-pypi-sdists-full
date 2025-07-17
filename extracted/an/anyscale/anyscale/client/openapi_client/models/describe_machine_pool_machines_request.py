@@ -33,23 +33,28 @@ class DescribeMachinePoolMachinesRequest(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'machine_pool_name': 'str'
+        'machine_pool_name': 'str',
+        'filters': 'DescribeMachinePoolMachinesFilters'
     }
 
     attribute_map = {
-        'machine_pool_name': 'machine_pool_name'
+        'machine_pool_name': 'machine_pool_name',
+        'filters': 'filters'
     }
 
-    def __init__(self, machine_pool_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_pool_name=None, filters=None, local_vars_configuration=None):  # noqa: E501
         """DescribeMachinePoolMachinesRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._machine_pool_name = None
+        self._filters = None
         self.discriminator = None
 
         self.machine_pool_name = machine_pool_name
+        if filters is not None:
+            self.filters = filters
 
     @property
     def machine_pool_name(self):
@@ -75,6 +80,29 @@ class DescribeMachinePoolMachinesRequest(object):
             raise ValueError("Invalid value for `machine_pool_name`, must not be `None`")  # noqa: E501
 
         self._machine_pool_name = machine_pool_name
+
+    @property
+    def filters(self):
+        """Gets the filters of this DescribeMachinePoolMachinesRequest.  # noqa: E501
+
+        Filters to apply to the machines.  # noqa: E501
+
+        :return: The filters of this DescribeMachinePoolMachinesRequest.  # noqa: E501
+        :rtype: DescribeMachinePoolMachinesFilters
+        """
+        return self._filters
+
+    @filters.setter
+    def filters(self, filters):
+        """Sets the filters of this DescribeMachinePoolMachinesRequest.
+
+        Filters to apply to the machines.  # noqa: E501
+
+        :param filters: The filters of this DescribeMachinePoolMachinesRequest.  # noqa: E501
+        :type: DescribeMachinePoolMachinesFilters
+        """
+
+        self._filters = filters
 
     def to_dict(self):
         """Returns the model properties as a dict"""

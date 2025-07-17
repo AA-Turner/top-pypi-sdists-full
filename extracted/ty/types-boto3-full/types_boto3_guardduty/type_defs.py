@@ -708,6 +708,7 @@ class CreateIPSetRequestTypeDef(TypedDict):
     Activate: bool
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class UnprocessedAccountTypeDef(TypedDict):
@@ -743,6 +744,7 @@ class CreateThreatIntelSetRequestTypeDef(TypedDict):
     Activate: bool
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class DNSLogsConfigurationResultTypeDef(TypedDict):
@@ -1389,6 +1391,7 @@ class UpdateIPSetRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     Location: NotRequired[str]
     Activate: NotRequired[bool]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class UpdateS3BucketResourceTypeDef(TypedDict):
@@ -1401,6 +1404,7 @@ class UpdateThreatIntelSetRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     Location: NotRequired[str]
     Activate: NotRequired[bool]
+    ExpectedBucketOwner: NotRequired[str]
 
 
 class CreateMembersRequestTypeDef(TypedDict):
@@ -1526,6 +1530,7 @@ class GetIPSetResponseTypeDef(TypedDict):
     Location: str
     Status: IpSetStatusType
     Tags: Dict[str, str]
+    ExpectedBucketOwner: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1540,6 +1545,7 @@ class GetThreatIntelSetResponseTypeDef(TypedDict):
     Location: str
     Status: ThreatIntelSetStatusType
     Tags: Dict[str, str]
+    ExpectedBucketOwner: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

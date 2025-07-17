@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-vector-stores-milvus
-Version: 0.8.5
+Version: 0.8.6
 Summary: llama-index vector_stores milvus integration
 License-Expression: MIT
 License-File: LICENSE

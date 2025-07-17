@@ -1,8 +1,7 @@
 import unittest
 import os
 import shutil
-import fs
-import fs.copy
+import fontTools.misc.filesystem as fs
 from fontTools.ufoLib import UFOReader
 from defcon import Font
 from defcon.test.testTools import (
@@ -134,8 +133,7 @@ class LayerTest(unittest.TestCase):
                 data = {"lib": {}}
                 data["lib"]["testForExternalChanges.test"] = 1
                 fileSystem = openTestFontAsFileSystem(path)
-                p = fs.path.join("glyphs", "layerinfo.plist")
-                with fileSystem.open(p, mode="wb") as f:
+                with fileSystem.open("glyphs/layerinfo.plist", mode="wb") as f:
                     dump(data, f)
                 closeTestFontAsFileSystem(fileSystem, path)
                 with UFOReader(path) as reader:

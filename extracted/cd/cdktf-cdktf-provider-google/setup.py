@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.5.0",
+    "version": "16.6.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -107,6 +107,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.backup_dr_backup_plan_association",
         "cdktf_cdktf_provider_google.backup_dr_backup_vault",
         "cdktf_cdktf_provider_google.backup_dr_management_server",
+        "cdktf_cdktf_provider_google.backup_dr_service_config",
         "cdktf_cdktf_provider_google.beyondcorp_app_connection",
         "cdktf_cdktf_provider_google.beyondcorp_app_connector",
         "cdktf_cdktf_provider_google.beyondcorp_app_gateway",
@@ -559,6 +560,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_compute_lb_ip_ranges",
         "cdktf_cdktf_provider_google.data_google_compute_machine_types",
         "cdktf_cdktf_provider_google.data_google_compute_network",
+        "cdktf_cdktf_provider_google.data_google_compute_network_attachment",
         "cdktf_cdktf_provider_google.data_google_compute_network_endpoint_group",
         "cdktf_cdktf_provider_google.data_google_compute_network_peering",
         "cdktf_cdktf_provider_google.data_google_compute_networks",
@@ -631,6 +633,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_endpoints_service_consumers_iam_policy",
         "cdktf_cdktf_provider_google.data_google_endpoints_service_iam_policy",
         "cdktf_cdktf_provider_google.data_google_filestore_instance",
+        "cdktf_cdktf_provider_google.data_google_firestore_document",
         "cdktf_cdktf_provider_google.data_google_folder",
         "cdktf_cdktf_provider_google.data_google_folder_iam_policy",
         "cdktf_cdktf_provider_google.data_google_folder_organization_policy",
@@ -1030,6 +1033,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.gkeonprem_bare_metal_admin_cluster",
         "cdktf_cdktf_provider_google.gkeonprem_bare_metal_cluster",
         "cdktf_cdktf_provider_google.gkeonprem_bare_metal_node_pool",
+        "cdktf_cdktf_provider_google.gkeonprem_vmware_admin_cluster",
         "cdktf_cdktf_provider_google.gkeonprem_vmware_cluster",
         "cdktf_cdktf_provider_google.gkeonprem_vmware_node_pool",
         "cdktf_cdktf_provider_google.healthcare_consent_store",
@@ -1201,6 +1205,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.network_security_address_group_iam_member",
         "cdktf_cdktf_provider_google.network_security_address_group_iam_policy",
         "cdktf_cdktf_provider_google.network_security_authz_policy",
+        "cdktf_cdktf_provider_google.network_security_backend_authentication_config",
         "cdktf_cdktf_provider_google.network_security_client_tls_policy",
         "cdktf_cdktf_provider_google.network_security_firewall_endpoint",
         "cdktf_cdktf_provider_google.network_security_firewall_endpoint_association",
@@ -1465,7 +1470,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.5.0.jsii.tgz"
+            "provider-google@16.6.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

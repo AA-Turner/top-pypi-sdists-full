@@ -52,7 +52,6 @@ from pymc.initial_point import PointType, make_initial_point_fn
 from pymc.logprob.basic import transformed_conditional_logp
 from pymc.logprob.transforms import Transform
 from pymc.logprob.utils import ParameterValueError, replace_rvs_by_values
-from pymc.model_graph import model_to_graphviz
 from pymc.pytensorf import (
     PointFunc,
     SeedSequenceSeed,
@@ -68,7 +67,6 @@ from pymc.util import (
     UNSET,
     VarName,
     WithMemoization,
-    _add_future_warning_tag,
     _UnsetType,
     get_transformed_name,
     get_value_vars_from_user_vars,
@@ -438,6 +436,13 @@ class Model(WithMemoization, metaclass=ContextMeta):
         """Exit the context manager."""
         _ = MODEL_MANAGER.active_contexts.pop()
 
+    def _display_(self):
+        import marimo as mo
+
+        from pymc.model_graph import model_to_mermaid
+
+        return mo.mermaid(model_to_mermaid(self))
+
     @staticmethod
     def _validate_name(name):
         if name.endswith(":"):
@@ -450,18 +455,11 @@ class Model(WithMemoization, metaclass=ContextMeta):
         coords=None,
         check_bounds=True,
         *,
-        coords_mutable=None,
         model: _UnsetType | None | Model = UNSET,
     ):
         self.name = self._validate_name(name)
         self.check_bounds = check_bounds
         self._parent = model if not isinstance(model, _UnsetType) else MODEL_MANAGER.parent_context
-
-        if coords_mutable is not None:
-            warnings.warn(
-                "All coords are now mutable by default. coords_mutable will be removed in a future release.",
-                FutureWarning,
-            )
 
         if self.parent is not None:
             self.named_vars = treedict(parent=self.parent.named_vars)
@@ -492,9 +490,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
             self._coords = {}
             self._dim_lengths = {}
         self.add_coords(coords)
-        if coords_mutable is not None:
-            for name, values in coords_mutable.items():
-                self.add_coord(name, values, mutable=True)
 
         from pymc.printing import str_for_model
 
@@ -921,7 +916,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
         self,
         name: str,
         values: Sequence | np.ndarray | None = None,
-        mutable: bool | None = None,
         *,
         length: int | Variable | None = None,
     ):
@@ -935,19 +929,10 @@ class Model(WithMemoization, metaclass=ContextMeta):
         values : optional, array_like
             Coordinate values or ``None`` (for auto-numbering).
             If ``None`` is passed, a ``length`` must be specified.
-        mutable : bool
-            Whether the created dimension should be resizable.
-            Default is False.
         length : optional, scalar
             A scalar of the dimensions length.
             Defaults to ``pytensor.tensor.constant(len(values))``.
         """
-        if mutable is not None:
-            warnings.warn(
-                "Coords are now always mutable. Specifying `mutable` will raise an error in a future release",
-                FutureWarning,
-            )
-
         if name in {"draw", "chain", "__sample__"}:
             raise ValueError(
                 "Dimensions can not be named `draw`, `chain` or `__sample__`, "
@@ -964,6 +949,7 @@ class Model(WithMemoization, metaclass=ContextMeta):
         if name in self.coords:
             if not np.array_equal(values, self.coords[name]):
                 raise ValueError(f"Duplicate and incompatible coordinate: {name}.")
+            return
         if length is not None and not isinstance(length, int | Variable):
             raise ValueError(
                 f"The `length` passed for the '{name}' coord must be an int, PyTensor Variable or None."
@@ -1222,7 +1208,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
         """
         name = self.name_for(name)
         rv_var.name = name
-        _add_future_warning_tag(rv_var)
 
         # Associate previously unknown dimension names with
         # the length of the corresponding RV dimension.
@@ -1433,9 +1418,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
                     value_var.tag.test_value = transform.forward(
                         rv_var, *rv_var.owner.inputs
                     ).tag.test_value
-
-        _add_future_warning_tag(value_var)
-        rv_var.tag.value_var = value_var
 
         self.rvs_to_transforms[rv_var] = transform
         self.rvs_to_values[rv_var] = value_var
@@ -1699,23 +1681,6 @@ class Model(WithMemoization, metaclass=ContextMeta):
             f(**point)
 
         return f.profile
-
-    def update_start_vals(self, a: dict[str, np.ndarray], b: dict[str, np.ndarray]):
-        r"""Update point `a` with `b`, without overwriting existing keys.
-
-        Values specified for transformed variables in `a` will be recomputed
-        conditional on the values of `b` and stored in `b`.
-
-        Parameters
-        ----------
-        a : dict
-
-        b : dict
-        """
-        raise FutureWarning(
-            "The `Model.update_start_vals` method was removed."
-            " To change initial values you may set the items of `Model.initial_values` directly."
-        )
 
     def eval_rv_shapes(self) -> dict[str, tuple[int, ...]]:
         """Evaluate shapes of untransformed AND transformed free variables.
@@ -2038,6 +2003,8 @@ class Model(WithMemoization, metaclass=ContextMeta):
             # creates the file `schools.pdf`
             schools.to_graphviz().render("schools")
         """
+        from pymc.model_graph import model_to_graphviz
+
         return model_to_graphviz(
             model=self,
             var_names=var_names,

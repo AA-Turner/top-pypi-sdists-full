@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 3.2.6
+Version: 3.2.8
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -36,7 +36,7 @@ Requires-Dist: rich (>=13.6.0,<14.0.0)
 Requires-Dist: sentry-sdk
 Requires-Dist: setuptools
 Requires-Dist: tabulate (>=0.9.0,<0.10.0)
-Requires-Dist: tenacity (<=9.0.0)
+Requires-Dist: tenacity (>=8.0.0,<=10.0.0)
 Requires-Dist: tqdm (>=4.66.1,<5.0.0)
 Requires-Dist: typer (>=0.9,<1.0.0)
 Requires-Dist: wheel

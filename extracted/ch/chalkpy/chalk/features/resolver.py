@@ -3075,6 +3075,7 @@ class ParseInfo(Generic[T, V]):
     input_type: Type[T]
     output_type: Type[V]
     output_is_optional: bool
+    parse_function_captured_globals: Mapping[str, FunctionCapturedGlobal] | None
 
 
 def _validate_parse_function(
@@ -3184,8 +3185,15 @@ def _validate_parse_function(
             raise_error=TypeError,
         )
 
+    gas = GasLimit(remaining_gas=RESOLVER_FUNCTION_CAPTURE_LIMIT, out_of_gas_error=OutOfGasError())
+    parse_function_captured_globals = parse_extract_function_object_captured_globals(parse_fn, gas)
+
     return ParseInfo(
-        fn=parse_fn, input_type=cast(Any, parse_input), output_type=parse_output, output_is_optional=output_optional
+        fn=parse_fn,
+        input_type=cast(Any, parse_input),
+        output_type=parse_output,
+        output_is_optional=output_optional,
+        parse_function_captured_globals=parse_function_captured_globals,
     )
 
 

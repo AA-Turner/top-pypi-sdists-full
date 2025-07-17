@@ -344,79 +344,127 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     context=context
                 )
 
-            # Initialize processing context if not provided
+            if stream_info is not None:
+                if context is None:
+                    context = ProcessingContext()
+                context.stream_info = stream_info
+
             if context is None:
                 context = ProcessingContext()
 
-            # Detect input format
+            self._service_proximity_threshold = config.service_proximity_threshold
+
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
             context.enable_tracking = config.enable_tracking
 
-            # Set proximity threshold
-            self._service_proximity_threshold = config.service_proximity_threshold
+            self.logger.info(f"Processing advanced customer service with format: {input_format.value}")
 
-            # 1. Extract detections
-            processed_data = data if isinstance(data, dict) else {}
-            detections = self._extract_detections(data)
+            self._initialize_areas(config.customer_areas, config.staff_areas, config.service_areas)
 
-            # Assign staff/customer by area (in-place)
-            assign_person_by_area(detections, getattr(config, 'customer_areas', {}), getattr(config, 'staff_areas', {}))
+            processed_data = data
+            if config.confidence_threshold is not None:
+                processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
+                self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
 
-            staff_detections, customer_detections = self._categorize_detections(
+            if hasattr(config, 'index_to_category') and config.index_to_category:
+                processed_data = apply_category_mapping(processed_data, config.index_to_category)
+                self.logger.debug("Applied category mapping")
+
+            detections = self._extract_detections(processed_data)
+            assign_person_by_area(
                 detections,
-                config.staff_categories,
-                config.customer_categories
+                getattr(config, 'customer_areas', {}),
+                getattr(config, 'staff_areas', {})
             )
+            staff_detections, customer_detections = self._categorize_detections(
+                detections, config.staff_categories, config.customer_categories
+            )
+            self.logger.debug(f"Extracted {len(staff_detections)} staff and {len(customer_detections)} customer detections")
+
+            self._maybe_reset_chunk()
+            self._update_chunk_tracking(customer_detections)
+
             current_time = time.time()
-            # 2. Process analytics
             analytics_results = self._process_comprehensive_analytics(
-                staff_detections,
-                customer_detections,
-                config,
-                current_time
+                staff_detections, customer_detections, config, current_time
             )
-            # 3. Generate agg_summary
-            agg_summary = self._generate_per_frame_agg_summary(
-                processed_data,
-                analytics_results,
-                config,
-                context,
-                stream_info=stream_info
-            )
-            # 4. Compose result data
-            result_data = dict(analytics_results)
-            result_data["agg_summary"] = agg_summary
-            # 5. Ensure raw_output is always a list in result_data and in model_output if present
-            if "raw_output" in result_data and not isinstance(result_data["raw_output"], list):
-                result_data["raw_output"] = [result_data["raw_output"]]
-            if "model_output" in result_data:
-                mo = result_data["model_output"]
-                if isinstance(mo, dict) and "raw_output" in mo and not isinstance(mo["raw_output"], list):
-                    mo["raw_output"] = [mo["raw_output"]]
-            # 6. Generate insights, alerts, summary, predictions
+
+            # --- FIX: Ensure agg_summary is top-level and events/tracking_stats are dicts ---
+            if isinstance(processed_data, dict):
+                agg_summary = self._generate_per_frame_agg_summary(processed_data, analytics_results, config, context, stream_info)
+            else:
+                agg_summary = {"events": {}, "tracking_stats": {}}
+
+            # # --- FIX: Ensure raw_output is always a list ---
+            # if not isinstance(analytics_results.get("raw_output", []), list):
+            #     analytics_results["raw_output"] = [analytics_results.get("raw_output", {})]
+
             insights = self._generate_insights(analytics_results, config)
             alerts = self._check_alerts(analytics_results, config)
             summary = self._generate_summary(analytics_results, alerts)
             predictions = self._extract_predictions(processed_data)
-            # 7. Create result object
+
+            context.mark_completed()
+
+
+
+            # # --- REPLACE outer agg_summary with inner if present ---
+            # # If analytics_results contains processed_data.agg_summary, use that as the output agg_summary
+            # inner_agg_summary = None
+            # if "processed_data" in analytics_results and isinstance(analytics_results["processed_data"], dict):
+            #     pd = analytics_results["processed_data"]
+            #     if "agg_summary" in pd and isinstance(pd["agg_summary"], dict):
+            #         inner_agg_summary = pd["agg_summary"]
+            # if inner_agg_summary:
+            #     agg_summary = inner_agg_summary
+
+            # # Ensure tracking_stats and events are dicts keyed by frame_id
+            # if "tracking_stats" in agg_summary and isinstance(agg_summary["tracking_stats"], list):
+            #     # If tracking_stats is a list with a dict containing tracking_stats, flatten
+            #     for item in agg_summary["tracking_stats"]:
+            #         if isinstance(item, dict) and "tracking_stats" in item:
+            #             agg_summary["tracking_stats"] = item["tracking_stats"]
+            #             break
+
+            # if "events" in agg_summary and isinstance(agg_summary["events"], list):
+            #     for item in agg_summary["events"]:
+            #         if isinstance(item, dict) and "events" in item:
+            #             agg_summary["events"] = item["events"]
+            #             break
+
+            # Compose result data with flattened agg_summary
+            result_data = dict(analytics_results)
+            result_data["agg_summary"] = agg_summary
+
+
+            # # Ensure raw_output is always a list, including inside model_output
+            # if "model_output" in result_data:
+            #     mo = result_data["model_output"]
+            #     if isinstance(mo, dict) and "raw_output" in mo and not isinstance(mo["raw_output"], list):
+            #         mo["raw_output"] = [mo["raw_output"]]
+            # if not isinstance(result_data.get("raw_output", []), list):
+            #     result_data["raw_output"] = [result_data.get("raw_output", {})]
+
             result = self.create_result(
                 data=result_data,
                 usecase=self.name,
                 category=self.category,
                 context=context
             )
+
             result.summary = summary
             result.insights = insights
             result.predictions = predictions
             result.metrics = analytics_results.get("business_metrics", {})
+
             if not config.customer_areas and not config.staff_areas:
                 result.add_warning("No customer or staff areas defined - using global analysis only")
+
             if config.service_proximity_threshold > 250:
                 result.add_warning(f"High service proximity threshold ({config.service_proximity_threshold}) may miss interactions")
-            if context:
-                context.mark_completed()
+
             self.logger.info(f"Advanced customer service analysis completed successfully in {result.processing_time:.2f}s")
             return result
 

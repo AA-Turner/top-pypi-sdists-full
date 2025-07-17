@@ -1,14 +1,15 @@
 import asyncio
+import contextlib
 import json
 import time
 from decimal import Decimal
 from pprint import pprint
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from tronpy import keys
 from tronpy.abi import tron_abi
 from tronpy.async_contract import AsyncContract, AsyncContractMethod, ShieldedTRC20
-from tronpy.defaults import conf_for_name
+from tronpy.defaults import PROTOBUF_NOT_INSTALLED_ERROR_MESSAGE, conf_for_name
 from tronpy.exceptions import (
     AddressNotFound,
     ApiError,
@@ -18,6 +19,7 @@ from tronpy.exceptions import (
     BadSignature,
     BlockNotFound,
     BugInJavaTron,
+    ProtobufImportError,
     TaposError,
     TransactionError,
     TransactionNotFound,
@@ -28,6 +30,11 @@ from tronpy.exceptions import (
 from tronpy.hdwallet import TRON_DEFAULT_PATH, generate_mnemonic, key_from_seed, seed_from_mnemonic
 from tronpy.keys import PrivateKey
 from tronpy.providers.async_http import AsyncHTTPProvider
+
+try:
+    from tronpy import proto
+except ProtobufImportError:
+    proto = None
 
 TAddress = str
 
@@ -88,13 +95,11 @@ class AsyncTransactionRet(dict):
             msg = receipt.get("resMessage", receipt["result"])
 
             if receipt["receipt"]["result"] == "REVERT":
-                try:
+                with contextlib.suppress(Exception):
                     result = receipt.get("contractResult", [])
                     if result and len(result[0]) > (4 + 32) * 2:
                         error_msg = tron_abi.decode_single("string", bytes.fromhex(result[0])[4 + 32 :])
                         msg = f"{msg}: {error_msg}"
-                except Exception:
-                    pass
             raise TvmError(msg)
 
         return self._method.parse_output(receipt["contractResult"][0])
@@ -172,8 +177,10 @@ class AsyncTransaction:
     def sign(self, priv_key: PrivateKey) -> "AsyncTransaction":
         """Sign the transaction with a private key."""
 
-        assert self.txid, "txID not calculated"
-        assert self.is_expired is False, "expired"
+        if not self.txid:
+            raise ValueError("txID not calculated")
+        if self.is_expired:
+            raise ValueError("expired")
 
         if self._permission is not None:
             addr_of_key = priv_key.public_key.to_hex_address()
@@ -245,7 +252,7 @@ class AsyncTransactionBuilder:
             "ref_block_hash": None,
         }
 
-        if inner.get("type", None) in ["TriggerSmartContract", "CreateSmartContract"]:
+        if inner.get("type") in ["TriggerSmartContract", "CreateSmartContract"]:
             self._raw_data["fee_limit"] = self._client.conf["fee_limit"]
 
         self._method = method
@@ -278,18 +285,27 @@ class AsyncTransactionBuilder:
         self._raw_data["fee_limit"] = value
         return self
 
-    async def build(self, options=None, **kwargs) -> AsyncTransaction:
+    async def build(self, *, offline: bool = False, ref_block_id: str = None, **kwargs) -> AsyncTransaction:
         """Build the transaction."""
-        ref_block_id = await self._client.get_latest_solid_block_id()
-        # last 2 byte of block number part
+        if offline:
+            if not ref_block_id:
+                raise ValueError("ref_block_id is required when building offline transactions")
+            if proto is None:
+                raise ImportError(PROTOBUF_NOT_INSTALLED_ERROR_MESSAGE)
+        else:
+            ref_block_id = await self._client.get_latest_solid_block_id()
         self._raw_data["ref_block_bytes"] = ref_block_id[12:16]
-        # last half part of block hash
         self._raw_data["ref_block_hash"] = ref_block_id[16:32]
-
-        if self._method:
-            return await AsyncTransaction.create(self._raw_data, client=self._client, method=self._method)
-
-        return await AsyncTransaction.create(self._raw_data, client=self._client)
+        if offline:
+            txid = proto.calculate_txid_from_raw_data(self._raw_data)
+            return AsyncTransaction(
+                self._raw_data,
+                client=None,
+                method=self._method,
+                txid=txid,
+                permission=None,
+            )
+        return await AsyncTransaction.create(self._raw_data, client=self._client, method=self._method)
 
 
 # noinspection PyBroadException
@@ -403,7 +419,7 @@ class AsyncTrx:
             for act in perm["actives"]:
                 for key in act["keys"]:
                     key["address"] = keys.to_hex_address(key["address"])
-        if perm.get("witness", None):
+        if perm.get("witness"):
             for key in perm["witness"]["keys"]:
                 key["address"] = keys.to_hex_address(key["address"])
 
@@ -528,9 +544,9 @@ class AsyncTrx:
         payload = {"owner_address": keys.to_hex_address(owner), "url": url.encode().hex()}
         return self._build_transaction("WitnessCreateContract", payload)
 
-    def vote_witness(self, owner: TAddress, *votes: Tuple[TAddress, int]) -> "AsyncTransactionBuilder":
+    def vote_witness(self, owner: TAddress, *votes: tuple[TAddress, int]) -> "AsyncTransactionBuilder":
         """Vote for witnesses. Empty ``votes`` to clean voted."""
-        votes = [dict(vote_address=keys.to_hex_address(addr), vote_count=count) for addr, count in votes]
+        votes = [{"vote_address": keys.to_hex_address(addr), "vote_count": count} for addr, count in votes]
         payload = {"owner_address": keys.to_hex_address(owner), "votes": votes}
         return self._build_transaction("VoteWitnessContract", payload)
 
@@ -603,7 +619,7 @@ class AsyncTron:
         return self._trx
 
     def _handle_api_error(self, payload: dict):
-        if payload.get("result", None) is True:
+        if payload.get("result") is True:
             return
         if "Error" in payload:
             # class java.lang.NullPointerException : null
@@ -616,11 +632,11 @@ class AsyncTron:
 
             if payload["code"] == "SIGERROR":
                 raise BadSignature(msg)
-            elif payload["code"] == "TAPOS_ERROR":
+            if payload["code"] == "TAPOS_ERROR":
                 raise TaposError(msg)
-            elif payload["code"] in ["TRANSACTION_EXPIRATION_ERROR", "TOO_BIG_TRANSACTION_ERROR"]:
+            if payload["code"] in ["TRANSACTION_EXPIRATION_ERROR", "TOO_BIG_TRANSACTION_ERROR"]:
                 raise TransactionError(msg)
-            elif payload["code"] == "CONTRACT_VALIDATE_ERROR":
+            if payload["code"] == "CONTRACT_VALIDATE_ERROR":
                 raise ValidationError(msg)
             raise UnknownError(msg, payload["code"])
         if "result" in payload and isinstance(payload["result"], (dict,)):
@@ -708,18 +724,18 @@ class AsyncTron:
         pkD = ret["pkD"]
         payment_address = ret["payment_address"]
 
-        return dict(
-            sk=sk,
-            ask=ask,
-            nsk=nsk,
-            ovk=ovk,
-            ak=ak,
-            nk=nk,
-            ivk=ivk,
-            d=d,
-            pkD=pkD,
-            payment_address=payment_address,
-        )
+        return {
+            "sk": sk,
+            "ask": ask,
+            "nsk": nsk,
+            "ovk": ovk,
+            "ak": ak,
+            "nk": nk,
+            "ivk": ivk,
+            "d": d,
+            "pkD": pkD,
+            "payment_address": payment_address,
+        }
 
     # Account query
     async def get_account(self, addr: TAddress) -> dict:
@@ -730,11 +746,10 @@ class AsyncTron:
         )
         if ret:
             return ret
-        else:
-            raise AddressNotFound("account not found on-chain")
+        raise AddressNotFound("account not found on-chain")
 
     # Bandwidth query
-    async def get_bandwidth(self, addr: TAddress) -> dict:
+    async def get_bandwidth(self, addr: TAddress) -> int:
         """Query the bandwidth of the account"""
 
         ret = await self.provider.make_request(
@@ -743,8 +758,14 @@ class AsyncTron:
         if ret:
             # (freeNetLimit - freeNetUsed) + (NetLimit - NetUsed)
             return ret["freeNetLimit"] - ret.get("freeNetUsed", 0) + ret.get("NetLimit", 0) - ret.get("NetUsed", 0)
-        else:
-            raise AddressNotFound("account not found on-chain")
+        raise AddressNotFound("account not found on-chain")
+
+    async def get_energy(self, address: str) -> int:
+        """Query the energy of the account"""
+        account_info = await self.get_account_resource(address)
+        energy_limit = account_info.get("EnergyLimit", 0)
+        energy_used = account_info.get("EnergyUsed", 0)
+        return energy_limit - energy_used
 
     async def get_account_resource(self, addr: TAddress) -> dict:
         """Get resource info of an account."""
@@ -755,8 +776,7 @@ class AsyncTron:
         )
         if ret:
             return ret
-        else:
-            raise AddressNotFound("account not found on-chain")
+        raise AddressNotFound("account not found on-chain")
 
     async def get_account_balance(self, addr: TAddress) -> Decimal:
         """Get TRX balance of an account. Result in `TRX`."""
@@ -826,6 +846,21 @@ class AsyncTron:
             },
         )
 
+    async def get_can_delegated_max_size(self, address: TAddress, resource: str = "ENERGY") -> dict:
+        """Query the amount of delegatable resources share of the specified resource type for an address
+
+        Args:
+            address (TAddress):
+            resource (str, optional): Resource type, can be ``"ENERGY"`` or ``"BANDWIDTH"``. Defaults to "ENERGY".
+
+        Returns:
+            dict: Response data
+        """
+        return await self.provider.make_request(
+            "wallet/getcandelegatedmaxsize",
+            {"owner_address": keys.to_base58check_address(address), "type": 1 if resource == "ENERGY" else 0, "visible": True},
+        )
+
     async def get_delegated_resource_account_index_v2(self, addr: TAddress) -> dict:
         """Query the resource delegation index by an account"""
         return await self.provider.make_request(
@@ -891,10 +926,9 @@ class AsyncTron:
 
         if "Error" in (block or {}):
             raise BugInJavaTron(block)
-        elif block:
+        if block:
             return block
-        else:
-            raise BlockNotFound
+        raise BlockNotFound
 
     async def get_transaction(self, txn_id: str) -> dict:
         """Get transaction from a transaction id."""
@@ -977,17 +1011,16 @@ class AsyncTron:
 
     # Asset (TRC10)
 
-    async def get_asset(self, id: int = None, issuer: TAddress = None) -> dict:
+    async def get_asset(self, asset_id: int = None, issuer: TAddress = None) -> dict:
         """Get TRC10(asset) info by asset's id or issuer."""
-        if id and issuer:
+        if asset_id and issuer:
             raise ValueError("either query by id or issuer")
-        if id:
-            return await self.provider.make_request("wallet/getassetissuebyid", {"value": id, "visible": True})
-        else:
-            return await self.provider.make_request(
-                "wallet/getassetissuebyaccount",
-                {"address": keys.to_base58check_address(issuer), "visible": True},
-            )
+        if asset_id:
+            return await self.provider.make_request("wallet/getassetissuebyid", {"value": asset_id, "visible": True})
+        return await self.provider.make_request(
+            "wallet/getassetissuebyaccount",
+            {"address": keys.to_base58check_address(issuer), "visible": True},
+        )
 
     async def get_asset_from_name(self, name: str) -> dict:
         """Get asset info from its abbr name, might fail if there're duplicates."""
@@ -1010,7 +1043,10 @@ class AsyncTron:
                 asset["abbr"] = bytes.fromhex(asset["abbr"]).decode()
             else:
                 asset["abbr"] = ""
-            asset["description"] = bytes.fromhex(asset["description"]).decode("utf8", "replace")
+            if "description" in asset:
+                asset["description"] = bytes.fromhex(asset["description"]).decode("utf8", "replace")
+            else:
+                asset["description"] = ""
             asset["url"] = bytes.fromhex(asset["url"]).decode()
         return assets
 
@@ -1023,11 +1059,11 @@ class AsyncTron:
 
         try:
             self._handle_api_error(info)
-        except ApiError:
+        except ApiError as e:
             # your java's null pointer exception sucks
-            raise AddressNotFound("contract address not found")
+            raise AddressNotFound("contract address not found") from e
 
-        cntr = AsyncContract(
+        return AsyncContract(
             addr=addr,
             bytecode=info.get("bytecode", ""),
             name=info.get("name", ""),
@@ -1038,7 +1074,6 @@ class AsyncTron:
             code_hash=info.get("code_hash", ""),
             client=self,
         )
-        return cntr
 
     async def get_contract_info(self, addr: TAddress) -> dict:
         """Queries a contract's information from the blockchain"""
@@ -1047,8 +1082,8 @@ class AsyncTron:
 
         try:
             self._handle_api_error(info)
-        except ApiError:
-            raise AddressNotFound("contract address not found")
+        except ApiError as e:
+            raise AddressNotFound("contract address not found") from e
 
         return info
 
@@ -1078,12 +1113,10 @@ class AsyncTron:
         if "message" in ret.get("result", {}):
             msg = ret["result"]["message"]
             result = ret.get("constant_result", [])
-            try:
+            with contextlib.suppress(Exception):
                 if result and len(result[0]) > (4 + 32) * 2:
                     error_msg = tron_abi.decode_single("string", bytes.fromhex(result[0])[4 + 32 :])
                     msg = f"{msg}: {error_msg}"
-            except Exception:
-                pass
             raise TvmError(msg)
         return ret
 

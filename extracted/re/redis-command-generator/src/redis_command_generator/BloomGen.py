@@ -15,13 +15,11 @@ class BloomGen(BaseGen):
     max_items_per_insert: int = 10
     max_generated_header_size: int = 20
 
-    def __post_init__(self):
-        self.values = [self._rand_str(self.subval_size) for _ in range(100)]
-
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def bf_add(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: additive
-        value = random.choice(self.values)
+        value = self._rand_str(self.subval_size)
+        self._put_rand_value(KEY_TYPE, value)
         pipe.execute_command("BF.ADD", key, value)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
@@ -32,7 +30,7 @@ class BloomGen(BaseGen):
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def bf_exists(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: lookup
-        value = random.choice(self.values)
+        value = self._get_rand_value(key) or self._rand_str(self.subval_size)
         pipe.execute_command("BF.EXISTS", key, value)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
@@ -65,7 +63,9 @@ class BloomGen(BaseGen):
         if random.choice([True, False]):
             args.extend(["EXPANSION", random.randint(1, 10)])
         # Always add ITEMS
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_insert))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_insert))]
+        for item in items:
+            self._put_rand_value(KEY_TYPE, item)
         args.append("ITEMS")
         args.extend(items)
         pipe.execute_command(*args)
@@ -79,13 +79,15 @@ class BloomGen(BaseGen):
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def bf_madd(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: additive
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_insert))]
+        items = [self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_insert))]
+        for item in items:
+            self._put_rand_value(KEY_TYPE, item)
         pipe.execute_command("BF.MADD", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def bf_mexists(self, pipe: redis.client.Pipeline, key: str) -> None:
         # Classification: lookup
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_insert))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_insert))]
         pipe.execute_command("BF.MEXISTS", key, *items)
         
 

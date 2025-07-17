@@ -7055,6 +7055,7 @@ def delete_upstream_alias_mapping(
 @click.option("--org-id", default=None)
 @click.option("--get-customer-data", is_flag=True, default=False)
 @click.option("--get-subscription-data", is_flag=True, default=False)
+@click.option("--get-usage-metrics", is_flag=True, default=False)
 @click.option("--limit", default=500, type=int)
 @click.option("--page-at-id", default="")
 @click.option("--page-size", default=100, type=int)

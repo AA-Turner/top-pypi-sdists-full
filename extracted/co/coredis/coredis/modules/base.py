@@ -12,24 +12,20 @@ from coredis.config import Config
 from .._protocols import AbstractExecutor
 from ..commands._utils import redis_command_link
 from ..commands._wrappers import (
-    CacheConfig,
     ClusterCommandConfig,
-    CommandCache,
     CommandDetails,
 )
 from ..commands.constants import CommandFlag, CommandGroup, CommandName
+from ..commands.request import CommandRequest
 from ..exceptions import CommandSyntaxError, ModuleCommandNotSupportedError
-from ..globals import COMMAND_FLAGS, MODULE_GROUPS, MODULES, READONLY_COMMANDS
-from ..response._callbacks import NoopCallback
+from ..globals import CACHEABLE_COMMANDS, COMMAND_FLAGS, MODULE_GROUPS, MODULES, READONLY_COMMANDS
 from ..typing import (
     AnyStr,
     Callable,
     ClassVar,
-    Coroutine,
     Generic,
     P,
     R,
-    ValueT,
     add_runtime_checks,
 )
 
@@ -37,7 +33,7 @@ if TYPE_CHECKING:
     import coredis.client
 
 
-async def ensure_compatibility(
+def ensure_compatibility(
     client: coredis.client.Client[Any],
     module: str,
     command_details: CommandDetails,
@@ -47,11 +43,12 @@ async def ensure_compatibility(
         Config.optimized
         or not command_details.version_introduced
         or not getattr(client, "verify_version", False)
+        or not getattr(client, "server_version", None)
         or getattr(client, "noreply", False)
     ):
         return
     if command_details.version_introduced:
-        module_version = await client.get_server_module_version(module)
+        module_version = client.get_server_module_version(module)
         if module_version and command_details.version_introduced <= module_version:
             if command_details.arguments and set(command_details.arguments.keys()).intersection(
                 kwargs.keys()
@@ -79,11 +76,11 @@ def module_command(
     group: CommandGroup,
     flags: set[CommandFlag] | None = None,
     cluster: ClusterCommandConfig = ClusterCommandConfig(),
-    cache_config: CacheConfig | None = None,
+    cacheable: bool | None = None,
     version_introduced: str | None = None,
     version_deprecated: str | None = None,
     arguments: dict[str, dict[str, str]] | None = None,
-) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
+) -> Callable[[Callable[P, CommandRequest[R]]], Callable[P, CommandRequest[R]]]:
     command_details = CommandDetails(
         command_name,
         group,
@@ -91,22 +88,22 @@ def module_command(
         version.Version(version_deprecated) if version_deprecated else None,
         arguments,
         cluster or ClusterCommandConfig(),
-        cache_config,
         flags or set(),
         None,
     )
 
     def wrapper(
-        func: Callable[P, Coroutine[Any, Any, R]],
-    ) -> Callable[P, Coroutine[Any, Any, R]]:
+        func: Callable[P, CommandRequest[R]],
+    ) -> Callable[P, CommandRequest[R]]:
         runtime_checkable = add_runtime_checks(func)
-        command_cache = CommandCache(command_name, cache_config)
         if flags and CommandFlag.READONLY in flags:
             READONLY_COMMANDS.add(command_name)
+        if cacheable:
+            CACHEABLE_COMMANDS.add(command_name)
         COMMAND_FLAGS[command_name] = flags or set()
 
         @functools.wraps(func)
-        async def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+        def wrapped(*args: P.args, **kwargs: P.kwargs) -> CommandRequest[R]:
             from coredis.client import Redis, RedisCluster
 
             mg = cast(ModuleGroup[bytes], args[0])
@@ -114,9 +111,8 @@ def module_command(
             is_regular_client = isinstance(client, (Redis, RedisCluster))
             runtime_checking = not getattr(client, "noreply", None) and is_regular_client
             callable = runtime_checkable if runtime_checking else func
-            await ensure_compatibility(client, module.NAME, command_details, kwargs)
-            async with command_cache(callable, *args, **kwargs) as response:
-                return response
+            ensure_compatibility(client, module.NAME, command_details, kwargs)
+            return callable(*args, **kwargs)
 
         wrapped.__doc__ = textwrap.dedent(wrapped.__doc__ or "")
         if group:
@@ -147,7 +143,7 @@ Compatibility:
                     wrapped.__doc__ += f"""
 - :paramref:`{argument}`: New in {module.FULL_NAME} version `{min_version}`
                     """
-        if cache_config:
+        if cacheable:
             wrapped.__doc__ += """
 .. hint:: Supports client side caching
 """
@@ -264,15 +260,3 @@ class ModuleGroup(Generic[AnyStr], metaclass=ModuleGroupRegistry):
 
     def __init__(self, client: AbstractExecutor):
         self.client = client
-
-    async def execute_module_command(
-        self,
-        command: bytes,
-        *args: ValueT,
-        callback: Callable[..., R] = NoopCallback(),
-        **options: ValueT | None,
-    ) -> R:
-        return cast(
-            R,
-            await self.client.execute_command(command, *args, callback=callback, **options),
-        )

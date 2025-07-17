@@ -73,6 +73,14 @@ from .usecases.face_emotion import FaceEmotionConfig
 from .usecases.parking_space_detection import ParkingSpaceConfig
 from .usecases.underwater_pollution_detection import UnderwaterPlasticConfig
 from .usecases.pedestrian_detection import PedestrianDetectionConfig
+from .usecases.age_detection import AgeDetectionConfig
+from .usecases.mask_detection import MaskDetectionConfig
+
+
+from .usecases.weld_defect_detection import WeldDefectConfig
+
+from .usecases.car_damage_detection import CarDamageConfig
+from .usecases.price_tag_detection import PriceTagConfig
 
 # Use case implementations
 from .usecases import (
@@ -83,14 +91,19 @@ from .usecases import (
     LicensePlateUseCase,
     ColorDetectionUseCase,
     PPEComplianceUseCase,
+    CarDamageDetectionUseCase,
     VehicleMonitoringUseCase,
     FireSmokeUseCase,
+    MaskDetectionUseCase,
     ParkingSpaceUseCase,
     FlareAnalysisUseCase,
     PotholeSegmentationUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
-    PedestrianDetectionUseCase
+    PedestrianDetectionUseCase,
+    AgeDetectionUseCase,
+    WeldDefectUseCase,
+    PriceTagUseCase
 )
 
 # Register use cases automatically
@@ -109,6 +122,13 @@ _face_emotion = FaceEmotionUseCase()
 _parking_space_detection = ParkingSpaceUseCase()
 _underwater_pollution_detection = UnderwaterPlasticUseCase()
 _pedestrian_detection = PedestrianDetectionUseCase()
+_age_detection = AgeDetectionUseCase()
+_mask_detection = MaskDetectionUseCase()
+
+_weld_defect_detection = WeldDefectUseCase()
+_pricetag_detection = PriceTagUseCase()
+_car_damage = CarDamageDetectionUseCase()
+
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -124,6 +144,13 @@ registry.register_use_case(_face_emotion.category, _face_emotion.name, FaceEmoti
 registry.register_use_case(_parking_space_detection.category, _parking_space_detection.name, ParkingSpaceUseCase )
 registry.register_use_case(_underwater_pollution_detection.category, _underwater_pollution_detection.name, UnderwaterPlasticUseCase)
 registry.register_use_case(_pedestrian_detection.category, _pedestrian_detection.name, PedestrianDetectionUseCase)
+registry.register_use_case(_age_detection.category, _age_detection.name, AgeDetectionUseCase)
+registry.register_use_case(_pricetag_detection.category, _pricetag_detection.name, PriceTagUseCase)
+registry.register_use_case(_weld_defect_detection.category, _weld_defect_detection.name, WeldDefectUseCase  )
+registry.register_use_case(_mask_detection.category, _mask_detection.name, MaskDetectionUseCase)
+
+registry.register_use_case(_car_damage.category, _car_damage.name, CarDamageDetectionUseCase)
+
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
     # Geometry utilities
@@ -255,6 +282,8 @@ __all__ = [
     'CustomerServiceConfig',
     'ColorDetectionConfig',
     'LicensePlateConfig',
+    'MaskDetectionConfig',
+    'CarDamageConfig',
     'ParkingSpaceConfig',
     'PotholeConfig',
     'VehicleMonitoringConfig',
@@ -269,6 +298,9 @@ __all__ = [
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',
     'PedestrianDetectionConfig',
+    'AgeDetectionConfig',
+    'WeldDefectConfig',
+    'PriceTagConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -279,13 +311,18 @@ __all__ = [
     'ColorDetectionUseCase',
     'PPEComplianceUseCase',
     'PotholeSegmentationUseCase',
+    'MaskDetectionUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
+    'CarDamageDetectionUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
     'FaceEmotionUseCase',
     'UnderwaterPlasticUseCase',
     'PedestrianDetectionUseCase',
+    'AgeDetectionUseCase',
+    'WeldDefectUseCase',
+    'PriceTagUseCase',
     
     # Base classes for extension
     'BaseProcessor',

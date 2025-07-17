@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk8s-redis",
-    "version": "0.1.838",
+    "version": "0.1.839",
     "description": "Basic implementation of a Redis construct for cdk8s.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdk8s-team/cdk8s-redis.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk8s_redis._jsii": [
-            "cdk8s-redis@0.1.838.jsii.tgz"
+            "cdk8s-redis@0.1.839.jsii.tgz"
         ],
         "cdk8s_redis": [
             "py.typed"

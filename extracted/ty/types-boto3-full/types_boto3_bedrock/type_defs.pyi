@@ -29,6 +29,7 @@ from .literals import (
     AuthorizationStatusType,
     CommitmentDurationType,
     CustomizationTypeType,
+    CustomModelDeploymentStatusType,
     EntitlementAvailabilityType,
     EvaluationJobStatusType,
     EvaluationJobTypeType,
@@ -99,6 +100,8 @@ __all__ = (
     "ByteContentDocOutputTypeDef",
     "ByteContentDocTypeDef",
     "CloudWatchConfigTypeDef",
+    "CreateCustomModelDeploymentRequestTypeDef",
+    "CreateCustomModelDeploymentResponseTypeDef",
     "CreateCustomModelRequestTypeDef",
     "CreateCustomModelResponseTypeDef",
     "CreateEvaluationJobRequestTypeDef",
@@ -130,10 +133,12 @@ __all__ = (
     "CustomMetricDefinitionTypeDef",
     "CustomMetricEvaluatorModelConfigOutputTypeDef",
     "CustomMetricEvaluatorModelConfigTypeDef",
+    "CustomModelDeploymentSummaryTypeDef",
     "CustomModelSummaryTypeDef",
     "CustomModelUnitsTypeDef",
     "CustomizationConfigTypeDef",
     "DataProcessingDetailsTypeDef",
+    "DeleteCustomModelDeploymentRequestTypeDef",
     "DeleteCustomModelRequestTypeDef",
     "DeleteFoundationModelAgreementRequestTypeDef",
     "DeleteGuardrailRequestTypeDef",
@@ -185,6 +190,8 @@ __all__ = (
     "FoundationModelSummaryTypeDef",
     "GenerationConfigurationOutputTypeDef",
     "GenerationConfigurationTypeDef",
+    "GetCustomModelDeploymentRequestTypeDef",
+    "GetCustomModelDeploymentResponseTypeDef",
     "GetCustomModelRequestTypeDef",
     "GetCustomModelResponseTypeDef",
     "GetEvaluationJobRequestTypeDef",
@@ -271,6 +278,9 @@ __all__ = (
     "KnowledgeBaseVectorSearchConfigurationOutputTypeDef",
     "KnowledgeBaseVectorSearchConfigurationTypeDef",
     "LegalTermTypeDef",
+    "ListCustomModelDeploymentsRequestPaginateTypeDef",
+    "ListCustomModelDeploymentsRequestTypeDef",
+    "ListCustomModelDeploymentsResponseTypeDef",
     "ListCustomModelsRequestPaginateTypeDef",
     "ListCustomModelsRequestTypeDef",
     "ListCustomModelsResponseTypeDef",
@@ -478,6 +488,15 @@ class RoutingCriteriaTypeDef(TypedDict):
 class CustomMetricBedrockEvaluatorModelTypeDef(TypedDict):
     modelIdentifier: str
 
+class CustomModelDeploymentSummaryTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    customModelDeploymentName: str
+    modelArn: str
+    createdAt: datetime
+    status: CustomModelDeploymentStatusType
+    lastUpdatedAt: NotRequired[datetime]
+    failureMessage: NotRequired[str]
+
 class CustomModelSummaryTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -496,6 +515,9 @@ class DataProcessingDetailsTypeDef(TypedDict):
     status: NotRequired[JobStatusDetailsType]
     creationTime: NotRequired[datetime]
     lastModifiedTime: NotRequired[datetime]
+
+class DeleteCustomModelDeploymentRequestTypeDef(TypedDict):
+    customModelDeploymentIdentifier: str
 
 class DeleteCustomModelRequestTypeDef(TypedDict):
     modelIdentifier: str
@@ -581,6 +603,9 @@ class FilterAttributeTypeDef(TypedDict):
 
 class FoundationModelLifecycleTypeDef(TypedDict):
     status: FoundationModelLifecycleStatusType
+
+class GetCustomModelDeploymentRequestTypeDef(TypedDict):
+    customModelDeploymentIdentifier: str
 
 class GetCustomModelRequestTypeDef(TypedDict):
     modelIdentifier: str
@@ -1015,6 +1040,10 @@ class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
     evaluationJobs: List[BatchDeleteEvaluationJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateCustomModelResponseTypeDef(TypedDict):
     modelArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1066,6 +1095,17 @@ class CreatePromptRouterResponseTypeDef(TypedDict):
 
 class CreateProvisionedModelThroughputResponseTypeDef(TypedDict):
     provisionedModelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    modelDeploymentName: str
+    modelArn: str
+    createdAt: datetime
+    status: CustomModelDeploymentStatusType
+    description: str
+    failureMessage: str
+    lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFoundationModelAvailabilityResponseTypeDef(TypedDict):
@@ -1121,6 +1161,13 @@ class CloudWatchConfigTypeDef(TypedDict):
     logGroupName: str
     roleArn: str
     largeDataDeliveryS3Config: NotRequired[S3ConfigTypeDef]
+
+class CreateCustomModelDeploymentRequestTypeDef(TypedDict):
+    modelDeploymentName: str
+    modelArn: str
+    description: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    clientRequestToken: NotRequired[str]
 
 class CreateModelCopyJobRequestTypeDef(TypedDict):
     sourceModelArn: str
@@ -1225,6 +1272,11 @@ class CustomMetricEvaluatorModelConfigOutputTypeDef(TypedDict):
 
 class CustomMetricEvaluatorModelConfigTypeDef(TypedDict):
     bedrockEvaluatorModels: Sequence[CustomMetricBedrockEvaluatorModelTypeDef]
+
+class ListCustomModelDeploymentsResponseTypeDef(TypedDict):
+    modelDeploymentSummaries: List[CustomModelDeploymentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListCustomModelsResponseTypeDef(TypedDict):
     modelSummaries: List[CustomModelSummaryTypeDef]
@@ -1457,6 +1509,27 @@ ListPromptRoutersRequestPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+class ListCustomModelDeploymentsRequestPaginateTypeDef(TypedDict):
+    createdBefore: NotRequired[TimestampTypeDef]
+    createdAfter: NotRequired[TimestampTypeDef]
+    nameContains: NotRequired[str]
+    sortBy: NotRequired[Literal["CreationTime"]]
+    sortOrder: NotRequired[SortOrderType]
+    statusEquals: NotRequired[CustomModelDeploymentStatusType]
+    modelArnEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCustomModelDeploymentsRequestTypeDef(TypedDict):
+    createdBefore: NotRequired[TimestampTypeDef]
+    createdAfter: NotRequired[TimestampTypeDef]
+    nameContains: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    sortBy: NotRequired[Literal["CreationTime"]]
+    sortOrder: NotRequired[SortOrderType]
+    statusEquals: NotRequired[CustomModelDeploymentStatusType]
+    modelArnEquals: NotRequired[str]
 
 class ListCustomModelsRequestPaginateTypeDef(TypedDict):
     creationTimeBefore: NotRequired[TimestampTypeDef]

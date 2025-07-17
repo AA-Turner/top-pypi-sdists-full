@@ -1,9 +1,7 @@
 from __future__ import unicode_literals
 import unittest
 import os
-import fs
-import fs.copy
-import fs.path
+import fontTools.misc.filesystem as fs
 from fontTools.ufoLib import UFOReader
 from defcon import Font
 from defcon.objects.imageSet import fileNameValidator
@@ -133,7 +131,7 @@ class ImageSetTest(unittest.TestCase):
             path = makeTestFontCopy(path)
             with Font(path) as font:
                 fileSystem = openTestFontAsFileSystem(font.path)
-                fileSystem.remove(fs.path.join("images", "image 1.png"))
+                fileSystem.remove("images/image 1.png")
                 closeTestFontAsFileSystem(fileSystem, font.path)
                 with UFOReader(path) as reader:
                     self.assertEqual(font.images.testForExternalChanges(reader),
@@ -146,9 +144,7 @@ class ImageSetTest(unittest.TestCase):
             path = makeTestFontCopy(path)
             with Font(path) as font:
                 fileSystem = openTestFontAsFileSystem(font.path)
-                source = fs.path.join("images", "image 1.png")
-                dest = fs.path.join("images", "image 3.png")
-                fileSystem.copy(source, dest)
+                fileSystem.copy("images/image 1.png", "images/image 3.png")
                 closeTestFontAsFileSystem(fileSystem, font.path)
                 with UFOReader(path) as reader:
                     self.assertEqual(font.images.testForExternalChanges(reader),
@@ -162,7 +158,7 @@ class ImageSetTest(unittest.TestCase):
             with Font(path) as font:
                 font.images["image 1.png"]  # image = font.images["image 1.png"]
                 fileSystem = openTestFontAsFileSystem(font.path)
-                imagePath = fs.path.join("images", "image 1.png")
+                imagePath = "images/image 1.png"
                 data = fileSystem.readbytes(imagePath)
                 fileSystem.writebytes(imagePath, data + b"blah")
                 closeTestFontAsFileSystem(fileSystem, font.path)

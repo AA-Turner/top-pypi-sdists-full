@@ -26,7 +26,9 @@ class SimulationSetupType(Enum):
     HFSS = edb_defs_pb2.HFSS_SIM
     SI_WAVE = edb_defs_pb2.SI_WAVE_SIM
     SI_WAVE_DCIR = edb_defs_pb2.SI_WAVE_DCIR_SIM
+    HFSS_PI = edb_defs_pb2.HFSS_PI_SIM
     RAPTOR_X = edb_defs_pb2.RAPTOR_X_SIM
+    Q3D_SIM = edb_defs_pb2.Q3D_SIM
 
 
 class FreqSweepType(Enum):
@@ -211,8 +213,6 @@ class SweepData:
       Auto/Manual SMatrix only solve.
     min_freq_s_mat_only_solve : str
       Minimum frequency SMatrix only solve.
-    frequencies : list[str]
-      Frequency points in the frequency sweep.
     steady_state_start : float
       Frequency of Steady State Start.
     mesh_freq_choice : int
@@ -248,7 +248,6 @@ class SweepData:
         self.parallel_hfss_regions_sim_cfg = []
         self.auto_s_mat_only_solve = True
         self.min_freq_s_mat_only_solve = "1MHz"
-        self.frequencies = []
         self.steady_state_start = -1.0
         self.mesh_freq_choice = -1
         self.mesh_freq_points = []
@@ -326,7 +325,6 @@ def _sweep_data_msg(sweep_data):
         ),
         auto_s_mat_only_solve=sweep_data.auto_s_mat_only_solve,
         min_freq_s_mat_only_solve=sweep_data.min_freq_s_mat_only_solve,
-        frequencies=sweep_data.frequencies,
         steady_state_start=sweep_data.steady_state_start,
         mesh_freq_choice=sweep_data.mesh_freq_choice,
         mesh_freq_points=sweep_data.mesh_freq_points,
@@ -372,7 +370,13 @@ def _msg_to_sweep_data(msg):
     """Create a ``SweepData`` from a ``SweepDataMessage``."""
     freq_str_params = msg.frequency_string.split()
     sweep_data = SweepData(
-        msg.name, freq_str_params[0], freq_str_params[1], freq_str_params[2], freq_str_params[3]
+        msg.name,
+        FrequencyData(
+            Distribution[freq_str_params[0]],
+            freq_str_params[1],
+            freq_str_params[2],
+            freq_str_params[3],
+        ),
     )
     sweep_data.enabled = msg.enabled
     sweep_data.type = FreqSweepType(msg.type)
@@ -391,7 +395,6 @@ def _msg_to_sweep_data(msg):
     )
     sweep_data.auto_s_mat_only_solve = msg.auto_s_mat_only_solve
     sweep_data.min_freq_s_mat_only_solve = msg.min_freq_s_mat_only_solve
-    sweep_data.frequencies = msg.frequencies
     sweep_data.steady_state_start = msg.steady_state_start
     sweep_data.mesh_freq_choice = msg.mesh_freq_choice
     sweep_data.mesh_freq_points = msg.mesh_freq_points

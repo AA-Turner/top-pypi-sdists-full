@@ -16,6 +16,7 @@ from .compat import (
     CupySparseMatrix,
     DaskArray,
     H5Array,
+    XDataArray,
     ZappyArray,
     ZarrArray,
 )
@@ -25,19 +26,17 @@ if TYPE_CHECKING:
     from typing import TypeAlias
 
 
-__all__ = ["Index", "RWAble", "AxisStorable"]
+__all__ = ["AxisStorable", "Index", "RWAble"]
 
 
 Index = _Index
 """1D or 2D index an :class:`~anndata.AnnData` object can be sliced with."""
 
-
-ArrayDataStructureType: TypeAlias = (
+XDataType: TypeAlias = (
     np.ndarray
     | ma.MaskedArray
     | CSMatrix
     | CSArray
-    | AwkArray
     | H5Array
     | ZarrArray
     | ZappyArray
@@ -47,10 +46,11 @@ ArrayDataStructureType: TypeAlias = (
     | CupyArray
     | CupySparseMatrix
 )
+ArrayDataStructureTypes: TypeAlias = XDataType | AwkArray | XDataArray
 
 
 InMemoryArrayOrScalarType: TypeAlias = (
-    pd.DataFrame | np.number | str | ArrayDataStructureType
+    pd.DataFrame | np.number | str | ArrayDataStructureTypes
 )
 
 

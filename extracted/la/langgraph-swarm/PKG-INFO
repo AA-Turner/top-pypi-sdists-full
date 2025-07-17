@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-swarm
-Version: 0.0.12
+Version: 0.0.13
 Summary: An implementation of a multi-agent swarm using LangGraph
 Author-Email: Vadym Barda <19161700+vbarda@users.noreply.github.com >
 License-Expression: MIT

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.cloud-assembly-schema",
-    "version": "45.2.0",
+    "version": "48.0.0",
     "description": "Schema for the protocol between CDK framework and CDK CLI",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.cloud_assembly_schema._jsii": [
-            "cloud-assembly-schema@45.2.0.jsii.tgz"
+            "cloud-assembly-schema@48.0.0.jsii.tgz"
         ],
         "aws_cdk.cloud_assembly_schema": [
             "py.typed"

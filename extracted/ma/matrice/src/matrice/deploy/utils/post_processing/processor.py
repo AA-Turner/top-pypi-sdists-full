@@ -36,12 +36,22 @@ from .usecases import (
     PotholeSegmentationUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
+    MaskDetectionUseCase,
+    CarDamageDetectionUseCase,
     FireSmokeUseCase,
     FlareAnalysisUseCase,
     ParkingSpaceUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
-    PedestrianDetectionUseCase
+    PedestrianDetectionUseCase,
+
+    AgeDetectionUseCase,
+    WeldDefectUseCase,
+
+    AgeDetectionUseCase,
+    PriceTagUseCase
+
+
 )
 
 logger = logging.getLogger(__name__)
@@ -109,6 +119,7 @@ class PostProcessor:
         # Register PPE compliance use case
         registry.register_use_case("ppe", "ppe_compliance_detection", PPEComplianceUseCase)
         registry.register_use_case("infrastructure", "pothole_segmentation", PotholeSegmentationUseCase)
+        registry.register_use_case("car_damage", "car_damage_detection", CarDamageDetectionUseCase)
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
@@ -117,6 +128,10 @@ class PostProcessor:
         registry.register_use_case("parking_space", "parking_space_detection", ParkingSpaceUseCase)
         registry.register_use_case("environmental", "underwater_pollution_detection", UnderwaterPlasticUseCase)
         registry.register_use_case("pedestrian", "pedestrian_detection", PedestrianDetectionUseCase)  
+        registry.register_use_case("security", "age_detection", AgeDetectionUseCase)
+        registry.register_use_case("weld", "weld_defect_detection", WeldDefectUseCase)
+        registry.register_use_case("price_tag", "price_tag_detection", PriceTagUseCase)
+        registry.register_use_case("mask_detection", "mask_detection", MaskDetectionUseCase)
         
         logger.debug("Registered use cases with registry")
     

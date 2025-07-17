@@ -7,13 +7,14 @@ from asyauth.common.constants import asyauthSecret, asyauthProtocol, asyauthSubP
 from asyauth.common.subprotocols import SubProtocol, SubProtocolNative, SubProtocolSSPI
 
 class UniCredential:
-	def __init__(self, secret:str = None, username:str = None, domain:str = None, stype:asyauthSecret = asyauthSecret.NONE, protocol:asyauthProtocol = None, subprotocol:SubProtocol = SubProtocolNative()):
+	def __init__(self, secret:str = None, username:str = None, domain:str = None, stype:asyauthSecret = asyauthSecret.NONE, protocol:asyauthProtocol = None, subprotocol:SubProtocol = SubProtocolNative(), **kwargs):
 		self.domain = domain
 		self.username = username
 		self.secret = secret
 		self.stype = stype
 		self.protocol = protocol
 		self.subprotocol = subprotocol
+		self.metadata = kwargs
 
 		if stype in [asyauthSecret.PASS, asyauthSecret.PW]:
 			self.stype = asyauthSecret.PASSWORD
@@ -22,7 +23,14 @@ class UniCredential:
 			self.secret = base64.b64decode(self.secret).decode()
 		elif stype == asyauthSecret.PWHEX:
 			self.stype = asyauthSecret.PASSWORD
-			self.secret = bytes.fromhex(self.secret).decode()
+			self.secret = bytes.fromhex(self.secret)
+			if len(self.secret) % 2 == 0 and len(self.secret) > 50:
+				# special case for hex passwords that are not valid utf-8 rather just raw bytes
+				# for examle machine account passwords extracted from the registry
+				pass
+			else:
+				self.secret = self.secret.decode()
+
 		elif stype == asyauthSecret.PWPROMPT:
 			import getpass
 			self.stype = asyauthSecret.PASSWORD
@@ -176,6 +184,7 @@ class UniCredential:
 				domain,
 				stype,
 				subprotocol=subprotocol,
+				**extra
 			)
 			if protocol == asyauthProtocol.SICILY:
 				res.protocol = asyauthProtocol.SICILY

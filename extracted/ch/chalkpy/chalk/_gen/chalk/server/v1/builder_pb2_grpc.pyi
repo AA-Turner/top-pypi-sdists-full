@@ -60,6 +60,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     RebuildDeploymentResponse,
     RedeployDeploymentRequest,
     RedeployDeploymentResponse,
+    ScaleBranchRequest,
+    ScaleBranchResponse,
     SetTagWeightsRequest,
     SetTagWeightsResponse,
     StartBranchRequest,
@@ -168,6 +170,10 @@ class BuilderServiceStub:
     StartBranch: UnaryUnaryMultiCallable[
         StartBranchRequest,
         StartBranchResponse,
+    ]
+    ScaleBranch: UnaryUnaryMultiCallable[
+        ScaleBranchRequest,
+        ScaleBranchResponse,
     ]
     GetNodepools: UnaryUnaryMultiCallable[
         GetNodepoolsRequest,
@@ -344,6 +350,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: StartBranchRequest,
         context: ServicerContext,
     ) -> StartBranchResponse: ...
+    @abstractmethod
+    def ScaleBranch(
+        self,
+        request: ScaleBranchRequest,
+        context: ServicerContext,
+    ) -> ScaleBranchResponse: ...
     @abstractmethod
     def GetNodepools(
         self,

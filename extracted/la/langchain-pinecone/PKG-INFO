@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-pinecone
-Version: 0.2.8
+Version: 0.2.9
 Summary: An integration package connecting Pinecone and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-pinecone/tree/main/libs/pinecone

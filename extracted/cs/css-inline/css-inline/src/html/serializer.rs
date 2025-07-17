@@ -268,7 +268,7 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
 
             self.writer.write_all(attr.name.local.as_bytes())?;
             self.writer.write_all(b"=\"")?;
-            if attr.name.local.as_bytes() == b"style" {
+            if attr.name.local == local_name!("style") {
                 if let Some(new_styles) = &styles {
                     merge_styles(
                         &mut self.writer,
@@ -495,7 +495,7 @@ fn merge_styles<Wr: Write>(
     // New rules will not override old ones unless they are marked as `!important`
     for (property, (_, value)) in new_styles {
         match (
-            value.strip_suffix("!important"),
+            value.trim_end().strip_suffix("!important"),
             declarations_buffer
                 .iter_mut()
                 .take(parsed_declarations_count)

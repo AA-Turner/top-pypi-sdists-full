@@ -155,7 +155,12 @@ def list_subscriptions(ctx, page_size=100, page_at_id=None, **kwargs):
 
 
 def format_accounts(
-    ctx, accounts, get_subscription_data=False, get_customer_data=False, **kwargs
+    ctx,
+    accounts,
+    get_subscription_data=False,
+    get_customer_data=False,
+    get_usage_metrics=False,
+    **kwargs,
 ):
     orgs_column = [column("id"), column("organisation")]
     subscriptions = [
@@ -169,6 +174,14 @@ def format_accounts(
             optional=True,
         ),
     ]
+    if get_usage_metrics:
+        metrics_columns = [column("type"), column("active")]
+        subscriptions.append(
+            subtable(
+                ctx, "metrics", metrics_columns, subobject_name="status.usage_metrics"
+            )
+        )
+
     products_column = [
         column("name", optional=True),
     ]

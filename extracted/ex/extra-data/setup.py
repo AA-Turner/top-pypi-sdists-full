@@ -42,7 +42,7 @@ setup(name="EXtra-data",
       },
       entry_points={
           "console_scripts": [
-              "lsxfel = extra_data.lsxfel:main",
+              "lsxfel = extra_data.cli.lsxfel:main",
               "karabo-bridge-serve-files = extra_data.cli.serve_files:main",
               "karabo-bridge-serve-run = extra_data.cli.serve_run:main",
               "extra-data-validate = extra_data.validation:main",
@@ -58,7 +58,6 @@ setup(name="EXtra-data",
           'pandas',
           'xarray',
           'pyyaml',
-          'zlib_into',
       ],
       extras_require={
           'bridge': [
@@ -69,6 +68,7 @@ setup(name="EXtra-data",
               'dask[array]',
               'extra_data[bridge]',
               'tomli; python_version < "3.11"',
+              'zlib_into >=0.4',
           ],
           'docs': [
               'extra_data[bridge]',  # For autodoc of ZMQStreamer

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.8.1
+Version: 3.8.2
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -215,8 +215,6 @@ Alternatively environment variables can be used.
 
    export DATAROBOT_API_TOKEN='your_token'
    export DATAROBOT_ENDPOINT='https://app.datarobot.com/api/v2'
-
-See `documentation`_ for example usage after configuring.
 
 Extra
 =========================

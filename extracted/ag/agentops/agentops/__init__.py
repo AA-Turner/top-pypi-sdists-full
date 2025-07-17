@@ -26,13 +26,16 @@ import json
 from typing import List, Optional, Union, Dict, Any
 from agentops.client import Client
 from agentops.sdk.core import TraceContext, tracer
-from agentops.sdk.decorators import trace, session, agent, task, workflow, operation, tool, guardrail
+from agentops.sdk.decorators import trace, session, agent, task, workflow, operation, tool, guardrail, track_endpoint
 from agentops.enums import TraceState, SUCCESS, ERROR, UNSET
 from opentelemetry.trace.status import StatusCode
 
 from agentops.logging.config import logger
 from agentops.helpers.deprecation import deprecated, warn_deprecated_param
 import threading
+
+# Import validation functions
+from agentops.validation import validate_trace_spans, print_validation_summary, ValidationError
 
 # Thread-safe client management
 _client_lock = threading.Lock()
@@ -87,6 +90,7 @@ def init(
     env_data_opt_out: Optional[bool] = None,
     log_level: Optional[Union[str, int]] = None,
     fail_safe: Optional[bool] = None,
+    log_session_replay_url: Optional[bool] = None,
     exporter_endpoint: Optional[str] = None,
     **kwargs,
 ):
@@ -114,6 +118,7 @@ def init(
         env_data_opt_out (bool): Whether to opt out of collecting environment data.
         log_level (str, int): The log level to use for the client. Defaults to 'CRITICAL'.
         fail_safe (bool): Whether to suppress errors and continue execution when possible.
+        log_session_replay_url (bool): Whether to log session replay URLs to the console. Defaults to True.
         exporter_endpoint (str, optional): Endpoint for the exporter. If none is provided, key will
             be read from the AGENTOPS_EXPORTER_ENDPOINT environment variable.
         **kwargs: Additional configuration parameters to be passed to the client.
@@ -156,6 +161,7 @@ def init(
         "env_data_opt_out": env_data_opt_out,
         "log_level": log_level,
         "fail_safe": fail_safe,
+        "log_session_replay_url": log_session_replay_url,
         "exporter_endpoint": exporter_endpoint,
         **kwargs,
     }
@@ -442,37 +448,41 @@ def update_trace_metadata(metadata: Dict[str, Any], prefix: str = "trace.metadat
 
 
 __all__ = [
-    "init",
-    "configure",
-    "get_client",
-    "record",
-    "start_trace",
-    "end_trace",
-    "update_trace_metadata",
+    # Legacy exports
     "start_session",
     "end_session",
     "track_agent",
     "track_tool",
     "end_all_sessions",
+    "Session",
     "ToolEvent",
     "ErrorEvent",
     "ActionEvent",
     "LLMEvent",
-    "Session",
+    # Modern exports
+    "init",
+    "start_trace",
+    "end_trace",
+    "update_trace_metadata",
+    "Client",
+    "get_client",
+    # Decorators
     "trace",
     "session",
     "agent",
     "task",
     "workflow",
     "operation",
-    "guardrail",
-    "tracer",
     "tool",
-    # Trace state enums
+    "guardrail",
+    "track_endpoint",
+    # Enums
     "TraceState",
     "SUCCESS",
     "ERROR",
     "UNSET",
-    # OpenTelemetry status codes (for advanced users)
-    "StatusCode",
+    # Validation
+    "validate_trace_spans",
+    "print_validation_summary",
+    "ValidationError",
 ]

@@ -352,7 +352,10 @@ class SourcesClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_sources_metadata(
-        self, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        include_detailed_per_source_metadata: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> OrganizationSourcesStats:
         """
         Get aggregated metadata for all sources in an organization.
@@ -361,10 +364,12 @@ class SourcesClient:
         - Total number of sources
         - Total number of files across all sources
         - Total size of all files
-        - Per-source breakdown with file details (file_name, file_size per file)
+        - Per-source breakdown with file details (file_name, file_size per file) if include_detailed_per_source_metadata is True
 
         Parameters
         ----------
+        include_detailed_per_source_metadata : typing.Optional[bool]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -386,6 +391,9 @@ class SourcesClient:
         _response = self._client_wrapper.httpx_client.request(
             "v1/sources/metadata",
             method="GET",
+            params={
+                "include_detailed_per_source_metadata": include_detailed_per_source_metadata,
+            },
             request_options=request_options,
         )
         try:
@@ -469,12 +477,12 @@ class SourcesClient:
         self,
         *,
         name: str,
-        embedding: typing.Optional[str] = OMIT,
-        embedding_chunk_size: typing.Optional[int] = OMIT,
-        embedding_config: typing.Optional[EmbeddingConfig] = OMIT,
         description: typing.Optional[str] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        embedding: typing.Optional[str] = OMIT,
+        embedding_chunk_size: typing.Optional[int] = OMIT,
+        embedding_config: typing.Optional[EmbeddingConfig] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Source:
         """
@@ -485,15 +493,6 @@ class SourcesClient:
         name : str
             The name of the source.
 
-        embedding : typing.Optional[str]
-            The hande for the embedding config used by the source.
-
-        embedding_chunk_size : typing.Optional[int]
-            The chunk size of the embedding.
-
-        embedding_config : typing.Optional[EmbeddingConfig]
-            (Legacy) The embedding configuration used by the source.
-
         description : typing.Optional[str]
             The description of the source.
 
@@ -502,6 +501,15 @@ class SourcesClient:
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Metadata associated with the source.
+
+        embedding : typing.Optional[str]
+            The handle for the embedding config used by the source.
+
+        embedding_chunk_size : typing.Optional[int]
+            The chunk size of the embedding.
+
+        embedding_config : typing.Optional[EmbeddingConfig]
+            (Legacy) The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -528,14 +536,14 @@ class SourcesClient:
             method="POST",
             json={
                 "name": name,
+                "description": description,
+                "instructions": instructions,
+                "metadata": metadata,
                 "embedding": embedding,
                 "embedding_chunk_size": embedding_chunk_size,
                 "embedding_config": convert_and_respect_annotation_metadata(
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
-                "description": description,
-                "instructions": instructions,
-                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",
@@ -1011,7 +1019,10 @@ class AsyncSourcesClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_sources_metadata(
-        self, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        include_detailed_per_source_metadata: typing.Optional[bool] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> OrganizationSourcesStats:
         """
         Get aggregated metadata for all sources in an organization.
@@ -1020,10 +1031,12 @@ class AsyncSourcesClient:
         - Total number of sources
         - Total number of files across all sources
         - Total size of all files
-        - Per-source breakdown with file details (file_name, file_size per file)
+        - Per-source breakdown with file details (file_name, file_size per file) if include_detailed_per_source_metadata is True
 
         Parameters
         ----------
+        include_detailed_per_source_metadata : typing.Optional[bool]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1053,6 +1066,9 @@ class AsyncSourcesClient:
         _response = await self._client_wrapper.httpx_client.request(
             "v1/sources/metadata",
             method="GET",
+            params={
+                "include_detailed_per_source_metadata": include_detailed_per_source_metadata,
+            },
             request_options=request_options,
         )
         try:
@@ -1144,12 +1160,12 @@ class AsyncSourcesClient:
         self,
         *,
         name: str,
-        embedding: typing.Optional[str] = OMIT,
-        embedding_chunk_size: typing.Optional[int] = OMIT,
-        embedding_config: typing.Optional[EmbeddingConfig] = OMIT,
         description: typing.Optional[str] = OMIT,
         instructions: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = OMIT,
+        embedding: typing.Optional[str] = OMIT,
+        embedding_chunk_size: typing.Optional[int] = OMIT,
+        embedding_config: typing.Optional[EmbeddingConfig] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Source:
         """
@@ -1160,15 +1176,6 @@ class AsyncSourcesClient:
         name : str
             The name of the source.
 
-        embedding : typing.Optional[str]
-            The hande for the embedding config used by the source.
-
-        embedding_chunk_size : typing.Optional[int]
-            The chunk size of the embedding.
-
-        embedding_config : typing.Optional[EmbeddingConfig]
-            (Legacy) The embedding configuration used by the source.
-
         description : typing.Optional[str]
             The description of the source.
 
@@ -1177,6 +1184,15 @@ class AsyncSourcesClient:
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
             Metadata associated with the source.
+
+        embedding : typing.Optional[str]
+            The handle for the embedding config used by the source.
+
+        embedding_chunk_size : typing.Optional[int]
+            The chunk size of the embedding.
+
+        embedding_config : typing.Optional[EmbeddingConfig]
+            (Legacy) The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1211,14 +1227,14 @@ class AsyncSourcesClient:
             method="POST",
             json={
                 "name": name,
+                "description": description,
+                "instructions": instructions,
+                "metadata": metadata,
                 "embedding": embedding,
                 "embedding_chunk_size": embedding_chunk_size,
                 "embedding_config": convert_and_respect_annotation_metadata(
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
-                "description": description,
-                "instructions": instructions,
-                "metadata": metadata,
             },
             headers={
                 "content-type": "application/json",

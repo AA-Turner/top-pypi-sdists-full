@@ -1,10 +1,16 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.6.20
+Version: 0.6.21
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
 License-Expression: Apache-2.0
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: pydantic>=2.0.3,<3.0.0
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: opentelemetry-api>=1.33.0
@@ -18,15 +24,14 @@ Requires-Dist: tenacity>=8.0
 Requires-Dist: grpcio>=1
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: opentelemetry-instrumentation-threading>=0.54b0
+Requires-Dist: orjson>=3.10.18
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.40.12 ; extra == 'alephalpha'
 Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-anthropic>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-cohere>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-crewai>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-google-generativeai<0.40.10 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-groq>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-haystack>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-lancedb>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-langchain>=0.40.12 ; extra == 'all'
@@ -45,13 +50,11 @@ Requires-Dist: opentelemetry-instrumentation-transformers>=0.40.12 ; extra == 'a
 Requires-Dist: opentelemetry-instrumentation-vertexai>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-watsonx>=0.40.12 ; extra == 'all'
 Requires-Dist: opentelemetry-instrumentation-weaviate>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-anthropic>=0.40.12 ; extra == 'anthropic'
 Requires-Dist: opentelemetry-instrumentation-bedrock>=0.40.12 ; extra == 'bedrock'
 Requires-Dist: opentelemetry-instrumentation-chromadb>=0.40.12 ; extra == 'chromadb'
 Requires-Dist: opentelemetry-instrumentation-cohere>=0.40.12 ; extra == 'cohere'
 Requires-Dist: opentelemetry-instrumentation-crewai>=0.40.12 ; extra == 'crewai'
 Requires-Dist: opentelemetry-instrumentation-google-generativeai<0.40.10 ; extra == 'google-generativeai'
-Requires-Dist: opentelemetry-instrumentation-groq>=0.40.12 ; extra == 'groq'
 Requires-Dist: opentelemetry-instrumentation-haystack>=0.40.12 ; extra == 'haystack'
 Requires-Dist: opentelemetry-instrumentation-lancedb>=0.40.12 ; extra == 'lancedb'
 Requires-Dist: opentelemetry-instrumentation-langchain>=0.40.12 ; extra == 'langchain'
@@ -73,13 +76,11 @@ Requires-Dist: opentelemetry-instrumentation-weaviate>=0.40.12 ; extra == 'weavi
 Requires-Python: >=3.10, <4
 Provides-Extra: alephalpha
 Provides-Extra: all
-Provides-Extra: anthropic
 Provides-Extra: bedrock
 Provides-Extra: chromadb
 Provides-Extra: cohere
 Provides-Extra: crewai
 Provides-Extra: google-generativeai
-Provides-Extra: groq
 Provides-Extra: haystack
 Provides-Extra: lancedb
 Provides-Extra: langchain

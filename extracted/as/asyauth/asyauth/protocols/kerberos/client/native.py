@@ -14,7 +14,7 @@ from minikerberos.protocol.constants import MESSAGE_TYPE
 from minikerberos.protocol.ticketutils import construct_apreq_from_ticket
 from minikerberos.protocol.encryption import Key, _enctype_table
 from minikerberos.aioclient import AIOKerberosClient
-
+from minikerberos.protocol.errors import KerberosError, KerberosErrorCode
 
 
 class KerberosClientNative:
@@ -112,7 +112,7 @@ class KerberosClientNative:
 		return kflags
 		
 	
-	async def authenticate(self, authData:bytes, flags:ISC_REQ = None, seq_number:int = 0, cb_data:bytes = None, spn:str = None):
+	async def authenticate(self, authData:bytes, flags:ISC_REQ = None, seq_number:int = 0, cb_data:bytes = None, spn:str = None, **kwargs):
 		"""
 		This function is called (multiple times depending on the flags) to perform authentication. 
 		"""
@@ -139,13 +139,33 @@ class KerberosClientNative:
 					for target in self.ccred.ccache.list_targets():
 						# just printing this to debug...
 						logger.debug('CCACHE SPN record: %s' % target)
-					tgs, encpart, self.session_key = await self.kc.get_TGS(spn)
+					tgs, encpart, self.session_key, err = self.kc.tgs_from_ccache(spn)
+					if err:
+						raise err
 					logger.debug('Got TGS from CCACHE!')
 					
 					self.from_ccache = True
 				except:
 					# fetching TGT
-					tgt = await self.kc.get_TGT(override_etype = self.credential.etypes)
+					try:
+						tgt = await self.kc.get_TGT(override_etype = self.credential.etypes)
+					except KerberosError as e:
+						if e.errorcode == KerberosErrorCode.KDC_ERR_WRONG_REALM:
+							# if the target user is in a different domain, we need to get a referral ticket
+							# however at this point it's a guess work, as this heavely relies on the target domain's trust settings
+							# and the correct DNS settings
+
+							newtarget = self.kc.target.get_kerberos_target(dc_ip=self.kc.credential.domain, domain=self.kc.credential.domain)
+							newkc = AIOKerberosClient(self.ccred, newtarget)
+							ref_tgs, ref_encpart, ref_key, new_factory = await newkc.get_referral_ticket(spn.domain, self.credential.target.get_ip_or_hostname())
+							self.kc = new_factory.get_client()
+							tgs, encpart, self.session_key = await self.kc.get_TGS(spn)#, override_etype = self.preferred_etypes)						
+						else:
+							logger.debug('Failed to get TGT! %s' % e)
+							raise e
+
+					except Exception as e:
+						raise e
 					# if the target server is in a different domain, we need to get a referral ticket
 					if self.credential.cross_target is not None:
 						# cross-domain kerberos

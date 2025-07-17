@@ -46,6 +46,11 @@ def create_database(cfg: dict, status: StatusManager) -> None:
         db_name = "pg-" + db_name
     db_name = db_name[:80]
 
+    gitea_db_name = f"intellithing-gitea-{workspace_uuid}".replace("_", "-").lower()
+    if not gitea_db_name[0].isalpha():
+        gitea_db_name = "gitea-" + gitea_db_name
+    gitea_db_name = gitea_db_name[:80]
+
     print(f"🔎 Checking if SQL instance '{db_name}' exists...")
     while True:
         with Spinner(f"Checking Cloud SQL instance '{db_name}'..."):
@@ -78,6 +83,27 @@ def create_database(cfg: dict, status: StatusManager) -> None:
         print(f"❌ Failed to create database. Retrying in 10s...")
         time.sleep(10)
     status.complete("cloudsql_database")
+    
+    status.start("cloudsql_database_gitea")
+    print(f"🔎 Checking if database '{gitea_db_name}' exists in instance '{db_name}'...")
+    while True:
+        db_check = os.system(
+            f"gcloud sql databases describe {gitea_db_name} --instance={db_name} --project={project_id} >/dev/null 2>&1"
+        )
+        if db_check == 0:
+            print(f"✅ Database '{gitea_db_name}' already exists.")
+            break
+        print(f"🚧 Creating database '{gitea_db_name}'...")
+        create = os.system(
+            f"gcloud sql databases create {gitea_db_name} --instance={db_name} --project={project_id}"
+        )
+        if create == 0:
+            print(f"✅ Database '{gitea_db_name}' created.")
+            break
+        print(f"❌ Failed to create database '{gitea_db_name}'. Retrying in 10s...")
+        time.sleep(10)
+    status.complete("cloudsql_database_gitea")
+
 
 
 def execute_sql_job(cfg: dict, status: StatusManager):

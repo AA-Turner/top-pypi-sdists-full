@@ -78,6 +78,7 @@ from .data_source_create import DataSourceCreate
 from .data_source_create_component import DataSourceCreateComponent
 from .data_source_create_custom_metadata_value import DataSourceCreateCustomMetadataValue
 from .data_source_custom_metadata_value import DataSourceCustomMetadataValue
+from .data_source_reader_version_metadata import DataSourceReaderVersionMetadata
 from .data_source_update_dispatcher_config import DataSourceUpdateDispatcherConfig
 from .delete_params import DeleteParams
 from .document_block import DocumentBlock
@@ -440,6 +441,7 @@ __all__ = [
     "DataSourceCreateComponent",
     "DataSourceCreateCustomMetadataValue",
     "DataSourceCustomMetadataValue",
+    "DataSourceReaderVersionMetadata",
     "DataSourceUpdateDispatcherConfig",
     "DeleteParams",
     "DocumentBlock",

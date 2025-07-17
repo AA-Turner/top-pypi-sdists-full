@@ -8,7 +8,6 @@ from coredis.typing import (
     AnyStr,
     ResponsePrimitive,
     ResponseType,
-    ValueT,
 )
 
 
@@ -20,7 +19,8 @@ class ModuleInfoCallback(
     ]
 ):
     def transform(
-        self, response: list[list[ResponseType]], **options: ValueT | None
+        self,
+        response: list[list[ResponseType]],
     ) -> tuple[dict[AnyStr, ResponsePrimitive], ...]:
         return tuple(
             cast(dict[AnyStr, ResponsePrimitive], flat_pairs_to_dict(mod)) for mod in response
@@ -29,6 +29,5 @@ class ModuleInfoCallback(
     def transform_3(
         self,
         response: list[dict[AnyStr, ResponsePrimitive]],
-        **options: ValueT | None,
     ) -> tuple[dict[AnyStr, ResponsePrimitive], ...]:
         return tuple(response)

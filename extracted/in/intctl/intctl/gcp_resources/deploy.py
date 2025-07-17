@@ -45,7 +45,7 @@ def transfer_and_deploy(cfg: dict, status: StatusManager):
     workspace = cfg["workspace_uuid"]
     target_repo = f"intellithing-{workspace}".lower()
     cluster_name = f"int-{workspace}".lower()
-    images = ["project-manager", "status-manager", "gateway-manager"]
+    images = ["project-manager", "status-manager", "gateway-manager", "gitea"]
     
 
     # Step 1: Docker auth
@@ -167,6 +167,7 @@ def transfer_and_deploy(cfg: dict, status: StatusManager):
             print(f"   STDOUT: {patch.stdout.strip()}")
             print(f"   STDERR: {patch.stderr.strip()}")
             time.sleep(10)
+            
 
     # Step 5: Apply Kubernetes manifests
     repo_base = f"{target_location}-docker.pkg.dev/{target_project}/{target_repo}"
@@ -175,11 +176,15 @@ def transfer_and_deploy(cfg: dict, status: StatusManager):
         svc_dir = str(k8s_path(service))
         deploy_yaml = os.path.join(svc_dir, "deployment.yaml")
 
+
         if os.path.exists(deploy_yaml):
             image_path = f"{repo_base}/{service}:latest"
             tqdm.write(f"☸️ Deploying {service}")
             with open(deploy_yaml, "r") as f:
                 raw_yaml = f.read().replace("__IMAGE_TAG__", image_path)
+                if service == "gitea":
+                    resolved_secret_name = f"gitea-resolved-{workspace}"
+                    raw_yaml = raw_yaml.replace("__GITEA_RESOLVED_SECRET_NAME__", resolved_secret_name)
 
             while True:
                 with Spinner(f"Applying deployment.yaml for {service}..."):

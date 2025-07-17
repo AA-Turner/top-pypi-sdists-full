@@ -718,6 +718,19 @@ class APIClient:
         return isinstance(self._auth_method, TokenAuth)
 
     @property
+    def project_type(self) -> str | None:
+        return self._project_type
+
+    @project_type.setter
+    def project_type(self, value: str) -> None:
+        self._project_type = value
+
+        if hasattr(self, "_href_definitions"):
+            self._href_definitions.project_type = (
+                self._project_type
+            )  # update information about project type in HrefDefinition
+
+    @property
     def httpx_client(self) -> httpx.Client:
         return self._httpx_client
 

@@ -387,67 +387,35 @@ class BaseDeployment(ABC):
                 else:
                     model = kwargs["model"]
 
-                if not self._target_workspace.api_client.ICP_PLATFORM_SPACES:
+                training_result_reference = kwargs["metadata"].get(
+                    "training_result_reference"
+                )
+                run_id = training_result_reference.location.get_location().split("/")[
+                    -3
+                ]
+                run_params = self._source_workspace.api_client.training.get_details(
+                    training_id=run_id, _internal=True
+                )
 
-                    optimizer_2 = AutoAI(self._source_workspace).runs.get_optimizer(metadata=kwargs["metadata"])  # type: ignore[attr-defined]
-                    run_details = (
-                        optimizer_2._workspace.api_client.training.get_details(
-                            optimizer_2.get_params()["run_id"], _internal=True
-                        )
-                    )
-                    self._target_workspace.space_id = cast(
-                        str, self._target_workspace.space_id
-                    )
-                    (
-                        artifact_name,
-                        model_props,
-                    ) = prepare_auto_ai_model_to_publish_notebook_normal_scenario(
-                        pipeline_model=model,
-                        result_connection=optimizer._result_client[0],
-                        cos_client=optimizer._result_client[1],
-                        run_params=run_details,
-                        space_id=self._target_workspace.space_id,
-                        auto_pipelines_parameters=optimizer.get_params(),
-                    )
+                (
+                    artifact_name,
+                    model_props,
+                ) = prepare_auto_ai_model_to_publish_normal_scenario(
+                    pipeline_model=model,
+                    run_params=run_params,
+                    run_id=run_id,
+                    api_client=self._source_workspace.api_client,
+                    space_id=self._target_workspace.space_id,
+                    auto_pipelines_parameters=optimizer.get_params(),
+                )
 
-                    deployment_details = self._deploy(
-                        pipeline_model=artifact_name,
-                        deployment_name=kwargs["deployment_name"],
-                        meta_props=model_props,
-                        serving_name=kwargs.get("serving_name"),
-                        result_client=optimizer._result_client,
-                        hardware_spec=kwargs.get("hardware_spec"),
-                    )
-
-                # note: CP4D part
-                else:
-                    training_result_reference = kwargs["metadata"].get(
-                        "training_result_reference"
-                    )
-                    run_id = training_result_reference.location.path.split("/")[-3]
-                    run_params = self._source_workspace.api_client.training.get_details(
-                        training_id=run_id, _internal=True
-                    )
-
-                    (
-                        artifact_name,
-                        model_props,
-                    ) = prepare_auto_ai_model_to_publish_normal_scenario(
-                        pipeline_model=model,
-                        run_params=run_params,
-                        run_id=run_id,
-                        api_client=self._source_workspace.api_client,
-                        space_id=self._target_workspace.space_id,
-                        auto_pipelines_parameters=optimizer.get_params(),
-                    )
-
-                    deployment_details = self._deploy(
-                        pipeline_model=artifact_name,
-                        deployment_name=kwargs["deployment_name"],
-                        serving_name=kwargs.get("serving_name"),
-                        meta_props=model_props,
-                        hardware_spec=kwargs.get("hardware_spec"),
-                    )
+                deployment_details = self._deploy(
+                    pipeline_model=artifact_name,
+                    deployment_name=kwargs["deployment_name"],
+                    serving_name=kwargs.get("serving_name"),
+                    meta_props=model_props,
+                    hardware_spec=kwargs.get("hardware_spec"),
+                )
                 # --- end note
                 remove_file(filename=artifact_name)
 

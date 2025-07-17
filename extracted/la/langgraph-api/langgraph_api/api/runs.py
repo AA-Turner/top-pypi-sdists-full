@@ -344,7 +344,6 @@ async def list_runs(
                 limit=limit,
                 offset=offset,
                 status=status,
-                metadata=None,
             ),
         )
     await fetchone(thread)

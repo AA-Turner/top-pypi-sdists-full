@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk8s-grafana",
-    "version": "0.1.706",
+    "version": "0.1.707",
     "description": "Grafana construct for cdk8s.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdk8s-team/cdk8s-grafana.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk8s_grafana._jsii": [
-            "cdk8s-grafana@0.1.706.jsii.tgz"
+            "cdk8s-grafana@0.1.707.jsii.tgz"
         ],
         "cdk8s_grafana": [
             "py.typed"

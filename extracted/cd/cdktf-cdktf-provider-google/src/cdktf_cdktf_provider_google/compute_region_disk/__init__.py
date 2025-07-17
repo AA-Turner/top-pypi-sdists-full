@@ -1,7 +1,7 @@
 r'''
 # `google_compute_region_disk`
 
-Refer to the Terraform Registry for docs: [`google_compute_region_disk`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk).
+Refer to the Terraform Registry for docs: [`google_compute_region_disk`](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeRegionDisk(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeRegionDisk.ComputeRegionDisk",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk google_compute_region_disk}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk google_compute_region_disk}.'''
 
     def __init__(
         self,
@@ -65,6 +65,8 @@ class ComputeRegionDisk(
         licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
         physical_block_size_bytes: typing.Optional[jsii.Number] = None,
         project: typing.Optional[builtins.str] = None,
+        provisioned_iops: typing.Optional[jsii.Number] = None,
+        provisioned_throughput: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         size: typing.Optional[jsii.Number] = None,
         snapshot: typing.Optional[builtins.str] = None,
@@ -80,31 +82,33 @@ class ComputeRegionDisk(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk google_compute_region_disk} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk google_compute_region_disk} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
-        :param replica_zones: URLs of the zones where the disk should be replicated to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
-        :param access_mode: The access mode of the disk. For example: - READ_WRITE_SINGLE: The default AccessMode, means the disk can be attached to single instance in RW mode. - READ_WRITE_MANY: The AccessMode means the disk can be attached to multiple instances in RW mode. - READ_ONLY_SINGLE: The AccessMode means the disk can be attached to multiple instances in RO mode. The AccessMode is only valid for Hyperdisk disk types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
-        :param async_primary_disk: async_primary_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
-        :param create_snapshot_before_destroy: If set to true, a snapshot of the disk will be created before it is destroyed. If your disk is encrypted with customer managed encryption keys these will be reused for the snapshot creation. The name of the snapshot by default will be '{{disk-name}}-YYYYMMDD-HHmm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
-        :param create_snapshot_before_destroy_prefix: This will set a custom name prefix for the snapshot that's created when the disk is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
-        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
-        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels to apply to this disk. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
-        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
-        :param physical_block_size_bytes: Physical block size of the persistent disk, in bytes. If not present in a request, a default value is used. Currently supported sizes are 4096 and 16384, other sizes may be added in the future. If an unsupported value is requested, the error message will list the supported values for the caller's project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.
-        :param region: A reference to the region where the disk resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
-        :param size: Size of the persistent disk, specified in GB. You can specify this field when creating a persistent disk using the sourceImage or sourceSnapshot parameter, or specify it alone to create an empty persistent disk. If you specify this field along with sourceImage or sourceSnapshot, the value of sizeGb must not be less than the size of the sourceImage or the size of the snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
-        :param snapshot: The source snapshot used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - 'https://www.googleapis.com/compute/v1/projects/project/global/snapshots/snapshot' - 'projects/project/global/snapshots/snapshot' - 'global/snapshots/snapshot' - 'snapshot' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
-        :param source_disk: The source disk used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/disks/{disk} - https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/disks/{disk} - projects/{project}/zones/{zone}/disks/{disk} - projects/{project}/regions/{region}/disks/{disk} - zones/{zone}/disks/{disk} - regions/{region}/disks/{disk} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
-        :param type: URL of the disk type resource describing which disk type to use to create the disk. Provide this when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
+        :param replica_zones: URLs of the zones where the disk should be replicated to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
+        :param access_mode: The access mode of the disk. For example: - READ_WRITE_SINGLE: The default AccessMode, means the disk can be attached to single instance in RW mode. - READ_WRITE_MANY: The AccessMode means the disk can be attached to multiple instances in RW mode. - READ_ONLY_SINGLE: The AccessMode means the disk can be attached to multiple instances in RO mode. The AccessMode is only valid for Hyperdisk disk types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
+        :param async_primary_disk: async_primary_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
+        :param create_snapshot_before_destroy: If set to true, a snapshot of the disk will be created before it is destroyed. If your disk is encrypted with customer managed encryption keys these will be reused for the snapshot creation. The name of the snapshot by default will be '{{disk-name}}-YYYYMMDD-HHmm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
+        :param create_snapshot_before_destroy_prefix: This will set a custom name prefix for the snapshot that's created when the disk is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
+        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
+        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels to apply to this disk. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
+        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
+        :param physical_block_size_bytes: Physical block size of the persistent disk, in bytes. If not present in a request, a default value is used. Currently supported sizes are 4096 and 16384, other sizes may be added in the future. If an unsupported value is requested, the error message will list the supported values for the caller's project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.
+        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Values must be between 10,000 and 120,000. For more details, see the Extreme persistent disk `documentation <https://cloud.google.com/compute/docs/disks/extreme-persistent-disk>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_iops ComputeRegionDisk#provisioned_iops}
+        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Values must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_throughput ComputeRegionDisk#provisioned_throughput}
+        :param region: A reference to the region where the disk resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
+        :param size: Size of the persistent disk, specified in GB. You can specify this field when creating a persistent disk using the sourceImage or sourceSnapshot parameter, or specify it alone to create an empty persistent disk. If you specify this field along with sourceImage or sourceSnapshot, the value of sizeGb must not be less than the size of the sourceImage or the size of the snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
+        :param snapshot: The source snapshot used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - 'https://www.googleapis.com/compute/v1/projects/project/global/snapshots/snapshot' - 'projects/project/global/snapshots/snapshot' - 'global/snapshots/snapshot' - 'snapshot' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
+        :param source_disk: The source disk used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/disks/{disk} - https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/disks/{disk} - projects/{project}/zones/{zone}/disks/{disk} - projects/{project}/regions/{region}/disks/{disk} - zones/{zone}/disks/{disk} - regions/{region}/disks/{disk} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
+        :param type: URL of the disk type resource describing which disk type to use to create the disk. Provide this when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -132,6 +136,8 @@ class ComputeRegionDisk(
             licenses=licenses,
             physical_block_size_bytes=physical_block_size_bytes,
             project=project,
+            provisioned_iops=provisioned_iops,
+            provisioned_throughput=provisioned_throughput,
             region=region,
             size=size,
             snapshot=snapshot,
@@ -163,7 +169,7 @@ class ComputeRegionDisk(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeRegionDisk to import.
-        :param import_from_id: The id of the existing ComputeRegionDisk that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeRegionDisk that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeRegionDisk to import is found.
         '''
         if __debug__:
@@ -177,7 +183,7 @@ class ComputeRegionDisk(
     @jsii.member(jsii_name="putAsyncPrimaryDisk")
     def put_async_primary_disk(self, *, disk: builtins.str) -> None:
         '''
-        :param disk: Primary disk for asynchronous disk replication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
+        :param disk: Primary disk for asynchronous disk replication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
         '''
         value = ComputeRegionDiskAsyncPrimaryDisk(disk=disk)
 
@@ -192,9 +198,9 @@ class ComputeRegionDisk(
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The name of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
+        :param kms_key_name: The name of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
         '''
         value = ComputeRegionDiskDiskEncryptionKey(
             kms_key_name=kms_key_name,
@@ -224,7 +230,7 @@ class ComputeRegionDisk(
         raw_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
         '''
         value = ComputeRegionDiskSourceSnapshotEncryptionKey(raw_key=raw_key)
 
@@ -239,9 +245,9 @@ class ComputeRegionDisk(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.
         '''
         value = ComputeRegionDiskTimeouts(create=create, delete=delete, update=update)
 
@@ -294,6 +300,14 @@ class ComputeRegionDisk(
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetProject", []))
+
+    @jsii.member(jsii_name="resetProvisionedIops")
+    def reset_provisioned_iops(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetProvisionedIops", []))
+
+    @jsii.member(jsii_name="resetProvisionedThroughput")
+    def reset_provisioned_throughput(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetProvisionedThroughput", []))
 
     @jsii.member(jsii_name="resetRegion")
     def reset_region(self) -> None:
@@ -498,6 +512,16 @@ class ComputeRegionDisk(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="provisionedIopsInput")
+    def provisioned_iops_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "provisionedIopsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="provisionedThroughputInput")
+    def provisioned_throughput_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "provisionedThroughputInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="regionInput")
     def region_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "regionInput"))
@@ -667,6 +691,30 @@ class ComputeRegionDisk(
         jsii.set(self, "project", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="provisionedIops")
+    def provisioned_iops(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "provisionedIops"))
+
+    @provisioned_iops.setter
+    def provisioned_iops(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f4d637fec36c1bd7c9d16fc0b19bf0aedfcaac82ae795c3515ca3656fe11316)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisionedIops", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisionedThroughput")
+    def provisioned_throughput(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "provisionedThroughput"))
+
+    @provisioned_throughput.setter
+    def provisioned_throughput(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb98728a07ed67a74eb843dbe38c2f89d3af7cc5c26bbee8554b508a2dc89aee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisionedThroughput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "region"))
@@ -747,7 +795,7 @@ class ComputeRegionDisk(
 class ComputeRegionDiskAsyncPrimaryDisk:
     def __init__(self, *, disk: builtins.str) -> None:
         '''
-        :param disk: Primary disk for asynchronous disk replication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
+        :param disk: Primary disk for asynchronous disk replication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a86b347df4b85775fe1997aca7c20bdd27440d0af00f7f170bdb19cf8b872a3d)
@@ -760,7 +808,7 @@ class ComputeRegionDiskAsyncPrimaryDisk:
     def disk(self) -> builtins.str:
         '''Primary disk for asynchronous disk replication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk ComputeRegionDisk#disk}
         '''
         result = self._values.get("disk")
         assert result is not None, "Required property 'disk' is missing"
@@ -856,6 +904,8 @@ class ComputeRegionDiskAsyncPrimaryDiskOutputReference(
         "licenses": "licenses",
         "physical_block_size_bytes": "physicalBlockSizeBytes",
         "project": "project",
+        "provisioned_iops": "provisionedIops",
+        "provisioned_throughput": "provisionedThroughput",
         "region": "region",
         "size": "size",
         "snapshot": "snapshot",
@@ -890,6 +940,8 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
         physical_block_size_bytes: typing.Optional[jsii.Number] = None,
         project: typing.Optional[builtins.str] = None,
+        provisioned_iops: typing.Optional[jsii.Number] = None,
+        provisioned_throughput: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
         size: typing.Optional[jsii.Number] = None,
         snapshot: typing.Optional[builtins.str] = None,
@@ -906,27 +958,29 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
-        :param replica_zones: URLs of the zones where the disk should be replicated to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
-        :param access_mode: The access mode of the disk. For example: - READ_WRITE_SINGLE: The default AccessMode, means the disk can be attached to single instance in RW mode. - READ_WRITE_MANY: The AccessMode means the disk can be attached to multiple instances in RW mode. - READ_ONLY_SINGLE: The AccessMode means the disk can be attached to multiple instances in RO mode. The AccessMode is only valid for Hyperdisk disk types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
-        :param async_primary_disk: async_primary_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
-        :param create_snapshot_before_destroy: If set to true, a snapshot of the disk will be created before it is destroyed. If your disk is encrypted with customer managed encryption keys these will be reused for the snapshot creation. The name of the snapshot by default will be '{{disk-name}}-YYYYMMDD-HHmm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
-        :param create_snapshot_before_destroy_prefix: This will set a custom name prefix for the snapshot that's created when the disk is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
-        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
-        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
-        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels to apply to this disk. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
-        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
-        :param physical_block_size_bytes: Physical block size of the persistent disk, in bytes. If not present in a request, a default value is used. Currently supported sizes are 4096 and 16384, other sizes may be added in the future. If an unsupported value is requested, the error message will list the supported values for the caller's project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.
-        :param region: A reference to the region where the disk resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
-        :param size: Size of the persistent disk, specified in GB. You can specify this field when creating a persistent disk using the sourceImage or sourceSnapshot parameter, or specify it alone to create an empty persistent disk. If you specify this field along with sourceImage or sourceSnapshot, the value of sizeGb must not be less than the size of the sourceImage or the size of the snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
-        :param snapshot: The source snapshot used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - 'https://www.googleapis.com/compute/v1/projects/project/global/snapshots/snapshot' - 'projects/project/global/snapshots/snapshot' - 'global/snapshots/snapshot' - 'snapshot' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
-        :param source_disk: The source disk used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/disks/{disk} - https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/disks/{disk} - projects/{project}/zones/{zone}/disks/{disk} - projects/{project}/regions/{region}/disks/{disk} - zones/{zone}/disks/{disk} - regions/{region}/disks/{disk} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
-        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
-        :param type: URL of the disk type resource describing which disk type to use to create the disk. Provide this when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
+        :param replica_zones: URLs of the zones where the disk should be replicated to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
+        :param access_mode: The access mode of the disk. For example: - READ_WRITE_SINGLE: The default AccessMode, means the disk can be attached to single instance in RW mode. - READ_WRITE_MANY: The AccessMode means the disk can be attached to multiple instances in RW mode. - READ_ONLY_SINGLE: The AccessMode means the disk can be attached to multiple instances in RO mode. The AccessMode is only valid for Hyperdisk disk types. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
+        :param async_primary_disk: async_primary_disk block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
+        :param create_snapshot_before_destroy: If set to true, a snapshot of the disk will be created before it is destroyed. If your disk is encrypted with customer managed encryption keys these will be reused for the snapshot creation. The name of the snapshot by default will be '{{disk-name}}-YYYYMMDD-HHmm' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
+        :param create_snapshot_before_destroy_prefix: This will set a custom name prefix for the snapshot that's created when the disk is deleted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
+        :param description: An optional description of this resource. Provide this property when you create the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
+        :param disk_encryption_key: disk_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
+        :param guest_os_features: guest_os_features block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels to apply to this disk. A list of key->value pairs. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
+        :param licenses: Any applicable license URI. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
+        :param physical_block_size_bytes: Physical block size of the persistent disk, in bytes. If not present in a request, a default value is used. Currently supported sizes are 4096 and 16384, other sizes may be added in the future. If an unsupported value is requested, the error message will list the supported values for the caller's project. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.
+        :param provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. Values must be between 10,000 and 120,000. For more details, see the Extreme persistent disk `documentation <https://cloud.google.com/compute/docs/disks/extreme-persistent-disk>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_iops ComputeRegionDisk#provisioned_iops}
+        :param provisioned_throughput: Indicates how much throughput to provision for the disk. This sets the number of throughput mb per second that the disk can handle. Values must be greater than or equal to 1. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_throughput ComputeRegionDisk#provisioned_throughput}
+        :param region: A reference to the region where the disk resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
+        :param size: Size of the persistent disk, specified in GB. You can specify this field when creating a persistent disk using the sourceImage or sourceSnapshot parameter, or specify it alone to create an empty persistent disk. If you specify this field along with sourceImage or sourceSnapshot, the value of sizeGb must not be less than the size of the sourceImage or the size of the snapshot. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
+        :param snapshot: The source snapshot used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - 'https://www.googleapis.com/compute/v1/projects/project/global/snapshots/snapshot' - 'projects/project/global/snapshots/snapshot' - 'global/snapshots/snapshot' - 'snapshot' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
+        :param source_disk: The source disk used to create this disk. You can provide this as a partial or full URL to the resource. For example, the following are valid values: - https://www.googleapis.com/compute/v1/projects/{project}/zones/{zone}/disks/{disk} - https://www.googleapis.com/compute/v1/projects/{project}/regions/{region}/disks/{disk} - projects/{project}/zones/{zone}/disks/{disk} - projects/{project}/regions/{region}/disks/{disk} - zones/{zone}/disks/{disk} - regions/{region}/disks/{disk} Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
+        :param source_snapshot_encryption_key: source_snapshot_encryption_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
+        :param type: URL of the disk type resource describing which disk type to use to create the disk. Provide this when creating the disk. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -961,6 +1015,8 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument licenses", value=licenses, expected_type=type_hints["licenses"])
             check_type(argname="argument physical_block_size_bytes", value=physical_block_size_bytes, expected_type=type_hints["physical_block_size_bytes"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument provisioned_iops", value=provisioned_iops, expected_type=type_hints["provisioned_iops"])
+            check_type(argname="argument provisioned_throughput", value=provisioned_throughput, expected_type=type_hints["provisioned_throughput"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
             check_type(argname="argument size", value=size, expected_type=type_hints["size"])
             check_type(argname="argument snapshot", value=snapshot, expected_type=type_hints["snapshot"])
@@ -1010,6 +1066,10 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["physical_block_size_bytes"] = physical_block_size_bytes
         if project is not None:
             self._values["project"] = project
+        if provisioned_iops is not None:
+            self._values["provisioned_iops"] = provisioned_iops
+        if provisioned_throughput is not None:
+            self._values["provisioned_throughput"] = provisioned_throughput
         if region is not None:
             self._values["region"] = region
         if size is not None:
@@ -1101,7 +1161,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#name ComputeRegionDisk#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1111,7 +1171,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def replica_zones(self) -> typing.List[builtins.str]:
         '''URLs of the zones where the disk should be replicated to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#replica_zones ComputeRegionDisk#replica_zones}
         '''
         result = self._values.get("replica_zones")
         assert result is not None, "Required property 'replica_zones' is missing"
@@ -1128,7 +1188,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - READ_ONLY_SINGLE: The AccessMode means the disk can be attached to multiple instances in RO mode.
           The AccessMode is only valid for Hyperdisk disk types.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#access_mode ComputeRegionDisk#access_mode}
         '''
         result = self._values.get("access_mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1137,7 +1197,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def async_primary_disk(self) -> typing.Optional[ComputeRegionDiskAsyncPrimaryDisk]:
         '''async_primary_disk block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#async_primary_disk ComputeRegionDisk#async_primary_disk}
         '''
         result = self._values.get("async_primary_disk")
         return typing.cast(typing.Optional[ComputeRegionDiskAsyncPrimaryDisk], result)
@@ -1151,7 +1211,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If your disk is encrypted with customer managed encryption keys these will be reused for the snapshot creation.
         The name of the snapshot by default will be '{{disk-name}}-YYYYMMDD-HHmm'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy ComputeRegionDisk#create_snapshot_before_destroy}
         '''
         result = self._values.get("create_snapshot_before_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1160,7 +1220,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def create_snapshot_before_destroy_prefix(self) -> typing.Optional[builtins.str]:
         '''This will set a custom name prefix for the snapshot that's created when the disk is deleted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create_snapshot_before_destroy_prefix ComputeRegionDisk#create_snapshot_before_destroy_prefix}
         '''
         result = self._values.get("create_snapshot_before_destroy_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1169,7 +1229,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource. Provide this property when you create the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#description ComputeRegionDisk#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1180,7 +1240,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeRegionDiskDiskEncryptionKey"]:
         '''disk_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#disk_encryption_key ComputeRegionDisk#disk_encryption_key}
         '''
         result = self._values.get("disk_encryption_key")
         return typing.cast(typing.Optional["ComputeRegionDiskDiskEncryptionKey"], result)
@@ -1191,14 +1251,14 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionDiskGuestOsFeatures"]]]:
         '''guest_os_features block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#guest_os_features ComputeRegionDisk#guest_os_features}
         '''
         result = self._values.get("guest_os_features")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeRegionDiskGuestOsFeatures"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#id ComputeRegionDisk#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1213,7 +1273,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#labels ComputeRegionDisk#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -1222,7 +1282,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def licenses(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Any applicable license URI.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#licenses ComputeRegionDisk#licenses}
         '''
         result = self._values.get("licenses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1237,22 +1297,47 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         If an unsupported value is requested, the error message will list
         the supported values for the caller's project.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#physical_block_size_bytes ComputeRegionDisk#physical_block_size_bytes}
         '''
         result = self._values.get("physical_block_size_bytes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#project ComputeRegionDisk#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def provisioned_iops(self) -> typing.Optional[jsii.Number]:
+        '''Indicates how many IOPS to provision for the disk.
+
+        This sets the number of I/O operations per second
+        that the disk can handle. Values must be between 10,000 and 120,000.
+        For more details, see the Extreme persistent disk `documentation <https://cloud.google.com/compute/docs/disks/extreme-persistent-disk>`_.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_iops ComputeRegionDisk#provisioned_iops}
+        '''
+        result = self._values.get("provisioned_iops")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def provisioned_throughput(self) -> typing.Optional[jsii.Number]:
+        '''Indicates how much throughput to provision for the disk.
+
+        This sets the number of throughput
+        mb per second that the disk can handle. Values must be greater than or equal to 1.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#provisioned_throughput ComputeRegionDisk#provisioned_throughput}
+        '''
+        result = self._values.get("provisioned_throughput")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def region(self) -> typing.Optional[builtins.str]:
         '''A reference to the region where the disk resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#region ComputeRegionDisk#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1270,7 +1355,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         the value of sizeGb must not be less than the size of the sourceImage
         or the size of the snapshot.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#size ComputeRegionDisk#size}
         '''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1288,7 +1373,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - 'global/snapshots/snapshot'
         - 'snapshot'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#snapshot ComputeRegionDisk#snapshot}
         '''
         result = self._values.get("snapshot")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1307,7 +1392,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         - zones/{zone}/disks/{disk}
         - regions/{region}/disks/{disk}
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_disk ComputeRegionDisk#source_disk}
         '''
         result = self._values.get("source_disk")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1318,7 +1403,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["ComputeRegionDiskSourceSnapshotEncryptionKey"]:
         '''source_snapshot_encryption_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#source_snapshot_encryption_key ComputeRegionDisk#source_snapshot_encryption_key}
         '''
         result = self._values.get("source_snapshot_encryption_key")
         return typing.cast(typing.Optional["ComputeRegionDiskSourceSnapshotEncryptionKey"], result)
@@ -1327,7 +1412,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeRegionDiskTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#timeouts ComputeRegionDisk#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeRegionDiskTimeouts"], result)
@@ -1338,7 +1423,7 @@ class ComputeRegionDiskConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Provide this when creating the disk.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
         '''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1373,9 +1458,9 @@ class ComputeRegionDiskDiskEncryptionKey:
         rsa_encrypted_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param kms_key_name: The name of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
-        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
+        :param kms_key_name: The name of the encryption key that is stored in Google Cloud KMS. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        :param rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. You can provide either the rawKey or the rsaEncryptedKey. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33b0536bc6cb6bbf06969bed012bf2c631d4b2224751301951ae281093e8043d)
@@ -1394,7 +1479,7 @@ class ComputeRegionDiskDiskEncryptionKey:
     def kms_key_name(self) -> typing.Optional[builtins.str]:
         '''The name of the encryption key that is stored in Google Cloud KMS.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#kms_key_name ComputeRegionDisk#kms_key_name}
         '''
         result = self._values.get("kms_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1403,7 +1488,7 @@ class ComputeRegionDiskDiskEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1414,7 +1499,7 @@ class ComputeRegionDiskDiskEncryptionKey:
 
         You can provide either the rawKey or the rsaEncryptedKey.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#rsa_encrypted_key ComputeRegionDisk#rsa_encrypted_key}
         '''
         result = self._values.get("rsa_encrypted_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1543,7 +1628,7 @@ class ComputeRegionDiskDiskEncryptionKeyOutputReference(
 class ComputeRegionDiskGuestOsFeatures:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: The type of supported feature. Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
+        :param type: The type of supported feature. Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4aec82723e31cc2be59368bd69015bd3acb834ed6d60a96516f3c10d07abaefe)
@@ -1558,7 +1643,7 @@ class ComputeRegionDiskGuestOsFeatures:
 
         Read `Enabling guest operating system features <https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features>`_ to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#type ComputeRegionDisk#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1738,7 +1823,7 @@ class ComputeRegionDiskGuestOsFeaturesOutputReference(
 class ComputeRegionDiskSourceSnapshotEncryptionKey:
     def __init__(self, *, raw_key: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        :param raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__286503b8d3dcdea8abb35d23a382ff570fec9a816b8b2036469307a666a696b2)
@@ -1751,7 +1836,7 @@ class ComputeRegionDiskSourceSnapshotEncryptionKey:
     def raw_key(self) -> typing.Optional[builtins.str]:
         '''Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#raw_key ComputeRegionDisk#raw_key}
         '''
         result = self._values.get("raw_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1846,9 +1931,9 @@ class ComputeRegionDiskTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc1a90c0b08dee31c8743857eceedfc2491c0128364c0a6433573712a28f7eab)
@@ -1865,19 +1950,19 @@ class ComputeRegionDiskTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#create ComputeRegionDisk#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#delete ComputeRegionDisk#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_region_disk#update ComputeRegionDisk#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2030,6 +2115,8 @@ def _typecheckingstub__c610edb37c6ae160f198e97817b985816379182802710b424aa6ae137
     licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
     physical_block_size_bytes: typing.Optional[jsii.Number] = None,
     project: typing.Optional[builtins.str] = None,
+    provisioned_iops: typing.Optional[jsii.Number] = None,
+    provisioned_throughput: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     size: typing.Optional[jsii.Number] = None,
     snapshot: typing.Optional[builtins.str] = None,
@@ -2123,6 +2210,18 @@ def _typecheckingstub__b25b6480f301997c8491048d248b69c28aa5bb39132941c269c2277c0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5f4d637fec36c1bd7c9d16fc0b19bf0aedfcaac82ae795c3515ca3656fe11316(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb98728a07ed67a74eb843dbe38c2f89d3af7cc5c26bbee8554b508a2dc89aee(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8fefd8ac28c5a2b38d6461626f19f322a22a69b345bf5b38ba222b92617959ec(
     value: builtins.str,
 ) -> None:
@@ -2208,6 +2307,8 @@ def _typecheckingstub__f63b9b98d080a2aa2d0a9b648fb13c0c3e1389b728aff0c2dc3d8bffd
     licenses: typing.Optional[typing.Sequence[builtins.str]] = None,
     physical_block_size_bytes: typing.Optional[jsii.Number] = None,
     project: typing.Optional[builtins.str] = None,
+    provisioned_iops: typing.Optional[jsii.Number] = None,
+    provisioned_throughput: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
     size: typing.Optional[jsii.Number] = None,
     snapshot: typing.Optional[builtins.str] = None,

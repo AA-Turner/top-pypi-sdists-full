@@ -145,8 +145,7 @@ def create_kubernetes_cluster(cfg: dict, status: StatusManager) -> None:
 
     if result.returncode == 0:
         print(f"✅ Cluster '{cluster_name}' created.")
-        # --- NO CHANGE HERE ---
-        # Post-creation calls are preserved.
+        install_durable_storageclass()
         apply_rbac()
         enable_gke_monitoring(cluster_name, region, project)
         status.complete("kubernetes")
@@ -186,8 +185,7 @@ Please create the cluster manually using the following command:
             )
         if check.returncode == 0:
             print(f"✅ Cluster '{cluster_name}' has been created.")
-            # --- NO CHANGE HERE ---
-            # Post-polling calls are preserved.
+            install_durable_storageclass()
             ensure_namespace_exists("intellithing")
             apply_rbac()
             break
@@ -301,3 +299,29 @@ roleRef:
             print(f"❌ Failed to apply {name}.")
             print(result.stderr)
             raise RuntimeError(f"{name} setup failed.")
+        
+def install_durable_storageclass():
+    """
+    Creates (or updates) a durable StorageClass named 'intellithing-storage'
+    with reclaimPolicy=Retain in the current cluster.
+    """
+    print("🔧 Installing durable StorageClass…")
+    storageclass_manifest = """\
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: intellithing-storage
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: pd.csi.storage.gke.io
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+"""
+    run(
+        "kubectl apply -f - <<EOF\n"
+        + storageclass_manifest
+        + "\nEOF"
+    )
+
+        

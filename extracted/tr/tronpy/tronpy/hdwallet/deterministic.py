@@ -34,6 +34,7 @@ Definitions
 * parse_256(p): interprets a 32-byte sequence as a 256-bit number, most significant byte first.
 
 """
+
 # Additional notes:
 # - This module currently only implements private parent key => private child key CKD function,
 #   as it is not necessary to the HD key derivation functions used in this library to implement
@@ -42,7 +43,7 @@ Definitions
 # - Unlike other libraries, this library does not use Bitcoin key serialization, because it is
 #   not intended to be ultimately used for Bitcoin key derivations. This presents a simplified
 #   API, and no expectation is given for `xpub/xpriv` key derivation.
-from typing import Tuple, Type, Union
+from typing import Union
 
 from eth_utils import ValidationError, to_int
 
@@ -62,7 +63,7 @@ class Node(int):
     index: int
 
     def __new__(cls, index):
-        if 0 > index or index > 2**31:
+        if index < 0 or index > 2**31:
             raise ValidationError(f"{cls} cannot be initialized with value {index}")
 
         obj = int.__new__(cls, index + cls.OFFSET)
@@ -86,7 +87,7 @@ class Node(int):
         if len(node) < 1:
             raise ValidationError("Cannot use empty string")
 
-        node_class: Union[Type["SoftNode"], Type["HardNode"]]
+        node_class: Union[type[SoftNode], type[HardNode]]
         if node[-1] in HARD_NODE_SUFFIXES:
             node_class = HardNode
             node_index = node[:-1]
@@ -124,7 +125,7 @@ def derive_child_key(
     parent_key: bytes,
     parent_chain_code: bytes,
     node: Node,
-) -> Tuple[bytes, bytes]:
+) -> tuple[bytes, bytes]:
     """
     Compute a derivitive key from the parent key.
 
@@ -146,20 +147,25 @@ def derive_child_key(
        (Note: this has probability lower than 1 in 2**127.)
 
     """
-    assert len(parent_chain_code) == 32
+    if len(parent_chain_code) != 32:
+        raise ValidationError(f"Parent chain code must be 32 bytes, got {len(parent_chain_code)}")
     if isinstance(node, HardNode):
         # NOTE Empty byte is added to align to SoftNode case
-        assert len(parent_key) == 32  # Should be guaranteed here in return statment
+        if len(parent_key) != 32:
+            raise ValidationError(f"Parent key must be 32 bytes, got {len(parent_key)}")
         child = hmac_sha512(parent_chain_code, b"\x00" + parent_key + node.serialize())
 
     elif isinstance(node, SoftNode):
-        assert len(ec_point(parent_key)) == 33  # Should be guaranteed by Account class
-        child = hmac_sha512(parent_chain_code, ec_point(parent_key) + node.serialize())
+        ec_point_key = ec_point(parent_key)
+        if len(ec_point_key) != 33:
+            raise ValidationError(f"EC point key must be 33 bytes, got {len(ec_point_key)}")
+        child = hmac_sha512(parent_chain_code, ec_point_key + node.serialize())
 
     else:
         raise ValidationError(f"Cannot process: {node}")
 
-    assert len(child) == 64
+    if len(child) != 64:
+        raise ValidationError(f"Child key must be 64 bytes, got {len(child)}")
 
     if to_int(child[:32]) >= SECP256K1_N:
         # Invalid key, compute using next node (< 2**-127 probability)
@@ -202,7 +208,7 @@ class HDPath:
             raise ValidationError(f'Path is not valid: "{path}". Must start with "m"')
 
         decoded_path = []
-        for idx, node in enumerate(nodes[1:]):  # We don't need the root node 'm'
+        for _, node in enumerate(nodes[1:]):  # We don't need the root node 'm'
             try:
                 decoded_path.append(Node.decode(node))
             except ValidationError as err:

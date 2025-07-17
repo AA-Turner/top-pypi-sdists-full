@@ -269,14 +269,16 @@ class CloudController(BaseController):
                 "ParameterKey": "MemoryDBRedisPort",
                 "ParameterValue": MEMORYDB_REDIS_PORT,
             },
-            {
-                "ParameterKey": "EnableEFS",
-                "ParameterValue": "true"
-                if shared_storage == SharedStorageType.NFS
-                else "false",
-            },
         ]
         if not is_anyscale_hosted:
+            parameters.append(
+                {
+                    "ParameterKey": "EnableEFS",
+                    "ParameterValue": "true"
+                    if shared_storage == SharedStorageType.NFS
+                    else "false",
+                }
+            )
             parameters.append(
                 {
                     "ParameterKey": "AnyscaleCrossAccountIAMRoleName",

@@ -1381,6 +1381,10 @@ class ChalkClient:
         features: list[str] | None,
         tags: list[str] | None,
         primary_keys: list[str],
+        environment: Optional[EnvironmentId] = None,
+        branch: Optional[Union[BranchId, ellipsis]] = ...,
+        retain_offline: bool = False,
+        retain_online: bool = False,
     ) -> FeatureObservationDeletionResponse:
         """Targets feature observation values for deletion and performs deletion online and offline.
 
@@ -1401,6 +1405,10 @@ class ChalkClient:
             keys. Note that this parameter and the "features" parameter are mutually exclusive.
         primary_keys
             The primary keys of the observations that should be targeted for deletion.
+        retain_offline
+            If True, the given observations will not be dropped from the offline store
+        retain_online
+            If True, the given observations will not be dropped from the online store
 
         Returns
         -------
@@ -1419,7 +1427,15 @@ class ChalkClient:
         """
         ...
 
-    def drop_features(self, namespace: str, features: list[str]) -> FeatureDropResponse:
+    def drop_features(
+        self,
+        namespace: str,
+        features: list[str],
+        environment: Optional[EnvironmentId] = None,
+        branch: Optional[Union[BranchId, ellipsis]] = ...,
+        retain_offline: bool = False,
+        retain_online: bool = False,
+    ) -> FeatureDropResponse:
         """
         Performs a drop on features, which involves a deletes all their data
         (both online and offline). Once the feature is reset in this manner,
@@ -1431,6 +1447,11 @@ class ChalkClient:
             The namespace in which the target features reside.
         features
             A list of the feature names of the features that should be dropped.
+        retain_offline
+            If True, features will not be dropped from the offline store
+        retain_online
+            If True, features will not be dropped from the online store
+
 
         Returns
         -------

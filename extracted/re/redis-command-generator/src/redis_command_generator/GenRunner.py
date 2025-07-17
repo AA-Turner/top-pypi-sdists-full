@@ -5,6 +5,7 @@ from simple_parsing import parse
 from dataclasses import dataclass
 from time import sleep
 from multiprocessing import cpu_count
+from redis_command_generator.BaseGen import KeyedLimitedRandomQueue
 from redis_command_generator.AllGen import *
 
 def create_tg(base_classes):
@@ -53,6 +54,8 @@ class GenRunner(AllGen):
         gen_names = [gen for gen in args.include_gens if gen not in args.exclude_gens]
         gen_types = strings_to_classes(gen_names)
         TypeGen = create_tg(tuple(gen_types))  # Create a new class from all the selected generators
+        keyed_limited_random_queue = KeyedLimitedRandomQueue(max_size_per_key=100)
+
         
         for i in range(args.num_threads):
             # Can't simply use i as more threads may be added by running start multiple times
@@ -64,8 +67,8 @@ class GenRunner(AllGen):
             self.logfiles.append(generator.logfile)
             
             self.events.append(threading.Event())
-            self.threads.append(threading.Thread(target=(generator._run), args=(self.events[t_num],)))
-            self.threads[t_num].start()
+            self.threads.append(threading.Thread(target=(generator._run), args=(self.events[t_num],keyed_limited_random_queue)))
+            self.threads[t_num].start() 
 
     def join(self):
         for t in self.threads:

@@ -208,14 +208,18 @@ class TestRemoteExecutionClient(unittest.TestCase):
 
     def test_validate_image_version(self):
         # Test valid versions
-        self.assertTrue(RemoteExecutionClient.validate_image_version("2.2.0"))
-        self.assertTrue(RemoteExecutionClient.validate_image_version("2.2"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.6"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.6.1"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.7"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.8"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.8.1"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3"))
 
+        self.assertFalse(RemoteExecutionClient.validate_image_version("2.2.0"))
+        self.assertFalse(RemoteExecutionClient.validate_image_version("2.2"))
         self.assertFalse(RemoteExecutionClient.validate_image_version("1.0"))
         self.assertFalse(RemoteExecutionClient.validate_image_version("2.0.1"))
         self.assertFalse(RemoteExecutionClient.validate_image_version("2.1"))

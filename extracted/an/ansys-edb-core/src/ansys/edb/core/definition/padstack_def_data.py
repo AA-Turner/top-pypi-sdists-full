@@ -118,7 +118,7 @@ class PadstackDefData(ObjBase):
         This property is read-only.
         """
         layer_names_msg = self.__stub.GetLayerNames(self.msg).names
-        return layer_names_msg
+        return list(layer_names_msg)
 
     @property
     def layer_ids(self):
@@ -127,7 +127,7 @@ class PadstackDefData(ObjBase):
         This property is read-only.
         """
         layer_ids_msg = self.__stub.GetLayerIds(self.msg)
-        return layer_ids_msg.ids
+        return list(layer_ids_msg.ids)
 
     def add_layers(self, names):
         """
@@ -189,13 +189,15 @@ class PadstackDefData(ObjBase):
                 Value(message.generic.offset_y),
                 Value(message.generic.rotation),
             )
-        else:
+        elif message.HasField("polygon"):
             return (
                 parser.to_polygon_data(message.polygon.fp),
                 Value(message.polygon.offset_x),
                 Value(message.polygon.offset_y),
                 Value(message.polygon.rotation),
             )
+        else:
+            return ()
 
     def set_pad_parameters(
         self, layer, pad_type, offset_x, offset_y, rotation, type_geom=None, sizes=None, fp=None
@@ -269,7 +271,9 @@ class PadstackDefData(ObjBase):
         """
         return self.get_pad_parameters(None, PadType.HOLE)
 
-    def set_hole_parameters(self, offset_x, offset_y, rotation, type_geom, sizes):
+    def set_hole_parameters(
+        self, offset_x, offset_y, rotation, type_geom=None, sizes=None, fp=None
+    ):
         """
         Set hole parameters.
 
@@ -281,13 +285,15 @@ class PadstackDefData(ObjBase):
             Y offset.
         rotation : :class:`.Value`
             Rotation.
-        type_geom : PadGeometryType
-            Pad geometry type.
-        sizes : List[:class:`.Value`]
-            List of pad sizes.
+        type_geom : PadGeometryType, default: None
+            Pad geometry type. The default is ``None`` if setting polygonal pad parameters.
+        sizes : List[:class:`.Value`], default: None
+            List of pad sizes. The default is ``None`` if setting polygonal pad parameters.
+        fp : :class:`.PolygonData`, default: None
+            Polygon geometry. The default is ``None`` if not setting polygonal pad parameters.
         """
         return self.set_pad_parameters(
-            -1, PadType.HOLE, offset_x, offset_y, rotation, type_geom, sizes
+            -1, PadType.HOLE, offset_x, offset_y, rotation, type_geom, sizes, fp
         )
 
     @property

@@ -17,8 +17,8 @@ from coredis.typing import (
     Iterator,
     Literal,
     Node,
+    RedisValueT,
     StringT,
-    ValueT,
 )
 
 HASH_SLOTS = 16384
@@ -85,8 +85,8 @@ class NodeManager:
         self.nodemanager_follow_cluster = nodemanager_follow_cluster
         self.replicas_per_shard = 0
 
-    def keys_to_nodes_by_slot(self, *keys: ValueT) -> dict[str, dict[int, list[ValueT]]]:
-        mapping: dict[str, dict[int, list[ValueT]]] = {}
+    def keys_to_nodes_by_slot(self, *keys: RedisValueT) -> dict[str, dict[int, list[RedisValueT]]]:
+        mapping: dict[str, dict[int, list[RedisValueT]]] = {}
         for k in keys:
             node = self.node_from_slot(hash_slot(b(k)))
             if node:
@@ -98,6 +98,13 @@ class NodeManager:
             if node.server_type == "primary":
                 return node
         return None  # noqa
+
+    def nodes_from_slots(self, *slots: int) -> dict[str, list[int]]:
+        mapping: dict[str, list[int]] = {}
+        for slot in slots:
+            if node := self.node_from_slot(slot):
+                mapping.setdefault(node.name, []).append(slot)
+        return mapping
 
     def all_nodes(self) -> Iterator[ManagedNode]:
         yield from self.nodes.values()

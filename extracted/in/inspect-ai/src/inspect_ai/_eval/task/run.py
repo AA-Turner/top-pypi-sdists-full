@@ -25,6 +25,7 @@ from inspect_ai._util._async import tg_collect
 from inspect_ai._util.constants import (
     DEFAULT_EPOCHS,
     DEFAULT_MAX_CONNECTIONS,
+    DEFAULT_MAX_CONNECTIONS_BATCH,
 )
 from inspect_ai._util.dateutil import iso_now
 from inspect_ai._util.error import exception_message
@@ -879,7 +880,7 @@ async def task_run_sample(
                 await log_sample(
                     eval_sample=eval_sample, logger=logger, log_images=log_images
                 )
-            await emit_sample_end(run_id, task_id, state.uuid, eval_sample.summary())
+            await emit_sample_end(run_id, task_id, state.uuid, eval_sample)
 
     # error that should be retried (we do this outside of the above scope so that we can
     # retry outside of the original semaphore -- our retry will therefore go to the back
@@ -1108,6 +1109,8 @@ def create_sample_semaphore(
     max_samples = (
         generate_config.max_connections
         if generate_config.max_connections is not None
+        else DEFAULT_MAX_CONNECTIONS_BATCH
+        if generate_config.batch
         else modelapi.max_connections()
         if modelapi
         else DEFAULT_MAX_CONNECTIONS

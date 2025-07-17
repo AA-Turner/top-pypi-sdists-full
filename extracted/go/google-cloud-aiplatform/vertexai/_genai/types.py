@@ -62,12 +62,16 @@ def __getattr__(name: str) -> typing.Any:
 
 if typing.TYPE_CHECKING:
     import pandas as pd
+
+    PandasDataFrame = pd.DataFrame
 else:
-    pd: typing.Type = Any
     try:
         import pandas as pd
+
+        PandasDataFrame = pd.DataFrame
     except ImportError:
         pd = None
+        PandasDataFrame = Any
 if typing.TYPE_CHECKING:
     import yaml
 else:
@@ -216,6 +220,30 @@ class Language(_common.CaseInSensitiveEnum):
     """Unspecified language. This value should not be used."""
     PYTHON = "PYTHON"
     """Python >= 3.10, with numpy and simpy available."""
+
+
+class RubricContentType(_common.CaseInSensitiveEnum):
+    """Specifies the type of rubric content to generate."""
+
+    PROPERTY = "PROPERTY"
+    """Generate rubrics based on properties."""
+    NL_QUESTION_ANSWER = "NL_QUESTION_ANSWER"
+    """Generate rubrics in an NL question answer format."""
+    PYTHON_CODE_ASSERTION = "PYTHON_CODE_ASSERTION"
+    """Generate rubrics in a unit test format."""
+
+
+class Importance(_common.CaseInSensitiveEnum):
+    """Importance level of the rubric."""
+
+    IMPORTANCE_UNSPECIFIED = "IMPORTANCE_UNSPECIFIED"
+    """Importance is not specified."""
+    HIGH = "HIGH"
+    """High importance."""
+    MEDIUM = "MEDIUM"
+    """Medium importance."""
+    LOW = "LOW"
+    """Low importance."""
 
 
 class GenerateMemoriesResponseGeneratedMemoryAction(_common.CaseInSensitiveEnum):
@@ -445,12 +473,34 @@ class RougeInputDict(TypedDict, total=False):
 RougeInputOrDict = Union[RougeInput, RougeInputDict]
 
 
+class ContentMap(_common.BaseModel):
+    """Map of placeholder in metric prompt template to contents of model input."""
+
+    values: Optional[dict[str, "ContentMapContents"]] = Field(
+        default=None, description="""Map of placeholder to contents."""
+    )
+
+
+class ContentMapDict(TypedDict, total=False):
+    """Map of placeholder in metric prompt template to contents of model input."""
+
+    values: Optional[dict[str, "ContentMapContents"]]
+    """Map of placeholder to contents."""
+
+
+ContentMapOrDict = Union[ContentMap, ContentMapDict]
+
+
 class PointwiseMetricInstance(_common.BaseModel):
     """Pointwise metric instance."""
 
     json_instance: Optional[str] = Field(
         default=None,
         description="""Instance specified as a json string. String key-value pairs are expected in the json_instance to render PointwiseMetricSpec.instance_prompt_template.""",
+    )
+    content_map_instance: Optional[ContentMap] = Field(
+        default=None,
+        description="""Key-value contents for the mutlimodality input, including text, image, video, audio, and pdf, etc. The key is placeholder in metric prompt template, and the value is the multimodal content.""",
     )
 
 
@@ -459,6 +509,9 @@ class PointwiseMetricInstanceDict(TypedDict, total=False):
 
     json_instance: Optional[str]
     """Instance specified as a json string. String key-value pairs are expected in the json_instance to render PointwiseMetricSpec.instance_prompt_template."""
+
+    content_map_instance: Optional[ContentMapDict]
+    """Key-value contents for the mutlimodality input, including text, image, video, audio, and pdf, etc. The key is placeholder in metric prompt template, and the value is the multimodal content."""
 
 
 PointwiseMetricInstanceOrDict = Union[
@@ -1086,6 +1139,313 @@ EvaluateInstancesConfigOrDict = Union[
 ]
 
 
+class RubricContentProperty(_common.BaseModel):
+    """Defines criteria based on a specific property."""
+
+    description: Optional[str] = Field(
+        default=None,
+        description="""Description of the property being evaluated.
+      Example: "The model's response is grammatically correct." """,
+    )
+
+
+class RubricContentPropertyDict(TypedDict, total=False):
+    """Defines criteria based on a specific property."""
+
+    description: Optional[str]
+    """Description of the property being evaluated.
+      Example: "The model's response is grammatically correct." """
+
+
+RubricContentPropertyOrDict = Union[RubricContentProperty, RubricContentPropertyDict]
+
+
+class RubricContent(_common.BaseModel):
+    """Content of the rubric, defining the testable criteria."""
+
+    property: Optional[RubricContentProperty] = Field(
+        default=None,
+        description="""Evaluation criteria based on a specific property.""",
+    )
+
+
+class RubricContentDict(TypedDict, total=False):
+    """Content of the rubric, defining the testable criteria."""
+
+    property: Optional[RubricContentPropertyDict]
+    """Evaluation criteria based on a specific property."""
+
+
+RubricContentOrDict = Union[RubricContent, RubricContentDict]
+
+
+class Rubric(_common.BaseModel):
+    """Message representing a single testable criterion for evaluation.
+
+    One input prompt could have multiple rubrics.
+    """
+
+    rubric_id: Optional[str] = Field(
+        default=None,
+        description="""Required. Unique identifier for the rubric.
+      This ID is used to refer to this rubric, e.g., in RubricVerdict.""",
+    )
+    content: Optional[RubricContent] = Field(
+        default=None,
+        description="""Required. The actual testable criteria for the rubric.""",
+    )
+    type: Optional[str] = Field(
+        default=None,
+        description="""Optional. A type designator for the rubric, which can inform how it's
+      evaluated or interpreted by systems or users.
+      It's recommended to use consistent, well-defined, upper snake_case strings.
+      Examples: "SUMMARIZATION_QUALITY", "SAFETY_HARMFUL_CONTENT",
+      "INSTRUCTION_ADHERENCE".""",
+    )
+    importance: Optional[Importance] = Field(
+        default=None,
+        description="""Optional. The relative importance of this rubric.""",
+    )
+
+
+class RubricDict(TypedDict, total=False):
+    """Message representing a single testable criterion for evaluation.
+
+    One input prompt could have multiple rubrics.
+    """
+
+    rubric_id: Optional[str]
+    """Required. Unique identifier for the rubric.
+      This ID is used to refer to this rubric, e.g., in RubricVerdict."""
+
+    content: Optional[RubricContentDict]
+    """Required. The actual testable criteria for the rubric."""
+
+    type: Optional[str]
+    """Optional. A type designator for the rubric, which can inform how it's
+      evaluated or interpreted by systems or users.
+      It's recommended to use consistent, well-defined, upper snake_case strings.
+      Examples: "SUMMARIZATION_QUALITY", "SAFETY_HARMFUL_CONTENT",
+      "INSTRUCTION_ADHERENCE"."""
+
+    importance: Optional[Importance]
+    """Optional. The relative importance of this rubric."""
+
+
+RubricOrDict = Union[Rubric, RubricDict]
+
+
+class RubricGenerationSpec(_common.BaseModel):
+    """Spec for generating rubrics."""
+
+    prompt_template: Optional[str] = Field(
+        default=None,
+        description="""Template for the prompt used to generate rubrics.
+      The details should be updated based on the most-recent recipe requirements.""",
+    )
+    generator_model_config: Optional[AutoraterConfig] = Field(
+        default=None,
+        description="""Configuration for the model used in rubric generation.
+      Configs including sampling count and base model can be specified here.
+      Flipping is not supported for rubric generation.""",
+    )
+    rubric_content_type: Optional[RubricContentType] = Field(
+        default=None,
+        description="""The type of rubric content to be generated.""",
+    )
+    rubric_type_ontology: Optional[list[str]] = Field(
+        default=None,
+        description="""An optional, pre-defined list of allowed types for generated rubrics.
+      If this field is provided, it implies `include_rubric_type` should be true,
+      and the generated rubric types should be chosen from this ontology.""",
+    )
+
+
+class RubricGenerationSpecDict(TypedDict, total=False):
+    """Spec for generating rubrics."""
+
+    prompt_template: Optional[str]
+    """Template for the prompt used to generate rubrics.
+      The details should be updated based on the most-recent recipe requirements."""
+
+    generator_model_config: Optional[AutoraterConfigDict]
+    """Configuration for the model used in rubric generation.
+      Configs including sampling count and base model can be specified here.
+      Flipping is not supported for rubric generation."""
+
+    rubric_content_type: Optional[RubricContentType]
+    """The type of rubric content to be generated."""
+
+    rubric_type_ontology: Optional[list[str]]
+    """An optional, pre-defined list of allowed types for generated rubrics.
+      If this field is provided, it implies `include_rubric_type` should be true,
+      and the generated rubric types should be chosen from this ontology."""
+
+
+RubricGenerationSpecOrDict = Union[RubricGenerationSpec, RubricGenerationSpecDict]
+
+
+class RubricBasedMetricSpec(_common.BaseModel):
+    """Specification for a metric that is based on rubrics."""
+
+    metric_prompt_template: Optional[str] = Field(
+        default=None,
+        description="""Template for the prompt used by the judge model to evaluate against
+      rubrics.""",
+    )
+    judge_autorater_config: Optional[AutoraterConfig] = Field(
+        default=None,
+        description="""Optional configuration for the judge LLM (Autorater).""",
+    )
+    inline_rubrics: Optional[list[Rubric]] = Field(
+        default=None,
+        description="""Use rubrics provided directly in the spec.""",
+    )
+    rubric_group_key: Optional[str] = Field(
+        default=None,
+        description="""Use a pre-defined group of rubrics associated with the input content.
+      This refers to a key in the `rubric_groups` map of
+      `RubricEnhancedContents`.""",
+    )
+    rubric_generation_spec: Optional[RubricGenerationSpec] = Field(
+        default=None,
+        description="""Dynamically generate rubrics for evaluation using this specification.""",
+    )
+
+
+class RubricBasedMetricSpecDict(TypedDict, total=False):
+    """Specification for a metric that is based on rubrics."""
+
+    metric_prompt_template: Optional[str]
+    """Template for the prompt used by the judge model to evaluate against
+      rubrics."""
+
+    judge_autorater_config: Optional[AutoraterConfigDict]
+    """Optional configuration for the judge LLM (Autorater)."""
+
+    inline_rubrics: Optional[list[RubricDict]]
+    """Use rubrics provided directly in the spec."""
+
+    rubric_group_key: Optional[str]
+    """Use a pre-defined group of rubrics associated with the input content.
+      This refers to a key in the `rubric_groups` map of
+      `RubricEnhancedContents`."""
+
+    rubric_generation_spec: Optional[RubricGenerationSpecDict]
+    """Dynamically generate rubrics for evaluation using this specification."""
+
+
+RubricBasedMetricSpecOrDict = Union[RubricBasedMetricSpec, RubricBasedMetricSpecDict]
+
+
+class RubricEnhancedContents(_common.BaseModel):
+    """Rubric-enhanced contents for evaluation."""
+
+    prompt: Optional[list[genai_types.Content]] = Field(
+        default=None,
+        description="""User prompt, using the standard Content type from the Gen AI SDK.""",
+    )
+    rubric_groups: Optional[dict[str, "RubricGroup"]] = Field(
+        default=None,
+        description="""Named groups of rubrics associated with this prompt.
+      The key is a user-defined name for the rubric group.""",
+    )
+    response: Optional[list[genai_types.Content]] = Field(
+        default=None,
+        description="""Response, using the standard Content type from the Gen AI SDK.""",
+    )
+    other_content: Optional[ContentMap] = Field(
+        default=None,
+        description="""Other contents needed for the metric.
+      For example, if `reference` is needed for the metric, it can be provided
+      here.""",
+    )
+
+
+class RubricEnhancedContentsDict(TypedDict, total=False):
+    """Rubric-enhanced contents for evaluation."""
+
+    prompt: Optional[list[genai_types.Content]]
+    """User prompt, using the standard Content type from the Gen AI SDK."""
+
+    rubric_groups: Optional[dict[str, "RubricGroup"]]
+    """Named groups of rubrics associated with this prompt.
+      The key is a user-defined name for the rubric group."""
+
+    response: Optional[list[genai_types.Content]]
+    """Response, using the standard Content type from the Gen AI SDK."""
+
+    other_content: Optional[ContentMapDict]
+    """Other contents needed for the metric.
+      For example, if `reference` is needed for the metric, it can be provided
+      here."""
+
+
+RubricEnhancedContentsOrDict = Union[RubricEnhancedContents, RubricEnhancedContentsDict]
+
+
+class RubricBasedMetricInstance(_common.BaseModel):
+    """Defines an instance for Rubric-based metrics, allowing various input formats."""
+
+    json_instance: Optional[str] = Field(
+        default=None,
+        description="""Specify evaluation fields and their string values in JSON format.""",
+    )
+    content_map_instance: Optional[ContentMap] = Field(
+        default=None,
+        description="""Specify evaluation fields and their content values using a ContentMap.""",
+    )
+    rubric_enhanced_contents: Optional[RubricEnhancedContents] = Field(
+        default=None,
+        description="""Provide input as Gemini Content along with one or more
+      associated rubric groups.""",
+    )
+
+
+class RubricBasedMetricInstanceDict(TypedDict, total=False):
+    """Defines an instance for Rubric-based metrics, allowing various input formats."""
+
+    json_instance: Optional[str]
+    """Specify evaluation fields and their string values in JSON format."""
+
+    content_map_instance: Optional[ContentMapDict]
+    """Specify evaluation fields and their content values using a ContentMap."""
+
+    rubric_enhanced_contents: Optional[RubricEnhancedContentsDict]
+    """Provide input as Gemini Content along with one or more
+      associated rubric groups."""
+
+
+RubricBasedMetricInstanceOrDict = Union[
+    RubricBasedMetricInstance, RubricBasedMetricInstanceDict
+]
+
+
+class RubricBasedMetricInput(_common.BaseModel):
+    """Input for a rubric-based metrics."""
+
+    metric_spec: Optional[RubricBasedMetricSpec] = Field(
+        default=None,
+        description="""Specification for the rubric-based metric.""",
+    )
+    instance: Optional[RubricBasedMetricInstance] = Field(
+        default=None, description="""The instance to be evaluated."""
+    )
+
+
+class RubricBasedMetricInputDict(TypedDict, total=False):
+    """Input for a rubric-based metrics."""
+
+    metric_spec: Optional[RubricBasedMetricSpecDict]
+    """Specification for the rubric-based metric."""
+
+    instance: Optional[RubricBasedMetricInstanceDict]
+    """The instance to be evaluated."""
+
+
+RubricBasedMetricInputOrDict = Union[RubricBasedMetricInput, RubricBasedMetricInputDict]
+
+
 class _EvaluateInstancesRequestParameters(_common.BaseModel):
     """Parameters for evaluating instances."""
 
@@ -1110,6 +1470,9 @@ class _EvaluateInstancesRequestParameters(_common.BaseModel):
         default=None, description=""""""
     )
     tool_parameter_kv_match_input: Optional[ToolParameterKVMatchInput] = Field(
+        default=None, description=""""""
+    )
+    rubric_based_metric_input: Optional[RubricBasedMetricInput] = Field(
         default=None, description=""""""
     )
     autorater_config: Optional[AutoraterConfig] = Field(
@@ -1148,6 +1511,9 @@ class _EvaluateInstancesRequestParametersDict(TypedDict, total=False):
     tool_parameter_kv_match_input: Optional[ToolParameterKVMatchInputDict]
     """"""
 
+    rubric_based_metric_input: Optional[RubricBasedMetricInputDict]
+    """"""
+
     autorater_config: Optional[AutoraterConfigDict]
     """"""
 
@@ -1157,6 +1523,78 @@ class _EvaluateInstancesRequestParametersDict(TypedDict, total=False):
 
 _EvaluateInstancesRequestParametersOrDict = Union[
     _EvaluateInstancesRequestParameters, _EvaluateInstancesRequestParametersDict
+]
+
+
+class RubricVerdict(_common.BaseModel):
+    """Represents the verdict of an evaluation against a single rubric."""
+
+    evaluated_rubric: Optional[Rubric] = Field(
+        default=None,
+        description="""Required. The full rubric definition that was evaluated.
+      Storing this ensures the verdict is self-contained and understandable,
+      especially if the original rubric definition changes or was dynamically
+      generated.""",
+    )
+    verdict: Optional[bool] = Field(
+        default=None,
+        description="""Required. Outcome of the evaluation against the rubric, represented as a
+      boolean. `true` indicates a "Pass", `false` indicates a "Fail".""",
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="""Optional. Human-readable reasoning or explanation for the verdict.
+      This can include specific examples or details from the evaluated content
+      that justify the given verdict.""",
+    )
+
+
+class RubricVerdictDict(TypedDict, total=False):
+    """Represents the verdict of an evaluation against a single rubric."""
+
+    evaluated_rubric: Optional[RubricDict]
+    """Required. The full rubric definition that was evaluated.
+      Storing this ensures the verdict is self-contained and understandable,
+      especially if the original rubric definition changes or was dynamically
+      generated."""
+
+    verdict: Optional[bool]
+    """Required. Outcome of the evaluation against the rubric, represented as a
+      boolean. `true` indicates a "Pass", `false` indicates a "Fail"."""
+
+    reasoning: Optional[str]
+    """Optional. Human-readable reasoning or explanation for the verdict.
+      This can include specific examples or details from the evaluated content
+      that justify the given verdict."""
+
+
+RubricVerdictOrDict = Union[RubricVerdict, RubricVerdictDict]
+
+
+class RubricBasedMetricResult(_common.BaseModel):
+    """Result for a rubric-based metric."""
+
+    score: Optional[float] = Field(
+        default=None, description="""Passing rate of all the rubrics."""
+    )
+    rubric_verdicts: Optional[list[RubricVerdict]] = Field(
+        default=None,
+        description="""The details of all the rubrics and their verdicts.""",
+    )
+
+
+class RubricBasedMetricResultDict(TypedDict, total=False):
+    """Result for a rubric-based metric."""
+
+    score: Optional[float]
+    """Passing rate of all the rubrics."""
+
+    rubric_verdicts: Optional[list[RubricVerdictDict]]
+    """The details of all the rubrics and their verdicts."""
+
+
+RubricBasedMetricResultOrDict = Union[
+    RubricBasedMetricResult, RubricBasedMetricResultDict
 ]
 
 
@@ -1404,95 +1842,6 @@ class RougeResultsDict(TypedDict, total=False):
 RougeResultsOrDict = Union[RougeResults, RougeResultsDict]
 
 
-class RubricCritiqueResult(_common.BaseModel):
-    """Rubric critique result."""
-
-    rubric: Optional[str] = Field(
-        default=None, description="""Output only. Rubric to be evaluated."""
-    )
-    verdict: Optional[bool] = Field(
-        default=None,
-        description="""Output only. Verdict for the rubric - true if the rubric is met, false otherwise.""",
-    )
-
-
-class RubricCritiqueResultDict(TypedDict, total=False):
-    """Rubric critique result."""
-
-    rubric: Optional[str]
-    """Output only. Rubric to be evaluated."""
-
-    verdict: Optional[bool]
-    """Output only. Verdict for the rubric - true if the rubric is met, false otherwise."""
-
-
-RubricCritiqueResultOrDict = Union[RubricCritiqueResult, RubricCritiqueResultDict]
-
-
-class RubricBasedInstructionFollowingResult(_common.BaseModel):
-    """Result for RubricBasedInstructionFollowing metric."""
-
-    rubric_critique_results: Optional[list[RubricCritiqueResult]] = Field(
-        default=None,
-        description="""Output only. List of per rubric critique results.""",
-    )
-    score: Optional[float] = Field(
-        default=None,
-        description="""Output only. Overall score for the instruction following.""",
-    )
-
-
-class RubricBasedInstructionFollowingResultDict(TypedDict, total=False):
-    """Result for RubricBasedInstructionFollowing metric."""
-
-    rubric_critique_results: Optional[list[RubricCritiqueResultDict]]
-    """Output only. List of per rubric critique results."""
-
-    score: Optional[float]
-    """Output only. Overall score for the instruction following."""
-
-
-RubricBasedInstructionFollowingResultOrDict = Union[
-    RubricBasedInstructionFollowingResult,
-    RubricBasedInstructionFollowingResultDict,
-]
-
-
-class SummarizationVerbosityResult(_common.BaseModel):
-    """Spec for summarization verbosity result."""
-
-    confidence: Optional[float] = Field(
-        default=None,
-        description="""Output only. Confidence for summarization verbosity score.""",
-    )
-    explanation: Optional[str] = Field(
-        default=None,
-        description="""Output only. Explanation for summarization verbosity score.""",
-    )
-    score: Optional[float] = Field(
-        default=None,
-        description="""Output only. Summarization Verbosity score.""",
-    )
-
-
-class SummarizationVerbosityResultDict(TypedDict, total=False):
-    """Spec for summarization verbosity result."""
-
-    confidence: Optional[float]
-    """Output only. Confidence for summarization verbosity score."""
-
-    explanation: Optional[str]
-    """Output only. Explanation for summarization verbosity score."""
-
-    score: Optional[float]
-    """Output only. Summarization Verbosity score."""
-
-
-SummarizationVerbosityResultOrDict = Union[
-    SummarizationVerbosityResult, SummarizationVerbosityResultDict
-]
-
-
 class ToolCallValidMetricValue(_common.BaseModel):
     """Tool call valid metric value for an instance."""
 
@@ -1663,280 +2012,12 @@ ToolParameterKVMatchResultsOrDict = Union[
 ]
 
 
-class TrajectoryAnyOrderMatchMetricValue(_common.BaseModel):
-    """TrajectoryAnyOrderMatch metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None,
-        description="""Output only. TrajectoryAnyOrderMatch score.""",
-    )
-
-
-class TrajectoryAnyOrderMatchMetricValueDict(TypedDict, total=False):
-    """TrajectoryAnyOrderMatch metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectoryAnyOrderMatch score."""
-
-
-TrajectoryAnyOrderMatchMetricValueOrDict = Union[
-    TrajectoryAnyOrderMatchMetricValue, TrajectoryAnyOrderMatchMetricValueDict
-]
-
-
-class TrajectoryAnyOrderMatchResults(_common.BaseModel):
-    """Results for TrajectoryAnyOrderMatch metric."""
-
-    trajectory_any_order_match_metric_values: Optional[
-        list[TrajectoryAnyOrderMatchMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectoryAnyOrderMatch metric values.""",
-    )
-
-
-class TrajectoryAnyOrderMatchResultsDict(TypedDict, total=False):
-    """Results for TrajectoryAnyOrderMatch metric."""
-
-    trajectory_any_order_match_metric_values: Optional[
-        list[TrajectoryAnyOrderMatchMetricValueDict]
-    ]
-    """Output only. TrajectoryAnyOrderMatch metric values."""
-
-
-TrajectoryAnyOrderMatchResultsOrDict = Union[
-    TrajectoryAnyOrderMatchResults, TrajectoryAnyOrderMatchResultsDict
-]
-
-
-class TrajectoryExactMatchMetricValue(_common.BaseModel):
-    """TrajectoryExactMatch metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None, description="""Output only. TrajectoryExactMatch score."""
-    )
-
-
-class TrajectoryExactMatchMetricValueDict(TypedDict, total=False):
-    """TrajectoryExactMatch metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectoryExactMatch score."""
-
-
-TrajectoryExactMatchMetricValueOrDict = Union[
-    TrajectoryExactMatchMetricValue, TrajectoryExactMatchMetricValueDict
-]
-
-
-class TrajectoryExactMatchResults(_common.BaseModel):
-    """Results for TrajectoryExactMatch metric."""
-
-    trajectory_exact_match_metric_values: Optional[
-        list[TrajectoryExactMatchMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectoryExactMatch metric values.""",
-    )
-
-
-class TrajectoryExactMatchResultsDict(TypedDict, total=False):
-    """Results for TrajectoryExactMatch metric."""
-
-    trajectory_exact_match_metric_values: Optional[
-        list[TrajectoryExactMatchMetricValueDict]
-    ]
-    """Output only. TrajectoryExactMatch metric values."""
-
-
-TrajectoryExactMatchResultsOrDict = Union[
-    TrajectoryExactMatchResults, TrajectoryExactMatchResultsDict
-]
-
-
-class TrajectoryInOrderMatchMetricValue(_common.BaseModel):
-    """TrajectoryInOrderMatch metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None,
-        description="""Output only. TrajectoryInOrderMatch score.""",
-    )
-
-
-class TrajectoryInOrderMatchMetricValueDict(TypedDict, total=False):
-    """TrajectoryInOrderMatch metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectoryInOrderMatch score."""
-
-
-TrajectoryInOrderMatchMetricValueOrDict = Union[
-    TrajectoryInOrderMatchMetricValue, TrajectoryInOrderMatchMetricValueDict
-]
-
-
-class TrajectoryInOrderMatchResults(_common.BaseModel):
-    """Results for TrajectoryInOrderMatch metric."""
-
-    trajectory_in_order_match_metric_values: Optional[
-        list[TrajectoryInOrderMatchMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectoryInOrderMatch metric values.""",
-    )
-
-
-class TrajectoryInOrderMatchResultsDict(TypedDict, total=False):
-    """Results for TrajectoryInOrderMatch metric."""
-
-    trajectory_in_order_match_metric_values: Optional[
-        list[TrajectoryInOrderMatchMetricValueDict]
-    ]
-    """Output only. TrajectoryInOrderMatch metric values."""
-
-
-TrajectoryInOrderMatchResultsOrDict = Union[
-    TrajectoryInOrderMatchResults, TrajectoryInOrderMatchResultsDict
-]
-
-
-class TrajectoryPrecisionMetricValue(_common.BaseModel):
-    """TrajectoryPrecision metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None, description="""Output only. TrajectoryPrecision score."""
-    )
-
-
-class TrajectoryPrecisionMetricValueDict(TypedDict, total=False):
-    """TrajectoryPrecision metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectoryPrecision score."""
-
-
-TrajectoryPrecisionMetricValueOrDict = Union[
-    TrajectoryPrecisionMetricValue, TrajectoryPrecisionMetricValueDict
-]
-
-
-class TrajectoryPrecisionResults(_common.BaseModel):
-    """Results for TrajectoryPrecision metric."""
-
-    trajectory_precision_metric_values: Optional[
-        list[TrajectoryPrecisionMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectoryPrecision metric values.""",
-    )
-
-
-class TrajectoryPrecisionResultsDict(TypedDict, total=False):
-    """Results for TrajectoryPrecision metric."""
-
-    trajectory_precision_metric_values: Optional[
-        list[TrajectoryPrecisionMetricValueDict]
-    ]
-    """Output only. TrajectoryPrecision metric values."""
-
-
-TrajectoryPrecisionResultsOrDict = Union[
-    TrajectoryPrecisionResults, TrajectoryPrecisionResultsDict
-]
-
-
-class TrajectoryRecallMetricValue(_common.BaseModel):
-    """TrajectoryRecall metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None, description="""Output only. TrajectoryRecall score."""
-    )
-
-
-class TrajectoryRecallMetricValueDict(TypedDict, total=False):
-    """TrajectoryRecall metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectoryRecall score."""
-
-
-TrajectoryRecallMetricValueOrDict = Union[
-    TrajectoryRecallMetricValue, TrajectoryRecallMetricValueDict
-]
-
-
-class TrajectoryRecallResults(_common.BaseModel):
-    """Results for TrajectoryRecall metric."""
-
-    trajectory_recall_metric_values: Optional[
-        list[TrajectoryRecallMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectoryRecall metric values.""",
-    )
-
-
-class TrajectoryRecallResultsDict(TypedDict, total=False):
-    """Results for TrajectoryRecall metric."""
-
-    trajectory_recall_metric_values: Optional[list[TrajectoryRecallMetricValueDict]]
-    """Output only. TrajectoryRecall metric values."""
-
-
-TrajectoryRecallResultsOrDict = Union[
-    TrajectoryRecallResults, TrajectoryRecallResultsDict
-]
-
-
-class TrajectorySingleToolUseMetricValue(_common.BaseModel):
-    """TrajectorySingleToolUse metric value for an instance."""
-
-    score: Optional[float] = Field(
-        default=None,
-        description="""Output only. TrajectorySingleToolUse score.""",
-    )
-
-
-class TrajectorySingleToolUseMetricValueDict(TypedDict, total=False):
-    """TrajectorySingleToolUse metric value for an instance."""
-
-    score: Optional[float]
-    """Output only. TrajectorySingleToolUse score."""
-
-
-TrajectorySingleToolUseMetricValueOrDict = Union[
-    TrajectorySingleToolUseMetricValue, TrajectorySingleToolUseMetricValueDict
-]
-
-
-class TrajectorySingleToolUseResults(_common.BaseModel):
-    """Results for TrajectorySingleToolUse metric."""
-
-    trajectory_single_tool_use_metric_values: Optional[
-        list[TrajectorySingleToolUseMetricValue]
-    ] = Field(
-        default=None,
-        description="""Output only. TrajectorySingleToolUse metric values.""",
-    )
-
-
-class TrajectorySingleToolUseResultsDict(TypedDict, total=False):
-    """Results for TrajectorySingleToolUse metric."""
-
-    trajectory_single_tool_use_metric_values: Optional[
-        list[TrajectorySingleToolUseMetricValueDict]
-    ]
-    """Output only. TrajectorySingleToolUse metric values."""
-
-
-TrajectorySingleToolUseResultsOrDict = Union[
-    TrajectorySingleToolUseResults, TrajectorySingleToolUseResultsDict
-]
-
-
 class EvaluateInstancesResponse(_common.BaseModel):
     """Result of evaluating an LLM metric."""
 
+    rubric_based_metric_result: Optional[RubricBasedMetricResult] = Field(
+        default=None, description="""Result for rubric based metric."""
+    )
     bleu_results: Optional[BleuResults] = Field(
         default=None, description="""Results for bleu metric."""
     )
@@ -1961,16 +2042,6 @@ class EvaluateInstancesResponse(_common.BaseModel):
     rouge_results: Optional[RougeResults] = Field(
         default=None, description="""Results for rouge metric."""
     )
-    rubric_based_instruction_following_result: Optional[
-        RubricBasedInstructionFollowingResult
-    ] = Field(
-        default=None,
-        description="""Result for rubric based instruction following metric.""",
-    )
-    summarization_verbosity_result: Optional[SummarizationVerbosityResult] = Field(
-        default=None,
-        description="""Result for summarization verbosity metric.""",
-    )
     tool_call_valid_results: Optional[ToolCallValidResults] = Field(
         default=None,
         description="""Tool call metrics. Results for tool call valid metric.""",
@@ -1986,36 +2057,13 @@ class EvaluateInstancesResponse(_common.BaseModel):
         default=None,
         description="""Results for tool parameter key value match metric.""",
     )
-    trajectory_any_order_match_results: Optional[
-        TrajectoryAnyOrderMatchResults
-    ] = Field(
-        default=None,
-        description="""Result for trajectory any order match metric.""",
-    )
-    trajectory_exact_match_results: Optional[TrajectoryExactMatchResults] = Field(
-        default=None,
-        description="""Result for trajectory exact match metric.""",
-    )
-    trajectory_in_order_match_results: Optional[TrajectoryInOrderMatchResults] = Field(
-        default=None,
-        description="""Result for trajectory in order match metric.""",
-    )
-    trajectory_precision_results: Optional[TrajectoryPrecisionResults] = Field(
-        default=None, description="""Result for trajectory precision metric."""
-    )
-    trajectory_recall_results: Optional[TrajectoryRecallResults] = Field(
-        default=None, description="""Results for trajectory recall metric."""
-    )
-    trajectory_single_tool_use_results: Optional[
-        TrajectorySingleToolUseResults
-    ] = Field(
-        default=None,
-        description="""Results for trajectory single tool use metric.""",
-    )
 
 
 class EvaluateInstancesResponseDict(TypedDict, total=False):
     """Result of evaluating an LLM metric."""
+
+    rubric_based_metric_result: Optional[RubricBasedMetricResultDict]
+    """Result for rubric based metric."""
 
     bleu_results: Optional[BleuResultsDict]
     """Results for bleu metric."""
@@ -2038,14 +2086,6 @@ class EvaluateInstancesResponseDict(TypedDict, total=False):
     rouge_results: Optional[RougeResultsDict]
     """Results for rouge metric."""
 
-    rubric_based_instruction_following_result: Optional[
-        RubricBasedInstructionFollowingResultDict
-    ]
-    """Result for rubric based instruction following metric."""
-
-    summarization_verbosity_result: Optional[SummarizationVerbosityResultDict]
-    """Result for summarization verbosity metric."""
-
     tool_call_valid_results: Optional[ToolCallValidResultsDict]
     """Tool call metrics. Results for tool call valid metric."""
 
@@ -2058,27 +2098,79 @@ class EvaluateInstancesResponseDict(TypedDict, total=False):
     tool_parameter_kv_match_results: Optional[ToolParameterKVMatchResultsDict]
     """Results for tool parameter key value match metric."""
 
-    trajectory_any_order_match_results: Optional[TrajectoryAnyOrderMatchResultsDict]
-    """Result for trajectory any order match metric."""
-
-    trajectory_exact_match_results: Optional[TrajectoryExactMatchResultsDict]
-    """Result for trajectory exact match metric."""
-
-    trajectory_in_order_match_results: Optional[TrajectoryInOrderMatchResultsDict]
-    """Result for trajectory in order match metric."""
-
-    trajectory_precision_results: Optional[TrajectoryPrecisionResultsDict]
-    """Result for trajectory precision metric."""
-
-    trajectory_recall_results: Optional[TrajectoryRecallResultsDict]
-    """Results for trajectory recall metric."""
-
-    trajectory_single_tool_use_results: Optional[TrajectorySingleToolUseResultsDict]
-    """Results for trajectory single tool use metric."""
-
 
 EvaluateInstancesResponseOrDict = Union[
     EvaluateInstancesResponse, EvaluateInstancesResponseDict
+]
+
+
+class RubricGenerationConfig(_common.BaseModel):
+    """Config for generating rubrics."""
+
+    http_options: Optional[HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class RubricGenerationConfigDict(TypedDict, total=False):
+    """Config for generating rubrics."""
+
+    http_options: Optional[HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+
+RubricGenerationConfigOrDict = Union[RubricGenerationConfig, RubricGenerationConfigDict]
+
+
+class _GenerateInstanceRubricsRequest(_common.BaseModel):
+    """Parameters for generating rubrics."""
+
+    contents: Optional[list[genai_types.Content]] = Field(
+        default=None,
+        description="""The prompt to generate rubrics from. For single-turn queries, this is a single instance. For multi-turn queries, this is a repeated field that contains conversation history + latest request.""",
+    )
+    rubric_generation_spec: Optional[RubricGenerationSpec] = Field(
+        default=None,
+        description="""Specification for how the rubrics should be generated.""",
+    )
+    config: Optional[RubricGenerationConfig] = Field(default=None, description="""""")
+
+
+class _GenerateInstanceRubricsRequestDict(TypedDict, total=False):
+    """Parameters for generating rubrics."""
+
+    contents: Optional[list[genai_types.Content]]
+    """The prompt to generate rubrics from. For single-turn queries, this is a single instance. For multi-turn queries, this is a repeated field that contains conversation history + latest request."""
+
+    rubric_generation_spec: Optional[RubricGenerationSpecDict]
+    """Specification for how the rubrics should be generated."""
+
+    config: Optional[RubricGenerationConfigDict]
+    """"""
+
+
+_GenerateInstanceRubricsRequestOrDict = Union[
+    _GenerateInstanceRubricsRequest, _GenerateInstanceRubricsRequestDict
+]
+
+
+class GenerateInstanceRubricsResponse(_common.BaseModel):
+    """Response for generating rubrics."""
+
+    generated_rubrics: Optional[list[Rubric]] = Field(
+        default=None, description="""A list of generated rubrics."""
+    )
+
+
+class GenerateInstanceRubricsResponseDict(TypedDict, total=False):
+    """Response for generating rubrics."""
+
+    generated_rubrics: Optional[list[RubricDict]]
+    """A list of generated rubrics."""
+
+
+GenerateInstanceRubricsResponseOrDict = Union[
+    GenerateInstanceRubricsResponse, GenerateInstanceRubricsResponseDict
 ]
 
 
@@ -3042,7 +3134,7 @@ ReasoningEngineSpecPackageSpecOrDict = Union[
 
 
 class ReasoningEngineSpec(_common.BaseModel):
-    """The specification of a Reasoning Engine."""
+    """The specification of an agent engine."""
 
     agent_framework: Optional[str] = Field(
         default=None,
@@ -3063,7 +3155,7 @@ class ReasoningEngineSpec(_common.BaseModel):
 
 
 class ReasoningEngineSpecDict(TypedDict, total=False):
-    """The specification of a Reasoning Engine."""
+    """The specification of an agent engine."""
 
     agent_framework: Optional[str]
     """Optional. The OSS agent framework used to develop the agent. Currently supported values: "google-adk", "langchain", "langgraph", "ag2", "llama-index", "custom"."""
@@ -3079,72 +3171,6 @@ class ReasoningEngineSpecDict(TypedDict, total=False):
 
 
 ReasoningEngineSpecOrDict = Union[ReasoningEngineSpec, ReasoningEngineSpecDict]
-
-
-class CreateAgentEngineConfig(_common.BaseModel):
-    """Config for create agent engine."""
-
-    http_options: Optional[HttpOptions] = Field(
-        default=None, description="""Used to override HTTP request options."""
-    )
-    display_name: Optional[str] = Field(
-        default=None,
-        description="""The user-defined name of the Agent Engine.
-
-      The display name can be up to 128 characters long and can comprise any
-      UTF-8 characters.
-      """,
-    )
-    description: Optional[str] = Field(
-        default=None, description="""The description of the Agent Engine."""
-    )
-    spec: Optional[ReasoningEngineSpec] = Field(
-        default=None,
-        description="""Optional. Configurations of the ReasoningEngine.""",
-    )
-
-
-class CreateAgentEngineConfigDict(TypedDict, total=False):
-    """Config for create agent engine."""
-
-    http_options: Optional[HttpOptionsDict]
-    """Used to override HTTP request options."""
-
-    display_name: Optional[str]
-    """The user-defined name of the Agent Engine.
-
-      The display name can be up to 128 characters long and can comprise any
-      UTF-8 characters.
-      """
-
-    description: Optional[str]
-    """The description of the Agent Engine."""
-
-    spec: Optional[ReasoningEngineSpecDict]
-    """Optional. Configurations of the ReasoningEngine."""
-
-
-CreateAgentEngineConfigOrDict = Union[
-    CreateAgentEngineConfig, CreateAgentEngineConfigDict
-]
-
-
-class _CreateAgentEngineRequestParameters(_common.BaseModel):
-    """Parameters for creating agent engines."""
-
-    config: Optional[CreateAgentEngineConfig] = Field(default=None, description="""""")
-
-
-class _CreateAgentEngineRequestParametersDict(TypedDict, total=False):
-    """Parameters for creating agent engines."""
-
-    config: Optional[CreateAgentEngineConfigDict]
-    """"""
-
-
-_CreateAgentEngineRequestParametersOrDict = Union[
-    _CreateAgentEngineRequestParameters, _CreateAgentEngineRequestParametersDict
-]
 
 
 class ReasoningEngineContextSpecMemoryBankConfigGenerationConfig(_common.BaseModel):
@@ -3235,7 +3261,7 @@ ReasoningEngineContextSpecMemoryBankConfigOrDict = Union[
 
 
 class ReasoningEngineContextSpec(_common.BaseModel):
-    """Configuration for how Agent Engine sub-resources should manage context."""
+    """The configuration for agent engine sub-resources to manage context."""
 
     memory_bank_config: Optional[ReasoningEngineContextSpecMemoryBankConfig] = Field(
         default=None,
@@ -3244,7 +3270,7 @@ class ReasoningEngineContextSpec(_common.BaseModel):
 
 
 class ReasoningEngineContextSpecDict(TypedDict, total=False):
-    """Configuration for how Agent Engine sub-resources should manage context."""
+    """The configuration for agent engine sub-resources to manage context."""
 
     memory_bank_config: Optional[ReasoningEngineContextSpecMemoryBankConfigDict]
     """Optional. Specification for a Memory Bank, which manages memories for the Agent Engine."""
@@ -3252,6 +3278,79 @@ class ReasoningEngineContextSpecDict(TypedDict, total=False):
 
 ReasoningEngineContextSpecOrDict = Union[
     ReasoningEngineContextSpec, ReasoningEngineContextSpecDict
+]
+
+
+class CreateAgentEngineConfig(_common.BaseModel):
+    """Config for create agent engine."""
+
+    http_options: Optional[HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""The user-defined name of the Agent Engine.
+
+      The display name can be up to 128 characters long and can comprise any
+      UTF-8 characters.
+      """,
+    )
+    description: Optional[str] = Field(
+        default=None, description="""The description of the Agent Engine."""
+    )
+    spec: Optional[ReasoningEngineSpec] = Field(
+        default=None,
+        description="""Optional. Configurations of the Agent Engine.""",
+    )
+    context_spec: Optional[ReasoningEngineContextSpec] = Field(
+        default=None,
+        description="""Optional. The context spec to be used for the Agent Engine.""",
+    )
+
+
+class CreateAgentEngineConfigDict(TypedDict, total=False):
+    """Config for create agent engine."""
+
+    http_options: Optional[HttpOptionsDict]
+    """Used to override HTTP request options."""
+
+    display_name: Optional[str]
+    """The user-defined name of the Agent Engine.
+
+      The display name can be up to 128 characters long and can comprise any
+      UTF-8 characters.
+      """
+
+    description: Optional[str]
+    """The description of the Agent Engine."""
+
+    spec: Optional[ReasoningEngineSpecDict]
+    """Optional. Configurations of the Agent Engine."""
+
+    context_spec: Optional[ReasoningEngineContextSpecDict]
+    """Optional. The context spec to be used for the Agent Engine."""
+
+
+CreateAgentEngineConfigOrDict = Union[
+    CreateAgentEngineConfig, CreateAgentEngineConfigDict
+]
+
+
+class _CreateAgentEngineRequestParameters(_common.BaseModel):
+    """Parameters for creating agent engines."""
+
+    config: Optional[CreateAgentEngineConfig] = Field(default=None, description="""""")
+
+
+class _CreateAgentEngineRequestParametersDict(TypedDict, total=False):
+    """Parameters for creating agent engines."""
+
+    config: Optional[CreateAgentEngineConfigDict]
+    """"""
+
+
+_CreateAgentEngineRequestParametersOrDict = Union[
+    _CreateAgentEngineRequestParameters, _CreateAgentEngineRequestParametersDict
 ]
 
 
@@ -4289,7 +4388,7 @@ _GenerateAgentEngineMemoriesRequestParametersOrDict = Union[
 
 
 class GenerateMemoriesResponseGeneratedMemory(_common.BaseModel):
-    """A memmory that was generated."""
+    """A memory that was generated."""
 
     memory: Optional[Memory] = Field(
         default=None, description="""The generated memory."""
@@ -4300,7 +4399,7 @@ class GenerateMemoriesResponseGeneratedMemory(_common.BaseModel):
 
 
 class GenerateMemoriesResponseGeneratedMemoryDict(TypedDict, total=False):
-    """A memmory that was generated."""
+    """A memory that was generated."""
 
     memory: Optional[MemoryDict]
     """The generated memory."""
@@ -5040,7 +5139,11 @@ class UpdateAgentEngineConfig(_common.BaseModel):
     )
     spec: Optional[ReasoningEngineSpec] = Field(
         default=None,
-        description="""Optional. Configurations of the ReasoningEngine.""",
+        description="""Optional. Configurations of the Agent Engine.""",
+    )
+    context_spec: Optional[ReasoningEngineContextSpec] = Field(
+        default=None,
+        description="""Optional. The context spec to be used for the Agent Engine.""",
     )
     update_mask: Optional[str] = Field(
         default=None,
@@ -5066,7 +5169,10 @@ class UpdateAgentEngineConfigDict(TypedDict, total=False):
     """The description of the Agent Engine."""
 
     spec: Optional[ReasoningEngineSpecDict]
-    """Optional. Configurations of the ReasoningEngine."""
+    """Optional. Configurations of the Agent Engine."""
+
+    context_spec: Optional[ReasoningEngineContextSpecDict]
+    """Optional. The context spec to be used for the Agent Engine."""
 
     update_mask: Optional[str]
     """The update mask to apply. For the `FieldMask` definition, see
@@ -5791,6 +5897,11 @@ class Metric(_common.BaseModel):
 class LLMMetric(Metric):
     """A metric that uses LLM-as-a-judge for evaluation."""
 
+    rubric_group_name: Optional[str] = Field(
+        default=None,
+        description="""Optional. The name of the column in the EvaluationDataset containing the list of rubrics to use for this metric.""",
+    )
+
     @field_validator("prompt_template", mode="before")
     @classmethod
     def validate_prompt_template(cls, value: Union[str, "MetricPromptBuilder"]) -> str:
@@ -6126,7 +6237,7 @@ class EvaluationDataset(_common.BaseModel):
     eval_cases: Optional[list[EvalCase]] = Field(
         default=None, description="""The evaluation cases to be evaluated."""
     )
-    eval_dataset_df: Optional["pd.DataFrame"] = Field(
+    eval_dataset_df: Optional[PandasDataFrame] = Field(
         default=None,
         description="""The evaluation dataset in the form of a Pandas DataFrame.""",
     )
@@ -6168,7 +6279,7 @@ class EvaluationDatasetDict(TypedDict, total=False):
     eval_cases: Optional[list[EvalCaseDict]]
     """The evaluation cases to be evaluated."""
 
-    eval_dataset_df: Optional["pd.DataFrame"]
+    eval_dataset_df: Optional[PandasDataFrame]
     """The evaluation dataset in the form of a Pandas DataFrame."""
 
     candidate_name: Optional[str]
@@ -6219,12 +6330,12 @@ class EvalCaseMetricResult(_common.BaseModel):
     explanation: Optional[str] = Field(
         default=None, description="""Explanation of the metric."""
     )
+    rubric_verdicts: Optional[list[RubricVerdict]] = Field(
+        default=None,
+        description="""The details of all the rubrics and their verdicts for rubric-based metrics.""",
+    )
     raw_output: Optional[list[str]] = Field(
         default=None, description="""Raw output of the metric."""
-    )
-    rubrics: Optional[list[str]] = Field(
-        default=None,
-        description="""A list of rubrics used to evaluate the example for rubric-based metrics.""",
     )
     error_message: Optional[str] = Field(
         default=None, description="""Error message for the metric."""
@@ -6243,11 +6354,11 @@ class EvalCaseMetricResultDict(TypedDict, total=False):
     explanation: Optional[str]
     """Explanation of the metric."""
 
+    rubric_verdicts: Optional[list[RubricVerdictDict]]
+    """The details of all the rubrics and their verdicts for rubric-based metrics."""
+
     raw_output: Optional[list[str]]
     """Raw output of the metric."""
-
-    rubrics: Optional[list[str]]
-    """A list of rubrics used to evaluate the example for rubric-based metrics."""
 
     error_message: Optional[str]
     """Error message for the metric."""
@@ -6458,6 +6569,24 @@ class EvaluationResultDict(TypedDict, total=False):
 EvaluationResultOrDict = Union[EvaluationResult, EvaluationResultDict]
 
 
+class ContentMapContents(_common.BaseModel):
+    """Map of placeholder in metric prompt template to contents of model input."""
+
+    contents: Optional[list[genai_types.Content]] = Field(
+        default=None, description="""Contents of the model input."""
+    )
+
+
+class ContentMapContentsDict(TypedDict, total=False):
+    """Map of placeholder in metric prompt template to contents of model input."""
+
+    contents: Optional[list[genai_types.Content]]
+    """Contents of the model input."""
+
+
+ContentMapContentsOrDict = Union[ContentMapContents, ContentMapContentsDict]
+
+
 class EvaluateMethodConfig(_common.BaseModel):
     """Optional parameters for the evaluate method."""
 
@@ -6611,6 +6740,43 @@ EvaluateDatasetOperationOrDict = Union[
 ]
 
 
+class RubricGroup(_common.BaseModel):
+    """A group of rubrics, used for grouping rubrics based on a metric or a version."""
+
+    group_id: Optional[str] = Field(
+        default=None, description="""Unique identifier for the group."""
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""Human-readable name for the group. This should be unique
+      within a given context if used for display or selection.
+      Example: "Instruction Following V1", "Content Quality - Summarization
+      Task".""",
+    )
+    rubrics: Optional[list[Rubric]] = Field(
+        default=None, description="""Rubrics that are part of this group."""
+    )
+
+
+class RubricGroupDict(TypedDict, total=False):
+    """A group of rubrics, used for grouping rubrics based on a metric or a version."""
+
+    group_id: Optional[str]
+    """Unique identifier for the group."""
+
+    display_name: Optional[str]
+    """Human-readable name for the group. This should be unique
+      within a given context if used for display or selection.
+      Example: "Instruction Following V1", "Content Quality - Summarization
+      Task"."""
+
+    rubrics: Optional[list[RubricDict]]
+    """Rubrics that are part of this group."""
+
+
+RubricGroupOrDict = Union[RubricGroup, RubricGroupDict]
+
+
 class AgentEngine(_common.BaseModel):
     """An agent engine instance."""
 
@@ -6727,6 +6893,10 @@ class AgentEngineConfig(_common.BaseModel):
       If it is a dictionary, the keys are the environment variable names, and
       the values are the corresponding values.""",
     )
+    context_spec: Optional[ReasoningEngineContextSpec] = Field(
+        default=None,
+        description="""The context spec to be used for the Agent Engine.""",
+    )
 
 
 class AgentEngineConfigDict(TypedDict, total=False):
@@ -6769,6 +6939,9 @@ class AgentEngineConfigDict(TypedDict, total=False):
 
       If it is a dictionary, the keys are the environment variable names, and
       the values are the corresponding values."""
+
+    context_spec: Optional[ReasoningEngineContextSpecDict]
+    """The context spec to be used for the Agent Engine."""
 
 
 AgentEngineConfigOrDict = Union[AgentEngineConfig, AgentEngineConfigDict]

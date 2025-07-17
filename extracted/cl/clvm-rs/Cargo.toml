@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.15.0"
+version = "0.16.0"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2021"
 license = "Apache-2.0"
@@ -87,6 +87,7 @@ rand = { workspace = true }
 hex = { workspace = true }
 sha1 = { workspace = true }
 bumpalo = { workspace = true }
+thiserror = "1.0.69"
 
 [dev-dependencies]
 rstest = { workspace = true }

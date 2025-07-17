@@ -29,5 +29,5 @@ dependencies = ["packaging"]
 angreal = "angreal:main"
 
 [tool.maturin]
-python-source = "python"
 features = ["pyo3/extension-module"]
+manifest-path = "crates/angreal/Cargo.toml"

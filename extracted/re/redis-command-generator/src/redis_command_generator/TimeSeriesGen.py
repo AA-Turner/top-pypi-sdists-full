@@ -43,6 +43,8 @@ class TimeSeriesGen(BaseGen):
                 labels[label_key] = label_value
         
         # Track created keys for compaction rules
+        if not hasattr(self, 'created_keys'):
+            self.created_keys = set()
         self.created_keys.add(key)
         
         pipe.ts().create(
@@ -257,6 +259,9 @@ class TimeSeriesGen(BaseGen):
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)
     def tscreaterule(self, pipe: redis.client.Pipeline, key: str) -> None:
         """Create a compaction rule"""
+        if not hasattr(self, 'created_keys'):
+            self.created_keys = set()
+        
         # Only create rules if we have multiple keys available
         if len(self.created_keys) < 2:
             # If not enough keys, create a destination key first

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: EXtra-data
-Version: 1.21.0
+Version: 1.22.0
 Summary: Tools to read and analyse data from European XFEL 
 Author: European XFEL GmbH
 Author-email: da-support@xfel.eu
@@ -29,7 +29,6 @@ Requires-Dist: packaging
 Requires-Dist: pandas
 Requires-Dist: xarray
 Requires-Dist: pyyaml
-Requires-Dist: zlib_into
 Provides-Extra: bridge
 Requires-Dist: karabo-bridge>=0.6; extra == "bridge"
 Requires-Dist: psutil; extra == "bridge"
@@ -37,6 +36,7 @@ Provides-Extra: complete
 Requires-Dist: dask[array]; extra == "complete"
 Requires-Dist: extra_data[bridge]; extra == "complete"
 Requires-Dist: tomli; python_version < "3.11" and extra == "complete"
+Requires-Dist: zlib_into>=0.4; extra == "complete"
 Provides-Extra: docs
 Requires-Dist: extra_data[bridge]; extra == "docs"
 Requires-Dist: ipython; extra == "docs"

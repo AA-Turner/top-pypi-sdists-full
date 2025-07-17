@@ -38,7 +38,6 @@ async def make_request_httpx(
     path = path or "/"
     path = f"""/{path.removeprefix("/")}"""
 
-
     if debug:
         log = {
             "base_url": base_url,
@@ -224,18 +223,31 @@ if __name__ == '__main__':
     #
     #                   api_key="WPCSA3ZYD8KBQQ2ZKTAPVUA059J2Q47TLWGB2ZMQ"))
 
-    base_url = "https://queue.fal.run/fal-ai/kling-video/lipsync/audio-to-video"
+    base_url = "https://queue.fal.run/fal-ai"
+    path = "vidu/q1/reference-to-video"
     payload = {
-        "video_url": "https://fal.media/files/koala/8teUPbRRMtAUTORDvqy0l.mp4",
-        "audio_url": "https://storage.googleapis.com/falserverless/kling/kling-audio.mp3"
+        "prompt": "A young woman and a monkey inside a colorful house",
+        "reference_image_urls": [
+            "https://v3.fal.media/files/panda/HDpZj0eLjWwCpjA5__0l1_0e6cd0b9eb7a4a968c0019a4eee15e46.png",
+            "https://v3.fal.media/files/zebra/153izt1cBlMU-TwD0_B7Q_ea34618f5d974653a16a755aa61e488a.png",
+            "https://v3.fal.media/files/koala/RCSZ7VEEKGFDfMoGHCwzo_f626718793e94769b1ad36d5891864a4.png"
+        ],
+        "aspect_ratio": "16:9",
+        "movement_amplitude": "auto"
     }
+    FAL_KEY = "aa5c047f-2621-4be2-9cee-9857a630aa11:b06782c97dffb50bfd6eebb63f49c624"
 
-    # arun(make_request(
-    #     base_url=base_url,
-    #     payload=payload,
-    #     headers=headers,
-    #     method="post"
-    # ))
+    headers ={"Authorization": f"key {FAL_KEY}"}
+    arun(make_request(
+        base_url=base_url,
+        path=path,
+        api_key=FAL_KEY,
+        payload=payload,
+        headers=headers,
+        method="post",
+        debug=True
+    ))
+
     # fal - topaz - upscale - video
     FAL_KEY = "aa5c047f-2621-4be2-9cee-9857a630aa11:b06782c97dffb50bfd6eebb63f49c624"
     REQUEST_ID = "714e4d31-d735-45f7-a9f5-e50eecbb0743"
@@ -246,13 +258,13 @@ if __name__ == '__main__':
     headers = {
         "Authorization": f"key {FAL_KEY}"
     }
-    arun(make_request(
-        base_url=base_url,
-        path=path,
-        headers=headers,
-        method="get",
-        debug=True
-    ))
+    # arun(make_request(
+    #     base_url=base_url,
+    #     path=path,
+    #     headers=headers,
+    #     method="get",
+    #     debug=True
+    # ))
 
     # 'detail': 'Request is still in progress',
 
@@ -316,3 +328,20 @@ if __name__ == '__main__':
     #     debug=True
     # ))
 
+    # UPSTREAM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+    # UPSTREAM_API_KEY = "88b82799f3234a5aad130b0f74c7eb85.tBMTRh0h1IqbvMaw"
+    # path="/videos/generations"
+    # # API_KEY=sk-R6y5di2fR3OAxEH3idNZIc4sm3CWIS4LAzRfhxSVbhXrrIej
+    # payload = {
+    #     "model": "cogvideox-flash",
+    #     "prompt": "比得兔开小汽车，游走在马路上，脸上的表情充满开心喜悦。",
+    #     "duration": 10
+    # }
+    #
+    # arun(make_request(
+    #     base_url=UPSTREAM_BASE_URL,
+    #     api_key=UPSTREAM_API_KEY,
+    #     path=path,
+    #     payload=payload,
+    #     debug=True
+    # ))

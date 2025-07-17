@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any, cast
 
 from deprecated.sphinx import versionadded
 
-from coredis._protocols import SupportsScript
 from coredis._utils import b
 from coredis.exceptions import NoScriptError
+from coredis.retry import ConstantRetryPolicy, retryable
 from coredis.typing import (
     AnyStr,
     Awaitable,
@@ -20,6 +20,7 @@ from coredis.typing import (
     P,
     Parameters,
     R,
+    RedisValueT,
     ResponseType,
     StringT,
     ValueT,
@@ -51,7 +52,7 @@ class Script(Generic[AnyStr]):
 
     def __init__(
         self,
-        registered_client: SupportsScript[AnyStr] | None = None,
+        registered_client: coredis.client.Client[AnyStr] | None = None,
         script: StringT | None = None,
         readonly: bool = False,
     ):
@@ -64,7 +65,7 @@ class Script(Generic[AnyStr]):
         :param readonly: If ``True`` the script will be called with
          :meth:`coredis.Redis.evalsha_ro` instead of :meth:`coredis.Redis.evalsha`
         """
-        self.registered_client: SupportsScript[AnyStr] | None = registered_client
+        self.registered_client: coredis.client.Client[AnyStr] | None = registered_client
         self.script: StringT
         if not script:
             raise RuntimeError("No script provided")
@@ -72,16 +73,16 @@ class Script(Generic[AnyStr]):
         self.sha = hashlib.sha1(b(script)).hexdigest()  # type: ignore
         self.readonly = readonly
 
-    async def __call__(
+    def __call__(
         self,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-        client: SupportsScript[AnyStr] | None = None,
+        client: coredis.client.Client[AnyStr] | None = None,
         readonly: bool | None = None,
-    ) -> ResponseType:
+    ) -> Awaitable[ResponseType]:
         """
         Executes the script registered in :paramref:`Script.script` using
-        :meth:`coredis.Redis.evalsha`. Additionally if the script was not yet
+        :meth:`coredis.Redis.evalsha`. Additionally, if the script was not yet
         registered on the instance, it will automatically do that as well
         and cache the sha at :data:`Script.sha`
 
@@ -103,26 +104,24 @@ class Script(Generic[AnyStr]):
         if readonly is None:
             readonly = self.readonly
 
+        method = client.evalsha_ro if readonly else client.evalsha
+
         # make sure the Redis server knows about the script
         if isinstance(client, Pipeline):
             # make sure this script is good to go on pipeline
             cast(Pipeline[AnyStr], client).scripts.add(self)
-
-        method = client.evalsha_ro if readonly else client.evalsha
-        try:
-            return cast(ResponseType, await method(self.sha, keys=keys, args=args))
-        except NoScriptError:
-            # Maybe the client is pointed to a different server than the client
-            # that created this instance?
-            # Overwrite the sha just in case there was a discrepancy.
-            self.sha = await client.script_load(self.script)
-            return cast(ResponseType, await method(self.sha, keys=keys, args=args))
+            return method(self.sha, keys=keys, args=args)
+        else:
+            return retryable(
+                ConstantRetryPolicy((NoScriptError,), 1, 0),
+                failure_hook=lambda _: client.script_load(self.script),
+            )(method)(self.sha, keys=keys, args=args)
 
     async def execute(
         self,
         keys: Parameters[KeyT] | None = None,
         args: Parameters[ValueT] | None = None,
-        client: SupportsScript[AnyStr] | None = None,
+        client: coredis.client.Client[AnyStr] | None = None,
         readonly: bool | None = None,
     ) -> ResponseType:
         """
@@ -169,12 +168,12 @@ class Script(Generic[AnyStr]):
         passed to redis as an ``arg``::
 
             import coredis
-            from coredis.typing import KeyT, ValueT
+            from coredis.typing import KeyT, RedisValueT
             from typing import List
 
             client = coredis.Redis()
             @client.register_script("return {KEYS[1], ARGV[1]}").wraps()
-            async def echo_key_value(key: KeyT, value: ValueT) -> List[ValueT]: ...
+            async def echo_key_value(key: KeyT, value: RedisValueT) -> List[RedisValueT]: ...
 
             k, v = await echo_key_value("co", "redis")
             # (b"co", b"redis")
@@ -260,13 +259,13 @@ class Script(Generic[AnyStr]):
                 bound_arguments: inspect.BoundArguments,
             ) -> tuple[
                 Parameters[KeyT],
-                Parameters[ValueT],
+                Parameters[RedisValueT],
                 coredis.client.Client[AnyStr] | None,
             ]:
                 bound_arguments.apply_defaults()
                 arguments = bound_arguments.arguments
                 keys: list[KeyT] = []
-                args: list[ValueT] = []
+                args: list[RedisValueT] = []
                 for name in sig.parameters:
                     if name not in arg_fetch:
                         continue

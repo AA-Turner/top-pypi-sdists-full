@@ -1,7 +1,7 @@
 r'''
 # `data_google_compute_reservation`
 
-Refer to the Terraform Registry for docs: [`data_google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation).
+Refer to the Terraform Registry for docs: [`data_google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleComputeReservation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation google_compute_reservation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation google_compute_reservation}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleComputeReservation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation google_compute_reservation} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation google_compute_reservation} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleComputeReservation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleComputeReservation to import.
-        :param import_from_id: The id of the existing DataGoogleComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleComputeReservation to import is found.
         '''
         if __debug__:
@@ -155,9 +155,28 @@ class DataGoogleComputeReservation(
         return typing.cast(builtins.str, jsii.get(self, "creationTimestamp"))
 
     @builtins.property
+    @jsii.member(jsii_name="deleteAfterDuration")
+    def delete_after_duration(
+        self,
+    ) -> "DataGoogleComputeReservationDeleteAfterDurationList":
+        return typing.cast("DataGoogleComputeReservationDeleteAfterDurationList", jsii.get(self, "deleteAfterDuration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteAtTime")
+    def delete_at_time(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "deleteAtTime"))
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reservationSharingPolicy")
+    def reservation_sharing_policy(
+        self,
+    ) -> "DataGoogleComputeReservationReservationSharingPolicyList":
+        return typing.cast("DataGoogleComputeReservationReservationSharingPolicyList", jsii.get(self, "reservationSharingPolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="selfLink")
@@ -296,10 +315,10 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -415,7 +434,7 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#name DataGoogleComputeReservation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -425,7 +444,7 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def zone(self) -> builtins.str:
         '''The zone where the reservation is made.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#zone DataGoogleComputeReservation#zone}
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
@@ -433,7 +452,7 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#id DataGoogleComputeReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -443,7 +462,7 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/data-sources/compute_reservation#project DataGoogleComputeReservation#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -457,6 +476,303 @@ class DataGoogleComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         return "DataGoogleComputeReservationConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationDeleteAfterDuration",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleComputeReservationDeleteAfterDuration:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleComputeReservationDeleteAfterDuration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleComputeReservationDeleteAfterDurationList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationDeleteAfterDurationList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de959a100deb01556b9a24e7652eeda33fc33dba2aba93862356f4f1419896c4)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleComputeReservationDeleteAfterDurationOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__090732675b6efa56ad602d66221aaf78ce02a44e1f6e62c748f68e1c4bf7c0ac)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleComputeReservationDeleteAfterDurationOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a04c4c42d67045e5dcfcec0065109d2be62e8f99f8e25f9580428c85acb1506a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__63e3a00153ebac895a8eba7cf133b4dc33cadfb4550766b95e7bc15e378cc987)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79fd20a12f8c6c9fda62f10249f43b6e4e017a15a28600e6ec218465020860c4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleComputeReservationDeleteAfterDurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationDeleteAfterDurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c10b45b6ec249b24ebe755577efa907de461bda359bb8e60b016b9b847e22269)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="nanos")
+    def nanos(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "nanos"))
+
+    @builtins.property
+    @jsii.member(jsii_name="seconds")
+    def seconds(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "seconds"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleComputeReservationDeleteAfterDuration]:
+        return typing.cast(typing.Optional[DataGoogleComputeReservationDeleteAfterDuration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleComputeReservationDeleteAfterDuration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__320878b7c11cbf63032131314ede9303a534dd368442fa83ad390111f7a522fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationReservationSharingPolicy",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleComputeReservationReservationSharingPolicy:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleComputeReservationReservationSharingPolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleComputeReservationReservationSharingPolicyList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationReservationSharingPolicyList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf4db616dc3ae5fc89d3766cfd8c4eb16f391d2447bbed22bf4ae7f65f24ee98)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleComputeReservationReservationSharingPolicyOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b0e45e4b247bc642a6ea946ba640b064823537948ba31b4590f3f8a4a44fabb)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleComputeReservationReservationSharingPolicyOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f74b7d8ce00cf02c027951f6c3c3430cec0b1ddca8dc28719c95e4f3c6f648a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8983fa21e448158e83eed65edc17f9de496fc69bd7a5e4d9773d2561bf3a55a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b1bc0a6061c55c62417dc8471cace2283dbc4553789558723c8b29cc1af8acc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleComputeReservationReservationSharingPolicyOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleComputeReservation.DataGoogleComputeReservationReservationSharingPolicyOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d9e1f82aa139276a7a450430c1b4d93f6dc4eb31181b02c02daaa4b87850f818)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceShareType")
+    def service_share_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "serviceShareType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleComputeReservationReservationSharingPolicy]:
+        return typing.cast(typing.Optional[DataGoogleComputeReservationReservationSharingPolicy], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleComputeReservationReservationSharingPolicy],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91328d1df281526c0f2e1d69a77bc43dd833a4175eb05e21b17b54b47613b076)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1369,6 +1685,11 @@ class DataGoogleComputeReservationSpecificReservationOutputReference(
         return typing.cast(jsii.Number, jsii.get(self, "inUseCount"))
 
     @builtins.property
+    @jsii.member(jsii_name="sourceInstanceTemplate")
+    def source_instance_template(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sourceInstanceTemplate"))
+
+    @builtins.property
     @jsii.member(jsii_name="internalValue")
     def internal_value(
         self,
@@ -1389,6 +1710,12 @@ class DataGoogleComputeReservationSpecificReservationOutputReference(
 __all__ = [
     "DataGoogleComputeReservation",
     "DataGoogleComputeReservationConfig",
+    "DataGoogleComputeReservationDeleteAfterDuration",
+    "DataGoogleComputeReservationDeleteAfterDurationList",
+    "DataGoogleComputeReservationDeleteAfterDurationOutputReference",
+    "DataGoogleComputeReservationReservationSharingPolicy",
+    "DataGoogleComputeReservationReservationSharingPolicyList",
+    "DataGoogleComputeReservationReservationSharingPolicyOutputReference",
     "DataGoogleComputeReservationShareSettings",
     "DataGoogleComputeReservationShareSettingsList",
     "DataGoogleComputeReservationShareSettingsOutputReference",
@@ -1476,6 +1803,100 @@ def _typecheckingstub__69dc724b96c46a43ef855a8dca0e725bf359e8896678acb0f48826611
     zone: builtins.str,
     id: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de959a100deb01556b9a24e7652eeda33fc33dba2aba93862356f4f1419896c4(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__090732675b6efa56ad602d66221aaf78ce02a44e1f6e62c748f68e1c4bf7c0ac(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a04c4c42d67045e5dcfcec0065109d2be62e8f99f8e25f9580428c85acb1506a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63e3a00153ebac895a8eba7cf133b4dc33cadfb4550766b95e7bc15e378cc987(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79fd20a12f8c6c9fda62f10249f43b6e4e017a15a28600e6ec218465020860c4(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c10b45b6ec249b24ebe755577efa907de461bda359bb8e60b016b9b847e22269(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__320878b7c11cbf63032131314ede9303a534dd368442fa83ad390111f7a522fb(
+    value: typing.Optional[DataGoogleComputeReservationDeleteAfterDuration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf4db616dc3ae5fc89d3766cfd8c4eb16f391d2447bbed22bf4ae7f65f24ee98(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b0e45e4b247bc642a6ea946ba640b064823537948ba31b4590f3f8a4a44fabb(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f74b7d8ce00cf02c027951f6c3c3430cec0b1ddca8dc28719c95e4f3c6f648a4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8983fa21e448158e83eed65edc17f9de496fc69bd7a5e4d9773d2561bf3a55a(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b1bc0a6061c55c62417dc8471cace2283dbc4553789558723c8b29cc1af8acc(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9e1f82aa139276a7a450430c1b4d93f6dc4eb31181b02c02daaa4b87850f818(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91328d1df281526c0f2e1d69a77bc43dd833a4175eb05e21b17b54b47613b076(
+    value: typing.Optional[DataGoogleComputeReservationReservationSharingPolicy],
 ) -> None:
     """Type checking stubs"""
     pass

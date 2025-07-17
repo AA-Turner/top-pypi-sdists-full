@@ -1,11 +1,13 @@
 import enum
 from collections.abc import Iterable
+from contextlib import suppress
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Type
 
 import numpy as np
 from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import Model
 from tqdm import tqdm
@@ -67,22 +69,23 @@ class ImportExportHandler:
                     if res_list:
                         change_data[k] = res_list
                 else:
-                    field_obj = model._meta.get_field(k)
-                    if v in [np.nan, np.inf, -np.inf]:
-                        v = None
-                    if v is not None:
-                        if isinstance(field_obj, models.DecimalField):
-                            v = round(Decimal(v), field_obj.decimal_places)
-                        if isinstance(field_obj, models.FloatField):
-                            v = float(v)
-                        if isinstance(field_obj, models.IntegerField):
-                            v = int(v)
-                        if isinstance(field_obj, models.CharField):
-                            v = str(v)
-                        if isinstance(field, models.Model) and isinstance(v, models.Model):
-                            if v.pk != field.pk:
-                                change_data[k] = v
-                            # v = field.__class__.objects.get(id=v.pk) # not sure why this was there. We comment it out and monitor
+                    with suppress(FieldDoesNotExist):
+                        field_obj = model._meta.get_field(k)
+                        if v in [np.nan, np.inf, -np.inf]:
+                            v = None
+                        if v is not None:
+                            if isinstance(field_obj, models.DecimalField):
+                                v = round(Decimal(v), field_obj.decimal_places)
+                            if isinstance(field_obj, models.FloatField):
+                                v = float(v)
+                            if isinstance(field_obj, models.IntegerField):
+                                v = int(v)
+                            if isinstance(field_obj, models.CharField):
+                                v = str(v)
+                            if isinstance(field, models.Model) and isinstance(v, models.Model):
+                                if v.pk != field.pk:
+                                    change_data[k] = v
+                                # v = field.__class__.objects.get(id=v.pk) # not sure why this was there. We comment it out and monitor
                     if k not in change_data and field != v:
                         change_data[k] = v
         return change_data

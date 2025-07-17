@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-15T20:32:21.535295                                                            #
+# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-16T21:13:36.395780                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ class DockerEnvironment(metaflow.metaflow_environment.MetaflowEnvironment, metac
         ...
     def pylint_config(self):
         ...
-    def get_package_commands(self, codepackage_url, datastore_type, code_package_metadata = None):
+    def get_package_commands(self, codepackage_url, datastore_type):
         ...
     def bootstrap_commands(self, step_name, datastore_type):
         ...

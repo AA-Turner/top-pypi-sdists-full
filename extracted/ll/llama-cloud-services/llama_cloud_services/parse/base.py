@@ -37,6 +37,7 @@ from llama_cloud_services.parse.utils import (
     nest_asyncio_msg,
     make_api_request,
     partition_pages,
+    extract_tables_from_json_results,
 )
 
 # can put in a path to the file or the file bytes itself
@@ -1619,6 +1620,16 @@ class LlamaParse(BasePydanticReader):
                 raise RuntimeError(nest_asyncio_msg)
             else:
                 raise e
+
+    def get_tables(self, json_results: List[dict], download_path: str) -> List[str]:
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)
+        return extract_tables_from_json_results(json_results, download_path)
+
+    async def aget_tables(
+        self, json_result: List[dict], download_path: str
+    ) -> List[str]:
+        return await asyncio.to_thread(self.get_tables, json_result, download_path)
 
     async def aget_xlsx(
         self, json_result: List[dict], download_path: str

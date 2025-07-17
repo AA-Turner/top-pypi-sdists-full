@@ -1,12 +1,13 @@
 import os
-import random
+import secrets
 import sys
 import time
-from typing import Any, List, Union
+from typing import Any, Union
 from urllib.parse import urljoin
 
 import requests
 
+from tronpy.exceptions import ApiError
 from tronpy.version import VERSION
 
 DEFAULT_TIMEOUT = 10.0
@@ -34,7 +35,7 @@ class HTTPProvider:
         self,
         endpoint_uri: Union[str, dict] = None,
         timeout: float = DEFAULT_TIMEOUT,
-        api_key: Union[str, List[str]] = None,
+        api_key: Union[str, list[str]] = None,
         jw_token: str = None,
     ):
         super().__init__()
@@ -80,21 +81,23 @@ class HTTPProvider:
         url = urljoin(self.endpoint_uri, method)
         resp = self.sess.post(url, json=params, timeout=self.timeout)
 
-        if self.use_api_key:
-            if resp.status_code == 403 and b"Exceed the user daily usage" in resp.content:
-                print("W:", resp.json().get("Error", "rate limit!"), file=sys.stderr)
-                self._handle_rate_limit()
-                return self.make_request(method, params)
+        if self.use_api_key and resp.status_code == 403 and b"Exceed the user daily usage" in resp.content:
+            print("W:", resp.json().get("Error", "rate limit!"), file=sys.stderr)
+            self._handle_rate_limit()
+            return self.make_request(method, params)
 
         resp.raise_for_status()
         return resp.json()
 
     @property
     def random_api_key(self):
-        return random.choice(self._api_keys)
+        try:
+            return secrets.choice(self._api_keys)
+        except IndexError as e:
+            raise ApiError("rate limit! please add more API keys") from e
 
     def _handle_rate_limit(self):
-        if len(self._api_keys) > 1:
+        if len(self._api_keys) > 0:
             self._api_keys.remove(self.sess.headers["Tron-Pro-Api-Key"])
         else:
             print("W: Please add as-many API-Keys in HTTPProvider", file=sys.stderr)

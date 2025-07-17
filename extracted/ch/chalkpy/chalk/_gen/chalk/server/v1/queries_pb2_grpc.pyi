@@ -8,12 +8,16 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.queries_pb2 import (
+    AggregateQueryErrorsRequest,
+    AggregateQueryErrorsResponse,
     GetQueryErrorsChartRequest,
     GetQueryErrorsChartResponse,
     GetQueryPerformanceSummaryRequest,
     GetQueryPerformanceSummaryResponse,
     GetQueryPlanRequest,
     GetQueryPlanResponse,
+    ListMetaQueryRunsRequest,
+    ListMetaQueryRunsResponse,
     ListQueryErrorsRequest,
     ListQueryErrorsResponse,
 )
@@ -42,6 +46,14 @@ class QueriesServiceStub:
         GetQueryPlanRequest,
         GetQueryPlanResponse,
     ]
+    AggregateQueryErrors: UnaryUnaryMultiCallable[
+        AggregateQueryErrorsRequest,
+        AggregateQueryErrorsResponse,
+    ]
+    ListMetaQueryRuns: UnaryUnaryMultiCallable[
+        ListMetaQueryRunsRequest,
+        ListMetaQueryRunsResponse,
+    ]
 
 class QueriesServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -68,5 +80,17 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: GetQueryPlanRequest,
         context: ServicerContext,
     ) -> GetQueryPlanResponse: ...
+    @abstractmethod
+    def AggregateQueryErrors(
+        self,
+        request: AggregateQueryErrorsRequest,
+        context: ServicerContext,
+    ) -> AggregateQueryErrorsResponse: ...
+    @abstractmethod
+    def ListMetaQueryRuns(
+        self,
+        request: ListMetaQueryRunsRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueryRunsResponse: ...
 
 def add_QueriesServiceServicer_to_server(servicer: QueriesServiceServicer, server: Server) -> None: ...

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.1.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-07-15T20:32:21.553446                                                            #
+# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-16T21:13:36.411540                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -24,8 +24,6 @@ from .kube_utils import validate_kube_labels as validate_kube_labels
 from .kube_utils import parse_kube_keyvalue_list as parse_kube_keyvalue_list
 
 DATASTORE_LOCAL_DIR: str
-
-FEAT_ALWAYS_UPLOAD_CODE_PACKAGE: bool
 
 KUBERNETES_CONTAINER_IMAGE: None
 

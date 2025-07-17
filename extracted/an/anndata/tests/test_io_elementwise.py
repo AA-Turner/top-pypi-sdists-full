@@ -17,22 +17,14 @@ from packaging.version import Version
 from scipy import sparse
 
 import anndata as ad
-from anndata._io.specs import (
-    _REGISTRY,
-    IOSpec,
-    get_spec,
-)
+from anndata._io.specs import _REGISTRY, IOSpec, get_spec
 from anndata._io.specs.registry import IORegistryError
-from anndata.compat import (
-    CAN_USE_SPARSE_ARRAY,
-    CSArray,
-    CSMatrix,
-    ZarrGroup,
-    _read_attr,
-)
-from anndata.experimental import read_elem_as_dask
+from anndata._io.zarr import open_write_group
+from anndata.compat import CSArray, CSMatrix, ZarrGroup, _read_attr, is_zarr_v2
+from anndata.experimental import read_elem_lazy
 from anndata.io import read_elem, write_elem
 from anndata.tests.helpers import (
+    GEN_ADATA_NO_XARRAY_ARGS,
     as_cupy,
     as_cupy_sparse_dask_array,
     as_dense_cupy_dask_array,
@@ -49,30 +41,25 @@ if TYPE_CHECKING:
     G = TypeVar("G", H5Group, ZarrGroup)
 
 
-@pytest.fixture(params=["h5ad", "zarr"])
-def diskfmt(request):
-    return request.param
-
-
-@pytest.fixture(params=["h5", "zarr"])
-def store(request, tmp_path) -> H5Group | ZarrGroup:
-    if request.param == "h5":
-        file = h5py.File(tmp_path / "test.h5", "w")
+@pytest.fixture
+def store(diskfmt, tmp_path) -> H5Group | ZarrGroup:
+    if diskfmt == "h5ad":
+        file = h5py.File(tmp_path / "test.h5ad", "w")
         store = file["/"]
-    elif request.param == "zarr":
-        store = zarr.open(tmp_path / "test.zarr", "w")
+    elif diskfmt == "zarr":
+        store = open_write_group(tmp_path / "test.zarr")
     else:
-        pytest.fail(f"Unknown store type: {request.param}")
+        pytest.fail(f"Unknown store type: {diskfmt}")
 
     try:
         yield store
     finally:
-        if request.param == "h5":
+        if diskfmt == "h5ad":
             file.close()
 
 
 sparse_formats = ["csr", "csc"]
-SIZE = 2500
+SIZE = 50
 DEFAULT_SHAPE = (SIZE, SIZE * 2)
 
 
@@ -126,6 +113,7 @@ def create_sparse_store(
 @pytest.mark.parametrize(
     ("value", "encoding_type"),
     [
+        pytest.param(None, "null", id="none"),
         pytest.param("hello world", "string", id="py_str"),
         pytest.param(np.str_("hello world"), "string", id="np_str"),
         pytest.param(np.array([1, 2, 3]), "array", id="np_arr_int"),
@@ -136,7 +124,9 @@ def create_sparse_store(
         pytest.param(True, "numeric-scalar", id="py_bool"),
         pytest.param(1.0, "numeric-scalar", id="py_float"),
         pytest.param({"a": 1}, "dict", id="py_dict"),
-        pytest.param(gen_adata((3, 2)), "anndata", id="anndata"),
+        pytest.param(
+            gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS), "anndata", id="anndata"
+        ),
         pytest.param(
             sparse.random(5, 3, format="csr", density=0.5),
             "csr_matrix",
@@ -149,7 +139,7 @@ def create_sparse_store(
         ),
         pytest.param(pd.DataFrame({"a": [1, 2, 3]}), "dataframe", id="pd_df"),
         pytest.param(
-            pd.Categorical(list("aabccedd") + [pd.NA]),
+            pd.Categorical([*"aabccedd", pd.NA]),
             "categorical",
             id="pd_cat_np_str",
         ),
@@ -159,7 +149,7 @@ def create_sparse_store(
             id="pd_cat_np_str_ord",
         ),
         pytest.param(
-            pd.array(list("aabccedd") + [pd.NA], dtype="string").astype("category"),
+            pd.array([*"aabccedd", pd.NA], dtype="string").astype("category"),
             "categorical",
             id="pd_cat_pd_str",
         ),
@@ -216,16 +206,23 @@ def create_sparse_store(
     ],
 )
 def test_io_spec(store, value, encoding_type):
-    ad.settings.allow_write_nullable_strings = True
+    # zarr v3 can't write recarray
+    # https://github.com/zarr-developers/zarr-python/issues/2134
+    if (
+        ad.settings.zarr_write_format == 3
+        and encoding_type == "anndata"
+        and "O_recarray" in value.uns
+    ):
+        del value.uns["O_recarray"]
+    with ad.settings.override(allow_write_nullable_strings=True):
+        key = f"key_for_{encoding_type}"
+        write_elem(store, key, value, dataset_kwargs={})
 
-    key = f"key_for_{encoding_type}"
-    write_elem(store, key, value, dataset_kwargs={})
+        assert encoding_type == _read_attr(store[key].attrs, "encoding-type")
 
-    assert encoding_type == _read_attr(store[key].attrs, "encoding-type")
-
-    from_disk = read_elem(store[key])
-    assert_equal(value, from_disk)
-    assert get_spec(store[key]) == _REGISTRY.get_spec(value)
+        from_disk = read_elem(store[key])
+        assert_equal(value, from_disk)
+        assert get_spec(store[key]) == _REGISTRY.get_spec(value)
 
 
 @pytest.mark.parametrize(
@@ -233,7 +230,7 @@ def test_io_spec(store, value, encoding_type):
     [
         pytest.param(np.asarray(1), "numeric-scalar", id="scalar_int"),
         pytest.param(np.asarray(1.0), "numeric-scalar", id="scalar_float"),
-        pytest.param(np.asarray(True), "numeric-scalar", id="scalar_bool"),
+        pytest.param(np.asarray(True), "numeric-scalar", id="scalar_bool"),  # noqa: FBT003
         pytest.param(np.asarray("test"), "string", id="scalar_string"),
     ],
 )
@@ -294,7 +291,7 @@ def test_dask_write_sparse(sparse_format, store):
 
 def test_read_lazy_2d_dask(sparse_format, store):
     arr_store = create_sparse_store(sparse_format, store)
-    X_dask_from_disk = read_elem_as_dask(arr_store["X"])
+    X_dask_from_disk = read_elem_lazy(arr_store["X"])
     X_from_disk = read_elem(arr_store["X"])
 
     assert_equal(X_from_disk, X_dask_from_disk)
@@ -320,20 +317,20 @@ def test_read_lazy_2d_dask(sparse_format, store):
 @pytest.mark.parametrize(
     ("n_dims", "chunks"),
     [
-        (1, (100,)),
-        (1, (400,)),
-        (2, (100, 100)),
-        (2, (400, 400)),
-        (2, (200, 400)),
+        (1, (10,)),
+        (1, (40,)),
+        (2, (10, 10)),
+        (2, (40, 40)),
+        (2, (20, 40)),
         (1, None),
         (2, None),
-        (2, (400, -1)),
-        (2, (400, None)),
+        (2, (40, -1)),
+        (2, (40, None)),
     ],
 )
 def test_read_lazy_subsets_nd_dask(store, n_dims, chunks):
     arr_store = create_dense_store(store, shape=DEFAULT_SHAPE[:n_dims])
-    X_dask_from_disk = read_elem_as_dask(arr_store["X"], chunks=chunks)
+    X_dask_from_disk = read_elem_lazy(arr_store["X"], chunks=chunks)
     X_from_disk = read_elem(arr_store["X"])
     assert_equal(X_from_disk, X_dask_from_disk)
 
@@ -354,28 +351,28 @@ def test_read_lazy_h5_cluster(
     with h5py.File(tmp_path / "test.h5", "w") as file:
         store = file["/"]
         arr_store = create_sparse_store(sparse_format, store)
-        X_dask_from_disk = read_elem_as_dask(arr_store["X"])
+        X_dask_from_disk = read_elem_lazy(arr_store["X"])
         X_from_disk = read_elem(arr_store["X"])
     with dd.Client(local_cluster_addr):
         assert_equal(X_from_disk, X_dask_from_disk)
 
 
 def test_undersized_shape_to_default(store: H5Group | ZarrGroup):
-    shape = (3000, 50)
+    shape = (1000, 50)
     arr_store = create_dense_store(store, shape=shape)
-    X_dask_from_disk = read_elem_as_dask(arr_store["X"])
-    assert (c < s for c, s in zip(X_dask_from_disk.chunksize, shape))
+    X_dask_from_disk = read_elem_lazy(arr_store["X"])
+    assert all(c <= s for c, s in zip(X_dask_from_disk.chunksize, shape, strict=True))
     assert X_dask_from_disk.shape == shape
 
 
 @pytest.mark.parametrize(
     ("arr_type", "chunks", "expected_chunksize"),
     [
-        ("dense", (100, 100), (100, 100)),
-        ("csc", (SIZE, 10), (SIZE, 10)),
-        ("csr", (10, SIZE * 2), (10, SIZE * 2)),
-        ("csc", None, (SIZE, 1000)),
-        ("csr", None, (1000, SIZE * 2)),
+        ("dense", (10, 10), (10, 10)),
+        ("csc", (SIZE, 1), (SIZE, 1)),
+        ("csr", (1, SIZE * 2), (1, SIZE * 2)),
+        ("csc", None, (SIZE, 100)),
+        ("csr", None, DEFAULT_SHAPE),
         ("csr", (10, -1), (10, SIZE * 2)),
         ("csc", (-1, 10), (SIZE, 10)),
         ("csr", (10, None), (10, SIZE * 2)),
@@ -394,10 +391,10 @@ def test_read_lazy_2d_chunk_kwargs(
 ):
     if arr_type == "dense":
         arr_store = create_dense_store(store)
-        X_dask_from_disk = read_elem_as_dask(arr_store["X"], chunks=chunks)
+        X_dask_from_disk = read_elem_lazy(arr_store["X"], chunks=chunks)
     else:
         arr_store = create_sparse_store(arr_type, store)
-        X_dask_from_disk = read_elem_as_dask(arr_store["X"], chunks=chunks)
+        X_dask_from_disk = read_elem_lazy(arr_store["X"], chunks=chunks)
     assert X_dask_from_disk.chunksize == expected_chunksize
     X_from_disk = read_elem(arr_store["X"])
     assert_equal(X_from_disk, X_dask_from_disk)
@@ -411,9 +408,9 @@ def test_read_lazy_bad_chunk_kwargs(tmp_path):
         with pytest.raises(
             ValueError, match=r"`chunks` must be a tuple of two integers"
         ):
-            read_elem_as_dask(arr_store["X"], chunks=(SIZE,))
+            read_elem_lazy(arr_store["X"], chunks=(SIZE,))
         with pytest.raises(ValueError, match=r"Only the major axis can be chunked"):
-            read_elem_as_dask(arr_store["X"], chunks=(SIZE, 10))
+            read_elem_lazy(arr_store["X"], chunks=(SIZE, 10))
 
 
 @pytest.mark.parametrize("sparse_format", ["csr", "csc"])
@@ -434,24 +431,27 @@ def test_write_indptr_dtype_override(store, sparse_format):
 
 
 def test_io_spec_raw(store):
-    adata = gen_adata((3, 2))
+    adata = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
     adata.raw = adata.copy()
 
     write_elem(store, "adata", adata)
 
-    assert "raw" == _read_attr(store["adata/raw"].attrs, "encoding-type")
+    assert _read_attr(store["adata/raw"].attrs, "encoding-type") == "raw"
 
     from_disk = read_elem(store["adata"])
     assert_equal(from_disk.raw, adata.raw)
 
 
 def test_write_anndata_to_root(store):
-    adata = gen_adata((3, 2))
+    adata = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
 
     write_elem(store, "/", adata)
+    # TODO: see https://github.com/zarr-developers/zarr-python/issues/2716
+    if not is_zarr_v2() and isinstance(store, ZarrGroup):
+        store = zarr.open(store.store)
     from_disk = read_elem(store)
 
-    assert "anndata" == _read_attr(store.attrs, "encoding-type")
+    assert _read_attr(store.attrs, "encoding-type") == "anndata"
     assert_equal(from_disk, adata)
 
 
@@ -463,7 +463,7 @@ def test_write_anndata_to_root(store):
     ],
 )
 def test_read_iospec_not_found(store, attribute, value):
-    adata = gen_adata((3, 2))
+    adata = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
 
     write_elem(store, "/", adata)
     store["obs"].attrs.update({attribute: value})
@@ -530,7 +530,7 @@ def test_override_specification():
     "value",
     [
         pytest.param({"a": 1}, id="dict"),
-        pytest.param(gen_adata((3, 2)), id="anndata"),
+        pytest.param(gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS), id="anndata"),
         pytest.param(sparse.random(5, 3, format="csr", density=0.5), id="csr_matrix"),
         pytest.param(sparse.random(5, 3, format="csc", density=0.5), id="csc_matrix"),
         pytest.param(pd.DataFrame({"a": [1, 2, 3]}), id="dataframe"),
@@ -564,31 +564,36 @@ def test_write_to_root(store, value):
     """
     Test that elements which are written as groups can we written to the root group.
     """
+    # zarr v3 can't write recarray
+    # https://github.com/zarr-developers/zarr-python/issues/2134
+    if ad.settings.zarr_write_format == 3 and isinstance(value, ad.AnnData):
+        del value.uns["O_recarray"]
     write_elem(store, "/", value)
+    # See: https://github.com/zarr-developers/zarr-python/issues/2716
+    if isinstance(store, ZarrGroup) and not is_zarr_v2():
+        store = zarr.open(store.store)
     result = read_elem(store)
 
     assert_equal(result, value)
 
 
 @pytest.mark.parametrize("consolidated", [True, False])
+@pytest.mark.zarr_io
 def test_read_zarr_from_group(tmp_path, consolidated):
     # https://github.com/scverse/anndata/issues/1056
     pth = tmp_path / "test.zarr"
-    adata = gen_adata((3, 2))
+    adata = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
 
-    with zarr.open(pth, mode="w") as z:
-        write_elem(z, "table/table", adata)
-
-        if consolidated:
-            zarr.convenience.consolidate_metadata(z.store)
+    z = open_write_group(pth)
+    write_elem(z, "table/table", adata)
 
     if consolidated:
-        read_func = zarr.open_consolidated
-    else:
-        read_func = zarr.open
+        zarr.consolidate_metadata(z.store)
 
-    with read_func(pth) as z:
-        expected = ad.read_zarr(z["table/table"])
+    read_func = zarr.open_consolidated if consolidated else zarr.open
+
+    z = read_func(pth)
+    expected = ad.read_zarr(z["table/table"])
     assert_equal(adata, expected)
 
 
@@ -627,7 +632,7 @@ def test_io_pd_cow(store, copy_on_write):
         pytest.xfail("copy_on_write option is not available in pandas < 2")
     # https://github.com/zarr-developers/numcodecs/issues/514
     with pd.option_context("mode.copy_on_write", copy_on_write):
-        orig = gen_adata((3, 2))
+        orig = gen_adata((3, 2), **GEN_ADATA_NO_XARRAY_ARGS)
         write_elem(store, "adata", orig)
         from_store = read_elem(store["adata"])
         assert_equal(orig, from_store)
@@ -640,13 +645,8 @@ def test_read_sparse_array(
 ):
     path = tmp_path / f"test.{diskfmt.replace('ad', '')}"
     a = sparse.random(100, 100, format=sparse_format)
-    if diskfmt == "zarr":
-        f = zarr.open_group(path, "a")
-    else:
-        f = h5py.File(path, "a")
+    f = open_write_group(path, mode="a") if diskfmt == "zarr" else h5py.File(path, "a")
     ad.io.write_elem(f, "mtx", a)
-    if not CAN_USE_SPARSE_ARRAY:
-        pytest.skip("scipy.sparse.cs{r,c}array not available")
     ad.settings.use_sparse_array_on_read = True
     mtx = ad.io.read_elem(f["mtx"])
     assert issubclass(type(mtx), CSArray)

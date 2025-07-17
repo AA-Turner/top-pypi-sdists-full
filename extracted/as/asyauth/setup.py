@@ -42,13 +42,12 @@ setup(
 	classifiers=[
 		"Programming Language :: Python :: 3.7",
 		"Programming Language :: Python :: 3.8",
-		"License :: OSI Approved :: MIT License",
 		"Operating System :: OS Independent",
 	],
 	install_requires=[
 		'unicrypto>=0.0.10',
 		'asn1crypto>=1.3.0',
-		'asysocks>=0.2.11',
-		'minikerberos>=0.4.4',
+		'asysocks>=0.2.17',
+		'minikerberos>=0.4.7',
 	],
 )

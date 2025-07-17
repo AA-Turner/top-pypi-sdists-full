@@ -29,7 +29,7 @@ unitarget_url_params = {
 }
 
 class UniTarget:
-	def __init__(self, ip:str, port:int, protocol:UniProto, timeout:int=5, ssl_ctx:UniSSL=None, hostname:str = None, dc_ip:str = None, domain:str = None, proxies:List[UniProxyTarget] = None, dns:str = None, use_privileged_source_port:bool = False):
+	def __init__(self, ip:str, port:int, protocol:UniProto, timeout:int=5, ssl_ctx:UniSSL=None, hostname:str = None, dc_ip:str = None, domain:str = None, proxies:List[UniProxyTarget] = None, dns:str = None, use_privileged_source_port:bool = False, srcip:str='', srcport:int = 0):
 		self.hostname = hostname
 		self.port = port
 		self.protocol = protocol
@@ -38,6 +38,8 @@ class UniTarget:
 		self.dc_ip = dc_ip
 		self.domain = domain
 		self.dns = dns
+		self.srcip = srcip
+		self.srcport = srcport
 		self.use_privileged_source_port = use_privileged_source_port
 		self.proxies:List[UniProxyTarget] = proxies
 		if proxies is None:
@@ -96,7 +98,22 @@ class UniTarget:
 				'\tproxysslkey - str - proxy SSL/TLS key path\n' + \
 				'\tproxysslkey_password - str - proxy SSL/TLS key password\n'
 				
-
+	def get_kerberos_target(self, dc_ip = None, hostname=None, domain=None):
+		if dc_ip is None and self.dc_ip is None:
+			raise Exception('DC IP must be provided for kerberos target!')
+		if dc_ip is None:
+			dc_ip = self.dc_ip
+		return UniTarget(
+			dc_ip, 
+			88, 
+			UniProto.CLIENT_TCP, 
+			timeout = self.timeout, 
+			ssl_ctx = None, 
+			hostname = hostname, 
+			dc_ip = dc_ip, 
+			domain = domain, 
+			proxies=copy.deepcopy(self.proxies)
+		)
 
 	def get_newtarget(self, ip, port, hostname = None):
 		return UniTarget(ip, port, self.protocol, self.timeout, ssl_ctx = self.ssl_ctx, hostname = hostname, dc_ip = self.dc_ip, domain = self.domain, proxies=copy.deepcopy(self.proxies))
@@ -128,6 +145,14 @@ class UniTarget:
 		if self.hostname is not None:
 			return self.hostname
 		return self.ip
+	
+	def get_sockaddr(self):
+		if self.srcip == '' or self.srcip is None:
+			return None
+		return (self.srcip, self.srcport)
+	
+	def get_peeraddr(self):
+		return (self.get_ip_or_hostname(), self.port)
 
 	@staticmethod
 	def from_url(connection_url, protocol:UniProto, port:int = None, extraparams:Dict[str, Callable] = {}):

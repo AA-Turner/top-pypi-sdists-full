@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from itertools import islice
+from pathlib import Path
 from warnings import catch_warnings
 
 import h5py
@@ -98,7 +99,8 @@ def test_train_info(mock_lpd_data, capsys):
 
 def test_info(mock_spb_raw_run):
     run = RunDirectory(mock_spb_raw_run)
-    run.info(details_for_sources='*/DOOCS/*')  # Smoketest
+    run.info(details_for_sources='*/DOOCS/*',
+             with_aggregators=True)  # Smoketest
 
 
 def test_iterate_trains_fxe(mock_fxe_control_data):
@@ -316,7 +318,7 @@ def test_file_get_series_control(mock_fxe_control_data):
 
 def test_file_get_series_instrument(mock_spb_proc_run):
     agipd_file = os.path.join(mock_spb_proc_run, 'CORR-R0238-AGIPD07-S00000.h5')
-    with H5File(agipd_file) as f:
+    with H5File(Path(agipd_file)) as f:
         s = f.get_series('SPB_DET_AGIPD1M-1/DET/7CH0:xtdf', 'header.linkId')
         assert isinstance(s, pd.Series)
         assert len(s) == 64
@@ -444,7 +446,7 @@ def test_run_get_array_error(mock_fxe_raw_run):
 
 
 def test_run_get_array_select_trains(mock_fxe_raw_run):
-    run = RunDirectory(mock_fxe_raw_run)
+    run = RunDirectory(Path(mock_fxe_raw_run))
     sel = run.select_trains(by_id[10100:10150])
     arr = sel.get_array(
         'SA1_XTD2_XGM/DOOCS/MAIN:output', 'data.intensityTD', extra_dims=['pulse']

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime
-from typing import Any, Union
+from typing import Union
 
 from .literals import (
     AgentUpdateStatusType,
@@ -735,14 +735,12 @@ class DeploymentLifecycleHookOutputTypeDef(TypedDict):
     hookTargetArn: NotRequired[str]
     roleArn: NotRequired[str]
     lifecycleStages: NotRequired[List[DeploymentLifecycleHookStageType]]
-    hookDetails: NotRequired[Dict[str, Any]]
 
 
 class DeploymentLifecycleHookTypeDef(TypedDict):
     hookTargetArn: NotRequired[str]
     roleArn: NotRequired[str]
     lifecycleStages: NotRequired[Sequence[DeploymentLifecycleHookStageType]]
-    hookDetails: NotRequired[Mapping[str, Any]]
 
 
 class DeploymentEphemeralStorageTypeDef(TypedDict):

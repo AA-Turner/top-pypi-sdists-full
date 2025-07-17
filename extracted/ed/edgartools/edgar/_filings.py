@@ -791,7 +791,7 @@ class Filings:
 
         # Add columns with specific styling and alignment
         table.add_column("#", style="dim", justify="right")
-        table.add_column("Form", width=9)
+        table.add_column("Form", width=10)
         table.add_column("CIK", style="dim", width=10, justify="right")
         table.add_column("Ticker", width=6, style="yellow")
         table.add_column("Company", style="bold green", width=38, no_wrap=True)
@@ -1346,6 +1346,13 @@ class Filing:
         document = self.sgml().attachments.primary_html_document
         # If the document is not in the SGML then we have to go to the homepage
         if document:
+            if document.extension == '.paper':
+                # If the document is a paper filing, we return the scanned document if it exists
+                attachments = self.homepage.attachments
+                scanned_documents = attachments.query("document == 'scanned.pdf'")
+                if len(scanned_documents) > 0:
+                    return scanned_documents.get_by_index(0)
+                return self.homepage.primary_html_document
             return document
         return self.homepage.primary_html_document
 

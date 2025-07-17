@@ -242,6 +242,7 @@ class SeeqNames:
             item_type = 'itemType'
             datasource = 'datasource'
             context_condition = 'contextCondition'
+            event_asset_creator = 'eventAssetCreator'
             class ScalarCreator:
                 base_scalar_creator = 'scalarCreator'
                 numeric_scalar_creator = 'numericScalarCreator'
@@ -560,6 +561,7 @@ class SeeqNames:
         workstep_channel = 'workstep'
         report_update_channel = 'report-update'
         table_materializer_channel = 'table-materializer'
+        context = 'context'
     
     class API:
         ace = '/ace'
@@ -1129,6 +1131,7 @@ class SeeqNames:
         capsule_event_types = 'Capsule Event Types'
         finder_configurations = 'Finder Configurations'
         include_hierarchy = 'Include Hierarchy'
+        hierarchy_searches = 'Hierarchy Searches'
         resource_size = 'Resource Size'
         project_type = 'Project Type'
         startup_environment = 'Startup Environment'
@@ -1206,6 +1209,8 @@ class SeeqNames:
         view_columns = 'View Columns'
         filter_grouping = 'Filter Grouping'
         friendly_name_column_id = 'Friendly Name Column ID'
+        constructed_data_id = 'Constructed Data Id'
+        item_table_id = 'Item Table Id'
         features = 'Features'
     
 

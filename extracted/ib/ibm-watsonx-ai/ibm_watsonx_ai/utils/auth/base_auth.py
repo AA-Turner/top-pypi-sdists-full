@@ -92,6 +92,10 @@ class RefreshableTokenAuth(BaseAuth, ABC):
         :returns: token to be used with service
         :rtype: str
         """
+        # serve token if it is ready and not refreshing without lock
+        if self._token is not None and not self._is_refresh_needed():
+            return self._token
+
         with self._lock:
             if self._token is None:
                 self._save_token_data(self._generate_token())
@@ -282,6 +286,14 @@ def get_auth_method(
         from ibm_watsonx_ai.utils.auth.aws_auth import AWSTokenAuth
 
         return AWSTokenAuth(
+            api_client,
+            on_token_creation=on_token_creation,
+            on_token_refresh=on_token_refresh,
+        )
+    elif api_client.credentials.trusted_profile_id:  # Cloud with trusted profile
+        from ibm_watsonx_ai.utils.auth.trusted_profile_auth import TrustedProfileAuth
+
+        return TrustedProfileAuth(
             api_client,
             on_token_creation=on_token_creation,
             on_token_refresh=on_token_refresh,

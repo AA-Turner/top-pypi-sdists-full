@@ -1,7 +1,7 @@
 r'''
 # `google_apigee_instance`
 
-Refer to the Terraform Registry for docs: [`google_apigee_instance`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance).
+Refer to the Terraform Registry for docs: [`google_apigee_instance`](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApigeeInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apigeeInstance.ApigeeInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance google_apigee_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance google_apigee_instance}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class ApigeeInstance(
         location: builtins.str,
         name: builtins.str,
         org_id: builtins.str,
+        access_logging_config: typing.Optional[typing.Union["ApigeeInstanceAccessLoggingConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         consumer_accept_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         disk_encryption_key_name: typing.Optional[builtins.str] = None,
@@ -70,21 +71,22 @@ class ApigeeInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance google_apigee_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance google_apigee_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param location: Required. Compute Engine location where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#location ApigeeInstance#location}
-        :param name: Resource ID of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#name ApigeeInstance#name}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
-        :param consumer_accept_list: Optional. Customer accept list represents the list of projects (id/number) on customer side that can privately connect to the service attachment. It is an optional field which the customers can provide during the instance creation. By default, the customer project associated with the Apigee organization will be included to the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
-        :param description: Description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#description ApigeeInstance#description}
-        :param disk_encryption_key_name: Customer Managed Encryption Key (CMEK) used for disk and volume encryption. Required for Apigee paid subscriptions only. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
-        :param display_name: Display name of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#id ApigeeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_range: IP range represents the customer-provided CIDR block of length 22 that will be used for the Apigee instance creation. This optional range, if provided, should be freely available as part of larger named range the customer has allocated to the Service Networking peering. If this is not provided, Apigee will automatically request for any available /22 CIDR block from Service Networking. The customer should use this CIDR block for configuring their firewall needs to allow traffic from Apigee. Input format: "a.b.c.d/22" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
-        :param peering_cidr_range: The size of the CIDR block range that will be reserved by the instance. For valid values, see `CidrRange <https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange>`_ on the documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
+        :param location: Required. Compute Engine location where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#location ApigeeInstance#location}
+        :param name: Resource ID of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#name ApigeeInstance#name}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
+        :param access_logging_config: access_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#access_logging_config ApigeeInstance#access_logging_config}
+        :param consumer_accept_list: Optional. Customer accept list represents the list of projects (id/number) on customer side that can privately connect to the service attachment. It is an optional field which the customers can provide during the instance creation. By default, the customer project associated with the Apigee organization will be included to the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
+        :param description: Description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#description ApigeeInstance#description}
+        :param disk_encryption_key_name: Customer Managed Encryption Key (CMEK) used for disk and volume encryption. Required for Apigee paid subscriptions only. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
+        :param display_name: Display name of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#id ApigeeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_range: IP range represents the customer-provided CIDR block of length 22 that will be used for the Apigee instance creation. This optional range, if provided, should be freely available as part of larger named range the customer has allocated to the Service Networking peering. If this is not provided, Apigee will automatically request for any available /22 CIDR block from Service Networking. The customer should use this CIDR block for configuring their firewall needs to allow traffic from Apigee. Input format: "a.b.c.d/22" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
+        :param peering_cidr_range: The size of the CIDR block range that will be reserved by the instance. For valid values, see `CidrRange <https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange>`_ on the documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -101,6 +103,7 @@ class ApigeeInstance(
             location=location,
             name=name,
             org_id=org_id,
+            access_logging_config=access_logging_config,
             consumer_accept_list=consumer_accept_list,
             description=description,
             disk_encryption_key_name=disk_encryption_key_name,
@@ -133,7 +136,7 @@ class ApigeeInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApigeeInstance to import.
-        :param import_from_id: The id of the existing ApigeeInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApigeeInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApigeeInstance to import is found.
         '''
         if __debug__:
@@ -144,6 +147,21 @@ class ApigeeInstance(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putAccessLoggingConfig")
+    def put_access_logging_config(
+        self,
+        *,
+        enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+        filter: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param enabled: Boolean flag that specifies whether the customer access log feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#enabled ApigeeInstance#enabled}
+        :param filter: Ship the access log entries that match the statusCode defined in the filter. The statusCode is the only expected/supported filter field. (Ex: statusCode) The filter will parse it to the Common Expression Language semantics for expression evaluation to build the filter condition. (Ex: "filter": statusCode >= 200 && statusCode < 300 ) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#filter ApigeeInstance#filter}
+        '''
+        value = ApigeeInstanceAccessLoggingConfig(enabled=enabled, filter=filter)
+
+        return typing.cast(None, jsii.invoke(self, "putAccessLoggingConfig", [value]))
+
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -153,13 +171,17 @@ class ApigeeInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#create ApigeeInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#update ApigeeInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#create ApigeeInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#update ApigeeInstance#update}.
         '''
         value = ApigeeInstanceTimeouts(create=create, delete=delete, update=update)
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetAccessLoggingConfig")
+    def reset_access_logging_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAccessLoggingConfig", []))
 
     @jsii.member(jsii_name="resetConsumerAcceptList")
     def reset_consumer_accept_list(self) -> None:
@@ -207,6 +229,13 @@ class ApigeeInstance(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="accessLoggingConfig")
+    def access_logging_config(
+        self,
+    ) -> "ApigeeInstanceAccessLoggingConfigOutputReference":
+        return typing.cast("ApigeeInstanceAccessLoggingConfigOutputReference", jsii.get(self, "accessLoggingConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="host")
     def host(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "host"))
@@ -225,6 +254,13 @@ class ApigeeInstance(
     @jsii.member(jsii_name="timeouts")
     def timeouts(self) -> "ApigeeInstanceTimeoutsOutputReference":
         return typing.cast("ApigeeInstanceTimeoutsOutputReference", jsii.get(self, "timeouts"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessLoggingConfigInput")
+    def access_logging_config_input(
+        self,
+    ) -> typing.Optional["ApigeeInstanceAccessLoggingConfig"]:
+        return typing.cast(typing.Optional["ApigeeInstanceAccessLoggingConfig"], jsii.get(self, "accessLoggingConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerAcceptListInput")
@@ -405,6 +441,146 @@ class ApigeeInstance(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google.apigeeInstance.ApigeeInstanceAccessLoggingConfig",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled", "filter": "filter"},
+)
+class ApigeeInstanceAccessLoggingConfig:
+    def __init__(
+        self,
+        *,
+        enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+        filter: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param enabled: Boolean flag that specifies whether the customer access log feature is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#enabled ApigeeInstance#enabled}
+        :param filter: Ship the access log entries that match the statusCode defined in the filter. The statusCode is the only expected/supported filter field. (Ex: statusCode) The filter will parse it to the Common Expression Language semantics for expression evaluation to build the filter condition. (Ex: "filter": statusCode >= 200 && statusCode < 300 ) Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#filter ApigeeInstance#filter}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dda5b4ba37c630efa413e1193367c6c21f6fa3e22627bc8e973a3578328ffa10)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enabled": enabled,
+        }
+        if filter is not None:
+            self._values["filter"] = filter
+
+    @builtins.property
+    def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        '''Boolean flag that specifies whether the customer access log feature is enabled.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#enabled ApigeeInstance#enabled}
+        '''
+        result = self._values.get("enabled")
+        assert result is not None, "Required property 'enabled' is missing"
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
+
+    @builtins.property
+    def filter(self) -> typing.Optional[builtins.str]:
+        '''Ship the access log entries that match the statusCode defined in the filter.
+
+        The statusCode is the only expected/supported filter field. (Ex: statusCode)
+        The filter will parse it to the Common Expression Language semantics for expression
+        evaluation to build the filter condition. (Ex: "filter": statusCode >= 200 && statusCode < 300 )
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#filter ApigeeInstance#filter}
+        '''
+        result = self._values.get("filter")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ApigeeInstanceAccessLoggingConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ApigeeInstanceAccessLoggingConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.apigeeInstance.ApigeeInstanceAccessLoggingConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a81447623858bdd2a3df5713b955478b3c6be9819adeb31eaf6f21689cfb5bb4)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetFilter")
+    def reset_filter(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFilter", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledInput")
+    def enabled_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filterInput")
+    def filter_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "filterInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="enabled")
+    def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enabled"))
+
+    @enabled.setter
+    def enabled(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e29c04660fe6a35684117366313086433dc6c7806e08b89e0026a89eddabd5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filter")
+    def filter(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "filter"))
+
+    @filter.setter
+    def filter(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d06206c9cd700874712309f8607d5c230069b0776dcf130e0810e3fbc00e1bee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filter", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[ApigeeInstanceAccessLoggingConfig]:
+        return typing.cast(typing.Optional[ApigeeInstanceAccessLoggingConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ApigeeInstanceAccessLoggingConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa5a8555514a198ab22f97e4baf44cc00edd3e4cc91552bf3de53a0939e2921f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google.apigeeInstance.ApigeeInstanceConfig",
     jsii_struct_bases=[_cdktf_9a9027ec.TerraformMetaArguments],
     name_mapping={
@@ -418,6 +594,7 @@ class ApigeeInstance(
         "location": "location",
         "name": "name",
         "org_id": "orgId",
+        "access_logging_config": "accessLoggingConfig",
         "consumer_accept_list": "consumerAcceptList",
         "description": "description",
         "disk_encryption_key_name": "diskEncryptionKeyName",
@@ -442,6 +619,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         location: builtins.str,
         name: builtins.str,
         org_id: builtins.str,
+        access_logging_config: typing.Optional[typing.Union[ApigeeInstanceAccessLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         consumer_accept_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         disk_encryption_key_name: typing.Optional[builtins.str] = None,
@@ -459,20 +637,23 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param location: Required. Compute Engine location where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#location ApigeeInstance#location}
-        :param name: Resource ID of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#name ApigeeInstance#name}
-        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
-        :param consumer_accept_list: Optional. Customer accept list represents the list of projects (id/number) on customer side that can privately connect to the service attachment. It is an optional field which the customers can provide during the instance creation. By default, the customer project associated with the Apigee organization will be included to the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
-        :param description: Description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#description ApigeeInstance#description}
-        :param disk_encryption_key_name: Customer Managed Encryption Key (CMEK) used for disk and volume encryption. Required for Apigee paid subscriptions only. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
-        :param display_name: Display name of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#id ApigeeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_range: IP range represents the customer-provided CIDR block of length 22 that will be used for the Apigee instance creation. This optional range, if provided, should be freely available as part of larger named range the customer has allocated to the Service Networking peering. If this is not provided, Apigee will automatically request for any available /22 CIDR block from Service Networking. The customer should use this CIDR block for configuring their firewall needs to allow traffic from Apigee. Input format: "a.b.c.d/22" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
-        :param peering_cidr_range: The size of the CIDR block range that will be reserved by the instance. For valid values, see `CidrRange <https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange>`_ on the documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
+        :param location: Required. Compute Engine location where the instance resides. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#location ApigeeInstance#location}
+        :param name: Resource ID of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#name ApigeeInstance#name}
+        :param org_id: The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
+        :param access_logging_config: access_logging_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#access_logging_config ApigeeInstance#access_logging_config}
+        :param consumer_accept_list: Optional. Customer accept list represents the list of projects (id/number) on customer side that can privately connect to the service attachment. It is an optional field which the customers can provide during the instance creation. By default, the customer project associated with the Apigee organization will be included to the list. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
+        :param description: Description of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#description ApigeeInstance#description}
+        :param disk_encryption_key_name: Customer Managed Encryption Key (CMEK) used for disk and volume encryption. Required for Apigee paid subscriptions only. Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
+        :param display_name: Display name of the instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#id ApigeeInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_range: IP range represents the customer-provided CIDR block of length 22 that will be used for the Apigee instance creation. This optional range, if provided, should be freely available as part of larger named range the customer has allocated to the Service Networking peering. If this is not provided, Apigee will automatically request for any available /22 CIDR block from Service Networking. The customer should use this CIDR block for configuring their firewall needs to allow traffic from Apigee. Input format: "a.b.c.d/22" Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
+        :param peering_cidr_range: The size of the CIDR block range that will be reserved by the instance. For valid values, see `CidrRange <https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange>`_ on the documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
+        if isinstance(access_logging_config, dict):
+            access_logging_config = ApigeeInstanceAccessLoggingConfig(**access_logging_config)
         if isinstance(timeouts, dict):
             timeouts = ApigeeInstanceTimeouts(**timeouts)
         if __debug__:
@@ -487,6 +668,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument location", value=location, expected_type=type_hints["location"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument org_id", value=org_id, expected_type=type_hints["org_id"])
+            check_type(argname="argument access_logging_config", value=access_logging_config, expected_type=type_hints["access_logging_config"])
             check_type(argname="argument consumer_accept_list", value=consumer_accept_list, expected_type=type_hints["consumer_accept_list"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument disk_encryption_key_name", value=disk_encryption_key_name, expected_type=type_hints["disk_encryption_key_name"])
@@ -514,6 +696,8 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if access_logging_config is not None:
+            self._values["access_logging_config"] = access_logging_config
         if consumer_accept_list is not None:
             self._values["consumer_accept_list"] = consumer_accept_list
         if description is not None:
@@ -599,7 +783,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Required. Compute Engine location where the instance resides.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#location ApigeeInstance#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#location ApigeeInstance#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -609,7 +793,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Resource ID of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#name ApigeeInstance#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#name ApigeeInstance#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -619,11 +803,22 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def org_id(self) -> builtins.str:
         '''The Apigee Organization associated with the Apigee instance, in the format 'organizations/{{org_name}}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#org_id ApigeeInstance#org_id}
         '''
         result = self._values.get("org_id")
         assert result is not None, "Required property 'org_id' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def access_logging_config(
+        self,
+    ) -> typing.Optional[ApigeeInstanceAccessLoggingConfig]:
+        '''access_logging_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#access_logging_config ApigeeInstance#access_logging_config}
+        '''
+        result = self._values.get("access_logging_config")
+        return typing.cast(typing.Optional[ApigeeInstanceAccessLoggingConfig], result)
 
     @builtins.property
     def consumer_accept_list(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -634,7 +829,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         which the customers can provide during the instance creation. By default, the customer
         project associated with the Apigee organization will be included to the list.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#consumer_accept_list ApigeeInstance#consumer_accept_list}
         '''
         result = self._values.get("consumer_accept_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -643,7 +838,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#description ApigeeInstance#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#description ApigeeInstance#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -655,7 +850,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Required for Apigee paid subscriptions only.
         Use the following format: 'projects/([^/]+)/locations/([^/]+)/keyRings/([^/]+)/cryptoKeys/([^/]+)'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#disk_encryption_key_name ApigeeInstance#disk_encryption_key_name}
         '''
         result = self._values.get("disk_encryption_key_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -664,14 +859,14 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> typing.Optional[builtins.str]:
         '''Display name of the instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#display_name ApigeeInstance#display_name}
         '''
         result = self._values.get("display_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#id ApigeeInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#id ApigeeInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -690,7 +885,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         for configuring their firewall needs to allow traffic from Apigee.
         Input format: "a.b.c.d/22"
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#ip_range ApigeeInstance#ip_range}
         '''
         result = self._values.get("ip_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -702,7 +897,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         For valid values,
         see `CidrRange <https://cloud.google.com/apigee/docs/reference/apis/apigee/rest/v1/organizations.instances#CidrRange>`_ on the documentation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#peering_cidr_range ApigeeInstance#peering_cidr_range}
         '''
         result = self._values.get("peering_cidr_range")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -711,7 +906,7 @@ class ApigeeInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApigeeInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#timeouts ApigeeInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApigeeInstanceTimeouts"], result)
@@ -742,9 +937,9 @@ class ApigeeInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#create ApigeeInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#update ApigeeInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#create ApigeeInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#update ApigeeInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38ae0f7df184a875f4dcd35e37b798c27f06b88949793441bf1ebf4c641d80b9)
@@ -761,19 +956,19 @@ class ApigeeInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#create ApigeeInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#create ApigeeInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#delete ApigeeInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/apigee_instance#update ApigeeInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apigee_instance#update ApigeeInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -892,6 +1087,8 @@ class ApigeeInstanceTimeoutsOutputReference(
 
 __all__ = [
     "ApigeeInstance",
+    "ApigeeInstanceAccessLoggingConfig",
+    "ApigeeInstanceAccessLoggingConfigOutputReference",
     "ApigeeInstanceConfig",
     "ApigeeInstanceTimeouts",
     "ApigeeInstanceTimeoutsOutputReference",
@@ -906,6 +1103,7 @@ def _typecheckingstub__f206771970bda2134c0dd018eaf3d7758cf652783446aa81ade2d76d4
     location: builtins.str,
     name: builtins.str,
     org_id: builtins.str,
+    access_logging_config: typing.Optional[typing.Union[ApigeeInstanceAccessLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     consumer_accept_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     disk_encryption_key_name: typing.Optional[builtins.str] = None,
@@ -994,6 +1192,39 @@ def _typecheckingstub__df2b54f1db750300600136a19731d2ee4bb7759c672534de4495c1c14
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dda5b4ba37c630efa413e1193367c6c21f6fa3e22627bc8e973a3578328ffa10(
+    *,
+    enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    filter: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a81447623858bdd2a3df5713b955478b3c6be9819adeb31eaf6f21689cfb5bb4(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e29c04660fe6a35684117366313086433dc6c7806e08b89e0026a89eddabd5a(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d06206c9cd700874712309f8607d5c230069b0776dcf130e0810e3fbc00e1bee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa5a8555514a198ab22f97e4baf44cc00edd3e4cc91552bf3de53a0939e2921f(
+    value: typing.Optional[ApigeeInstanceAccessLoggingConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ff5730b95bd1d150356ee8f366a73970f5e9e9d8a690829df37c2982a3baf743(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1006,6 +1237,7 @@ def _typecheckingstub__ff5730b95bd1d150356ee8f366a73970f5e9e9d8a690829df37c2982a
     location: builtins.str,
     name: builtins.str,
     org_id: builtins.str,
+    access_logging_config: typing.Optional[typing.Union[ApigeeInstanceAccessLoggingConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     consumer_accept_list: typing.Optional[typing.Sequence[builtins.str]] = None,
     description: typing.Optional[builtins.str] = None,
     disk_encryption_key_name: typing.Optional[builtins.str] = None,

@@ -229,16 +229,19 @@ class BaseDataConnection(ABC):
 
         elif self.type == DataConnectionTypes.CA or self.type == DataConnectionTypes.CN:
             if self._check_if_connection_asset_is_s3():
-                from .connections import _AmazonS3Connection
-
-                if isinstance(self.connection, _AmazonS3Connection):
-                    raise NotImplementedError(
-                        f"The operation is not supported for AmazonS3 connection. Try with Flight Service enabled"
-                    )
                 cos_client = self._init_cos_client()
+                data_conn = self.to_dict()
+                bucket = data_conn.get("location", {}).get(
+                    "bucket", data_conn.get("connection", {}).get("bucket")
+                )  # AWS containers has bucket in connection
+                if bucket is None:
+
+                    raise ValueError(
+                        "Missing bucket in connection or location of the DataConnection object."
+                    )
 
                 try:
-                    file = cos_client.Object(self.location.bucket, path).get()
+                    file = cos_client.Object(bucket, path).get()
                     content = file["Body"].read()
                     try:
                         json_content = json.loads(content.decode("utf-8"))

@@ -2454,7 +2454,7 @@ def is_us_federal_holiday(expr: Underscore | Any):
     *** Every four years, Inaguration Day (January 20) is recognized as a federal holiday
         exclusively in Washington D.C. Inaguration days are *not* accounted for in this underscore
     """
-    return UnderscoreFunction("is_federal_holiday", expr)
+    return UnderscoreFunction.with_f_dot_repr("is_federal_holiday", expr, display_name="is_us_federal_holiday")
 
 
 ########################################################################################################################
@@ -2812,7 +2812,7 @@ def array_median(expr: Underscore | Any):
     expr
         The array to take the median of
     """
-    return UnderscoreFunction("array_median", expr)
+    return UnderscoreFunction.with_f_dot_repr("array_median", expr)
 
 
 def array_mode(expr: Underscore | Any, tiebreak: Literal["FIRST", "MAX", "MIN"] = "FIRST"):
@@ -2837,7 +2837,9 @@ def array_mode(expr: Underscore | Any, tiebreak: Literal["FIRST", "MAX", "MIN"] 
     int_mode = 0 if tiebreak == "FIRST" else 1 if tiebreak == "MAX" else 2 if tiebreak == "MIN" else -1
     if int_mode == -1:
         raise ValueError("Tiebreak field for array_mode must be one of FIRST, MAX, or MIN")
-    return UnderscoreFunction("array_mode", expr, int_mode)
+    return UnderscoreFunction(
+        "array_mode", expr, int_mode, _chalk__repr_override=f'F.array_mode({expr}, tiebreak="{tiebreak}")'
+    )
 
 
 def array_agg(expr: Underscore | Any):
@@ -3255,7 +3257,12 @@ def max(*values: Any):
         return None
     if len(values) == 1:
         return values[0]
-    return UnderscoreFunction("scalar_max", values[0], max(*values[1:]))
+    return UnderscoreFunction(
+        "scalar_max",
+        values[0],
+        max(*values[1:]),
+        _chalk__repr_override=f"F.max({', '.join(str(value) for value in values)})",
+    )
 
 
 def min(*values: Any):
@@ -3281,7 +3288,12 @@ def min(*values: Any):
         return None
     if len(values) == 1:
         return values[0]
-    return UnderscoreFunction("scalar_min", values[0], min(*values[1:]))
+    return UnderscoreFunction(
+        "scalar_min",
+        values[0],
+        min(*values[1:]),
+        _chalk__repr_override=f"F.min({', '.join(str(value) for value in values)})",
+    )
 
 
 def jinja(template: str):

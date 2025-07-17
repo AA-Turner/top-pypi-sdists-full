@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from .compat import CSArray, CSMatrix, Index
 
 
-__all__ = ["CSRDataset", "CSCDataset"]
+__all__ = ["CSCDataset", "CSRDataset"]
 
 
 class _AbstractCSDataset(ABC):
@@ -56,7 +56,7 @@ class _AbstractCSDataset(ABC):
 _sparse_dataset_doc = """\
 On disk {format} sparse matrix.
 
-Analogous to :class:`h5py.Dataset` or :class:`zarr.core.Array`, but for sparse matrices.
+Analogous to :class:`h5py.Dataset` or :class:`zarr.Array`, but for sparse matrices.
 """
 
 

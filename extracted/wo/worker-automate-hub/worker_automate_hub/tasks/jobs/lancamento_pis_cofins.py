@@ -149,131 +149,148 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
         )
         periodo_field.set_edit_text(periodo_dt)
 
-        console.print("Selecionando Replicar para empresas...\n")
-        replicar_para_empresas_check = main_window.child_window(
-            class_name="TcxCheckBox", found_index=0
-        )
-        replicar_para_empresas_check.click_input()
-        console.print(
-            "A opção 'Aplicar Rateio aos Itens Selecionados' selecionado com sucesso... \n"
-        )
-
-        await worker_sleep(5)
-        console.print("Confirmando Pop-up - ...Pode causar lentidão no sistema...\n")
-        console.print(f"Verificando a presença de Confirm...")
-        confirm_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
-        if confirm_pop_up["IsOpened"] == True:
-            app = Application().connect(class_name="TMessageForm")
-            main_window = app["TMessageForm"]
-            main_window.set_focus()
-            main_window.child_window(title="&Yes").click()
-            console.print(f"Yes clicado com sucesso...")
-
-        await worker_sleep(5)
-        console.print(
-            f"Verificando se foi aberto a tela de Seleção de Empresas clicado com sucesso..."
-        )
-        selecao_empresas_screen = await is_window_open_by_class(
-            "TFrmSelecionaEmpresas", "TFrmSelecionaEmpresas"
-        )
-        if selecao_empresas_screen["IsOpened"] == True:
-            console.print(f"Janela de Seleção de Empresas foi aberta com sucesso...")
-            app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
-            main_window = app["TFrmSelecionaEmpresas"]
-            main_window.set_focus()
-            console.print(f"Clicando em seleciona todas...")
-            try:
-                selecionar_todos_itens = (
-                    ASSETS_PATH + "\\lancamento_pis_cofins\\btn_selecionar_todas.png"
-                )
-                # Tenta localizar a imagem na tela
-                localizacao = pyautogui.locateOnScreen(
-                    selecionar_todos_itens, confidence=0.9
-                )
-                await worker_sleep(3)
-                if localizacao:
-                    centro = pyautogui.center(localizacao)
-                    pyautogui.moveTo(centro)
-                    pyautogui.click()
-                    console.print("Clique realizado com sucesso!")
-                else:
-                    console.print("Imagem não encontrada na tela.")
-            except Exception as e:
-                retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=retorno,
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
-
-            console.print(f"Clicando em OK - para andamento do processo...")
-            app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
-            main_window = app["TFrmSelecionaEmpresas"]
-            main_window.set_focus()
-
-            try:
-                btn_ok = main_window.child_window(title="OK")
-                btn_ok.click()
-            except:
-                btn_ok = main_window.child_window(title="&OK")
-                btn_ok.click()
-
-            await worker_sleep(3)
-
-            try:
-                selecionar_todos_itens = (
-                    ASSETS_PATH + "\\lancamento_pis_cofins\\botao_incluir.png"
-                )
-                # Tenta localizar a imagem na tela
-                localizacao = pyautogui.locateOnScreen(
-                    selecionar_todos_itens, confidence=0.9
-                )
-                await worker_sleep(3)
-                if localizacao:
-                    centro = pyautogui.center(localizacao)
-                    pyautogui.moveTo(centro)
-                    pyautogui.click()
-                    console.print("Clique realizado com sucesso!")
-                else:
-                    console.print("Imagem não encontrada na tela.")
-            except Exception as e:
-                retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=retorno,
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
-            
-            await worker_sleep(10)
-
-            # Verificar se já existe registro no mês apurado
-            try:
-                selecionar_todos_itens = ASSETS_PATH + "\\lancamento_pis_cofins\\ja_existe_periodo.png"
-
-                localizacao = None
-                for tentativa in range(10):
-                    localizacao = pyautogui.locateOnScreen(selecionar_todos_itens, confidence=0.9)
-                    if localizacao:
-                        break
-                    await worker_sleep(2)  # espera 2 segundos antes da próxima tentativa
-
-                if localizacao:
-                    app = Application().connect(title="Informação", timeout=60)
-                    main_window = app["Informação"]
-                    main_window.set_focus()
-                    informacao = main_window.child_window(title="OK")
-                    informacao.click()
-                    console.print("Clique realizado com sucesso!")
-                else:
-                    console.print("Imagem não encontrada na tela após 10 tentativas.")
-
-            except Exception as e:
-                console.print(f"Erro ao tentar verificar imagem: {e}")
-
+        # console.print("Selecionando Replicar para empresas...\n")
+        # replicar_para_empresas_check = main_window.child_window(
+        #     class_name="TcxCheckBox", found_index=0
+        # )
+        # replicar_para_empresas_check.click_input()
+        # console.print(
+        #     "A opção 'Aplicar Rateio aos Itens Selecionados' selecionado com sucesso... \n"
+        # )
+        try:
+            await worker_sleep(5)
+            console.print("Confirmando Pop-up - ...Pode causar lentidão no sistema...\n")
+            console.print(f"Verificando a presença de Confirm...")
+            confirm_pop_up = await is_window_open_by_class("TMessageForm", "TMessageForm")
+            if confirm_pop_up["IsOpened"] == True:
+                app = Application().connect(class_name="TMessageForm")
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                main_window.child_window(title="&Yes").click()
+                console.print(f"Yes clicado com sucesso...")
 
             await worker_sleep(5)
+            console.print(
+                f"Verificando se foi aberto a tela de Seleção de Empresas clicado com sucesso..."
+            )
+            selecao_empresas_screen = await is_window_open_by_class(
+                "TFrmSelecionaEmpresas", "TFrmSelecionaEmpresas"
+            )
+            if selecao_empresas_screen["IsOpened"] == True:
+                console.print(f"Janela de Seleção de Empresas foi aberta com sucesso...")
+                app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
+                main_window = app["TFrmSelecionaEmpresas"]
+                main_window.set_focus()
+                console.print(f"Clicando em seleciona todas...")
+                try:
+                    selecionar_todos_itens = (
+                        ASSETS_PATH + "\\lancamento_pis_cofins\\btn_selecionar_todas.png"
+                    )
+                    # Tenta localizar a imagem na tela
+                    localizacao = pyautogui.locateOnScreen(
+                        selecionar_todos_itens, confidence=0.9
+                    )
+                    await worker_sleep(3)
+                    if localizacao:
+                        centro = pyautogui.center(localizacao)
+                        pyautogui.moveTo(centro)
+                        pyautogui.click()
+                        console.print("Clique realizado com sucesso!")
+                    else:
+                        console.print("Imagem não encontrada na tela.")
+                except Exception as e:
+                    retorno = f"Não foi possivel clicar em selecionar todos os itens na Seleção de Empresas, erro: {e} "
+                    pass
+                try:            
+                    console.print(f"Clicando em OK - para andamento do processo...")
+                    app = Application().connect(class_name="TFrmSelecionaEmpresas", timeout=120)
+                    main_window = app["TFrmSelecionaEmpresas"]
+                    main_window.set_focus()
+
+                    try:
+                        btn_ok = main_window.child_window(title="OK")
+                        btn_ok.click()
+                    except:
+                        btn_ok = main_window.child_window(title="&OK")
+                        btn_ok.click()
+
+                    await worker_sleep(3)
+                except:
+                    pass
+        except:
+            pass
+              
+        try:
+            selecionar_todos_itens = (
+                ASSETS_PATH + "\\lancamento_pis_cofins\\botao_incluir.png"
+            )
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateOnScreen(
+                selecionar_todos_itens, confidence=0.9
+            )
+            await worker_sleep(3)
+            if localizacao:
+                centro = pyautogui.center(localizacao)
+                pyautogui.moveTo(centro)
+                pyautogui.click()
+                console.print("Clique realizado com sucesso!")
+            else:
+                console.print("Imagem não encontrada na tela.")
+        except Exception as e:
+            pass
+        
+        await worker_sleep(10)
+        
+        try:
+            app = Application().connect(title="Aviso", timeout=10)
+            main_window = app["Aviso"]
+            main_window.set_focus()
+
+            # Pega o segundo Static usando child_window (não children)
+            aviso = main_window.child_window(class_name="Static", found_index=1)
+            texto_aviso = aviso.window_text()
+
+            if "livro fiscal com status diferente de Confirmado/Encerrado" in texto_aviso:
+                retorno = texto_aviso
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=retorno,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                )
+
+        except Exception as e:
+            print(f"Erro ao capturar o aviso: {e}")
+        
+        await worker_sleep(2)
+
+        # Verificar se já existe registro no mês apurado
+        try:
+            selecionar_todos_itens = ASSETS_PATH + "\\lancamento_pis_cofins\\ja_existe_periodo.png"
+
+            localizacao = None
+            for tentativa in range(10):
+                localizacao = pyautogui.locateOnScreen(selecionar_todos_itens, confidence=0.9)
+                if localizacao:
+                    break
+                await worker_sleep(2)  # espera 2 segundos antes da próxima tentativa
+
+            if localizacao:
+                app = Application().connect(title="Informação", timeout=60)
+                main_window = app["Informação"]
+                main_window.set_focus()
+                informacao = main_window.child_window(title="OK")
+                informacao.click()
+                console.print("Clique realizado com sucesso!")
+            else:
+                console.print("Imagem não encontrada na tela após 10 tentativas.")
+
+        except Exception as e:
+            pass
+
+
+        await worker_sleep(5)
+        try:
             console.print("Verificando se possui tela de Informação... \n")
             information_pop_up = await is_window_open("Information")
             if information_pop_up["IsOpened"] == True:
@@ -300,34 +317,35 @@ async def lancamento_pis_cofins(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
                     )
             else:
                 console.print("Não possui tela de Informação... \n")
+        except:
+            pass
+        # PRECISO TESTAR ADICIONAR EXCESSÃO PARA A TELA DE AVISO
+        pop_up_aviso = []
+        console.print(f"Verificando se possui tela de Aviso...")
+        while True:
+            aviso_screen_opened = await is_window_open("Aviso")
+            if aviso_screen_opened["IsOpened"] == True:
+                msg_pop_up = await ocr_title("aviso_pop_up_cofins", "Aviso")
+                console.print(f"retorno:{msg_pop_up.sucesso}")
+                if msg_pop_up.sucesso == True:
+                    msg_retorno = msg_pop_up.retorno
+                    console.print(msg_retorno)
+                    pop_up_aviso.append(msg_retorno)
 
-            # PRECISO TESTAR ADICIONAR EXCESSÃO PARA A TELA DE AVISO
-            pop_up_aviso = []
-            console.print(f"Verificando se possui tela de Aviso...")
-            while True:
-                aviso_screen_opened = await is_window_open("Aviso")
-                if aviso_screen_opened["IsOpened"] == True:
-                    msg_pop_up = await ocr_title("aviso_pop_up_cofins", "Aviso")
-                    console.print(f"retorno:{msg_pop_up.sucesso}")
-                    if msg_pop_up.sucesso == True:
-                        msg_retorno = msg_pop_up.retorno
-                        console.print(msg_retorno)
-                        pop_up_aviso.append(msg_retorno)
+                    app = Application().connect(title="Aviso", timeout=120)
+                    main_window = app["Aviso"]
+                    main_window.set_focus()
 
-                        app = Application().connect(title="Aviso", timeout=120)
-                        main_window = app["Aviso"]
-                        main_window.set_focus()
+                    try:
+                        btn_ok = main_window.child_window(title="OK")
+                        btn_ok.click()
+                    except:
+                        btn_ok = main_window.child_window(title="&OK")
+                        btn_ok.click()
 
-                        try:
-                            btn_ok = main_window.child_window(title="OK")
-                            btn_ok.click()
-                        except:
-                            btn_ok = main_window.child_window(title="&OK")
-                            btn_ok.click()
-
-                        await worker_sleep(5)
-                else:
-                    break
+                    await worker_sleep(5)
+            else:
+                break
 
             if len(pop_up_aviso) > 0:
                 return RpaRetornoProcessoDTO(

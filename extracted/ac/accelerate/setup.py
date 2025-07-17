@@ -49,6 +49,7 @@ extras["test_trackers"] = [
     "mlflow",
     "matplotlib",
     "swanlab",
+    "trackio",
 ]
 extras["dev"] = extras["quality"] + extras["testing"] + extras["rich"]
 
@@ -58,7 +59,7 @@ extras["sagemaker"] = [
 
 setup(
     name="accelerate",
-    version="1.8.1",
+    version="1.9.0",
     description="Accelerate",
     long_description=open("README.md", encoding="utf-8").read(),
     long_description_content_type="text/markdown",

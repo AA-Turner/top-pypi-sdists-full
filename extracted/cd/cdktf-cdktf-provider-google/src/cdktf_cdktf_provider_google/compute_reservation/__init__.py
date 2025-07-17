@@ -1,7 +1,7 @@
 r'''
 # `google_compute_reservation`
 
-Refer to the Terraform Registry for docs: [`google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation).
+Refer to the Terraform Registry for docs: [`google_compute_reservation`](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputeReservation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.computeReservation.ComputeReservation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation google_compute_reservation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation google_compute_reservation}.'''
 
     def __init__(
         self,
@@ -54,9 +54,12 @@ class ComputeReservation(
         name: builtins.str,
         specific_reservation: typing.Union["ComputeReservationSpecificReservation", typing.Dict[builtins.str, typing.Any]],
         zone: builtins.str,
+        delete_after_duration: typing.Optional[typing.Union["ComputeReservationDeleteAfterDuration", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_at_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
+        reservation_sharing_policy: typing.Optional[typing.Union["ComputeReservationReservationSharingPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         share_settings: typing.Optional[typing.Union["ComputeReservationShareSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         specific_reservation_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["ComputeReservationTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -68,19 +71,22 @@ class ComputeReservation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation google_compute_reservation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation google_compute_reservation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#name ComputeReservation#name}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#description ComputeReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project ComputeReservation#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
-        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#name ComputeReservation#name}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
+        :param delete_after_duration: delete_after_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_after_duration ComputeReservation#delete_after_duration}
+        :param delete_at_time: Absolute time in future when the reservation will be auto-deleted by Compute Engine. Timestamp is represented in RFC3339 text format. Cannot be used with delete_after_duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_at_time ComputeReservation#delete_at_time}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#description ComputeReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project ComputeReservation#project}.
+        :param reservation_sharing_policy: reservation_sharing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#reservation_sharing_policy ComputeReservation#reservation_sharing_policy}
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
+        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,9 +103,12 @@ class ComputeReservation(
             name=name,
             specific_reservation=specific_reservation,
             zone=zone,
+            delete_after_duration=delete_after_duration,
+            delete_at_time=delete_at_time,
             description=description,
             id=id,
             project=project,
+            reservation_sharing_policy=reservation_sharing_policy,
             share_settings=share_settings,
             specific_reservation_required=specific_reservation_required,
             timeouts=timeouts,
@@ -127,7 +136,7 @@ class ComputeReservation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputeReservation to import.
-        :param import_from_id: The id of the existing ComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputeReservation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputeReservation to import is found.
         '''
         if __debug__:
@@ -138,6 +147,36 @@ class ComputeReservation(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putDeleteAfterDuration")
+    def put_delete_after_duration(
+        self,
+        *,
+        nanos: typing.Optional[jsii.Number] = None,
+        seconds: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param nanos: Number of nanoseconds for the auto-delete duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#nanos ComputeReservation#nanos}
+        :param seconds: Number of seconds for the auto-delete duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#seconds ComputeReservation#seconds}
+        '''
+        value = ComputeReservationDeleteAfterDuration(nanos=nanos, seconds=seconds)
+
+        return typing.cast(None, jsii.invoke(self, "putDeleteAfterDuration", [value]))
+
+    @jsii.member(jsii_name="putReservationSharingPolicy")
+    def put_reservation_sharing_policy(
+        self,
+        *,
+        service_share_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param service_share_type: Sharing config for all Google Cloud services. Possible values: ["ALLOW_ALL", "DISALLOW_ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#service_share_type ComputeReservation#service_share_type}
+        '''
+        value = ComputeReservationReservationSharingPolicy(
+            service_share_type=service_share_type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putReservationSharingPolicy", [value]))
+
     @jsii.member(jsii_name="putShareSettings")
     def put_share_settings(
         self,
@@ -146,8 +185,8 @@ class ComputeReservation(
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
-        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
+        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
         '''
         value = ComputeReservationShareSettings(
             project_map=project_map, share_type=share_type
@@ -160,14 +199,18 @@ class ComputeReservation(
         self,
         *,
         count: jsii.Number,
-        instance_properties: typing.Union["ComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]],
+        instance_properties: typing.Optional[typing.Union["ComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_instance_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#count ComputeReservation#count}
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
+        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#count ComputeReservation#count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
+        :param source_instance_template: Specifies the instance template to create the reservation. If you use this field, you must exclude the instanceProperties field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#source_instance_template ComputeReservation#source_instance_template}
         '''
         value = ComputeReservationSpecificReservation(
-            count=count, instance_properties=instance_properties
+            count=count,
+            instance_properties=instance_properties,
+            source_instance_template=source_instance_template,
         )
 
         return typing.cast(None, jsii.invoke(self, "putSpecificReservation", [value]))
@@ -181,13 +224,21 @@ class ComputeReservation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#create ComputeReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#update ComputeReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#create ComputeReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#update ComputeReservation#update}.
         '''
         value = ComputeReservationTimeouts(create=create, delete=delete, update=update)
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="resetDeleteAfterDuration")
+    def reset_delete_after_duration(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDeleteAfterDuration", []))
+
+    @jsii.member(jsii_name="resetDeleteAtTime")
+    def reset_delete_at_time(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDeleteAtTime", []))
 
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
@@ -200,6 +251,10 @@ class ComputeReservation(
     @jsii.member(jsii_name="resetProject")
     def reset_project(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetProject", []))
+
+    @jsii.member(jsii_name="resetReservationSharingPolicy")
+    def reset_reservation_sharing_policy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetReservationSharingPolicy", []))
 
     @jsii.member(jsii_name="resetShareSettings")
     def reset_share_settings(self) -> None:
@@ -237,6 +292,20 @@ class ComputeReservation(
         return typing.cast(builtins.str, jsii.get(self, "creationTimestamp"))
 
     @builtins.property
+    @jsii.member(jsii_name="deleteAfterDuration")
+    def delete_after_duration(
+        self,
+    ) -> "ComputeReservationDeleteAfterDurationOutputReference":
+        return typing.cast("ComputeReservationDeleteAfterDurationOutputReference", jsii.get(self, "deleteAfterDuration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reservationSharingPolicy")
+    def reservation_sharing_policy(
+        self,
+    ) -> "ComputeReservationReservationSharingPolicyOutputReference":
+        return typing.cast("ComputeReservationReservationSharingPolicyOutputReference", jsii.get(self, "reservationSharingPolicy"))
+
+    @builtins.property
     @jsii.member(jsii_name="selfLink")
     def self_link(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "selfLink"))
@@ -264,6 +333,18 @@ class ComputeReservation(
         return typing.cast("ComputeReservationTimeoutsOutputReference", jsii.get(self, "timeouts"))
 
     @builtins.property
+    @jsii.member(jsii_name="deleteAfterDurationInput")
+    def delete_after_duration_input(
+        self,
+    ) -> typing.Optional["ComputeReservationDeleteAfterDuration"]:
+        return typing.cast(typing.Optional["ComputeReservationDeleteAfterDuration"], jsii.get(self, "deleteAfterDurationInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteAtTimeInput")
+    def delete_at_time_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deleteAtTimeInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="descriptionInput")
     def description_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "descriptionInput"))
@@ -282,6 +363,13 @@ class ComputeReservation(
     @jsii.member(jsii_name="projectInput")
     def project_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reservationSharingPolicyInput")
+    def reservation_sharing_policy_input(
+        self,
+    ) -> typing.Optional["ComputeReservationReservationSharingPolicy"]:
+        return typing.cast(typing.Optional["ComputeReservationReservationSharingPolicy"], jsii.get(self, "reservationSharingPolicyInput"))
 
     @builtins.property
     @jsii.member(jsii_name="shareSettingsInput")
@@ -315,6 +403,18 @@ class ComputeReservation(
     @jsii.member(jsii_name="zoneInput")
     def zone_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "zoneInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteAtTime")
+    def delete_at_time(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "deleteAtTime"))
+
+    @delete_at_time.setter
+    def delete_at_time(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__025ffc9d6b18286a6f44fe3b7b2dc0183898d8faa0d6bc2f2853c9a7d9294eda)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deleteAtTime", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -408,9 +508,12 @@ class ComputeReservation(
         "name": "name",
         "specific_reservation": "specificReservation",
         "zone": "zone",
+        "delete_after_duration": "deleteAfterDuration",
+        "delete_at_time": "deleteAtTime",
         "description": "description",
         "id": "id",
         "project": "project",
+        "reservation_sharing_policy": "reservationSharingPolicy",
         "share_settings": "shareSettings",
         "specific_reservation_required": "specificReservationRequired",
         "timeouts": "timeouts",
@@ -430,9 +533,12 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: builtins.str,
         specific_reservation: typing.Union["ComputeReservationSpecificReservation", typing.Dict[builtins.str, typing.Any]],
         zone: builtins.str,
+        delete_after_duration: typing.Optional[typing.Union["ComputeReservationDeleteAfterDuration", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete_at_time: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         project: typing.Optional[builtins.str] = None,
+        reservation_sharing_policy: typing.Optional[typing.Union["ComputeReservationReservationSharingPolicy", typing.Dict[builtins.str, typing.Any]]] = None,
         share_settings: typing.Optional[typing.Union["ComputeReservationShareSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         specific_reservation_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         timeouts: typing.Optional[typing.Union["ComputeReservationTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -445,20 +551,27 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#name ComputeReservation#name}
-        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
-        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
-        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#description ComputeReservation#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project ComputeReservation#project}.
-        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
-        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
+        :param name: Name of the resource. Provided by the client when the resource is created. The name must be 1-63 characters long, and comply with RFC1035. Specifically, the name must be 1-63 characters long and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' which means the first character must be a lowercase letter, and all following characters must be a dash, lowercase letter, or digit, except the last character, which cannot be a dash. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#name ComputeReservation#name}
+        :param specific_reservation: specific_reservation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
+        :param zone: The zone where the reservation is made. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
+        :param delete_after_duration: delete_after_duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_after_duration ComputeReservation#delete_after_duration}
+        :param delete_at_time: Absolute time in future when the reservation will be auto-deleted by Compute Engine. Timestamp is represented in RFC3339 text format. Cannot be used with delete_after_duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_at_time ComputeReservation#delete_at_time}
+        :param description: An optional description of this resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#description ComputeReservation#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project ComputeReservation#project}.
+        :param reservation_sharing_policy: reservation_sharing_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#reservation_sharing_policy ComputeReservation#reservation_sharing_policy}
+        :param share_settings: share_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
+        :param specific_reservation_required: When set to true, only VMs that target this reservation by name can consume this reservation. Otherwise, it can be consumed by VMs with affinity for any reservation. Defaults to false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
         if isinstance(specific_reservation, dict):
             specific_reservation = ComputeReservationSpecificReservation(**specific_reservation)
+        if isinstance(delete_after_duration, dict):
+            delete_after_duration = ComputeReservationDeleteAfterDuration(**delete_after_duration)
+        if isinstance(reservation_sharing_policy, dict):
+            reservation_sharing_policy = ComputeReservationReservationSharingPolicy(**reservation_sharing_policy)
         if isinstance(share_settings, dict):
             share_settings = ComputeReservationShareSettings(**share_settings)
         if isinstance(timeouts, dict):
@@ -475,9 +588,12 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument specific_reservation", value=specific_reservation, expected_type=type_hints["specific_reservation"])
             check_type(argname="argument zone", value=zone, expected_type=type_hints["zone"])
+            check_type(argname="argument delete_after_duration", value=delete_after_duration, expected_type=type_hints["delete_after_duration"])
+            check_type(argname="argument delete_at_time", value=delete_at_time, expected_type=type_hints["delete_at_time"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument reservation_sharing_policy", value=reservation_sharing_policy, expected_type=type_hints["reservation_sharing_policy"])
             check_type(argname="argument share_settings", value=share_settings, expected_type=type_hints["share_settings"])
             check_type(argname="argument specific_reservation_required", value=specific_reservation_required, expected_type=type_hints["specific_reservation_required"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
@@ -500,12 +616,18 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if delete_after_duration is not None:
+            self._values["delete_after_duration"] = delete_after_duration
+        if delete_at_time is not None:
+            self._values["delete_at_time"] = delete_at_time
         if description is not None:
             self._values["description"] = description
         if id is not None:
             self._values["id"] = id
         if project is not None:
             self._values["project"] = project
+        if reservation_sharing_policy is not None:
+            self._values["reservation_sharing_policy"] = reservation_sharing_policy
         if share_settings is not None:
             self._values["share_settings"] = share_settings
         if specific_reservation_required is not None:
@@ -589,7 +711,7 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         characters must be a dash, lowercase letter, or digit, except the last
         character, which cannot be a dash.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#name ComputeReservation#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#name ComputeReservation#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -599,7 +721,7 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def specific_reservation(self) -> "ComputeReservationSpecificReservation":
         '''specific_reservation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation ComputeReservation#specific_reservation}
         '''
         result = self._values.get("specific_reservation")
         assert result is not None, "Required property 'specific_reservation' is missing"
@@ -609,24 +731,47 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def zone(self) -> builtins.str:
         '''The zone where the reservation is made.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#zone ComputeReservation#zone}
         '''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def delete_after_duration(
+        self,
+    ) -> typing.Optional["ComputeReservationDeleteAfterDuration"]:
+        '''delete_after_duration block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_after_duration ComputeReservation#delete_after_duration}
+        '''
+        result = self._values.get("delete_after_duration")
+        return typing.cast(typing.Optional["ComputeReservationDeleteAfterDuration"], result)
+
+    @builtins.property
+    def delete_at_time(self) -> typing.Optional[builtins.str]:
+        '''Absolute time in future when the reservation will be auto-deleted by Compute Engine.
+
+        Timestamp is represented in RFC3339 text format.
+        Cannot be used with delete_after_duration.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete_at_time ComputeReservation#delete_at_time}
+        '''
+        result = self._values.get("delete_at_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description of this resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#description ComputeReservation#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#description ComputeReservation#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#id ComputeReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#id ComputeReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -636,15 +781,26 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project ComputeReservation#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project ComputeReservation#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def reservation_sharing_policy(
+        self,
+    ) -> typing.Optional["ComputeReservationReservationSharingPolicy"]:
+        '''reservation_sharing_policy block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#reservation_sharing_policy ComputeReservation#reservation_sharing_policy}
+        '''
+        result = self._values.get("reservation_sharing_policy")
+        return typing.cast(typing.Optional["ComputeReservationReservationSharingPolicy"], result)
 
     @builtins.property
     def share_settings(self) -> typing.Optional["ComputeReservationShareSettings"]:
         '''share_settings block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_settings ComputeReservation#share_settings}
         '''
         result = self._values.get("share_settings")
         return typing.cast(typing.Optional["ComputeReservationShareSettings"], result)
@@ -658,7 +814,7 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         Otherwise, it can be consumed by VMs with
         affinity for any reservation. Defaults to false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#specific_reservation_required ComputeReservation#specific_reservation_required}
         '''
         result = self._values.get("specific_reservation_required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -667,7 +823,7 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputeReservationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#timeouts ComputeReservation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputeReservationTimeouts"], result)
@@ -685,6 +841,241 @@ class ComputeReservationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationDeleteAfterDuration",
+    jsii_struct_bases=[],
+    name_mapping={"nanos": "nanos", "seconds": "seconds"},
+)
+class ComputeReservationDeleteAfterDuration:
+    def __init__(
+        self,
+        *,
+        nanos: typing.Optional[jsii.Number] = None,
+        seconds: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param nanos: Number of nanoseconds for the auto-delete duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#nanos ComputeReservation#nanos}
+        :param seconds: Number of seconds for the auto-delete duration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#seconds ComputeReservation#seconds}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dea9e7cfeba9afb640273c190a131f4b1b75191d26b2588b928901b0fd21280d)
+            check_type(argname="argument nanos", value=nanos, expected_type=type_hints["nanos"])
+            check_type(argname="argument seconds", value=seconds, expected_type=type_hints["seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if nanos is not None:
+            self._values["nanos"] = nanos
+        if seconds is not None:
+            self._values["seconds"] = seconds
+
+    @builtins.property
+    def nanos(self) -> typing.Optional[jsii.Number]:
+        '''Number of nanoseconds for the auto-delete duration.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#nanos ComputeReservation#nanos}
+        '''
+        result = self._values.get("nanos")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def seconds(self) -> typing.Optional[builtins.str]:
+        '''Number of seconds for the auto-delete duration.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#seconds ComputeReservation#seconds}
+        '''
+        result = self._values.get("seconds")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComputeReservationDeleteAfterDuration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ComputeReservationDeleteAfterDurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationDeleteAfterDurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c4c2411202adc7427d5b7e05ece125849d29f63a0e4a897ed84cab92343a95c)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetNanos")
+    def reset_nanos(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNanos", []))
+
+    @jsii.member(jsii_name="resetSeconds")
+    def reset_seconds(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSeconds", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="nanosInput")
+    def nanos_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "nanosInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secondsInput")
+    def seconds_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "secondsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nanos")
+    def nanos(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "nanos"))
+
+    @nanos.setter
+    def nanos(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__074d6b50820fda8b9306a80a064c8322ef2ce3572c60c9c10a63bbbbd08aaef8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nanos", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="seconds")
+    def seconds(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "seconds"))
+
+    @seconds.setter
+    def seconds(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62c11333c1bf33f1bd8bed8ae2ae631ab8831f035dc7391313e4e50c72630fc3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "seconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[ComputeReservationDeleteAfterDuration]:
+        return typing.cast(typing.Optional[ComputeReservationDeleteAfterDuration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ComputeReservationDeleteAfterDuration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b85515ec4911f8e5fd4f6e7289c97113ee4482eddb6f1d3de9b6e67d7fc3d8f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationReservationSharingPolicy",
+    jsii_struct_bases=[],
+    name_mapping={"service_share_type": "serviceShareType"},
+)
+class ComputeReservationReservationSharingPolicy:
+    def __init__(
+        self,
+        *,
+        service_share_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param service_share_type: Sharing config for all Google Cloud services. Possible values: ["ALLOW_ALL", "DISALLOW_ALL"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#service_share_type ComputeReservation#service_share_type}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09e3109d66f646bb5d5e517d0b058c215e5504cbc5360e2e1ef7622eb85b1889)
+            check_type(argname="argument service_share_type", value=service_share_type, expected_type=type_hints["service_share_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if service_share_type is not None:
+            self._values["service_share_type"] = service_share_type
+
+    @builtins.property
+    def service_share_type(self) -> typing.Optional[builtins.str]:
+        '''Sharing config for all Google Cloud services. Possible values: ["ALLOW_ALL", "DISALLOW_ALL"].
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#service_share_type ComputeReservation#service_share_type}
+        '''
+        result = self._values.get("service_share_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ComputeReservationReservationSharingPolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ComputeReservationReservationSharingPolicyOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationReservationSharingPolicyOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ceef9fc2e7d0856b288bb51b76360652ba4928d3c0d6015feb7d22b0f6cf52bd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetServiceShareType")
+    def reset_service_share_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetServiceShareType", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceShareTypeInput")
+    def service_share_type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serviceShareTypeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceShareType")
+    def service_share_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "serviceShareType"))
+
+    @service_share_type.setter
+    def service_share_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1732e65d7904d2c5e12e9886e80a0ffc8f2e608f656f81cef71e07416d814679)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceShareType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ComputeReservationReservationSharingPolicy]:
+        return typing.cast(typing.Optional[ComputeReservationReservationSharingPolicy], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ComputeReservationReservationSharingPolicy],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c55f20d758a2daac9eb95707f60530ea47e819b4a99e34d6aa25ed4318ee9498)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationShareSettings",
     jsii_struct_bases=[],
     name_mapping={"project_map": "projectMap", "share_type": "shareType"},
@@ -697,8 +1088,8 @@ class ComputeReservationShareSettings:
         share_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
-        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
+        :param project_map: project_map block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
+        :param share_type: Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e63e90b06ab02c460197e5a93a371b0ac8d393686e1be1ec98495fce3389b518)
@@ -716,7 +1107,7 @@ class ComputeReservationShareSettings:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationShareSettingsProjectMap"]]]:
         '''project_map block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project_map ComputeReservation#project_map}
         '''
         result = self._values.get("project_map")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationShareSettingsProjectMap"]]], result)
@@ -725,7 +1116,7 @@ class ComputeReservationShareSettings:
     def share_type(self) -> typing.Optional[builtins.str]:
         '''Type of sharing for this shared-reservation Possible values: ["LOCAL", "SPECIFIC_PROJECTS"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#share_type ComputeReservation#share_type}
         '''
         result = self._values.get("share_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -841,8 +1232,8 @@ class ComputeReservationShareSettingsProjectMap:
         project_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project_id: The project id/number, should be same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project_id ComputeReservation#project_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#id ComputeReservation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project_id: The project id/number, should be same as the key of this project config in the project map. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project_id ComputeReservation#project_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44a6c0e18897d26aab67509db6141ebd4982e2f4de4d9fda34a6237e3a0d0a69)
@@ -856,7 +1247,7 @@ class ComputeReservationShareSettingsProjectMap:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#id ComputeReservation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#id ComputeReservation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -869,7 +1260,7 @@ class ComputeReservationShareSettingsProjectMap:
     def project_id(self) -> typing.Optional[builtins.str]:
         '''The project id/number, should be same as the key of this project config in the project map.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#project_id ComputeReservation#project_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#project_id ComputeReservation#project_id}
         '''
         result = self._values.get("project_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1064,18 +1455,24 @@ class ComputeReservationShareSettingsProjectMapOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-google.computeReservation.ComputeReservationSpecificReservation",
     jsii_struct_bases=[],
-    name_mapping={"count": "count", "instance_properties": "instanceProperties"},
+    name_mapping={
+        "count": "count",
+        "instance_properties": "instanceProperties",
+        "source_instance_template": "sourceInstanceTemplate",
+    },
 )
 class ComputeReservationSpecificReservation:
     def __init__(
         self,
         *,
         count: jsii.Number,
-        instance_properties: typing.Union["ComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]],
+        instance_properties: typing.Optional[typing.Union["ComputeReservationSpecificReservationInstanceProperties", typing.Dict[builtins.str, typing.Any]]] = None,
+        source_instance_template: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#count ComputeReservation#count}
-        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
+        :param count: The number of resources that are allocated. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#count ComputeReservation#count}
+        :param instance_properties: instance_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
+        :param source_instance_template: Specifies the instance template to create the reservation. If you use this field, you must exclude the instanceProperties field. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#source_instance_template ComputeReservation#source_instance_template}
         '''
         if isinstance(instance_properties, dict):
             instance_properties = ComputeReservationSpecificReservationInstanceProperties(**instance_properties)
@@ -1083,16 +1480,20 @@ class ComputeReservationSpecificReservation:
             type_hints = typing.get_type_hints(_typecheckingstub__1a94ddc57ac3a70ead41d97ce0952935c3ff73b217a502a7ff3ff568158c4f4f)
             check_type(argname="argument count", value=count, expected_type=type_hints["count"])
             check_type(argname="argument instance_properties", value=instance_properties, expected_type=type_hints["instance_properties"])
+            check_type(argname="argument source_instance_template", value=source_instance_template, expected_type=type_hints["source_instance_template"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "count": count,
-            "instance_properties": instance_properties,
         }
+        if instance_properties is not None:
+            self._values["instance_properties"] = instance_properties
+        if source_instance_template is not None:
+            self._values["source_instance_template"] = source_instance_template
 
     @builtins.property
     def count(self) -> jsii.Number:
         '''The number of resources that are allocated.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#count ComputeReservation#count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#count ComputeReservation#count}
         '''
         result = self._values.get("count")
         assert result is not None, "Required property 'count' is missing"
@@ -1101,14 +1502,22 @@ class ComputeReservationSpecificReservation:
     @builtins.property
     def instance_properties(
         self,
-    ) -> "ComputeReservationSpecificReservationInstanceProperties":
+    ) -> typing.Optional["ComputeReservationSpecificReservationInstanceProperties"]:
         '''instance_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#instance_properties ComputeReservation#instance_properties}
         '''
         result = self._values.get("instance_properties")
-        assert result is not None, "Required property 'instance_properties' is missing"
-        return typing.cast("ComputeReservationSpecificReservationInstanceProperties", result)
+        return typing.cast(typing.Optional["ComputeReservationSpecificReservationInstanceProperties"], result)
+
+    @builtins.property
+    def source_instance_template(self) -> typing.Optional[builtins.str]:
+        '''Specifies the instance template to create the reservation. If you use this field, you must exclude the instanceProperties field.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#source_instance_template ComputeReservation#source_instance_template}
+        '''
+        result = self._values.get("source_instance_template")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1142,10 +1551,10 @@ class ComputeReservationSpecificReservationInstanceProperties:
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
-        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
+        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
+        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a81195774c48df98d71dc67e653d5394ac9f5aefba64c315e43e2ccbff35917c)
@@ -1167,7 +1576,7 @@ class ComputeReservationSpecificReservationInstanceProperties:
     def machine_type(self) -> builtins.str:
         '''The name of the machine type to reserve.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
         '''
         result = self._values.get("machine_type")
         assert result is not None, "Required property 'machine_type' is missing"
@@ -1179,7 +1588,7 @@ class ComputeReservationSpecificReservationInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationSpecificReservationInstancePropertiesGuestAccelerators"]]]:
         '''guest_accelerators block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
         '''
         result = self._values.get("guest_accelerators")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationSpecificReservationInstancePropertiesGuestAccelerators"]]], result)
@@ -1190,7 +1599,7 @@ class ComputeReservationSpecificReservationInstanceProperties:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationSpecificReservationInstancePropertiesLocalSsds"]]]:
         '''local_ssds block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
         '''
         result = self._values.get("local_ssds")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ComputeReservationSpecificReservationInstancePropertiesLocalSsds"]]], result)
@@ -1204,7 +1613,7 @@ class ComputeReservationSpecificReservationInstanceProperties:
         the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones)
         for information on available CPU platforms.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
         '''
         result = self._values.get("min_cpu_platform")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1237,8 +1646,8 @@ class ComputeReservationSpecificReservationInstancePropertiesGuestAccelerators:
         accelerator_type: builtins.str,
     ) -> None:
         '''
-        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#accelerator_count ComputeReservation#accelerator_count}
-        :param accelerator_type: The full or partial URL of the accelerator type to attach to this instance. For example: 'projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100'. If you are creating an instance template, specify only the accelerator name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#accelerator_type ComputeReservation#accelerator_type}
+        :param accelerator_count: The number of the guest accelerator cards exposed to this instance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#accelerator_count ComputeReservation#accelerator_count}
+        :param accelerator_type: The full or partial URL of the accelerator type to attach to this instance. For example: 'projects/my-project/zones/us-central1-c/acceleratorTypes/nvidia-tesla-p100'. If you are creating an instance template, specify only the accelerator name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#accelerator_type ComputeReservation#accelerator_type}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__192a479a30fba2733ce31bbe8dcbd6804a20aa88d322cce20cd1ee41b645b139)
@@ -1253,7 +1662,7 @@ class ComputeReservationSpecificReservationInstancePropertiesGuestAccelerators:
     def accelerator_count(self) -> jsii.Number:
         '''The number of the guest accelerator cards exposed to this instance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#accelerator_count ComputeReservation#accelerator_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#accelerator_count ComputeReservation#accelerator_count}
         '''
         result = self._values.get("accelerator_count")
         assert result is not None, "Required property 'accelerator_count' is missing"
@@ -1265,7 +1674,7 @@ class ComputeReservationSpecificReservationInstancePropertiesGuestAccelerators:
 
         If you are creating an instance template, specify only the accelerator name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#accelerator_type ComputeReservation#accelerator_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#accelerator_type ComputeReservation#accelerator_type}
         '''
         result = self._values.get("accelerator_type")
         assert result is not None, "Required property 'accelerator_type' is missing"
@@ -1467,8 +1876,8 @@ class ComputeReservationSpecificReservationInstancePropertiesLocalSsds:
         interface: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param disk_size_gb: The size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#disk_size_gb ComputeReservation#disk_size_gb}
-        :param interface: The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#interface ComputeReservation#interface}
+        :param disk_size_gb: The size of the disk in base-2 GB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#disk_size_gb ComputeReservation#disk_size_gb}
+        :param interface: The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#interface ComputeReservation#interface}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dbab0e3e6b24bb0c4aa4aaedd79698425ab71c825b8a994b3ee5f445a94cd595)
@@ -1484,7 +1893,7 @@ class ComputeReservationSpecificReservationInstancePropertiesLocalSsds:
     def disk_size_gb(self) -> jsii.Number:
         '''The size of the disk in base-2 GB.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#disk_size_gb ComputeReservation#disk_size_gb}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#disk_size_gb ComputeReservation#disk_size_gb}
         '''
         result = self._values.get("disk_size_gb")
         assert result is not None, "Required property 'disk_size_gb' is missing"
@@ -1494,7 +1903,7 @@ class ComputeReservationSpecificReservationInstancePropertiesLocalSsds:
     def interface(self) -> typing.Optional[builtins.str]:
         '''The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#interface ComputeReservation#interface}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#interface ComputeReservation#interface}
         '''
         result = self._values.get("interface")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1854,10 +2263,10 @@ class ComputeReservationSpecificReservationOutputReference(
         min_cpu_platform: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
-        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
-        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
-        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
+        :param machine_type: The name of the machine type to reserve. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#machine_type ComputeReservation#machine_type}
+        :param guest_accelerators: guest_accelerators block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#guest_accelerators ComputeReservation#guest_accelerators}
+        :param local_ssds: local_ssds block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#local_ssds ComputeReservation#local_ssds}
+        :param min_cpu_platform: The minimum CPU platform for the reservation. For example, '"Intel Skylake"'. See the CPU platform availability reference](https://cloud.google.com/compute/docs/instances/specify-min-cpu-platform#availablezones) for information on available CPU platforms. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#min_cpu_platform ComputeReservation#min_cpu_platform}
         '''
         value = ComputeReservationSpecificReservationInstanceProperties(
             machine_type=machine_type,
@@ -1867,6 +2276,14 @@ class ComputeReservationSpecificReservationOutputReference(
         )
 
         return typing.cast(None, jsii.invoke(self, "putInstanceProperties", [value]))
+
+    @jsii.member(jsii_name="resetInstanceProperties")
+    def reset_instance_properties(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetInstanceProperties", []))
+
+    @jsii.member(jsii_name="resetSourceInstanceTemplate")
+    def reset_source_instance_template(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSourceInstanceTemplate", []))
 
     @builtins.property
     @jsii.member(jsii_name="instanceProperties")
@@ -1893,6 +2310,11 @@ class ComputeReservationSpecificReservationOutputReference(
         return typing.cast(typing.Optional[ComputeReservationSpecificReservationInstanceProperties], jsii.get(self, "instancePropertiesInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="sourceInstanceTemplateInput")
+    def source_instance_template_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceInstanceTemplateInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="count")
     def count(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "count"))
@@ -1903,6 +2325,18 @@ class ComputeReservationSpecificReservationOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__ba8b7f926066c8492fa34d07afdb741c193e8a2d3e1f56ee0c27c4e58610c91e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "count", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceInstanceTemplate")
+    def source_instance_template(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sourceInstanceTemplate"))
+
+    @source_instance_template.setter
+    def source_instance_template(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__272699509a3cbf82c0daee7816f1f37fd1fe34783e553191efeea9883328ea44)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceInstanceTemplate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -1934,9 +2368,9 @@ class ComputeReservationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#create ComputeReservation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#update ComputeReservation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#create ComputeReservation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#update ComputeReservation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d9b21e931f3c54190d550bf2b8dc957065889978743a530ec14b35b7773d5fc)
@@ -1953,19 +2387,19 @@ class ComputeReservationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#create ComputeReservation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#create ComputeReservation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#delete ComputeReservation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs/resources/compute_reservation#update ComputeReservation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/compute_reservation#update ComputeReservation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2085,6 +2519,10 @@ class ComputeReservationTimeoutsOutputReference(
 __all__ = [
     "ComputeReservation",
     "ComputeReservationConfig",
+    "ComputeReservationDeleteAfterDuration",
+    "ComputeReservationDeleteAfterDurationOutputReference",
+    "ComputeReservationReservationSharingPolicy",
+    "ComputeReservationReservationSharingPolicyOutputReference",
     "ComputeReservationShareSettings",
     "ComputeReservationShareSettingsOutputReference",
     "ComputeReservationShareSettingsProjectMap",
@@ -2113,9 +2551,12 @@ def _typecheckingstub__117c37c2fd3798ee840d6dad324ab4849cd08b066cb3b3f3a58fd3f84
     name: builtins.str,
     specific_reservation: typing.Union[ComputeReservationSpecificReservation, typing.Dict[builtins.str, typing.Any]],
     zone: builtins.str,
+    delete_after_duration: typing.Optional[typing.Union[ComputeReservationDeleteAfterDuration, typing.Dict[builtins.str, typing.Any]]] = None,
+    delete_at_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
+    reservation_sharing_policy: typing.Optional[typing.Union[ComputeReservationReservationSharingPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     share_settings: typing.Optional[typing.Union[ComputeReservationShareSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     specific_reservation_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[ComputeReservationTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2135,6 +2576,12 @@ def _typecheckingstub__e2987696f2a236e608708b05acf027a24b04e2981ef4b2359428dbc82
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__025ffc9d6b18286a6f44fe3b7b2dc0183898d8faa0d6bc2f2853c9a7d9294eda(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2187,12 +2634,74 @@ def _typecheckingstub__9d5d1fc913bec6937d9a2ff070bb75002ee2d726e476692944f5de374
     name: builtins.str,
     specific_reservation: typing.Union[ComputeReservationSpecificReservation, typing.Dict[builtins.str, typing.Any]],
     zone: builtins.str,
+    delete_after_duration: typing.Optional[typing.Union[ComputeReservationDeleteAfterDuration, typing.Dict[builtins.str, typing.Any]]] = None,
+    delete_at_time: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     project: typing.Optional[builtins.str] = None,
+    reservation_sharing_policy: typing.Optional[typing.Union[ComputeReservationReservationSharingPolicy, typing.Dict[builtins.str, typing.Any]]] = None,
     share_settings: typing.Optional[typing.Union[ComputeReservationShareSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     specific_reservation_required: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     timeouts: typing.Optional[typing.Union[ComputeReservationTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dea9e7cfeba9afb640273c190a131f4b1b75191d26b2588b928901b0fd21280d(
+    *,
+    nanos: typing.Optional[jsii.Number] = None,
+    seconds: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c4c2411202adc7427d5b7e05ece125849d29f63a0e4a897ed84cab92343a95c(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__074d6b50820fda8b9306a80a064c8322ef2ce3572c60c9c10a63bbbbd08aaef8(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62c11333c1bf33f1bd8bed8ae2ae631ab8831f035dc7391313e4e50c72630fc3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b85515ec4911f8e5fd4f6e7289c97113ee4482eddb6f1d3de9b6e67d7fc3d8f0(
+    value: typing.Optional[ComputeReservationDeleteAfterDuration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09e3109d66f646bb5d5e517d0b058c215e5504cbc5360e2e1ef7622eb85b1889(
+    *,
+    service_share_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ceef9fc2e7d0856b288bb51b76360652ba4928d3c0d6015feb7d22b0f6cf52bd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1732e65d7904d2c5e12e9886e80a0ffc8f2e608f656f81cef71e07416d814679(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c55f20d758a2daac9eb95707f60530ea47e819b4a99e34d6aa25ed4318ee9498(
+    value: typing.Optional[ComputeReservationReservationSharingPolicy],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2306,7 +2815,8 @@ def _typecheckingstub__e543f781bbbeac4d85a0024648854463dc39589db94885f72fe118388
 def _typecheckingstub__1a94ddc57ac3a70ead41d97ce0952935c3ff73b217a502a7ff3ff568158c4f4f(
     *,
     count: jsii.Number,
-    instance_properties: typing.Union[ComputeReservationSpecificReservationInstanceProperties, typing.Dict[builtins.str, typing.Any]],
+    instance_properties: typing.Optional[typing.Union[ComputeReservationSpecificReservationInstanceProperties, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_instance_template: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2513,6 +3023,12 @@ def _typecheckingstub__5239df2aa3d5c9dd6848ee073c53e02a5f558c589c2598a70d980abc8
 
 def _typecheckingstub__ba8b7f926066c8492fa34d07afdb741c193e8a2d3e1f56ee0c27c4e58610c91e(
     value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__272699509a3cbf82c0daee7816f1f37fd1fe34783e553191efeea9883328ea44(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

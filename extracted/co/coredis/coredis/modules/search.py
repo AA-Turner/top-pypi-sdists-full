@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import itertools
+from collections import OrderedDict
 from datetime import timedelta
 
 from deprecated.sphinx import versionadded
@@ -9,6 +10,7 @@ from deprecated.sphinx import versionadded
 from ..commands._utils import normalized_milliseconds, normalized_seconds
 from ..commands._wrappers import ClusterCommandConfig
 from ..commands.constants import CommandGroup, CommandName, NodeFlag
+from ..commands.request import CommandRequest
 from ..response._callbacks import (
     AnyStrCallback,
     ClusterEnsureConsistent,
@@ -37,7 +39,6 @@ from .response._callbacks.search import (
     SearchConfigCallback,
     SearchResultCallback,
     SpellCheckCallback,
-    SpellCheckResult,
 )
 from .response.types import SearchAggregationResult, SearchResult
 
@@ -204,7 +205,7 @@ class Group:
             bies: list[StringT] = list(self.by)
             args.extend([len(bies), *bies])
         for reducer in self.reducers or []:
-            args.append(PrefixToken.REDUCE)
+            args.append(PureToken.REDUCE)
             args.extend(reducer.args)
 
         return args
@@ -261,7 +262,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def create(
+    def create(
         self,
         index: KeyT,
         schema: Parameters[Field],
@@ -282,7 +283,7 @@ class Search(ModuleGroup[AnyStr]):
         nofreqs: bool | None = None,
         stopwords: Parameters[StringT] | None = None,
         skipinitialscan: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Creates an index with the given spec
 
@@ -307,50 +308,50 @@ class Search(ModuleGroup[AnyStr]):
         :param stopwords: A list of stopwords to ignore.
         :param skipinitialscan: If ``True``, the initial scan of the index will be skipped.
         """
-        pieces: CommandArgList = [index]
+        command_arguments: CommandArgList = [index]
         if on:
-            pieces.extend([PrefixToken.ON, on])
+            command_arguments.extend([PrefixToken.ON, on])
 
         if prefixes:
             _prefixes: list[StringT] = list(prefixes)
-            pieces.extend([PrefixToken.PREFIX, len(_prefixes), *_prefixes])
+            command_arguments.extend([PrefixToken.PREFIX, len(_prefixes), *_prefixes])
         if filter_expression:
-            pieces.extend([PrefixToken.FILTER, filter_expression])
+            command_arguments.extend([PrefixToken.FILTER, filter_expression])
         if language:
-            pieces.extend([PrefixToken.LANGUAGE, language])
+            command_arguments.extend([PrefixToken.LANGUAGE, language])
         if language_field:
-            pieces.extend([PrefixToken.LANGUAGE_FIELD, language_field])
+            command_arguments.extend([PrefixToken.LANGUAGE_FIELD, language_field])
         if score:
-            pieces.extend([PrefixToken.SCORE, score])
+            command_arguments.extend([PrefixToken.SCORE, score])
         if score_field:
-            pieces.extend([PrefixToken.SCORE_FIELD, score_field])
+            command_arguments.extend([PrefixToken.SCORE_FIELD, score_field])
         if payload_field:
-            pieces.extend([PrefixToken.PAYLOAD_FIELD, payload_field])
+            command_arguments.extend([PrefixToken.PAYLOAD_FIELD, payload_field])
         if maxtextfields:
-            pieces.append(PureToken.MAXTEXTFIELDS)
+            command_arguments.append(PureToken.MAXTEXTFIELDS)
         if temporary:
-            pieces.extend([PrefixToken.TEMPORARY, normalized_seconds(temporary)])
+            command_arguments.extend([PrefixToken.TEMPORARY, normalized_seconds(temporary)])
         if nooffsets:
-            pieces.append(PureToken.NOOFFSETS)
+            command_arguments.append(PureToken.NOOFFSETS)
         if nohl:
-            pieces.append(PureToken.NOHL)
+            command_arguments.append(PureToken.NOHL)
         if nofields:
-            pieces.append(PureToken.NOFIELDS)
+            command_arguments.append(PureToken.NOFIELDS)
         if nofreqs:
-            pieces.append(PureToken.NOFREQS)
+            command_arguments.append(PureToken.NOFREQS)
         if stopwords:
             _stop: list[StringT] = list(stopwords)
-            pieces.extend([PrefixToken.STOPWORDS, len(_stop), *_stop])
+            command_arguments.extend([PrefixToken.STOPWORDS, len(_stop), *_stop])
         if skipinitialscan:
-            pieces.append(PureToken.SKIPINITIALSCAN)
+            command_arguments.append(PureToken.SKIPINITIALSCAN)
 
         field_args: CommandArgList = [PureToken.SCHEMA]
         for field in schema:
             field_args.extend(field.args)
-        pieces.extend(field_args)
+        command_arguments.extend(field_args)
 
-        return await self.execute_module_command(
-            CommandName.FT_CREATE, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.FT_CREATE, *command_arguments, callback=SimpleStringCallback()
         )
 
     @module_command(
@@ -359,13 +360,13 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def info(self, index: KeyT) -> dict[AnyStr, ResponseType]:
+    def info(self, index: KeyT) -> CommandRequest[dict[AnyStr, ResponseType]]:
         """
         Returns information and statistics on the index
 
         :param index: The name of the index.
         """
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_INFO,
             index,
             callback=DictCallback[AnyStr, ResponseType](
@@ -386,7 +387,9 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
         arguments={"dialect": {"version_introduced": "2.4.3"}},
     )
-    async def explain(self, index: KeyT, query: StringT, dialect: int | None = None) -> AnyStr:
+    def explain(
+        self, index: KeyT, query: StringT, dialect: int | None = None
+    ) -> CommandRequest[AnyStr]:
         """
         Returns the execution plan for a complex query
 
@@ -394,11 +397,13 @@ class Search(ModuleGroup[AnyStr]):
         :param query: The query to explain.
         :param dialect: Query dialect to use.
         """
-        pieces: CommandArgList = [index, query]
+        command_arguments: CommandArgList = [index, query]
         if dialect:
-            pieces.extend([PrefixToken.DIALECT, dialect])
-        return await self.execute_module_command(
-            CommandName.FT_EXPLAIN, *pieces, callback=AnyStrCallback[AnyStr]()
+            command_arguments.extend([PrefixToken.DIALECT, dialect])
+        return self.client.create_request(
+            CommandName.FT_EXPLAIN,
+            *command_arguments,
+            callback=AnyStrCallback[AnyStr](),
         )
 
     @module_command(
@@ -407,12 +412,12 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def alter(
+    def alter(
         self,
         index: KeyT,
         field: Field,
         skipinitialscan: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Adds a new field to the index
 
@@ -421,13 +426,13 @@ class Search(ModuleGroup[AnyStr]):
         :param skipinitialscan: If ``True``, skip the initial scan and indexing.
 
         """
-        pieces: CommandArgList = [index]
+        command_arguments: CommandArgList = [index]
         if skipinitialscan:
-            pieces.append(PureToken.SKIPINITIALSCAN)
-        pieces.extend([PureToken.SCHEMA, PureToken.ADD, *field.args])
+            command_arguments.append(PureToken.SKIPINITIALSCAN)
+        command_arguments.extend([PureToken.SCHEMA, PureToken.ADD, *field.args])
 
-        return await self.execute_module_command(
-            CommandName.FT_ALTER, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.FT_ALTER, *command_arguments, callback=SimpleStringCallback()
         )
 
     @module_command(
@@ -436,19 +441,21 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="2.0.0",
         group=COMMAND_GROUP,
     )
-    async def dropindex(self, index: KeyT, delete_docs: bool | None = None) -> bool:
+    def dropindex(self, index: KeyT, delete_docs: bool | None = None) -> CommandRequest[bool]:
         """
         Deletes the index
 
         :param index: The name of the index to delete.
         :param delete_docs: If ``True``, delete the documents associated with the index.
         """
-        pieces: CommandArgList = [index]
+        command_arguments: CommandArgList = [index]
         if delete_docs:
-            pieces.append(PureToken.DELETE_DOCS)
+            command_arguments.append(PureToken.DELETE_DOCS)
 
-        return await self.execute_module_command(
-            CommandName.FT_DROPINDEX, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.FT_DROPINDEX,
+            *command_arguments,
+            callback=SimpleStringCallback(),
         )
 
     @module_command(
@@ -457,7 +464,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def aliasadd(self, alias: StringT, index: KeyT) -> bool:
+    def aliasadd(self, alias: StringT, index: KeyT) -> CommandRequest[bool]:
         """
         Adds an alias to the index
 
@@ -465,7 +472,7 @@ class Search(ModuleGroup[AnyStr]):
         :param index: The index to which the alias will be added.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_ALIASADD, alias, index, callback=SimpleStringCallback()
         )
 
@@ -475,7 +482,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def aliasupdate(self, alias: StringT, index: KeyT) -> bool:
+    def aliasupdate(self, alias: StringT, index: KeyT) -> CommandRequest[bool]:
         """
         Adds or updates an alias to the index
 
@@ -483,7 +490,7 @@ class Search(ModuleGroup[AnyStr]):
         :param index: The index to which the alias will be added.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_ALIASUPDATE, alias, index, callback=SimpleStringCallback()
         )
 
@@ -493,14 +500,14 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def aliasdel(self, alias: StringT) -> bool:
+    def aliasdel(self, alias: StringT) -> CommandRequest[bool]:
         """
         Deletes an alias from the index
 
         :param alias: The index alias to be removed.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_ALIASDEL, alias, callback=SimpleStringCallback()
         )
 
@@ -510,7 +517,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def tagvals(self, index: KeyT, field_name: StringT) -> set[AnyStr]:
+    def tagvals(self, index: KeyT, field_name: StringT) -> CommandRequest[set[AnyStr]]:
         """
         Returns the distinct tags indexed in a Tag field
 
@@ -518,7 +525,7 @@ class Search(ModuleGroup[AnyStr]):
         :param field_name: Name of a Tag field defined in the schema.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_TAGVALS, index, field_name, callback=SetCallback[AnyStr]()
         )
 
@@ -528,13 +535,13 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.2.0",
         group=COMMAND_GROUP,
     )
-    async def synupdate(
+    def synupdate(
         self,
         index: KeyT,
         synonym_group: StringT,
         terms: Parameters[StringT],
         skipinitialscan: bool | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Creates or updates a synonym group with additional terms
 
@@ -545,12 +552,14 @@ class Search(ModuleGroup[AnyStr]):
          update will be affected.
 
         """
-        pieces: CommandArgList = [index, synonym_group]
+        command_arguments: CommandArgList = [index, synonym_group]
         if skipinitialscan:
-            pieces.append(PureToken.SKIPINITIALSCAN)
-        pieces.extend(terms)
-        return await self.execute_module_command(
-            CommandName.FT_SYNUPDATE, *pieces, callback=SimpleStringCallback()
+            command_arguments.append(PureToken.SKIPINITIALSCAN)
+        command_arguments.extend(terms)
+        return self.client.create_request(
+            CommandName.FT_SYNUPDATE,
+            *command_arguments,
+            callback=SimpleStringCallback(),
         )
 
     @module_command(
@@ -559,15 +568,17 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.2.0",
         group=COMMAND_GROUP,
     )
-    async def syndump(self, index: KeyT) -> dict[AnyStr, list[AnyStr]]:
+    def syndump(self, index: KeyT) -> CommandRequest[dict[AnyStr, list[AnyStr]]]:
         """
         Dumps the contents of a synonym group
 
         :param index: The name of the index.
         """
 
-        return await self.execute_module_command(
-            CommandName.FT_SYNDUMP, index, callback=DictCallback[AnyStr, list[AnyStr]]()
+        return self.client.create_request(
+            CommandName.FT_SYNDUMP,
+            index,
+            callback=DictCallback[AnyStr, list[AnyStr]](),
         )
 
     @module_command(
@@ -577,7 +588,7 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
         arguments={"dialect": {"version_introduced": "2.4.3"}},
     )
-    async def spellcheck(
+    def spellcheck(
         self,
         index: KeyT,
         query: StringT,
@@ -585,7 +596,7 @@ class Search(ModuleGroup[AnyStr]):
         include: StringT | None = None,
         exclude: StringT | None = None,
         dialect: int | None = None,
-    ) -> SpellCheckResult:
+    ) -> CommandRequest[dict[AnyStr, OrderedDict[AnyStr, float]]]:
         """
         Performs spelling correction on a query, returning suggestions for misspelled terms
 
@@ -596,17 +607,19 @@ class Search(ModuleGroup[AnyStr]):
         :param exclude: Specifies an exclusion of a custom dictionary
         :param dialect: The query dialect to use.
         """
-        pieces: CommandArgList = [index, query]
+        command_arguments: CommandArgList = [index, query]
         if distance:
-            pieces.extend([PrefixToken.DISTANCE, distance])
+            command_arguments.extend([PrefixToken.DISTANCE, distance])
         if exclude:
-            pieces.extend([PrefixToken.TERMS, PureToken.EXCLUDE, exclude])
+            command_arguments.extend([PrefixToken.TERMS, PureToken.EXCLUDE, exclude])
         if include:
-            pieces.extend([PrefixToken.TERMS, PureToken.INCLUDE, include])
+            command_arguments.extend([PrefixToken.TERMS, PureToken.INCLUDE, include])
         if dialect:
-            pieces.extend([PrefixToken.DIALECT, dialect])
-        return await self.execute_module_command(
-            CommandName.FT_SPELLCHECK, *pieces, callback=SpellCheckCallback()
+            command_arguments.extend([PrefixToken.DIALECT, dialect])
+        return self.client.create_request(
+            CommandName.FT_SPELLCHECK,
+            *command_arguments,
+            callback=SpellCheckCallback[AnyStr](),
         )
 
     @module_command(
@@ -615,21 +628,21 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.4.0",
         group=COMMAND_GROUP,
     )
-    async def dictadd(
+    def dictadd(
         self,
         name: StringT,
         terms: Parameters[StringT],
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Adds terms to a dictionary
 
         :param name: The name of the dictionary.
         :param terms: The terms to add to the dictionary.
         """
-        pieces: CommandArgList = [name, *terms]
+        command_arguments: CommandArgList = [name, *terms]
 
-        return await self.execute_module_command(
-            CommandName.FT_DICTADD, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.FT_DICTADD, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -638,21 +651,21 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.4.0",
         group=COMMAND_GROUP,
     )
-    async def dictdel(
+    def dictdel(
         self,
         name: StringT,
         terms: Parameters[StringT],
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Deletes terms from a dictionary
 
         :param name: The name of the dictionary.
         :param terms: The terms to delete from the dictionary.
         """
-        pieces: CommandArgList = [name, *terms]
+        command_arguments: CommandArgList = [name, *terms]
 
-        return await self.execute_module_command(
-            CommandName.FT_DICTDEL, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.FT_DICTDEL, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -661,14 +674,14 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.4.0",
         group=COMMAND_GROUP,
     )
-    async def dictdump(self, name: StringT) -> set[AnyStr]:
+    def dictdump(self, name: StringT) -> CommandRequest[set[AnyStr]]:
         """
         Dumps all terms in the given dictionary
 
         :param name: The name of the dictionary to dump.
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_DICTDUMP, name, callback=SetCallback[AnyStr]()
         )
 
@@ -682,30 +695,29 @@ class Search(ModuleGroup[AnyStr]):
             combine=ClusterMergeSets[AnyStr](),
         ),
     )
-    async def list(self) -> set[AnyStr]:
+    def list(self) -> CommandRequest[set[AnyStr]]:
         """
         Returns a list of all existing indexes
         """
-        return await self.execute_module_command(
-            CommandName.FT__LIST, callback=SetCallback[AnyStr]()
-        )
+        return self.client.create_request(CommandName.FT__LIST, callback=SetCallback[AnyStr]())
 
     @module_command(
         CommandName.FT_CONFIG_SET,
         module=MODULE,
         version_introduced="1.0.0",
+        version_deprecated="8.0.0",
         group=COMMAND_GROUP,
         cluster=ClusterCommandConfig(
             route=NodeFlag.PRIMARIES,
             combine=ClusterEnsureConsistent[bool](),
         ),
     )
-    async def config_set(self, option: StringT, value: ValueT) -> bool:
+    def config_set(self, option: StringT, value: ValueT) -> CommandRequest[bool]:
         """
         Sets runtime configuration options
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_CONFIG_SET, option, value, callback=SimpleStringCallback()
         )
 
@@ -713,17 +725,18 @@ class Search(ModuleGroup[AnyStr]):
         CommandName.FT_CONFIG_GET,
         module=MODULE,
         version_introduced="1.0.0",
+        version_deprecated="8.0.0",
         group=COMMAND_GROUP,
         cluster=ClusterCommandConfig(
             route=NodeFlag.RANDOM,
         ),
     )
-    async def config_get(self, option: StringT) -> dict[AnyStr, ResponsePrimitive]:
+    def config_get(self, option: StringT) -> CommandRequest[dict[AnyStr, ResponsePrimitive]]:
         """
         Retrieves runtime configuration options
         """
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_CONFIG_GET,
             option,
             callback=SearchConfigCallback[AnyStr](),
@@ -736,7 +749,7 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
         arguments={"dialect": {"version_introduced": "2.4.3"}},
     )
-    async def search(
+    def search(
         self,
         index: KeyT,
         query: StringT,
@@ -783,7 +796,7 @@ class Search(ModuleGroup[AnyStr]):
         limit: int | None = None,
         parameters: Mapping[StringT, ValueT] | None = None,
         dialect: int | None = None,
-    ) -> SearchResult[AnyStr]:
+    ) -> CommandRequest[SearchResult[AnyStr]]:
         """
         Searches the index with a textual query, returning either documents or just ids
 
@@ -832,25 +845,27 @@ class Search(ModuleGroup[AnyStr]):
         :param dialect: The query dialect to use.
 
         """
-        pieces: CommandArgList = [index, query]
+        command_arguments: CommandArgList = [index, query]
         if nocontent:
-            pieces.append(PureToken.NOCONTENT)
+            command_arguments.append(PureToken.NOCONTENT)
         if verbatim:
-            pieces.append(PureToken.VERBATIM)
+            command_arguments.append(PureToken.VERBATIM)
         if nostopwords:
-            pieces.append(PureToken.NOSTOPWORDS)
+            command_arguments.append(PureToken.NOSTOPWORDS)
         if withscores:
-            pieces.append(PureToken.WITHSCORES)
+            command_arguments.append(PureToken.WITHSCORES)
         if withpayloads:
-            pieces.append(PureToken.WITHPAYLOADS)
+            command_arguments.append(PureToken.WITHPAYLOADS)
         if withsortkeys:
-            pieces.append(PureToken.WITHSORTKEYS)
+            command_arguments.append(PureToken.WITHSORTKEYS)
         if numeric_filters:
             for field, numeric_filter in numeric_filters.items():
-                pieces.extend([PrefixToken.FILTER, field, numeric_filter[0], numeric_filter[1]])
+                command_arguments.extend(
+                    [PrefixToken.FILTER, field, numeric_filter[0], numeric_filter[1]]
+                )
         if geo_filters:
             for field, gfilter in geo_filters.items():
-                pieces.extend(
+                command_arguments.extend(
                     [
                         PrefixToken.GEOFILTER,
                         field,
@@ -862,72 +877,73 @@ class Search(ModuleGroup[AnyStr]):
                 )
         if in_keys:
             _in_keys: list[StringT] = list(in_keys)
-            pieces.extend([PrefixToken.INKEYS, len(_in_keys), *_in_keys])
+            command_arguments.extend([PrefixToken.INKEYS, len(_in_keys), *_in_keys])
         if in_fields:
             _in_fields: list[StringT] = list(in_fields)
-            pieces.extend([PrefixToken.INFIELDS, len(_in_fields), *_in_fields])
+            command_arguments.extend([PrefixToken.INFIELDS, len(_in_fields), *_in_fields])
         if returns:
             return_items: CommandArgList = []
             for identifier, property in returns.items():
                 return_items.append(identifier)
                 if property:
                     return_items.extend([PrefixToken.AS, property])
-            pieces.extend([PrefixToken.RETURN, len(return_items), *return_items])
+            command_arguments.extend([PrefixToken.RETURN, len(return_items), *return_items])
         if sortby:
-            pieces.extend([PrefixToken.SORTBY, sortby])
+            command_arguments.extend([PrefixToken.SORTBY, sortby])
             if sort_order:
-                pieces.append(sort_order)
+                command_arguments.append(sort_order)
         if summarize_fields or summarize_frags or summarize_length or summarize_separator:
-            pieces.append(PureToken.SUMMARIZE)
+            command_arguments.append(PureToken.SUMMARIZE)
             if summarize_fields:
                 _fields: list[StringT] = list(summarize_fields)
-                pieces.extend([PrefixToken.FIELDS, len(_fields), *_fields])
+                command_arguments.extend([PrefixToken.FIELDS, len(_fields), *_fields])
             if summarize_frags:
-                pieces.extend([PrefixToken.FRAGS, summarize_frags])
+                command_arguments.extend([PrefixToken.FRAGS, summarize_frags])
             if summarize_length:
-                pieces.extend([PrefixToken.LEN, summarize_length])
+                command_arguments.extend([PrefixToken.LEN, summarize_length])
             if summarize_separator:
-                pieces.extend([PrefixToken.SEPARATOR, summarize_separator])
+                command_arguments.extend([PrefixToken.SEPARATOR, summarize_separator])
         if highlight_fields or highlight_tags:
-            pieces.append(PureToken.HIGHLIGHT)
+            command_arguments.append(PureToken.HIGHLIGHT)
             if highlight_fields:
                 _fields = list(highlight_fields)
-                pieces.extend([PrefixToken.FIELDS, len(_fields), *_fields])
+                command_arguments.extend([PrefixToken.FIELDS, len(_fields), *_fields])
             if highlight_tags:
-                pieces.extend([PureToken.TAGS, highlight_tags[0], highlight_tags[1]])
+                command_arguments.extend([PureToken.TAGS, highlight_tags[0], highlight_tags[1]])
         if slop is not None:
-            pieces.extend([PrefixToken.SLOP, slop])
+            command_arguments.extend([PrefixToken.SLOP, slop])
         if timeout:
-            pieces.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
+            command_arguments.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
         if inorder:
-            pieces.append(PureToken.INORDER)
+            command_arguments.append(PureToken.INORDER)
         if language:
-            pieces.extend([PrefixToken.LANGUAGE, language])
+            command_arguments.extend([PrefixToken.LANGUAGE, language])
         if expander:  # noqa
-            pieces.extend([PrefixToken.EXPANDER, expander])
+            command_arguments.extend([PrefixToken.EXPANDER, expander])
         if scorer:  # noqa
-            pieces.extend([PrefixToken.SCORER, scorer])
+            command_arguments.extend([PrefixToken.SCORER, scorer])
         if explainscore:
-            pieces.append(PureToken.EXPLAINSCORE)
+            command_arguments.append(PureToken.EXPLAINSCORE)
         if payload:
-            pieces.extend([PrefixToken.PAYLOAD, payload])
+            command_arguments.extend([PrefixToken.PAYLOAD, payload])
         if limit is not None:
-            pieces.extend([PrefixToken.LIMIT, offset or 0, limit])
+            command_arguments.extend([PrefixToken.LIMIT, offset or 0, limit])
         if parameters:
             _parameters: list[ValueT] = list(itertools.chain(*parameters.items()))
-            pieces.extend([PureToken.PARAMS, len(_parameters), *_parameters])
+            command_arguments.extend([PureToken.PARAMS, len(_parameters), *_parameters])
         if dialect:
-            pieces.extend([PrefixToken.DIALECT, dialect])
+            command_arguments.extend([PrefixToken.DIALECT, dialect])
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_SEARCH,
-            *pieces,
-            callback=SearchResultCallback[AnyStr](),
-            withscores=withscores,
-            withpayloads=withpayloads,
-            withsortkeys=withsortkeys,
-            explainscore=explainscore,
-            nocontent=nocontent,
+            *command_arguments,
+            callback=SearchResultCallback[AnyStr](
+                withscores=withscores,
+                withpayloads=withpayloads,
+                withsortkeys=withsortkeys,
+                explainscore=explainscore,
+                nocontent=nocontent,
+            ),
         )
 
     @module_command(
@@ -937,7 +953,7 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
         arguments={"dialect": {"version_introduced": "2.4.3"}},
     )
-    async def aggregate(
+    def aggregate(
         self,
         index: KeyT,
         query: StringT,
@@ -955,7 +971,7 @@ class Search(ModuleGroup[AnyStr]):
         cursor_maxidle: int | timedelta | None = None,
         parameters: Mapping[StringT, StringT] | None = None,
         dialect: int | None = None,
-    ) -> SearchAggregationResult[AnyStr]:
+    ) -> CommandRequest[SearchAggregationResult[AnyStr]]:
         """
         Perform aggregate transformations on search results from a Redis index.
 
@@ -978,15 +994,15 @@ class Search(ModuleGroup[AnyStr]):
         :return: Aggregated search results from the Redis index.
 
         """
-        pieces: CommandArgList = [index, query]
+        command_arguments: CommandArgList = [index, query]
         if verbatim:
-            pieces.append(PureToken.VERBATIM)
+            command_arguments.append(PureToken.VERBATIM)
         if timeout:
-            pieces.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
+            command_arguments.extend([PrefixToken.TIMEOUT, normalized_milliseconds(timeout)])
         if load:
-            pieces.append(PrefixToken.LOAD)
+            command_arguments.append(PrefixToken.LOAD)
             if isinstance(load, (bytes, str)):
-                pieces.append(load)
+                command_arguments.append(load)
             else:
                 _load_fields: list[StringT] = []
                 for field in load:
@@ -995,40 +1011,40 @@ class Search(ModuleGroup[AnyStr]):
                     else:
                         _load_fields.extend([field[0], PrefixToken.AS, field[1]])
 
-                pieces.extend([len(_load_fields), *_load_fields])
+                command_arguments.extend([len(_load_fields), *_load_fields])
 
         if transforms:
             for step in transforms:
-                pieces.extend(step.args)
+                command_arguments.extend(step.args)
 
         if sortby:
-            pieces.append(PrefixToken.SORTBY)
-            pieces.append(len(sortby) * 2)
+            command_arguments.append(PrefixToken.SORTBY)
+            command_arguments.append(len(sortby) * 2)
             for field, order in sortby.items():
-                pieces.extend([field, order])
+                command_arguments.extend([field, order])
             if sortby_max:
-                pieces.extend([PrefixToken.MAX, sortby_max])
+                command_arguments.extend([PrefixToken.MAX, sortby_max])
 
         if limit is not None:
-            pieces.extend([PrefixToken.LIMIT, offset or 0, limit])
+            command_arguments.extend([PrefixToken.LIMIT, offset or 0, limit])
 
         if with_cursor:
-            pieces.append(PureToken.WITHCURSOR)
+            command_arguments.append(PureToken.WITHCURSOR)
             if cursor_read_size:
-                pieces.extend([PrefixToken.COUNT, cursor_read_size])
+                command_arguments.extend([PrefixToken.COUNT, cursor_read_size])
             if cursor_maxidle:
-                pieces.extend([PrefixToken.MAXIDLE, normalized_milliseconds(cursor_maxidle)])
+                command_arguments.extend(
+                    [PrefixToken.MAXIDLE, normalized_milliseconds(cursor_maxidle)]
+                )
         if parameters:
             _parameters: list[StringT] = list(itertools.chain(*parameters.items()))
-            pieces.extend([PureToken.PARAMS, len(_parameters), *_parameters])
+            command_arguments.extend([PureToken.PARAMS, len(_parameters), *_parameters])
         if dialect:
-            pieces.extend([PrefixToken.DIALECT, dialect])
-        return await self.execute_module_command(
+            command_arguments.extend([PrefixToken.DIALECT, dialect])
+        return self.client.create_request(
             CommandName.FT_AGGREGATE,
-            *pieces,
-            callback=AggregationResultCallback[AnyStr](),
-            with_cursor=with_cursor,
-            dialect=dialect,
+            *command_arguments,
+            callback=AggregationResultCallback[AnyStr](with_cursor=with_cursor, dialect=dialect),
         )
 
     @module_command(
@@ -1037,21 +1053,20 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.1.0",
         group=COMMAND_GROUP,
     )
-    async def cursor_read(
+    def cursor_read(
         self, index: KeyT, cursor_id: int, count: int | None = None
-    ) -> SearchAggregationResult[AnyStr]:
+    ) -> CommandRequest[SearchAggregationResult[AnyStr]]:
         """
         Reads from a cursor
         """
-        pieces: CommandArgList = [index, cursor_id]
+        command_arguments: CommandArgList = [index, cursor_id]
         if count:
-            pieces.extend([PrefixToken.COUNT, count])
+            command_arguments.extend([PrefixToken.COUNT, count])
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.FT_CURSOR_READ,
-            *pieces,
-            callback=AggregationResultCallback[AnyStr](),
-            with_cursor=True,
+            *command_arguments,
+            callback=AggregationResultCallback[AnyStr](with_cursor=True),
         )
 
     @module_command(
@@ -1060,13 +1075,15 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.1.0",
         group=COMMAND_GROUP,
     )
-    async def cursor_del(self, index: KeyT, cursor_id: int) -> bool:
+    def cursor_del(self, index: KeyT, cursor_id: int) -> CommandRequest[bool]:
         """
         Deletes a cursor
 
         """
-        pieces: CommandArgList = [index, cursor_id]
+        command_arguments: CommandArgList = [index, cursor_id]
 
-        return await self.execute_module_command(
-            CommandName.FT_CURSOR_DEL, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.FT_CURSOR_DEL,
+            *command_arguments,
+            callback=SimpleStringCallback(),
         )

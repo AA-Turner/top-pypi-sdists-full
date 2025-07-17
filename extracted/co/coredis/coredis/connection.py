@@ -12,6 +12,7 @@ import time
 import warnings
 import weakref
 from collections import defaultdict, deque
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any, cast
 
 import async_timeout
@@ -38,9 +39,9 @@ from coredis.typing import (
     Callable,
     ClassVar,
     Literal,
+    RedisValueT,
     ResponseType,
     TypeVar,
-    ValueT,
 )
 
 R = TypeVar("R")
@@ -78,7 +79,7 @@ class Request:
 @dataclasses.dataclass
 class CommandInvocation:
     command: bytes
-    args: tuple[ValueT, ...]
+    args: tuple[RedisValueT, ...]
     decode: bool | None
     encoding: str | None
 
@@ -383,7 +384,7 @@ class BaseConnection(asyncio.BaseProtocol):
         relay any tracking notifications to.
         """
         try:
-            params: list[ValueT] = (
+            params: list[RedisValueT] = (
                 [b"ON", b"REDIRECT", client_id] if (enabled and client_id is not None) else [b"OFF"]
             )
 
@@ -440,12 +441,12 @@ class BaseConnection(asyncio.BaseProtocol):
             )
             assert isinstance(hello_resp, (list, dict))
             if self.protocol_version == 3:
-                resp3 = cast(dict[bytes, ValueT], hello_resp)
+                resp3 = cast(dict[bytes, RedisValueT], hello_resp)
                 assert resp3[b"proto"] == 3
                 self.server_version = nativestr(resp3[b"version"])
                 self.client_id = int(resp3[b"id"])
             else:
-                resp = cast(list[ValueT], hello_resp)
+                resp = cast(list[RedisValueT], hello_resp)
                 self.server_version = nativestr(resp[3])
                 self.client_id = int(resp[7])
             if self.server_version >= "7.2":
@@ -512,7 +513,7 @@ class BaseConnection(asyncio.BaseProtocol):
 
     async def fetch_push_message(
         self,
-        decode: ValueT | None = None,
+        decode: RedisValueT | None = None,
         push_message_types: set[bytes] | None = None,
         block: bool | None = False,
     ) -> ResponseType:
@@ -578,7 +579,7 @@ class BaseConnection(asyncio.BaseProtocol):
     async def send_command(
         self,
         command: bytes,
-        *args: ValueT,
+        *args: RedisValueT,
     ) -> None:
         """
         Send a command to the redis server
@@ -594,9 +595,9 @@ class BaseConnection(asyncio.BaseProtocol):
     async def create_request(
         self,
         command: bytes,
-        *args: ValueT,
+        *args: RedisValueT,
         noreply: bool | None = None,
-        decode: ValueT | None = None,
+        decode: RedisValueT | None = None,
         encoding: str | None = None,
         raise_exceptions: bool = True,
         timeout: float | None = None,
@@ -690,17 +691,15 @@ class BaseConnection(asyncio.BaseProtocol):
         self.noreply_set = False
         self._parser.on_disconnect()
         if self._transport:
-            try:
+            with suppress(RuntimeError):
                 self._transport.close()
-            # Raised if event loop is already closed.
-            except RuntimeError:  # noqa
-                pass
 
         disconnect_exc = self._last_error or ConnectionError("connection lost")
         while self._read_waiters:
             waiter = self._read_waiters.pop()
             if not waiter.done():
-                waiter.cancel()
+                with suppress(RuntimeError):
+                    waiter.cancel()
         while True:
             try:
                 request = self._requests.popleft()
@@ -818,7 +817,7 @@ class UnixDomainSocketConnection(BaseConnection):
         *,
         client_name: str | None = None,
         protocol_version: Literal[2, 3] = 3,
-        **_: ValueT,
+        **_: RedisValueT,
     ) -> None:
         super().__init__(
             stream_timeout,

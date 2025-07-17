@@ -281,6 +281,7 @@ class Underscore:
             return UnderscoreFunction(
                 func_name,
                 *[cls._from_proto(arg) for arg in args],
+                _chalk__repr_override=node.call.repr_override if node.call.HasField("repr_override") else None,
                 _chalk__expr_id=node.expr_id,
                 **{k: cls._from_proto(v) for k, v in node.call.kwargs.items()},
             )
@@ -549,15 +550,46 @@ def coerce_dtype_args_to_scalar(arg: Any) -> Any:
 class UnderscoreFunction(Underscore):
     __name__ = "function"
 
-    def __init__(self, name: str, *args: Any, _chalk__expr_id: Optional[str] = None, **kwargs: Any):
+    def __init__(
+        self,
+        name: str,
+        *args: Any,
+        _chalk__repr_override: Optional[str] = None,
+        _chalk__expr_id: Optional[str] = None,
+        **kwargs: Any,
+    ):
         super().__init__(_chalk__expr_id)
+        self._chalk__repr_override = _chalk__repr_override
+
         self._chalk__args = args
         self._chalk__kwargs = kwargs
         self._chalk__args = [coerce_dtype_args_to_scalar(arg) for arg in args]
 
         self._chalk__function_name = name
 
+    @classmethod
+    def with_f_dot_repr(
+        cls,
+        chalk_function_name: str,
+        *args: Any,
+        display_name: Optional[str] = None,
+        _chalk__expr_id: Optional[str] = None,
+        **kwargs: Any,
+    ):
+        display_name = chalk_function_name if display_name is None else display_name
+        fn: list[str] = [f"F.{display_name}(", ", ".join(repr(x) for x in args)]
+        if args and kwargs:
+            fn.append(", ")
+        fn.append(", ".join(f"{k}={v!r}" for k, v in kwargs.items()))
+        fn.append(")")
+        repr_override = "".join(fn)
+        return UnderscoreFunction(
+            chalk_function_name, *args, _chalk__repr_override=repr_override, _chalk__expr_id=_chalk__expr_id, **kwargs
+        )
+
     def __repr__(self):
+        if self._chalk__repr_override is not None:
+            return self._chalk__repr_override
         if self._chalk__function_name in SUPPORTED_UNDERSCORE_OPS_UNARY and len(self._chalk__args) == 1:
             return f"({self._chalk__function_name} {self._chalk__args[0]!r})"
         if self._chalk__function_name in SUPPORTED_UNDERSCORE_OPS_BINARY and len(self._chalk__args) == 2:
@@ -578,6 +610,7 @@ class UnderscoreFunction(Underscore):
                 func=expr_pb2.LogicalExprNode(identifier=expr_pb2.Identifier(name=self._chalk__function_name)),
                 args=[convert_value_to_proto_expr(x) for x in self._chalk__args],
                 kwargs={k: convert_value_to_proto_expr(v) for (k, v) in self._chalk__kwargs.items()},
+                repr_override=self._chalk__repr_override,
             ),
         )
 
@@ -644,7 +677,7 @@ class UnderscoreCast(Underscore):
         return True
 
     def __repr__(self):
-        return f"chalk.functions.cast({self._chalk__value}, {self._chalk__to_type})"
+        return f"F.cast({self._chalk__value}, {self._chalk__to_type})"
 
     def _to_proto(self) -> expr_pb2.LogicalExprNode:
         return expr_pb2.LogicalExprNode(

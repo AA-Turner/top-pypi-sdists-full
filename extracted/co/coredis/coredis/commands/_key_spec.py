@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from coredis._utils import b
-from coredis.typing import Callable, ClassVar, ValueT
+from coredis.typing import Callable, ClassVar, RedisValueT
 
 
 class KeySpec:
-    READONLY: ClassVar[dict[bytes, Callable[[tuple[ValueT, ...]], tuple[ValueT, ...]]]] = {
+    READONLY: ClassVar[
+        dict[bytes, Callable[[tuple[RedisValueT, ...]], tuple[RedisValueT, ...]]]
+    ] = {
         b"BITCOUNT": lambda args: ((args[1],)),
         b"BITFIELD_RO": lambda args: ((args[1],)),
         b"BITOP": lambda args: (args[3 : (len(args))]),
@@ -123,7 +125,7 @@ class KeySpec:
         b"ZUNION": lambda args: (args[2 : 2 + int(args[1])]),
         b"ZUNIONSTORE": lambda args: (args[3 : 3 + int(args[2])]),
     }
-    ALL: ClassVar[dict[bytes, Callable[[tuple[ValueT, ...]], tuple[ValueT, ...]]]] = {
+    ALL: ClassVar[dict[bytes, Callable[[tuple[RedisValueT, ...]], tuple[RedisValueT, ...]]]] = {
         b"OBJECT": lambda args: ((args[2],)),
         b"DEBUG OBJECT": lambda args: ((args[1],)),
         b"APPEND": lambda args: ((args[1],)),
@@ -150,6 +152,8 @@ class KeySpec:
         b"HDEL": lambda args: ((args[1],)),
         b"HEXPIRE": lambda args: ((args[1],)),
         b"HEXPIREAT": lambda args: ((args[1],)),
+        b"HGETDEL": lambda args: ((args[1],)),
+        b"HGETEX": lambda args: ((args[1],)),
         b"HINCRBY": lambda args: ((args[1],)),
         b"HINCRBYFLOAT": lambda args: ((args[1],)),
         b"HMSET": lambda args: ((args[1],)),
@@ -157,6 +161,7 @@ class KeySpec:
         b"HPEXPIRE": lambda args: ((args[1],)),
         b"HPEXPIREAT": lambda args: ((args[1],)),
         b"HSET": lambda args: ((args[1],)),
+        b"HSETEX": lambda args: ((args[1],)),
         b"HSETNX": lambda args: ((args[1],)),
         b"INCR": lambda args: ((args[1],)),
         b"INCRBY": lambda args: ((args[1],)),
@@ -373,12 +378,6 @@ class KeySpec:
         b"SSUBSCRIBE": lambda args: (args[1 : (len(args))]),
         b"SUNSUBSCRIBE": lambda args: (args[1 : (len(args))]),
         b"UNLINK": lambda args: (args[1 : (len(args))]),
-        b"EXPIREMEMBER": lambda args: ((args[1],)),
-        b"EXPIREMEMBERAT": lambda args: ((args[1],)),
-        b"PEXPIREMEMBERAT": lambda args: ((args[1],)),
-        b"KEYDB.HRENAME": lambda args: ((args[1],)),
-        b"KEYDB.MEXISTS": lambda args: (args[1:]),
-        b"OBJECT LASTMODIFIED": lambda args: ((args[1],)),
         b"JSON.DEBUG MEMORY": lambda args: (args[1],),
         b"JSON.DEL": lambda args: (args[1],),
         b"JSON.FORGET": lambda args: (args[1],),
@@ -499,7 +498,9 @@ class KeySpec:
     }
 
     @classmethod
-    def extract_keys(cls, *arguments: ValueT, readonly_command: bool = False) -> tuple[ValueT, ...]:
+    def extract_keys(
+        cls, *arguments: RedisValueT, readonly_command: bool = False
+    ) -> tuple[RedisValueT, ...]:
         if len(arguments) <= 1:
             return ()
 

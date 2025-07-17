@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: minikerberos
-Version: 0.4.6
+Version: 0.4.7
 Summary: Kerberos manipulation library in pure Python
 Home-page: https://github.com/skelsec/minikerberos
 Author: Tamas Jos

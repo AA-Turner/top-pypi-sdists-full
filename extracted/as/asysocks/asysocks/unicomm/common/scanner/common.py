@@ -2,6 +2,7 @@ import enum
 import os
 import datetime
 import traceback
+import json
 
 class ScannerResultType(enum.Enum):
 	STARTED = 'STARTED'
@@ -10,12 +11,19 @@ class ScannerResultType(enum.Enum):
 	PROGRESS = 'PROGRESS'
 	FINISHED = 'FINISHED'
 	INFO = 'INFO'
+	TARGETDONE = 'TARGETDONE'
 
 class ScannerResult:
-	def __init__(self, type, resid, data = None):
+	def __init__(self, type, resid, data = None, **kwargs):
 		self.type = type
 		self.resid = str(resid)
 		self.data = data
+		self.kwargs = kwargs
+
+	def get_extra_info(self, key):
+		if key in self.kwargs:
+			return self.kwargs[key]
+		return None
 
 	def to_line(self, separator = '\t'):
 		raise NotImplementedError()
@@ -61,12 +69,13 @@ class ScannerError(ScannerResult):
 			return ''.join(traceback.format_tb(self.traceback))
 
 class ScannerData(ScannerResult):
-	def __init__(self, resid, data):
+	def __init__(self, resid, data, **kwargs):
 		ScannerResult.__init__(
 			self,
 			ScannerResultType.DATA,
 			resid,
-			data
+			data=data,
+			**kwargs
 		)
 
 	def get_name(self):
@@ -100,6 +109,23 @@ class ScannerData(ScannerResult):
 			res += separator.join([str(self.resid), line])#  + '\r\n'
 
 		return res
+	
+	def to_dict(self):
+		try:
+			return {
+				'resid' : self.resid,
+				'restype' : str(type(self.data).__name__),
+				'data'  : self.data.to_dict()
+			}
+		except:
+			return {
+				'resid' : self.resid,
+				'restype' : str(type(self.data).__name__),
+				'data'  : self.__flatten_data()
+			}
+	
+	def to_json(self):
+		return json.dumps(self.to_dict())
 
 class ScannerProgress(ScannerResult):
 	def __init__(self, scannername, total, current):
@@ -135,3 +161,15 @@ class ScannerInfo(ScannerResult):
 			res += separator.join(['INFO', str(self.resid), line]) + '\r\n'
 
 		return res
+
+class ScannerTargetDone(ScannerResult):
+	def __init__(self, resid, target):
+		ScannerResult.__init__(
+			self,
+			ScannerResultType.TARGETDONE,
+			resid
+		)
+		self.target = target
+	
+	def to_line(self, separator = '\t'):
+		return separator.join(['TARGETDONE', str(self.resid), str(self.target)])

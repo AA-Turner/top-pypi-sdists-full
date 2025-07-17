@@ -85,6 +85,8 @@ class PredefinedMetricName(betterproto.Enum):
     FRESHNESS_DATA = 73
     VOLUME_DATA = 74
     COUNT_VALUE_IN_LIST = 75
+    PERCENT_DISTINCT = 76
+    PERCENT_DUPLICATES = 77
 
 
 class FieldType(betterproto.Enum):
@@ -1301,11 +1303,6 @@ class MetricType(betterproto.Message):
     )
     is_metadata_metric: bool = betterproto.bool_field(3)
     is_table_metric: bool = betterproto.bool_field(4)
-
-
-@dataclass
-class ChangePoint(betterproto.Message):
-    epoch_seconds: int = betterproto.int64_field(1)
 
 
 @dataclass
@@ -3392,6 +3389,7 @@ class Issue(betterproto.Message):
     issue_resolution_steps: List["IssueResolutionStep"] = betterproto.message_field(33)
     previous_resolution_summary: str = betterproto.string_field(34)
     alerting_metrics_with_label: List["AlertingMetric"] = betterproto.message_field(35)
+    dimension_id: int = betterproto.int32_field(36)
 
 
 @dataclass
@@ -4093,6 +4091,7 @@ class Source(betterproto.Message):
     metric_batch_size_metadata: int = betterproto.int32_field(27)
     auth_type: "AuthType" = betterproto.enum_field(28)
     cross_source_agent_health_status: "AgentHealthStatus" = betterproto.enum_field(29)
+    ignore_schemas_prefix: str = betterproto.string_field(30)
 
 
 @dataclass
@@ -4120,6 +4119,7 @@ class CreateSourceRequest(betterproto.Message):
     source_metadata_overrides: "SourceMetadataOverrides" = betterproto.message_field(20)
     max_pool_size: int = betterproto.int32_field(21)
     auth_type: "AuthType" = betterproto.enum_field(22)
+    ignore_schemas_prefix: str = betterproto.string_field(23)
 
 
 @dataclass
@@ -6003,7 +6003,6 @@ class AutoThresholdRequestV2(betterproto.Message):
 @dataclass
 class AutoThresholdResponse(betterproto.Message):
     auto_thresholds: List["AutoThreshold"] = betterproto.message_field(1)
-    change_points: List["ChangePoint"] = betterproto.message_field(2)
     preamble_url_offline_training: str = betterproto.string_field(3)
     preamble_url_calculate_autothresholds: str = betterproto.string_field(4)
 
@@ -6503,8 +6502,16 @@ class GenerateTableProfileRequest(betterproto.Message):
 class ColumnToProfile(betterproto.Message):
     id: int = betterproto.int32_field(1)
     result_set_column_name: str = betterproto.string_field(2)
-    stats_to_profile: List["PredefinedMetricName"] = betterproto.enum_field(3)
-    potential_patterns: List["PredefinedMetricName"] = betterproto.enum_field(4)
+    stats_to_profile: List["StatToProfile"] = betterproto.message_field(3)
+    potential_patterns: List["StatToProfile"] = betterproto.message_field(4)
+
+
+@dataclass
+class StatToProfile(betterproto.Message):
+    name: "PredefinedMetricName" = betterproto.enum_field(1)
+    parameters: Dict[str, str] = betterproto.map_field(
+        2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass
@@ -8528,6 +8535,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         source_metadata_overrides: Optional["SourceMetadataOverrides"] = None,
         max_pool_size: int = 0,
         auth_type: "AuthType" = 0,
+        ignore_schemas_prefix: str = "",
     ) -> SourceValidationResponse:
         """Validate source"""
 
@@ -8555,6 +8563,7 @@ class SourceServiceStub(betterproto.ServiceStub):
             request.source_metadata_overrides = source_metadata_overrides
         request.max_pool_size = max_pool_size
         request.auth_type = auth_type
+        request.ignore_schemas_prefix = ignore_schemas_prefix
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/ValidateSource",
@@ -8587,6 +8596,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         source_metadata_overrides: Optional["SourceMetadataOverrides"] = None,
         max_pool_size: int = 0,
         auth_type: "AuthType" = 0,
+        ignore_schemas_prefix: str = "",
     ) -> CreateSourceResponse:
         """Create or update source"""
 
@@ -8614,6 +8624,7 @@ class SourceServiceStub(betterproto.ServiceStub):
             request.source_metadata_overrides = source_metadata_overrides
         request.max_pool_size = max_pool_size
         request.auth_type = auth_type
+        request.ignore_schemas_prefix = ignore_schemas_prefix
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/CreateOrUpdateSource",

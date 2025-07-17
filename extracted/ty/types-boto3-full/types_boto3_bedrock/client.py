@@ -26,6 +26,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
     ListEvaluationJobsPaginator,
     ListGuardrailsPaginator,
@@ -42,6 +43,8 @@ from .paginator import (
 from .type_defs import (
     BatchDeleteEvaluationJobRequestTypeDef,
     BatchDeleteEvaluationJobResponseTypeDef,
+    CreateCustomModelDeploymentRequestTypeDef,
+    CreateCustomModelDeploymentResponseTypeDef,
     CreateCustomModelRequestTypeDef,
     CreateCustomModelResponseTypeDef,
     CreateEvaluationJobRequestTypeDef,
@@ -68,6 +71,7 @@ from .type_defs import (
     CreatePromptRouterResponseTypeDef,
     CreateProvisionedModelThroughputRequestTypeDef,
     CreateProvisionedModelThroughputResponseTypeDef,
+    DeleteCustomModelDeploymentRequestTypeDef,
     DeleteCustomModelRequestTypeDef,
     DeleteFoundationModelAgreementRequestTypeDef,
     DeleteGuardrailRequestTypeDef,
@@ -77,6 +81,8 @@ from .type_defs import (
     DeletePromptRouterRequestTypeDef,
     DeleteProvisionedModelThroughputRequestTypeDef,
     DeregisterMarketplaceModelEndpointRequestTypeDef,
+    GetCustomModelDeploymentRequestTypeDef,
+    GetCustomModelDeploymentResponseTypeDef,
     GetCustomModelRequestTypeDef,
     GetCustomModelResponseTypeDef,
     GetEvaluationJobRequestTypeDef,
@@ -107,6 +113,8 @@ from .type_defs import (
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
     GetUseCaseForModelAccessResponseTypeDef,
+    ListCustomModelDeploymentsRequestTypeDef,
+    ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestTypeDef,
     ListCustomModelsResponseTypeDef,
     ListEvaluationJobsRequestTypeDef,
@@ -234,6 +242,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_custom_model)
+        """
+
+    def create_custom_model_deployment(
+        self, **kwargs: Unpack[CreateCustomModelDeploymentRequestTypeDef]
+    ) -> CreateCustomModelDeploymentResponseTypeDef:
+        """
+        Deploys a custom model for on-demand inference in Amazon Bedrock.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model_deployment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#create_custom_model_deployment)
         """
 
     def create_evaluation_job(
@@ -371,6 +389,16 @@ class BedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_custom_model)
         """
 
+    def delete_custom_model_deployment(
+        self, **kwargs: Unpack[DeleteCustomModelDeploymentRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a custom model deployment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_custom_model_deployment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#delete_custom_model_deployment)
+        """
+
     def delete_foundation_model_agreement(
         self, **kwargs: Unpack[DeleteFoundationModelAgreementRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -466,6 +494,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_custom_model)
+        """
+
+    def get_custom_model_deployment(
+        self, **kwargs: Unpack[GetCustomModelDeploymentRequestTypeDef]
+    ) -> GetCustomModelDeploymentResponseTypeDef:
+        """
+        Retrieves information about a custom model deployment, including its status,
+        configuration, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model_deployment.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_custom_model_deployment)
         """
 
     def get_evaluation_job(
@@ -617,6 +656,16 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_use_case_for_model_access.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_use_case_for_model_access)
+        """
+
+    def list_custom_model_deployments(
+        self, **kwargs: Unpack[ListCustomModelDeploymentsRequestTypeDef]
+    ) -> ListCustomModelDeploymentsResponseTypeDef:
+        """
+        Lists custom model deployments in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_custom_model_deployments.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#list_custom_model_deployments)
         """
 
     def list_custom_models(
@@ -877,6 +926,17 @@ class BedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_provisioned_model_throughput.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#update_provisioned_model_throughput)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_custom_model_deployments"]
+    ) -> ListCustomModelDeploymentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

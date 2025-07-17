@@ -393,7 +393,7 @@ class RAGPattern:
 
         self.deployment_function: RAGPatternFunction | None = None
 
-        self._allow_store = self.vector_store is None or (
+        self._allow_store = self.vector_store is None or bool(
             (self.vector_store._datasource_type != "chroma")
             or self._input_data_references is not None
             or service_code

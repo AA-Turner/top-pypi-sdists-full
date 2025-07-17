@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-storage-file-share
-Version: 12.21.0
+Version: 12.22.0
 Summary: Microsoft Azure Azure File Share Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-share
 Author: Microsoft Corporation
@@ -422,6 +422,18 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 
 # Release History
+
+## 12.22.0 (2025-07-16)
+
+### Features Added
+- Stable release of features from 12.22.0b1
+
+## 12.22.0b1 (2025-05-06)
+
+### Features Added
+- Added support for service version 2025-07-05.
+- Added new `create_symbolic_link` and `get_symbolic_link` APIs to `ShareFileClient` to 
+create/get symbolic links to specified files and is only supported for the `NFS` protocol.
 
 ## 12.21.0 (2025-03-11)
 

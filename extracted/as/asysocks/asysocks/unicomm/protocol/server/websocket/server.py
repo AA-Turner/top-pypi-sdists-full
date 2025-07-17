@@ -147,7 +147,7 @@ class WebSocketClientHandler:
             if 'sec-websocket-key' not in headers:
                 raise Exception('Client tried to connect but was missing a key')
 
-            key = headers['sec-websocket-key']        
+            key = headers['sec-websocket-key']
             response = WebSocketClientHandler.make_handshake_response(key)
             await self.connection.write(response.encode())
         except Exception as e:
@@ -189,7 +189,7 @@ class WebSocketClientHandler:
                 yield opcode, bytes(message_bytes)
         
         except Exception as e:
-            traceback.print_exc()
+            #traceback.print_exc()
             yield None, None
 
     async def send_pong(self, data):

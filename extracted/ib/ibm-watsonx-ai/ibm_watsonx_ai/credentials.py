@@ -113,6 +113,7 @@ class Credentials:
         api_key: str | None = None,
         name: str | None = None,
         iam_serviceid_crn: str | None = None,
+        trusted_profile_id: str | None = None,
         token: str | None = None,
         projects_token: str | None = None,
         username: str | None = None,
@@ -130,6 +131,7 @@ class Credentials:
         self.api_key = api_key
         self.name = name
         self.iam_serviceid_crn = iam_serviceid_crn
+        self.trusted_profile_id = trusted_profile_id
         self.token = token
         self.projects_token = projects_token
         self.username = username
@@ -241,6 +243,7 @@ class Credentials:
             api_key=credentials.get("apikey", credentials.get("api_key")),
             name=credentials.get("name"),
             iam_serviceid_crn=credentials.get("iam_serviceid_crn"),
+            trusted_profile_id=credentials.get("trusted_profile_id"),
             token=credentials.get("token"),
             projects_token=credentials.get("projects_token"),
             username=credentials.get("username"),

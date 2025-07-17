@@ -1,5 +1,5 @@
 """
-Contains the main entrypoint for the RunPod Serverless Worker.
+Contains the main entrypoint for the Runpod Serverless Worker.
 
 Arguments can be passed in when the worker is started, and will be passed to the worker.
 """
@@ -16,6 +16,13 @@ from ..version import __version__ as runpod_version
 from . import worker
 from .modules import rp_fastapi
 from .modules.rp_logger import RunPodLogger
+from .modules.rp_progress import progress_update
+
+__all__ = [
+    "start",
+    "progress_update", 
+    "runpod_version"
+]
 
 log = RunPodLogger()
 

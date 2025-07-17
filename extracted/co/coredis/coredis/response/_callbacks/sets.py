@@ -8,7 +8,6 @@ from coredis.typing import (
     Iterable,
     ResponsePrimitive,
     ResponseType,
-    ValueT,
 )
 
 
@@ -16,7 +15,8 @@ class SScanCallback(
     ResponseCallback[list[ResponseType], list[ResponseType], tuple[int, set[AnyStr]]]
 ):
     def transform(
-        self, response: list[ResponseType], **options: ValueT | None
+        self,
+        response: list[ResponseType],
     ) -> tuple[int, set[AnyStr]]:
         cursor, r = response
         assert isinstance(cursor, (bytes, str)) and isinstance(r, Iterable)
@@ -33,9 +33,8 @@ class ItemOrSetCallback(
     def transform(
         self,
         response: AnyStr | list[ResponsePrimitive] | set[ResponsePrimitive],
-        **options: ValueT | None,
     ) -> AnyStr | set[AnyStr]:
-        if options.get("count"):
+        if self.options.get("count"):
             if isinstance(response, set):
                 return cast(set[AnyStr], response)
             if isinstance(response, list):

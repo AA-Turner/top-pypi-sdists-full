@@ -37,6 +37,7 @@ from .literals import (
     OpenSearchResourceStatusTypeType,
     OrderByType,
     OutputFormatType,
+    PolicyScopeType,
     PolicyTypeType,
     QueryLanguageType,
     QueryStatusType,
@@ -532,6 +533,8 @@ class DeleteQueryDefinitionRequestTypeDef(TypedDict):
 
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
     policyName: NotRequired[str]
+    resourceArn: NotRequired[str]
+    expectedRevisionId: NotRequired[str]
 
 class DeleteRetentionPolicyRequestTypeDef(TypedDict):
     logGroupName: str
@@ -708,11 +711,16 @@ class QueryDefinitionTypeDef(TypedDict):
 class DescribeResourcePoliciesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
+    resourceArn: NotRequired[str]
+    policyScope: NotRequired[PolicyScopeType]
 
 class ResourcePolicyTypeDef(TypedDict):
     policyName: NotRequired[str]
     policyDocument: NotRequired[str]
     lastUpdatedTime: NotRequired[int]
+    policyScope: NotRequired[PolicyScopeType]
+    resourceArn: NotRequired[str]
+    revisionId: NotRequired[str]
 
 class DescribeSubscriptionFiltersRequestTypeDef(TypedDict):
     logGroupName: str
@@ -1061,6 +1069,8 @@ class PutQueryDefinitionRequestTypeDef(TypedDict):
 class PutResourcePolicyRequestTypeDef(TypedDict):
     policyName: NotRequired[str]
     policyDocument: NotRequired[str]
+    resourceArn: NotRequired[str]
+    expectedRevisionId: NotRequired[str]
 
 class PutRetentionPolicyRequestTypeDef(TypedDict):
     logGroupName: str
@@ -1340,8 +1350,9 @@ class DeliveryDestinationTypeDef(TypedDict):
 
 class PutDeliveryDestinationRequestTypeDef(TypedDict):
     name: str
-    deliveryDestinationConfiguration: DeliveryDestinationConfigurationTypeDef
     outputFormat: NotRequired[OutputFormatType]
+    deliveryDestinationConfiguration: NotRequired[DeliveryDestinationConfigurationTypeDef]
+    deliveryDestinationType: NotRequired[DeliveryDestinationTypeType]
     tags: NotRequired[Mapping[str, str]]
 
 class DescribeDeliverySourcesResponseTypeDef(TypedDict):
@@ -1413,6 +1424,8 @@ class DescribeQueriesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeResourcePoliciesRequestPaginateTypeDef(TypedDict):
+    resourceArn: NotRequired[str]
+    policyScope: NotRequired[PolicyScopeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSubscriptionFiltersRequestPaginateTypeDef(TypedDict):
@@ -1495,6 +1508,7 @@ class DescribeResourcePoliciesResponseTypeDef(TypedDict):
 
 class PutResourcePolicyResponseTypeDef(TypedDict):
     resourcePolicy: ResourcePolicyTypeDef
+    revisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeSubscriptionFiltersResponseTypeDef(TypedDict):

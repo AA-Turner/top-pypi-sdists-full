@@ -33,6 +33,7 @@ from .gcp_resources.enable_required_apis import enable_required_apis
 from .gcp_resources.gateway import setup_https_gateway
 from .gcp_resources.create_subdomain import ensure_static_ip
 from .gcp_resources.vpc import ensure_vpc_and_peering, ensure_gateway_health_check_firewall_rule
+from .gcp_resources.gitea import setup_gitea_secrets, create_gitea_internal_secret, create_gitea_values_secret, synchronize_gitea_api_token
 
 
 
@@ -200,7 +201,11 @@ def setup_command() -> None:
     create_kubernetes_cluster(cfg, status)
     setup_artifact_registry(cfg, status)
     setup_gcs_bucket(cfg, status)
+    setup_gitea_secrets(cfg, status)
+    create_gitea_internal_secret(cfg, status)
+    create_gitea_values_secret(cfg, status)
     transfer_and_deploy(cfg, status)
+    synchronize_gitea_api_token(cfg, status)
     create_database(cfg, status)
     execute_sql_job(cfg, status)
     ensure_static_ip(cfg, status)

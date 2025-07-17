@@ -170,14 +170,14 @@ async def check_token_for_gemini(api_key):
 
 
 @retrying()
-async def check_token_for_ppinfra(api_key, threshold: float = 1):
+async def check_token_for_ppinfra(api_key, threshold: float = 1): # 1块钱 10000
     if not isinstance(api_key, str):
         return await check_tokens(api_key, partial(check_token_for_ppinfra, threshold=threshold))
     try:
         client = AsyncOpenAI(base_url="https://api.ppinfra.com/v3/user", api_key=api_key)
         data = await client.get("", cast_to=object)
         logger.debug(data)  # credit_balance
-        return data["credit_balance"] > threshold
+        return data["credit_balance"] >= threshold
     except TimeoutException as e:
         raise
 
@@ -370,6 +370,6 @@ if __name__ == '__main__':
 
     # arun(check_token_for_fal("56d8a95e-2fe6-44a6-8f7d-f7f9c83eec24:537f06b6044770071f5d86fc7fcd6d6f"))
 
-    arun(check_token_for_ppinfra("sk_IeM4wjPIsgQFpfGqIOdMpHNF28qGLu1wxvh_vy3DiWM", threshold=1))
+    arun(check_token_for_ppinfra("sk_ib2EjSVnXfB5hSlVuckpejRNXLIU3MaD1wxvXnsvdxQ", threshold=18000))
 
     # arun(check_token_for_gitee("NWVXUPI38OQVXZGOEL3D23I9YUQWZPV23GVVBW1X"))

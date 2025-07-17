@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiida-core
-Version: 2.7.0
+Version: 2.7.1
 Summary: AiiDA is a workflow manager for computational science with a strong focus on provenance, performance and extensibility.
 Keywords: aiida,workflows
 Author-email: The AiiDA team <developers@aiida.net>

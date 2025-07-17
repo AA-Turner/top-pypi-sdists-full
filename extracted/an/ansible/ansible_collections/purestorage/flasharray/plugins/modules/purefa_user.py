@@ -156,7 +156,7 @@ from ansible_collections.purestorage.flasharray.plugins.module_utils.common impo
 def get_user(module, array):
     """Return Local User Account or None"""
     user = None
-    res = array.get_admins(names=[module.params["name"]], expose_public_key=True)
+    res = array.get_admins(names=[module.params["name"]])
     if res.status_code != 200:
         return None
     else:

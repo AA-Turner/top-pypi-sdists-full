@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker_studio
-Version: 1.0.18
+Version: 1.0.19
 Summary: Python library to interact with Amazon SageMaker Unified Studio
 Home-page: https://aws.amazon.com/sagemaker/
 Author: Amazon Web Services

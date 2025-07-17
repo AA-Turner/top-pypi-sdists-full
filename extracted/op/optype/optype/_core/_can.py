@@ -2,7 +2,7 @@
 import sys
 import types
 from collections.abc import Generator
-from typing import Protocol, Self, SupportsIndex, TypeAlias, overload
+from typing import Never, Protocol, Self, SupportsIndex, TypeAlias, overload
 
 if sys.version_info >= (3, 13):
     from typing import ParamSpec, TypeVar, override, runtime_checkable
@@ -19,7 +19,11 @@ __all__ = [
     "CanAbs",
     "CanAbsSelf",
     "CanAdd",
+    "CanAddSame",
+    "CanAddSelf",
     "CanAnd",
+    "CanAndSame",
+    "CanAndSelf",
     "CanAsyncWith",
     "CanAsyncWithSelf",
     "CanAwait",
@@ -42,6 +46,8 @@ __all__ = [
     "CanFloat",
     "CanFloor",
     "CanFloordiv",
+    "CanFloordivSame",
+    "CanFloordivSelf",
     "CanFormat",
     "CanGe",
     "CanGet",
@@ -87,35 +93,60 @@ __all__ = [
     "CanLen",
     "CanLengthHint",
     "CanLshift",
+    "CanLshiftSame",
+    "CanLshiftSelf",
     "CanLt",
     "CanMatmul",
+    "CanMatmulSame",
+    "CanMatmulSelf",
     "CanMissing",
     "CanMod",
+    "CanModSame",
+    "CanModSelf",
     "CanMul",
+    "CanMulSame",
+    "CanMulSelf",
     "CanNe",
     "CanNeg",
     "CanNegSelf",
     "CanNext",
     "CanOr",
+    "CanOrSame",
+    "CanOrSelf",
     "CanPos",
     "CanPosSelf",
     "CanPow",
     "CanPow2",
     "CanPow3",
+    "CanPowSame",
+    "CanPowSelf",
     "CanRAdd",
+    "CanRAddSelf",
     "CanRAnd",
+    "CanRAndSelf",
     "CanRDivmod",
     "CanRFloordiv",
+    "CanRFloordivSelf",
     "CanRLshift",
+    "CanRLshiftSelf",
     "CanRMatmul",
+    "CanRMatmulSelf",
     "CanRMod",
+    "CanRModSelf",
     "CanRMul",
+    "CanRMulSelf",
     "CanROr",
+    "CanROrSelf",
     "CanRPow",
+    "CanRPowSelf",
     "CanRRshift",
+    "CanRRshiftSelf",
     "CanRSub",
+    "CanRSubSelf",
     "CanRTruediv",
+    "CanRTruedivSelf",
     "CanRXor",
+    "CanRXorSelf",
     "CanReleaseBuffer",
     "CanRepr",
     "CanReversed",
@@ -123,6 +154,8 @@ __all__ = [
     "CanRound1",
     "CanRound2",
     "CanRshift",
+    "CanRshiftSame",
+    "CanRshiftSelf",
     "CanSequence",
     "CanSet",
     "CanSetName",
@@ -130,11 +163,17 @@ __all__ = [
     "CanSetitem",
     "CanStr",
     "CanSub",
+    "CanSubSame",
+    "CanSubSelf",
     "CanTruediv",
+    "CanTruedivSame",
+    "CanTruedivSelf",
     "CanTrunc",
     "CanWith",
     "CanWithSelf",
     "CanXor",
+    "CanXorSame",
+    "CanXorSelf",
 ]
 
 
@@ -151,6 +190,7 @@ _Tss = ParamSpec("_Tss", default=...)
 _T = TypeVar("_T")
 _T_contra = TypeVar("_T_contra", contravariant=True)
 _T_co = TypeVar("_T_co", covariant=True)
+_TT_co = TypeVar("_TT_co", covariant=True, default=_T_contra)
 
 _K_contra = TypeVar("_K_contra", contravariant=True)
 _V_contra = TypeVar("_V_contra", contravariant=True)
@@ -165,15 +205,14 @@ _StrT_contra = TypeVar("_StrT_contra", bound=str, default=str, contravariant=Tru
 _StrT_co = TypeVar("_StrT_co", bound=str, default=str, covariant=True)
 _ExcT = TypeVar("_ExcT", bound=BaseException)
 
-_AnyT_contra = TypeVar("_AnyT_contra", contravariant=True, default=object)
-_AnyT_co = TypeVar("_AnyT_co", covariant=True, default=object)
-_ObjectT_contra = TypeVar("_ObjectT_contra", contravariant=True, default=object)
-# can be anything, but defaults to `bool`
-_AnyBoolT_co = TypeVar("_AnyBoolT_co", default=bool, covariant=True)
-_AnyIntT_contra = TypeVar("_AnyIntT_contra", default=int, contravariant=True)
-_AnyIntT_co = TypeVar("_AnyIntT_co", default=int, covariant=True)
-_AnyFloatT_co = TypeVar("_AnyFloatT_co", default=float, covariant=True)
-_AnyNoneT_co = TypeVar("_AnyNoneT_co", default=None, covariant=True)
+_T_object_contra = TypeVar("_T_object_contra", contravariant=True, default=object)
+_T_object_co = TypeVar("_T_object_co", covariant=True, default=object)
+_T_bool_co = TypeVar("_T_bool_co", default=bool, covariant=True)
+_T_int_contra = TypeVar("_T_int_contra", default=int, contravariant=True)
+_T_int_co = TypeVar("_T_int_co", default=int, covariant=True)
+_T_float_co = TypeVar("_T_float_co", default=float, covariant=True)
+_T_None_co = TypeVar("_T_None_co", default=None, covariant=True)
+_T_Never_contra = TypeVar("_T_Never_contra", default=Never, contravariant=True)
 
 # we can't use `CanIndex` here, because of a recent regression in pyright 1.1.392
 _IndexT_contra = TypeVar(
@@ -337,7 +376,7 @@ class CanAIterSelf(CanAIter["CanAIterSelf[_V_co]"], CanANext[_V_co], Protocol[_V
 
 
 @runtime_checkable
-class CanEq(Protocol[_ObjectT_contra, _AnyBoolT_co]):  # noqa: PLW1641
+class CanEq(Protocol[_T_object_contra, _T_bool_co]):  # noqa: PLW1641
     """
     Unfortunately, `typeshed` (incorrectly) annotates `object.__eq__` as
     `(Self, object) -> bool`.
@@ -353,70 +392,72 @@ class CanEq(Protocol[_ObjectT_contra, _AnyBoolT_co]):  # noqa: PLW1641
     """
 
     @override
-    def __eq__(self, rhs: _ObjectT_contra, /) -> _AnyBoolT_co: ...  # pyright:ignore[reportIncompatibleMethodOverride]
+    def __eq__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # pyright:ignore[reportIncompatibleMethodOverride]
 
 
 @runtime_checkable
-class CanNe(Protocol[_ObjectT_contra, _AnyBoolT_co]):
+class CanNe(Protocol[_T_object_contra, _T_bool_co]):
     """
     Just like `__eq__`, the `__ne__` method is incorrectly annotated in
     typeshed. Refer to `CanEq` for why this is.
     """
 
     @override
-    def __ne__(self, rhs: _ObjectT_contra, /) -> _AnyBoolT_co: ...  # pyright:ignore[reportIncompatibleMethodOverride]
+    def __ne__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # pyright:ignore[reportIncompatibleMethodOverride]
 
 
 @runtime_checkable
-class CanLt(Protocol[_AnyT_contra, _AnyBoolT_co]):
-    def __lt__(self, rhs: _AnyT_contra, /) -> _AnyBoolT_co: ...
+class CanLt(Protocol[_T_object_contra, _T_bool_co]):
+    def __lt__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
 
 
 @runtime_checkable
-class CanLe(Protocol[_AnyT_contra, _AnyBoolT_co]):
-    def __le__(self, rhs: _AnyT_contra, /) -> _AnyBoolT_co: ...
+class CanLe(Protocol[_T_object_contra, _T_bool_co]):
+    def __le__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
 
 
 @runtime_checkable
-class CanGt(Protocol[_AnyT_contra, _AnyBoolT_co]):
-    def __gt__(self, rhs: _AnyT_contra, /) -> _AnyBoolT_co: ...
+class CanGt(Protocol[_T_object_contra, _T_bool_co]):
+    def __gt__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
 
 
 @runtime_checkable
-class CanGe(Protocol[_AnyT_contra, _AnyBoolT_co]):
-    def __ge__(self, rhs: _AnyT_contra, /) -> _AnyBoolT_co: ...
+class CanGe(Protocol[_T_object_contra, _T_bool_co]):
+    def __ge__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...
 
 
 # Callables
 
 
 @runtime_checkable
-class CanCall(Protocol[_Tss, _AnyT_co]):
-    def __call__(self, /, *args: _Tss.args, **kwargs: _Tss.kwargs) -> _AnyT_co: ...
+class CanCall(Protocol[_Tss, _T_object_co]):
+    def __call__(self, /, *args: _Tss.args, **kwargs: _Tss.kwargs) -> _T_object_co: ...
 
 
 # Dynamic attribute access
 
 
 @runtime_checkable
-class CanGetattr(Protocol[_StrT_contra, _AnyT_co]):
-    def __getattr__(self, name: _StrT_contra, /) -> _AnyT_co: ...  # type: ignore[misc]
+class CanGetattr(Protocol[_StrT_contra, _T_object_co]):
+    def __getattr__(self, name: _StrT_contra, /) -> _T_object_co: ...  # type: ignore[misc]
 
 
 @runtime_checkable
-class CanGetattribute(Protocol[_StrT_contra, _AnyT_co]):
+class CanGetattribute(Protocol[_StrT_contra, _T_object_co]):
     """Note that `isinstance(x, CanGetattribute)` is always `True`."""
 
     @override
-    def __getattribute__(self, name: _StrT_contra, /) -> _AnyT_co: ...  # type: ignore[misc]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __getattribute__(self, name: _StrT_contra, /) -> _T_object_co: ...  # type: ignore[misc]  # pyright: ignore[reportIncompatibleMethodOverride]
 
 
 @runtime_checkable
-class CanSetattr(Protocol[_StrT_contra, _AnyT_contra]):
+class CanSetattr(Protocol[_StrT_contra, _T_object_contra]):
     """Note that `isinstance(x, CanSetattr)` is always true."""
 
     @override
-    def __setattr__(self, name: _StrT_contra, value: _AnyT_contra, /) -> _Ignored: ...  # type: ignore[misc]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __setattr__(  # type: ignore[misc]  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, name: _StrT_contra, value: _T_object_contra, /
+    ) -> _Ignored: ...
 
 
 @runtime_checkable
@@ -448,6 +489,16 @@ class CanGet(Protocol[_T_contra, _V_co, _VV_co]):
     def __get__(self, obj: _T_contra, cls: type | None = ..., /) -> _V_co: ...
     @overload
     def __get__(self, obj: None, cls: type[_T_contra], /) -> _VV_co: ...
+
+
+@runtime_checkable
+class CanGetSelf(Protocol[_T_contra, _V_co]):
+    """CanGetSelf[-T, +V] = CanGet[T, V, Self]"""
+
+    @overload
+    def __get__(self, obj: _T_contra, cls: type | None = ..., /) -> _V_co: ...
+    @overload
+    def __get__(self, obj: None, cls: type[_T_contra], /) -> Self: ...
 
 
 @runtime_checkable
@@ -501,10 +552,10 @@ class CanReversed(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanContains(Protocol[_ObjectT_contra, _BoolT_co]):
+class CanContains(Protocol[_T_object_contra, _BoolT_co]):
     # usually the key is required to also be a hashable object, but this
     # isn't strictly required
-    def __contains__(self, key: _ObjectT_contra, /) -> _BoolT_co: ...
+    def __contains__(self, key: _T_object_contra, /) -> _BoolT_co: ...
 
 
 @runtime_checkable
@@ -535,42 +586,164 @@ class CanSequence(
     """
 
 
+###
 # Arithmetic operands
 
-
-@runtime_checkable
-class CanAdd(Protocol[_T_contra, _T_co]):
-    def __add__(self, rhs: _T_contra, /) -> _T_co: ...
+# __add__
 
 
 @runtime_checkable
-class CanSub(Protocol[_T_contra, _T_co]):
-    def __sub__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanAdd(Protocol[_T_contra, _TT_co]):
+    def __add__(self, rhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanMul(Protocol[_T_contra, _T_co]):
-    def __mul__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanAddSelf(Protocol[_T_contra]):
+    """CanAddSelf[-T] = CanAdd[T, Self]"""
+
+    def __add__(self, rhs: _T_contra, /) -> Self: ...
 
 
 @runtime_checkable
-class CanMatmul(Protocol[_T_contra, _T_co]):
-    def __matmul__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanAddSame(Protocol[_T_Never_contra]):
+    """CanAddSame[-T = Never] = CanAdd[Self | T, Self]"""
+
+    def __add__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __sub__
 
 
 @runtime_checkable
-class CanTruediv(Protocol[_T_contra, _T_co]):
-    def __truediv__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanSub(Protocol[_T_contra, _TT_co]):
+    def __sub__(self, rhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanFloordiv(Protocol[_T_contra, _T_co]):
-    def __floordiv__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanSubSelf(Protocol[_T_contra]):
+    """CanSubSelf[-T] = CanSub[T, Self]"""
+
+    def __sub__(self, rhs: _T_contra, /) -> Self: ...
 
 
 @runtime_checkable
-class CanMod(Protocol[_T_contra, _T_co]):
-    def __mod__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanSubSame(Protocol[_T_Never_contra]):
+    """CanSubSame[-T = Never] = CanSub[Self | T, Self]"""
+
+    def __sub__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __mul__
+
+
+@runtime_checkable
+class CanMul(Protocol[_T_contra, _TT_co]):
+    def __mul__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanMulSelf(Protocol[_T_contra]):
+    """CanMulSelf[-T] = CanMul[T, Self]"""
+
+    def __mul__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanMulSame(Protocol[_T_Never_contra]):
+    """CanMulSame[-T = Never] = CanMul[Self | T, Self]"""
+
+    def __mul__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __matmul__
+
+
+@runtime_checkable
+class CanMatmul(Protocol[_T_contra, _TT_co]):
+    def __matmul__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanMatmulSelf(Protocol[_T_contra]):
+    """CanMatmul[-T, Self]"""
+
+    def __matmul__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanMatmulSame(Protocol[_T_Never_contra]):
+    """CanMatmulSame[-T = Never] = CanMatmul[Self | T, Self]"""
+
+    def __matmul__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __truediv__
+
+
+@runtime_checkable
+class CanTruediv(Protocol[_T_contra, _TT_co]):
+    def __truediv__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanTruedivSelf(Protocol[_T_contra]):
+    """CanTruedivSelf[-T] = CanTruediv[T, Self]"""
+
+    def __truediv__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanTruedivSame(Protocol[_T_Never_contra]):
+    """CanTruedivSame[-T = Never] = CanTruediv[Self | T, Self]"""
+
+    def __truediv__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __floordiv__
+
+
+@runtime_checkable
+class CanFloordiv(Protocol[_T_contra, _TT_co]):
+    def __floordiv__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanFloordivSelf(Protocol[_T_contra]):
+    """CanFloordivSelf[-T] = CanFloordiv[T, Self]"""
+
+    def __floordiv__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanFloordivSame(Protocol[_T_Never_contra]):
+    """CanFloordivSame[-T = Never] = CanFloordiv[Self | T, Self]"""
+
+    def __floordiv__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __mod__
+
+
+@runtime_checkable
+class CanMod(Protocol[_T_contra, _TT_co]):
+    def __mod__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanModSelf(Protocol[_T_contra]):
+    """CanModSelf[-T] = CanMod[T, Self]"""
+
+    def __mod__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanModSame(Protocol[_T_Never_contra]):
+    """CanModSame[-T = Never] = CanMod[Self | T, Self]"""
+
+    def __mod__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __divmod__
 
 
 @runtime_checkable
@@ -578,134 +751,367 @@ class CanDivmod(Protocol[_T_contra, _T_co]):
     def __divmod__(self, rhs: _T_contra, /) -> _T_co: ...
 
 
-@runtime_checkable
-class CanPow2(Protocol[_T_contra, _T_co]):
-    @overload
-    def __pow__(self, exp: _T_contra, /) -> _T_co: ...
-    @overload
-    def __pow__(self, exp: _T_contra, mod: None = ..., /) -> _T_co: ...
+# __pow__
 
 
 @runtime_checkable
-class CanPow3(Protocol[_T_contra, _V_contra, _AnyIntT_co]):
-    def __pow__(self, exp: _T_contra, mod: _V_contra, /) -> _AnyIntT_co: ...
+class CanPow2(Protocol[_T_contra, _TT_co]):
+    def __pow__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanPow3(Protocol[_T_contra, _V_contra, _T_int_co]):
+    def __pow__(self, exp: _T_contra, mod: _V_contra, /) -> _T_int_co: ...
 
 
 @runtime_checkable
 class CanPow(
-    CanPow2[_T_contra, _T_co],
-    CanPow3[_T_contra, _V_contra, _AnyIntT_co],
-    Protocol[_T_contra, _V_contra, _T_co, _AnyIntT_co],
+    CanPow2[_T_contra, _TT_co],
+    CanPow3[_T_contra, _V_contra, _T_int_co],
+    Protocol[_T_contra, _V_contra, _TT_co, _T_int_co],
 ):
     @overload
     @override
-    def __pow__(self, exp: _T_contra, /) -> _T_co: ...
+    def __pow__(self, exp: _T_contra, /) -> _TT_co: ...
     @overload
-    def __pow__(self, exp: _T_contra, mod: None = ..., /) -> _T_co: ...
-    @overload
-    def __pow__(self, exp: _T_contra, mod: _V_contra, /) -> _AnyIntT_co: ...
+    def __pow__(self, exp: _T_contra, mod: _V_contra, /) -> _T_int_co: ...
 
 
 @runtime_checkable
-class CanLshift(Protocol[_T_contra, _T_co]):
-    def __lshift__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanPowSelf(Protocol[_T_contra]):
+    """CanPowSelf[-T] = CanPow2[T, Self]"""
+
+    def __pow__(self, rhs: _T_contra, /) -> Self: ...
 
 
 @runtime_checkable
-class CanRshift(Protocol[_T_contra, _T_co]):
-    def __rshift__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanPowSame(Protocol[_T_Never_contra]):
+    """CanPowSame[-T = Never] = CanPow2[Self | T, Self]"""
+
+    def __pow__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __lshift__
 
 
 @runtime_checkable
-class CanAnd(Protocol[_T_contra, _T_co]):
-    def __and__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanLshift(Protocol[_T_contra, _TT_co]):
+    def __lshift__(self, rhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanXor(Protocol[_T_contra, _T_co]):
-    def __xor__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanLshiftSelf(Protocol[_T_contra]):
+    """CanLshiftSelf[-T] = CanLshift[T, Self]"""
+
+    def __lshift__(self, rhs: _T_contra, /) -> Self: ...
 
 
 @runtime_checkable
-class CanOr(Protocol[_T_contra, _T_co]):
-    def __or__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanLshiftSame(Protocol[_T_Never_contra]):
+    """CanLshiftSame[-T = Never] = CanLshift[Self | T, Self]"""
+
+    def __lshift__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
 
 
+# __rshift__
+
+
+@runtime_checkable
+class CanRshift(Protocol[_T_contra, _TT_co]):
+    def __rshift__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRshiftSelf(Protocol[_T_contra]):
+    """CanRshiftSelf[-T] = CanRshift[T, Self]"""
+
+    def __rshift__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanRshiftSame(Protocol[_T_Never_contra]):
+    """CanRshiftSame[-T = Never] = CanRshift[Self | T, Self]"""
+
+    def __rshift__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __and__
+
+
+@runtime_checkable
+class CanAnd(Protocol[_T_contra, _TT_co]):
+    def __and__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanAndSelf(Protocol[_T_contra]):
+    """CanAndSelf[-T] = CanAnd[T, Self]"""
+
+    def __and__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanAndSame(Protocol[_T_Never_contra]):
+    """CanAndSame[-T = Never] = CanAnd[Self | T, Self]"""
+
+    def __and__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __xor__
+
+
+@runtime_checkable
+class CanXor(Protocol[_T_contra, _TT_co]):
+    def __xor__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanXorSelf(Protocol[_T_contra]):
+    """CanXorSelf[-T] = CanXor[T, Self]"""
+
+    def __xor__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanXorSame(Protocol[_T_Never_contra]):
+    """CanXorSame[-T = Never] = CanXor[Self | T, Self]"""
+
+    def __xor__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+# __or__
+
+
+@runtime_checkable
+class CanOr(Protocol[_T_contra, _TT_co]):
+    def __or__(self, rhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanOrSelf(Protocol[_T_contra]):
+    """CanOrSelf[-T] = CanOr[T, Self]"""
+
+    def __or__(self, rhs: _T_contra, /) -> Self: ...
+
+
+@runtime_checkable
+class CanOrSame(Protocol[_T_Never_contra]):
+    """CanOrSame[-T = Never] = CanOr[Self | T, Self]"""
+
+    def __or__(self, rhs: Self | _T_Never_contra, /) -> Self: ...
+
+
+###
 # Reflected arithmetic operands
 
-
-@runtime_checkable
-class CanRAdd(Protocol[_T_contra, _T_co]):
-    def __radd__(self, rhs: _T_contra, /) -> _T_co: ...
+# __radd__
 
 
 @runtime_checkable
-class CanRSub(Protocol[_T_contra, _T_co]):
-    def __rsub__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRAdd(Protocol[_T_contra, _TT_co]):
+    def __radd__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanRMul(Protocol[_T_contra, _T_co]):
-    def __rmul__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRAddSelf(Protocol[_T_contra]):
+    """CanRAddSelf[-T] = CanRAdd[T, Self]"""
+
+    def __radd__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rsub__
 
 
 @runtime_checkable
-class CanRMatmul(Protocol[_T_contra, _T_co]):
-    def __rmatmul__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRSub(Protocol[_T_contra, _TT_co]):
+    def __rsub__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanRTruediv(Protocol[_T_contra, _T_co]):
-    def __rtruediv__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRSubSelf(Protocol[_T_contra]):
+    """CanRSubSelf[-T] = CanRSub[T, Self]"""
+
+    def __rsub__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rmul__
 
 
 @runtime_checkable
-class CanRFloordiv(Protocol[_T_contra, _T_co]):
-    def __rfloordiv__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRMul(Protocol[_T_contra, _TT_co]):
+    def __rmul__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanRMod(Protocol[_T_contra, _T_co]):
-    def __rmod__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRMulSelf(Protocol[_T_contra]):
+    """CanRMulSelf[-T] = CanRMul[T, Self]"""
+
+    def __rmul__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rmatmul__
+
+
+@runtime_checkable
+class CanRMatmul(Protocol[_T_contra, _TT_co]):
+    def __rmatmul__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRMatmulSelf(Protocol[_T_contra]):
+    """CanRMatmulSelf[-T] = CanRMatmul[T, Self]"""
+
+    def __rmatmul__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rtruediv__
+
+
+@runtime_checkable
+class CanRTruediv(Protocol[_T_contra, _TT_co]):
+    def __rtruediv__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRTruedivSelf(Protocol[_T_contra]):
+    """CanRTruedivSelf[-T] = CanRTruediv[T, Self]"""
+
+    def __rtruediv__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rfloordiv__
+
+
+@runtime_checkable
+class CanRFloordiv(Protocol[_T_contra, _TT_co]):
+    def __rfloordiv__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRFloordivSelf(Protocol[_T_contra]):
+    """CanRFloordivSelf[-T] = CanRFloordiv[T, Self]"""
+
+    def __rfloordiv__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rmod__
+
+
+@runtime_checkable
+class CanRMod(Protocol[_T_contra, _TT_co]):
+    def __rmod__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRModSelf(Protocol[_T_contra]):
+    """CanRModSelf[-T] = CanRMod[T, Self]"""
+
+    def __rmod__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rdivmod__
 
 
 @runtime_checkable
 class CanRDivmod(Protocol[_T_contra, _T_co]):
     # can return anything, but is almost always a 2-tuple
-    def __rdivmod__(self, rhs: _T_contra, /) -> _T_co: ...
+    def __rdivmod__(self, lhs: _T_contra, /) -> _T_co: ...
+
+
+# __rpow__
 
 
 @runtime_checkable
-class CanRPow(Protocol[_T_contra, _T_co]):
-    def __rpow__(self, x: _T_contra, /) -> _T_co: ...
+class CanRPow(Protocol[_T_contra, _TT_co]):
+    def __rpow__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanRLshift(Protocol[_T_contra, _T_co]):
-    def __rlshift__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRPowSelf(Protocol[_T_contra]):
+    """CanRPowSelf[-T] = CanRPow[T, Self]"""
+
+    def __rpow__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rlshift__
 
 
 @runtime_checkable
-class CanRRshift(Protocol[_T_contra, _T_co]):
-    def __rrshift__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRLshift(Protocol[_T_contra, _TT_co]):
+    def __rlshift__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanRAnd(Protocol[_T_contra, _T_co]):
-    def __rand__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRLshiftSelf(Protocol[_T_contra]):
+    """CanRLshiftSelf[-T] = CanRLshift[T, Self]"""
+
+    def __rlshift__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rrshift__
 
 
 @runtime_checkable
-class CanRXor(Protocol[_T_contra, _T_co]):
-    def __rxor__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRRshift(Protocol[_T_contra, _TT_co]):
+    def __rrshift__(self, lhs: _T_contra, /) -> _TT_co: ...
 
 
 @runtime_checkable
-class CanROr(Protocol[_T_contra, _T_co]):
-    def __ror__(self, rhs: _T_contra, /) -> _T_co: ...
+class CanRRshiftSelf(Protocol[_T_contra]):
+    """CanRRshiftSelf[-T] = CanRRshift[T, Self]"""
+
+    def __rrshift__(self, lhs: _T_contra, /) -> Self: ...
 
 
+# __rand__
+
+
+@runtime_checkable
+class CanRAnd(Protocol[_T_contra, _TT_co]):
+    def __rand__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRAndSelf(Protocol[_T_contra]):
+    """CanRAndSelf[-T] = CanRAnd[T, Self]"""
+
+    def __rand__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __rxor__
+
+
+@runtime_checkable
+class CanRXor(Protocol[_T_contra, _TT_co]):
+    def __rxor__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanRXorSelf(Protocol[_T_contra]):
+    """CanRXorSelf[-T] = CanRXor[T, Self]"""
+
+    def __rxor__(self, lhs: _T_contra, /) -> Self: ...
+
+
+# __ror__
+
+
+@runtime_checkable
+class CanROr(Protocol[_T_contra, _TT_co]):
+    def __ror__(self, lhs: _T_contra, /) -> _TT_co: ...
+
+
+@runtime_checkable
+class CanROrSelf(Protocol[_T_contra]):
+    """CanROrSelf[-T] = CanROr[T, Self]"""
+
+    def __ror__(self, lhs: _T_contra, /) -> Self: ...
+
+
+###
 # Augmented arithmetic operands
+
+# __iadd__
 
 
 @runtime_checkable
@@ -714,9 +1120,13 @@ class CanIAdd(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIAddSelf(CanIAdd[_T_contra, "CanIAddSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIAddSelf(Protocol[_T_contra]):
+    """CanIAddSelf[-T] = CanIAdd[T, Self]"""
+
     def __iadd__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __isub__
 
 
 @runtime_checkable
@@ -725,9 +1135,13 @@ class CanISub(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanISubSelf(CanISub[_T_contra, "CanISubSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanISubSelf(Protocol[_T_contra]):
+    """CanISubSelf[-T] = CanISub[T, Self]"""
+
     def __isub__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __imul__
 
 
 @runtime_checkable
@@ -736,9 +1150,13 @@ class CanIMul(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIMulSelf(CanIMul[_T_contra, "CanIMulSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIMulSelf(Protocol[_T_contra]):
+    """CanIMulSelf[-T] = CanIMul[T, Self]"""
+
     def __imul__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __imatmul__
 
 
 @runtime_checkable
@@ -747,12 +1165,13 @@ class CanIMatmul(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIMatmulSelf(
-    CanIMatmul[_T_contra, "CanIMatmulSelf[_T_contra]"],
-    Protocol[_T_contra],
-):
-    @override
+class CanIMatmulSelf(Protocol[_T_contra]):
+    """CanIMatmulSelf[-T] = CanIMatmul[T, Self]"""
+
     def __imatmul__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __itruediv__
 
 
 @runtime_checkable
@@ -761,12 +1180,13 @@ class CanITruediv(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanITruedivSelf(
-    CanITruediv[_T_contra, "CanITruedivSelf[_T_contra]"],
-    Protocol[_T_contra],
-):
-    @override
+class CanITruedivSelf(Protocol[_T_contra]):
+    """CanITruedivSelf[-T] = CanITruediv[T, Self]"""
+
     def __itruediv__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __ifloordiv__
 
 
 @runtime_checkable
@@ -775,12 +1195,13 @@ class CanIFloordiv(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIFloordivSelf(
-    CanIFloordiv[_T_contra, "CanIFloordivSelf[_T_contra]"],
-    Protocol[_T_contra],
-):
-    @override
+class CanIFloordivSelf(Protocol[_T_contra]):
+    """CanIFloordivSelf[-T] = CanIFloordiv[T, Self]"""
+
     def __ifloordiv__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __imod__
 
 
 @runtime_checkable
@@ -789,9 +1210,13 @@ class CanIMod(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIModSelf(CanIMod[_T_contra, "CanIModSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIModSelf(Protocol[_T_contra]):
+    """CanIModSelf[-T] = CanIMod[T, Self]"""
+
     def __imod__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __ipow__
 
 
 @runtime_checkable
@@ -801,9 +1226,13 @@ class CanIPow(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIPowSelf(CanIPow[_T_contra, "CanIPowSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIPowSelf(Protocol[_T_contra]):
+    """CanIPowSelf[-T] = CanIPow[T, Self]"""
+
     def __ipow__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __ilshift__
 
 
 @runtime_checkable
@@ -812,12 +1241,13 @@ class CanILshift(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanILshiftSelf(
-    CanILshift[_T_contra, "CanILshiftSelf[_T_contra]"],
-    Protocol[_T_contra],
-):
-    @override
+class CanILshiftSelf(Protocol[_T_contra]):
+    """CanILshiftSelf[-T] = CanILshift[T, Self]"""
+
     def __ilshift__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __irshift__
 
 
 @runtime_checkable
@@ -826,12 +1256,13 @@ class CanIRshift(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIRshiftSelf(
-    CanIRshift[_T_contra, "CanIRshiftSelf[_T_contra]"],
-    Protocol[_T_contra],
-):
-    @override
+class CanIRshiftSelf(Protocol[_T_contra]):
+    """CanIRshiftSelf[-T] = CanIRshift[T, Self]"""
+
     def __irshift__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __iand__
 
 
 @runtime_checkable
@@ -840,9 +1271,13 @@ class CanIAnd(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIAndSelf(CanIAnd[_T_contra, "CanIAndSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIAndSelf(Protocol[_T_contra]):
+    """CanIAndSelf[-T] = CanIAnd[T, Self]"""
+
     def __iand__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __ixor__
 
 
 @runtime_checkable
@@ -851,9 +1286,13 @@ class CanIXor(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIXorSelf(CanIXor[_T_contra, "CanIXorSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIXorSelf(Protocol[_T_contra]):
+    """CanIXorSelf[-T] = CanIXor[T, Self]"""
+
     def __ixor__(self, rhs: _T_contra, /) -> Self: ...
+
+
+# __ior__
 
 
 @runtime_checkable
@@ -862,12 +1301,16 @@ class CanIOr(Protocol[_T_contra, _T_co]):
 
 
 @runtime_checkable
-class CanIOrSelf(CanIOr[_T_contra, "CanIOrSelf[_T_contra]"], Protocol[_T_contra]):
-    @override
+class CanIOrSelf(Protocol[_T_contra]):
+    """CanIOrSelf[-T] = CanIOr[T, Self]"""
+
     def __ior__(self, rhs: _T_contra, /) -> Self: ...
 
 
+###
 # Unary arithmetic ops
+
+# __neg__
 
 
 @runtime_checkable
@@ -876,9 +1319,13 @@ class CanNeg(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanNegSelf(CanNeg["CanNegSelf"], Protocol):
-    @override
+class CanNegSelf(Protocol):
+    """CanNegSelf = CanNeg[Self]"""
+
     def __neg__(self, /) -> Self: ...
+
+
+# __pos__
 
 
 @runtime_checkable
@@ -887,9 +1334,13 @@ class CanPos(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanPosSelf(CanPos["CanPosSelf"], Protocol):
-    @override
+class CanPosSelf(Protocol):
+    """CanPosSelf = CanPos[Self]"""
+
     def __pos__(self, /) -> Self: ...
+
+
+# __abs__
 
 
 @runtime_checkable
@@ -898,9 +1349,13 @@ class CanAbs(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanAbsSelf(CanAbs["CanAbsSelf"], Protocol):
-    @override
+class CanAbsSelf(Protocol):
+    """CanAbsSelf = CanAbs[Self]"""
+
     def __abs__(self, /) -> Self: ...
+
+
+# __invert__
 
 
 @runtime_checkable
@@ -909,55 +1364,52 @@ class CanInvert(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanInvertSelf(CanInvert["CanInvertSelf"], Protocol):
-    @override
+class CanInvertSelf(Protocol):
+    """CanInvertSelf = CanInvert[Self]"""
+
     def __invert__(self, /) -> Self: ...
 
 
+###
 # Rounding
 
 
 @runtime_checkable
-class CanRound1(Protocol[_AnyIntT_co]):
-    @overload
-    def __round__(self, /) -> _AnyIntT_co: ...
-    @overload
-    def __round__(self, /, ndigits: None = ...) -> _AnyIntT_co: ...
+class CanRound1(Protocol[_T_int_co]):
+    def __round__(self, /) -> _T_int_co: ...
 
 
 @runtime_checkable
-class CanRound2(Protocol[_AnyIntT_contra, _AnyFloatT_co]):
-    def __round__(self, /, ndigits: _AnyIntT_contra) -> _AnyFloatT_co: ...
+class CanRound2(Protocol[_T_int_contra, _T_float_co]):
+    def __round__(self, /, ndigits: _T_int_contra) -> _T_float_co: ...
 
 
 @runtime_checkable
 class CanRound(
-    CanRound1[_AnyIntT_co],
-    CanRound2[_AnyIntT_contra, _AnyFloatT_co],
-    Protocol[_AnyIntT_contra, _AnyIntT_co, _AnyFloatT_co],
+    CanRound1[_T_int_co],
+    CanRound2[_T_int_contra, _T_float_co],
+    Protocol[_T_int_contra, _T_int_co, _T_float_co],
 ):
     @overload
     @override
-    def __round__(self, /) -> _AnyIntT_co: ...
+    def __round__(self, /) -> _T_int_co: ...
     @overload
-    def __round__(self, /, ndigits: None = ...) -> _AnyIntT_co: ...
-    @overload
-    def __round__(self, /, ndigits: _AnyIntT_contra) -> _AnyFloatT_co: ...
+    def __round__(self, /, ndigits: _T_int_contra) -> _T_float_co: ...
 
 
 @runtime_checkable
-class CanTrunc(Protocol[_AnyIntT_co]):
-    def __trunc__(self, /) -> _AnyIntT_co: ...
+class CanTrunc(Protocol[_T_int_co]):
+    def __trunc__(self, /) -> _T_int_co: ...
 
 
 @runtime_checkable
-class CanFloor(Protocol[_AnyIntT_co]):
-    def __floor__(self, /) -> _AnyIntT_co: ...
+class CanFloor(Protocol[_T_int_co]):
+    def __floor__(self, /) -> _T_int_co: ...
 
 
 @runtime_checkable
-class CanCeil(Protocol[_AnyIntT_co]):
-    def __ceil__(self, /) -> _AnyIntT_co: ...
+class CanCeil(Protocol[_T_int_co]):
+    def __ceil__(self, /) -> _T_int_co: ...
 
 
 # Awaitables
@@ -965,13 +1417,15 @@ class CanCeil(Protocol[_AnyIntT_co]):
 
 @runtime_checkable
 class CanAwait(Protocol[_T_co]):
-    # Technically speaking, this can return any
-    # `CanNext[None | asyncio.Future[object]]`. But in theory, the return value
-    # of generators are currently impossible to type, because the return value
-    # of a `yield from _` is # piggybacked using a `raise StopIteration(value)`
-    # from `__next__`. So that also makes `__await__` theoretically
-    # impossible to type. In practice, typecheckers work around that, by
-    # accepting the lie called `Generator`...
+    # The "return" value of a `yield from _` is attached to the `StopIteration`
+    # exception when raised in `__next__()`. However, there is currently no way to
+    # express this in Python's type system. So because `__await__()` could return any
+    # iterator of `None | asyncio.Future`, it's theoretically impossible to annotate
+    # awaitables using the Python type system.
+    # In practice, the `collections.abc.Generator` type can be used for this. But note
+    # that this type only works because type-checkers special-cased it. It's not
+    # possible to write a custom type that behaves like `Generator` in this regard.
+
     @overload
     def __await__(self: "CanAwait[_T_co]", /) -> _AsyncGen[_T_co]: ...
     @overload
@@ -987,13 +1441,14 @@ class CanEnter(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanEnterSelf(CanEnter["CanEnterSelf"], Protocol):
-    @override
-    def __enter__(self, /) -> Self: ...  # pyright: ignore[reportMissingSuperCall]
+class CanEnterSelf(Protocol):
+    """CanEnterSelf = CanEnter[Self]"""
+
+    def __enter__(self, /) -> Self: ...
 
 
 @runtime_checkable
-class CanExit(Protocol[_AnyNoneT_co]):
+class CanExit(Protocol[_T_None_co]):
     @overload
     def __exit__(self, exc_type: None, exc: None, tb: None, /) -> None: ...
     @overload
@@ -1003,19 +1458,20 @@ class CanExit(Protocol[_AnyNoneT_co]):
         exc: _ExcT,
         tb: types.TracebackType,
         /,
-    ) -> _AnyNoneT_co: ...
+    ) -> _T_None_co: ...
 
 
 @runtime_checkable
 class CanWith(
     CanEnter[_T_co],
-    CanExit[_AnyNoneT_co],
-    Protocol[_T_co, _AnyNoneT_co],
+    CanExit[_T_None_co],
+    Protocol[_T_co, _T_None_co],
 ): ...
 
 
 @runtime_checkable
-class CanWithSelf(CanEnterSelf, CanExit[_AnyNoneT_co], Protocol[_AnyNoneT_co]): ...
+class CanWithSelf(CanEnterSelf, CanExit[_T_None_co], Protocol[_T_None_co]):
+    """CanWithSelf[+R = None] = CanWith[Self, R]"""
 
 
 # Async context managers
@@ -1027,13 +1483,14 @@ class CanAEnter(Protocol[_T_co]):
 
 
 @runtime_checkable
-class CanAEnterSelf(CanAEnter["CanAEnterSelf"], Protocol):
-    @override
+class CanAEnterSelf(Protocol):
+    """CanAEnterSelf = CanAEnter[Self]"""
+
     def __aenter__(self, /) -> CanAwait[Self]: ...
 
 
 @runtime_checkable
-class CanAExit(Protocol[_AnyNoneT_co]):
+class CanAExit(Protocol[_T_None_co]):
     @overload
     def __aexit__(self, exc_type: None, exc: None, tb: None, /) -> CanAwait[None]: ...
     @overload
@@ -1043,23 +1500,20 @@ class CanAExit(Protocol[_AnyNoneT_co]):
         exc_: _ExcT,
         tb: types.TracebackType,
         /,
-    ) -> CanAwait[_AnyNoneT_co]: ...
+    ) -> CanAwait[_T_None_co]: ...
 
 
 @runtime_checkable
 class CanAsyncWith(
     CanAEnter[_T_co],
-    CanAExit[_AnyNoneT_co],
-    Protocol[_T_co, _AnyNoneT_co],
+    CanAExit[_T_None_co],
+    Protocol[_T_co, _T_None_co],
 ): ...
 
 
 @runtime_checkable
-class CanAsyncWithSelf(
-    CanAEnterSelf,
-    CanAExit[_AnyNoneT_co],
-    Protocol[_AnyNoneT_co],
-): ...
+class CanAsyncWithSelf(CanAEnterSelf, CanAExit[_T_None_co], Protocol[_T_None_co]):
+    """CanAsyncWithSelf[+R = None] = CanAsyncWith[Self, R]"""
 
 
 # Buffer protocol

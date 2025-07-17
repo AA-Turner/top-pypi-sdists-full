@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pygmars
-Version: 0.9.0
+Version: 1.0.0
 Summary: Craft simple regex-based small language lexers and parsers. Build parsers from grammars and accept Pygments lexers as an input. Derived from NLTK.
 Home-page: https://github.com/aboutcode-org/pygmars
 Author: nexB. Inc. and others
@@ -13,23 +13,28 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: apache-2.0.LICENSE
 License-File: NOTICE
 License-File: AUTHORS.rst
 License-File: CHANGELOG.rst
-Provides-Extra: testing
-Requires-Dist: pytest!=7.0.0,>=6; extra == "testing"
-Requires-Dist: pytest-xdist>=2; extra == "testing"
-Requires-Dist: aboutcode-toolkit>=6.0.0; extra == "testing"
-Requires-Dist: black; extra == "testing"
-Requires-Dist: isort; extra == "testing"
-Provides-Extra: docs
-Requires-Dist: Sphinx>=3.3.1; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=0.5.0; extra == "docs"
-Requires-Dist: doc8>=0.8.1; extra == "docs"
-Requires-Dist: sphinx_reredirects; extra == "docs"
+License-File: CODE_OF_CONDUCT.rst
+License-File: README.rst
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.1; extra == "dev"
+Requires-Dist: pytest-xdist>=2; extra == "dev"
+Requires-Dist: aboutcode-toolkit>=7.0.2; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: Sphinx>=5.0.2; extra == "dev"
+Requires-Dist: sphinx-rtd-theme>=1.0.0; extra == "dev"
+Requires-Dist: sphinx-reredirects>=0.1.2; extra == "dev"
+Requires-Dist: doc8>=0.11.2; extra == "dev"
+Requires-Dist: sphinx-autobuild; extra == "dev"
+Requires-Dist: sphinx-rtd-dark-mode>=1.3.0; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Dynamic: license-file
 
 Pygmars
 ========

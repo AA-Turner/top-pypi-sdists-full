@@ -102,10 +102,25 @@ from vtkmodules.vtkCommonComputationalGeometry import (
 )
 from vtkmodules.vtkCommonComputationalGeometry import vtkParametricTorus as vtkParametricTorus
 from vtkmodules.vtkCommonCore import VTK_ARIAL as VTK_ARIAL
+from vtkmodules.vtkCommonCore import VTK_BIT as VTK_BIT
+from vtkmodules.vtkCommonCore import VTK_CHAR as VTK_CHAR
 from vtkmodules.vtkCommonCore import VTK_COURIER as VTK_COURIER
+from vtkmodules.vtkCommonCore import VTK_DOUBLE as VTK_DOUBLE
+from vtkmodules.vtkCommonCore import VTK_FLOAT as VTK_FLOAT
 from vtkmodules.vtkCommonCore import VTK_FONT_FILE as VTK_FONT_FILE
+from vtkmodules.vtkCommonCore import VTK_ID_TYPE as VTK_ID_TYPE
+from vtkmodules.vtkCommonCore import VTK_INT as VTK_INT
+from vtkmodules.vtkCommonCore import VTK_LONG as VTK_LONG
+from vtkmodules.vtkCommonCore import VTK_LONG_LONG as VTK_LONG_LONG
+from vtkmodules.vtkCommonCore import VTK_SHORT as VTK_SHORT
+from vtkmodules.vtkCommonCore import VTK_SIGNED_CHAR as VTK_SIGNED_CHAR
+from vtkmodules.vtkCommonCore import VTK_STRING as VTK_STRING
 from vtkmodules.vtkCommonCore import VTK_TIMES as VTK_TIMES
 from vtkmodules.vtkCommonCore import VTK_UNSIGNED_CHAR as VTK_UNSIGNED_CHAR
+from vtkmodules.vtkCommonCore import VTK_UNSIGNED_INT as VTK_UNSIGNED_INT
+from vtkmodules.vtkCommonCore import VTK_UNSIGNED_LONG as VTK_UNSIGNED_LONG
+from vtkmodules.vtkCommonCore import VTK_UNSIGNED_LONG_LONG as VTK_UNSIGNED_LONG_LONG
+from vtkmodules.vtkCommonCore import VTK_UNSIGNED_SHORT as VTK_UNSIGNED_SHORT
 from vtkmodules.vtkCommonCore import buffer_shared as buffer_shared  # type: ignore[attr-defined]
 from vtkmodules.vtkCommonCore import mutable as mutable
 from vtkmodules.vtkCommonCore import reference as reference
@@ -119,11 +134,15 @@ from vtkmodules.vtkCommonCore import vtkFileOutputWindow as vtkFileOutputWindow
 from vtkmodules.vtkCommonCore import vtkFloatArray as vtkFloatArray
 from vtkmodules.vtkCommonCore import vtkIdList as vtkIdList
 from vtkmodules.vtkCommonCore import vtkIdTypeArray as vtkIdTypeArray
+from vtkmodules.vtkCommonCore import vtkIntArray as vtkIntArray
 from vtkmodules.vtkCommonCore import vtkLogger as vtkLogger
+from vtkmodules.vtkCommonCore import vtkLongArray as vtkLongArray
+from vtkmodules.vtkCommonCore import vtkLongLongArray as vtkLongLongArray
 from vtkmodules.vtkCommonCore import vtkLookupTable as vtkLookupTable
 from vtkmodules.vtkCommonCore import vtkMath as vtkMath
 from vtkmodules.vtkCommonCore import vtkOutputWindow as vtkOutputWindow
 from vtkmodules.vtkCommonCore import vtkPoints as vtkPoints
+from vtkmodules.vtkCommonCore import vtkShortArray as vtkShortArray
 from vtkmodules.vtkCommonCore import vtkSignedCharArray as vtkSignedCharArray
 from vtkmodules.vtkCommonCore import vtkStringArray as vtkStringArray
 from vtkmodules.vtkCommonCore import vtkStringOutputWindow as vtkStringOutputWindow
@@ -131,6 +150,10 @@ from vtkmodules.vtkCommonCore import vtkTypeInt32Array as vtkTypeInt32Array
 from vtkmodules.vtkCommonCore import vtkTypeInt64Array as vtkTypeInt64Array
 from vtkmodules.vtkCommonCore import vtkTypeUInt32Array as vtkTypeUInt32Array
 from vtkmodules.vtkCommonCore import vtkUnsignedCharArray as vtkUnsignedCharArray
+from vtkmodules.vtkCommonCore import vtkUnsignedIntArray as vtkUnsignedIntArray
+from vtkmodules.vtkCommonCore import vtkUnsignedLongArray as vtkUnsignedLongArray
+from vtkmodules.vtkCommonCore import vtkUnsignedLongLongArray as vtkUnsignedLongLongArray
+from vtkmodules.vtkCommonCore import vtkUnsignedShortArray as vtkUnsignedShortArray
 from vtkmodules.vtkCommonCore import vtkWeakReference as vtkWeakReference
 from vtkmodules.vtkCommonDataModel import VTK_BEZIER_CURVE as VTK_BEZIER_CURVE
 from vtkmodules.vtkCommonDataModel import VTK_BEZIER_HEXAHEDRON as VTK_BEZIER_HEXAHEDRON
@@ -621,7 +644,8 @@ class vtkPyVistaOverride:
 class DisableVtkSnakeCase:
     """Base class to raise error if using VTK's `snake_case` API."""
 
-    def __getattribute__(self, attr):
+    @staticmethod
+    def check_attribute(target, attr):
         # Check sys.meta_path to avoid dynamic imports when Python is shutting down
         if vtk_version_info >= (9, 4) and sys.meta_path is not None:
             # Raise error if accessing attributes from VTK's pythonic snake_case API
@@ -633,14 +657,17 @@ class DisableVtkSnakeCase:
                 if (
                     attr not in ['__class__', '__init__']
                     and attr[0].islower()
-                    and is_vtk_attribute(self, attr)
+                    and is_vtk_attribute(target, attr)
                 ):
                     msg = f'The attribute {attr!r} is defined by VTK and is not part of the PyVista API'
                     if state == 'error':
                         raise pv.PyVistaAttributeError(msg)
                     else:
                         warnings.warn(msg, RuntimeWarning)
-        return super().__getattribute__(attr)
+
+    def __getattribute__(self, item):
+        DisableVtkSnakeCase.check_attribute(self, item)
+        return object.__getattribute__(self, item)
 
 
 def is_vtk_attribute(obj: object, attr: str):  # numpydoc ignore=RT01

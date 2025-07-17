@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: documenteer
-Version: 2.0.0
+Version: 2.1.0
 Summary: Rubin Observatory / LSST Sphinx documentation tools, extensions, and configurations.
 License-Expression: MIT
 Project-URL: Homepage, https://documenteer.lsst.io
@@ -57,6 +57,7 @@ Requires-Dist: sphinxcontrib-jquery; extra == "guide"
 Requires-Dist: sphinxext-rediraffe; extra == "guide"
 Requires-Dist: sphinxcontrib-youtube; extra == "guide"
 Requires-Dist: sphinx-favicon; extra == "guide"
+Requires-Dist: sphinx-sitemap; extra == "guide"
 Provides-Extra: technote
 Requires-Dist: technote<0.10.0,>=0.9.0; extra == "technote"
 Requires-Dist: sphinx-prompt; extra == "technote"
@@ -65,6 +66,7 @@ Requires-Dist: sphinx-diagrams; extra == "technote"
 Requires-Dist: sphinx_design; extra == "technote"
 Requires-Dist: myst-nb; extra == "technote"
 Requires-Dist: sphinxcontrib-youtube; extra == "technote"
+Requires-Dist: sphinx-sitemap; extra == "technote"
 Dynamic: license-file
 
 [![Documentation](https://img.shields.io/badge/documenteer-lsst.io-brightgreen.svg)](https://documenteer.lsst.io)

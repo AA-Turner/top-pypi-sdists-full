@@ -124,7 +124,6 @@ class LLM:
         max_batch_size: Optional[int] = None,
         cluster: Optional[str] = None,
         enable_addons: Optional[bool] = None,
-        live_merge: Optional[bool] = None,
         draft_token_count: Optional[int] = None,
         draft_model: Optional[str] = None,
         ngram_speculation_length: Optional[int] = None,
@@ -243,7 +242,6 @@ class LLM:
         self._max_batch_size = max_batch_size
         self._cluster = cluster
         self._enable_addons = enable_addons
-        self._live_merge = live_merge
         self._draft_token_count = draft_token_count
         self._draft_model = draft_model
         self._ngram_speculation_length = ngram_speculation_length
@@ -480,7 +478,6 @@ class LLM:
             "max_batch_size": self._max_batch_size,
             "cluster": self._cluster,
             "enable_addons": self._enable_addons,
-            "live_merge": self._live_merge,
             "draft_token_count": self._draft_token_count,
             "draft_model": self._draft_model,
             "ngram_speculation_length": self._ngram_speculation_length,
@@ -1043,8 +1040,6 @@ class LLM:
                     deployment_proto.cluster = self._cluster
                 if self._enable_addons is not None:
                     deployment_proto.enable_addons = self._enable_addons
-                if self._live_merge is not None:
-                    deployment_proto.live_merge = self._live_merge
                 if self._draft_token_count is not None:
                     deployment_proto.draft_token_count = self._draft_token_count
                 if self._draft_model is not None:
@@ -1135,7 +1130,6 @@ class LLM:
                     ("max_batch_size", self._max_batch_size),
                     ("cluster", self._cluster),
                     ("enable_addons", self._enable_addons),
-                    ("live_merge", self._live_merge),
                     ("draft_token_count", self._draft_token_count),
                     ("draft_model", self._draft_model),
                     ("ngram_speculation_length", self._ngram_speculation_length),
@@ -1395,8 +1389,6 @@ class LLM:
             attrs.append(f"perf_metrics_in_response={self._perf_metrics_in_response}")
         if self._enable_addons is not None:
             attrs.append(f"enable_addons={self._enable_addons}")
-        if self._live_merge is not None:
-            attrs.append(f"live_merge={self._live_merge}")
         return f"LLM({', '.join(attrs)})"
 
     def create_reinforcement_fine_tuning_job(
@@ -1445,13 +1437,11 @@ class LLM:
         )
         evaluator.sync()
         training_config = SyncBaseTrainingConfig(
-            base_model=self.model,
             output_model=(
                 output_model
                 if output_model is not None
                 else generate_model_resource_name(self._gateway.account_id(), id)
             ),
-            warm_start_from=warm_start_from,
             jinja_template=jinja_template,
             learning_rate=learning_rate,
             max_context_length=max_context_length,
@@ -1464,6 +1454,10 @@ class LLM:
             batch_size=batch_size,
             is_intermediate=is_intermediate if is_intermediate is not None else False,
         )
+        if self.is_peft_addon():
+            training_config.warm_start_from = self.model
+        else:
+            training_config.base_model = self.model
         wandb_config = SyncWandbConfig(
             enabled=wandb_enabled if wandb_enabled is not None else False,
             api_key=wandb_api_key,
@@ -1558,6 +1552,7 @@ class LLM:
         if not is_valid_resource_name(display_name):
             raise ValueError("job name must only contain lowercase a-z, 0-9, and hyphen (-)")
 
+        dataset = dataset_or_id.name if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id).name
         proto = SyncSupervisedFineTuningJob(
             display_name=display_name,
             epochs=epochs,
@@ -1566,6 +1561,7 @@ class LLM:
             jinja_template=jinja_template,
             max_context_length=max_context_length,
             base_model_weight_precision=base_model_weight_precision,
+            dataset=dataset,
             evaluation_dataset=evaluation_dataset,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
@@ -1574,6 +1570,10 @@ class LLM:
             batch_size=batch_size,
             output_model=output_model,
         )
+        if self.is_peft_addon():
+            proto.warm_start_from = self.model
+        else:
+            proto.base_model = self.model
         if early_stop is not None:
             proto.early_stop = early_stop
         if wandb_config is not None:

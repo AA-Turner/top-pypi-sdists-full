@@ -15,6 +15,7 @@
 # pylint: disable=protected-access,bad-continuation,missing-function-docstring
 
 from tests.unit.vertexai.genai.replays import pytest_helper
+from vertexai._genai import types
 
 
 def test_delete_memory(client):
@@ -26,6 +27,7 @@ def test_delete_memory(client):
     )
     memory = operation.response
     operation = client.agent_engines.delete_memory(name=memory.name)
+    assert isinstance(operation, types.DeleteAgentEngineMemoryOperation)
     assert operation.name.startswith(memory.name + "/operations/")
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: accelerate
-Version: 1.8.1
+Version: 1.9.0
 Summary: Accelerate
 Home-page: https://github.com/huggingface/accelerate
 Author: The HuggingFace team
@@ -80,6 +80,7 @@ Requires-Dist: dvclive; extra == "test-trackers"
 Requires-Dist: mlflow; extra == "test-trackers"
 Requires-Dist: matplotlib; extra == "test-trackers"
 Requires-Dist: swanlab; extra == "test-trackers"
+Requires-Dist: trackio; extra == "test-trackers"
 Provides-Extra: dev
 Requires-Dist: black~=23.1; extra == "dev"
 Requires-Dist: hf-doc-builder>=0.3.0; extra == "dev"

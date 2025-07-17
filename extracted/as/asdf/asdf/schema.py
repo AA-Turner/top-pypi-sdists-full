@@ -333,6 +333,9 @@ def _load_schema(url):
 
 
 def _make_schema_loader(resolver):
+    if resolver is None:
+        resolver = _default_resolver
+
     def load_schema(url):
         # Check if this is a URI provided by the new
         # Mapping API:
@@ -397,6 +400,8 @@ def load_schema(url, resolver=None, resolve_references=False):
         The path to the schema
 
     resolver : callable, optional
+        DEPRECATED arbitrary mapping of uris is no longer supported
+        Please register all required resources with the resource manager.
         A callback function used to map URIs to other URIs.  The
         callable must take a string and return a string or `None`.
         This is useful, for example, when a remote resource has a
@@ -406,6 +411,8 @@ def load_schema(url, resolver=None, resolve_references=False):
         If ``True``, resolve all ``$ref`` references.
 
     """
+    if resolver is not None:
+        warnings.warn("resolver is deprecated, arbitrary mapping of uris is no longer supported", DeprecationWarning)
     # We want to cache the work that went into constructing the schema, but returning
     # the same object is treacherous, because users who mutate the result will not
     # expect that they're changing the schema everywhere.
@@ -426,6 +433,8 @@ def _safe_resolve(resolver, json_id, uri):
     generic_io.resolve_uri, but not with the resolver object, otherwise we risk
     mangling URIs that share a prefix with a resolver mapping.
     """
+    if resolver is None:
+        resolver = _default_resolver
     # We can't use urllib.parse here because tag: URIs don't
     # parse correctly.
     parts = uri.split("#")
@@ -452,8 +461,6 @@ def _safe_resolve(resolver, json_id, uri):
 
 @lru_cache
 def _load_schema_cached(url, resolver, resolve_references):
-    if resolver is None:
-        resolver = _default_resolver
     loader = _make_schema_loader(resolver)
     schema, url = loader(url)
 
@@ -511,6 +518,7 @@ def get_validator(
         of the built-in ones and ones provided by extension types).
 
     url_mapping : callable, optional
+        DEPRECATED
         A callable that takes one string argument and returns a string
         to convert remote URLs into local ones.
 
@@ -525,6 +533,9 @@ def get_validator(
     -------
     validator : jsonschema.Validator
     """
+    if url_mapping is not None:
+        warnings.warn("url_mapping is deprecated, arbitrary mapping of uris is no longer supported", DeprecationWarning)
+
     if ctx is None:
         from ._asdf import AsdfFile
 
@@ -617,7 +628,8 @@ def validate(instance, ctx=None, schema=None, validators=None, reading=False, *a
 
     schema : schema, optional
         Explicit schema to use.  If not provided, the schema to use
-        is determined by the tag on instance (or subinstance).
+        is determined by the tag on instance (or subinstance) and
+        any custom schema provided to ``ctx``.
 
     validators : dict, optional
         A dictionary mapping properties to validators to use (instead
@@ -633,6 +645,8 @@ def validate(instance, ctx=None, schema=None, validators=None, reading=False, *a
 
         ctx = AsdfFile()
 
+    if schema is None and ctx._custom_schema:
+        schema = ctx._custom_schema
     validator = get_validator({} if schema is None else schema, ctx, validators, None, *args, **kwargs)
     validator.validate(instance)
 

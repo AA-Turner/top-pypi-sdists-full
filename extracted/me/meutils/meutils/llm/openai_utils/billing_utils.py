@@ -101,7 +101,7 @@ async def billing_for_tokens(
     usage = usage or {}
     n = n and int(np.round(n))
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, timeout=30)
     if n:
         _ = await client.images.generate(
             model=model,
@@ -237,7 +237,8 @@ if __name__ == '__main__':
     usage = {
         "prompt_tokens": 1000, "completion_tokens": 100,  # "total_tokens": 2000,
     }
-    arun(billing_for_tokens(model="tokens", usage=usage, id='xx'))
+    arun(billing_for_tokens(model="tokens", usage=usage, task_id='xx'))
+    arun(billing_for_tokens(model="fal", usage=usage, task_id='xx'))
 
     # arun(create_usage_for_async_task(task_id="task_id", n=1))
 

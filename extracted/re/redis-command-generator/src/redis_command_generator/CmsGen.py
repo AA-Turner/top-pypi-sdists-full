@@ -17,8 +17,6 @@ class CmsGen(BaseGen):
     max_items_per_command: int = 10
     max_increment: int = 100
 
-    def __post_init__(self):
-        self.values = [self._rand_str(self.subval_size) for _ in range(100)]
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=True)
     def cms_initbydim(self, pipe: redis.client.Pipeline, key: str) -> None:
@@ -41,7 +39,8 @@ class CmsGen(BaseGen):
         args = ["CMS.INCRBY", key]
         num_items = random.randint(1, self.max_items_per_command)
         for _ in range(num_items):
-            item = random.choice(self.values)
+            item = self._rand_str(self.subval_size)
+            self._put_rand_value(key, item)
             increment = random.randint(1, self.max_increment)
             args.extend([item, str(increment)])
         
@@ -52,7 +51,7 @@ class CmsGen(BaseGen):
         # Classification: lookup
         
         # Query multiple items
-        items = [random.choice(self.values) for _ in range(random.randint(1, self.max_items_per_command))]
+        items = [self._get_rand_value(key) or self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_items_per_command))]
         pipe.execute_command("CMS.QUERY", key, *items)
 
     @cg_method(cmd_type=KEY_TYPE, can_create_key=False)

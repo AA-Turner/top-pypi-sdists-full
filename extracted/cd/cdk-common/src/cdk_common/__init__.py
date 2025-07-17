@@ -5584,6 +5584,10 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSBATCH_SERVICE_ROLE_POLICY_FOR_SAGE_MAKER = "AWSBATCH_SERVICE_ROLE_POLICY_FOR_SAGE_MAKER"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

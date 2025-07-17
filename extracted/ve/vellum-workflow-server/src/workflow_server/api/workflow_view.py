@@ -14,7 +14,7 @@ import traceback
 from uuid import uuid4
 from typing import Any, Dict, Generator, Iterator, Optional, Union, cast
 
-from flask import Blueprint, Response, current_app as app, request, stream_with_context
+from flask import Blueprint, Response, current_app as app, has_request_context, request, stream_with_context
 from pydantic import ValidationError
 from vellum_ee.workflows.display.nodes.get_node_display_class import get_node_display_class
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
@@ -463,6 +463,11 @@ def get_workflow_request_context(data: dict) -> WorkflowExecutorContext:
         "request_start_time": time.time_ns(),
     }
 
+    if has_request_context():
+        api_version_header = request.headers.get("x-api-version")
+        if api_version_header:
+            context_data["api_version"] = api_version_header
+
     return WorkflowExecutorContext.model_validate(context_data)
 
 
@@ -472,6 +477,11 @@ def get_node_request_context(data: dict) -> NodeExecutorContext:
         "inputs": convert_json_inputs_to_vellum(data["inputs"]),
         "request_start_time": time.time_ns(),
     }
+
+    if has_request_context():
+        api_version_header = request.headers.get("x-api-version")
+        if api_version_header:
+            context_data["api_version"] = api_version_header
 
     return NodeExecutorContext.model_validate(context_data)
 

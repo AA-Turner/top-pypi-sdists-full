@@ -4021,14 +4021,25 @@ async def nf_devolucao_liquidar_cupom(
         )
         n_titulo = panel_TTab_Sheet.child_window(
             class_name="TDBIEditString", found_index=8
-        )
+        ).click()
+        
+        await worker_sleep(1)
+        
         n_titulo.set_edit_text(num_nota_fiscal)
+        
         await worker_sleep(2)
+        
+        pyautogui.press("tab")
+        
         console.print("Numero da nota fiscal inserido com sucesso...\n")
-
+        
+        main_window.set_focus()
+        
+        await worker_sleep(2)
+        
         try:
             pesquisar_icon = pyautogui.locateOnScreen(
-                ASSETS_PATH + "\\emsys\\icon_pesquisa_nota_saida.png", confidence=0.8
+                "assets\\emsys\\icon_pesquisa_nota_saida.png", confidence=0.8
             )
             pyautogui.click(pesquisar_icon)
             await worker_sleep(5)
@@ -4092,6 +4103,8 @@ async def nf_devolucao_liquidar_cupom(
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
             )
 
+        await worker_sleep(2)
+        
         console.print("Acessando a opção de Caixa")
         panel_TPage = main_window.child_window(class_name="TcxTreeView")
         panel_TTabSheet = panel_TPage.child_window(class_name="TcxCustomInnerTreeView")
@@ -4134,7 +4147,11 @@ async def nf_devolucao_liquidar_cupom(
         )
         db_edit_code.set_edit_text("13")
         await worker_sleep(1)
+        db_edit_code.click()
+        await worker_sleep(1)
         pyautogui.press("tab")
+        await worker_sleep(1)
+        
 
         # Clicar no botão Liquidar dentro de TabSheetLiquidacao
         liquidar_button = panel_liquidacao.child_window(
@@ -4865,7 +4882,6 @@ async def pessoas_ativa_cliente_fornecedor(
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         ), ""
-
 
 
 async def save_pdf_emsys(file_path):

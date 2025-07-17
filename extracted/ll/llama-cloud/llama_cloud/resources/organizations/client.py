@@ -298,13 +298,13 @@ class OrganizationsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_organization_usage(
-        self, organization_id: typing.Optional[str], *, get_current_invoice_total: typing.Optional[bool] = None
+        self, organization_id: str, *, get_current_invoice_total: typing.Optional[bool] = None
     ) -> UsageAndPlan:
         """
         Get usage for a specific organization.
 
         Parameters:
-            - organization_id: typing.Optional[str].
+            - organization_id: str.
 
             - get_current_invoice_total: typing.Optional[bool].
         ---
@@ -313,7 +313,9 @@ class OrganizationsClient:
         client = LlamaCloud(
             token="YOUR_TOKEN",
         )
-        client.organizations.get_organization_usage()
+        client.organizations.get_organization_usage(
+            organization_id="string",
+        )
         """
         _response = self._client_wrapper.httpx_client.request(
             "GET",
@@ -1004,13 +1006,13 @@ class AsyncOrganizationsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_organization_usage(
-        self, organization_id: typing.Optional[str], *, get_current_invoice_total: typing.Optional[bool] = None
+        self, organization_id: str, *, get_current_invoice_total: typing.Optional[bool] = None
     ) -> UsageAndPlan:
         """
         Get usage for a specific organization.
 
         Parameters:
-            - organization_id: typing.Optional[str].
+            - organization_id: str.
 
             - get_current_invoice_total: typing.Optional[bool].
         ---
@@ -1019,7 +1021,9 @@ class AsyncOrganizationsClient:
         client = AsyncLlamaCloud(
             token="YOUR_TOKEN",
         )
-        await client.organizations.get_organization_usage()
+        await client.organizations.get_organization_usage(
+            organization_id="string",
+        )
         """
         _response = await self._client_wrapper.httpx_client.request(
             "GET",

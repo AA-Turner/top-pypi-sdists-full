@@ -65,7 +65,25 @@
     assert:
       that:
         - add_policy is not changed
- 
+
+  - name: Update a policy
+    rabbitmq_policy:
+      name: "{{ ha_policy_name }}"
+      apply_to: queues
+      pattern: ".*"
+      tags:
+        message-ttl: 1000
+        expires: 1000
+        max-length: 1000
+      vhost: "{{ vhost_name }}"
+    register: update_policy
+
+  - name: Check that the policy is updated
+    assert:
+      that:
+        - update_policy is changed
+        - update_policy is success
+
   - name: Remove the HA policy
     rabbitmq_policy:
       name: "{{ ha_policy_name }}"
@@ -90,3 +108,9 @@
     assert:
       that:
         - remove_policy is not changed
+
+  always:
+    - name: Remove host
+      rabbitmq_vhost:
+        name: "{{ vhost_name }}"
+        state: absent

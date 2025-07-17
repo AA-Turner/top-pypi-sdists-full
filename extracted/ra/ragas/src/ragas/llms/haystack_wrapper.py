@@ -38,12 +38,14 @@ class HaystackLLMWrapper(BaseRagasLLM):
         # Lazy Import of required Haystack components
         try:
             from haystack import AsyncPipeline
-            from haystack.components.generators import (
-                AzureOpenAIGenerator,
+            from haystack.components.generators.azure import AzureOpenAIGenerator
+            from haystack.components.generators.hugging_face_api import (
                 HuggingFaceAPIGenerator,
-                HuggingFaceLocalGenerator,
-                OpenAIGenerator,
             )
+            from haystack.components.generators.hugging_face_local import (
+                HuggingFaceLocalGenerator,
+            )
+            from haystack.components.generators.openai import OpenAIGenerator
         except ImportError as exc:
             raise ImportError(
                 "Haystack is not installed. Please install it using `pip install haystack-ai`."
@@ -116,12 +118,14 @@ class HaystackLLMWrapper(BaseRagasLLM):
 
     def __repr__(self) -> str:
         try:
-            from haystack.components.generators import (
-                AzureOpenAIGenerator,
+            from haystack.components.generators.azure import AzureOpenAIGenerator
+            from haystack.components.generators.hugging_face_api import (
                 HuggingFaceAPIGenerator,
-                HuggingFaceLocalGenerator,
-                OpenAIGenerator,
             )
+            from haystack.components.generators.hugging_face_local import (
+                HuggingFaceLocalGenerator,
+            )
+            from haystack.components.generators.openai import OpenAIGenerator
         except ImportError:
             return f"{self.__class__.__name__}(llm=Unknown(...))"
 

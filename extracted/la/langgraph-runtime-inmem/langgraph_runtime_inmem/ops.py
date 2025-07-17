@@ -1070,7 +1070,7 @@ class Threads(Authenticated):
         conn: InMemConnectionProto,
         thread_id: UUID,
         run_id: UUID,
-    ) -> AsyncIterator[UUID]:
+    ) -> UUID:
         """Delete a thread by ID."""
         # We don't really care about "optimal" here.
         return await Threads.delete(conn, thread_id)
@@ -2081,13 +2081,12 @@ class Runs(Authenticated):
         *,
         limit: int = 10,
         offset: int = 0,
-        metadata: MetadataInput,
         status: RunStatus | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Run]:
         """List all runs by thread."""
         runs = conn.store["runs"]
-        metadata = metadata if metadata is not None else {}
+        metadata = {}
         thread_id = _ensure_uuid(thread_id)
         filters = await Runs.handle_event(
             ctx,

@@ -247,8 +247,10 @@ class AsyncOAuth(AsyncOAuthComponent):
                 "DATAROBOT_API_TOKEN must be set in the environment or passed as arguments."
             )
 
-        # OAuth Providers Service API is not under /api/v2/
-        self._datarobot_endpoint = datarobot_endpoint.rstrip("/api/v2")
+        if not datarobot_endpoint.endswith("/"):
+            datarobot_endpoint = datarobot_endpoint + "/"
+
+        self._datarobot_endpoint = datarobot_endpoint
         self._datarobot_api_token = datarobot_api_token
 
         self._oauth_provider_ids = list(oauth_provider_ids)
@@ -313,7 +315,7 @@ class AsyncOAuth(AsyncOAuthComponent):
             return []
 
         resp = await self._http_client.get(
-            urljoin(self._datarobot_endpoint, "/externalOAuth/providers/"),
+            urljoin(self._datarobot_endpoint, "externalOAuth/providers/"),
             params={
                 "ids": self._oauth_provider_ids,
             },
@@ -348,7 +350,7 @@ class AsyncOAuth(AsyncOAuthComponent):
         resp = await self._http_client.post(
             urljoin(
                 self._datarobot_endpoint,
-                f"/externalOAuth/providers/{provider_id}/authorize/",
+                f"externalOAuth/providers/{provider_id}/authorize/",
             ),
             params={
                 "redirect_uri": redirect_uri,
@@ -404,7 +406,7 @@ class AsyncOAuth(AsyncOAuthComponent):
             )
 
         resp = await self._http_client.post(
-            urljoin(self._datarobot_endpoint, "/externalOAuth/providers/callback/"),
+            urljoin(self._datarobot_endpoint, "externalOAuth/providers/callback/"),
             json={
                 "providerId": provider_id,
                 "code": params.get("code"),
@@ -459,7 +461,7 @@ class AsyncOAuth(AsyncOAuthComponent):
         resp = await self._http_client.post(
             urljoin(
                 self._datarobot_endpoint,
-                f"/externalOAuth/authorizedProviders/{identity_id}/token/",
+                f"externalOAuth/authorizedProviders/{identity_id}/token/",
             ),
         )
 
@@ -508,7 +510,7 @@ class AsyncOAuth(AsyncOAuthComponent):
         resp = await self._http_client.get(
             urljoin(
                 self._datarobot_endpoint,
-                f"/externalOAuth/authorizedProviders/{identity_id}/userinfo/",
+                f"externalOAuth/authorizedProviders/{identity_id}/userinfo/",
             ),
         )
 

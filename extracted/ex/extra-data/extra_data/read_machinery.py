@@ -15,6 +15,8 @@ from warnings import warn
 
 import numpy as np
 
+from .utils import isinstance_no_import
+
 log = logging.getLogger(__name__)
 
 DETECTOR_NAMES = {'AGIPD', 'DSSC', 'LPD'}
@@ -140,9 +142,23 @@ def select_train_ids(train_ids, sel):
         return train_ids[sel]
     elif is_int_like(sel):
         return [train_ids[operator.index(sel)]]
+    elif isinstance(sel, np.ndarray) and sel.dtype == np.bool_:
+        # Handle boolean numpy array
+        if len(sel) != len(train_ids):
+            raise ValueError(f"Boolean selector length ({len(sel)}) must match "
+                             f"train_ids length ({len(train_ids)})")
+        return [tid for tid, keep in zip(train_ids, sel) if keep]
     elif isinstance(sel, (list, np.ndarray)):
         # Select a list of trains by index in this collection
         return sorted(np.asarray(train_ids)[sel])
+    elif isinstance_no_import(sel, 'xarray', 'DataArray'):
+        if sel.dtype != bool:
+            raise TypeError(f"xarray selector must be boolean, got {sel.dtype}")
+        if 'trainId' not in sel.coords:
+            raise ValueError("xarray selector must have a 'trainId' coordinate")
+
+        xr_train_ids = sel.where(sel, drop=True).trainId.values
+        return np.intersect1d(xr_train_ids, train_ids).tolist()
     else:
         raise TypeError(type(sel))
 
@@ -196,6 +212,33 @@ class DataChunk:
     @property
     def dataset(self):
         return self.file.file[self.dataset_path]
+
+    @property
+    def source_file_paths(self):
+        paths = []
+
+        if self.dataset.is_virtual:
+            mappings = self.dataset.virtual_sources()
+            for vspace, filename, _, _ in mappings:
+                if filename in paths:
+                    continue  # Already got it
+
+                # Does the mapping overlap with this chunk of selected data?
+                # We can assume that each mapping is a simple, contiguous
+                # block, and only selection on the first dimension matters.
+                starts, ends = vspace.get_select_bounds()
+                map_start, map_stop = starts[0], ends[0]
+                ck = self.slice
+                if (map_stop > ck.start) and (map_start < ck.stop):
+                    paths.append(filename)
+
+            # Include 1 source file even if no trains are selected
+            if (not paths) and mappings:
+                paths.append(mappings[0].file_name)
+        else:
+            paths.append(self.file.filename)
+
+        return paths
 
 
 # contiguous_regions() by Joe Kington on Stackoverflow

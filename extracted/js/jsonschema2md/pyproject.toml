@@ -6,9 +6,6 @@ line-length = 110
 convention = "numpy"
 
 [tool.poetry]
-exclude = [
-    "jsonschema2md/locales",
-]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
@@ -72,11 +69,14 @@ authors = [{name = "Ralf Gabriels",email = "ralfg@hotmail.be"}, {name = "Matt Gr
 maintainers = [{name = "Stéphane Brunner",email = "stephane.brunner@gmail.com"}]
 requires-python = ">=3.9"
 dependencies = ["PyYAML<7,>=6", "markdown<4,>=3", "babel<3,>=2"]
+exclude = [
+    "jsonschema2md/locales",
+]
 include = [
     { path = "jsonschema2md/locales", format = "sdist" },
     { path = "jsonschema2md/locales/**/*.mo",  format = "wheel" },
 ]
-version = "1.6.0"
+version = "1.6.1"
 
 [project.urls]
 repository = "https://github.com/sbrunner/jsonschema2md"

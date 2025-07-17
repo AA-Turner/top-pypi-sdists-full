@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.43.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.44.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.43.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.43.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.44.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -210,6 +210,7 @@ __all__ = [
     "backup_dr_backup_plan_association",
     "backup_dr_backup_vault",
     "backup_dr_management_server",
+    "backup_dr_service_config",
     "beyondcorp_app_connection",
     "beyondcorp_app_connector",
     "beyondcorp_app_gateway",
@@ -662,6 +663,7 @@ __all__ = [
     "data_google_compute_lb_ip_ranges",
     "data_google_compute_machine_types",
     "data_google_compute_network",
+    "data_google_compute_network_attachment",
     "data_google_compute_network_endpoint_group",
     "data_google_compute_network_peering",
     "data_google_compute_networks",
@@ -734,6 +736,7 @@ __all__ = [
     "data_google_endpoints_service_consumers_iam_policy",
     "data_google_endpoints_service_iam_policy",
     "data_google_filestore_instance",
+    "data_google_firestore_document",
     "data_google_folder",
     "data_google_folder_iam_policy",
     "data_google_folder_organization_policy",
@@ -1133,6 +1136,7 @@ __all__ = [
     "gkeonprem_bare_metal_admin_cluster",
     "gkeonprem_bare_metal_cluster",
     "gkeonprem_bare_metal_node_pool",
+    "gkeonprem_vmware_admin_cluster",
     "gkeonprem_vmware_cluster",
     "gkeonprem_vmware_node_pool",
     "healthcare_consent_store",
@@ -1304,6 +1308,7 @@ __all__ = [
     "network_security_address_group_iam_member",
     "network_security_address_group_iam_policy",
     "network_security_authz_policy",
+    "network_security_backend_authentication_config",
     "network_security_client_tls_policy",
     "network_security_firewall_endpoint",
     "network_security_firewall_endpoint_association",
@@ -1654,6 +1659,7 @@ from . import backup_dr_backup_plan
 from . import backup_dr_backup_plan_association
 from . import backup_dr_backup_vault
 from . import backup_dr_management_server
+from . import backup_dr_service_config
 from . import beyondcorp_app_connection
 from . import beyondcorp_app_connector
 from . import beyondcorp_app_gateway
@@ -2106,6 +2112,7 @@ from . import data_google_compute_instant_snapshot_iam_policy
 from . import data_google_compute_lb_ip_ranges
 from . import data_google_compute_machine_types
 from . import data_google_compute_network
+from . import data_google_compute_network_attachment
 from . import data_google_compute_network_endpoint_group
 from . import data_google_compute_network_peering
 from . import data_google_compute_networks
@@ -2178,6 +2185,7 @@ from . import data_google_dns_record_set
 from . import data_google_endpoints_service_consumers_iam_policy
 from . import data_google_endpoints_service_iam_policy
 from . import data_google_filestore_instance
+from . import data_google_firestore_document
 from . import data_google_folder
 from . import data_google_folder_iam_policy
 from . import data_google_folder_organization_policy
@@ -2577,6 +2585,7 @@ from . import gke_hub_scope_rbac_role_binding
 from . import gkeonprem_bare_metal_admin_cluster
 from . import gkeonprem_bare_metal_cluster
 from . import gkeonprem_bare_metal_node_pool
+from . import gkeonprem_vmware_admin_cluster
 from . import gkeonprem_vmware_cluster
 from . import gkeonprem_vmware_node_pool
 from . import healthcare_consent_store
@@ -2748,6 +2757,7 @@ from . import network_security_address_group_iam_binding
 from . import network_security_address_group_iam_member
 from . import network_security_address_group_iam_policy
 from . import network_security_authz_policy
+from . import network_security_backend_authentication_config
 from . import network_security_client_tls_policy
 from . import network_security_firewall_endpoint
 from . import network_security_firewall_endpoint_association

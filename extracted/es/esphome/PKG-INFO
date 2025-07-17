@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome
-Version: 2025.6.3
+Version: 2025.7.0
 Summary: ESPHome is a system to configure your microcontrollers by simple yet powerful configuration files and control them remotely through Home Automation systems.
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: MIT
@@ -35,17 +35,18 @@ Requires-Dist: tzlocal==5.3.1
 Requires-Dist: tzdata>=2021.1
 Requires-Dist: pyserial==3.5
 Requires-Dist: platformio==6.1.18
-Requires-Dist: esptool==4.8.1
+Requires-Dist: esptool==4.9.0
 Requires-Dist: click==8.1.7
 Requires-Dist: esphome-dashboard==20250514.0
-Requires-Dist: aioesphomeapi==32.2.3
+Requires-Dist: aioesphomeapi==34.2.1
 Requires-Dist: zeroconf==0.147.0
-Requires-Dist: puremagic==1.29
+Requires-Dist: puremagic==1.30
 Requires-Dist: ruamel.yaml==0.18.14
 Requires-Dist: esphome-glyphsets==0.2.0
 Requires-Dist: pillow==10.4.0
 Requires-Dist: cairosvg==2.8.2
 Requires-Dist: freetype-py==2.5.1
+Requires-Dist: jinja2==3.1.6
 Requires-Dist: kconfiglib==13.7.1
 Requires-Dist: pyparsing>=3.0
 Requires-Dist: argcomplete>=2.0.0
@@ -55,14 +56,14 @@ Requires-Dist: clang-tidy==18.1.8; extra == "dev"
 Requires-Dist: yamllint==1.37.1; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pylint==3.3.7; extra == "test"
-Requires-Dist: flake8==7.2.0; extra == "test"
-Requires-Dist: ruff==0.11.13; extra == "test"
+Requires-Dist: flake8==7.3.0; extra == "test"
+Requires-Dist: ruff==0.12.2; extra == "test"
 Requires-Dist: pyupgrade==3.20.0; extra == "test"
 Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: pytest==8.4.0; extra == "test"
-Requires-Dist: pytest-cov==6.1.1; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
 Requires-Dist: pytest-mock==3.14.1; extra == "test"
-Requires-Dist: pytest-asyncio==0.26.0; extra == "test"
+Requires-Dist: pytest-asyncio==1.0.0; extra == "test"
 Requires-Dist: pytest-xdist==3.7.0; extra == "test"
 Requires-Dist: asyncmock==0.4.2; extra == "test"
 Requires-Dist: hypothesis==6.92.1; extra == "test"

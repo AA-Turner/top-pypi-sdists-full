@@ -803,7 +803,10 @@ def prepare_auto_ai_model_to_publish_notebook_normal_scenario(
     space_id: str,
     auto_pipelines_parameters=None,
 ) -> tuple[str, dict[str, Any]]:
-    """Prepares autoai model to publish in Watson Studio via COS.
+    """
+    ** The method is deprecated since 1.3.31 **
+
+    Prepares autoai model to publish in Watson Studio via COS.
     Option only for auto-gen notebooks with correct result references on COS.
 
     :param pipeline_model: model object to publish
@@ -822,6 +825,10 @@ def prepare_auto_ai_model_to_publish_notebook_normal_scenario(
     :return: path to the saved model and jsons in COS
     :rtype: tuple[str, dict[str, dict]]
     """
+
+    method_deprecation_message = "The `prepare_auto_ai_model_to_publish_notebook_normal_scenario` method is deprecated."
+    warn(method_deprecation_message, DeprecationWarning)
+
     path = result_connection.location._model_location
     model_number = pipeline_model.split("_")[-1]
     run_id = path.split("/data/")[0].split("/")[-1]
@@ -1132,7 +1139,17 @@ def init_cos_client(connection: dict) -> "resource":
             }
     # --- end note
 
-    if (
+    if {"session_token", "secret_key", "access_key", "region"} & set(connection.keys()):
+        # AWS container
+        cos_client = resource(
+            service_name="s3",
+            endpoint_url=f"https://s3.{connection['region']}.amazonaws.com",
+            aws_access_key_id=connection["access_key"],
+            aws_secret_access_key=connection["secret_key"],
+            aws_session_token=connection["session_token"],
+        )
+
+    elif (
         connection.get("auth_endpoint") is not None
         and connection.get("api_key") is not None
     ):
@@ -1798,13 +1815,26 @@ def prepare_cos_client(
     :return: list of COS clients for training data, client for results
     :rtype: tuple[list[tuple[DataConnection, resource]], tuple[DataConnection, resource]]
     """
-    from ibm_watsonx_ai.helpers import S3Connection
+    from ibm_watsonx_ai.helpers.connections.connections import (
+        S3Connection,
+        _AmazonS3Connection,
+    )
     from ibm_boto3 import resource
     from ibm_botocore.client import Config
 
-    def differentiate_between_credentials(connection: "S3Connection") -> "resource":
+    def differentiate_between_credentials(
+        connection: S3Connection | _AmazonS3Connection,
+    ) -> "resource":
         # note: we do not know which version of COS credentials user used during training
-        if hasattr(connection, "auth_endpoint") and hasattr(connection, "api_key"):
+        if isinstance(connection, _AmazonS3Connection):
+            cos_client = resource(
+                service_name="s3",
+                endpoint_url=f"https://s3.{connection.region}.amazonaws.com",
+                aws_access_key_id=connection.access_key,
+                aws_secret_access_key=connection.secret_key,
+                aws_session_token=connection.session_token,
+            )
+        elif hasattr(connection, "auth_endpoint") and hasattr(connection, "api_key"):
             cos_client = resource(
                 service_name="s3",
                 ibm_api_key_id=connection.api_key,

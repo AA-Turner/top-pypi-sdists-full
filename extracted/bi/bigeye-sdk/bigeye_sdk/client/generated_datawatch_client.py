@@ -148,12 +148,16 @@ log = get_logger(__file__)
 class GeneratedDatawatchClient(abc.ABC):
     """TODO: In future, should be generated and only contain methods generated from protobuf. :)"""
 
-    def _call_datawatch(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None):
+    def _call_datawatch(
+            self, method: Method, url, body: str = None, params: dict = None, timeout: int = None, proxies: dict = {}
+    ):
         url = url.replace('//', '/')
-        return self._call_datawatch_impl(method=method, url=url, body=body, params=params, timeout=timeout)
+        return self._call_datawatch_impl(
+            method=method, url=url, body=body, params=params, timeout=timeout, proxies=proxies
+        )
 
     @abc.abstractmethod
-    def _call_datawatch_impl(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None):
+    def _call_datawatch_impl(self, method: Method, url, body: str = None, params: dict = None, timeout: int = None, proxies: dict = {}):
         """Each implementation must override this."""
         pass
 

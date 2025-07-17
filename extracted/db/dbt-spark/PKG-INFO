@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-spark
-Version: 1.9.2
+Version: 1.9.3
 Summary: The Apache Spark adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-spark
 Project-URL: Documentation, https://docs.getdbt.com
@@ -27,11 +27,11 @@ Requires-Dist: dbt-core>=1.8.0
 Requires-Dist: sqlparams>=3.0.0
 Provides-Extra: all
 Requires-Dist: pyhive[hive-pure-sasl]~=0.7.0; extra == 'all'
-Requires-Dist: pyodbc~=5.1.0; extra == 'all'
+Requires-Dist: pyodbc<5.3,>=5.1; extra == 'all'
 Requires-Dist: pyspark<4.0.0,>=3.0.0; extra == 'all'
 Requires-Dist: thrift<0.17.0,>=0.11.0; extra == 'all'
 Provides-Extra: odbc
-Requires-Dist: pyodbc~=5.1.0; extra == 'odbc'
+Requires-Dist: pyodbc<5.3,>=5.1; extra == 'odbc'
 Provides-Extra: pyhive
 Requires-Dist: pyhive[hive-pure-sasl]~=0.7.0; extra == 'pyhive'
 Requires-Dist: thrift<0.17.0,>=0.11.0; extra == 'pyhive'

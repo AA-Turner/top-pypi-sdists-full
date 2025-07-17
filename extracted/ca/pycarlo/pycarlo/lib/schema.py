@@ -4646,6 +4646,17 @@ class State(sgqlc.types.Enum):
     __choices__ = ("APPLIED", "FAILED", "PENDING", "SKIPPED")
 
 
+class StatementOption(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `ALL_ACCOUNT_OWNERS`None
+    * `SPECIFIC_ADDRESSES`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALL_ACCOUNT_OWNERS", "SPECIFIC_ADDRESSES")
+
+
 class StorageTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -10734,6 +10745,8 @@ class Account(sgqlc.types.Type):
         "can_generate_data_collector_template",
         "entitlements_limits",
         "monitor_limits",
+        "statement_option",
+        "statement_emails",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -10747,7 +10760,7 @@ class Account(sgqlc.types.Type):
     """When the account was first created"""
 
     config = sgqlc.types.Field(JSONString, graphql_name="config")
-    """Account level configuration"""
+    """Account configuration"""
 
     allow_non_sso_login = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="allowNonSsoLogin"
@@ -11270,6 +11283,14 @@ class Account(sgqlc.types.Type):
     )
 
     monitor_limits = sgqlc.types.Field("MonitorLimits", graphql_name="monitorLimits")
+
+    statement_option = sgqlc.types.Field(StatementOption, graphql_name="statementOption")
+    """The account's preference for who should receive statement emails"""
+
+    statement_emails = sgqlc.types.Field(
+        sgqlc.types.list_of(String), graphql_name="statementEmails"
+    )
+    """List of email addresses to receive statements"""
 
 
 class AccountAuditLog(sgqlc.types.Type):
@@ -24071,6 +24092,7 @@ class Mutation(sgqlc.types.Type):
         "set_data_lake_catalog_mappings",
         "delete_integration",
         "update_workspace_identifier",
+        "update_statement_option",
         "test_snowflake_credentials_v2",
         "test_redshift_credentials_v2",
         "test_bq_credentials_v2",
@@ -38528,6 +38550,35 @@ class Mutation(sgqlc.types.Type):
     * `value` (`String!`): A new workspace identifier
     """
 
+    update_statement_option = sgqlc.types.Field(
+        "UpdateStatementOption",
+        graphql_name="updateStatementOption",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "emails",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="emails", default=None
+                    ),
+                ),
+                (
+                    "option",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(StatementOption), graphql_name="option", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update the account's statement option
+
+    Arguments:
+
+    * `emails` (`[String]`): Required when option is
+      SPECIFIC_ADDRESSES
+    * `option` (`StatementOption!`)None
+    """
+
     test_snowflake_credentials_v2 = sgqlc.types.Field(
         "TestSnowflakeCredentialsV2",
         graphql_name="testSnowflakeCredentialsV2",
@@ -41492,6 +41543,16 @@ class QPMonitorSimulationType(sgqlc.types.Type):
     """Daily count of breaching query groups over evaluation period"""
 
 
+class QueriedTable(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("table", "count")
+    table = sgqlc.types.Field(String, graphql_name="table")
+    """Full table ID of the table"""
+
+    count = sgqlc.types.Field(Int, graphql_name="count")
+    """Number of times the table was queried"""
+
+
 class Query(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -41625,6 +41686,7 @@ class Query(sgqlc.types.Type):
         "get_query_rcas",
         "get_query_dimensions",
         "get_query_text",
+        "get_queried_tables",
         "get_notification_settings",
         "get_notification_audiences",
         "get_notification_audiences_count",
@@ -45342,6 +45404,41 @@ class Query(sgqlc.types.Type):
     """Arguments:
 
     * `key` (`String!`): Query text key
+    """
+
+    get_queried_tables = sgqlc.types.Field(
+        sgqlc.types.list_of(QueriedTable),
+        graphql_name="getQueriedTables",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                (
+                    "limit",
+                    sgqlc.types.Arg(sgqlc.types.non_null(Int), graphql_name="limit", default=None),
+                ),
+                ("user", sgqlc.types.Arg(String, graphql_name="user", default=None)),
+            )
+        ),
+    )
+    """(experimental) List of tables queried by a given user
+
+    Arguments:
+
+    * `start_time` (`DateTime!`): Start of the period to consider
+    * `end_time` (`DateTime!`): End of the period to consider
+    * `limit` (`Int!`): Number of tables to return.
+    * `user` (`String`): Filter queries by user (email)
     """
 
     get_notification_settings = sgqlc.types.Field(
@@ -63266,6 +63363,13 @@ class UpdateSparkCredentialsV2Mutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("result",)
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
+
+
+class UpdateStatementOption(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the mutation succeeded."""
 
 
 class UpdateStreamingClusterNameMutation(sgqlc.types.Type):

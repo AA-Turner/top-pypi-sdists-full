@@ -2886,6 +2886,8 @@ https://docs.chalk.ai/cli/apply
         primary_keys: List[str],
         environment: Optional[EnvironmentId] = None,
         branch: Optional[Union[BranchId, ellipsis]] = ...,
+        retain_offline: bool = False,
+        retain_online: bool = False,
     ) -> FeatureObservationDeletionResponse:
         if branch is ...:
             branch = self._branch
@@ -2912,6 +2914,8 @@ https://docs.chalk.ai/cli/apply
                 features=features,
                 tags=tags,
                 primary_keys=primary_keys,
+                retain_offline=retain_offline,
+                retain_online=retain_online,
             ),
             response=FeatureObservationDeletionResponse,
             environment_override=environment,
@@ -2925,6 +2929,8 @@ https://docs.chalk.ai/cli/apply
         features: List[str],
         environment: Optional[EnvironmentId] = None,
         branch: Optional[Union[BranchId, ellipsis]] = ...,
+        retain_offline: bool = False,
+        retain_online: bool = False,
     ) -> FeatureDropResponse:
         if branch is ...:
             branch = self._branch
@@ -2944,7 +2950,9 @@ https://docs.chalk.ai/cli/apply
         return self._request(
             method="DELETE",
             uri="/v1/features/columns",
-            json=FeatureDropRequest(namespace=namespace, features=features),
+            json=FeatureDropRequest(
+                namespace=namespace, features=features, retain_offline=retain_offline, retain_online=retain_online
+            ),
             response=FeatureDropResponse,
             environment_override=environment,
             preview_deployment_id=None,

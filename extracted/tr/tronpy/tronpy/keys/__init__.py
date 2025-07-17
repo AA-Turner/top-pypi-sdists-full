@@ -1,7 +1,7 @@
 import hashlib
 import os
-from collections.abc import Hashable, Sequence
-from typing import Any, Iterator, Union
+from collections.abc import Hashable, Iterator, Sequence
+from typing import Any, Union
 
 import base58
 from coincurve import PrivateKey as CoincurvePrivateKey
@@ -11,6 +11,7 @@ from Crypto.Hash import keccak
 from tronpy.exceptions import BadAddress, BadKey, BadSignature
 
 SECPK1_N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
+TRON_MESSAGE_PREFIX = "\x19TRON Signed Message:\n"
 
 
 def coerce_low_s(value: int) -> int:
@@ -82,15 +83,14 @@ def to_base58check_address(raw_addr: Union[str, bytes]) -> str:
             try:
                 # assert checked
                 base58.b58decode_check(raw_addr)
-            except ValueError:
-                raise BadAddress("bad base58check format")
+            except ValueError as e:
+                raise BadAddress("bad base58check format") from e
             return raw_addr
-        elif len(raw_addr) == 42:
+        if len(raw_addr) == 42:
             if raw_addr.startswith("0x"):  # eth address format
                 return base58.b58encode_check(b"\x41" + bytes.fromhex(raw_addr[2:])).decode()
-            else:
-                return base58.b58encode_check(bytes.fromhex(raw_addr)).decode()
-        elif raw_addr.startswith("0x") and len(raw_addr) == 44:
+            return base58.b58encode_check(bytes.fromhex(raw_addr)).decode()
+        if raw_addr.startswith("0x") and len(raw_addr) == 44:
             return base58.b58encode_check(bytes.fromhex(raw_addr[2:])).decode()
     elif isinstance(raw_addr, (bytes, bytearray)):
         if len(raw_addr) == 21 and int(raw_addr[0]) == 0x41:
@@ -125,6 +125,13 @@ def is_hex_address(value: str) -> bool:
 
 def is_address(value: str) -> bool:
     return is_base58check_address(value) or is_hex_address(value)
+
+
+def hash_message(message):
+    if isinstance(message, str):
+        message = message.encode()
+    message_length = str(len(message)).encode()
+    return keccak256(TRON_MESSAGE_PREFIX.encode() + message_length + message)
 
 
 class BaseKey(Sequence, Hashable):
@@ -171,10 +178,9 @@ class BaseKey(Sequence, Hashable):
     def __eq__(self, other: Any) -> bool:
         if hasattr(other, "to_bytes"):
             return self.to_bytes() == other.to_bytes()
-        elif isinstance(other, (bytes, bytearray)):
+        if isinstance(other, (bytes, bytearray)):
             return self.to_bytes() == other
-        else:
-            return False
+        return False
 
     def __repr__(self) -> str:
         return repr(self.hex())
@@ -190,11 +196,10 @@ class PublicKey(BaseKey):
     """The public key."""
 
     def __init__(self, public_key_bytes: bytes):
-        try:
-            assert isinstance(public_key_bytes, (bytes,))
-            assert len(public_key_bytes) == 64
-        except AssertionError:
-            raise BadKey
+        if not isinstance(public_key_bytes, (bytes,)):
+            raise BadKey("public_key_bytes must be bytes")
+        if len(public_key_bytes) != 64:
+            raise BadKey(f"public_key_bytes must be 64 bytes long, got {len(public_key_bytes)}")
 
         self._raw_key = public_key_bytes
 
@@ -239,16 +244,16 @@ class PrivateKey(BaseKey):
     public_key = None
 
     def __init__(self, private_key_bytes: bytes):
-        try:
-            assert isinstance(private_key_bytes, (bytes,))
-            assert len(private_key_bytes) == 32
-            assert (
-                0
-                < int.from_bytes(private_key_bytes, "big")
-                < 115792089237316195423570985008687907852837564279074904382605163141518161494337
-            )
-        except AssertionError:
-            raise BadKey
+        if not isinstance(private_key_bytes, (bytes,)):
+            raise BadKey("private_key_bytes must be bytes")
+        if len(private_key_bytes) != 32:
+            raise BadKey(f"private_key_bytes must be 32 bytes long, got {len(private_key_bytes)}")
+        if not (
+            0
+            < int.from_bytes(private_key_bytes, "big")
+            < 115792089237316195423570985008687907852837564279074904382605163141518161494337
+        ):
+            raise BadKey("private key is not in the valid range")
 
         self._raw_key = private_key_bytes
 
@@ -259,11 +264,11 @@ class PrivateKey(BaseKey):
 
     def sign_msg(self, message: bytes) -> "Signature":
         """Sign a raw message."""
-        message_hash = sha256(message)
+        message_hash = hash_message(message)
         return self.sign_msg_hash(message_hash)
 
     def sign_msg_hash(self, message_hash: bytes) -> "Signature":
-        """Sign a message hash(sha256)."""
+        """Sign a message hash."""
         private_key_bytes = self.to_bytes()
         signature_bytes = CoincurvePrivateKey(private_key_bytes).sign_recoverable(
             message_hash,
@@ -288,20 +293,30 @@ class Signature(Sequence):
     _raw_signature = None
 
     def __init__(self, signature_bytes: bytes):
-        try:
-            assert isinstance(signature_bytes, (bytes,))
-            assert len(signature_bytes) == 65
-            assert signature_bytes[-1] in [0, 1]
-        except AssertionError:
-            raise BadSignature
+        if not isinstance(signature_bytes, (bytes,)):
+            raise BadSignature("signature_bytes must be bytes")
+
+        if len(signature_bytes) != 65:
+            raise BadSignature(f"signature_bytes must be 65 bytes long, got {len(signature_bytes)}")
+
+        signature_bytes = signature_bytes[:64] + bytes([self.normalize_v(signature_bytes[-1])])
 
         self._raw_signature = signature_bytes
 
         super().__init__()
 
+    def normalize_v(self, v: int) -> int:
+        if v in (0, 27):
+            return 0
+        if v in (1, 28):
+            return 1
+        if v < 35:
+            raise BadSignature(f"invalid v {v}")
+        return int(v % 2 != 1)
+
     def recover_public_key_from_msg(self, message: bytes) -> PublicKey:
         """Recover public key(address) from message and signature."""
-        message_hash = sha256(message)
+        message_hash = hash_message(message)
         return self.recover_public_key_from_msg_hash(message_hash)
 
     def recover_public_key_from_msg_hash(self, message_hash: bytes) -> PublicKey:
@@ -316,13 +331,12 @@ class Signature(Sequence):
         except (ValueError, Exception) as err:
             # `coincurve` can raise `ValueError` or `Exception` dependending on
             # how the signature is invalid.
-            raise BadSignature(str(err))
-        public_key = PublicKey(public_key_bytes)
-        return public_key
+            raise BadSignature(str(err)) from err
+        return PublicKey(public_key_bytes)
 
     def verify_msg(self, message: bytes, public_key: PublicKey) -> bool:
         """Verify message and signature."""
-        message_hash = sha256(message)
+        message_hash = hash_message(message)
         return self.verify_msg_hash(message_hash, public_key)
 
     def verify_msg_hash(self, message_hash: bytes, public_key: PublicKey) -> bool:
@@ -357,6 +371,13 @@ class Signature(Sequence):
         """
         return self._raw_signature.hex()
 
+    def tronweb_hex(self) -> str:
+        """Return signature as a hex str in TronWeb format (v+27)."""
+        r = hex(self.r)[2:].zfill(64)
+        s = hex(self.s)[2:].zfill(64)
+        v = self.v + 27
+        return r + s + f"{v:02x}"
+
     @classmethod
     def fromhex(cls, hex_str: str) -> "Signature":
         """Construct a Signature from hex str."""
@@ -383,10 +404,9 @@ class Signature(Sequence):
     def __eq__(self, other: Any) -> bool:
         if hasattr(other, "to_bytes"):
             return self.to_bytes() == other.to_bytes()
-        elif isinstance(other, (bytes, bytearray)):
+        if isinstance(other, (bytes, bytearray)):
             return self.to_bytes() == other
-        else:
-            return False
+        return False
 
     def __repr__(self) -> str:
         return repr(self.hex())
@@ -408,4 +428,7 @@ __all__ = [
     "is_address",
     "is_base58check_address",
     "is_hex_address",
+    "hash_message",
+    "sha256",
+    "keccak256",
 ]

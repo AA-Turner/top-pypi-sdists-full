@@ -1331,6 +1331,7 @@ class Crew(FlowTrackable, BaseModel):
                 ),
             )
             test_crew = self.copy()
+
             evaluator = CrewEvaluator(test_crew, llm_instance)
 
             for i in range(1, n_iterations + 1):

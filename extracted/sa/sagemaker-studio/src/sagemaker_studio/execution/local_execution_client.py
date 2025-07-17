@@ -324,6 +324,9 @@ class LocalExecutionClient(ExecutionClient):
         input_config: Dict[str, Any] = {},
         **kwargs,
     ) -> dict:
+        # Convert underscores to hyphens in execution_name to meet regex validation
+        execution_name = execution_name.replace("_", "-")
+
         parameters = {
             "execution_name": execution_name,
             "input_config": input_config,

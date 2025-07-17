@@ -1,7 +1,10 @@
 import httpx
 import itertools
 import logging
+import os
 from enum import Enum
+from pathlib import Path
+from datetime import datetime
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -9,7 +12,7 @@ from tenacity import (
     retry_if_exception,
     before_sleep_log,
 )
-from typing import Any, Iterable, Iterator, Optional
+from typing import Any, Iterable, Iterator, Optional, List, cast
 
 logger = logging.getLogger(__name__)
 
@@ -351,3 +354,30 @@ def partition_pages(
             yield ",".join(targets)
         else:
             return
+
+
+def extract_tables_from_json_results(
+    json_results: List[dict], download_path: str
+) -> List[str]:
+    tables = []
+    for json_result in json_results:
+        pages = json_result["pages"]
+        for page in pages:
+            page = cast(dict, page)
+            items = page.get("items", [])
+            if items:
+                for i, item in enumerate(items):
+                    item = cast(dict, item)
+                    if item.get("type", "") == "table" and item.get("csv", ""):
+                        savepath = os.path.join(
+                            download_path,
+                            f"table_{datetime.now().strftime('%Y_%d_%m_%H_%M_%S_%f')[:-3]}.csv",
+                        )
+                        if Path(savepath).exists():
+                            savepath = (
+                                savepath.replace(".csv", "_")[0] + str(i) + ".csv"
+                            )
+                        with open(savepath, "w") as f:
+                            f.write(item["csv"])
+                        tables.append(savepath)
+    return tables

@@ -114,7 +114,7 @@ if __name__ == '__main__':
     r = arun(create_task(request, api_key=api_key))
     pass
 
-    request = ImageRequest(prompt="https://oss.ffire.cc/files/kling_watermark.png 让这个女人笑起来")
-
-    arun(generate(request, n=30))
+    # request = ImageRequest(prompt="https://oss.ffire.cc/files/kling_watermark.png 让这个女人笑起来")
+    #
+    # arun(generate(request, n=30))
 

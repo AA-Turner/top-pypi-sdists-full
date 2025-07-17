@@ -100,19 +100,16 @@ EXAMPLES = r"""
 """
 
 import traceback
-from ansible.module_utils.six.moves.urllib import parse
-from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.basic import AnsibleModule, missing_required_lib
+from ansible.module_utils.six.moves.urllib import parse as urllib_parse
 
 REQUESTS_IMP_ERR = None
 try:
     import requests
-
     HAS_REQUESTS = True
 except ImportError:
     REQUESTS_IMP_ERR = traceback.format_exc()
     HAS_REQUESTS = False
-
-from ansible.module_utils.basic import AnsibleModule
 
 
 class RabbitMqVhost(object):
@@ -145,7 +142,8 @@ class RabbitMqVhost(object):
         self.key = client_key
 
         self._tracing = False
-        self._rabbitmqctl = module.get_bin_path("rabbitmqctl", True)
+        require_rabbitmqctl = self.login_host is None
+        self._rabbitmqctl = module.get_bin_path("rabbitmqctl", require_rabbitmqctl)
 
     def _exec(self, args, force_exec_in_check_mode=False):
         if not self.module.check_mode or (
@@ -251,7 +249,11 @@ class RabbitMqVhost(object):
                 self.login_protocol,
                 self.login_host,
                 self.login_port,
-                parse.quote(self.name, ""),
+                # Ensure provided data is safe to use in a URL.
+                # https://docs.python.org/3/library/urllib.parse.html#url-quoting
+                # NOTE: This will also encode '/' characters, as they are required
+                # to be percent encoded in the RabbitMQ management API.
+                urllib_parse.quote(self.name, safe=''),
             )
             response = requests.request(
                 method=method,
@@ -304,8 +306,7 @@ def main():
     client_key = module.params["client_key"]
 
     if not HAS_REQUESTS:
-        module.warn("requests module not present. Using RabbitMQ cli.")
-        login_host = None
+        module.fail_json(msg=missing_required_lib("requests"), exception=REQUESTS_IMP_ERR)
 
     result = dict(changed=False, name=name, state=state)
     rabbitmq_vhost = RabbitMqVhost(

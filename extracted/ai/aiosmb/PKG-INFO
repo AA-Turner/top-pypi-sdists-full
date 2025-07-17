@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aiosmb
-Version: 0.4.11
+Version: 0.4.13
 Summary: Asynchronous SMB protocol implementation
 Home-page: https://github.com/skelsec/aiosmb
 Author: Tamas Jos
@@ -11,10 +11,10 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 License-File: LICENSE.md
 Requires-Dist: unicrypto>=0.0.10
-Requires-Dist: asyauth>=0.0.16
-Requires-Dist: asysocks>=0.2.9
+Requires-Dist: asyauth>=0.0.22
+Requires-Dist: asysocks>=0.2.17
 Requires-Dist: prompt-toolkit>=3.0.2
-Requires-Dist: winacl>=0.1.8
+Requires-Dist: winacl>=0.1.9
 Requires-Dist: six
 Requires-Dist: tqdm
 Requires-Dist: colorama

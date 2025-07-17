@@ -1,11 +1,20 @@
 import re
 import sys
+from typing import Optional
 
+import pytest
 from _pytest import main as pytest_main
 from find_dependencies.dependency_finder import DependencyFinder, run_tests
 
+try:
+    import pytest.Parser as Parser
+    import pytest.Config as Config
+except ImportError:
+    from _pytest.config.argparsing import Parser
+    from _pytest.config import Config
 
-def pytest_addoption(parser):
+
+def pytest_addoption(parser: Parser) -> None:
     group = parser.getgroup("find-dependencies")
     group.addoption(
         "--find-dependencies",
@@ -20,6 +29,19 @@ def pytest_addoption(parser):
         help="""Run the test in reverse direction first""",
     )
     group.addoption(
+        "--run-serially",
+        action="store_true",
+        dest="run_serially",
+        help="""Execute all test runs serially instead
+         of using parallel processes""",
+    )
+    group.addoption(
+        "--fail-on-failed-tests",
+        action="store_true",
+        dest="fail_on_failed_tests",
+        help="""Let the dependency test also fail for always failing tests""",
+    )
+    group.addoption(
         "--markers-to-ignore",
         action="store",
         dest="markers_to_ignore",
@@ -31,11 +53,18 @@ def pytest_addoption(parser):
         dest="find_dependencies_internal",
         help="""For internal use only""",
     )
+    group.addoption(
+        "--find-dependencies-index",
+        action="store",
+        dest="find_dependencies_index",
+        help="""For internal use only""",
+    )
 
 
-def pytest_runtestloop(session):
+def pytest_runtestloop(session: pytest.Session) -> Optional[object]:
     if session.config.getoption("find_dependencies_internal"):
-        return run_tests(session)
+        index = session.config.getoption("find_dependencies_index") or ""
+        return run_tests(session, index)
     if not session.config.getoption("find_dependencies"):
         return pytest_main.pytest_runtestloop(session)
 
@@ -44,17 +73,15 @@ def pytest_runtestloop(session):
         restore_verbosity(session.config)
         return pytest_main.pytest_runtestloop(session)
 
-    if (session.testsfailed and
-            not session.config.option.continue_on_collection_errors):
+    if session.testsfailed and not session.config.option.continue_on_collection_errors:
         restore_verbosity(session.config)
-        raise session.Interrupted(
-            "%d errors during collection" % session.testsfailed)
+        raise session.Interrupted("%d errors during collection" % session.testsfailed)
 
     DependencyFinder(session).find_dependencies()
     return True
 
 
-def restore_verbosity(config):
+def restore_verbosity(config: Config) -> None:
     verbosity = 0
     if hasattr(config, "initial_args"):
         for arg in config.initial_args:
@@ -65,12 +92,12 @@ def restore_verbosity(config):
                 verbosity = 1 - len(arg)
                 break
             if arg.startswith("--verbosity="):
-                verbosity = int(arg[arg.index("=") + 1:])
+                verbosity = int(arg[arg.index("=") + 1 :])
                 break
     config.option.verbose = verbosity
 
 
-def pytest_load_initial_conftests(early_config, args):
+def pytest_load_initial_conftests(early_config: Config, args: list[str]) -> None:
     """Saves initial arguments to be passed to the test runs."""
     if "--find-dependencies" in args:
         notest_options = ("--collect-only", "--setup-only", "--setup-plan")
@@ -86,7 +113,7 @@ def pytest_load_initial_conftests(early_config, args):
         adapt_verbosity(args)
 
 
-def adapt_verbosity(args):
+def adapt_verbosity(args: list[str]) -> None:
     """Removes verbosity arguments from the outer test and replaces them
     with -qq (very quiet) to avoid confusing information ("no tests run").
     The given verbosity will still be passed to the internal test runs."""
@@ -97,7 +124,7 @@ def adapt_verbosity(args):
         args.insert(0, "-qq")
 
 
-def disable_xdist(args):
+def disable_xdist(args: list[str]) -> None:
     for i, arg in enumerate(args):
         # remove -n # option
         if arg == "-n":

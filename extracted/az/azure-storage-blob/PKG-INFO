@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-storage-blob
-Version: 12.25.1
+Version: 12.26.0
 Summary: Microsoft Azure Blob Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-blob
 Author: Microsoft Corporation

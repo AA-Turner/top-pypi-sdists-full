@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nuclio-jupyter
-Version: 0.11.1
+Version: 0.11.2
 Summary: Convert Jupyter notebook to nuclio
 Home-page: https://github.com/nuclio/nuclio-jupyter
 Author: Miki Tebeka

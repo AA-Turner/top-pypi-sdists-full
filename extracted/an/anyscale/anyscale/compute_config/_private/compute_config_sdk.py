@@ -179,7 +179,10 @@ class PrivateComputeConfigSDK(BaseSDK):
             head_node_type=self._convert_head_node_config_to_api_model(
                 compute_config.head_node,
                 cloud=cloud,
-                schedulable_by_default=compute_config.worker_nodes == [],
+                schedulable_by_default=(
+                    not compute_config.worker_nodes
+                    and not compute_config.auto_select_worker_config
+                ),
             ),
             worker_node_types=self._convert_worker_node_group_configs_to_api_models(
                 compute_config.worker_nodes, cloud=cloud,

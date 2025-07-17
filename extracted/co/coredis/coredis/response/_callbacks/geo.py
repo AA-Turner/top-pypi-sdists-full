@@ -1,24 +1,28 @@
 from __future__ import annotations
 
+from typing import Any
+
 from coredis.response._callbacks import ResponseCallback
 from coredis.response.types import GeoCoordinates, GeoSearchResult
-from coredis.typing import AnyStr, ResponseType, ValueT
+from coredis.typing import AnyStr, Generic, ResponseType
 
 
 class GeoSearchCallback(
+    Generic[AnyStr],
     ResponseCallback[
         ResponseType,
         ResponseType,
-        int | tuple[AnyStr | GeoSearchResult, ...],
-    ]
+        tuple[AnyStr | GeoSearchResult, ...],
+    ],
 ):
     def transform(
-        self, response: ResponseType, **options: ValueT | None
-    ) -> int | tuple[AnyStr | GeoSearchResult, ...]:
-        if options.get("store") or options.get("storedist"):
-            return response
-
-        if not (options.get("withdist") or options.get("withcoord") or options.get("withhash")):
+        self, response: ResponseType, **options: Any
+    ) -> tuple[AnyStr | GeoSearchResult, ...]:
+        if not (
+            self.options.get("withdist")
+            or self.options.get("withcoord")
+            or self.options.get("withhash")
+        ):
             return tuple(list(response))
 
         results: list[GeoSearchResult] = []
@@ -27,11 +31,11 @@ class GeoSearchCallback(
             results.append(
                 GeoSearchResult(
                     result.pop(0),
-                    float(result.pop(0)) if options.get("withdist") else None,
-                    result.pop(0) if options.get("withhash") else None,
+                    float(result.pop(0)) if self.options.get("withdist") else None,
+                    result.pop(0) if self.options.get("withhash") else None,
                     (
                         GeoCoordinates(*map(float, result.pop(0)))
-                        if options.get("withcoord")
+                        if self.options.get("withcoord")
                         else None
                     ),
                 )
@@ -44,7 +48,7 @@ class GeoCoordinatessCallback(
     ResponseCallback[ResponseType, ResponseType, tuple[GeoCoordinates | None, ...]]
 ):
     def transform(
-        self, response: ResponseType, **options: ValueT | None
+        self, response: ResponseType, **options: Any
     ) -> tuple[GeoCoordinates | None, ...]:
         return tuple(
             map(

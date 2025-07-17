@@ -53,11 +53,12 @@ DukptKeyVariantType = Literal["BIDIRECTIONAL", "REQUEST", "RESPONSE"]
 EmvEncryptionModeType = Literal["CBC", "ECB"]
 EmvMajorKeyDerivationModeType = Literal["EMV_OPTION_A", "EMV_OPTION_B"]
 EncryptionModeType = Literal["CBC", "CFB", "CFB1", "CFB128", "CFB64", "CFB8", "ECB", "OFB"]
-KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC"]
+KeyCheckValueAlgorithmType = Literal["ANSI_X9_24", "CMAC", "HMAC", "SHA_1"]
 KeyDerivationFunctionType = Literal["ANSI_X963", "NIST_SP800"]
 KeyDerivationHashAlgorithmType = Literal["SHA_256", "SHA_384", "SHA_512"]
 MacAlgorithmType = Literal[
     "CMAC",
+    "HMAC",
     "HMAC_SHA224",
     "HMAC_SHA256",
     "HMAC_SHA384",
@@ -129,6 +130,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",

@@ -12,6 +12,7 @@ from coredis.typing import (
     Literal,
     Mapping,
     Parameters,
+    RedisValueT,
     ResponseType,
     StringT,
     ValueT,
@@ -23,8 +24,9 @@ from ..commands._validators import (
     mutually_exclusive_parameters,
     mutually_inclusive_parameters,
 )
-from ..commands._wrappers import CacheConfig, ClusterCommandConfig
+from ..commands._wrappers import ClusterCommandConfig
 from ..commands.constants import CommandFlag, CommandGroup, CommandName, NodeFlag
+from ..commands.request import CommandRequest
 from ..response._callbacks import (
     ClusterMergeSets,
     IntCallback,
@@ -71,7 +73,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def create(
+    def create(
         self,
         key: KeyT,
         retention: int | timedelta | None = None,
@@ -89,7 +91,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
             ]
         ) = None,
         labels: Mapping[StringT, ValueT] | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Create a new time series with the given key.
 
@@ -104,24 +106,24 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :param labels: A dictionary of labels to be associated with the time series.
         :return: True if the time series was created successfully, False otherwise.
         """
-        pieces: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
         if retention is not None:
-            pieces.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
+            command_arguments.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
         if encoding:
-            pieces.extend([PrefixToken.ENCODING, encoding])
+            command_arguments.extend([PrefixToken.ENCODING, encoding])
         if chunk_size is not None:
-            pieces.extend([PrefixToken.CHUNK_SIZE, chunk_size])
+            command_arguments.extend([PrefixToken.CHUNK_SIZE, chunk_size])
         if duplicate_policy is not None:
-            pieces.extend([PrefixToken.DUPLICATE_POLICY, duplicate_policy])
+            command_arguments.extend([PrefixToken.DUPLICATE_POLICY, duplicate_policy])
         if labels:
-            pieces.extend(
+            command_arguments.extend(
                 [
                     PrefixToken.LABELS,
                     *dict_to_flat_list(labels),  # type: ignore
                 ]
             )
-        return await self.execute_module_command(
-            CommandName.TS_CREATE, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.TS_CREATE, *command_arguments, callback=SimpleStringCallback()
         )
 
     @module_command(
@@ -130,12 +132,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.6.0",
         module=MODULE,
     )
-    async def delete(
+    def delete(
         self,
         key: KeyT,
         fromtimestamp: int | datetime | StringT,
         totimestamp: int | datetime | StringT,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Delete all samples between two timestamps for a given time series.
 
@@ -144,7 +146,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :param totimestamp: End timestamp for the range deletion.
         :return: The number of samples that were deleted, or an error reply.
         """
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.TS_DEL,
             key,
             normalized_timestamp(fromtimestamp),
@@ -158,7 +160,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def alter(
+    def alter(
         self,
         key: KeyT,
         labels: Mapping[StringT, StringT] | None = None,
@@ -175,7 +177,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.SUM,
             ]
         ) = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Update the retention, chunk size, duplicate policy, and labels of an existing time series.
 
@@ -188,22 +190,22 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :param duplicate_policy: Policy for handling multiple samples with identical timestamps.
         :return: True if executed correctly, False otherwise.
         """
-        pieces: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
         if labels:
-            pieces.extend(
+            command_arguments.extend(
                 [
                     PrefixToken.LABELS,
                     *dict_to_flat_list(labels),  # type: ignore
                 ]
             )
         if retention is not None:
-            pieces.extend([PrefixToken.RETENTION, retention])
+            command_arguments.extend([PrefixToken.RETENTION, retention])
         if chunk_size is not None:
-            pieces.extend([PrefixToken.CHUNK_SIZE, chunk_size])
+            command_arguments.extend([PrefixToken.CHUNK_SIZE, chunk_size])
         if duplicate_policy:
-            pieces.extend([PrefixToken.DUPLICATE_POLICY, duplicate_policy])
-        return await self.execute_module_command(
-            CommandName.TS_ALTER, *pieces, callback=SimpleStringCallback()
+            command_arguments.extend([PrefixToken.DUPLICATE_POLICY, duplicate_policy])
+        return self.client.create_request(
+            CommandName.TS_ALTER, *command_arguments, callback=SimpleStringCallback()
         )
 
     @module_command(
@@ -212,7 +214,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def add(
+    def add(
         self,
         key: KeyT,
         timestamp: int | datetime | StringT,
@@ -232,7 +234,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
             ]
         ) = None,
         labels: Mapping[StringT, ValueT] | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Add a sample to a time series.
 
@@ -248,28 +250,28 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :param labels: Dictionary of labels associated with the sample.
         :return: Number of samples added to the time series.
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             key,
             normalized_timestamp(timestamp),
             value,
         ]
         if retention is not None:
-            pieces.extend([PrefixToken.RETENTION, retention])
+            command_arguments.extend([PrefixToken.RETENTION, retention])
         if encoding:
-            pieces.extend([PrefixToken.ENCODING, encoding])
+            command_arguments.extend([PrefixToken.ENCODING, encoding])
         if chunk_size is not None:
-            pieces.extend([PrefixToken.CHUNK_SIZE, chunk_size])
+            command_arguments.extend([PrefixToken.CHUNK_SIZE, chunk_size])
         if duplicate_policy:
-            pieces.extend([PrefixToken.ON_DUPLICATE, duplicate_policy])
+            command_arguments.extend([PrefixToken.ON_DUPLICATE, duplicate_policy])
         if labels:
-            pieces.extend(
+            command_arguments.extend(
                 [
                     PrefixToken.LABELS,
                     *dict_to_flat_list(labels),  # type: ignore
                 ]
             )
-        return await self.execute_module_command(
-            CommandName.TS_ADD, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.TS_ADD, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -278,7 +280,9 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def madd(self, ktvs: Parameters[tuple[AnyStr, int, int | float]]) -> tuple[int, ...]:
+    def madd(
+        self, ktvs: Parameters[tuple[AnyStr, int, int | float]]
+    ) -> CommandRequest[tuple[int, ...]]:
         """
         Append new samples to one or more time series.
 
@@ -287,10 +291,10 @@ class TimeSeries(ModuleGroup[AnyStr]):
          to the server clock, and a numeric data value of the sample.
         :return: A tuple of integers representing the timestamp of each added sample
         """
-        pieces: CommandArgList = list(itertools.chain(*ktvs))
+        command_arguments: CommandArgList = list(itertools.chain(*ktvs))
 
-        return await self.execute_module_command(
-            CommandName.TS_MADD, *pieces, callback=TupleCallback[int]()
+        return self.client.create_request(
+            CommandName.TS_MADD, *command_arguments, callback=TupleCallback[int]()
         )
 
     @module_command(
@@ -299,16 +303,16 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def incrby(
+    def incrby(
         self,
         key: KeyT,
         value: int | float,
-        labels: Mapping[StringT, ValueT] | None = None,
+        labels: Mapping[StringT, RedisValueT] | None = None,
         timestamp: datetime | int | StringT | None = None,
         retention: int | timedelta | None = None,
         uncompressed: bool | None = None,
         chunk_size: int | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Increments the value of the sample with the maximum existing timestamp, or creates
         a new sample with a value equal to the value of the sample with the maximum existing
@@ -329,22 +333,22 @@ class TimeSeries(ModuleGroup[AnyStr]):
          Use it only if you are creating a new time series.
         :return: The timestamp of the upserted sample, or an error.
         """
-        pieces: CommandArgList = [key, value]
+        command_arguments: CommandArgList = [key, value]
         if timestamp:
-            pieces.extend([PrefixToken.TIMESTAMP, normalized_timestamp(timestamp)])
+            command_arguments.extend([PrefixToken.TIMESTAMP, normalized_timestamp(timestamp)])
         if retention:
-            pieces.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
+            command_arguments.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
         if uncompressed:
-            pieces.append(PureToken.UNCOMPRESSED)
+            command_arguments.append(PureToken.UNCOMPRESSED)
         if chunk_size:
-            pieces.extend([PrefixToken.CHUNK_SIZE, chunk_size])
+            command_arguments.extend([PrefixToken.CHUNK_SIZE, chunk_size])
         if labels:
-            pieces.extend(
+            command_arguments.extend(
                 [PrefixToken.LABELS, *dict_to_flat_list(labels)]  # type: ignore
             )
 
-        return await self.execute_module_command(
-            CommandName.TS_INCRBY, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.TS_INCRBY, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -353,16 +357,16 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def decrby(
+    def decrby(
         self,
         key: KeyT,
         value: int | float,
-        labels: Mapping[StringT, ValueT] | None = None,
+        labels: Mapping[StringT, RedisValueT] | None = None,
         timestamp: datetime | int | StringT | None = None,
         retention: int | timedelta | None = None,
         uncompressed: bool | None = None,
         chunk_size: int | None = None,
-    ) -> int:
+    ) -> CommandRequest[int]:
         """
         Decrease the value of the sample with the maximum existing timestamp, or create a new
         sample with a value equal to the value of the sample with the maximum existing timestamp
@@ -386,22 +390,22 @@ class TimeSeries(ModuleGroup[AnyStr]):
          time series.
         :return: The timestamp of the upserted sample, or an error if the operation failed.
         """
-        pieces: CommandArgList = [key, value]
+        command_arguments: CommandArgList = [key, value]
 
         if timestamp:
-            pieces.extend([PrefixToken.TIMESTAMP, normalized_timestamp(timestamp)])
+            command_arguments.extend([PrefixToken.TIMESTAMP, normalized_timestamp(timestamp)])
         if retention:
-            pieces.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
+            command_arguments.extend([PrefixToken.RETENTION, normalized_milliseconds(retention)])
         if uncompressed:
-            pieces.append(PureToken.UNCOMPRESSED)
+            command_arguments.append(PureToken.UNCOMPRESSED)
         if chunk_size:
-            pieces.extend([PrefixToken.CHUNK_SIZE, chunk_size])
+            command_arguments.extend([PrefixToken.CHUNK_SIZE, chunk_size])
         if labels:
-            pieces.extend(
+            command_arguments.extend(
                 [PrefixToken.LABELS, *dict_to_flat_list(labels)]  # type: ignore
             )
-        return await self.execute_module_command(
-            CommandName.TS_DECRBY, *pieces, callback=IntCallback()
+        return self.client.create_request(
+            CommandName.TS_DECRBY, *command_arguments, callback=IntCallback()
         )
 
     @module_command(
@@ -411,7 +415,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         arguments={"aligntimestamp": {"version_introduced": "1.8.0"}},
         module=MODULE,
     )
-    async def createrule(
+    def createrule(
         self,
         source: KeyT,
         destination: KeyT,
@@ -432,7 +436,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ],
         bucketduration: int | timedelta,
         aligntimestamp: int | None = None,
-    ) -> bool:
+    ) -> CommandRequest[bool]:
         """
         Create a compaction rule
 
@@ -445,8 +449,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
          in milliseconds. The default value is 0 aligned with the epoch.
         :return: True if executed correctly, False otherwise.
         """
-        pieces: CommandArgList = [source, destination]
-        pieces.extend(
+        command_arguments: CommandArgList = [source, destination]
+        command_arguments.extend(
             [
                 PrefixToken.AGGREGATION,
                 aggregation,
@@ -454,9 +458,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
             ]
         )
         if aligntimestamp is not None:
-            pieces.append(aligntimestamp)
-        return await self.execute_module_command(
-            CommandName.TS_CREATERULE, *pieces, callback=SimpleStringCallback()
+            command_arguments.append(aligntimestamp)
+        return self.client.create_request(
+            CommandName.TS_CREATERULE,
+            *command_arguments,
+            callback=SimpleStringCallback(),
         )
 
     @module_command(
@@ -465,7 +471,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def deleterule(self, source: KeyT, destination: KeyT) -> bool:
+    def deleterule(self, source: KeyT, destination: KeyT) -> CommandRequest[bool]:
         """
         Delete a compaction rule from a RedisTimeSeries sourceKey to a destinationKey.
 
@@ -475,10 +481,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
 
         .. warning:: This command does not delete the compacted series.
         """
-        pieces: CommandArgList = [source, destination]
+        command_arguments: CommandArgList = [source, destination]
 
-        return await self.execute_module_command(
-            CommandName.TS_DELETERULE, *pieces, callback=SimpleStringCallback()
+        return self.client.create_request(
+            CommandName.TS_DELETERULE,
+            *command_arguments,
+            callback=SimpleStringCallback(),
         )
 
     @mutually_inclusive_parameters("min_value", "max_value")
@@ -493,9 +501,9 @@ class TimeSeries(ModuleGroup[AnyStr]):
         },
         module=MODULE,
         flags={CommandFlag.READONLY},
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
     )
-    async def range(
+    def range(
         self,
         key: KeyT,
         fromtimestamp: datetime | int | StringT,
@@ -528,7 +536,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         buckettimestamp: StringT | None = None,
         empty: bool | None = None,
         latest: bool | None = None,
-    ) -> tuple[tuple[int, float], ...] | tuple[()]:
+    ) -> CommandRequest[tuple[tuple[int, float], ...] | tuple[()]]:
         """
         Query a range in forward direction.
 
@@ -553,24 +561,24 @@ class TimeSeries(ModuleGroup[AnyStr]):
 
         :return: A tuple of samples, where each sample is a tuple of timestamp and value.
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             key,
             normalized_timestamp(fromtimestamp),
             normalized_timestamp(totimestamp),
         ]
         if latest:
-            pieces.append(b"LATEST")
+            command_arguments.append(b"LATEST")
         if filter_by_ts:
             _ts: list[int] = list(filter_by_ts)
-            pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
+            command_arguments.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
-            pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
+            command_arguments.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if count is not None:
-            pieces.extend([PrefixToken.COUNT, count])
+            command_arguments.extend([PrefixToken.COUNT, count])
         if aggregator and bucketduration is not None:
             if align is not None:
-                pieces.extend([PrefixToken.ALIGN, align])
-            pieces.extend(
+                command_arguments.extend([PrefixToken.ALIGN, align])
+            command_arguments.extend(
                 [
                     PrefixToken.AGGREGATION,
                     aggregator,
@@ -578,12 +586,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 ]
             )
             if buckettimestamp is not None:
-                pieces.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
+                command_arguments.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
             if empty is not None:
-                pieces.append(PureToken.EMPTY)
+                command_arguments.append(PureToken.EMPTY)
 
-        return await self.execute_module_command(
-            CommandName.TS_RANGE, *pieces, callback=SamplesCallback()
+        return self.client.create_request(
+            CommandName.TS_RANGE, *command_arguments, callback=SamplesCallback()
         )
 
     @mutually_inclusive_parameters("min_value", "max_value")
@@ -598,9 +606,9 @@ class TimeSeries(ModuleGroup[AnyStr]):
         },
         module=MODULE,
         flags={CommandFlag.READONLY},
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
     )
-    async def revrange(
+    def revrange(
         self,
         key: KeyT,
         fromtimestamp: int | datetime | StringT,
@@ -633,7 +641,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         buckettimestamp: StringT | None = None,
         empty: bool | None = None,
         latest: bool | None = None,
-    ) -> tuple[tuple[int, float], ...] | tuple[()]:
+    ) -> CommandRequest[tuple[tuple[int, float], ...] | tuple[()]]:
         """
         Query a range in reverse direction from a RedisTimeSeries key.
 
@@ -655,24 +663,24 @@ class TimeSeries(ModuleGroup[AnyStr]):
 
         :return: A tuple of timestamp-value pairs in reverse order.
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             key,
             normalized_timestamp(fromtimestamp),
             normalized_timestamp(totimestamp),
         ]
         if latest:
-            pieces.append(b"LATEST")
+            command_arguments.append(b"LATEST")
         if filter_by_ts:
             _ts: list[int] = list(filter_by_ts)
-            pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
+            command_arguments.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
-            pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
+            command_arguments.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if count is not None:
-            pieces.extend([PrefixToken.COUNT, count])
+            command_arguments.extend([PrefixToken.COUNT, count])
         if aggregator and bucketduration is not None:
             if align is not None:
-                pieces.extend([PrefixToken.ALIGN, align])
-            pieces.extend(
+                command_arguments.extend([PrefixToken.ALIGN, align])
+            command_arguments.extend(
                 [
                     PrefixToken.AGGREGATION,
                     aggregator,
@@ -680,12 +688,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 ]
             )
             if buckettimestamp is not None:
-                pieces.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
+                command_arguments.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
             if empty is not None:
-                pieces.append(PureToken.EMPTY)
+                command_arguments.append(PureToken.EMPTY)
 
-        return await self.execute_module_command(
-            CommandName.TS_REVRANGE, *pieces, callback=SamplesCallback()
+        return self.client.create_request(
+            CommandName.TS_REVRANGE, *command_arguments, callback=SamplesCallback()
         )
 
     @mutually_inclusive_parameters("min_value", "max_value")
@@ -707,7 +715,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ),
         flags={CommandFlag.READONLY},
     )
-    async def mrange(
+    def mrange(
         self,
         fromtimestamp: int | datetime | StringT,
         totimestamp: int | datetime | StringT,
@@ -760,9 +768,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ) = None,
         empty: bool | None = None,
         latest: bool | None = None,
-    ) -> dict[
-        AnyStr,
-        tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
+    ) -> CommandRequest[
+        dict[
+            AnyStr,
+            tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
+        ]
     ]:
         """
         Query a range across multiple time series by filters in forward direction.
@@ -795,29 +805,29 @@ class TimeSeries(ModuleGroup[AnyStr]):
 
         :return: A dictionary containing the time series data.
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             normalized_timestamp(fromtimestamp),
             normalized_timestamp(totimestamp),
         ]
         if latest:
-            pieces.append(b"LATEST")
+            command_arguments.append(b"LATEST")
         if filter_by_ts:
             _ts: list[int] = list(filter_by_ts)
-            pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
+            command_arguments.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
-            pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
+            command_arguments.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if withlabels:
-            pieces.append(PureToken.WITHLABELS)
+            command_arguments.append(PureToken.WITHLABELS)
         if selected_labels:
             _labels: list[StringT] = list(selected_labels)
-            pieces.extend([PureToken.SELECTED_LABELS, *_labels])
+            command_arguments.extend([PureToken.SELECTED_LABELS, *_labels])
         if count is not None:
-            pieces.extend([PrefixToken.COUNT, count])
+            command_arguments.extend([PrefixToken.COUNT, count])
         if aggregator or buckettimestamp is not None:
             if align is not None:
-                pieces.extend([PrefixToken.ALIGN, align])
+                command_arguments.extend([PrefixToken.ALIGN, align])
             if aggregator and bucketduration is not None:
-                pieces.extend(
+                command_arguments.extend(
                     [
                         PrefixToken.AGGREGATION,
                         aggregator,
@@ -825,19 +835,18 @@ class TimeSeries(ModuleGroup[AnyStr]):
                     ]
                 )
             if buckettimestamp is not None:
-                pieces.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
+                command_arguments.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
             if empty:
-                pieces.append(PureToken.EMPTY)
+                command_arguments.append(PureToken.EMPTY)
         if filters:
             _filters: list[StringT] = list(filters)
-            pieces.extend([PrefixToken.FILTER, *_filters])
+            command_arguments.extend([PrefixToken.FILTER, *_filters])
         if groupby and reducer:
-            pieces.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
-        return await self.execute_module_command(
+            command_arguments.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
+        return self.client.create_request(
             CommandName.TS_MRANGE,
-            *pieces,
-            callback=TimeSeriesMultiCallback[AnyStr](),
-            grouped=groupby is not None,
+            *command_arguments,
+            callback=TimeSeriesMultiCallback[AnyStr](grouped=groupby is not None),
         )
 
     @mutually_inclusive_parameters("min_value", "max_value")
@@ -856,7 +865,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         cluster=ClusterCommandConfig(route=NodeFlag.PRIMARIES, combine=ClusterMergeTimeSeries()),
         flags={CommandFlag.READONLY},
     )
-    async def mrevrange(
+    def mrevrange(
         self,
         fromtimestamp: int | datetime | StringT,
         totimestamp: int | datetime | StringT,
@@ -893,9 +902,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
         reducer: StringT | None = None,
         empty: bool | None = None,
         latest: bool | None = None,
-    ) -> dict[
-        AnyStr,
-        tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
+    ) -> CommandRequest[
+        dict[
+            AnyStr,
+            tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
+        ]
     ]:
         """
         Query a range across multiple time series by filters in reverse direction.
@@ -928,29 +939,29 @@ class TimeSeries(ModuleGroup[AnyStr]):
 
         :return: A dictionary containing the result of the query.
         """
-        pieces: CommandArgList = [
+        command_arguments: CommandArgList = [
             normalized_timestamp(fromtimestamp),
             normalized_timestamp(totimestamp),
         ]
         if latest:
-            pieces.append(b"LATEST")
+            command_arguments.append(b"LATEST")
         if filter_by_ts:
             _ts: list[int] = list(filter_by_ts)
-            pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
+            command_arguments.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
-            pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
+            command_arguments.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if withlabels:
-            pieces.append(PureToken.WITHLABELS)
+            command_arguments.append(PureToken.WITHLABELS)
         if selected_labels:
             _labels: list[StringT] = list(selected_labels)
-            pieces.extend([PureToken.SELECTED_LABELS, *_labels])
+            command_arguments.extend([PureToken.SELECTED_LABELS, *_labels])
         if count is not None:
-            pieces.extend([PrefixToken.COUNT, count])
+            command_arguments.extend([PrefixToken.COUNT, count])
         if aggregator or buckettimestamp is not None:
             if align is not None:
-                pieces.extend([PrefixToken.ALIGN, align])
+                command_arguments.extend([PrefixToken.ALIGN, align])
             if aggregator and bucketduration is not None:
-                pieces.extend(
+                command_arguments.extend(
                     [
                         PrefixToken.AGGREGATION,
                         aggregator,
@@ -958,20 +969,19 @@ class TimeSeries(ModuleGroup[AnyStr]):
                     ]
                 )
             if buckettimestamp is not None:
-                pieces.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
+                command_arguments.extend([PureToken.BUCKETTIMESTAMP, buckettimestamp])
             if empty:
-                pieces.append(PureToken.EMPTY)
+                command_arguments.append(PureToken.EMPTY)
         if filters:
             _filters: list[StringT] = list(filters)
-            pieces.extend([PrefixToken.FILTER, *_filters])
+            command_arguments.extend([PrefixToken.FILTER, *_filters])
         if groupby and reducer and reducer:
-            pieces.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
+            command_arguments.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
 
-        return await self.execute_module_command(
+        return self.client.create_request(
             CommandName.TS_MREVRANGE,
-            *pieces,
-            callback=TimeSeriesMultiCallback[AnyStr](),
-            grouped=groupby is not None,
+            *command_arguments,
+            callback=TimeSeriesMultiCallback[AnyStr](grouped=groupby is not None),
         )
 
     @module_command(
@@ -981,9 +991,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
         arguments={"latest": {"version_introduced": "1.8.0"}},
         module=MODULE,
         flags={CommandFlag.READONLY},
-        cache_config=CacheConfig(lambda *a, **_: a[0]),
+        cacheable=True,
     )
-    async def get(self, key: KeyT, latest: bool | None = None) -> tuple[int, float] | tuple[()]:
+    def get(
+        self, key: KeyT, latest: bool | None = None
+    ) -> CommandRequest[tuple[int, float] | tuple[()]]:
         """
         Get the sample with the highest timestamp from a given time series.
 
@@ -995,11 +1007,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :return: A tuple of (timestamp, value) of the sample with the highest timestamp,
          or an empty tuple if the time series is empty.
         """
-        pieces: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
         if latest:
-            pieces.append(b"LATEST")
-        return await self.execute_module_command(
-            CommandName.TS_GET, *pieces, callback=SampleCallback()
+            command_arguments.append(b"LATEST")
+        return self.client.create_request(
+            CommandName.TS_GET, *command_arguments, callback=SampleCallback()
         )
 
     @mutually_exclusive_parameters("withlabels", "selected_labels")
@@ -1015,13 +1027,13 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ),
         flags={CommandFlag.READONLY},
     )
-    async def mget(
+    def mget(
         self,
         filters: Parameters[StringT],
         withlabels: bool | None = None,
         selected_labels: Parameters[StringT] | None = None,
         latest: bool | None = None,
-    ) -> dict[AnyStr, tuple[dict[AnyStr, AnyStr], tuple[int, float] | tuple[()]]]:
+    ) -> CommandRequest[dict[AnyStr, tuple[dict[AnyStr, AnyStr], tuple[int, float] | tuple[()]]]]:
         """
         Get the sample with the highest timestamp from each time series matching a specific filter.
 
@@ -1044,17 +1056,19 @@ class TimeSeries(ModuleGroup[AnyStr]):
          the time series key name as the key and a tuple containing the label-value pairs and a
          single timestamp-value pair as the value.
         """
-        pieces: CommandArgList = []
+        command_arguments: CommandArgList = []
         if latest:
-            pieces.append(b"LATEST")
+            command_arguments.append(b"LATEST")
         if withlabels:
-            pieces.append(PureToken.WITHLABELS)
+            command_arguments.append(PureToken.WITHLABELS)
         if selected_labels:
             _labels: list[StringT] = list(selected_labels)
-            pieces.extend([b"SELECTED_LABELS", *_labels])
-        pieces.extend([PrefixToken.FILTER, *filters])
-        return await self.execute_module_command(
-            CommandName.TS_MGET, *pieces, callback=TimeSeriesCallback[AnyStr]()
+            command_arguments.extend([b"SELECTED_LABELS", *_labels])
+        command_arguments.extend([PrefixToken.FILTER, *filters])
+        return self.client.create_request(
+            CommandName.TS_MGET,
+            *command_arguments,
+            callback=TimeSeriesCallback[AnyStr](),
         )
 
     @module_command(
@@ -1063,7 +1077,9 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def info(self, key: KeyT, debug: bool | None = None) -> dict[AnyStr, ResponseType]:
+    def info(
+        self, key: KeyT, debug: bool | None = None
+    ) -> CommandRequest[dict[AnyStr, ResponseType]]:
         """
         Return information and statistics for a time series.
 
@@ -1071,11 +1087,13 @@ class TimeSeries(ModuleGroup[AnyStr]):
         :param debug: Optional flag to get a more detailed information about the chunks.
         :return: Dictionary with information about the time series (name-value pairs).
         """
-        pieces: CommandArgList = [key]
+        command_arguments: CommandArgList = [key]
         if debug:
-            pieces.append(b"DEBUG")
-        return await self.execute_module_command(
-            CommandName.TS_INFO, *pieces, callback=TimeSeriesInfoCallback[AnyStr]()
+            command_arguments.append(b"DEBUG")
+        return self.client.create_request(
+            CommandName.TS_INFO,
+            *command_arguments,
+            callback=TimeSeriesInfoCallback[AnyStr](),
         )
 
     @module_command(
@@ -1089,7 +1107,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ),
         flags={CommandFlag.READONLY},
     )
-    async def queryindex(self, filters: Parameters[StringT]) -> set[AnyStr]:
+    def queryindex(self, filters: Parameters[StringT]) -> CommandRequest[set[AnyStr]]:
         """
         Get all time series keys matching a filter list.
 
@@ -1112,8 +1130,10 @@ class TimeSeries(ModuleGroup[AnyStr]):
          series matches the filter. An error is returned on invalid filter expression.
 
         """
-        pieces: CommandArgList = [*filters]
+        command_arguments: CommandArgList = [*filters]
 
-        return await self.execute_module_command(
-            CommandName.TS_QUERYINDEX, *pieces, callback=SetCallback[AnyStr]()
+        return self.client.create_request(
+            CommandName.TS_QUERYINDEX,
+            *command_arguments,
+            callback=SetCallback[AnyStr](),
         )

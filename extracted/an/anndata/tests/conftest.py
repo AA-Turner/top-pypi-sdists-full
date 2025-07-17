@@ -9,6 +9,8 @@ import pytest
 from dask.base import normalize_token, tokenize
 from packaging.version import Version
 
+from anndata.compat import is_zarr_v2
+
 if Version(dask.__version__) < Version("2024.8.0"):
     from dask.base import normalize_seq
 else:
@@ -28,6 +30,36 @@ if TYPE_CHECKING:
 @pytest.fixture
 def backing_h5ad(tmp_path):
     return tmp_path / "test.h5ad"
+
+
+@pytest.fixture(
+    params=[
+        ("h5ad", None),
+        ("zarr", 2),
+        pytest.param(
+            ("zarr", 3),
+            marks=pytest.mark.skipif(
+                is_zarr_v2(), reason="zarr v3 file format not supported with v2 package"
+            ),
+        ),
+    ],
+    ids=["h5ad", "zarr2", "zarr3"],
+)
+def diskfmt(request):
+    if (fmt := request.param[0]) == "h5ad":
+        yield fmt
+    else:
+        with ad.settings.override(zarr_write_format=request.param[1]):
+            yield fmt
+
+
+@pytest.fixture
+def diskfmt2(diskfmt):
+    if diskfmt == "h5ad":
+        with ad.settings.override(zarr_write_format=2):
+            yield "zarr"
+    else:
+        yield "h5ad"
 
 
 @pytest.fixture(
@@ -149,7 +181,7 @@ def tokenize_anndata(adata: ad.AnnData):
     res.extend([tokenize(adata.obs), tokenize(adata.var)])
     for attr in ["obsm", "varm", "obsp", "varp", "layers"]:
         elem = getattr(adata, attr)
-        res.append(tokenize(list(elem.items())))
+        res.append(tokenize(list(dict(elem).items())))
     res.append(joblib.hash(adata.uns))
     if adata.raw is not None:
         res.append(tokenize(adata.raw.to_adata()))

@@ -22,7 +22,7 @@ import tempfile
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from itertools import groupby
+from itertools import groupby, chain
 from multiprocessing import Pool
 from operator import index
 from pathlib import Path
@@ -43,7 +43,7 @@ from .read_machinery import (DETECTOR_SOURCE_RE, by_id, by_index,
                              same_run, select_train_ids)
 from .run_files_map import RunFilesMap
 from .sourcedata import SourceData
-from .utils import available_cpu_cores
+from .utils import available_cpu_cores, isinstance_no_import
 
 __all__ = [
     'H5File',
@@ -80,6 +80,7 @@ class DataCollection:
     def __init__(
             self, files, sources_data=None, train_ids=None, aliases=None,
             ctx_closes=False, *, inc_suspect_trains=True, is_single_run=False,
+            alias_files=None
     ):
         self.files = list(files)
         self.ctx_closes = ctx_closes
@@ -117,7 +118,11 @@ class DataCollection:
             }
         self._sources_data = sources_data
 
+        # Note that _alias_files is only for tracking where the aliases came
+        # from, the actual aliases are stored in _aliases.
+        self._alias_files = [] if alias_files is None else alias_files
         self._aliases = aliases or {}
+        self.alias = AliasIndexer(self)
 
         # Throw an error if we have conflicting data for the same source
         self._check_source_conflicts()
@@ -284,6 +289,7 @@ class DataCollection:
             return self._get_source_data(item)
         elif (
             isinstance(item, (by_id, by_index, list, np.ndarray, slice)) or
+            isinstance_no_import(item, 'xarray', 'DataArray') or
             is_int_like(item)
         ):
             return self.select_trains(item)
@@ -627,6 +633,10 @@ class DataCollection:
 
         return new_aliases
 
+    def _merge_alias_files(self, *alias_files):
+        all_files = chain.from_iterable(alias_files)
+        return sorted(set(all_files))
+
     def union(self, *others):
         """Join the data in this collection with one or more others.
 
@@ -651,6 +661,8 @@ class DataCollection:
 
         aliases = self._merge_aliases(
             [self._aliases] + [dc._aliases for dc in others])
+        alias_files = self._merge_alias_files(self._alias_files,
+                                              *[dc._alias_files for dc in others])
 
         train_ids = sorted(set().union(*[sd.train_ids for sd in sources_data.values()]))
         # Update the internal list of train IDs for the sources
@@ -662,7 +674,7 @@ class DataCollection:
         return DataCollection(
             files, sources_data=sources_data, train_ids=train_ids,
             aliases=aliases, inc_suspect_trains=self.inc_suspect_trains,
-            is_single_run=same_run(self, *others),
+            is_single_run=same_run(self, *others), alias_files=alias_files
         )
 
     def __or__(self, other):
@@ -675,6 +687,7 @@ class DataCollection:
         """Parse alias definitions into alias dictionaries."""
 
         alias_dicts = []
+        alias_files = []
 
         def is_valid_alias(k, v):
             return (isinstance(k, str) and (
@@ -691,10 +704,11 @@ class DataCollection:
                 alias_dicts.append(alias_def)
             elif isinstance(alias_def, (str, os.PathLike)):
                 # From a file.
+                alias_files.append(Path(alias_def))
                 alias_dicts.append(
                     self._load_aliases_from_file(Path(alias_def)))
 
-        return alias_dicts
+        return alias_dicts, alias_files
 
     def _load_aliases_from_file(self, aliases_path):
         """Load alias definitions from file."""
@@ -784,14 +798,15 @@ class DataCollection:
         """
 
         # Check for conflicts within these definitions
-        new_aliases = self._merge_aliases(
-            [self._aliases] + self._parse_aliases(alias_defs))
+        new_aliases, new_alias_files = self._parse_aliases(alias_defs)
+        new_aliases = self._merge_aliases([self._aliases] + new_aliases)
+        alias_files = self._merge_alias_files(self._alias_files, new_alias_files)
 
         return DataCollection(
             self.files, sources_data=self._sources_data,
             train_ids=self.train_ids, aliases=new_aliases,
             inc_suspect_trains=self.inc_suspect_trains,
-            is_single_run=self.is_single_run
+            is_single_run=self.is_single_run, alias_files=alias_files
         )
 
     def only_aliases(self, *alias_defs, strict=False, require_all=False):
@@ -816,8 +831,9 @@ class DataCollection:
         """
 
         # Create new aliases.
-        aliases = self._merge_aliases(
-            [self._aliases] + self._parse_aliases(alias_defs))
+        new_aliases, new_alias_files = self._parse_aliases(alias_defs)
+        aliases = self._merge_aliases([self._aliases] + new_aliases)
+        alias_files = self._merge_alias_files(self._alias_files, new_alias_files)
 
         # Set of sources aliased.
         aliased_sources = {literal for literal in aliases.values()
@@ -863,6 +879,7 @@ class DataCollection:
         # Create a new DataCollection from selecting and add the aliases.
         new_data = self.select(selection, require_all=require_all)
         new_data._aliases = aliases
+        new_data._alias_files = alias_files
 
         return new_data
 
@@ -875,11 +892,6 @@ class DataCollection:
             inc_suspect_trains=self.inc_suspect_trains,
             is_single_run=self.is_single_run
         )
-
-    @property
-    def alias(self):
-        """Enables item access via source and key aliases."""
-        return AliasIndexer(self)
 
     def _expand_selection(self, selection):
         if isinstance(selection, dict):
@@ -1053,6 +1065,9 @@ class DataCollection:
                 train_ids = np.empty(0, dtype=np.uint64)
 
             for source, srcdata in sources_data.items():
+                if srcdata.is_run_only:
+                    continue
+
                 n_trains_prev = len(train_ids)
                 for group in srcdata.index_groups:
                     source_tids = np.empty(0, dtype=np.uint64)
@@ -1092,7 +1107,7 @@ class DataCollection:
         return DataCollection(
             files, sources_data, train_ids=train_ids, aliases=self._aliases,
             inc_suspect_trains=self.inc_suspect_trains,
-            is_single_run=self.is_single_run
+            is_single_run=self.is_single_run, alias_files=self._alias_files
         )
 
     def deselect(self, seln_or_source_glob, key_glob='*'):
@@ -1129,7 +1144,7 @@ class DataCollection:
         return DataCollection(
             files, sources_data=sources_data, train_ids=self.train_ids,
             aliases=self._aliases, inc_suspect_trains=self.inc_suspect_trains,
-            is_single_run=self.is_single_run,
+            is_single_run=self.is_single_run, alias_files=self._alias_files
         )
 
     def select_trains(self, train_range):
@@ -1164,7 +1179,7 @@ class DataCollection:
         return DataCollection(
             files, sources_data=sources_data, train_ids=new_train_ids,
             aliases=self._aliases, inc_suspect_trains=self.inc_suspect_trains,
-            is_single_run=self.is_single_run,
+            is_single_run=self.is_single_run, alias_files=self._alias_files
         )
 
     def split_trains(self, parts=None, trains_per_part=None):
@@ -1207,7 +1222,7 @@ class DataCollection:
             yield DataCollection(
                 files, sources_data=sources_data_part, train_ids=train_ids,
                 aliases=self._aliases, inc_suspect_trains=self.inc_suspect_trains,
-                is_single_run=self.is_single_run,
+                is_single_run=self.is_single_run, alias_files=self._alias_files
             )
 
     def _check_source_conflicts(self):
@@ -1263,7 +1278,7 @@ class DataCollection:
         return f"<extra_data.DataCollection for {len(self.all_sources)} " \
                f"sources and {len(self.train_ids)} trains>"
 
-    def info(self, details_for_sources=()):
+    def info(self, details_for_sources=(), with_aggregators=False):
         """Show information about the selected data.
         """
         details_sources_re = [re.compile(fnmatch.translate(p))
@@ -1376,7 +1391,8 @@ class DataCollection:
             print(len(displayed_inst_srcs), 'instrument sources (excluding XTDF detectors):')
 
         for s in sorted(displayed_inst_srcs):
-            print('  -', s, src_alias_list(s))
+            agg_str = f' [{self[s].aggregator}]' if with_aggregators else ''
+            print('  -' + agg_str, s, src_alias_list(s))
             if not any(p.match(s) for p in details_sources_re):
                 continue
 
@@ -1391,7 +1407,8 @@ class DataCollection:
         print()
         print(len(self.control_sources), 'control sources:')
         for s in sorted(self.control_sources):
-            print('  -', s, src_alias_list(s))
+            agg_str = f' [{self[s].aggregator}]' if with_aggregators else ''
+            print('  -' + agg_str, s, src_alias_list(s))
             if any(p.match(s) for p in details_sources_re):
                 # Detail for control sources: list keys
                 ctrl_keys = self[s].keys(inc_timestamps=False)
@@ -1484,7 +1501,7 @@ class DataCollection:
                 for group in srcdata.index_groups:
                     counts[f"{best_src_name(src)} {group}.*"] = \
                         srcdata.data_counts(labelled=False, index_group=group)
-            else:
+            elif not srcdata.is_run_only:
                 counts[best_src_name(src)] = srcdata.data_counts(labelled=False)
 
             # Warn the user if the function will take longer than a couple seconds
@@ -2065,14 +2082,17 @@ def open_run(
 
         return base_dc
 
-    if isinstance(proposal, str):
-        if ('/' not in proposal) and not proposal.startswith('p'):
-            proposal = 'p' + proposal.rjust(6, '0')
+    if isinstance(proposal, os.PathLike):
+        prop_dir = os.fsdecode(proposal)
     else:
-        # Allow integers, including numpy integers
-        proposal = 'p{:06d}'.format(index(proposal))
+        if isinstance(proposal, str):
+            if ('/' not in proposal) and not proposal.startswith('p'):
+                proposal = 'p' + proposal.rjust(6, '0')
+        else:
+            # Allow integers, including numpy integers
+            proposal = 'p{:06d}'.format(index(proposal))
 
-    prop_dir = find_proposal(proposal)
+        prop_dir = find_proposal(proposal)
 
     if isinstance(run, str):
         if run.startswith('r'):

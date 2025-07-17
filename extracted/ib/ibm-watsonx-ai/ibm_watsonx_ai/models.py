@@ -714,7 +714,9 @@ class Models(WMLResource):
                 results_reference._check_if_connection_asset_is_s3()
                 results_reference = results_reference._to_dict()
                 cos_client = init_cos_client(results_reference["connection"])
-                bucket = results_reference["location"]["bucket"]
+                bucket = results_reference["location"].get(
+                    "bucket", results_reference["connection"].get("bucket")
+                )
             cos_client.meta.client.download_file(
                 Bucket=bucket, Filename="request.json", Key=asset_url
             )

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-# Asynchronous MinIO Client SDK for Python
+# MinIO Python Library for Amazon S3 Compatible Cloud Storage,
 # (C) 2020 MinIO, Inc.
-# (C) 2022 Huseyn Mashadiyev <mashadiyev.huseyn@gmail.com>
-# (C) 2022 L-ING <hlf01@icloud.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# NOTICE: This file has been changed and differs from the original
-# Author: L-ING
-# Date: 2022-07-11
 
 """Credential providers."""
 
@@ -40,7 +34,6 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 from xml.etree import ElementTree as ET
 
 import certifi
-from aiofile import async_open
 from aiohttp import ClientResponse, ClientSession, TCPConnector
 from aiohttp.typedefs import LooseHeaders
 from aiohttp_retry import ExponentialRetry, RetryClient
@@ -339,8 +332,8 @@ class MinioClientConfigProvider(Provider):
     async def retrieve(self) -> Credentials:
         """Retrieve credential value from MinIO client configuration file."""
         try:
-            async with async_open(self._filename, encoding="utf-8") as conf_file:
-                config = json.loads(await conf_file.read())
+            with open(self._filename, encoding="utf-8") as conf_file:
+                config = json.loads(conf_file.read())
             aliases = config.get("hosts") or config.get("aliases")
             if not aliases:
                 raise ValueError(
@@ -374,8 +367,8 @@ def _check_loopback_host(url: str):
 async def _get_jwt_token(token_file: str) -> dict[str, str]:
     """Read and return content of token file."""
     try:
-        async with async_open(token_file, encoding="utf-8") as file:
-            return {"access_token": await file.read(), "expires_in": "0"}
+        with open(token_file, encoding="utf-8") as file:
+            return {"access_token": file.read(), "expires_in": "0"}
     except (IOError, OSError) as exc:
         raise ValueError(f"error in reading file {token_file}") from exc
 
@@ -481,8 +474,8 @@ class IamAwsProvider(Provider):
             token = self._token
             if self._token_file:
                 url = self._full_uri
-                async with async_open(self._token_file, encoding="utf-8") as file:
-                    token = await file.read()
+                with open(self._token_file, encoding="utf-8") as file:
+                    token = file.read()
             else:
                 if not url:
                     url = self._full_uri

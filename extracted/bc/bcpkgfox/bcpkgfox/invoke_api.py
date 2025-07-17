@@ -404,9 +404,13 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                 else:
                     break
 
-            self.driver.switch_to.window(self.driver.window_handles[0])
-            self.driver.close()
-            self.driver.switch_to.window(self.driver.window_handles[-1])
+            time.sleep(5)
+            handles = self.driver.window_handles
+            self.driver.switch_to.window(handles[-1])
+            if len(handles) > 1:
+                self.driver.switch_to.window(handles[0])
+                self.driver.close()
+                self.driver.switch_to.window(handles[-1])
 
         def extension_check(self):
 

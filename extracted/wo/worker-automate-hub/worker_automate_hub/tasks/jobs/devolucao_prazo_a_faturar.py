@@ -122,14 +122,6 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         # Fecha a instancia do emsys - caso esteja aberta
         await kill_all_emsys()
 
-        # #Validar se é o ultimo dia 
-        # if await e_ultimo_dia_util():
-        #     return RpaRetornoProcessoDTO(
-        #         sucesso=False,
-        #         retorno="Não será possivel processar devido a regra - 'Não deve ser processado nenhuma devolução no último dia útil do mês vigente'",
-        #         status=RpaHistoricoStatusEnum.Falha,
-        #         tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-        # )
 
         #Realizando o login
         app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3.exe")
@@ -155,8 +147,9 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
             
             await worker_sleep(2)
             console.print("Verificando se o cliente esta ativo como Cliente e como Fornecedor... \n")
-            ativar_cliente_fornecedor = await pessoas_ativa_cliente_fornecedor(cod_cliente_incorreto, True, True)
+            ativar_cliente_fornecedor, uf_cliente = await pessoas_ativa_cliente_fornecedor(cod_cliente_incorreto, True, True)
             if ativar_cliente_fornecedor.sucesso == True:
+                print(f"UF: {uf_cliente}")
                 steps += ' ETAPA 00 - CLIENTE E FORNECEDOR - ATIVADOS COM SUCESSO'
                 console.log(ativar_cliente_fornecedor.retorno, style="bold green")
             else:
@@ -167,6 +160,47 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
             
+            uf_posto = False   
+            if cod_cliente_incorreto != "140552":
+                uf_posto = True
+                # Verificar se UF são iguais
+                type_text_into_field("Pessoas", app["TFrmMenuPrincipal"]["Edit"], True, "50")
+
+                pyautogui.press("enter")
+                send_keys("{DOWN " + ("2") + "}")
+                pyautogui.press("enter")
+                
+                await worker_sleep(5)
+                
+                app = Application().connect(class_name="TFrmCadastroPessoaNew", timeout=60)
+                main_window = app["TFrmCadastroPessoaNew"]
+                main_window.set_focus()
+                panel_Capa = main_window.child_window(class_name="TGroupBox", found_index=1)
+                cod_pessoa = panel_Capa.child_window(class_name="TDBIEditNumber", found_index=1)
+                cod_pessoa.click()
+                for _ in range(3):
+                    pyautogui.press("del")
+                    pyautogui.press("backspace")
+
+                cod_pessoa.set_edit_text(cod_empresa)
+                cod_pessoa.click()
+                pyautogui.press("enter")
+                
+                await worker_sleep(5)
+                
+                try:
+                    campo_uf_posto = main_window.child_window(class_name="TDBIEditString", found_index=9)
+                    uf_posto = campo_uf_posto.window_text().strip()
+                except Exception as e:
+                    texto_campo = ""
+                    
+                if uf_cliente == uf_posto:
+                    console.print("Os estados são iguais")
+                else:
+                    console.print("Os estados são diferentes")
+            
+            main_window.close() 
+               
             #REALIZAR PROCESSO DE NOTA FISCAL DE SAIDA 
             type_text_into_field("Nota Fiscal de Saida", app["TFrmMenuPrincipal"]["Edit"], True, "50")
             pyautogui.press("enter")
@@ -241,7 +275,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
                 )
 
-            #Para liquidar o cupom
+            # Para liquidar o cupom
             type_text_into_field("Titulos a receber", app["TFrmMenuPrincipal"]["Edit"], True, "50")
             pyautogui.press("enter")
             await worker_sleep(2)
@@ -262,7 +296,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                     tags=[RpaTagDTO(descricao=descricao_tag.descricao)]
                 )
 
-        
+        await worker_sleep(2)
         #ETAPA 14 A 18
         #STEP 2 - EMISSAO DA NOTA 
         type_text_into_field("Nota Fiscal de Entrada", app["TFrmMenuPrincipal"]["Edit"], True, "50")
@@ -335,7 +369,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
 
 
         #SELECIONAO A NOP 
-        console.print("SELECIONAO A NOP...\n")
+        console.print("SELECIONANDO A NOP...\n")
         select_box_nop_select = main_window.child_window(class_name="TDBIComboBox", found_index=0)
         select_box_nop_select.click()
 
@@ -352,9 +386,20 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
                     break
         else:        
             for item in itens_to_select:
-                if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
-                    nop_to_be_select = item
-                    break
+                if uf_posto:
+                    if uf_posto != uf_cliente:
+                        if '2662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                            nop_to_be_select = item
+                            break
+                    else:
+                        if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                            nop_to_be_select = item
+                            break
+                else:
+                    if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
+                        nop_to_be_select = item
+                        break       
+        
 
         if nop_to_be_select != '':
             console.print(f"Nop a ser considerada: {nop_to_be_select}...\n")
@@ -415,6 +460,38 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
             await worker_sleep(1)
             pyautogui.press('tab')
             await worker_sleep(3)
+            main_window.set_focus()
+            try:
+                # Conecta à janela
+                app = Application(backend="win32").connect(class_name="TFrmPesquisarVendaDevolucao", found_index=0)
+                main_window = app["TFrmPesquisarVendaDevolucao"]
+                data_ano = datetime.now().year
+                data_inicial = f"01/01/{data_ano}"
+                
+                # Acessa o campo desejado
+                data_inicial_input = main_window.child_window(class_name="TDBIEditDate", found_index=1)
+                data_inicial_input.click_input()
+                data_inicial_input.set_edit_text(data_inicial)
+                
+                await worker_sleep(2)
+                
+                # Data final
+                data_final = datetime.now().strftime("%d/%m/%Y")
+                print(data_final)
+                data_final_input = main_window.child_window(class_name="TDBIEditDate", found_index=0)
+                data_final_input.click_input()
+                data_final_input.set_edit_text(data_final)
+
+                await worker_sleep(5)
+            
+            except Exception as e:
+                retorno = f"Não foi possivel clicar em selecionar todos os itens na tela de Pesquisar Vendas para Devolução, erro: {e} \nEtapas Executadas:\n{steps}"
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=retorno,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                )
 
             try:
                 pesquisar_icon = pyautogui.locateOnScreen(ASSETS_PATH + "\\notas_saida\\icon_pesquisa_nota_saida.png", confidence=0.8)

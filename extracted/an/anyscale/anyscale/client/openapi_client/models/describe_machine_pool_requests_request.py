@@ -33,23 +33,28 @@ class DescribeMachinePoolRequestsRequest(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'machine_pool_name': 'str'
+        'machine_pool_name': 'str',
+        'workload_name': 'TextQuery'
     }
 
     attribute_map = {
-        'machine_pool_name': 'machine_pool_name'
+        'machine_pool_name': 'machine_pool_name',
+        'workload_name': 'workload_name'
     }
 
-    def __init__(self, machine_pool_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, machine_pool_name=None, workload_name=None, local_vars_configuration=None):  # noqa: E501
         """DescribeMachinePoolRequestsRequest - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._machine_pool_name = None
+        self._workload_name = None
         self.discriminator = None
 
         self.machine_pool_name = machine_pool_name
+        if workload_name is not None:
+            self.workload_name = workload_name
 
     @property
     def machine_pool_name(self):
@@ -75,6 +80,29 @@ class DescribeMachinePoolRequestsRequest(object):
             raise ValueError("Invalid value for `machine_pool_name`, must not be `None`")  # noqa: E501
 
         self._machine_pool_name = machine_pool_name
+
+    @property
+    def workload_name(self):
+        """Gets the workload_name of this DescribeMachinePoolRequestsRequest.  # noqa: E501
+
+        Filters requests by workload name. If this field is absent, no filtering is done.  # noqa: E501
+
+        :return: The workload_name of this DescribeMachinePoolRequestsRequest.  # noqa: E501
+        :rtype: TextQuery
+        """
+        return self._workload_name
+
+    @workload_name.setter
+    def workload_name(self, workload_name):
+        """Sets the workload_name of this DescribeMachinePoolRequestsRequest.
+
+        Filters requests by workload name. If this field is absent, no filtering is done.  # noqa: E501
+
+        :param workload_name: The workload_name of this DescribeMachinePoolRequestsRequest.  # noqa: E501
+        :type: TextQuery
+        """
+
+        self._workload_name = workload_name
 
     def to_dict(self):
         """Returns the model properties as a dict"""

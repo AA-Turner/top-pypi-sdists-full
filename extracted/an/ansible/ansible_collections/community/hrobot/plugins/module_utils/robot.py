@@ -16,11 +16,21 @@ from ansible.module_utils.urls import fetch_url, open_url
 import json
 import time
 
+from ansible_collections.community.hrobot.plugins.module_utils.common import (
+    PluginException,
+    CheckDoneTimeoutException,
+)
+
 
 ROBOT_DEFAULT_ARGUMENT_SPEC = dict(
     hetzner_user=dict(type='str', required=True),
     hetzner_password=dict(type='str', required=True, no_log=True),
     rate_limit_retry_timeout=dict(type='int', default=-1),
+)
+
+_ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT = dict(
+    hetzner_user=dict(type='str', required=False),
+    hetzner_password=dict(type='str', required=False, no_log=True),
 )
 
 # The API endpoint is fixed.
@@ -65,12 +75,6 @@ def format_error_msg(error, rate_limit_timeout=None):
     return msg
 
 
-class PluginException(Exception):
-    def __init__(self, message):
-        super(PluginException, self).__init__(message)
-        self.error_message = message
-
-
 def raw_plugin_open_url_json(plugin, url, method='GET', timeout=10, data=None, headers=None,
                              accept_errors=None, allow_empty_result=False,
                              allowed_empty_result_status_codes=(200, 204), templar=None,
@@ -84,9 +88,9 @@ def raw_plugin_open_url_json(plugin, url, method='GET', timeout=10, data=None, h
     password = plugin.get_option('hetzner_password')
     if templar is not None:
         if templar.is_template(user):
-            user = templar.template(variable=user, disable_lookups=False)
+            user = templar.template(variable=user)
         if templar.is_template(password):
-            password = templar.template(variable=password, disable_lookups=False)
+            password = templar.template(variable=password)
     try:
         response = open_url(
             url,
@@ -262,13 +266,6 @@ def fetch_url_json(module, url, method='GET', timeout=10, data=None, headers=Non
         module.params['rate_limit_retry_timeout'],
         call,
     )
-
-
-class CheckDoneTimeoutException(Exception):
-    def __init__(self, result, error):
-        super(CheckDoneTimeoutException, self).__init__()
-        self.result = result
-        self.error = error
 
 
 def fetch_url_json_with_retries(module, url, check_done_callback, check_done_delay=10, check_done_timeout=180, skip_first=False, **kwargs):

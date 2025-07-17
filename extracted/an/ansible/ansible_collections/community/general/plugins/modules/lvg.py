@@ -123,7 +123,9 @@ EXAMPLES = r"""
 - name: Create or resize a volume group on top of /dev/sdb1 and /dev/sdc5.
   community.general.lvg:
     vg: vg.services
-    pvs: /dev/sdb1,/dev/sdc5
+    pvs:
+      - /dev/sdb1
+      - /dev/sdc5
 
 - name: Remove a volume group with name vg.services
   community.general.lvg:
@@ -146,6 +148,13 @@ EXAMPLES = r"""
     state: active
     vg: vg.services
 
+- name: Add new PVs to volume group without removing existing ones
+  community.general.lvg:
+    vg: vg.services
+    pvs: /dev/sdb1,/dev/sdc1
+    remove_extra_pvs: false
+    state: present
+
 - name: Reset a volume group UUID
   community.general.lvg:
     state: inactive
@@ -156,7 +165,9 @@ EXAMPLES = r"""
   community.general.lvg:
     state: inactive
     vg: vg.services
-    pvs: /dev/sdb1,/dev/sdc5
+    pvs:
+      - /dev/sdb1
+      - /dev/sdc5
     reset_vg_uuid: true
     reset_pv_uuid: true
 """

@@ -1,8 +1,9 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "mypy==1.15.0",
+  "mypy==1.17.0",
   "packaging>=21,<26",
+  "beartype>=0.20",
   "pympler>1,<2",
   "setuptools",
   "types_deprecated",
@@ -20,6 +21,7 @@ disallow_untyped_decorators = true
 show_error_codes = true
 warn_return_any = true
 warn_unused_ignores = true
+exclude = ["coredis/_py_312_typing.py"]
 
 [[tool.mypy.overrides]]
 module = [
@@ -31,7 +33,6 @@ module = [
     "cachetools",
     "deprecated",
     "pympler",
-    "wrapt",
 ]
 ignore_errors = true
 ignore_missing_imports = true

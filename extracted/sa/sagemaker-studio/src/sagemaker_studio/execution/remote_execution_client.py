@@ -30,7 +30,7 @@ from sagemaker_studio.projects import ProjectService
 from sagemaker_studio.utils._internal import InternalUtils
 
 DEFAULT_INSTANCE_TYPE = "ml.m6i.xlarge"  # consistent with the default instance in the toolkit
-DEFAULT_IMAGE_VERSION = "2.6"  # consistent with default image version in Space
+DEFAULT_IMAGE_VERSION = "2.8"  # consistent with default image version in Space
 
 
 class RemoteExecutionClient(ExecutionClient):
@@ -425,7 +425,7 @@ class RemoteExecutionClient(ExecutionClient):
                 "image_details": {
                     # provide either ecr_uri or (image_name and image_version)
                     "image_name": "sagemaker-distribution-prod",
-                    "image_version": "2.6", // valid values - {2.6, 2, 3.0, 3}
+                    "image_version": "2.8",  // valid values - {2.6, 2.8, 2, 3.0, 3}
                     "ecr_uri": "123456123456.dkr.ecr.us-west-2.amazonaws.com/ImageName:latest"
                 },
             tags={}
@@ -440,6 +440,9 @@ class RemoteExecutionClient(ExecutionClient):
         input_config: Dict[str, Any],
         **kwargs,
     ) -> dict:
+        # Convert underscores to hyphens in execution_name to meet regex validation
+        execution_name = execution_name.replace("_", "-")
+
         parameters = {
             "execution_name": execution_name,
             "input_config": input_config,
@@ -944,10 +947,11 @@ class RemoteExecutionClient(ExecutionClient):
             if parsed_version.major == 3:
                 return True
 
-            # Valid for 2.2.x or 2.6.x versions and 2.2, 2.6 or 2
+            # Since 2025 June, switching to public smd images, valid versions are 2.6.x, 2.7.x, 2.8.x, 2.9.x
             if parsed_version.major == 2 and (
-                parsed_version.minor == 2
-                or parsed_version.minor == 6
+                parsed_version.minor == 6
+                or parsed_version.minor == 7
+                or parsed_version.minor == 8
                 or parsed_version.base_version == "2"
             ):
                 return True

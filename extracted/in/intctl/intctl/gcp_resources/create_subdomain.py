@@ -59,7 +59,7 @@ def ensure_static_ip(cfg: dict, status: StatusManager):
     print(f"⚙️  Configuring subdomain for organization '{cfg['organization_name']}'...")
 
     # Get API configuration
-    api_base_url = os.getenv("INTELLITHING_API_BASE_URL", "http://34.39.118.103") # Default for local dev
+    api_base_url = os.getenv("INTELLITHING_API_BASE_URL", "https://intellithing-5e80f679-0b36-4a61-a643-eafeae0db479.intellithing.io/workspace") # Default for local dev
     # api_key = cfg.get("intellithing_key")
     
     # if not api_key:

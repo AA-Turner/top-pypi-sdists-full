@@ -30,7 +30,7 @@ class MCPRequestHandler:
     LITELLM_MCP_ACCESS_GROUPS_HEADER_NAME = SpecialHeaders.mcp_access_groups.value
 
     @staticmethod
-    async def process_mcp_request(scope: Scope) -> Tuple[UserAPIKeyAuth, Optional[str], Optional[List[str]], Optional[List[str]]]:
+    async def process_mcp_request(scope: Scope) -> Tuple[UserAPIKeyAuth, Optional[str], Optional[List[str]]]:
         """
         Process and validate MCP request headers from the ASGI scope.
         This includes:
@@ -44,8 +44,7 @@ class MCPRequestHandler:
         Returns:
             UserAPIKeyAuth containing validated authentication information
             mcp_auth_header: Optional[str] MCP auth header to be passed to the MCP server
-            mcp_servers: Optional[List[str]] List of MCP servers to use
-            mcp_access_groups: Optional[List[str]] List of MCP access groups to use
+            mcp_servers: Optional[List[str]] List of MCP servers and access groups to use
 
         Raises:
             HTTPException: If headers are invalid or missing required headers
@@ -55,10 +54,8 @@ class MCPRequestHandler:
             MCPRequestHandler.get_litellm_api_key_from_headers(headers) or ""
         )
         mcp_auth_header = MCPRequestHandler._get_mcp_auth_header_from_headers(headers)
-        # Use helper for access groups
-        mcp_access_groups = MCPRequestHandler.get_mcp_access_groups_from_headers(headers)
-        verbose_logger.debug(f"Parsed MCP access groups (helper): {mcp_access_groups}")
-        # Use existing logic for servers (or add a helper if desired)
+        
+        # Parse MCP servers from header
         mcp_servers_header = headers.get(MCPRequestHandler.LITELLM_MCP_SERVERS_HEADER_NAME)
         verbose_logger.debug(f"Raw MCP servers header: {mcp_servers_header}")
         mcp_servers = None
@@ -79,7 +76,7 @@ class MCPRequestHandler:
         validated_user_api_key_auth = await user_api_key_auth(
             api_key=litellm_api_key, request=request
         )
-        return validated_user_api_key_auth, mcp_auth_header, mcp_servers, mcp_access_groups
+        return validated_user_api_key_auth, mcp_auth_header, mcp_servers
     
 
     @staticmethod
@@ -277,33 +274,60 @@ class MCPRequestHandler:
         return list(set(all_servers))
 
     @staticmethod
+    def _get_config_server_ids_for_access_groups(config_mcp_servers, access_groups: List[str]) -> set:
+        """
+        Helper to get server_ids from config-loaded servers that match any of the given access groups.
+        """
+        server_ids = set()
+        for server_id, server in config_mcp_servers.items():
+            if server.access_groups:
+                if any(group in server.access_groups for group in access_groups):
+                    server_ids.add(server_id)
+        return server_ids
+
+    @staticmethod
+    async def _get_db_server_ids_for_access_groups(prisma_client, access_groups: List[str]) -> set:
+        """
+        Helper to get server_ids from DB servers that match any of the given access groups.
+        """
+        server_ids = set()
+        if access_groups and prisma_client is not None:
+            try:
+                mcp_servers = await prisma_client.db.litellm_mcpservertable.find_many(
+                    where={
+                        "mcp_access_groups": {
+                            "hasSome": access_groups
+                        }
+                    }
+                )
+                for server in mcp_servers:
+                    server_ids.add(server.server_id)
+            except Exception as e:
+                verbose_logger.debug(f"Error getting MCP servers from access groups: {e}")
+        return server_ids
+
+    @staticmethod
     async def _get_mcp_servers_from_access_groups(
         access_groups: List[str]
     ) -> List[str]:
         """
-        Resolve MCP access groups to server IDs by querying the MCP server table
+        Resolve MCP access groups to server IDs by querying BOTH the MCP server table (DB) AND config-loaded servers
         """
         from litellm.proxy.proxy_server import prisma_client
+        from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
 
-        if not access_groups or prisma_client is None:
-            return []
+        # Use the new helper for config-loaded servers
+        server_ids = MCPRequestHandler._get_config_server_ids_for_access_groups(
+            global_mcp_server_manager.config_mcp_servers, access_groups
+        )
 
-        try:
-            # Find all MCP servers that have any of the specified access groups
-            mcp_servers = await prisma_client.db.litellm_mcpservertable.find_many(
-                where={
-                    "mcp_access_groups": {
-                        "hasSome": access_groups
-                    }
-                }
-            )
-            
-            # Extract server IDs
-            server_ids = [server.server_id for server in mcp_servers]
-            return server_ids
-        except Exception as e:
-            verbose_logger.debug(f"Error getting MCP servers from access groups: {e}")
-            return []
+        # Use the new helper for DB servers
+        db_server_ids = await MCPRequestHandler._get_db_server_ids_for_access_groups(
+            prisma_client, access_groups
+        )
+        server_ids.update(db_server_ids)
+
+        return list(server_ids)
 
     @staticmethod
     async def get_mcp_access_groups(

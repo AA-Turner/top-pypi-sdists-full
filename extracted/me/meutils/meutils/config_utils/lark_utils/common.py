@@ -199,7 +199,7 @@ async def get_next_token(
         ttl: Optional[int] = None,
 ):
     _ttl = await redis_aclient.ttl(feishu_url)  # 列表操作会取消ttl
-    for i in range(1):  # 避免死循环
+    for i in range(10):  # 避免死循环
         if i > 5:
             send_message(f"重复同步了{i}次\n\n{feishu_url}", title="更新tokens")
 
@@ -213,19 +213,19 @@ async def get_next_token(
                 _ttl > 1 and await redis_aclient.expire(feishu_url, _ttl)
 
                 return token
-            elif await check_token(token, threshold=min_points):
-                logger.info("写回队列「大于最小消耗」")
+            elif await check_token(token, threshold=min_points * 2):
+                logger.info("写回队列「大于最小消耗」")  # 大于最小消耗 至少两次 才写回
 
                 await redis_aclient.rpush(feishu_url, token)
                 _ttl > 1 and await redis_aclient.expire(feishu_url, _ttl)
 
                 return token
-            elif await check_token(token):
-                logger.info("不写回队列「最后一次消耗」")
+            # elif await check_token(token):
+            #     logger.info("不写回队列「最后一次消耗」")
+            #
+            #     return token
 
-                return token
-
-            logger.info("不写回队列「积分不够」")
+            logger.info(f"不写回队列: {token}")
 
         else:  # 更新tokens到redis
             df = await aget_spreadsheet_values(feishu_url=feishu_url, to_dataframe=True)

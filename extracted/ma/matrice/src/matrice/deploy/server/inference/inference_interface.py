@@ -66,12 +66,16 @@ class InferenceInterface:
         self.post_processor = PostProcessor()
         self.latest_inference_time = datetime.now(timezone.utc)
         self.max_batch_wait_time = max_batch_wait_time
-
+    
         # Dynamic batching components
         self.batch_queue: List[BatchRequest] = []
         self.batch_lock = asyncio.Lock()
         self.processing_batch = False
 
+        # Set up index to category mapping
+        self.index_to_category = self.action_tracker.get_index_to_category()
+        self.target_categories = list(self.index_to_category.values())
+        
         # Set up default post-processing configuration
         self.post_processing_config = None
         if post_processing_config:
@@ -94,31 +98,40 @@ class InferenceInterface:
     ) -> Optional[BaseConfig]:
         """Parse post-processing configuration from various formats."""
         try:
+            if not config:
+                return None
             if isinstance(config, BaseConfig):
-                return config
+                config = config
             elif isinstance(config, dict):
                 usecase = config.get("usecase")
                 if not usecase:
                     raise ValueError("Configuration dict must contain 'usecase' key")
-
                 # Create a copy of config without usecase and category to avoid conflicts
                 config_params = config.copy()
                 config_params.pop("usecase", None)
                 config_params.pop("category", None)
-
                 category = config.get("category", "general")
-
                 # Use generic config creation to avoid parameter conflicts
-                return self.post_processor.create_config(
+                config = self.post_processor.create_config(
                     usecase, category, **config_params
                 )
-
             elif isinstance(config, str):
                 # Assume it's a use case name, create with defaults
-                return create_config_from_template(config)
+                config = create_config_from_template(config)
             else:
                 self.logger.warning(f"Unsupported config type: {type(config)}")
                 return None
+            if hasattr(config, "index_to_category"):
+                if not config.index_to_category:
+                    config.index_to_category = self.index_to_category
+                else:
+                    self.index_to_category = config.index_to_category
+            if hasattr(config, "target_categories"):
+                if not config.target_categories:
+                    config.target_categories = self.target_categories
+                else:
+                    self.target_categories = config.target_categories
+            return config
         except Exception as e:
             self.logger.error(f"Failed to parse post-processing config: {str(e)}")
             return None
@@ -187,6 +200,91 @@ class InferenceInterface:
         return await self._apply_post_processing(
             raw_results, input1, post_processing_config, stream_key, stream_info
         )
+
+    async def _apply_post_processing(
+        self,
+        raw_results,
+        input1,
+        post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]] = None,
+        stream_key: Optional[str] = None,
+        stream_info: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
+        """Apply post-processing to inference results"""
+        try:
+            # Determine which configuration to use
+            config_to_use = self._parse_post_processing_config(post_processing_config) or self.post_processing_config
+            
+            # Normalize stream_key for logging and processing
+            normalized_stream_key = stream_key or "default_stream"
+            
+            self.logger.debug(f"Post-processing config to use: {config_to_use} for stream: {normalized_stream_key}")
+
+            if config_to_use is None and self.custom_post_processing_fn is None:
+                self.logger.debug(
+                    f"No post-processing configuration or custom function provided for stream: {normalized_stream_key}"
+                )
+                return raw_results, None
+
+            # Use custom function if provided and no specific config
+            if self.custom_post_processing_fn and post_processing_config is None:
+                post_processing_result = self.custom_post_processing_fn(raw_results)
+                # Handle custom function output
+                if (
+                    isinstance(post_processing_result, tuple)
+                    and len(post_processing_result) == 2
+                ):
+                    processed_result, post_processing_result = post_processing_result
+                else:
+                    processed_result = post_processing_result
+                    post_processing_result = {"processed_data": processed_result}
+                return processed_result, post_processing_result
+
+            if config_to_use is None:
+                self.logger.error(f"Failed to parse post-processing configuration for stream: {normalized_stream_key}")
+                return raw_results, {
+                    "error": "Invalid post-processing configuration",
+                    "status": "configuration_error",
+                    "processed_data": raw_results,
+                    "stream_key": normalized_stream_key,
+                }
+
+            # Apply post-processing using the unified processor
+            result = self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
+
+            if result.is_success():
+                return raw_results, {
+                    "status": "success",
+                    "processing_time": result.processing_time,
+                    "usecase": result.usecase,
+                    "category": result.category,
+                    "summary": result.summary,
+                    "insights": result.insights,
+                    "metrics": result.metrics,
+                    "predictions": result.predictions,
+                    "processed_data": result.data,
+                    "stream_key": normalized_stream_key,
+                }
+            else:
+                self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {result.error_message}")
+                return raw_results, {
+                    "error": result.error_message,
+                    "error_type": result.error_type,
+                    "status": "post_processing_failed",
+                    "processing_time": result.processing_time,
+                    "processed_data": raw_results,
+                    "stream_key": normalized_stream_key,
+                }
+
+        except Exception as e:
+            # Log the error and return raw results with error info
+            normalized_stream_key = stream_key or "default_stream"
+            self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {str(e)}", exc_info=True)
+            return raw_results, {
+                "error": str(e),
+                "status": "post_processing_failed",
+                "processed_data": raw_results,
+                "stream_key": normalized_stream_key,
+            }
 
     async def _dynamic_batch_inference(
         self,
@@ -332,104 +430,6 @@ class InferenceInterface:
             self.logger.error(f"Batch processing failed: {str(e)}")
             async with self.batch_lock:
                 self.processing_batch = False
-
-    async def _apply_post_processing(
-        self,
-        raw_results,
-        input1,
-        post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]] = None,
-        stream_key: Optional[str] = None,
-        stream_info: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[Any, Optional[Dict[str, Any]]]:
-        """Apply post-processing to inference results"""
-        try:
-            # Determine which configuration to use
-            config_to_use = post_processing_config or self.post_processing_config
-            
-            # Normalize stream_key for logging and processing
-            normalized_stream_key = stream_key or "default_stream"
-            
-            self.logger.debug(f"Post-processing config to use: {config_to_use} for stream: {normalized_stream_key}")
-
-            if config_to_use is None and self.custom_post_processing_fn is None:
-                self.logger.warning(
-                    f"No post-processing configuration or custom function provided for stream: {normalized_stream_key}"
-                )
-                return raw_results, None
-
-            # Use custom function if provided and no specific config
-            if self.custom_post_processing_fn and post_processing_config is None:
-                post_processing_result = self.custom_post_processing_fn(raw_results)
-                # Handle custom function output
-                if (
-                    isinstance(post_processing_result, tuple)
-                    and len(post_processing_result) == 2
-                ):
-                    processed_result, post_processing_result = post_processing_result
-                else:
-                    processed_result = post_processing_result
-                    post_processing_result = {"processed_data": processed_result}
-                return processed_result, post_processing_result
-
-            # Parse configuration if needed
-            if not isinstance(config_to_use, BaseConfig):
-                config_to_use = self._parse_post_processing_config(config_to_use)
-
-            if config_to_use is None:
-                self.logger.error(f"Failed to parse post-processing configuration for stream: {normalized_stream_key}")
-                return raw_results, {
-                    "error": "Invalid post-processing configuration",
-                    "status": "configuration_error",
-                    "processed_data": raw_results,
-                    "stream_key": normalized_stream_key,
-                }
-
-            # Add index to category mapping if available
-            if (
-                hasattr(config_to_use, "index_to_category")
-                and not config_to_use.index_to_category
-            ):
-                config_to_use.index_to_category = (
-                    self.action_tracker.get_index_to_category()
-                )
-
-            # Apply post-processing using the unified processor
-            result = self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
-
-            if result.is_success():
-                return raw_results, {
-                    "status": "success",
-                    "processing_time": result.processing_time,
-                    "usecase": result.usecase,
-                    "category": result.category,
-                    "summary": result.summary,
-                    "insights": result.insights,
-                    "metrics": result.metrics,
-                    "predictions": result.predictions,
-                    "processed_data": result.data,
-                    "stream_key": normalized_stream_key,
-                }
-            else:
-                self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {result.error_message}")
-                return raw_results, {
-                    "error": result.error_message,
-                    "error_type": result.error_type,
-                    "status": "post_processing_failed",
-                    "processing_time": result.processing_time,
-                    "processed_data": raw_results,
-                    "stream_key": normalized_stream_key,
-                }
-
-        except Exception as e:
-            # Log the error and return raw results with error info
-            normalized_stream_key = stream_key or "default_stream"
-            self.logger.error(f"Post-processing failed for stream {normalized_stream_key}: {str(e)}", exc_info=True)
-            return raw_results, {
-                "error": str(e),
-                "status": "post_processing_failed",
-                "processed_data": raw_results,
-                "stream_key": normalized_stream_key,
-            }
 
     async def batch_inference(
         self,
