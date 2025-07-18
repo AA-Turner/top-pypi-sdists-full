@@ -73,6 +73,7 @@ __all__ = (
     "CreateGroupResponseTypeDef",
     "DeleteCanaryRequestTypeDef",
     "DeleteGroupRequestTypeDef",
+    "DependencyTypeDef",
     "DescribeCanariesLastRunRequestTypeDef",
     "DescribeCanariesLastRunResponseTypeDef",
     "DescribeCanariesRequestTypeDef",
@@ -137,11 +138,13 @@ class BaseScreenshotTypeDef(TypedDict):
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
-
-
-class CanaryCodeOutputTypeDef(TypedDict):
-    SourceLocationArn: NotRequired[str]
-    Handler: NotRequired[str]
+DependencyTypeDef = TypedDict(
+    "DependencyTypeDef",
+    {
+        "Reference": str,
+        "Type": NotRequired[Literal["LambdaLayer"]],
+    },
+)
 
 
 class CanaryDryRunConfigOutputTypeDef(TypedDict):
@@ -359,6 +362,13 @@ class CanaryCodeInputTypeDef(TypedDict):
     S3Key: NotRequired[str]
     S3Version: NotRequired[str]
     ZipFile: NotRequired[BlobTypeDef]
+    Dependencies: NotRequired[Sequence[DependencyTypeDef]]
+
+
+class CanaryCodeOutputTypeDef(TypedDict):
+    SourceLocationArn: NotRequired[str]
+    Handler: NotRequired[str]
+    Dependencies: NotRequired[List[DependencyTypeDef]]
 
 
 class CanaryRunTypeDef(TypedDict):

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''mode command handling'''
 
 from pymavlink import mavutil
@@ -14,9 +14,12 @@ AP_FLAKE8_CLEAN
 class ModeModule(mp_module.MPModule):
     def __init__(self, mpstate):
         super(ModeModule, self).__init__(mpstate, "mode", public=True)
-        self.add_command('mode', self.cmd_mode, "mode change", self.available_modes())
+        self.add_command('mode', self.cmd_mode, "mode change", [
+            '(MODE)'
+        ])
         self.add_command('guided', self.cmd_guided, "fly to a clicked location on map")
         self.add_command('confirm', self.cmd_confirm, "confirm a command")
+        self.add_completion_function('(MODE)', self.complete_available_modes)
 
     def cmd_mode(self, args):
         '''set arbitrary mode'''
@@ -25,7 +28,7 @@ class ModeModule(mp_module.MPModule):
             print('No mode mapping available')
             return
         if len(args) != 1:
-            print('Available modes: ', mode_mapping.keys())
+            print('Available modes: ', ', '.join(self.available_modes()))
             return
         if args[0].isdigit():
             modenum = int(args[0])
@@ -49,6 +52,9 @@ class ModeModule(mp_module.MPModule):
             return
         from MAVProxy.modules.lib import mp_menu
         mp_menu.MPMenuConfirmDialog(question, callback=self.mpstate.functions.process_stdin, args=command)
+
+    def complete_available_modes(self, text):
+        return self.available_modes()
 
     def available_modes(self):
         if self.master is None:
@@ -75,9 +81,18 @@ class ModeModule(mp_module.MPModule):
             if args[0] == "forward":
                 return self.cmd_guided_forward(args[1:])
 
-        if len(args) != 1 and len(args) != 3:
+        if len(args) == 2:
+            frames = ['AboveHome', 'AGL', 'AMSL']
+            if args[1] in frames:
+                self.settings.flytoframe = args[1]
+            else:
+                print("Usage: guided ALTITUDE %s" % '|'.join(frames))
+                return
+        elif len(args) != 1 and len(args) != 3:
             print("Usage: guided ALTITUDE | guided LAT LON ALTITUDE | guided forward METRES")
             return
+
+        frame = self.flyto_frame()
 
         if len(args) == 3:
             latitude = float(args[0])
@@ -92,8 +107,6 @@ class ModeModule(mp_module.MPModule):
             altitude = float(args[0])
 
         altitude = self.height_convert_from_units(altitude)
-
-        frame = self.flyto_frame()
 
         print("Guided %s %s frame %u" % (str(latlon), str(altitude), frame))
 

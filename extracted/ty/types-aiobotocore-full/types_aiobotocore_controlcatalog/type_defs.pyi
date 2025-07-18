@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
-from .literals import ControlBehaviorType, ControlScopeType, ControlSeverityType
+from .literals import ControlBehaviorType, ControlScopeType, ControlSeverityType, MappingTypeType
 
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
@@ -36,18 +36,27 @@ __all__ = (
     "AssociatedDomainSummaryTypeDef",
     "AssociatedObjectiveSummaryTypeDef",
     "CommonControlFilterTypeDef",
+    "CommonControlMappingDetailsTypeDef",
     "CommonControlSummaryTypeDef",
+    "ControlFilterTypeDef",
+    "ControlMappingFilterTypeDef",
+    "ControlMappingTypeDef",
     "ControlParameterTypeDef",
     "ControlSummaryTypeDef",
     "DomainResourceFilterTypeDef",
     "DomainSummaryTypeDef",
+    "FrameworkMappingDetailsTypeDef",
     "GetControlRequestTypeDef",
     "GetControlResponseTypeDef",
     "ImplementationDetailsTypeDef",
+    "ImplementationFilterTypeDef",
     "ImplementationSummaryTypeDef",
     "ListCommonControlsRequestPaginateTypeDef",
     "ListCommonControlsRequestTypeDef",
     "ListCommonControlsResponseTypeDef",
+    "ListControlMappingsRequestPaginateTypeDef",
+    "ListControlMappingsRequestTypeDef",
+    "ListControlMappingsResponseTypeDef",
     "ListControlsRequestPaginateTypeDef",
     "ListControlsRequestTypeDef",
     "ListControlsResponseTypeDef",
@@ -57,6 +66,7 @@ __all__ = (
     "ListObjectivesRequestPaginateTypeDef",
     "ListObjectivesRequestTypeDef",
     "ListObjectivesResponseTypeDef",
+    "MappingTypeDef",
     "ObjectiveFilterTypeDef",
     "ObjectiveResourceFilterTypeDef",
     "ObjectiveSummaryTypeDef",
@@ -75,6 +85,18 @@ class AssociatedObjectiveSummaryTypeDef(TypedDict):
 
 class ObjectiveResourceFilterTypeDef(TypedDict):
     Arn: NotRequired[str]
+
+class CommonControlMappingDetailsTypeDef(TypedDict):
+    CommonControlArn: str
+
+class ImplementationFilterTypeDef(TypedDict):
+    Types: NotRequired[Sequence[str]]
+    Identifiers: NotRequired[Sequence[str]]
+
+class ControlMappingFilterTypeDef(TypedDict):
+    ControlArns: NotRequired[Sequence[str]]
+    CommonControlArns: NotRequired[Sequence[str]]
+    MappingTypes: NotRequired[Sequence[MappingTypeType]]
 
 class ControlParameterTypeDef(TypedDict):
     Name: str
@@ -96,6 +118,10 @@ class DomainSummaryTypeDef(TypedDict):
     Description: str
     CreateTime: datetime
     LastUpdateTime: datetime
+
+class FrameworkMappingDetailsTypeDef(TypedDict):
+    Name: str
+    Item: str
 
 class GetControlRequestTypeDef(TypedDict):
     ControlArn: str
@@ -124,10 +150,6 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
-class ListControlsRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-
 class ListDomainsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -152,20 +174,35 @@ class CommonControlSummaryTypeDef(TypedDict):
 class CommonControlFilterTypeDef(TypedDict):
     Objectives: NotRequired[Sequence[ObjectiveResourceFilterTypeDef]]
 
+class ControlFilterTypeDef(TypedDict):
+    Implementations: NotRequired[ImplementationFilterTypeDef]
+
+class ListControlMappingsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filter: NotRequired[ControlMappingFilterTypeDef]
+
 class ControlSummaryTypeDef(TypedDict):
     Arn: str
     Name: str
     Description: str
+    Aliases: NotRequired[List[str]]
     Behavior: NotRequired[ControlBehaviorType]
     Severity: NotRequired[ControlSeverityType]
     Implementation: NotRequired[ImplementationSummaryTypeDef]
     CreateTime: NotRequired[datetime]
+    GovernedResources: NotRequired[List[str]]
 
 class ObjectiveFilterTypeDef(TypedDict):
     Domains: NotRequired[Sequence[DomainResourceFilterTypeDef]]
 
+class MappingTypeDef(TypedDict):
+    Framework: NotRequired[FrameworkMappingDetailsTypeDef]
+    CommonControl: NotRequired[CommonControlMappingDetailsTypeDef]
+
 class GetControlResponseTypeDef(TypedDict):
     Arn: str
+    Aliases: List[str]
     Name: str
     Description: str
     Behavior: ControlBehaviorType
@@ -174,6 +211,7 @@ class GetControlResponseTypeDef(TypedDict):
     Implementation: ImplementationDetailsTypeDef
     Parameters: List[ControlParameterTypeDef]
     CreateTime: datetime
+    GovernedResources: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDomainsResponseTypeDef(TypedDict):
@@ -181,7 +219,8 @@ class ListDomainsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class ListControlsRequestPaginateTypeDef(TypedDict):
+class ListControlMappingsRequestPaginateTypeDef(TypedDict):
+    Filter: NotRequired[ControlMappingFilterTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDomainsRequestPaginateTypeDef(TypedDict):
@@ -206,6 +245,15 @@ class ListCommonControlsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     CommonControlFilter: NotRequired[CommonControlFilterTypeDef]
 
+class ListControlsRequestPaginateTypeDef(TypedDict):
+    Filter: NotRequired[ControlFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListControlsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filter: NotRequired[ControlFilterTypeDef]
+
 class ListControlsResponseTypeDef(TypedDict):
     Controls: List[ControlSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -219,3 +267,17 @@ class ListObjectivesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     ObjectiveFilter: NotRequired[ObjectiveFilterTypeDef]
+
+ControlMappingTypeDef = TypedDict(
+    "ControlMappingTypeDef",
+    {
+        "ControlArn": str,
+        "MappingType": MappingTypeType,
+        "Mapping": MappingTypeDef,
+    },
+)
+
+class ListControlMappingsResponseTypeDef(TypedDict):
+    ControlMappings: List[ControlMappingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]

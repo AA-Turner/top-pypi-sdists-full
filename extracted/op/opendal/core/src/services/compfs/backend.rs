@@ -95,7 +95,6 @@ impl Builder for CompfsBuilder {
                     .set_root(&root)
                     .set_native_capability(Capability {
                         stat: true,
-                        stat_has_last_modified: true,
 
                         read: true,
 
@@ -137,10 +136,6 @@ impl Access for CompfsBackend {
     type Writer = CompfsWriter;
     type Lister = Option<CompfsLister>;
     type Deleter = OneShotDeleter<CompfsDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

@@ -319,6 +319,7 @@ __all__ = (
     "PreProcessingParsedResponseTypeDef",
     "PreProcessingTraceTypeDef",
     "PromptConfigurationTypeDef",
+    "PromptCreationConfigurationsTypeDef",
     "PromptOverrideConfigurationTypeDef",
     "PromptTemplateTypeDef",
     "PropertyParametersTypeDef",
@@ -796,6 +797,10 @@ class InvocationSummaryTypeDef(TypedDict):
     createdAt: datetime
     invocationId: str
     sessionId: str
+
+class PromptCreationConfigurationsTypeDef(TypedDict):
+    excludePreviousThinkingSteps: NotRequired[bool]
+    previousConversationTurnsToInclude: NotRequired[int]
 
 class StreamingConfigurationsTypeDef(TypedDict):
     applyGuardrailInterval: NotRequired[int]
@@ -2189,6 +2194,7 @@ class InvokeInlineAgentRequestTypeDef(TypedDict):
     inputText: NotRequired[str]
     knowledgeBases: NotRequired[Sequence[KnowledgeBaseTypeDef]]
     orchestrationType: NotRequired[OrchestrationTypeType]
+    promptCreationConfigurations: NotRequired[PromptCreationConfigurationsTypeDef]
     promptOverrideConfiguration: NotRequired[PromptOverrideConfigurationTypeDef]
     streamingConfigurations: NotRequired[StreamingConfigurationsTypeDef]
 
@@ -2201,6 +2207,7 @@ class InvokeAgentRequestTypeDef(TypedDict):
     endSession: NotRequired[bool]
     inputText: NotRequired[str]
     memoryId: NotRequired[str]
+    promptCreationConfigurations: NotRequired[PromptCreationConfigurationsTypeDef]
     sessionState: NotRequired[SessionStateTypeDef]
     sourceArn: NotRequired[str]
     streamingConfigurations: NotRequired[StreamingConfigurationsTypeDef]

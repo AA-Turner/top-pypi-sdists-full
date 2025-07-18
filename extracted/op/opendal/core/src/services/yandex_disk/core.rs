@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::Arc;
+
 use bytes::Buf;
 use http::header;
 use http::request;
@@ -22,9 +26,6 @@ use http::Request;
 use http::Response;
 use http::StatusCode;
 use serde::Deserialize;
-use std::fmt::Debug;
-use std::fmt::Formatter;
-use std::sync::Arc;
 
 use super::error::parse_error;
 use crate::raw::*;
@@ -268,11 +269,11 @@ impl YandexDiskCore {
         );
 
         if let Some(limit) = limit {
-            url = format!("{}&limit={}", url, limit);
+            url = format!("{url}&limit={limit}");
         }
 
         if let Some(offset) = offset {
-            url = format!("{}&offset={}", url, offset);
+            url = format!("{url}&offset={offset}");
         }
 
         let req = Request::get(url);

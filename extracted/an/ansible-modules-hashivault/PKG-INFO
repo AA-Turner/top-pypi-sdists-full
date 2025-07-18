@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ansible-modules-hashivault
-Version: 5.3.0
+Version: 5.4.0
 Summary: Ansible Modules for Hashicorp Vault
 Home-page: https://github.com/TerryHowe/ansible-modules-hashivault
 Author: Terry Howe
@@ -153,7 +153,7 @@ You may init the vault::
         - hashivault_init:
           register: vault_init
 
-You may also seal and unseal the vault::
+You may seal and unseal the vault::
 
     ---
     - hosts: localhost
@@ -191,4 +191,4 @@ projects.  Two potential ways to work around this issue are either use the
 License
 -------
 
-`MIT <https://github.com/TerryHowe/ansible-modules-hashivault/blob/master/LICENSE>`_.
+`MIT <https://github.com/TerryHowe/ansible-modules-hashivault/blob/main/LICENSE>`_.

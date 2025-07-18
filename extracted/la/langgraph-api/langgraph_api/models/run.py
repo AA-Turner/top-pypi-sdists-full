@@ -5,13 +5,14 @@ import time
 import urllib.parse
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any, NamedTuple, TypedDict
+from typing import Any, NamedTuple
 from uuid import UUID
 
 import orjson
 from langgraph.checkpoint.base.id import uuid6
 from starlette.authentication import BaseUser
 from starlette.exceptions import HTTPException
+from typing_extensions import TypedDict
 
 from langgraph_api.graph import GRAPHS, get_assistant_id
 from langgraph_api.schema import (
@@ -203,11 +204,11 @@ def get_header_patterns() -> tuple[
     configurable = config.HTTP_CONFIG.get("configurable_headers")
     if not configurable:
         return None, None
-    header_includes = configurable.get("includes") or []
+    header_includes = configurable.get("includes") or configurable.get("include") or []
     include_patterns = []
     for include in header_includes:
         include_patterns.append(translate_pattern(include))
-    header_excludes = configurable.get("excludes") or []
+    header_excludes = configurable.get("excludes") or configurable.get("exclude") or []
     exclude_patterns = []
     for exclude in header_excludes:
         exclude_patterns.append(translate_pattern(exclude))

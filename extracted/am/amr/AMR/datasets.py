@@ -12,7 +12,8 @@ os.makedirs(r_lib_path, exist_ok=True)
 os.environ['R_LIBS_SITE'] = r_lib_path
 
 from rpy2 import robjects
-from rpy2.robjects import pandas2ri
+from rpy2.robjects.conversion import localconverter
+from rpy2.robjects import default_converter, numpy2ri, pandas2ri
 from rpy2.robjects.packages import importr, isinstalled
 
 # Import base and utils
@@ -50,27 +51,26 @@ if r_amr_version != python_amr_version:
 print(f"AMR: Setting up R environment and AMR datasets...", flush=True)
 
 # Activate the automatic conversion between R and pandas DataFrames
-pandas2ri.activate()
+with localconverter(default_converter + numpy2ri.converter + pandas2ri.converter):
+    # example_isolates
+    example_isolates = robjects.r('''
+    df <- AMR::example_isolates
+    df[] <- lapply(df, function(x) {
+        if (inherits(x, c("Date", "POSIXt", "factor"))) {
+            as.character(x)
+        } else {
+            x
+        }
+    })
+    df <- df[, !sapply(df, is.list)]
+    df
+    ''')
+    example_isolates['date'] = pd.to_datetime(example_isolates['date'])
 
-# example_isolates
-example_isolates = pandas2ri.rpy2py(robjects.r('''
-df <- AMR::example_isolates
-df[] <- lapply(df, function(x) {
-    if (inherits(x, c("Date", "POSIXt", "factor"))) {
-        as.character(x)
-    } else {
-        x
-    }
-})
-df <- df[, !sapply(df, is.list)]
-df
-'''))
-example_isolates['date'] = pd.to_datetime(example_isolates['date'])
-
-# microorganisms
-microorganisms = pandas2ri.rpy2py(robjects.r('AMR::microorganisms[, !sapply(AMR::microorganisms, is.list)]'))
-antimicrobials = pandas2ri.rpy2py(robjects.r('AMR::antimicrobials[, !sapply(AMR::antimicrobials, is.list)]'))
-clinical_breakpoints = pandas2ri.rpy2py(robjects.r('AMR::clinical_breakpoints[, !sapply(AMR::clinical_breakpoints, is.list)]'))
+    # microorganisms
+    microorganisms = robjects.r('AMR::microorganisms[, !sapply(AMR::microorganisms, is.list)]')
+    antimicrobials = robjects.r('AMR::antimicrobials[, !sapply(AMR::antimicrobials, is.list)]')
+    clinical_breakpoints = robjects.r('AMR::clinical_breakpoints[, !sapply(AMR::clinical_breakpoints, is.list)]')
 
 base.options(warn = 0)
 

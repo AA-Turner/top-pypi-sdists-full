@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendal
-Version: 0.45.20
+Version: 0.46.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Summary: Apache OpenDAL™ Python Binding

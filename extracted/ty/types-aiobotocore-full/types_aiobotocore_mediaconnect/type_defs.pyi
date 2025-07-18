@@ -1345,6 +1345,7 @@ class OutputTypeDef(TypedDict):
     BridgeArn: NotRequired[str]
     BridgePorts: NotRequired[List[int]]
     OutputStatus: NotRequired[OutputStatusType]
+    PeerIpAddress: NotRequired[str]
 
 class SourceTypeDef(TypedDict):
     Name: str
@@ -1362,6 +1363,7 @@ class SourceTypeDef(TypedDict):
     VpcInterfaceName: NotRequired[str]
     WhitelistCidr: NotRequired[str]
     GatewayBridgeSource: NotRequired[GatewayBridgeSourceTypeDef]
+    PeerIpAddress: NotRequired[str]
 
 class AddFlowMediaStreamsRequestTypeDef(TypedDict):
     FlowArn: str

@@ -2,7 +2,6 @@ import json
 import httpx
 from typing import Callable, Dict, Any, Optional, Generator, Union, AsyncGenerator
 import httpx_sse
-import fireworks.client
 from .error import (
     AuthenticationError,
     APITimeoutError,
@@ -17,8 +16,10 @@ from .error import (
 
 # Helper functions for api key and base url prevent cyclic dependencies
 def default_api_key() -> str:
-    if fireworks.client.api_key is not None:
-        return fireworks.client.api_key
+    from fireworks.client import api_key
+
+    if api_key is not None:
+        return api_key
     else:
         raise ValueError(
             "No API key provided. You can set your API key in code using 'fireworks.client.api_key = <API-KEY>', or you can set the environment variable FIREWORKS_API_KEY=<API-KEY>)."
@@ -26,7 +27,9 @@ def default_api_key() -> str:
 
 
 def default_base_url() -> str:
-    return fireworks.client.base_url
+    from fireworks.client import base_url
+
+    return base_url
 
 
 class FireworksClient:

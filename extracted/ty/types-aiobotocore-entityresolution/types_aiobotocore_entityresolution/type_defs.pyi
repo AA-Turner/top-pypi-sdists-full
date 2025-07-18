@@ -29,6 +29,7 @@ from .literals import (
     IdNamespaceTypeType,
     JobStatusType,
     MatchPurposeType,
+    ProcessingTypeType,
     RecordMatchingModelType,
     ResolutionTypeType,
     SchemaAttributeTypeType,
@@ -73,6 +74,9 @@ __all__ = (
     "DeleteUniqueIdErrorTypeDef",
     "DeletedUniqueIdTypeDef",
     "ErrorDetailsTypeDef",
+    "FailedRecordTypeDef",
+    "GenerateMatchIdInputTypeDef",
+    "GenerateMatchIdOutputTypeDef",
     "GetIdMappingJobInputTypeDef",
     "GetIdMappingJobOutputTypeDef",
     "GetIdMappingWorkflowInputTypeDef",
@@ -136,6 +140,8 @@ __all__ = (
     "ListSchemaMappingsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "MatchGroupTypeDef",
+    "MatchedRecordTypeDef",
     "MatchingWorkflowSummaryTypeDef",
     "NamespaceProviderPropertiesOutputTypeDef",
     "NamespaceProviderPropertiesTypeDef",
@@ -159,6 +165,7 @@ __all__ = (
     "ProviderServiceSummaryTypeDef",
     "PutPolicyInputTypeDef",
     "PutPolicyOutputTypeDef",
+    "RecordTypeDef",
     "ResolutionTechniquesOutputTypeDef",
     "ResolutionTechniquesTypeDef",
     "ResolutionTechniquesUnionTypeDef",
@@ -268,6 +275,16 @@ class DeleteSchemaMappingInputTypeDef(TypedDict):
 
 class ErrorDetailsTypeDef(TypedDict):
     errorMessage: NotRequired[str]
+
+class FailedRecordTypeDef(TypedDict):
+    inputSourceARN: str
+    uniqueId: str
+    errorMessage: str
+
+class RecordTypeDef(TypedDict):
+    inputSourceARN: str
+    uniqueId: str
+    recordAttributeMap: Mapping[str, str]
 
 class GetIdMappingJobInputTypeDef(TypedDict):
     workflowName: str
@@ -425,6 +442,10 @@ class SchemaMappingSummaryTypeDef(TypedDict):
 class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
 
+class MatchedRecordTypeDef(TypedDict):
+    inputSourceARN: str
+    recordId: str
+
 class NamespaceProviderPropertiesTypeDef(TypedDict):
     providerServiceArn: str
     providerConfiguration: NotRequired[Mapping[str, Any]]
@@ -560,6 +581,11 @@ class UpdateSchemaMappingOutputTypeDef(TypedDict):
     description: str
     mappedInputFields: List[SchemaInputAttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class GenerateMatchIdInputTypeDef(TypedDict):
+    workflowName: str
+    records: Sequence[RecordTypeDef]
+    processingType: NotRequired[ProcessingTypeType]
 
 class GetIdMappingJobOutputTypeDef(TypedDict):
     jobId: str
@@ -699,6 +725,11 @@ class ListSchemaMappingsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class MatchGroupTypeDef(TypedDict):
+    records: List[MatchedRecordTypeDef]
+    matchId: str
+    matchRule: str
+
 NamespaceProviderPropertiesUnionTypeDef = Union[
     NamespaceProviderPropertiesTypeDef, NamespaceProviderPropertiesOutputTypeDef
 ]
@@ -757,6 +788,11 @@ class ResolutionTechniquesTypeDef(TypedDict):
     resolutionType: ResolutionTypeType
     ruleBasedProperties: NotRequired[RuleBasedPropertiesTypeDef]
     providerProperties: NotRequired[ProviderPropertiesTypeDef]
+
+class GenerateMatchIdOutputTypeDef(TypedDict):
+    matchGroups: List[MatchGroupTypeDef]
+    failedRecords: List[FailedRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 OutputSourceUnionTypeDef = Union[OutputSourceTypeDef, OutputSourceOutputTypeDef]
 

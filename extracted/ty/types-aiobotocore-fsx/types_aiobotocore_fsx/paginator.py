@@ -14,6 +14,8 @@ Usage::
     from types_aiobotocore_fsx.paginator import (
         DescribeBackupsPaginator,
         DescribeFileSystemsPaginator,
+        DescribeS3AccessPointAttachmentsPaginator,
+        DescribeSnapshotsPaginator,
         DescribeStorageVirtualMachinesPaginator,
         DescribeVolumesPaginator,
         ListTagsForResourcePaginator,
@@ -25,6 +27,8 @@ Usage::
 
         describe_backups_paginator: DescribeBackupsPaginator = client.get_paginator("describe_backups")
         describe_file_systems_paginator: DescribeFileSystemsPaginator = client.get_paginator("describe_file_systems")
+        describe_s3_access_point_attachments_paginator: DescribeS3AccessPointAttachmentsPaginator = client.get_paginator("describe_s3_access_point_attachments")
+        describe_snapshots_paginator: DescribeSnapshotsPaginator = client.get_paginator("describe_snapshots")
         describe_storage_virtual_machines_paginator: DescribeStorageVirtualMachinesPaginator = client.get_paginator("describe_storage_virtual_machines")
         describe_volumes_paginator: DescribeVolumesPaginator = client.get_paginator("describe_volumes")
         list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
@@ -44,6 +48,10 @@ from .type_defs import (
     DescribeBackupsResponseTypeDef,
     DescribeFileSystemsRequestPaginateTypeDef,
     DescribeFileSystemsResponsePaginatorTypeDef,
+    DescribeS3AccessPointAttachmentsRequestPaginateTypeDef,
+    DescribeS3AccessPointAttachmentsResponseTypeDef,
+    DescribeSnapshotsRequestPaginateTypeDef,
+    DescribeSnapshotsResponsePaginatorTypeDef,
     DescribeStorageVirtualMachinesRequestPaginateTypeDef,
     DescribeStorageVirtualMachinesResponseTypeDef,
     DescribeVolumesRequestPaginateTypeDef,
@@ -61,6 +69,8 @@ else:
 __all__ = (
     "DescribeBackupsPaginator",
     "DescribeFileSystemsPaginator",
+    "DescribeS3AccessPointAttachmentsPaginator",
+    "DescribeSnapshotsPaginator",
     "DescribeStorageVirtualMachinesPaginator",
     "DescribeVolumesPaginator",
     "ListTagsForResourcePaginator",
@@ -106,6 +116,50 @@ class DescribeFileSystemsPaginator(_DescribeFileSystemsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/paginator/DescribeFileSystems.html#FSx.Paginator.DescribeFileSystems.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_fsx/paginators/#describefilesystemspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeS3AccessPointAttachmentsPaginatorBase = AioPaginator[
+        DescribeS3AccessPointAttachmentsResponseTypeDef
+    ]
+else:
+    _DescribeS3AccessPointAttachmentsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeS3AccessPointAttachmentsPaginator(_DescribeS3AccessPointAttachmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/paginator/DescribeS3AccessPointAttachments.html#FSx.Paginator.DescribeS3AccessPointAttachments)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_fsx/paginators/#describes3accesspointattachmentspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeS3AccessPointAttachmentsRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeS3AccessPointAttachmentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/paginator/DescribeS3AccessPointAttachments.html#FSx.Paginator.DescribeS3AccessPointAttachments.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_fsx/paginators/#describes3accesspointattachmentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeSnapshotsPaginatorBase = AioPaginator[DescribeSnapshotsResponsePaginatorTypeDef]
+else:
+    _DescribeSnapshotsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeSnapshotsPaginator(_DescribeSnapshotsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/paginator/DescribeSnapshots.html#FSx.Paginator.DescribeSnapshots)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_fsx/paginators/#describesnapshotspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSnapshotsRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeSnapshotsResponsePaginatorTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/fsx/paginator/DescribeSnapshots.html#FSx.Paginator.DescribeSnapshots.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_fsx/paginators/#describesnapshotspaginator)
         """
 
 

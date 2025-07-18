@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 access satellite map tile database
 
@@ -24,6 +24,7 @@ import sys
 import math
 import threading
 import os
+import pathlib
 import string
 import time
 import cv2
@@ -65,8 +66,10 @@ TILE_SERVICES = {
     "Gulesider DK,NO,SE,FI" : "https://map.eniro.com/geowebcache/service/tms1.0.0/map/${ZOOM}/${X}/${ENI_Y}.png",
     "StatkartTopo" : "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/${ZOOM}/${Y}/${X}",
     "StatkartTopoRaster" : "https://cache.kartverket.no/v1/wmts/1.0.0/toporaster/default/webmercator/${ZOOM}/${Y}/${X}",
-    "Svalbard" : "https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/${ZOOM}/${Y}/${X}"
-    }
+    "Svalbard" : "https://geodata.npolar.no/arcgis/rest/services/Basisdata/NP_Basiskart_Svalbard_WMTS_3857/MapServer/WMTS/tile/1.0.0/Basisdata_NP_Basiskart_Svalbard_WMTS_3857/default/default028mm/${ZOOM}/${Y}/${X}",
+    "MapsNSW" : "http://maps.six.nsw.gov.au/arcgis/rest/services/public/NSW_Topo_Map/MapServer/tile/${Z}/${Y}/${X}/jpg",
+    "OpenTopoMapA": "https://a.tile.opentopomap.org/${Z}/${X}/${Y}.png",
+}
 
 # these are the md5sums of "unavailable" tiles
 BLANK_TILES = set(["d16657bbee25d7f15c583f5c5bf23f50",
@@ -284,11 +287,28 @@ class MPTile:
                     print("Downloading %s [%u left]" % (url, len(keys)))
                 req = url_request(url)
                 req.add_header('User-Agent', 'MAVProxy')
+
+                # try to re-use our cached data:
+                try:
+                    mtime = os.path.getmtime(path)
+                    req.add_header('If-Modified-Since', time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime)))
+                except Exception:
+                    pass
+
                 if url.find('google') != -1:
                     req.add_header('Referer', 'https://maps.google.com/')
                 resp = url_open(req)
                 headers = resp.info()
             except url_error as e:
+                try:
+                    if e.getcode() == 304:
+                        # cache hit; touch the file to reset its refresh time
+                        pathlib.Path(path).touch()
+                        self._download_pending.pop(key)
+                        continue
+                except Exception as ex:
+                    pass
+
                 #print('Error loading %s' % url)
                 if not key in self._tile_cache:
                     self._tile_cache[key] = self._unavailable
@@ -597,21 +617,27 @@ def mp_icon(filename):
     '''load an icon from the data directory'''
     # we have to jump through a lot of hoops to get an OpenCV image
     # when we may be in a package zip file
+    raw = None
     try:
         import pkg_resources
         name = __name__
         if name == "__main__":
             name = "MAVProxy.modules.mavproxy_map.mp_tile"
-        stream = pkg_resources.resource_stream(name, "data/%s" % filename).read()
-        raw = np.fromstring(stream, dtype=np.uint8)
+        stream = pkg_resources.resource_stream(name, f"data/{filename}")
+        raw = np.frombuffer(stream.read(), dtype=np.uint8)
     except Exception:
         try:
-            stream = open(os.path.join(__file__, 'data', filename)).read()
-            raw = np.fromstring(stream, dtype=np.uint8)
+            with open(os.path.join(os.path.dirname(__file__), 'data', filename), 'rb') as f:
+                raw = np.frombuffer(f.read(), dtype=np.uint8)
         except Exception:
-            #we're in a Windows exe, where pkg_resources doesn't work
-            import pkgutil
-            raw = pkgutil.get_data( 'MAVProxy', 'modules//mavproxy_map//data//' + filename)
+            try:
+                import pkgutil
+                stream = pkgutil.get_data('MAVProxy', f'modules/mavproxy_map/data/{filename}')
+                raw = np.frombuffer(stream, dtype=np.uint8)
+            except Exception as e:
+                print(f"Failed to load image '{filename}': {e}")
+                return None
+
     img = cv2.imdecode(raw, cv2.IMREAD_COLOR)
     return img
 

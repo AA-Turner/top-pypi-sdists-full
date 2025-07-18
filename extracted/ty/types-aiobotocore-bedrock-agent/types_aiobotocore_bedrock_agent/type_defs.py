@@ -28,6 +28,7 @@ from .literals import (
     AgentAliasStatusType,
     AgentCollaborationType,
     AgentStatusType,
+    AliasInvocationStateType,
     ChunkingStrategyType,
     ConcurrencyTypeType,
     ConfluenceAuthTypeType,
@@ -1568,6 +1569,7 @@ class AgentAliasSummaryTypeDef(TypedDict):
     agentAliasStatus: AgentAliasStatusType
     createdAt: datetime
     updatedAt: datetime
+    aliasInvocationState: NotRequired[AliasInvocationStateType]
     description: NotRequired[str]
     routingConfiguration: NotRequired[List[AgentAliasRoutingConfigurationListItemTypeDef]]
 
@@ -1585,6 +1587,7 @@ class UpdateAgentAliasRequestTypeDef(TypedDict):
     agentAliasId: str
     agentAliasName: str
     agentId: str
+    aliasInvocationState: NotRequired[AliasInvocationStateType]
     description: NotRequired[str]
     routingConfiguration: NotRequired[Sequence[AgentAliasRoutingConfigurationListItemTypeDef]]
 
@@ -2403,6 +2406,7 @@ class AgentAliasTypeDef(TypedDict):
     routingConfiguration: List[AgentAliasRoutingConfigurationListItemTypeDef]
     updatedAt: datetime
     agentAliasHistoryEvents: NotRequired[List[AgentAliasHistoryEventTypeDef]]
+    aliasInvocationState: NotRequired[AliasInvocationStateType]
     clientToken: NotRequired[str]
     description: NotRequired[str]
     failureReasons: NotRequired[List[str]]

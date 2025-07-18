@@ -78,7 +78,6 @@ class _Sandbox(modal._object._Object):
     async def create(
         *entrypoint_args: str,
         app: typing.Optional[modal.app._App] = None,
-        environment_name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
@@ -104,6 +103,7 @@ class _Sandbox(modal._object._Object):
         _experimental_enable_snapshot: bool = False,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
+        environment_name: typing.Optional[str] = None,
     ) -> _Sandbox:
         """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
         will be created asynchronously.
@@ -123,7 +123,6 @@ class _Sandbox(modal._object._Object):
     async def _create(
         *entrypoint_args: str,
         app: typing.Optional[modal.app._App] = None,
-        environment_name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = (),
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
@@ -188,6 +187,13 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def reload_volumes(self) -> None:
+        """Reload all Volumes mounted in the Sandbox.
+
+        Added in v1.1.0.
+        """
+        ...
+
     async def terminate(self) -> None:
         """Terminate Sandbox execution.
 
@@ -241,15 +247,15 @@ class _Sandbox(modal._object._Object):
     @typing.overload
     async def open(self, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io._FileIO[bytes]: ...
     async def ls(self, path: str) -> list[str]:
-        """List the contents of a directory in the Sandbox."""
+        """[Alpha] List the contents of a directory in the Sandbox."""
         ...
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
-        """Create a new directory in the Sandbox."""
+        """[Alpha] Create a new directory in the Sandbox."""
         ...
 
     async def rm(self, path: str, recursive: bool = False) -> None:
-        """Remove a file or directory in the Sandbox."""
+        """[Alpha] Remove a file or directory in the Sandbox."""
         ...
 
     def watch(
@@ -259,7 +265,7 @@ class _Sandbox(modal._object._Object):
         recursive: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
     ) -> typing.AsyncIterator[modal.file_io.FileWatchEvent]:
-        """Watch a file or directory in the Sandbox for changes."""
+        """[Alpha] Watch a file or directory in the Sandbox for changes."""
         ...
 
     @property
@@ -358,7 +364,6 @@ class Sandbox(modal.object.Object):
             /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
-            environment_name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             network_file_systems: dict[
@@ -386,6 +391,7 @@ class Sandbox(modal.object.Object):
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
             will be created asynchronously.
@@ -406,7 +412,6 @@ class Sandbox(modal.object.Object):
             /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
-            environment_name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             network_file_systems: dict[
@@ -434,6 +439,7 @@ class Sandbox(modal.object.Object):
             _experimental_enable_snapshot: bool = False,
             _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
+            environment_name: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
             will be created asynchronously.
@@ -457,7 +463,6 @@ class Sandbox(modal.object.Object):
             /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
-            environment_name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -492,7 +497,6 @@ class Sandbox(modal.object.Object):
             /,
             *entrypoint_args: str,
             app: typing.Optional[modal.app.App] = None,
-            environment_name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
             secrets: collections.abc.Sequence[modal.secret.Secret] = (),
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
@@ -611,6 +615,23 @@ class Sandbox(modal.object.Object):
             ...
 
     tunnels: __tunnels_spec[typing_extensions.Self]
+
+    class __reload_volumes_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(self, /) -> None:
+            """Reload all Volumes mounted in the Sandbox.
+
+            Added in v1.1.0.
+            """
+            ...
+
+        async def aio(self, /) -> None:
+            """Reload all Volumes mounted in the Sandbox.
+
+            Added in v1.1.0.
+            """
+            ...
+
+    reload_volumes: __reload_volumes_spec[typing_extensions.Self]
 
     class __terminate_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /) -> None:
@@ -746,33 +767,33 @@ class Sandbox(modal.object.Object):
 
     class __ls_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, path: str) -> list[str]:
-            """List the contents of a directory in the Sandbox."""
+            """[Alpha] List the contents of a directory in the Sandbox."""
             ...
 
         async def aio(self, /, path: str) -> list[str]:
-            """List the contents of a directory in the Sandbox."""
+            """[Alpha] List the contents of a directory in the Sandbox."""
             ...
 
     ls: __ls_spec[typing_extensions.Self]
 
     class __mkdir_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, path: str, parents: bool = False) -> None:
-            """Create a new directory in the Sandbox."""
+            """[Alpha] Create a new directory in the Sandbox."""
             ...
 
         async def aio(self, /, path: str, parents: bool = False) -> None:
-            """Create a new directory in the Sandbox."""
+            """[Alpha] Create a new directory in the Sandbox."""
             ...
 
     mkdir: __mkdir_spec[typing_extensions.Self]
 
     class __rm_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
-            """Remove a file or directory in the Sandbox."""
+            """[Alpha] Remove a file or directory in the Sandbox."""
             ...
 
         async def aio(self, /, path: str, recursive: bool = False) -> None:
-            """Remove a file or directory in the Sandbox."""
+            """[Alpha] Remove a file or directory in the Sandbox."""
             ...
 
     rm: __rm_spec[typing_extensions.Self]
@@ -786,7 +807,7 @@ class Sandbox(modal.object.Object):
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
         ) -> typing.Iterator[modal.file_io.FileWatchEvent]:
-            """Watch a file or directory in the Sandbox for changes."""
+            """[Alpha] Watch a file or directory in the Sandbox for changes."""
             ...
 
         def aio(
@@ -797,7 +818,7 @@ class Sandbox(modal.object.Object):
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
         ) -> typing.AsyncIterator[modal.file_io.FileWatchEvent]:
-            """Watch a file or directory in the Sandbox for changes."""
+            """[Alpha] Watch a file or directory in the Sandbox for changes."""
             ...
 
     watch: __watch_spec[typing_extensions.Self]

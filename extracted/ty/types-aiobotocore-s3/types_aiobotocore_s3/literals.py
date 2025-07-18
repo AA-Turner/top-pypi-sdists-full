@@ -249,6 +249,7 @@ ObjectOwnershipType = Literal["BucketOwnerEnforced", "BucketOwnerPreferred", "Ob
 ObjectStorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
     "INTELLIGENT_TIERING",
@@ -274,13 +275,14 @@ ReplicationTimeStatusType = Literal["Disabled", "Enabled"]
 RequestChargedType = Literal["requester"]
 RequestPayerType = Literal["requester"]
 RestoreRequestTypeType = Literal["SELECT"]
-ServerSideEncryptionType = Literal["AES256", "aws:kms", "aws:kms:dsse"]
+ServerSideEncryptionType = Literal["AES256", "aws:fsx", "aws:kms", "aws:kms:dsse"]
 SessionModeType = Literal["ReadOnly", "ReadWrite"]
 SseKmsEncryptedObjectsStatusType = Literal["Disabled", "Enabled"]
 StorageClassAnalysisSchemaVersionType = Literal["V_1"]
 StorageClassType = Literal[
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
+    "FSX_OPENZFS",
     "GLACIER",
     "GLACIER_IR",
     "INTELLIGENT_TIERING",
@@ -306,6 +308,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -446,6 +449,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -503,6 +507,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -558,6 +563,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -702,6 +708,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -731,6 +738,7 @@ WaiterName = Literal["bucket_exists", "bucket_not_exists", "object_exists", "obj
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

@@ -17,7 +17,8 @@
 
 use std::mem;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use flume::Receiver;
@@ -72,8 +73,6 @@ impl MonoiofsCore {
                     .set_root(&root.to_string_lossy())
                     .set_native_capability(Capability {
                         stat: true,
-                        stat_has_content_length: true,
-                        stat_has_last_modified: true,
 
                         read: true,
 

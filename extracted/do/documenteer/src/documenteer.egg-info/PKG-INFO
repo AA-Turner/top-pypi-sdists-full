@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: documenteer
-Version: 2.1.0
+Version: 2.1.1
 Summary: Rubin Observatory / LSST Sphinx documentation tools, extensions, and configurations.
 License-Expression: MIT
 Project-URL: Homepage, https://documenteer.lsst.io

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: hibachi_xyz
-Version: 0.1.9
+Version: 0.1.10
 Summary: Hibachi SDK for accessing the API
 Author: Hibachi Engineer
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/hibachi-xyz/yule-os
 Project-URL: Issues, https://github.com/hibachi-xyz/yule-os/issues
-Requires-Python: >=3.13
+Requires-Python: <4,>=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: eth_keys==0.6.1

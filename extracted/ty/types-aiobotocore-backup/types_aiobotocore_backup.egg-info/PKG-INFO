@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-backup
-Version: 2.23.0
-Summary: Type annotations for aiobotocore Backup 2.23.0 service generated with mypy-boto3-builder 8.11.0
+Version: 2.23.1
+Summary: Type annotations for aiobotocore Backup 2.23.1 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore Backup 2.23.0](https://pypi.org/project/aiobotocore/) compatible
+[aiobotocore Backup 2.23.1](https://pypi.org/project/aiobotocore/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.23.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.23.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `Backup` service.
 4. Use provided commands to install generated packages.
@@ -360,6 +360,7 @@ from types_aiobotocore_backup.paginator import (
     ListRecoveryPointsByBackupVaultPaginator,
     ListRecoveryPointsByLegalHoldPaginator,
     ListRecoveryPointsByResourcePaginator,
+    ListRestoreAccessBackupVaultsPaginator,
     ListRestoreJobsByProtectedResourcePaginator,
     ListRestoreJobsPaginator,
     ListRestoreTestingPlansPaginator,
@@ -407,6 +408,9 @@ async with session.create_client("backup") as client:
     )
     list_recovery_points_by_resource_paginator: ListRecoveryPointsByResourcePaginator = (
         client.get_paginator("list_recovery_points_by_resource")
+    )
+    list_restore_access_backup_vaults_paginator: ListRestoreAccessBackupVaultsPaginator = (
+        client.get_paginator("list_restore_access_backup_vaults")
     )
     list_restore_jobs_by_protected_resource_paginator: ListRestoreJobsByProtectedResourcePaginator = client.get_paginator(
         "list_restore_jobs_by_protected_resource"

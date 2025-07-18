@@ -5,6 +5,7 @@ from datetime import timedelta
 import json
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
+from freezegun import freeze_time
 import pytest
 
 import hass_nabucasa as cloud
@@ -280,58 +281,31 @@ def test_write_user_info(cl: cloud.Cloud):
 
 def test_subscription_expired(cl: cloud.Cloud):
     """Test subscription being expired after 3 days of expiration."""
-    token_val = {"custom:sub-exp": "2017-11-13"}
+    token_val = {"custom:sub-exp": "2018-09-17"}
+
     with (
         patch.object(cl, "_decode_claims", return_value=token_val),
-        patch(
-            "hass_nabucasa.utcnow",
-            return_value=utcnow().replace(year=2017, month=11, day=13),
-        ),
     ):
         assert not cl.subscription_expired
 
     with (
         patch.object(cl, "_decode_claims", return_value=token_val),
-        patch(
-            "hass_nabucasa.utcnow",
-            return_value=utcnow().replace(
-                year=2017,
-                month=11,
-                day=19,
-                hour=23,
-                minute=59,
-                second=59,
-            ),
-        ),
+        freeze_time("2018-09-23 23:59:59"),
     ):
         assert not cl.subscription_expired
 
     with (
         patch.object(cl, "_decode_claims", return_value=token_val),
-        patch(
-            "hass_nabucasa.utcnow",
-            return_value=utcnow().replace(
-                year=2017,
-                month=11,
-                day=20,
-                hour=0,
-                minute=0,
-                second=0,
-            ),
-        ),
+        freeze_time("2018-09-24 00:00:01"),
     ):
         assert cl.subscription_expired
 
 
 def test_subscription_not_expired(cl: cloud.Cloud):
     """Test subscription not being expired."""
-    token_val = {"custom:sub-exp": "2017-11-13"}
+    token_val = {"custom:sub-exp": "2018-09-19"}
     with (
         patch.object(cl, "_decode_claims", return_value=token_val),
-        patch(
-            "hass_nabucasa.utcnow",
-            return_value=utcnow().replace(year=2017, month=11, day=9),
-        ),
     ):
         assert not cl.subscription_expired
 
@@ -484,7 +458,7 @@ async def test_subscription_reconnect_for_no_subscription(
         ),
         patch("hass_nabucasa.asyncio.sleep", AsyncMock()),
         patch(
-            "hass_nabucasa.async_subscription_info",
+            "hass_nabucasa.PaymentsApi.subscription_info",
             side_effect=[
                 subscription_info_mock("no_subscription"),
                 subscription_info_mock("mock-plan"),
@@ -496,3 +470,41 @@ async def test_subscription_reconnect_for_no_subscription(
 
     assert "No subscription found" in caplog.text
     assert "Stopping subscription reconnection handler" in caplog.text
+
+
+async def test_subscription_reconnection_handler_connection_error(
+    cl: cloud.Cloud,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test the subscription reconnection handler for connection errors."""
+    basedate = utcnow()
+
+    with (
+        patch("hass_nabucasa.Cloud.initialize", AsyncMock()) as _initialize_mocker,
+        patch(
+            "hass_nabucasa.CognitoAuth.async_renew_access_token",
+            AsyncMock(),
+        ),
+        patch("hass_nabucasa.asyncio.sleep", AsyncMock()) as sleep_mock,
+        patch(
+            "hass_nabucasa.Cloud._decode_claims",
+            return_value={"custom:sub-exp": basedate.strftime("%Y-%m-%d")},
+        ),
+        patch(
+            "hass_nabucasa.Cloud.is_logged_in",
+            return_value=True,
+        ),
+        patch("hass_nabucasa.random.uniform", return_value=0.05) as random_mock,
+    ):
+        await cl._subscription_reconnection_handler(
+            SubscriptionReconnectionReason.CONNECTION_ERROR
+        )
+
+    random_mock.assert_called_with(0.01, 0.09)
+
+    call_args = sleep_mock.call_args[0][0]
+    assert abs(call_args - 216) < 0.1
+    _initialize_mocker.assert_awaited_once()
+    assert "Stopping subscription reconnection handler" in caplog.text
+    assert "Could not establish connection (attempt 1)" in caplog.text
+    assert "waiting 3.6 minutes before retrying" in caplog.text

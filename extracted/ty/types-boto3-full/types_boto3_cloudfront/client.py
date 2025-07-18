@@ -531,8 +531,8 @@ class CloudFrontClient(BaseClient):
         self, **kwargs: Unpack[AssociateAliasRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Associates an alias (also known as a CNAME or an alternate domain name) with a
-        CloudFront distribution.
+        <note> <p>The <code>AssociateAlias</code> API operation only supports standard
+        distributions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/associate_alias.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#associate_alias)
@@ -1456,9 +1456,8 @@ class CloudFrontClient(BaseClient):
         self, **kwargs: Unpack[ListConflictingAliasesRequestTypeDef]
     ) -> ListConflictingAliasesResultTypeDef:
         """
-        Gets a list of aliases (also called CNAMEs or alternate domain names) that
-        conflict or overlap with the provided alias, and the associated CloudFront
-        distributions and Amazon Web Services accounts for each conflicting alias.
+        <note> <p>The <code>ListConflictingAliases</code> API operation only supports
+        standard distributions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_conflicting_aliases.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_conflicting_aliases)
@@ -1615,8 +1614,9 @@ class CloudFrontClient(BaseClient):
         self, **kwargs: Unpack[ListDomainConflictsRequestTypeDef]
     ) -> ListDomainConflictsResultTypeDef:
         """
-        Lists existing domain associations that conflict with the domain that you
-        specify.
+        <note> <p>We recommend that you use the <code>ListDomainConflicts</code> API
+        operation to check for domain conflicts, as it supports both standard
+        distributions and distribution tenants.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_domain_conflicts.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#list_domain_conflicts)
@@ -1891,8 +1891,9 @@ class CloudFrontClient(BaseClient):
         self, **kwargs: Unpack[UpdateDomainAssociationRequestTypeDef]
     ) -> UpdateDomainAssociationResultTypeDef:
         """
-        Moves a domain from its current distribution or distribution tenant to another
-        one.
+        <note> <p>We recommend that you use the <code>UpdateDomainAssociation</code>
+        API operation to move a domain association, as it supports both standard
+        distributions and distribution tenants.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_domain_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudfront/client/#update_domain_association)

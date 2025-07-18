@@ -1,12 +1,12 @@
 import json
 import os
-from typing import TypedDict
 
 from anyio import open_file
 from orjson import loads
 from starlette.responses import Response
 from starlette.routing import BaseRoute, Mount
 from starlette.staticfiles import StaticFiles
+from typing_extensions import TypedDict
 
 from langgraph_api.js.ui import UI_PUBLIC_DIR, UI_SCHEMAS_FILE
 from langgraph_api.route import ApiRequest, ApiRoute

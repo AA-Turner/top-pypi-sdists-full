@@ -1084,6 +1084,7 @@ class CreateResolverRuleRequestTypeDef(TypedDict):
     TargetIps: NotRequired[Sequence[TargetAddressTypeDef]]
     ResolverEndpointId: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    DelegationRecord: NotRequired[str]
 
 
 class ResolverRuleConfigTypeDef(TypedDict):
@@ -1107,6 +1108,7 @@ class ResolverRuleTypeDef(TypedDict):
     ShareStatus: NotRequired[ShareStatusType]
     CreationTime: NotRequired[str]
     ModificationTime: NotRequired[str]
+    DelegationRecord: NotRequired[str]
 
 
 class ListResolverDnssecConfigsRequestTypeDef(TypedDict):

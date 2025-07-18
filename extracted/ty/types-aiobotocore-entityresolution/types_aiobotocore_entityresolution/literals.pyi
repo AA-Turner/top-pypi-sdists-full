@@ -40,6 +40,7 @@ __all__ = (
     "ListSchemaMappingsPaginatorName",
     "MatchPurposeType",
     "PaginatorName",
+    "ProcessingTypeType",
     "RecordMatchingModelType",
     "ResolutionTypeType",
     "ResourceServiceName",
@@ -65,6 +66,7 @@ ListMatchingWorkflowsPaginatorName = Literal["list_matching_workflows"]
 ListProviderServicesPaginatorName = Literal["list_provider_services"]
 ListSchemaMappingsPaginatorName = Literal["list_schema_mappings"]
 MatchPurposeType = Literal["IDENTIFIER_GENERATION", "INDEXING"]
+ProcessingTypeType = Literal["CONSISTENT", "EVENTUAL", "EVENTUAL_NO_LOOKUP"]
 RecordMatchingModelType = Literal["MANY_SOURCE_TO_ONE_TARGET", "ONE_SOURCE_TO_ONE_TARGET"]
 ResolutionTypeType = Literal["ML_MATCHING", "PROVIDER", "RULE_MATCHING"]
 SchemaAttributeTypeType = Literal[
@@ -100,6 +102,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -240,6 +243,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -297,6 +301,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -352,6 +357,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -496,6 +502,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

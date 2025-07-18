@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import rich.repr
 from flytekit.core.artifact import Partition
@@ -16,6 +16,9 @@ FORMAT_KEY = "format"
 MODALITY_KEY = "modality"
 ARTIFACT_TYPE_KEY = "_u_type"
 MODEL_TYPE_KEY = "model_type"
+HUGGINGFACE_SOURCE_KEY = "huggingface-source"
+SHARD_ENGINE_KEY = "shard_engine"
+SHARD_PARALLELISM_KEY = "shard_parallelism"
 COMMIT_KEY = "commit"
 
 _FASTAPI_ARCHITECTURES = ["xgboost".casefold(), "custom".casefold(), "joblib".casefold(), "sklearn".casefold()]
@@ -231,27 +234,67 @@ def get_app_templates_for_model(model: Artifact) -> typing.List[AppTemplate]:
 
 @dataclass
 @rich.repr.auto()
+class ShardConfig:
+    engine: str
+    args: VLLMShardArgs
+
+    def __post_init__(self):
+        if self.engine != "vllm":
+            raise ValueError(f"Unsupported engine: {self.engine}")
+
+
+@dataclass
+@rich.repr.auto()
+class VLLMShardArgs:
+    model: str
+    tensor_parallel_size: int
+    trust_remote_code: bool = False
+    revision: str | None = None
+    file_pattern: str | None = None  # string pattern of saved filenames
+    max_file_size: int | None = 5 * 1024**3  # max size (in bytes) of each safetensors file
+    gpu_memory_utilization: float = 0.9
+    # extra arguments to pass to the vllm.EngineArgs
+    # https://docs.vllm.ai/en/stable/api/vllm/engine/arg_utils.html#vllm.engine.arg_utils.EngineArgs
+    extra_args: dict[str, typing.Any] = field(default_factory=dict)
+
+    def get_vllm_args(self, model_path: str):
+        return {
+            "model": model_path,
+            "tensor_parallel_size": self.tensor_parallel_size,
+            "trust_remote_code": self.trust_remote_code,
+            "revision": self.revision,
+            "gpu_memory_utilization": self.gpu_memory_utilization,
+            **self.extra_args,
+        }
+
+
+@dataclass
+@rich.repr.auto()
 class HuggingFaceModelInfo:
     """
     Captures information about a Hugging Face model. Only repo is required, all other fields are optional, and are
     automatically determined from the model's config.json file. If not found, the fields are initialized to defaults.
 
     :param repo: The model repo name in huggingface.
+    :param artifact_name: The name of the Union artifact to use for the cached model.
     :param model_type: The model type.
     :param architecture: The model architecture.
     :param task: The model task.
     :param modality: The model modality.
     :param serial_format: The model serialization format.
     :param short_description: A short description of the model.
+    :param shard_config: Configuration to shard the model with.
     """
 
     repo: str
+    artifact_name: str | None = None
     model_type: str | None = None
     architecture: str | None = None
     task: str = "auto"
     modality: typing.List[str] | None = None
     serial_format: str = "safetensors"
     short_description: str | None = None
+    shard_config: ShardConfig | None = None
 
     def __post_init__(self):
         if self.modality is None:

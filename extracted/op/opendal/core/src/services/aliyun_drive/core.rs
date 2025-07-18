@@ -22,8 +22,9 @@ use bytes::Buf;
 use chrono::Utc;
 use http::header::HeaderValue;
 use http::header::{self};
+use http::Method;
 use http::Request;
-use http::{Method, Response};
+use http::Response;
 use serde::Deserialize;
 use serde::Serialize;
 use tokio::sync::Mutex;
@@ -84,7 +85,7 @@ impl AliyunDriveCore {
         // AliyunDrive raise NullPointerException if you haven't set a user-agent.
         req.headers_mut().insert(
             header::USER_AGENT,
-            HeaderValue::from_str(&format!("opendal/{}", VERSION))
+            HeaderValue::from_str(&format!("opendal/{VERSION}"))
                 .expect("user agent must be valid header value"),
         );
         if req.method() == Method::POST {

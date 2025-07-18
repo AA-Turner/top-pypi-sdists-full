@@ -405,6 +405,7 @@ class EventSourceMappingAmazonManagedKafkaEventSourceConfig(dict):
         """
         Specific configuration settings for an Amazon Managed Streaming for Apache Kafka (Amazon MSK) event source.
         :param builtins.str consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see [Customizable consumer group ID](https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-consumer-group-id).
+        :param 'EventSourceMappingSchemaRegistryConfig' schema_registry_config: Specific configuration settings for a Kafka schema registry.
         """
         if consumer_group_id is not None:
             pulumi.set(__self__, "consumer_group_id", consumer_group_id)
@@ -422,13 +423,16 @@ class EventSourceMappingAmazonManagedKafkaEventSourceConfig(dict):
     @property
     @pulumi.getter(name="schemaRegistryConfig")
     def schema_registry_config(self) -> Optional['outputs.EventSourceMappingSchemaRegistryConfig']:
+        """
+        Specific configuration settings for a Kafka schema registry.
+        """
         return pulumi.get(self, "schema_registry_config")
 
 
 @pulumi.output_type
 class EventSourceMappingDestinationConfig(dict):
     """
-    A configuration object that specifies the destination of an event after Lambda processes it.
+    A configuration object that specifies the destination of an event after Lambda processes it. For more information, see [Adding a destination](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations).
     """
     @staticmethod
     def __key_warning(key: str):
@@ -450,7 +454,7 @@ class EventSourceMappingDestinationConfig(dict):
     def __init__(__self__, *,
                  on_failure: Optional['outputs.EventSourceMappingOnFailure'] = None):
         """
-        A configuration object that specifies the destination of an event after Lambda processes it.
+        A configuration object that specifies the destination of an event after Lambda processes it. For more information, see [Adding a destination](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations).
         :param 'EventSourceMappingOnFailure' on_failure: The destination configuration for failed invocations.
         """
         if on_failure is not None:
@@ -645,12 +649,12 @@ class EventSourceMappingMetricsConfig(dict):
 @pulumi.output_type
 class EventSourceMappingOnFailure(dict):
     """
-    A destination for events that failed processing. See [Capturing records of Lambda asynchronous invocations](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html) for more information.
+    A destination for events that failed processing. For more information, see [Adding a destination](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations).
     """
     def __init__(__self__, *,
                  destination: Optional[builtins.str] = None):
         """
-        A destination for events that failed processing. See [Capturing records of Lambda asynchronous invocations](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html) for more information.
+        A destination for events that failed processing. For more information, see [Adding a destination](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-retain-records.html#invocation-async-destinations).
         :param builtins.str destination: The Amazon Resource Name (ARN) of the destination resource.
                 To retain records of unsuccessful [asynchronous invocations](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html#invocation-async-destinations), you can configure an Amazon SNS topic, Amazon SQS queue, Amazon S3 bucket, Lambda function, or Amazon EventBridge event bus as the destination.
                 To retain records of failed invocations from [Kinesis](https://docs.aws.amazon.com/lambda/latest/dg/with-kinesis.html), [DynamoDB](https://docs.aws.amazon.com/lambda/latest/dg/with-ddb.html), [self-managed Kafka](https://docs.aws.amazon.com/lambda/latest/dg/with-kafka.html#services-smaa-onfailure-destination) or [Amazon MSK](https://docs.aws.amazon.com/lambda/latest/dg/with-msk.html#services-msk-onfailure-destination), you can configure an Amazon SNS topic, Amazon SQS queue, or Amazon S3 bucket as the destination.
@@ -827,7 +831,13 @@ class EventSourceMappingSchemaRegistryConfig(dict):
         """
         :param Sequence['EventSourceMappingSchemaRegistryAccessConfig'] access_configs: An array of access configuration objects that tell Lambda how to authenticate with your schema registry.
         :param 'EventSourceMappingSchemaRegistryConfigEventRecordFormat' event_record_format: The record format that Lambda delivers to your function after schema validation.
+               
+               - Choose `JSON` to have Lambda deliver the record to your function as a standard JSON object.
+               - Choose `SOURCE` to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function.
         :param builtins.str schema_registry_uri: The URI for your schema registry. The correct URI format depends on the type of schema registry you're using.
+               
+               - For AWS Glue schema registries, use the ARN of the registry.
+               - For Confluent schema registries, use the URL of the registry.
         :param Sequence['EventSourceMappingSchemaValidationConfig'] schema_validation_configs: An array of schema validation configuration objects, which tell Lambda the message attributes you want to validate and filter using your schema registry.
         """
         if access_configs is not None:
@@ -852,6 +862,9 @@ class EventSourceMappingSchemaRegistryConfig(dict):
     def event_record_format(self) -> Optional['EventSourceMappingSchemaRegistryConfigEventRecordFormat']:
         """
         The record format that Lambda delivers to your function after schema validation.
+
+        - Choose `JSON` to have Lambda deliver the record to your function as a standard JSON object.
+        - Choose `SOURCE` to have Lambda deliver the record to your function in its original source format. Lambda removes all schema metadata, such as the schema ID, before sending the record to your function.
         """
         return pulumi.get(self, "event_record_format")
 
@@ -860,6 +873,9 @@ class EventSourceMappingSchemaRegistryConfig(dict):
     def schema_registry_uri(self) -> Optional[builtins.str]:
         """
         The URI for your schema registry. The correct URI format depends on the type of schema registry you're using.
+
+        - For AWS Glue schema registries, use the ARN of the registry.
+        - For Confluent schema registries, use the URL of the registry.
         """
         return pulumi.get(self, "schema_registry_uri")
 
@@ -877,7 +893,7 @@ class EventSourceMappingSchemaValidationConfig(dict):
     def __init__(__self__, *,
                  attribute: Optional['EventSourceMappingSchemaValidationConfigAttribute'] = None):
         """
-        :param 'EventSourceMappingSchemaValidationConfigAttribute' attribute: The attribute you want your schema registry to validate and filter for.
+        :param 'EventSourceMappingSchemaValidationConfigAttribute' attribute: The attributes you want your schema registry to validate and filter for. If you selected `JSON` as the `EventRecordFormat` , Lambda also deserializes the selected message attributes.
         """
         if attribute is not None:
             pulumi.set(__self__, "attribute", attribute)
@@ -886,7 +902,7 @@ class EventSourceMappingSchemaValidationConfig(dict):
     @pulumi.getter
     def attribute(self) -> Optional['EventSourceMappingSchemaValidationConfigAttribute']:
         """
-        The attribute you want your schema registry to validate and filter for.
+        The attributes you want your schema registry to validate and filter for. If you selected `JSON` as the `EventRecordFormat` , Lambda also deserializes the selected message attributes.
         """
         return pulumi.get(self, "attribute")
 
@@ -944,6 +960,7 @@ class EventSourceMappingSelfManagedKafkaEventSourceConfig(dict):
         """
         Specific configuration settings for a self-managed Apache Kafka event source.
         :param builtins.str consumer_group_id: The identifier for the Kafka consumer group to join. The consumer group ID must be unique among all your Kafka event sources. After creating a Kafka event source mapping with the consumer group ID specified, you cannot update this value. For more information, see [Customizable consumer group ID](https://docs.aws.amazon.com/lambda/latest/dg/with-kafka-process.html#services-smaa-topic-add).
+        :param 'EventSourceMappingSchemaRegistryConfig' schema_registry_config: Specific configuration settings for a Kafka schema registry.
         """
         if consumer_group_id is not None:
             pulumi.set(__self__, "consumer_group_id", consumer_group_id)
@@ -961,6 +978,9 @@ class EventSourceMappingSelfManagedKafkaEventSourceConfig(dict):
     @property
     @pulumi.getter(name="schemaRegistryConfig")
     def schema_registry_config(self) -> Optional['outputs.EventSourceMappingSchemaRegistryConfig']:
+        """
+        Specific configuration settings for a Kafka schema registry.
+        """
         return pulumi.get(self, "schema_registry_config")
 
 

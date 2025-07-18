@@ -22,6 +22,7 @@ from typing import Union
 
 from .literals import (
     DeletionModeType,
+    IpAddressTypeType,
     LifeCycleStateType,
     PerformanceModeType,
     ReplicationOverwriteProtectionType,
@@ -150,6 +151,8 @@ class CreateMountTargetRequestTypeDef(TypedDict):
     FileSystemId: str
     SubnetId: str
     IpAddress: NotRequired[str]
+    Ipv6Address: NotRequired[str]
+    IpAddressType: NotRequired[IpAddressTypeType]
     SecurityGroups: NotRequired[Sequence[str]]
 
 
@@ -254,6 +257,7 @@ class MountTargetDescriptionTypeDef(TypedDict):
     LifeCycleState: LifeCycleStateType
     OwnerId: NotRequired[str]
     IpAddress: NotRequired[str]
+    Ipv6Address: NotRequired[str]
     NetworkInterfaceId: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
     AvailabilityZoneName: NotRequired[str]
@@ -370,6 +374,7 @@ class MountTargetDescriptionResponseTypeDef(TypedDict):
     SubnetId: str
     LifeCycleState: LifeCycleStateType
     IpAddress: str
+    Ipv6Address: str
     NetworkInterfaceId: str
     AvailabilityZoneId: str
     AvailabilityZoneName: str

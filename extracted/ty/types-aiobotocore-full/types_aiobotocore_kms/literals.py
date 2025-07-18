@@ -34,10 +34,14 @@ __all__ = (
     "EncryptionAlgorithmSpecType",
     "ExpirationModelTypeType",
     "GrantOperationType",
+    "ImportStateType",
+    "ImportTypeType",
+    "IncludeKeyMaterialType",
     "KMSServiceName",
     "KeyAgreementAlgorithmSpecType",
     "KeyEncryptionMechanismType",
     "KeyManagerTypeType",
+    "KeyMaterialStateType",
     "KeySpecType",
     "KeyStateType",
     "KeyUsageTypeType",
@@ -145,9 +149,13 @@ GrantOperationType = Literal[
     "Verify",
     "VerifyMac",
 ]
+ImportStateType = Literal["IMPORTED", "PENDING_IMPORT"]
+ImportTypeType = Literal["EXISTING_KEY_MATERIAL", "NEW_KEY_MATERIAL"]
+IncludeKeyMaterialType = Literal["ALL_KEY_MATERIAL", "ROTATIONS_ONLY"]
 KeyAgreementAlgorithmSpecType = Literal["ECDH"]
 KeyEncryptionMechanismType = Literal["RSAES_OAEP_SHA_256"]
 KeyManagerTypeType = Literal["AWS", "CUSTOMER"]
+KeyMaterialStateType = Literal["CURRENT", "NON_CURRENT", "PENDING_ROTATION"]
 KeySpecType = Literal[
     "ECC_NIST_P256",
     "ECC_NIST_P384",
@@ -157,6 +165,9 @@ KeySpecType = Literal[
     "HMAC_256",
     "HMAC_384",
     "HMAC_512",
+    "ML_DSA_44",
+    "ML_DSA_65",
+    "ML_DSA_87",
     "RSA_2048",
     "RSA_3072",
     "RSA_4096",
@@ -182,7 +193,7 @@ ListKeysPaginatorName = Literal["list_keys"]
 ListResourceTagsPaginatorName = Literal["list_resource_tags"]
 ListRetirableGrantsPaginatorName = Literal["list_retirable_grants"]
 MacAlgorithmSpecType = Literal["HMAC_SHA_224", "HMAC_SHA_256", "HMAC_SHA_384", "HMAC_SHA_512"]
-MessageTypeType = Literal["DIGEST", "RAW"]
+MessageTypeType = Literal["DIGEST", "EXTERNAL_MU", "RAW"]
 MultiRegionKeyTypeType = Literal["PRIMARY", "REPLICA"]
 OriginTypeType = Literal["AWS_CLOUDHSM", "AWS_KMS", "EXTERNAL", "EXTERNAL_KEY_STORE"]
 RotationTypeType = Literal["AUTOMATIC", "ON_DEMAND"]
@@ -190,6 +201,7 @@ SigningAlgorithmSpecType = Literal[
     "ECDSA_SHA_256",
     "ECDSA_SHA_384",
     "ECDSA_SHA_512",
+    "ML_DSA_SHAKE_256",
     "RSASSA_PKCS1_V1_5_SHA_256",
     "RSASSA_PKCS1_V1_5_SHA_384",
     "RSASSA_PKCS1_V1_5_SHA_512",
@@ -206,6 +218,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -346,6 +359,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -403,6 +417,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -458,6 +473,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -602,6 +618,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -631,6 +648,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

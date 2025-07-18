@@ -50,16 +50,12 @@ class FeatureFlagMixin(Enum):
             is not None
         )
 
-    def env_variable(self):
+    def env_variable(self) -> str:
         return get_env_variable_name(*FEATURE_FLAGS_SECTION_PATH, key=self.value.name)
 
 
 @unique
 class FeatureFlag(FeatureFlagMixin):
-    ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
-        "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
-    )
-    ENABLE_STREAMLIT_NO_CHECKOUTS = BooleanFlag("ENABLE_STREAMLIT_NO_CHECKOUTS", False)
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False
     )
@@ -76,3 +72,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_NATIVE_APP_CHILDREN = BooleanFlag("ENABLE_NATIVE_APP_CHILDREN", False)
     # TODO 4.0: remove ENABLE_RELEASE_CHANNELS
     ENABLE_RELEASE_CHANNELS = BooleanFlag("ENABLE_RELEASE_CHANNELS", None)
+    ENABLE_SNOWFLAKE_PROJECTS = BooleanFlag("ENABLE_SNOWFLAKE_PROJECTS", False)

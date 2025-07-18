@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: behave-django
-Version: 1.6.0
+Version: 1.7.0
 Summary: Behave BDD integration for Django
 Author-email: Mitchel Cabuloy <mixxorz@gmail.com>, Peter Bittner <django@bittner.it>
 Maintainer-email: Peter Bittner <django@bittner.it>, Javier Buzzi <buzzi.javier@gmail.com>
@@ -33,7 +33,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: behave[toml]>=1.2.7.dev6
+Requires-Dist: behave[toml]==1.2.7.dev6
 Requires-Dist: django>=4.2
 Requires-Dist: beautifulsoup4
 Dynamic: license-file
@@ -65,7 +65,7 @@ Version Support
 ---------------
 
 *behave-django* is `tested against`_ the officially supported combinations of
-Python and Django (Django 4.2, 5.0, 5.1 on Python 3.8 through 3.12).
+Python and Django (Django 4.2, 5.0, 5.1, 5.2 on Python 3.9 through 3.13).
 
 *behave-django* requires a few newer features of *behave* and hence installs
 a recent unreleased version of `behave`_ as a dependency.

@@ -5,11 +5,12 @@ from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired
 from uuid import UUID
 
 import structlog
 from langgraph.checkpoint.memory import PersistentDict
+from typing_extensions import TypedDict
 
 from langgraph_runtime_inmem import store
 from langgraph_runtime_inmem.inmem_stream import start_stream, stop_stream

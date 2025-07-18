@@ -46,22 +46,61 @@ MAVLINK_TYPE_INT64_T = 8
 MAVLINK_TYPE_FLOAT = 9
 MAVLINK_TYPE_DOUBLE = 10
 
+# CRC calculation using fastcrc, falling back to a pure Python implementation
+# if fastcrc is not available
+try:
+    import fastcrc
+    mcrf4xx = fastcrc.crc16.mcrf4xx
+except Exception:
+    mcrf4xx = None  # type: ignore
 
-class x25crc(object):
+
+BytesLike = Union[List[int], Tuple[int], bytes, bytearray, str]
+
+
+class _x25crc_slow(object):
     """CRC-16/MCRF4XX - based on checksum.h from mavlink library"""
 
-    def __init__(self, buf: Optional[Sequence[int]] = None) -> None:
+    crc: int
+
+    def __init__(self, buf: Optional[BytesLike] = None):
         self.crc = 0xFFFF
         if buf is not None:
             self.accumulate(buf)
 
-    def accumulate(self, buf: Sequence[int]) -> None:
+    def accumulate(self, buf: BytesLike) -> None:
+        """add in some more bytes (it also accepts strings)"""
+        if isinstance(buf, str):
+            buf = buf.encode()
+
         accum = self.crc
         for b in buf:
             tmp = b ^ (accum & 0xFF)
             tmp = (tmp ^ (tmp << 4)) & 0xFF
             accum = (accum >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)
         self.crc = accum
+
+
+class _x25crc_fast(object):
+    """CRC-16/MCRF4XX - based on checksum.h from mavlink library"""
+
+    def __init__(self, buf: Optional[BytesLike] = None):
+        self.crc = 0xFFFF
+        if buf is not None:
+            self.accumulate(buf)
+
+    def accumulate(self, buf: BytesLike) -> None:
+        """add in some more bytes (it also accepts strings)"""
+        if isinstance(buf, str):
+            buf_as_bytes = bytes(buf.encode())
+        elif isinstance(buf, (list, tuple, bytearray)):
+            buf_as_bytes = bytes(buf)
+        else:
+            buf_as_bytes = buf
+        self.crc = mcrf4xx(buf_as_bytes, self.crc)
+
+
+x25crc = _x25crc_fast if mcrf4xx is not None else _x25crc_slow
 
 
 class MAVLink_header(object):
@@ -961,7 +1000,7 @@ enums["MAV_CMD"][211].param[7] = """Empty"""
 MAV_CMD_DO_AUTOTUNE_ENABLE = 212
 enums["MAV_CMD"][212] = EnumEntry("MAV_CMD_DO_AUTOTUNE_ENABLE", """Enable/disable autotune.""")
 enums["MAV_CMD"][212].param[1] = """Enable (1: enable, 0:disable)."""
-enums["MAV_CMD"][212].param[2] = """Specify axes for which autotuning is enabled/disabled. 0 indicates the field is unused (for compatiblity reasons). If 0 the autopilot will follow its default behaviour, which is usually to tune all axes."""
+enums["MAV_CMD"][212].param[2] = """Specify axes for which autotuning is enabled/disabled. 0 indicates the field is unused (for compatibility reasons). If 0 the autopilot will follow its default behaviour, which is usually to tune all axes."""
 enums["MAV_CMD"][212].param[3] = """Empty."""
 enums["MAV_CMD"][212].param[4] = """Empty."""
 enums["MAV_CMD"][212].param[5] = """Empty."""
@@ -1122,7 +1161,7 @@ enums["MAV_CMD"][400].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[6] = """Reserved (default:0)"""
 enums["MAV_CMD"][400].param[7] = """Reserved (default:0)"""
 MAV_CMD_RUN_PREARM_CHECKS = 401
-enums["MAV_CMD"][401] = EnumEntry("MAV_CMD_RUN_PREARM_CHECKS", """Instructs system to run pre-arm checks.  This command should return MAV_RESULT_TEMPORARILY_REJECTED in the case the system is armed, otherwse MAV_RESULT_ACCEPTED.  Note that the return value from executing this command does not indicate whether the vehicle is armable or not, just whether the system has successfully run/is currently running the checks.  The result of the checks is reflected in the SYS_STATUS message.""")
+enums["MAV_CMD"][401] = EnumEntry("MAV_CMD_RUN_PREARM_CHECKS", """Instructs system to run pre-arm checks.  This command should return MAV_RESULT_TEMPORARILY_REJECTED in the case the system is armed, otherwise MAV_RESULT_ACCEPTED.  Note that the return value from executing this command does not indicate whether the vehicle is armable or not, just whether the system has successfully run/is currently running the checks.  The result of the checks is reflected in the SYS_STATUS message.""")
 enums["MAV_CMD"][401].param[1] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[2] = """Reserved (default:0)"""
 enums["MAV_CMD"][401].param[3] = """Reserved (default:0)"""
@@ -1165,7 +1204,7 @@ enums["MAV_CMD"][511].param[3] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[4] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[5] = """Reserved (default:0)"""
 enums["MAV_CMD"][511].param[6] = """Reserved (default:0)"""
-enums["MAV_CMD"][511].param[7] = """Target address of message stream (if message has target address fields). 0: Flight-stack default (recommended), 1: address of requestor, 2: broadcast."""
+enums["MAV_CMD"][511].param[7] = """Target address of message stream (if message has target address fields). 0: Flight-stack default (recommended), 1: address of requester, 2: broadcast."""
 MAV_CMD_REQUEST_MESSAGE = 512
 enums["MAV_CMD"][512] = EnumEntry("MAV_CMD_REQUEST_MESSAGE", """Request the target system(s) emit a single instance of a specified message (i.e. a "one-shot" version of MAV_CMD_SET_MESSAGE_INTERVAL).""")
 enums["MAV_CMD"][512].param[1] = """The MAVLink message ID of the requested message."""
@@ -1174,7 +1213,7 @@ enums["MAV_CMD"][512].param[3] = """The use of this parameter (if any), must be 
 enums["MAV_CMD"][512].param[4] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
 enums["MAV_CMD"][512].param[5] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
 enums["MAV_CMD"][512].param[6] = """The use of this parameter (if any), must be defined in the requested message. By default assumed not used (0)."""
-enums["MAV_CMD"][512].param[7] = """Target address for requested message (if message has target address fields). 0: Flight-stack default, 1: address of requestor, 2: broadcast."""
+enums["MAV_CMD"][512].param[7] = """Target address for requested message (if message has target address fields). 0: Flight-stack default, 1: address of requester, 2: broadcast."""
 MAV_CMD_REQUEST_PROTOCOL_VERSION = 519
 enums["MAV_CMD"][519] = EnumEntry("MAV_CMD_REQUEST_PROTOCOL_VERSION", """Request MAVLink protocol version compatibility. All receivers should ACK the command and then emit their capabilities in an PROTOCOL_VERSION message""")
 enums["MAV_CMD"][519].param[1] = """1: Request supported protocol versions by all nodes on the network"""
@@ -5131,7 +5170,7 @@ setattr(MAVLink_flexifunction_set_message, "name", mavlink_msg_deprecated_name_p
 
 class MAVLink_flexifunction_read_req_message(MAVLink_message):
     """
-    Reqest reading of flexifunction data
+    Request reading of flexifunction data
     """
 
     id = MAVLINK_MSG_ID_FLEXIFUNCTION_READ_REQ
@@ -5259,7 +5298,7 @@ setattr(MAVLink_flexifunction_buffer_function_ack_message, "name", mavlink_msg_d
 
 class MAVLink_flexifunction_directory_message(MAVLink_message):
     """
-    Acknowldge sucess or failure of a flexifunction command
+    Acknowledge success or failure of a flexifunction command
     """
 
     id = MAVLINK_MSG_ID_FLEXIFUNCTION_DIRECTORY
@@ -5302,7 +5341,7 @@ setattr(MAVLink_flexifunction_directory_message, "name", mavlink_msg_deprecated_
 
 class MAVLink_flexifunction_directory_ack_message(MAVLink_message):
     """
-    Acknowldge sucess or failure of a flexifunction command
+    Acknowledge success or failure of a flexifunction command
     """
 
     id = MAVLINK_MSG_ID_FLEXIFUNCTION_DIRECTORY_ACK
@@ -5345,7 +5384,7 @@ setattr(MAVLink_flexifunction_directory_ack_message, "name", mavlink_msg_depreca
 
 class MAVLink_flexifunction_command_message(MAVLink_message):
     """
-    Acknowldge sucess or failure of a flexifunction command
+    Acknowledge success or failure of a flexifunction command
     """
 
     id = MAVLINK_MSG_ID_FLEXIFUNCTION_COMMAND
@@ -5385,7 +5424,7 @@ setattr(MAVLink_flexifunction_command_message, "name", mavlink_msg_deprecated_na
 
 class MAVLink_flexifunction_command_ack_message(MAVLink_message):
     """
-    Acknowldge sucess or failure of a flexifunction command
+    Acknowledge success or failure of a flexifunction command
     """
 
     id = MAVLINK_MSG_ID_FLEXIFUNCTION_COMMAND_ACK
@@ -15407,7 +15446,7 @@ class MAVLink_can_filter_modify_message(MAVLink_message):
     """
     Modify the filter of what CAN messages to forward over the
     mavlink. This can be used to make CAN forwarding work well on low
-    bandwith links. The filtering is applied on bits 8 to 24 of the
+    bandwidth links. The filtering is applied on bits 8 to 24 of the
     CAN id (2nd and 3rd bytes) which corresponds to the DroneCAN
     message ID for DroneCAN. Filters with more than 16 IDs can be
     constructed by sending multiple CAN_FILTER_MODIFY messages.
@@ -16472,7 +16511,10 @@ class MAVLink(object):
             magic = self.buf[self.buf_index]
             self.buf_index += 1
             if self.robust_parsing:
-                m = MAVLink_bad_data(bytearray([magic]), "Bad prefix")
+                invalid_prefix_start = self.buf_index - 1
+                while self.buf_len() >= 1 and self.buf[self.buf_index] != PROTOCOL_MARKER_V1 and self.buf[self.buf_index] != PROTOCOL_MARKER_V2:
+                    self.buf_index += 1
+                m = MAVLink_bad_data(self.buf[invalid_prefix_start : self.buf_index], "Bad prefix")
                 self.expected_length = header_len + 2
                 self.total_receive_errors += 1
                 return m
@@ -16547,8 +16589,10 @@ class MAVLink(object):
             if timestamp + 6000 * 1000 < self.signing.timestamp:
                 logger.info("bad new stream %s %s", timestamp / (100.0 * 1000 * 60 * 60 * 24 * 365), self.signing.timestamp / (100.0 * 1000 * 60 * 60 * 24 * 365))
                 return False
-            self.signing.stream_timestamps[stream_key] = timestamp
             logger.info("new stream")
+
+        # set the streams timestamp so we reject timestamps that go backwards
+        self.signing.stream_timestamps[stream_key] = timestamp
 
         h = hashlib.new("sha256")
         h.update(self.signing.secret_key)
@@ -16731,7 +16775,7 @@ class MAVLink(object):
 
     def flexifunction_read_req_encode(self, target_system: int, target_component: int, read_req_type: int, data_index: int) -> MAVLink_flexifunction_read_req_message:
         """
-        Reqest reading of flexifunction data
+        Request reading of flexifunction data
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16743,7 +16787,7 @@ class MAVLink(object):
 
     def flexifunction_read_req_send(self, target_system: int, target_component: int, read_req_type: int, data_index: int, force_mavlink1: bool = False) -> None:
         """
-        Reqest reading of flexifunction data
+        Request reading of flexifunction data
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16813,7 +16857,7 @@ class MAVLink(object):
 
     def flexifunction_directory_encode(self, target_system: int, target_component: int, directory_type: int, start_index: int, count: int, directory_data: Sequence[int]) -> MAVLink_flexifunction_directory_message:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16827,7 +16871,7 @@ class MAVLink(object):
 
     def flexifunction_directory_send(self, target_system: int, target_component: int, directory_type: int, start_index: int, count: int, directory_data: Sequence[int], force_mavlink1: bool = False) -> None:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16841,7 +16885,7 @@ class MAVLink(object):
 
     def flexifunction_directory_ack_encode(self, target_system: int, target_component: int, directory_type: int, start_index: int, count: int, result: int) -> MAVLink_flexifunction_directory_ack_message:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16855,7 +16899,7 @@ class MAVLink(object):
 
     def flexifunction_directory_ack_send(self, target_system: int, target_component: int, directory_type: int, start_index: int, count: int, result: int, force_mavlink1: bool = False) -> None:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16869,7 +16913,7 @@ class MAVLink(object):
 
     def flexifunction_command_encode(self, target_system: int, target_component: int, command_type: int) -> MAVLink_flexifunction_command_message:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16880,7 +16924,7 @@ class MAVLink(object):
 
     def flexifunction_command_send(self, target_system: int, target_component: int, command_type: int, force_mavlink1: bool = False) -> None:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         target_system             : System ID (type:uint8_t)
         target_component          : Component ID (type:uint8_t)
@@ -16891,7 +16935,7 @@ class MAVLink(object):
 
     def flexifunction_command_ack_encode(self, command_type: int, result: int) -> MAVLink_flexifunction_command_ack_message:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         command_type              : Command acknowledged (type:uint16_t)
         result                    : result of acknowledge (type:uint16_t)
@@ -16901,7 +16945,7 @@ class MAVLink(object):
 
     def flexifunction_command_ack_send(self, command_type: int, result: int, force_mavlink1: bool = False) -> None:
         """
-        Acknowldge sucess or failure of a flexifunction command
+        Acknowledge success or failure of a flexifunction command
 
         command_type              : Command acknowledged (type:uint16_t)
         result                    : result of acknowledge (type:uint16_t)
@@ -16939,7 +16983,7 @@ class MAVLink(object):
         sue_magFieldEarth0        : Serial UDB Extra Magnetic Field Earth 0 (type:int16_t)
         sue_magFieldEarth1        : Serial UDB Extra Magnetic Field Earth 1 (type:int16_t)
         sue_magFieldEarth2        : Serial UDB Extra Magnetic Field Earth 2 (type:int16_t)
-        sue_svs                   : Serial UDB Extra Number of Sattelites in View (type:int16_t)
+        sue_svs                   : Serial UDB Extra Number of Satellites in View (type:int16_t)
         sue_hdop                  : Serial UDB Extra GPS Horizontal Dilution of Precision (type:int16_t)
 
         """
@@ -16975,7 +17019,7 @@ class MAVLink(object):
         sue_magFieldEarth0        : Serial UDB Extra Magnetic Field Earth 0 (type:int16_t)
         sue_magFieldEarth1        : Serial UDB Extra Magnetic Field Earth 1 (type:int16_t)
         sue_magFieldEarth2        : Serial UDB Extra Magnetic Field Earth 2 (type:int16_t)
-        sue_svs                   : Serial UDB Extra Number of Sattelites in View (type:int16_t)
+        sue_svs                   : Serial UDB Extra Number of Satellites in View (type:int16_t)
         sue_hdop                  : Serial UDB Extra GPS Horizontal Dilution of Precision (type:int16_t)
 
         """
@@ -20483,7 +20527,7 @@ class MAVLink(object):
         """
         Status generated by radio and injected into MAVLink stream.
 
-        rssi                      : Local (message sender) recieved signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
         remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
         txbuf                     : Remaining free transmitter buffer space. [%] (type:uint8_t)
         noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
@@ -20498,7 +20542,7 @@ class MAVLink(object):
         """
         Status generated by radio and injected into MAVLink stream.
 
-        rssi                      : Local (message sender) recieved signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
+        rssi                      : Local (message sender) received signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
         remrssi                   : Remote (message receiver) signal strength indication in device-dependent units/scale. Values: [0-254], 255: invalid/unknown. (type:uint8_t)
         txbuf                     : Remaining free transmitter buffer space. [%] (type:uint8_t)
         noise                     : Local background noise level. These are device dependent RSSI values (scale as approx 2x dB on SiK radios). Values: [0-254], 255: invalid/unknown. (type:uint8_t)
@@ -21520,7 +21564,7 @@ class MAVLink(object):
         The autopilot is requesting a resource (file, binary, other type of
         data)
 
-        request_id                : Request ID. This ID should be re-used when sending back URI contents (type:uint8_t)
+        request_id                : Request ID. This ID should be reused when sending back URI contents (type:uint8_t)
         uri_type                  : The type of requested URI. 0 = a file via URL. 1 = a UAVCAN binary (type:uint8_t)
         uri                       : The requested unique resource identifier (URI). It is not necessarily a straight domain name (depends on the URI type enum) (type:uint8_t)
         transfer_type             : The way the autopilot wants to receive the URI. 0 = MAVLink FTP. 1 = binary stream. (type:uint8_t)
@@ -21534,7 +21578,7 @@ class MAVLink(object):
         The autopilot is requesting a resource (file, binary, other type of
         data)
 
-        request_id                : Request ID. This ID should be re-used when sending back URI contents (type:uint8_t)
+        request_id                : Request ID. This ID should be reused when sending back URI contents (type:uint8_t)
         uri_type                  : The type of requested URI. 0 = a file via URL. 1 = a UAVCAN binary (type:uint8_t)
         uri                       : The requested unique resource identifier (URI). It is not necessarily a straight domain name (depends on the URI type enum) (type:uint8_t)
         transfer_type             : The way the autopilot wants to receive the URI. 0 = MAVLink FTP. 1 = binary stream. (type:uint8_t)
@@ -24651,7 +24695,7 @@ class MAVLink(object):
         """
         Modify the filter of what CAN messages to forward over the mavlink.
         This can be used to make CAN forwarding work well on low
-        bandwith links. The filtering is applied on bits 8 to 24 of
+        bandwidth links. The filtering is applied on bits 8 to 24 of
         the CAN id (2nd and 3rd bytes) which corresponds to the
         DroneCAN message ID for DroneCAN. Filters with more than 16
         IDs can be constructed by sending multiple CAN_FILTER_MODIFY
@@ -24671,7 +24715,7 @@ class MAVLink(object):
         """
         Modify the filter of what CAN messages to forward over the mavlink.
         This can be used to make CAN forwarding work well on low
-        bandwith links. The filtering is applied on bits 8 to 24 of
+        bandwidth links. The filtering is applied on bits 8 to 24 of
         the CAN id (2nd and 3rd bytes) which corresponds to the
         DroneCAN message ID for DroneCAN. Filters with more than 16
         IDs can be constructed by sending multiple CAN_FILTER_MODIFY
@@ -24798,7 +24842,7 @@ class MAVLink(object):
         speed_vertical            : The vertical speed. Up is positive. If unknown: 6300 cm/s. If speed is larger than 6200 cm/s, use 6200 cm/s. If lower than -6200 cm/s, use -6200 cm/s. [cm/s] (type:int16_t)
         latitude                  : Current latitude of the unmanned aircraft. If unknown: 0 (both Lat/Lon). [degE7] (type:int32_t)
         longitude                 : Current longitude of the unmanned aircraft. If unknown: 0 (both Lat/Lon). [degE7] (type:int32_t)
-        altitude_barometric        : The altitude calculated from the barometric pressue. Reference is against 29.92inHg or 1013.2mb. If unknown: -1000 m. [m] (type:float)
+        altitude_barometric        : The altitude calculated from the barometric pressure. Reference is against 29.92inHg or 1013.2mb. If unknown: -1000 m. [m] (type:float)
         altitude_geodetic         : The geodetic altitude as defined by WGS84. If unknown: -1000 m. [m] (type:float)
         height_reference          : Indicates the reference point for the height field. (type:uint8_t, values:MAV_ODID_HEIGHT_REF)
         height                    : The current height of the unmanned aircraft above the take-off location or the ground as indicated by height_reference. If unknown: -1000 m. [m] (type:float)
@@ -24827,7 +24871,7 @@ class MAVLink(object):
         speed_vertical            : The vertical speed. Up is positive. If unknown: 6300 cm/s. If speed is larger than 6200 cm/s, use 6200 cm/s. If lower than -6200 cm/s, use -6200 cm/s. [cm/s] (type:int16_t)
         latitude                  : Current latitude of the unmanned aircraft. If unknown: 0 (both Lat/Lon). [degE7] (type:int32_t)
         longitude                 : Current longitude of the unmanned aircraft. If unknown: 0 (both Lat/Lon). [degE7] (type:int32_t)
-        altitude_barometric        : The altitude calculated from the barometric pressue. Reference is against 29.92inHg or 1013.2mb. If unknown: -1000 m. [m] (type:float)
+        altitude_barometric        : The altitude calculated from the barometric pressure. Reference is against 29.92inHg or 1013.2mb. If unknown: -1000 m. [m] (type:float)
         altitude_geodetic         : The geodetic altitude as defined by WGS84. If unknown: -1000 m. [m] (type:float)
         height_reference          : Indicates the reference point for the height field. (type:uint8_t, values:MAV_ODID_HEIGHT_REF)
         height                    : The current height of the unmanned aircraft above the take-off location or the ground as indicated by height_reference. If unknown: -1000 m. [m] (type:float)

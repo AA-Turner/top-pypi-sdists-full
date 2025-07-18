@@ -40,6 +40,7 @@ class DbClusterArgs:
                  db_instance_parameter_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_subnet_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_system_id: Optional[pulumi.Input[builtins.str]] = None,
+                 delete_automated_backups: Optional[pulumi.Input[builtins.bool]] = None,
                  deletion_protection: Optional[pulumi.Input[builtins.bool]] = None,
                  domain: Optional[pulumi.Input[builtins.str]] = None,
                  domain_iam_role_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -142,6 +143,7 @@ class DbClusterArgs:
                 If you are restoring a DB cluster to a point in time with ``RestoreType`` set to ``copy-on-write``, and don't specify a DB subnet group name, then the DB cluster is restored with a default DB subnet group.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] db_system_id: Reserved for future use.
+        :param pulumi.Input[builtins.bool] delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param pulumi.Input[builtins.bool] deletion_protection: A value that indicates whether the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled. By default, deletion protection is disabled.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] domain: Indicates the directory ID of the Active Directory to create the DB cluster.
@@ -179,8 +181,8 @@ class DbClusterArgs:
         :param pulumi.Input[builtins.str] engine_lifecycle_support: The life cycle type for this DB cluster.
                  By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB cluster into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB cluster will fail if the DB major version is past its end of standard support date.
                  You can use this setting to enroll your DB cluster into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB cluster past the end of standard support for that engine version. For more information, see the following sections:
-                 +  Amazon Aurora - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
-                 +  Amazon RDS - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
+                 +  Amazon Aurora - [Amazon RDS Extended Support with Amazon Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
+                 +  Amazon RDS - [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
                  
                 Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
                 Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
@@ -419,6 +421,8 @@ class DbClusterArgs:
             pulumi.set(__self__, "db_subnet_group_name", db_subnet_group_name)
         if db_system_id is not None:
             pulumi.set(__self__, "db_system_id", db_system_id)
+        if delete_automated_backups is not None:
+            pulumi.set(__self__, "delete_automated_backups", delete_automated_backups)
         if deletion_protection is not None:
             pulumi.set(__self__, "deletion_protection", deletion_protection)
         if domain is not None:
@@ -739,6 +743,18 @@ class DbClusterArgs:
         pulumi.set(self, "db_system_id", value)
 
     @property
+    @pulumi.getter(name="deleteAutomatedBackups")
+    def delete_automated_backups(self) -> Optional[pulumi.Input[builtins.bool]]:
+        """
+        Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
+        """
+        return pulumi.get(self, "delete_automated_backups")
+
+    @delete_automated_backups.setter
+    def delete_automated_backups(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "delete_automated_backups", value)
+
+    @property
     @pulumi.getter(name="deletionProtection")
     def deletion_protection(self) -> Optional[pulumi.Input[builtins.bool]]:
         """
@@ -878,8 +894,8 @@ class DbClusterArgs:
         The life cycle type for this DB cluster.
           By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB cluster into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB cluster will fail if the DB major version is past its end of standard support date.
           You can use this setting to enroll your DB cluster into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB cluster past the end of standard support for that engine version. For more information, see the following sections:
-          +  Amazon Aurora - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
-          +  Amazon RDS - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
+          +  Amazon Aurora - [Amazon RDS Extended Support with Amazon Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
+          +  Amazon RDS - [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
           
          Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
          Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
@@ -1467,6 +1483,7 @@ class DbCluster(pulumi.CustomResource):
                  db_instance_parameter_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_subnet_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_system_id: Optional[pulumi.Input[builtins.str]] = None,
+                 delete_automated_backups: Optional[pulumi.Input[builtins.bool]] = None,
                  deletion_protection: Optional[pulumi.Input[builtins.bool]] = None,
                  domain: Optional[pulumi.Input[builtins.str]] = None,
                  domain_iam_role_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -1589,6 +1606,7 @@ class DbCluster(pulumi.CustomResource):
                 If you are restoring a DB cluster to a point in time with ``RestoreType`` set to ``copy-on-write``, and don't specify a DB subnet group name, then the DB cluster is restored with a default DB subnet group.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] db_system_id: Reserved for future use.
+        :param pulumi.Input[builtins.bool] delete_automated_backups: Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
         :param pulumi.Input[builtins.bool] deletion_protection: A value that indicates whether the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled. By default, deletion protection is disabled.
                 Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param pulumi.Input[builtins.str] domain: Indicates the directory ID of the Active Directory to create the DB cluster.
@@ -1626,8 +1644,8 @@ class DbCluster(pulumi.CustomResource):
         :param pulumi.Input[builtins.str] engine_lifecycle_support: The life cycle type for this DB cluster.
                  By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB cluster into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB cluster will fail if the DB major version is past its end of standard support date.
                  You can use this setting to enroll your DB cluster into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB cluster past the end of standard support for that engine version. For more information, see the following sections:
-                 +  Amazon Aurora - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
-                 +  Amazon RDS - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
+                 +  Amazon Aurora - [Amazon RDS Extended Support with Amazon Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
+                 +  Amazon RDS - [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
                  
                 Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
                 Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
@@ -1890,6 +1908,7 @@ class DbCluster(pulumi.CustomResource):
                  db_instance_parameter_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_subnet_group_name: Optional[pulumi.Input[builtins.str]] = None,
                  db_system_id: Optional[pulumi.Input[builtins.str]] = None,
+                 delete_automated_backups: Optional[pulumi.Input[builtins.bool]] = None,
                  deletion_protection: Optional[pulumi.Input[builtins.bool]] = None,
                  domain: Optional[pulumi.Input[builtins.str]] = None,
                  domain_iam_role_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -1957,6 +1976,7 @@ class DbCluster(pulumi.CustomResource):
             __props__.__dict__["db_instance_parameter_group_name"] = db_instance_parameter_group_name
             __props__.__dict__["db_subnet_group_name"] = db_subnet_group_name
             __props__.__dict__["db_system_id"] = db_system_id
+            __props__.__dict__["delete_automated_backups"] = delete_automated_backups
             __props__.__dict__["deletion_protection"] = deletion_protection
             __props__.__dict__["domain"] = domain
             __props__.__dict__["domain_iam_role_name"] = domain_iam_role_name
@@ -2046,6 +2066,7 @@ class DbCluster(pulumi.CustomResource):
         __props__.__dict__["db_instance_parameter_group_name"] = None
         __props__.__dict__["db_subnet_group_name"] = None
         __props__.__dict__["db_system_id"] = None
+        __props__.__dict__["delete_automated_backups"] = None
         __props__.__dict__["deletion_protection"] = None
         __props__.__dict__["domain"] = None
         __props__.__dict__["domain_iam_role_name"] = None
@@ -2280,6 +2301,14 @@ class DbCluster(pulumi.CustomResource):
         return pulumi.get(self, "db_system_id")
 
     @property
+    @pulumi.getter(name="deleteAutomatedBackups")
+    def delete_automated_backups(self) -> pulumi.Output[Optional[builtins.bool]]:
+        """
+        Specifies whether to remove automated backups immediately after the DB cluster is deleted. This parameter isn't case-sensitive. The default is to remove automated backups immediately after the DB cluster is deleted, unless the AWS Backup policy specifies a point-in-time restore rule.
+        """
+        return pulumi.get(self, "delete_automated_backups")
+
+    @property
     @pulumi.getter(name="deletionProtection")
     def deletion_protection(self) -> pulumi.Output[Optional[builtins.bool]]:
         """
@@ -2388,8 +2417,8 @@ class DbCluster(pulumi.CustomResource):
         The life cycle type for this DB cluster.
           By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB cluster into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB cluster will fail if the DB major version is past its end of standard support date.
           You can use this setting to enroll your DB cluster into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB cluster past the end of standard support for that engine version. For more information, see the following sections:
-          +  Amazon Aurora - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
-          +  Amazon RDS - [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
+          +  Amazon Aurora - [Amazon RDS Extended Support with Amazon Aurora](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/extended-support.html) in the *Amazon Aurora User Guide*
+          +  Amazon RDS - [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*
           
          Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
          Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``

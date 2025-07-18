@@ -1,29 +1,32 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 Tornado server for Cesium map module
 Samuel Dudley
 Jan 2016
 '''
+
+import asyncio
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
 import tornado.httpserver
+import tornado.platform.asyncio
 import logging
                 
-import os, json, sys, select, signal, threading
-try:
-    import Queue as queue
-except ImportError:
-    import queue
+import os, json, queue, sys, select, signal, threading 
 
 lock = threading.Lock()
 live_web_sockets = set()
 
+signal_received = False
+
+# Importing from system packages first can override the use of locally edited code.
 try: # try to use pkg_resources to allow for zipped python eggs
     import pkg_resources
     APP_ROOT = pkg_resources.resource_filename('MAVProxy.modules.mavproxy_cesium','app')
     APP_STATIC = pkg_resources.resource_filename('MAVProxy.modules.mavproxy_cesium.app','static')
     APP_TEMPLATES = pkg_resources.resource_filename('MAVProxy.modules.mavproxy_cesium.app','templates')
+    raise Exception("Don't use this")
 except: # otherwise fall back to the standard file system
     APP_ROOT = os.path.dirname(os.path.abspath(__file__))
     APP_STATIC = os.path.join(APP_ROOT, 'static')
@@ -34,7 +37,7 @@ class MainHandler(tornado.web.RequestHandler):
         self.configuration = configuration
         
     def get(self):
-        self.render("index.html", bing_api_key=self.configuration.BING_API_KEY, websocket=self.configuration.WEBSOCKET, markers=False,
+        self.render("index.html", websocket=self.configuration.WEBSOCKET, markers=False,
                      app_prefix = self.configuration.APP_PREFIX)
         
 class ContextHandler(tornado.web.RequestHandler):
@@ -64,7 +67,10 @@ class DefaultWebSocket(tornado.websocket.WebSocketHandler):
         live_web_sockets.add(self)
         lock.release()
      
-    def on_message(self, message):
+    def on_message(self, message: str):
+        # A callback for when a websocket message is received from the browser (front end).
+        # This is called from inside the base tornado websocket handler class.
+
         if self.configuration.APP_DEBUG:
             print("received websocket message: {0}".format(message))
         message = json.loads(message)
@@ -72,7 +78,6 @@ class DefaultWebSocket(tornado.websocket.WebSocketHandler):
             self.callback(message) # this sends it to the module.send_out_queue_data for further processing.
         else:
             print("no callback for message: {0}".format(message))
-        print(dir(self))
 
     def on_close(self):
         if self.configuration.APP_DEBUG:
@@ -103,7 +108,7 @@ def start_app(config, module_callback):
     server = tornado.httpserver.HTTPServer(application)
     server.listen(port = int(config.SERVER_PORT), address = str(config.SERVER_INTERFACE))
     if config.APP_DEBUG:
-        print("Starting Tornado server: {0}".format(config.SERVER_INTERFACE+":"+config.SERVER_PORT+"/"+config.APP_PREFIX))
+        print("Starting Tornado server: http://{0}".format(config.SERVER_INTERFACE+":"+config.SERVER_PORT+"/"+config.APP_PREFIX))
     return server
 
 def close_all_websockets():
@@ -114,13 +119,15 @@ def close_all_websockets():
     for ws in removable:
         live_web_sockets.remove(ws)
     lock.release()
-            
+
 def stop_tornado(config):
+
+    if config.APP_DEBUG:
+        print("Asked Tornado to exit")
+
     close_all_websockets()
     ioloop = tornado.ioloop.IOLoop.current()
     ioloop.add_callback(ioloop.stop)
-    if config.APP_DEBUG:
-        print("Asked Tornado to exit")
 
 def websocket_send_message(message):
     removable = set()
@@ -138,12 +145,12 @@ def websocket_send_message(message):
     lock.release()
 
 def main(config, module_callback):
+    asyncio.set_event_loop(asyncio.new_event_loop())
     server = start_app(config=config, module_callback=module_callback)
-    tornado.ioloop.IOLoop.current().start()
-    if config.APP_DEBUG:
-        print("Tornado finished")
-    server.stop()
-    
+    ioloop = tornado.ioloop.IOLoop.current()
+    asyncio.set_event_loop_policy(tornado.platform.asyncio.AnyThreadEventLoopPolicy())
+    ioloop.start()
+
 class Connection(object):
     def __init__(self, connection):
         self.control_connection = connection # a MAVLink connection

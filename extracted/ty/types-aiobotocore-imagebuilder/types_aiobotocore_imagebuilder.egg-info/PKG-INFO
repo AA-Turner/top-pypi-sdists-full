@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-imagebuilder
-Version: 2.23.0
-Summary: Type annotations for aiobotocore Imagebuilder 2.23.0 service generated with mypy-boto3-builder 8.11.0
+Version: 2.23.1
+Summary: Type annotations for aiobotocore Imagebuilder 2.23.1 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore Imagebuilder 2.23.0](https://pypi.org/project/aiobotocore/)
+[aiobotocore Imagebuilder 2.23.1](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.23.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.23.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `Imagebuilder` service.
 4. Use provided commands to install generated packages.
@@ -347,11 +347,26 @@ from aiobotocore.session import get_session
 
 from types_aiobotocore_imagebuilder import ImagebuilderClient
 from types_aiobotocore_imagebuilder.paginator import (
+    ListComponentBuildVersionsPaginator,
+    ListComponentsPaginator,
+    ListContainerRecipesPaginator,
+    ListDistributionConfigurationsPaginator,
+    ListImageBuildVersionsPaginator,
+    ListImagePackagesPaginator,
+    ListImagePipelineImagesPaginator,
+    ListImagePipelinesPaginator,
+    ListImageRecipesPaginator,
+    ListImageScanFindingAggregationsPaginator,
+    ListImageScanFindingsPaginator,
+    ListImagesPaginator,
+    ListInfrastructureConfigurationsPaginator,
     ListLifecycleExecutionResourcesPaginator,
     ListLifecycleExecutionsPaginator,
     ListLifecyclePoliciesPaginator,
     ListWaitingWorkflowStepsPaginator,
     ListWorkflowBuildVersionsPaginator,
+    ListWorkflowExecutionsPaginator,
+    ListWorkflowStepExecutionsPaginator,
     ListWorkflowsPaginator,
 )
 
@@ -361,6 +376,41 @@ async with session.create_client("imagebuilder") as client:
 
     # Explicit type annotations are optional here
     # Types should be correctly discovered by mypy and IDEs
+    list_component_build_versions_paginator: ListComponentBuildVersionsPaginator = (
+        client.get_paginator("list_component_build_versions")
+    )
+    list_components_paginator: ListComponentsPaginator = client.get_paginator("list_components")
+    list_container_recipes_paginator: ListContainerRecipesPaginator = client.get_paginator(
+        "list_container_recipes"
+    )
+    list_distribution_configurations_paginator: ListDistributionConfigurationsPaginator = (
+        client.get_paginator("list_distribution_configurations")
+    )
+    list_image_build_versions_paginator: ListImageBuildVersionsPaginator = client.get_paginator(
+        "list_image_build_versions"
+    )
+    list_image_packages_paginator: ListImagePackagesPaginator = client.get_paginator(
+        "list_image_packages"
+    )
+    list_image_pipeline_images_paginator: ListImagePipelineImagesPaginator = client.get_paginator(
+        "list_image_pipeline_images"
+    )
+    list_image_pipelines_paginator: ListImagePipelinesPaginator = client.get_paginator(
+        "list_image_pipelines"
+    )
+    list_image_recipes_paginator: ListImageRecipesPaginator = client.get_paginator(
+        "list_image_recipes"
+    )
+    list_image_scan_finding_aggregations_paginator: ListImageScanFindingAggregationsPaginator = (
+        client.get_paginator("list_image_scan_finding_aggregations")
+    )
+    list_image_scan_findings_paginator: ListImageScanFindingsPaginator = client.get_paginator(
+        "list_image_scan_findings"
+    )
+    list_images_paginator: ListImagesPaginator = client.get_paginator("list_images")
+    list_infrastructure_configurations_paginator: ListInfrastructureConfigurationsPaginator = (
+        client.get_paginator("list_infrastructure_configurations")
+    )
     list_lifecycle_execution_resources_paginator: ListLifecycleExecutionResourcesPaginator = (
         client.get_paginator("list_lifecycle_execution_resources")
     )
@@ -375,6 +425,12 @@ async with session.create_client("imagebuilder") as client:
     )
     list_workflow_build_versions_paginator: ListWorkflowBuildVersionsPaginator = (
         client.get_paginator("list_workflow_build_versions")
+    )
+    list_workflow_executions_paginator: ListWorkflowExecutionsPaginator = client.get_paginator(
+        "list_workflow_executions"
+    )
+    list_workflow_step_executions_paginator: ListWorkflowStepExecutionsPaginator = (
+        client.get_paginator("list_workflow_step_executions")
     )
     list_workflows_paginator: ListWorkflowsPaginator = client.get_paginator("list_workflows")
 ```

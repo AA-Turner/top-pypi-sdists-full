@@ -35,6 +35,7 @@ class DbInstanceArgs:
                  automatic_backup_replication_retention_period: Optional[pulumi.Input[builtins.int]] = None,
                  availability_zone: Optional[pulumi.Input[builtins.str]] = None,
                  backup_retention_period: Optional[pulumi.Input[builtins.int]] = None,
+                 backup_target: Optional[pulumi.Input[builtins.str]] = None,
                  ca_certificate_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  certificate_rotation_restart: Optional[pulumi.Input[builtins.bool]] = None,
                  character_set_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -181,6 +182,17 @@ class DbInstanceArgs:
                 Constraints:
                  +  Must be a value from 0 to 35
                  +  Can't be set to 0 if the DB instance is a source to read replicas
+        :param pulumi.Input[builtins.str] backup_target: The location for storing automated backups and manual snapshots.
+               
+               Valid Values:
+               
+               - `local` (Dedicated Local Zone)
+               - `outposts` ( AWS Outposts)
+               - `region` ( AWS Region )
+               
+               Default: `region`
+               
+               For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
         :param pulumi.Input[builtins.str] ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
                 For more information, see [Using SSL/TLS to encrypt a connection to a DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) in the *Amazon RDS User Guide* and [Using SSL/TLS to encrypt a connection to a DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html) in the *Amazon Aurora User Guide*.
         :param pulumi.Input[builtins.bool] certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.
@@ -390,7 +402,7 @@ class DbInstanceArgs:
         :param pulumi.Input[builtins.str] engine_lifecycle_support: The life cycle type for this DB instance.
                  By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB instance into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB instance will fail if the DB major version is past its end of standard support date.
                  This setting applies only to RDS for MySQL and RDS for PostgreSQL. For Amazon Aurora DB instances, the life cycle type is managed by the DB cluster.
-                You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
+                You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
                 Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
                 Default: ``open-source-rds-extended-support``
         :param pulumi.Input[builtins.str] engine_version: The version number of the database engine to use.
@@ -510,9 +522,7 @@ class DbInstanceArgs:
                 If ``MonitoringInterval`` is set to a value other than ``0``, then you must supply a ``MonitoringRoleArn`` value.
                 This setting doesn't apply to RDS Custom DB instances.
         :param pulumi.Input[builtins.bool] multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment.
-                This setting doesn't apply to the following DB instances:
-                 +  Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.)
-                 +  RDS Custom
+                This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         :param pulumi.Input[builtins.str] nchar_character_set_name: The name of the NCHAR character set for the Oracle DB instance.
                 This setting doesn't apply to RDS Custom DB instances.
         :param pulumi.Input[builtins.str] network_type: The network type of the DB instance.
@@ -656,6 +666,8 @@ class DbInstanceArgs:
             pulumi.set(__self__, "availability_zone", availability_zone)
         if backup_retention_period is not None:
             pulumi.set(__self__, "backup_retention_period", backup_retention_period)
+        if backup_target is not None:
+            pulumi.set(__self__, "backup_target", backup_target)
         if ca_certificate_identifier is not None:
             pulumi.set(__self__, "ca_certificate_identifier", ca_certificate_identifier)
         if certificate_rotation_restart is not None:
@@ -980,6 +992,28 @@ class DbInstanceArgs:
     @backup_retention_period.setter
     def backup_retention_period(self, value: Optional[pulumi.Input[builtins.int]]):
         pulumi.set(self, "backup_retention_period", value)
+
+    @property
+    @pulumi.getter(name="backupTarget")
+    def backup_target(self) -> Optional[pulumi.Input[builtins.str]]:
+        """
+        The location for storing automated backups and manual snapshots.
+
+        Valid Values:
+
+        - `local` (Dedicated Local Zone)
+        - `outposts` ( AWS Outposts)
+        - `region` ( AWS Region )
+
+        Default: `region`
+
+        For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+        """
+        return pulumi.get(self, "backup_target")
+
+    @backup_target.setter
+    def backup_target(self, value: Optional[pulumi.Input[builtins.str]]):
+        pulumi.set(self, "backup_target", value)
 
     @property
     @pulumi.getter(name="caCertificateIdentifier")
@@ -1513,7 +1547,7 @@ class DbInstanceArgs:
         The life cycle type for this DB instance.
           By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB instance into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB instance will fail if the DB major version is past its end of standard support date.
           This setting applies only to RDS for MySQL and RDS for PostgreSQL. For Amazon Aurora DB instances, the life cycle type is managed by the DB cluster.
-         You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
+         You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
          Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
          Default: ``open-source-rds-extended-support``
         """
@@ -1765,9 +1799,7 @@ class DbInstanceArgs:
     def multi_az(self) -> Optional[pulumi.Input[builtins.bool]]:
         """
         Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment.
-         This setting doesn't apply to the following DB instances:
-          +  Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.)
-          +  RDS Custom
+         This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         """
         return pulumi.get(self, "multi_az")
 
@@ -2218,6 +2250,7 @@ class DbInstance(pulumi.CustomResource):
                  automatic_backup_replication_retention_period: Optional[pulumi.Input[builtins.int]] = None,
                  availability_zone: Optional[pulumi.Input[builtins.str]] = None,
                  backup_retention_period: Optional[pulumi.Input[builtins.int]] = None,
+                 backup_target: Optional[pulumi.Input[builtins.str]] = None,
                  ca_certificate_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  certificate_rotation_restart: Optional[pulumi.Input[builtins.bool]] = None,
                  character_set_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -2388,6 +2421,17 @@ class DbInstance(pulumi.CustomResource):
                 Constraints:
                  +  Must be a value from 0 to 35
                  +  Can't be set to 0 if the DB instance is a source to read replicas
+        :param pulumi.Input[builtins.str] backup_target: The location for storing automated backups and manual snapshots.
+               
+               Valid Values:
+               
+               - `local` (Dedicated Local Zone)
+               - `outposts` ( AWS Outposts)
+               - `region` ( AWS Region )
+               
+               Default: `region`
+               
+               For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
         :param pulumi.Input[builtins.str] ca_certificate_identifier: The identifier of the CA certificate for this DB instance.
                 For more information, see [Using SSL/TLS to encrypt a connection to a DB instance](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) in the *Amazon RDS User Guide* and [Using SSL/TLS to encrypt a connection to a DB cluster](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html) in the *Amazon Aurora User Guide*.
         :param pulumi.Input[builtins.bool] certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate.
@@ -2597,7 +2641,7 @@ class DbInstance(pulumi.CustomResource):
         :param pulumi.Input[builtins.str] engine_lifecycle_support: The life cycle type for this DB instance.
                  By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB instance into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB instance will fail if the DB major version is past its end of standard support date.
                  This setting applies only to RDS for MySQL and RDS for PostgreSQL. For Amazon Aurora DB instances, the life cycle type is managed by the DB cluster.
-                You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
+                You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
                 Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
                 Default: ``open-source-rds-extended-support``
         :param pulumi.Input[builtins.str] engine_version: The version number of the database engine to use.
@@ -2717,9 +2761,7 @@ class DbInstance(pulumi.CustomResource):
                 If ``MonitoringInterval`` is set to a value other than ``0``, then you must supply a ``MonitoringRoleArn`` value.
                 This setting doesn't apply to RDS Custom DB instances.
         :param pulumi.Input[builtins.bool] multi_az: Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment.
-                This setting doesn't apply to the following DB instances:
-                 +  Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.)
-                 +  RDS Custom
+                This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         :param pulumi.Input[builtins.str] nchar_character_set_name: The name of the NCHAR character set for the Oracle DB instance.
                 This setting doesn't apply to RDS Custom DB instances.
         :param pulumi.Input[builtins.str] network_type: The network type of the DB instance.
@@ -2897,6 +2939,7 @@ class DbInstance(pulumi.CustomResource):
                  automatic_backup_replication_retention_period: Optional[pulumi.Input[builtins.int]] = None,
                  availability_zone: Optional[pulumi.Input[builtins.str]] = None,
                  backup_retention_period: Optional[pulumi.Input[builtins.int]] = None,
+                 backup_target: Optional[pulumi.Input[builtins.str]] = None,
                  ca_certificate_identifier: Optional[pulumi.Input[builtins.str]] = None,
                  certificate_rotation_restart: Optional[pulumi.Input[builtins.bool]] = None,
                  character_set_name: Optional[pulumi.Input[builtins.str]] = None,
@@ -2986,6 +3029,7 @@ class DbInstance(pulumi.CustomResource):
             __props__.__dict__["automatic_backup_replication_retention_period"] = automatic_backup_replication_retention_period
             __props__.__dict__["availability_zone"] = availability_zone
             __props__.__dict__["backup_retention_period"] = backup_retention_period
+            __props__.__dict__["backup_target"] = backup_target
             __props__.__dict__["ca_certificate_identifier"] = ca_certificate_identifier
             __props__.__dict__["certificate_rotation_restart"] = certificate_rotation_restart
             __props__.__dict__["character_set_name"] = character_set_name
@@ -3060,7 +3104,7 @@ class DbInstance(pulumi.CustomResource):
             __props__.__dict__["db_instance_arn"] = None
             __props__.__dict__["dbi_resource_id"] = None
             __props__.__dict__["endpoint"] = None
-        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["characterSetName", "customIamInstanceProfile", "dbClusterIdentifier", "dbInstanceIdentifier", "dbName", "dbSubnetGroupName", "dbSystemId", "kmsKeyId", "masterUsername", "ncharCharacterSetName", "sourceRegion", "storageEncrypted", "timezone"])
+        replace_on_changes = pulumi.ResourceOptions(replace_on_changes=["backupTarget", "characterSetName", "customIamInstanceProfile", "dbClusterIdentifier", "dbInstanceIdentifier", "dbName", "dbSubnetGroupName", "dbSystemId", "kmsKeyId", "masterUsername", "ncharCharacterSetName", "sourceRegion", "storageEncrypted", "timezone"])
         opts = pulumi.ResourceOptions.merge(opts, replace_on_changes)
         super(DbInstance, __self__).__init__(
             'aws-native:rds:DbInstance',
@@ -3094,6 +3138,7 @@ class DbInstance(pulumi.CustomResource):
         __props__.__dict__["automatic_backup_replication_retention_period"] = None
         __props__.__dict__["availability_zone"] = None
         __props__.__dict__["backup_retention_period"] = None
+        __props__.__dict__["backup_target"] = None
         __props__.__dict__["ca_certificate_identifier"] = None
         __props__.__dict__["certificate_details"] = None
         __props__.__dict__["certificate_rotation_restart"] = None
@@ -3313,6 +3358,24 @@ class DbInstance(pulumi.CustomResource):
           +  Can't be set to 0 if the DB instance is a source to read replicas
         """
         return pulumi.get(self, "backup_retention_period")
+
+    @property
+    @pulumi.getter(name="backupTarget")
+    def backup_target(self) -> pulumi.Output[Optional[builtins.str]]:
+        """
+        The location for storing automated backups and manual snapshots.
+
+        Valid Values:
+
+        - `local` (Dedicated Local Zone)
+        - `outposts` ( AWS Outposts)
+        - `region` ( AWS Region )
+
+        Default: `region`
+
+        For more information, see [Working with Amazon RDS on AWS Outposts](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html) in the *Amazon RDS User Guide* .
+        """
+        return pulumi.get(self, "backup_target")
 
     @property
     @pulumi.getter(name="caCertificateIdentifier")
@@ -3756,7 +3819,7 @@ class DbInstance(pulumi.CustomResource):
         The life cycle type for this DB instance.
           By default, this value is set to ``open-source-rds-extended-support``, which enrolls your DB instance into Amazon RDS Extended Support. At the end of standard support, you can avoid charges for Extended Support by setting the value to ``open-source-rds-extended-support-disabled``. In this case, creating the DB instance will fail if the DB major version is past its end of standard support date.
           This setting applies only to RDS for MySQL and RDS for PostgreSQL. For Amazon Aurora DB instances, the life cycle type is managed by the DB cluster.
-         You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Using Amazon RDS Extended Support](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
+         You can use this setting to enroll your DB instance into Amazon RDS Extended Support. With RDS Extended Support, you can run the selected major engine version on your DB instance past the end of standard support for that engine version. For more information, see [Amazon RDS Extended Support with Amazon RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/extended-support.html) in the *Amazon RDS User Guide*.
          Valid Values: ``open-source-rds-extended-support | open-source-rds-extended-support-disabled``
          Default: ``open-source-rds-extended-support``
         """
@@ -3960,9 +4023,7 @@ class DbInstance(pulumi.CustomResource):
     def multi_az(self) -> pulumi.Output[Optional[builtins.bool]]:
         """
         Specifies whether the DB instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the DB instance is a Multi-AZ deployment.
-         This setting doesn't apply to the following DB instances:
-          +  Amazon Aurora (DB instance Availability Zones (AZs) are managed by the DB cluster.)
-          +  RDS Custom
+         This setting doesn't apply to Amazon Aurora because the DB instance Availability Zones (AZs) are managed by the DB cluster.
         """
         return pulumi.get(self, "multi_az")
 

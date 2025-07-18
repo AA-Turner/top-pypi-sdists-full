@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: prowler
-Version: 5.8.1
+Version: 5.9.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 License: Apache-2.0
 Author: Toni de la Fuente
@@ -26,6 +26,8 @@ Requires-Dist: azure-mgmt-keyvault (==10.3.1)
 Requires-Dist: azure-mgmt-monitor (==6.0.2)
 Requires-Dist: azure-mgmt-network (==28.1.0)
 Requires-Dist: azure-mgmt-rdbms (==10.1.0)
+Requires-Dist: azure-mgmt-recoveryservices (==3.1.0)
+Requires-Dist: azure-mgmt-recoveryservicesbackup (==9.2.0)
 Requires-Dist: azure-mgmt-resource (==23.3.0)
 Requires-Dist: azure-mgmt-search (==9.1.0)
 Requires-Dist: azure-mgmt-security (==7.0.0)
@@ -39,9 +41,10 @@ Requires-Dist: botocore (==1.35.99)
 Requires-Dist: checkov (==3.2.445)
 Requires-Dist: colorama (==0.4.6)
 Requires-Dist: cryptography (==44.0.1)
-Requires-Dist: dash (==2.18.2)
-Requires-Dist: dash-bootstrap-components (==1.6.0)
+Requires-Dist: dash (==3.1.1)
+Requires-Dist: dash-bootstrap-components (==2.0.3)
 Requires-Dist: detect-secrets (==1.5.0)
+Requires-Dist: dulwich (==0.23.0)
 Requires-Dist: google-api-python-client (==2.163.0)
 Requires-Dist: google-auth-httplib2 (>=0.1,<0.3)
 Requires-Dist: jsonschema (==4.23.0)
@@ -204,6 +207,14 @@ If your workstation's architecture is incompatible, you can resolve this by:
 - **Using the following flag in your Docker command**: `--platform linux/amd64`
 
 > Once configured, access the Prowler App at http://localhost:3000. Sign up using your email and password to get started.
+
+### Common Issues with Docker Pull Installation
+
+> [!Note]
+  If you want to use AWS role assumption (e.g., with the "Connect assuming IAM Role" option), you may need to mount your local `.aws` directory into the container as a volume (e.g., `- "${HOME}/.aws:/home/prowler/.aws:ro"`). There are several ways to configure credentials for Docker containers. See the [Troubleshooting](./docs/troubleshooting.md) section for more details and examples.
+
+You can find more information in the [Troubleshooting](./docs/troubleshooting.md) section.
+
 
 ### From GitHub
 

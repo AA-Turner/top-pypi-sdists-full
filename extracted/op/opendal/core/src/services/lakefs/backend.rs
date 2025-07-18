@@ -179,13 +179,8 @@ impl Builder for LakefsBuilder {
                     am.set_scheme(Scheme::Lakefs)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_length: true,
-                            stat_has_content_disposition: true,
-                            stat_has_last_modified: true,
 
                             list: true,
-                            list_has_content_length: true,
-                            list_has_last_modified: true,
 
                             read: true,
                             write: true,
@@ -218,10 +213,6 @@ impl Access for LakefsBackend {
     type Writer = oio::OneShotWriter<LakefsWriter>;
     type Lister = oio::PageLister<LakefsLister>;
     type Deleter = oio::OneShotDeleter<LakefsDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

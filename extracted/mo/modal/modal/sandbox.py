@@ -1,6 +1,7 @@
 # Copyright Modal Labs 2022
 import asyncio
 import os
+import time
 from collections.abc import AsyncGenerator, Sequence
 from typing import TYPE_CHECKING, AsyncIterator, Literal, Optional, Union, overload
 
@@ -20,6 +21,7 @@ from ._object import _get_environment_name, _Object
 from ._resolver import Resolver
 from ._resources import convert_fn_config_to_resources_config
 from ._utils.async_utils import TaskContext, synchronize_api
+from ._utils.deprecation import deprecation_warning
 from ._utils.grpc_utils import retry_transient_errors
 from ._utils.mount_utils import validate_network_file_systems, validate_volumes
 from .client import _Client
@@ -48,6 +50,11 @@ _default_image: _Image = _Image.debian_slim()
 # We need some bytes of overhead for the rest of the command line besides the args,
 # e.g. 'runsc exec ...'. So we use 2**16 as the limit.
 ARG_MAX_BYTES = 2**16
+
+# This buffer extends the user-supplied timeout on ContainerExec-related RPCs. This was introduced to
+# give any in-flight status codes/IO data more time to reach the client before the stream is closed.
+CONTAINER_EXEC_TIMEOUT_BUFFER = 5
+
 
 if TYPE_CHECKING:
     import modal.app
@@ -210,10 +217,7 @@ class _Sandbox(_Object, type_prefix="sb"):
                 verbose=verbose,
             )
 
-            # Note - `resolver.app_id` will be `None` for app-less sandboxes
-            create_req = api_pb2.SandboxCreateRequest(
-                app_id=resolver.app_id, definition=definition, environment_name=resolver.environment_name
-            )
+            create_req = api_pb2.SandboxCreateRequest(app_id=resolver.app_id, definition=definition)
             create_resp = await retry_transient_errors(resolver.client.stub.SandboxCreate, create_req)
 
             sandbox_id = create_resp.sandbox_id
@@ -225,7 +229,6 @@ class _Sandbox(_Object, type_prefix="sb"):
     async def create(
         *entrypoint_args: str,
         app: Optional["modal.app._App"] = None,  # Optionally associate the sandbox with an app
-        environment_name: Optional[str] = None,  # Optionally override the default environment
         image: Optional[_Image] = None,  # The image to run as the container for the sandbox.
         secrets: Sequence[_Secret] = (),  # Environment variables to inject into the sandbox.
         network_file_systems: dict[Union[str, os.PathLike], _NetworkFileSystem] = {},
@@ -264,6 +267,7 @@ class _Sandbox(_Object, type_prefix="sb"):
             SchedulerPlacement
         ] = None,  # Experimental controls over fine-grained scheduling (alpha).
         client: Optional[_Client] = None,
+        environment_name: Optional[str] = None,  # *DEPRECATED* Optionally override the default environment
     ) -> "_Sandbox":
         """
         Create a new Sandbox to run untrusted, arbitrary code. The Sandbox's corresponding container
@@ -278,10 +282,16 @@ class _Sandbox(_Object, type_prefix="sb"):
         sandbox.wait()
         ```
         """
+        if environment_name is not None:
+            deprecation_warning(
+                (2025, 7, 16),
+                "Passing `environment_name` to `Sandbox.create` is deprecated and will be removed in a future release.",
+                "A sandbox's environment is determined by the app it is associated with.",
+            )
+
         return await _Sandbox._create(
             *entrypoint_args,
             app=app,
-            environment_name=environment_name,
             image=image,
             secrets=secrets,
             network_file_systems=network_file_systems,
@@ -310,7 +320,6 @@ class _Sandbox(_Object, type_prefix="sb"):
     async def _create(
         *entrypoint_args: str,
         app: Optional["modal.app._App"] = None,  # Optionally associate the sandbox with an app
-        environment_name: Optional[str] = None,  # Optionally override the default environment
         image: Optional[_Image] = None,  # The image to run as the container for the sandbox.
         secrets: Sequence[_Secret] = (),  # Environment variables to inject into the sandbox.
         mounts: Sequence[_Mount] = (),
@@ -354,8 +363,6 @@ class _Sandbox(_Object, type_prefix="sb"):
         # `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
         # sandbox that runs the shell session
         from .app import _App
-
-        environment_name = _get_environment_name(environment_name)
 
         _validate_exec_args(entrypoint_args)
 
@@ -416,7 +423,7 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         client = client or app_client or await _Client.from_env()
 
-        resolver = Resolver(client, environment_name=environment_name, app_id=app_id)
+        resolver = Resolver(client, app_id=app_id)
         await resolver.load(obj)
         return obj
 
@@ -538,6 +545,19 @@ class _Sandbox(_Object, type_prefix="sb"):
 
         return self._tunnels
 
+    async def reload_volumes(self) -> None:
+        """Reload all Volumes mounted in the Sandbox.
+
+        Added in v1.1.0.
+        """
+        task_id = await self._get_task_id()
+        await retry_transient_errors(
+            self._client.stub.ContainerReloadVolumes,
+            api_pb2.ContainerReloadVolumesRequest(
+                task_id=task_id,
+            ),
+        )
+
     async def terminate(self) -> None:
         """Terminate Sandbox execution.
 
@@ -563,7 +583,9 @@ class _Sandbox(_Object, type_prefix="sb"):
 
     async def _get_task_id(self) -> str:
         while not self._task_id:
-            resp = await self._client.stub.SandboxGetTaskId(api_pb2.SandboxGetTaskIdRequest(sandbox_id=self.object_id))
+            resp = await retry_transient_errors(
+                self._client.stub.SandboxGetTaskId, api_pb2.SandboxGetTaskIdRequest(sandbox_id=self.object_id)
+            )
             self._task_id = resp.task_id
             if not self._task_id:
                 await asyncio.sleep(0.5)
@@ -655,7 +677,16 @@ class _Sandbox(_Object, type_prefix="sb"):
         )
         resp = await retry_transient_errors(self._client.stub.ContainerExec, req)
         by_line = bufsize == 1
-        return _ContainerProcess(resp.exec_id, self._client, stdout=stdout, stderr=stderr, text=text, by_line=by_line)
+        exec_deadline = time.monotonic() + int(timeout) + CONTAINER_EXEC_TIMEOUT_BUFFER if timeout else None
+        return _ContainerProcess(
+            resp.exec_id,
+            self._client,
+            stdout=stdout,
+            stderr=stderr,
+            text=text,
+            exec_deadline=exec_deadline,
+            by_line=by_line,
+        )
 
     async def _experimental_snapshot(self) -> _SandboxSnapshot:
         await self._get_task_id()
@@ -721,7 +752,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         path: str,
         mode: Union["_typeshed.OpenTextMode", "_typeshed.OpenBinaryMode"] = "r",
     ):
-        """Open a file in the Sandbox and return a FileIO handle.
+        """[Alpha] Open a file in the Sandbox and return a FileIO handle.
 
         See the [`FileIO`](https://modal.com/docs/reference/modal.file_io#modalfile_iofileio) docs for more information.
 
@@ -738,17 +769,17 @@ class _Sandbox(_Object, type_prefix="sb"):
         return await _FileIO.create(path, mode, self._client, task_id)
 
     async def ls(self, path: str) -> list[str]:
-        """List the contents of a directory in the Sandbox."""
+        """[Alpha] List the contents of a directory in the Sandbox."""
         task_id = await self._get_task_id()
         return await _FileIO.ls(path, self._client, task_id)
 
     async def mkdir(self, path: str, parents: bool = False) -> None:
-        """Create a new directory in the Sandbox."""
+        """[Alpha] Create a new directory in the Sandbox."""
         task_id = await self._get_task_id()
         return await _FileIO.mkdir(path, self._client, task_id, parents)
 
     async def rm(self, path: str, recursive: bool = False) -> None:
-        """Remove a file or directory in the Sandbox."""
+        """[Alpha] Remove a file or directory in the Sandbox."""
         task_id = await self._get_task_id()
         return await _FileIO.rm(path, self._client, task_id, recursive)
 
@@ -759,7 +790,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         recursive: Optional[bool] = None,
         timeout: Optional[int] = None,
     ) -> AsyncIterator[FileWatchEvent]:
-        """Watch a file or directory in the Sandbox for changes."""
+        """[Alpha] Watch a file or directory in the Sandbox for changes."""
         task_id = await self._get_task_id()
         async for event in _FileIO.watch(path, self._client, task_id, filter, recursive, timeout):
             yield event

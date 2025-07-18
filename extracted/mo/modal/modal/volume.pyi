@@ -121,6 +121,8 @@ class _Volume(modal._object._Object):
 
         The Volume is mounted as a read-only volume in a function. Any file system write operation into the
         mounted volume will result in an error.
+
+        Added in v1.0.5.
         """
         ...
 
@@ -129,7 +131,7 @@ class _Volume(modal._object._Object):
     def from_name(
         name: str,
         *,
-        namespace=1,
+        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
@@ -184,7 +186,7 @@ class _Volume(modal._object._Object):
     @staticmethod
     async def lookup(
         name: str,
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
@@ -208,7 +210,7 @@ class _Volume(modal._object._Object):
     @staticmethod
     async def create_deployed(
         deployment_name: str,
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
@@ -417,6 +419,8 @@ class Volume(modal.object.Object):
 
         The Volume is mounted as a read-only volume in a function. Any file system write operation into the
         mounted volume will result in an error.
+
+        Added in v1.0.5.
         """
         ...
 
@@ -430,7 +434,7 @@ class Volume(modal.object.Object):
     def from_name(
         name: str,
         *,
-        namespace=1,
+        namespace=None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
@@ -487,7 +491,7 @@ class Volume(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             create_if_missing: bool = False,
@@ -512,7 +516,7 @@ class Volume(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             create_if_missing: bool = False,
@@ -540,7 +544,7 @@ class Volume(modal.object.Object):
             self,
             /,
             deployment_name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             version: typing.Optional[int] = None,
@@ -552,7 +556,7 @@ class Volume(modal.object.Object):
             self,
             /,
             deployment_name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             version: typing.Optional[int] = None,

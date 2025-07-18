@@ -50,7 +50,7 @@ lazy_static! {
 }
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
 const PROVIDER_NAME: &str = "Anthropic";
-const PROVIDER_TYPE: &str = "anthropic";
+pub const PROVIDER_TYPE: &str = "anthropic";
 
 fn default_api_key_location() -> CredentialLocation {
     CredentialLocation::Env("ANTHROPIC_API_KEY".to_string())
@@ -476,7 +476,7 @@ enum AnthropicMessageContent<'a> {
         content: Vec<AnthropicMessageContent<'a>>,
     },
     Thinking {
-        thinking: &'a str,
+        thinking: Option<&'a str>,
         signature: Option<&'a str>,
     },
     ToolUse {
@@ -573,7 +573,7 @@ impl<'a> TryFrom<&'a ContentBlock> for Option<FlattenUnknown<'a, AnthropicMessag
             }
             ContentBlock::Thought(thought) => Ok(Some(FlattenUnknown::Normal(
                 AnthropicMessageContent::Thinking {
-                    thinking: &thought.text,
+                    thinking: thought.text.as_deref(),
                     signature: thought.signature.as_deref(),
                 },
             ))),
@@ -599,7 +599,7 @@ impl<'a> TryFrom<&'a RequestMessage> for AnthropicMessage<'a> {
         let content: Vec<FlattenUnknown<AnthropicMessageContent>> = inference_message
             .content
             .iter()
-            .map(|block| block.try_into())
+            .map(TryInto::try_into)
             .collect::<Result<Vec<Option<FlattenUnknown<AnthropicMessageContent>>>, _>>()?
             .into_iter()
             .flatten()
@@ -669,12 +669,7 @@ impl<'a> AnthropicRequestBody<'a> {
             if matches!(c.tool_choice, ToolChoice::None) {
                 None
             } else {
-                Some(
-                    c.tools_available
-                        .iter()
-                        .map(|tool| tool.into())
-                        .collect::<Vec<_>>(),
-                )
+                Some(c.tools_available.iter().map(Into::into).collect::<Vec<_>>())
             }
         });
 
@@ -854,8 +849,9 @@ fn convert_to_output(
             thinking,
             signature,
         }) => Ok(ContentBlockOutput::Thought(Thought {
-            text: thinking,
+            text: Some(thinking),
             signature: Some(signature),
+            provider_type: Some(PROVIDER_TYPE.to_string()),
         })),
         FlattenUnknown::Unknown(data) => Ok(ContentBlockOutput::Unknown {
             data: data.into_owned(),
@@ -969,7 +965,7 @@ impl<'a> TryFrom<AnthropicResponseWithMetadata<'a>> for ProviderInferenceRespons
                 raw_response,
                 usage: response.usage.into(),
                 latency,
-                finish_reason: response.stop_reason.map(|s| s.into()),
+                finish_reason: response.stop_reason.map(AnthropicStopReason::into),
             },
         ))
     }
@@ -1109,6 +1105,7 @@ fn anthropic_to_tensorzero_stream_message(
                         text: Some(thinking),
                         signature: None,
                         id: index.to_string(),
+                        provider_type: Some(PROVIDER_TYPE.to_string()),
                     })],
                     None,
                     raw_message,
@@ -1122,6 +1119,7 @@ fn anthropic_to_tensorzero_stream_message(
                         text: None,
                         signature: Some(signature),
                         id: index.to_string(),
+                        provider_type: Some(PROVIDER_TYPE.to_string()),
                     })],
                     None,
                     raw_message,
@@ -1172,6 +1170,7 @@ fn anthropic_to_tensorzero_stream_message(
                     text: Some(thinking),
                     signature: Some(signature),
                     id: index.to_string(),
+                    provider_type: Some(PROVIDER_TYPE.to_string()),
                 })],
                 None,
                 raw_message,
@@ -1197,7 +1196,7 @@ fn anthropic_to_tensorzero_stream_message(
                 Some(usage.into()),
                 raw_message,
                 message_latency,
-                delta.stop_reason.map(|s| s.into()),
+                delta.stop_reason.map(AnthropicStopReason::into),
             )))
         }
         AnthropicStreamMessage::MessageStart { message } => {

@@ -33,7 +33,7 @@ metadata = None  # pylint: disable=invalid-name
 try:
     metadata = __load(pkg)
 
-    __uri__ = metadata["home-page"]
+    __uri__ = metadata.get("project-url").split("Repository,")[1].strip()
     __title__ = metadata["name"]
     __summary__ = metadata["summary"]
     __license__ = metadata["license"]

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.2.12
+Version: 0.2.13
 Summary: A2A Python SDK
-Project-URL: homepage, https://a2aproject.github.io/A2A/
+Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
 Project-URL: changelog, https://github.com/a2aproject/a2a-python/blob/main/CHANGELOG.md
-Project-URL: documentation, https://a2aproject.github.io/A2A/sdk/python/
+Project-URL: documentation, https://a2a-protocol.org/latest/sdk/python/
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -34,6 +34,8 @@ Requires-Dist: protobuf==5.29.5
 Requires-Dist: pydantic>=2.11.3
 Requires-Dist: sse-starlette
 Requires-Dist: starlette
+Provides-Extra: encryption
+Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
 Provides-Extra: mysql
 Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'mysql'
 Provides-Extra: postgresql

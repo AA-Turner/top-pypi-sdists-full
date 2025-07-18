@@ -5,7 +5,7 @@ from typing import Optional
 from pydantic import field_validator
 from pydantic import model_validator
 
-from ..base import Required
+from ..annotations import Required
 from .message import Message
 
 
@@ -69,7 +69,7 @@ class SearchRequest(Message):
         return None if value is None else max(0, value)
 
     @model_validator(mode="after")
-    def attributes_validator(self):
+    def attributes_validator(self) -> "SearchRequest":
         if self.attributes and self.excluded_attributes:
             raise ValueError(
                 "'attributes' and 'excluded_attributes' are mutually exclusive"
@@ -78,12 +78,12 @@ class SearchRequest(Message):
         return self
 
     @property
-    def start_index_0(self):
+    def start_index_0(self) -> Optional[int]:
         """The 0 indexed start index."""
         return self.start_index - 1 if self.start_index is not None else None
 
     @property
-    def stop_index_0(self):
+    def stop_index_0(self) -> Optional[int]:
         """The 0 indexed stop index."""
         return (
             self.start_index_0 + self.count

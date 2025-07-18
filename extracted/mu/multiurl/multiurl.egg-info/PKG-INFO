@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: multiurl
-Version: 0.3.5
+Version: 0.3.6
 Summary: A package to download several URL as one, as well as supporting multi-part URLs
 Home-page: https://github.com/ecmwf/multiurl
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)

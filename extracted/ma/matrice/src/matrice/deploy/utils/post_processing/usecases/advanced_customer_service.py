@@ -148,7 +148,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         if not hasattr(self, '_chunk_frame_count'):
             self._init_chunk_tracking()
         self._chunk_frame_count += 1
-        if self._chunk_frame_count > 10:
+        if self._chunk_frame_count > 1:
             self._init_chunk_tracking()
     def __init__(self):
         """Initialize advanced customer service use case."""
@@ -435,8 +435,14 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             #             break
 
             # Compose result data with flattened agg_summary
-            result_data = dict(analytics_results)
-            result_data["agg_summary"] = agg_summary
+            if not isinstance(analytics_results, dict):
+                result_data = dict(analytics_results)
+            else:
+                result_data = analytics_results
+            
+            result_data["events"]= agg_summary["events"]
+            result_data["tracking_stats"]= agg_summary["tracking_stats"]
+            #result_data["agg_summary"] = agg_summary
 
 
             # # Ensure raw_output is always a list, including inside model_output
@@ -816,7 +822,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         }
     
     def _get_customer_queue_results(self) -> Dict[str, Any]:
-        """Get customer queue analytics (per chunk of 10 frames)."""
+        """Get customer queue analytics (per chunk of 1 frames)."""
         # Use chunk-based customer ids for per-chunk analytics
         active_customers = len(getattr(self, '_chunk_customer_ids', set()))
         queue_lengths_by_area = {}
@@ -1171,6 +1177,73 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 insights.append("⚠️ Long customer journey times detected")
         
         return insights
+
+    # def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    #     """Get formatted current timestamp based on stream type."""
+    #     if not stream_info:
+    #         return "00:00:00.00"
+        
+    #     is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+    #     # if is_video_chunk and stream_info.get("input_settings", {}).get("stream_type","video_file")!="video_file":
+    #     #     # For video chunks, use video_timestamp from stream_info
+    #     #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+    #     #     return self._format_timestamp_for_stream(video_timestamp)
+    #     if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+    #         # If video format, return video timestamp
+    #         stream_time_str = stream_info.get("video_timestamp", "")
+    #         return stream_time_str[:8]
+    #     else:
+    #         # For streams, use stream_time from stream_info
+    #         stream_time_str = stream_info.get("stream_time", "")
+    #         if stream_time_str:
+    #             # Parse the high precision timestamp string to get timestamp
+    #             try:
+    #                 # Remove " UTC" suffix and parse
+    #                 timestamp_str = stream_time_str.replace(" UTC", "")
+    #                 dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+    #                 timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+    #                 return self._format_timestamp_for_stream(timestamp)
+    #             except:
+    #                 # Fallback to current time if parsing fails
+    #                 return self._format_timestamp_for_stream(time.time())
+    #         else:
+    #             return self._format_timestamp_for_stream(time.time())
+
+    # def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    #     """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+    #     if not stream_info:
+    #         return "00:00:00"
+        
+    #     is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        
+    #     # if is_video_chunk:
+    #     #     # For video chunks, start from 00:00:00
+    #     #     return "00:00:00"
+    #     if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+    #         # If video format, start from 00:00:00
+    #         return "00:00:00"
+    #     else:
+    #         # For streams, use tracking start time or current time with minutes/seconds reset
+    #         if self._tracking_start_time is None:
+    #             # Try to extract timestamp from stream_time string
+    #             stream_time_str = stream_info.get("stream_time", "")
+    #             if stream_time_str:
+    #                 try:
+    #                     # Remove " UTC" suffix and parse
+    #                     timestamp_str = stream_time_str.replace(" UTC", "")
+    #                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+    #                     self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+    #                 except:
+    #                     # Fallback to current time if parsing fails
+    #                     self._tracking_start_time = time.time()
+    #             else:
+    #                 self._tracking_start_time = time.time()
+            
+    #         dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+    #         # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+    #         dt = dt.replace(minute=0, second=0, microsecond=0)
+    #         return dt.strftime('%Y:%m:%d %H:%M:%S')
     
     def _generate_summary(self, analytics_results: Dict, alerts: List) -> str:
         """Generate human-readable summary."""

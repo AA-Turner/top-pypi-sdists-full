@@ -41,6 +41,7 @@ __all__ = (
     "LabelMatchScopeType",
     "LogScopeType",
     "LogTypeType",
+    "LowReputationModeType",
     "MapMatchScopeType",
     "OversizeHandlingType",
     "PayloadTypeType",
@@ -53,9 +54,11 @@ __all__ = (
     "ResponseContentTypeType",
     "ScopeType",
     "SensitivityLevelType",
+    "SensitivityToActType",
     "ServiceName",
     "SizeInspectionLimitType",
     "TextTransformationTypeType",
+    "UsageOfActionType",
     "WAFV2ServiceName",
 )
 
@@ -339,6 +342,7 @@ JsonMatchScopeType = Literal["ALL", "KEY", "VALUE"]
 LabelMatchScopeType = Literal["LABEL", "NAMESPACE"]
 LogScopeType = Literal["CUSTOMER", "SECURITY_LAKE"]
 LogTypeType = Literal["WAF_LOGS"]
+LowReputationModeType = Literal["ACTIVE_UNDER_DDOS", "ALWAYS_ON"]
 MapMatchScopeType = Literal["ALL", "KEY", "VALUE"]
 OversizeHandlingType = Literal["CONTINUE", "MATCH", "NO_MATCH"]
 PayloadTypeType = Literal["FORM_ENCODED", "JSON"]
@@ -359,6 +363,7 @@ ResourceTypeType = Literal[
 ResponseContentTypeType = Literal["APPLICATION_JSON", "TEXT_HTML", "TEXT_PLAIN"]
 ScopeType = Literal["CLOUDFRONT", "REGIONAL"]
 SensitivityLevelType = Literal["HIGH", "LOW"]
+SensitivityToActType = Literal["HIGH", "LOW", "MEDIUM"]
 SizeInspectionLimitType = Literal["KB_16", "KB_32", "KB_48", "KB_64"]
 TextTransformationTypeType = Literal[
     "BASE64_DECODE",
@@ -383,12 +388,14 @@ TextTransformationTypeType = Literal[
     "URL_DECODE_UNI",
     "UTF8_TO_UNICODE",
 ]
+UsageOfActionType = Literal["DISABLED", "ENABLED"]
 WAFV2ServiceName = Literal["wafv2"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -529,6 +536,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -586,6 +594,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -641,6 +650,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -785,6 +795,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

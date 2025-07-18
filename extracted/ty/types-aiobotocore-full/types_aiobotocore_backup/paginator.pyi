@@ -26,6 +26,7 @@ Usage::
         ListRecoveryPointsByBackupVaultPaginator,
         ListRecoveryPointsByLegalHoldPaginator,
         ListRecoveryPointsByResourcePaginator,
+        ListRestoreAccessBackupVaultsPaginator,
         ListRestoreJobsByProtectedResourcePaginator,
         ListRestoreJobsPaginator,
         ListRestoreTestingPlansPaginator,
@@ -50,6 +51,7 @@ Usage::
         list_recovery_points_by_backup_vault_paginator: ListRecoveryPointsByBackupVaultPaginator = client.get_paginator("list_recovery_points_by_backup_vault")
         list_recovery_points_by_legal_hold_paginator: ListRecoveryPointsByLegalHoldPaginator = client.get_paginator("list_recovery_points_by_legal_hold")
         list_recovery_points_by_resource_paginator: ListRecoveryPointsByResourcePaginator = client.get_paginator("list_recovery_points_by_resource")
+        list_restore_access_backup_vaults_paginator: ListRestoreAccessBackupVaultsPaginator = client.get_paginator("list_restore_access_backup_vaults")
         list_restore_jobs_by_protected_resource_paginator: ListRestoreJobsByProtectedResourcePaginator = client.get_paginator("list_restore_jobs_by_protected_resource")
         list_restore_jobs_paginator: ListRestoreJobsPaginator = client.get_paginator("list_restore_jobs")
         list_restore_testing_plans_paginator: ListRestoreTestingPlansPaginator = client.get_paginator("list_restore_testing_plans")
@@ -93,6 +95,8 @@ from .type_defs import (
     ListRecoveryPointsByLegalHoldOutputTypeDef,
     ListRecoveryPointsByResourceInputPaginateTypeDef,
     ListRecoveryPointsByResourceOutputTypeDef,
+    ListRestoreAccessBackupVaultsInputPaginateTypeDef,
+    ListRestoreAccessBackupVaultsOutputTypeDef,
     ListRestoreJobsByProtectedResourceInputPaginateTypeDef,
     ListRestoreJobsByProtectedResourceOutputTypeDef,
     ListRestoreJobsInputPaginateTypeDef,
@@ -123,6 +127,7 @@ __all__ = (
     "ListRecoveryPointsByBackupVaultPaginator",
     "ListRecoveryPointsByLegalHoldPaginator",
     "ListRecoveryPointsByResourcePaginator",
+    "ListRestoreAccessBackupVaultsPaginator",
     "ListRestoreJobsByProtectedResourcePaginator",
     "ListRestoreJobsPaginator",
     "ListRestoreTestingPlansPaginator",
@@ -389,6 +394,26 @@ class ListRecoveryPointsByResourcePaginator(_ListRecoveryPointsByResourcePaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRecoveryPointsByResource.html#Backup.Paginator.ListRecoveryPointsByResource.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listrecoverypointsbyresourcepaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRestoreAccessBackupVaultsPaginatorBase = AioPaginator[
+        ListRestoreAccessBackupVaultsOutputTypeDef
+    ]
+else:
+    _ListRestoreAccessBackupVaultsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListRestoreAccessBackupVaultsPaginator(_ListRestoreAccessBackupVaultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRestoreAccessBackupVaults.html#Backup.Paginator.ListRestoreAccessBackupVaults)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listrestoreaccessbackupvaultspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRestoreAccessBackupVaultsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListRestoreAccessBackupVaultsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListRestoreAccessBackupVaults.html#Backup.Paginator.ListRestoreAccessBackupVaults.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/paginators/#listrestoreaccessbackupvaultspaginator)
         """
 
 if TYPE_CHECKING:

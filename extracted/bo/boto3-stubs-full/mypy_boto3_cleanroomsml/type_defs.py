@@ -33,6 +33,7 @@ from .literals import (
     MLInputChannelStatusType,
     NoiseLevelTypeType,
     PolicyExistenceConditionType,
+    ResultFormatType,
     S3DataDistributionTypeType,
     SharedAudienceMetricsType,
     TagOnCreatePolicyType,
@@ -1286,11 +1287,13 @@ class AudienceGenerationJobDataSourceTypeDef(TypedDict):
 class ProtectedQueryInputParametersOutputTypeDef(TypedDict):
     sqlParameters: ProtectedQuerySQLParametersOutputTypeDef
     computeConfiguration: NotRequired[ComputeConfigurationTypeDef]
+    resultFormat: NotRequired[ResultFormatType]
 
 
 class ProtectedQueryInputParametersTypeDef(TypedDict):
     sqlParameters: ProtectedQuerySQLParametersTypeDef
     computeConfiguration: NotRequired[ComputeConfigurationTypeDef]
+    resultFormat: NotRequired[ResultFormatType]
 
 
 class GetConfiguredModelAlgorithmResponseTypeDef(TypedDict):

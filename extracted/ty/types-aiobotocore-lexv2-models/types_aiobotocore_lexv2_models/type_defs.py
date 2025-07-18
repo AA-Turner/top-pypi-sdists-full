@@ -478,6 +478,7 @@ __all__ = (
     "MessageTypeDef",
     "MultipleValuesSettingTypeDef",
     "NewCustomVocabularyItemTypeDef",
+    "NluImprovementSpecificationTypeDef",
     "ObfuscationSettingTypeDef",
     "OpensearchConfigurationOutputTypeDef",
     "OpensearchConfigurationTypeDef",
@@ -1696,6 +1697,10 @@ class PlainTextMessageTypeDef(TypedDict):
 
 class SSMLMessageTypeDef(TypedDict):
     value: str
+
+
+class NluImprovementSpecificationTypeDef(TypedDict):
+    enabled: bool
 
 
 class OverallTestResultItemTypeDef(TypedDict):
@@ -3313,6 +3318,7 @@ class BuildtimeSettingsTypeDef(TypedDict):
 
 class RuntimeSettingsTypeDef(TypedDict):
     slotResolutionImprovement: NotRequired[SlotResolutionImprovementSpecificationTypeDef]
+    nluImprovement: NotRequired[NluImprovementSpecificationTypeDef]
 
 
 class ListTestExecutionsResponseTypeDef(TypedDict):

@@ -173,9 +173,20 @@ def get_deployment_regions(
 
 
 @vm_types_regions_cli.command(name="config")
-def generate_cloud_config():
+@click.option("--token", help="An existing authentication token.")
+@click.option(
+    "--interactive/--no-interactive",
+    "-i",
+    is_flag=True,
+    default=True,
+    help="Whether to use interactive mode.",
+)
+def generate_cloud_config(
+    token: str | None = None,
+    interactive: bool = True,
+):
     """Generate a configuration file for the cloud deployment."""
     from reflex_cli.utils import hosting
 
-    hosting.generate_config()
+    hosting.generate_config(interactive=interactive, token=token)
     console.print("Configuration file generated.")

@@ -219,6 +219,7 @@ from .http_session import (
     STATUS_FORCELIST_NO_AUTH_ERRORS,
     get_comet_http_session,
     get_retry_strategy,
+    get_retry_strategy_for_get_or_add_run,
 )
 
 INITIAL_BEAT_DURATION = 10000  # 10 second
@@ -651,10 +652,12 @@ class RestServerConnection(object):
         }
 
         config = get_config()
+        retry_strategy = get_retry_strategy_for_get_or_add_run(
+            status_forcelist=STATUS_FORCELIST_NO_AUTH_ERRORS,
+            config=config,
+        )
         session = get_comet_http_session(
-            retry_strategy=get_retry_strategy(
-                status_forcelist=STATUS_FORCELIST_NO_AUTH_ERRORS, config=config
-            ),
+            retry_strategy=retry_strategy,
             verify_tls=self._low_level_http_client.verify_tls,
             api_key=self.api_key,
             config=config,
@@ -736,10 +739,12 @@ class RestServerConnection(object):
             "libVersion": get_comet_version(),
         }
         config = get_config()
+        retry_strategy = get_retry_strategy_for_get_or_add_run(
+            status_forcelist=STATUS_FORCELIST_NO_AUTH_ERRORS,
+            config=config,
+        )
         session = get_comet_http_session(
-            retry_strategy=get_retry_strategy(
-                status_forcelist=STATUS_FORCELIST_NO_AUTH_ERRORS, config=config
-            ),
+            retry_strategy=retry_strategy,
             verify_tls=self._low_level_http_client.verify_tls,
             api_key=self.api_key,
             config=config,

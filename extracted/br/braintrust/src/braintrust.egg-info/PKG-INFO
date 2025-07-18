@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.1.7
+Version: 0.1.8
 Summary: SDK for integrating Braintrust
 Home-page: https://www.braintrust.dev
 Author: Braintrust
@@ -28,9 +28,16 @@ Provides-Extra: doc
 Requires-Dist: pydoc-markdown; extra == "doc"
 Provides-Extra: openai-agents
 Requires-Dist: openai-agents; extra == "openai-agents"
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api; extra == "otel"
+Requires-Dist: opentelemetry-sdk; extra == "otel"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "otel"
 Provides-Extra: all
 Requires-Dist: boto3; extra == "all"
 Requires-Dist: openai-agents; extra == "all"
+Requires-Dist: opentelemetry-api; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "all"
+Requires-Dist: opentelemetry-sdk; extra == "all"
 Requires-Dist: psycopg2-binary; extra == "all"
 Requires-Dist: pydoc-markdown; extra == "all"
 Requires-Dist: uv; extra == "all"

@@ -43,12 +43,14 @@ from .paginator import (
     ListRecoveryPointsByBackupVaultPaginator,
     ListRecoveryPointsByLegalHoldPaginator,
     ListRecoveryPointsByResourcePaginator,
+    ListRestoreAccessBackupVaultsPaginator,
     ListRestoreJobsByProtectedResourcePaginator,
     ListRestoreJobsPaginator,
     ListRestoreTestingPlansPaginator,
     ListRestoreTestingSelectionsPaginator,
 )
 from .type_defs import (
+    AssociateBackupVaultMpaApprovalTeamInputTypeDef,
     CancelLegalHoldInputTypeDef,
     CreateBackupPlanInputTypeDef,
     CreateBackupPlanOutputTypeDef,
@@ -64,6 +66,8 @@ from .type_defs import (
     CreateLogicallyAirGappedBackupVaultOutputTypeDef,
     CreateReportPlanInputTypeDef,
     CreateReportPlanOutputTypeDef,
+    CreateRestoreAccessBackupVaultInputTypeDef,
+    CreateRestoreAccessBackupVaultOutputTypeDef,
     CreateRestoreTestingPlanInputTypeDef,
     CreateRestoreTestingPlanOutputTypeDef,
     CreateRestoreTestingSelectionInputTypeDef,
@@ -100,6 +104,7 @@ from .type_defs import (
     DescribeReportPlanOutputTypeDef,
     DescribeRestoreJobInputTypeDef,
     DescribeRestoreJobOutputTypeDef,
+    DisassociateBackupVaultMpaApprovalTeamInputTypeDef,
     DisassociateRecoveryPointFromParentInputTypeDef,
     DisassociateRecoveryPointInputTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -170,6 +175,8 @@ from .type_defs import (
     ListReportJobsOutputTypeDef,
     ListReportPlansInputTypeDef,
     ListReportPlansOutputTypeDef,
+    ListRestoreAccessBackupVaultsInputTypeDef,
+    ListRestoreAccessBackupVaultsOutputTypeDef,
     ListRestoreJobsByProtectedResourceInputTypeDef,
     ListRestoreJobsByProtectedResourceOutputTypeDef,
     ListRestoreJobsInputTypeDef,
@@ -186,6 +193,7 @@ from .type_defs import (
     PutBackupVaultLockConfigurationInputTypeDef,
     PutBackupVaultNotificationsInputTypeDef,
     PutRestoreValidationResultInputTypeDef,
+    RevokeRestoreAccessBackupVaultInputTypeDef,
     StartBackupJobInputTypeDef,
     StartBackupJobOutputTypeDef,
     StartCopyJobInputTypeDef,
@@ -276,6 +284,16 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#generate_presigned_url)
         """
 
+    async def associate_backup_vault_mpa_approval_team(
+        self, **kwargs: Unpack[AssociateBackupVaultMpaApprovalTeamInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates an MPA approval team with a backup vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/associate_backup_vault_mpa_approval_team.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#associate_backup_vault_mpa_approval_team)
+        """
+
     async def cancel_legal_hold(
         self, **kwargs: Unpack[CancelLegalHoldInputTypeDef]
     ) -> Dict[str, Any]:
@@ -355,6 +373,18 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_report_plan.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#create_report_plan)
+        """
+
+    async def create_restore_access_backup_vault(
+        self, **kwargs: Unpack[CreateRestoreAccessBackupVaultInputTypeDef]
+    ) -> CreateRestoreAccessBackupVaultOutputTypeDef:
+        """
+        Creates a restore access backup vault that provides temporary access to
+        recovery points in a logically air-gapped backup vault, subject to MPA
+        approval.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_restore_access_backup_vault.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#create_restore_access_backup_vault)
         """
 
     async def create_restore_testing_plan(
@@ -599,6 +629,17 @@ class BackupClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/describe_restore_job.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#describe_restore_job)
+        """
+
+    async def disassociate_backup_vault_mpa_approval_team(
+        self, **kwargs: Unpack[DisassociateBackupVaultMpaApprovalTeamInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Removes the association between an MPA approval team and a backup vault,
+        disabling the MPA approval workflow for restore operations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/disassociate_backup_vault_mpa_approval_team.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#disassociate_backup_vault_mpa_approval_team)
         """
 
     async def disassociate_recovery_point(
@@ -982,6 +1023,17 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_report_plans)
         """
 
+    async def list_restore_access_backup_vaults(
+        self, **kwargs: Unpack[ListRestoreAccessBackupVaultsInputTypeDef]
+    ) -> ListRestoreAccessBackupVaultsOutputTypeDef:
+        """
+        Returns a list of restore access backup vaults associated with a specified
+        backup vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_restore_access_backup_vaults.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#list_restore_access_backup_vaults)
+        """
+
     async def list_restore_job_summaries(
         self, **kwargs: Unpack[ListRestoreJobSummariesInputTypeDef]
     ) -> ListRestoreJobSummariesOutputTypeDef:
@@ -1086,6 +1138,17 @@ class BackupClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#put_restore_validation_result)
         """
 
+    async def revoke_restore_access_backup_vault(
+        self, **kwargs: Unpack[RevokeRestoreAccessBackupVaultInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Revokes access to a restore access backup vault, removing the ability to
+        restore from its recovery points and permanently deleting the vault.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/revoke_restore_access_backup_vault.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#revoke_restore_access_backup_vault)
+        """
+
     async def start_backup_job(
         self, **kwargs: Unpack[StartBackupJobInputTypeDef]
     ) -> StartBackupJobOutputTypeDef:
@@ -1140,8 +1203,7 @@ class BackupClient(AioBaseClient):
         self, **kwargs: Unpack[TagResourceInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Assigns a set of key-value pairs to a recovery point, backup plan, or backup
-        vault identified by an Amazon Resource Name (ARN).
+        Assigns a set of key-value pairs to a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/tag_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#tag_resource)
@@ -1396,6 +1458,17 @@ class BackupClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_recovery_points_by_resource"]
     ) -> ListRecoveryPointsByResourcePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_restore_access_backup_vaults"]
+    ) -> ListRestoreAccessBackupVaultsPaginator:
         """
         Create a paginator for an operation.
 

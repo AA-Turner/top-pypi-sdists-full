@@ -29,9 +29,15 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAccountAssociationsPaginator,
+    ListCloudConnectorsPaginator,
+    ListConnectorDestinationsPaginator,
     ListCredentialLockersPaginator,
     ListDestinationsPaginator,
+    ListDeviceDiscoveriesPaginator,
+    ListDiscoveredDevicesPaginator,
     ListEventLogConfigurationsPaginator,
+    ListManagedThingAccountAssociationsPaginator,
     ListManagedThingSchemasPaginator,
     ListManagedThingsPaginator,
     ListNotificationConfigurationsPaginator,
@@ -42,6 +48,12 @@ from .paginator import (
     ListSchemaVersionsPaginator,
 )
 from .type_defs import (
+    CreateAccountAssociationRequestTypeDef,
+    CreateAccountAssociationResponseTypeDef,
+    CreateCloudConnectorRequestTypeDef,
+    CreateCloudConnectorResponseTypeDef,
+    CreateConnectorDestinationRequestTypeDef,
+    CreateConnectorDestinationResponseTypeDef,
     CreateCredentialLockerRequestTypeDef,
     CreateCredentialLockerResponseTypeDef,
     CreateDestinationRequestTypeDef,
@@ -58,6 +70,9 @@ from .type_defs import (
     CreateOtaTaskResponseTypeDef,
     CreateProvisioningProfileRequestTypeDef,
     CreateProvisioningProfileResponseTypeDef,
+    DeleteAccountAssociationRequestTypeDef,
+    DeleteCloudConnectorRequestTypeDef,
+    DeleteConnectorDestinationRequestTypeDef,
     DeleteCredentialLockerRequestTypeDef,
     DeleteDestinationRequestTypeDef,
     DeleteEventLogConfigurationRequestTypeDef,
@@ -66,7 +81,14 @@ from .type_defs import (
     DeleteOtaTaskConfigurationRequestTypeDef,
     DeleteOtaTaskRequestTypeDef,
     DeleteProvisioningProfileRequestTypeDef,
+    DeregisterAccountAssociationRequestTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetAccountAssociationRequestTypeDef,
+    GetAccountAssociationResponseTypeDef,
+    GetCloudConnectorRequestTypeDef,
+    GetCloudConnectorResponseTypeDef,
+    GetConnectorDestinationRequestTypeDef,
+    GetConnectorDestinationResponseTypeDef,
     GetCredentialLockerRequestTypeDef,
     GetCredentialLockerResponseTypeDef,
     GetCustomEndpointResponseTypeDef,
@@ -100,12 +122,24 @@ from .type_defs import (
     GetRuntimeLogConfigurationResponseTypeDef,
     GetSchemaVersionRequestTypeDef,
     GetSchemaVersionResponseTypeDef,
+    ListAccountAssociationsRequestTypeDef,
+    ListAccountAssociationsResponseTypeDef,
+    ListCloudConnectorsRequestTypeDef,
+    ListCloudConnectorsResponseTypeDef,
+    ListConnectorDestinationsRequestTypeDef,
+    ListConnectorDestinationsResponseTypeDef,
     ListCredentialLockersRequestTypeDef,
     ListCredentialLockersResponseTypeDef,
     ListDestinationsRequestTypeDef,
     ListDestinationsResponseTypeDef,
+    ListDeviceDiscoveriesRequestTypeDef,
+    ListDeviceDiscoveriesResponseTypeDef,
+    ListDiscoveredDevicesRequestTypeDef,
+    ListDiscoveredDevicesResponseTypeDef,
     ListEventLogConfigurationsRequestTypeDef,
     ListEventLogConfigurationsResponseTypeDef,
+    ListManagedThingAccountAssociationsRequestTypeDef,
+    ListManagedThingAccountAssociationsResponseTypeDef,
     ListManagedThingSchemasRequestTypeDef,
     ListManagedThingSchemasResponseTypeDef,
     ListManagedThingsRequestTypeDef,
@@ -122,17 +156,30 @@ from .type_defs import (
     ListProvisioningProfilesResponseTypeDef,
     ListSchemaVersionsRequestTypeDef,
     ListSchemaVersionsResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     PutDefaultEncryptionConfigurationRequestTypeDef,
     PutDefaultEncryptionConfigurationResponseTypeDef,
     PutHubConfigurationRequestTypeDef,
     PutHubConfigurationResponseTypeDef,
     PutRuntimeLogConfigurationRequestTypeDef,
+    RegisterAccountAssociationRequestTypeDef,
+    RegisterAccountAssociationResponseTypeDef,
     RegisterCustomEndpointResponseTypeDef,
     ResetRuntimeLogConfigurationRequestTypeDef,
+    SendConnectorEventRequestTypeDef,
+    SendConnectorEventResponseTypeDef,
     SendManagedThingCommandRequestTypeDef,
     SendManagedThingCommandResponseTypeDef,
+    StartAccountAssociationRefreshRequestTypeDef,
+    StartAccountAssociationRefreshResponseTypeDef,
     StartDeviceDiscoveryRequestTypeDef,
     StartDeviceDiscoveryResponseTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
+    UpdateAccountAssociationRequestTypeDef,
+    UpdateCloudConnectorRequestTypeDef,
+    UpdateConnectorDestinationRequestTypeDef,
     UpdateDestinationRequestTypeDef,
     UpdateEventLogConfigurationRequestTypeDef,
     UpdateManagedThingRequestTypeDef,
@@ -141,10 +188,11 @@ from .type_defs import (
 )
 
 if sys.version_info >= (3, 9):
+    from builtins import dict as Dict
     from builtins import type as Type
     from collections.abc import Mapping
 else:
-    from typing import Mapping, Type
+    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -160,6 +208,8 @@ class Exceptions(BaseClientExceptions):
     ConflictException: Type[BotocoreClientError]
     InternalFailureException: Type[BotocoreClientError]
     InternalServerException: Type[BotocoreClientError]
+    InvalidRequestException: Type[BotocoreClientError]
+    LimitExceededException: Type[BotocoreClientError]
     ResourceNotFoundException: Type[BotocoreClientError]
     ServiceQuotaExceededException: Type[BotocoreClientError]
     ServiceUnavailableException: Type[BotocoreClientError]
@@ -201,6 +251,37 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/generate_presigned_url.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#generate_presigned_url)
+        """
+
+    async def create_account_association(
+        self, **kwargs: Unpack[CreateAccountAssociationRequestTypeDef]
+    ) -> CreateAccountAssociationResponseTypeDef:
+        """
+        Creates a new account association via the destination id.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#create_account_association)
+        """
+
+    async def create_cloud_connector(
+        self, **kwargs: Unpack[CreateCloudConnectorRequestTypeDef]
+    ) -> CreateCloudConnectorResponseTypeDef:
+        """
+        Creates a C2C (cloud-to-cloud) connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#create_cloud_connector)
+        """
+
+    async def create_connector_destination(
+        self, **kwargs: Unpack[CreateConnectorDestinationRequestTypeDef]
+    ) -> CreateConnectorDestinationResponseTypeDef:
+        """
+        Create a connector destination for connecting a cloud-to-cloud (C2C) connector
+        to the customer's Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/create_connector_destination.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#create_connector_destination)
         """
 
     async def create_credential_locker(
@@ -285,6 +366,37 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#create_provisioning_profile)
         """
 
+    async def delete_account_association(
+        self, **kwargs: Unpack[DeleteAccountAssociationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Remove a third party account and related devices from an end user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#delete_account_association)
+        """
+
+    async def delete_cloud_connector(
+        self, **kwargs: Unpack[DeleteCloudConnectorRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete a cloud connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#delete_cloud_connector)
+        """
+
+    async def delete_connector_destination(
+        self, **kwargs: Unpack[DeleteConnectorDestinationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Delete a connector destination for connecting a cloud-to-cloud (C2C) connector
+        to the customer's Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_connector_destination.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#delete_connector_destination)
+        """
+
     async def delete_credential_locker(
         self, **kwargs: Unpack[DeleteCredentialLockerRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -363,6 +475,49 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/delete_provisioning_profile.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#delete_provisioning_profile)
+        """
+
+    async def deregister_account_association(
+        self, **kwargs: Unpack[DeregisterAccountAssociationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deregisters an account association, removing the connection between a managed
+        thing and a third-party account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/deregister_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#deregister_account_association)
+        """
+
+    async def get_account_association(
+        self, **kwargs: Unpack[GetAccountAssociationRequestTypeDef]
+    ) -> GetAccountAssociationResponseTypeDef:
+        """
+        Get an account association for an Amazon Web Services account linked to a
+        customer-managed destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_account_association)
+        """
+
+    async def get_cloud_connector(
+        self, **kwargs: Unpack[GetCloudConnectorRequestTypeDef]
+    ) -> GetCloudConnectorResponseTypeDef:
+        """
+        Gets all the information about a connector for a connector developer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_cloud_connector)
+        """
+
+    async def get_connector_destination(
+        self, **kwargs: Unpack[GetConnectorDestinationRequestTypeDef]
+    ) -> GetConnectorDestinationResponseTypeDef:
+        """
+        Get a connector destination of a cloud-to-cloud (C2C) connector connecting to a
+        customer's Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_connector_destination.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_connector_destination)
         """
 
     async def get_credential_locker(
@@ -543,6 +698,37 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_schema_version)
         """
 
+    async def list_account_associations(
+        self, **kwargs: Unpack[ListAccountAssociationsRequestTypeDef]
+    ) -> ListAccountAssociationsResponseTypeDef:
+        """
+        Lists all account associations, with optional filtering by connector
+        destination ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_account_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_account_associations)
+        """
+
+    async def list_cloud_connectors(
+        self, **kwargs: Unpack[ListCloudConnectorsRequestTypeDef]
+    ) -> ListCloudConnectorsResponseTypeDef:
+        """
+        Returns a list of connectors based on permissions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_cloud_connectors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_cloud_connectors)
+        """
+
+    async def list_connector_destinations(
+        self, **kwargs: Unpack[ListConnectorDestinationsRequestTypeDef]
+    ) -> ListConnectorDestinationsResponseTypeDef:
+        """
+        Lists all connector destinations, with optional filtering by cloud connector ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_connector_destinations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_connector_destinations)
+        """
+
     async def list_credential_lockers(
         self, **kwargs: Unpack[ListCredentialLockersRequestTypeDef]
     ) -> ListCredentialLockersResponseTypeDef:
@@ -563,6 +749,26 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_destinations)
         """
 
+    async def list_device_discoveries(
+        self, **kwargs: Unpack[ListDeviceDiscoveriesRequestTypeDef]
+    ) -> ListDeviceDiscoveriesResponseTypeDef:
+        """
+        Lists all device discovery tasks, with optional filtering by type and status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_device_discoveries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_device_discoveries)
+        """
+
+    async def list_discovered_devices(
+        self, **kwargs: Unpack[ListDiscoveredDevicesRequestTypeDef]
+    ) -> ListDiscoveredDevicesResponseTypeDef:
+        """
+        Lists all devices discovered during a specific device discovery task.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_discovered_devices.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_discovered_devices)
+        """
+
     async def list_event_log_configurations(
         self, **kwargs: Unpack[ListEventLogConfigurationsRequestTypeDef]
     ) -> ListEventLogConfigurationsResponseTypeDef:
@@ -571,6 +777,16 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_event_log_configurations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_event_log_configurations)
+        """
+
+    async def list_managed_thing_account_associations(
+        self, **kwargs: Unpack[ListManagedThingAccountAssociationsRequestTypeDef]
+    ) -> ListManagedThingAccountAssociationsResponseTypeDef:
+        """
+        Lists all account associations for a specific managed thing.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_managed_thing_account_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_managed_thing_account_associations)
         """
 
     async def list_managed_thing_schemas(
@@ -587,7 +803,7 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         self, **kwargs: Unpack[ListManagedThingsRequestTypeDef]
     ) -> ListManagedThingsResponseTypeDef:
         """
-        List all of the associations and statuses for a managed thing by its owner.
+        Listing all managed things with provision for filters.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_managed_things.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_managed_things)
@@ -653,6 +869,16 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_schema_versions)
         """
 
+    async def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        List tags for the specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/list_tags_for_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#list_tags_for_resource)
+        """
+
     async def put_default_encryption_configuration(
         self, **kwargs: Unpack[PutDefaultEncryptionConfigurationRequestTypeDef]
     ) -> PutDefaultEncryptionConfigurationResponseTypeDef:
@@ -684,6 +910,17 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#put_runtime_log_configuration)
         """
 
+    async def register_account_association(
+        self, **kwargs: Unpack[RegisterAccountAssociationRequestTypeDef]
+    ) -> RegisterAccountAssociationResponseTypeDef:
+        """
+        Registers an account association with a managed thing, establishing a
+        connection between a device and a third-party account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/register_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#register_account_association)
+        """
+
     async def register_custom_endpoint(self) -> RegisterCustomEndpointResponseTypeDef:
         """
         Customers can request IoT managed integrations to manage the server trust for
@@ -704,6 +941,17 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#reset_runtime_log_configuration)
         """
 
+    async def send_connector_event(
+        self, **kwargs: Unpack[SendConnectorEventRequestTypeDef]
+    ) -> SendConnectorEventResponseTypeDef:
+        """
+        Relays third-party device events for a connector such as a new device or a
+        device state change event.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/send_connector_event.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#send_connector_event)
+        """
+
     async def send_managed_thing_command(
         self, **kwargs: Unpack[SendManagedThingCommandRequestTypeDef]
     ) -> SendManagedThingCommandResponseTypeDef:
@@ -714,14 +962,72 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#send_managed_thing_command)
         """
 
+    async def start_account_association_refresh(
+        self, **kwargs: Unpack[StartAccountAssociationRefreshRequestTypeDef]
+    ) -> StartAccountAssociationRefreshResponseTypeDef:
+        """
+        Initiates a refresh of an existing account association to update its
+        authorization and connection status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/start_account_association_refresh.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#start_account_association_refresh)
+        """
+
     async def start_device_discovery(
         self, **kwargs: Unpack[StartDeviceDiscoveryRequestTypeDef]
     ) -> StartDeviceDiscoveryResponseTypeDef:
         """
-        During user-guided setup, this is used to start device discovery.
+        This API is used to start device discovery for hub-connected and
+        third-party-connected devices.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/start_device_discovery.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#start_device_discovery)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Add tags for the specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/tag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#tag_resource)
+        """
+
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+        """
+        Remove tags for the specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/untag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#untag_resource)
+        """
+
+    async def update_account_association(
+        self, **kwargs: Unpack[UpdateAccountAssociationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the properties of an existing account association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/update_account_association.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#update_account_association)
+        """
+
+    async def update_cloud_connector(
+        self, **kwargs: Unpack[UpdateCloudConnectorRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Update an existing cloud connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/update_cloud_connector.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#update_cloud_connector)
+        """
+
+    async def update_connector_destination(
+        self, **kwargs: Unpack[UpdateConnectorDestinationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Updates the properties of an existing connector destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/update_connector_destination.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#update_connector_destination)
         """
 
     async def update_destination(
@@ -776,6 +1082,39 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_account_associations"]
+    ) -> ListAccountAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cloud_connectors"]
+    ) -> ListCloudConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connector_destinations"]
+    ) -> ListConnectorDestinationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_credential_lockers"]
     ) -> ListCredentialLockersPaginator:
         """
@@ -798,8 +1137,41 @@ class ManagedintegrationsforIoTDeviceManagementClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_device_discoveries"]
+    ) -> ListDeviceDiscoveriesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_discovered_devices"]
+    ) -> ListDiscoveredDevicesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_event_log_configurations"]
     ) -> ListEventLogConfigurationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iot-managed-integrations/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iot_managed_integrations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_managed_thing_account_associations"]
+    ) -> ListManagedThingAccountAssociationsPaginator:
         """
         Create a paginator for an operation.
 

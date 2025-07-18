@@ -1,7 +1,7 @@
 r'''
 # `aws_opensearch_domain`
 
-Refer to the Terraform Registry for docs: [`aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain).
+Refer to the Terraform Registry for docs: [`aws_opensearch_domain`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OpensearchDomain(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.opensearchDomain.OpensearchDomain",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain aws_opensearch_domain}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain aws_opensearch_domain}.'''
 
     def __init__(
         self,
@@ -82,33 +82,33 @@ class OpensearchDomain(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain aws_opensearch_domain} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain aws_opensearch_domain} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.
-        :param access_policies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.
-        :param advanced_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.
-        :param advanced_security_options: advanced_security_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
-        :param auto_tune_options: auto_tune_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
-        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
-        :param cognito_options: cognito_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
-        :param domain_endpoint_options: domain_endpoint_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
-        :param ebs_options: ebs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
-        :param encrypt_at_rest: encrypt_at_rest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#id OpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.
-        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
-        :param node_to_node_encryption: node_to_node_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
-        :param snapshot_options: snapshot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
-        :param software_update_options: software_update_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
-        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.
+        :param access_policies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.
+        :param advanced_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.
+        :param advanced_security_options: advanced_security_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
+        :param auto_tune_options: auto_tune_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
+        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
+        :param cognito_options: cognito_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
+        :param domain_endpoint_options: domain_endpoint_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
+        :param ebs_options: ebs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
+        :param encrypt_at_rest: encrypt_at_rest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#id OpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.
+        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
+        :param node_to_node_encryption: node_to_node_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
+        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
+        :param snapshot_options: snapshot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
+        :param software_update_options: software_update_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
+        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -169,7 +169,7 @@ class OpensearchDomain(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OpensearchDomain to import.
-        :param import_from_id: The id of the existing OpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OpensearchDomain that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OpensearchDomain to import is found.
         '''
         if __debug__:
@@ -190,10 +190,10 @@ class OpensearchDomain(
         master_user_options: typing.Optional[typing.Union["OpensearchDomainAdvancedSecurityOptionsMasterUserOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param anonymous_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.
-        :param internal_user_database_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.
-        :param master_user_options: master_user_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param anonymous_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.
+        :param internal_user_database_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.
+        :param master_user_options: master_user_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
         '''
         value = OpensearchDomainAdvancedSecurityOptions(
             enabled=enabled,
@@ -214,10 +214,10 @@ class OpensearchDomain(
         use_off_peak_window: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.
-        :param maintenance_schedule: maintenance_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
-        :param rollback_on_disable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.
-        :param use_off_peak_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.
+        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.
+        :param maintenance_schedule: maintenance_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
+        :param rollback_on_disable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.
+        :param use_off_peak_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.
         '''
         value = OpensearchDomainAutoTuneOptions(
             desired_state=desired_state,
@@ -247,19 +247,19 @@ class OpensearchDomain(
         zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_options: cold_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
-        :param dedicated_master_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.
-        :param dedicated_master_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.
-        :param dedicated_master_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.
-        :param multi_az_with_standby_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.
-        :param node_options: node_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
-        :param warm_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.
-        :param warm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.
-        :param warm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.
-        :param zone_awareness_config: zone_awareness_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
-        :param zone_awareness_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.
+        :param cold_storage_options: cold_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
+        :param dedicated_master_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.
+        :param dedicated_master_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.
+        :param dedicated_master_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.
+        :param multi_az_with_standby_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.
+        :param node_options: node_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
+        :param warm_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.
+        :param warm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.
+        :param warm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.
+        :param zone_awareness_config: zone_awareness_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
+        :param zone_awareness_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.
         '''
         value = OpensearchDomainClusterConfig(
             cold_storage_options=cold_storage_options,
@@ -289,10 +289,10 @@ class OpensearchDomain(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param identity_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.
-        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param identity_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.
+        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         value = OpensearchDomainCognitoOptions(
             identity_pool_id=identity_pool_id,
@@ -314,11 +314,11 @@ class OpensearchDomain(
         tls_security_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.
-        :param custom_endpoint_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.
-        :param custom_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.
-        :param enforce_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.
-        :param tls_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.
+        :param custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.
+        :param custom_endpoint_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.
+        :param custom_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.
+        :param enforce_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.
+        :param tls_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.
         '''
         value = OpensearchDomainDomainEndpointOptions(
             custom_endpoint=custom_endpoint,
@@ -341,11 +341,11 @@ class OpensearchDomain(
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ebs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.
+        :param ebs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.
         '''
         value = OpensearchDomainEbsOptions(
             ebs_enabled=ebs_enabled,
@@ -365,8 +365,8 @@ class OpensearchDomain(
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.
         '''
         value = OpensearchDomainEncryptAtRest(enabled=enabled, kms_key_id=kms_key_id)
 
@@ -392,7 +392,7 @@ class OpensearchDomain(
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         value = OpensearchDomainNodeToNodeEncryption(enabled=enabled)
 
@@ -406,8 +406,8 @@ class OpensearchDomain(
         off_peak_window: typing.Optional[typing.Union["OpensearchDomainOffPeakWindowOptionsOffPeakWindow", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param off_peak_window: off_peak_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param off_peak_window: off_peak_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
         '''
         value = OpensearchDomainOffPeakWindowOptions(
             enabled=enabled, off_peak_window=off_peak_window
@@ -422,7 +422,7 @@ class OpensearchDomain(
         automated_snapshot_start_hour: jsii.Number,
     ) -> None:
         '''
-        :param automated_snapshot_start_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.
+        :param automated_snapshot_start_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.
         '''
         value = OpensearchDomainSnapshotOptions(
             automated_snapshot_start_hour=automated_snapshot_start_hour
@@ -437,7 +437,7 @@ class OpensearchDomain(
         auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_software_update_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.
+        :param auto_software_update_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.
         '''
         value = OpensearchDomainSoftwareUpdateOptions(
             auto_software_update_enabled=auto_software_update_enabled
@@ -454,9 +454,9 @@ class OpensearchDomain(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.
         '''
         value = OpensearchDomainTimeouts(create=create, delete=delete, update=update)
 
@@ -470,8 +470,8 @@ class OpensearchDomain(
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.
         '''
         value = OpensearchDomainVpcOptions(
             security_group_ids=security_group_ids, subnet_ids=subnet_ids
@@ -966,10 +966,10 @@ class OpensearchDomainAdvancedSecurityOptions:
         master_user_options: typing.Optional[typing.Union["OpensearchDomainAdvancedSecurityOptionsMasterUserOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param anonymous_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.
-        :param internal_user_database_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.
-        :param master_user_options: master_user_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param anonymous_auth_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.
+        :param internal_user_database_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.
+        :param master_user_options: master_user_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
         '''
         if isinstance(master_user_options, dict):
             master_user_options = OpensearchDomainAdvancedSecurityOptionsMasterUserOptions(**master_user_options)
@@ -991,7 +991,7 @@ class OpensearchDomainAdvancedSecurityOptions:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1000,7 +1000,7 @@ class OpensearchDomainAdvancedSecurityOptions:
     def anonymous_auth_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#anonymous_auth_enabled OpensearchDomain#anonymous_auth_enabled}.'''
         result = self._values.get("anonymous_auth_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1008,7 +1008,7 @@ class OpensearchDomainAdvancedSecurityOptions:
     def internal_user_database_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#internal_user_database_enabled OpensearchDomain#internal_user_database_enabled}.'''
         result = self._values.get("internal_user_database_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1018,7 +1018,7 @@ class OpensearchDomainAdvancedSecurityOptions:
     ) -> typing.Optional["OpensearchDomainAdvancedSecurityOptionsMasterUserOptions"]:
         '''master_user_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_options OpensearchDomain#master_user_options}
         '''
         result = self._values.get("master_user_options")
         return typing.cast(typing.Optional["OpensearchDomainAdvancedSecurityOptionsMasterUserOptions"], result)
@@ -1053,9 +1053,9 @@ class OpensearchDomainAdvancedSecurityOptionsMasterUserOptions:
         master_user_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param master_user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.
-        :param master_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.
-        :param master_user_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.
+        :param master_user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.
+        :param master_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.
+        :param master_user_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__763b64bf2f8cf43c51cc9521a3c5bd701cb08a714e6e0912785be9b3b67182eb)
@@ -1072,19 +1072,19 @@ class OpensearchDomainAdvancedSecurityOptionsMasterUserOptions:
 
     @builtins.property
     def master_user_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.'''
         result = self._values.get("master_user_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def master_user_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.'''
         result = self._values.get("master_user_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def master_user_password(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.'''
         result = self._values.get("master_user_password")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1230,9 +1230,9 @@ class OpensearchDomainAdvancedSecurityOptionsOutputReference(
         master_user_password: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param master_user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.
-        :param master_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.
-        :param master_user_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.
+        :param master_user_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_arn OpensearchDomain#master_user_arn}.
+        :param master_user_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_name OpensearchDomain#master_user_name}.
+        :param master_user_password: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#master_user_password OpensearchDomain#master_user_password}.
         '''
         value = OpensearchDomainAdvancedSecurityOptionsMasterUserOptions(
             master_user_arn=master_user_arn,
@@ -1376,10 +1376,10 @@ class OpensearchDomainAutoTuneOptions:
         use_off_peak_window: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.
-        :param maintenance_schedule: maintenance_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
-        :param rollback_on_disable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.
-        :param use_off_peak_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.
+        :param desired_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.
+        :param maintenance_schedule: maintenance_schedule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
+        :param rollback_on_disable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.
+        :param use_off_peak_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff4b90d9c326e4a4636074e59072a25b8baf9a02439a2883c8fbb3f89e692e0d)
@@ -1399,7 +1399,7 @@ class OpensearchDomainAutoTuneOptions:
 
     @builtins.property
     def desired_state(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#desired_state OpensearchDomain#desired_state}.'''
         result = self._values.get("desired_state")
         assert result is not None, "Required property 'desired_state' is missing"
         return typing.cast(builtins.str, result)
@@ -1410,14 +1410,14 @@ class OpensearchDomainAutoTuneOptions:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainAutoTuneOptionsMaintenanceSchedule"]]]:
         '''maintenance_schedule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#maintenance_schedule OpensearchDomain#maintenance_schedule}
         '''
         result = self._values.get("maintenance_schedule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainAutoTuneOptionsMaintenanceSchedule"]]], result)
 
     @builtins.property
     def rollback_on_disable(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#rollback_on_disable OpensearchDomain#rollback_on_disable}.'''
         result = self._values.get("rollback_on_disable")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1425,7 +1425,7 @@ class OpensearchDomainAutoTuneOptions:
     def use_off_peak_window(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#use_off_peak_window OpensearchDomain#use_off_peak_window}.'''
         result = self._values.get("use_off_peak_window")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1459,9 +1459,9 @@ class OpensearchDomainAutoTuneOptionsMaintenanceSchedule:
         start_at: builtins.str,
     ) -> None:
         '''
-        :param cron_expression_for_recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cron_expression_for_recurrence OpensearchDomain#cron_expression_for_recurrence}.
-        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#duration OpensearchDomain#duration}
-        :param start_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#start_at OpensearchDomain#start_at}.
+        :param cron_expression_for_recurrence: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cron_expression_for_recurrence OpensearchDomain#cron_expression_for_recurrence}.
+        :param duration: duration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#duration OpensearchDomain#duration}
+        :param start_at: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#start_at OpensearchDomain#start_at}.
         '''
         if isinstance(duration, dict):
             duration = OpensearchDomainAutoTuneOptionsMaintenanceScheduleDuration(**duration)
@@ -1478,7 +1478,7 @@ class OpensearchDomainAutoTuneOptionsMaintenanceSchedule:
 
     @builtins.property
     def cron_expression_for_recurrence(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cron_expression_for_recurrence OpensearchDomain#cron_expression_for_recurrence}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cron_expression_for_recurrence OpensearchDomain#cron_expression_for_recurrence}.'''
         result = self._values.get("cron_expression_for_recurrence")
         assert result is not None, "Required property 'cron_expression_for_recurrence' is missing"
         return typing.cast(builtins.str, result)
@@ -1487,7 +1487,7 @@ class OpensearchDomainAutoTuneOptionsMaintenanceSchedule:
     def duration(self) -> "OpensearchDomainAutoTuneOptionsMaintenanceScheduleDuration":
         '''duration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#duration OpensearchDomain#duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#duration OpensearchDomain#duration}
         '''
         result = self._values.get("duration")
         assert result is not None, "Required property 'duration' is missing"
@@ -1495,7 +1495,7 @@ class OpensearchDomainAutoTuneOptionsMaintenanceSchedule:
 
     @builtins.property
     def start_at(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#start_at OpensearchDomain#start_at}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#start_at OpensearchDomain#start_at}.'''
         result = self._values.get("start_at")
         assert result is not None, "Required property 'start_at' is missing"
         return typing.cast(builtins.str, result)
@@ -1520,8 +1520,8 @@ class OpensearchDomainAutoTuneOptionsMaintenanceSchedule:
 class OpensearchDomainAutoTuneOptionsMaintenanceScheduleDuration:
     def __init__(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c2b215606be74c7efcd3f47f3e23c71b8203c3f21b268d30f18c3be169f77294)
@@ -1534,14 +1534,14 @@ class OpensearchDomainAutoTuneOptionsMaintenanceScheduleDuration:
 
     @builtins.property
     def unit(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.'''
         result = self._values.get("unit")
         assert result is not None, "Required property 'unit' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(jsii.Number, result)
@@ -1752,8 +1752,8 @@ class OpensearchDomainAutoTuneOptionsMaintenanceScheduleOutputReference(
     @jsii.member(jsii_name="putDuration")
     def put_duration(self, *, unit: builtins.str, value: jsii.Number) -> None:
         '''
-        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.
+        :param unit: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#unit OpensearchDomain#unit}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#value OpensearchDomain#value}.
         '''
         value_ = OpensearchDomainAutoTuneOptionsMaintenanceScheduleDuration(
             unit=unit, value=value
@@ -1998,19 +1998,19 @@ class OpensearchDomainClusterConfig:
         zone_awareness_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cold_storage_options: cold_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
-        :param dedicated_master_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.
-        :param dedicated_master_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.
-        :param dedicated_master_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.
-        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.
-        :param multi_az_with_standby_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.
-        :param node_options: node_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
-        :param warm_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.
-        :param warm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.
-        :param warm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.
-        :param zone_awareness_config: zone_awareness_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
-        :param zone_awareness_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.
+        :param cold_storage_options: cold_storage_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
+        :param dedicated_master_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.
+        :param dedicated_master_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.
+        :param dedicated_master_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.
+        :param instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.
+        :param multi_az_with_standby_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.
+        :param node_options: node_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
+        :param warm_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.
+        :param warm_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.
+        :param warm_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.
+        :param zone_awareness_config: zone_awareness_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
+        :param zone_awareness_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.
         '''
         if isinstance(cold_storage_options, dict):
             cold_storage_options = OpensearchDomainClusterConfigColdStorageOptions(**cold_storage_options)
@@ -2065,14 +2065,14 @@ class OpensearchDomainClusterConfig:
     ) -> typing.Optional["OpensearchDomainClusterConfigColdStorageOptions"]:
         '''cold_storage_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cold_storage_options OpensearchDomain#cold_storage_options}
         '''
         result = self._values.get("cold_storage_options")
         return typing.cast(typing.Optional["OpensearchDomainClusterConfigColdStorageOptions"], result)
 
     @builtins.property
     def dedicated_master_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_count OpensearchDomain#dedicated_master_count}.'''
         result = self._values.get("dedicated_master_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2080,25 +2080,25 @@ class OpensearchDomainClusterConfig:
     def dedicated_master_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_enabled OpensearchDomain#dedicated_master_enabled}.'''
         result = self._values.get("dedicated_master_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def dedicated_master_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#dedicated_master_type OpensearchDomain#dedicated_master_type}.'''
         result = self._values.get("dedicated_master_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_count OpensearchDomain#instance_count}.'''
         result = self._values.get("instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#instance_type OpensearchDomain#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2106,7 +2106,7 @@ class OpensearchDomainClusterConfig:
     def multi_az_with_standby_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#multi_az_with_standby_enabled OpensearchDomain#multi_az_with_standby_enabled}.'''
         result = self._values.get("multi_az_with_standby_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2116,14 +2116,14 @@ class OpensearchDomainClusterConfig:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainClusterConfigNodeOptions"]]]:
         '''node_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_options OpensearchDomain#node_options}
         '''
         result = self._values.get("node_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainClusterConfigNodeOptions"]]], result)
 
     @builtins.property
     def warm_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_count OpensearchDomain#warm_count}.'''
         result = self._values.get("warm_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2131,13 +2131,13 @@ class OpensearchDomainClusterConfig:
     def warm_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_enabled OpensearchDomain#warm_enabled}.'''
         result = self._values.get("warm_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def warm_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#warm_type OpensearchDomain#warm_type}.'''
         result = self._values.get("warm_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2147,7 +2147,7 @@ class OpensearchDomainClusterConfig:
     ) -> typing.Optional["OpensearchDomainClusterConfigZoneAwarenessConfig"]:
         '''zone_awareness_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_config OpensearchDomain#zone_awareness_config}
         '''
         result = self._values.get("zone_awareness_config")
         return typing.cast(typing.Optional["OpensearchDomainClusterConfigZoneAwarenessConfig"], result)
@@ -2156,7 +2156,7 @@ class OpensearchDomainClusterConfig:
     def zone_awareness_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#zone_awareness_enabled OpensearchDomain#zone_awareness_enabled}.'''
         result = self._values.get("zone_awareness_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2184,7 +2184,7 @@ class OpensearchDomainClusterConfigColdStorageOptions:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea7e19d6e26d099f63cd617baa0b97b43eff910d58f1aba468bf179eab313a43)
@@ -2197,7 +2197,7 @@ class OpensearchDomainClusterConfigColdStorageOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2290,8 +2290,8 @@ class OpensearchDomainClusterConfigNodeOptions:
         node_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_config OpensearchDomain#node_config}
-        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_type OpensearchDomain#node_type}.
+        :param node_config: node_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_config OpensearchDomain#node_config}
+        :param node_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_type OpensearchDomain#node_type}.
         '''
         if isinstance(node_config, dict):
             node_config = OpensearchDomainClusterConfigNodeOptionsNodeConfig(**node_config)
@@ -2311,14 +2311,14 @@ class OpensearchDomainClusterConfigNodeOptions:
     ) -> typing.Optional["OpensearchDomainClusterConfigNodeOptionsNodeConfig"]:
         '''node_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_config OpensearchDomain#node_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_config OpensearchDomain#node_config}
         '''
         result = self._values.get("node_config")
         return typing.cast(typing.Optional["OpensearchDomainClusterConfigNodeOptionsNodeConfig"], result)
 
     @builtins.property
     def node_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_type OpensearchDomain#node_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_type OpensearchDomain#node_type}.'''
         result = self._values.get("node_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2441,9 +2441,9 @@ class OpensearchDomainClusterConfigNodeOptionsNodeConfig:
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7608c2dfa5d3d063bc704c9ed8105ba94bfacf95a461d370751a63cd6c117685)
@@ -2460,7 +2460,7 @@ class OpensearchDomainClusterConfigNodeOptionsNodeConfig:
 
     @builtins.property
     def count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.'''
         result = self._values.get("count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2468,13 +2468,13 @@ class OpensearchDomainClusterConfigNodeOptionsNodeConfig:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2631,9 +2631,9 @@ class OpensearchDomainClusterConfigNodeOptionsOutputReference(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.
+        :param count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#count OpensearchDomain#count}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#type OpensearchDomain#type}.
         '''
         value = OpensearchDomainClusterConfigNodeOptionsNodeConfig(
             count=count, enabled=enabled, type=type
@@ -2725,7 +2725,7 @@ class OpensearchDomainClusterConfigOutputReference(
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         value = OpensearchDomainClusterConfigColdStorageOptions(enabled=enabled)
 
@@ -2751,7 +2751,7 @@ class OpensearchDomainClusterConfigOutputReference(
         availability_zone_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_zone_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.
+        :param availability_zone_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.
         '''
         value = OpensearchDomainClusterConfigZoneAwarenessConfig(
             availability_zone_count=availability_zone_count
@@ -3075,7 +3075,7 @@ class OpensearchDomainClusterConfigZoneAwarenessConfig:
         availability_zone_count: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param availability_zone_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.
+        :param availability_zone_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c22e5a1715c1e4c406e51c63c160ffe34b52e89e8f0db26e17b98c25cd7aea68)
@@ -3086,7 +3086,7 @@ class OpensearchDomainClusterConfigZoneAwarenessConfig:
 
     @builtins.property
     def availability_zone_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#availability_zone_count OpensearchDomain#availability_zone_count}.'''
         result = self._values.get("availability_zone_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3181,10 +3181,10 @@ class OpensearchDomainCognitoOptions:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param identity_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.
-        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param identity_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.
+        :param user_pool_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3f441ba32be1c63c4fb8f97bd1afd8bd002227e0fdbae51a418b7e6ce83ec9d)
@@ -3202,21 +3202,21 @@ class OpensearchDomainCognitoOptions:
 
     @builtins.property
     def identity_pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#identity_pool_id OpensearchDomain#identity_pool_id}.'''
         result = self._values.get("identity_pool_id")
         assert result is not None, "Required property 'identity_pool_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#role_arn OpensearchDomain#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def user_pool_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#user_pool_id OpensearchDomain#user_pool_id}.'''
         result = self._values.get("user_pool_id")
         assert result is not None, "Required property 'user_pool_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3225,7 +3225,7 @@ class OpensearchDomainCognitoOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3433,29 +3433,29 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.
-        :param access_policies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.
-        :param advanced_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.
-        :param advanced_security_options: advanced_security_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
-        :param auto_tune_options: auto_tune_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
-        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
-        :param cognito_options: cognito_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
-        :param domain_endpoint_options: domain_endpoint_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
-        :param ebs_options: ebs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
-        :param encrypt_at_rest: encrypt_at_rest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#id OpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.
-        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
-        :param node_to_node_encryption: node_to_node_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
-        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
-        :param snapshot_options: snapshot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
-        :param software_update_options: software_update_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
-        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
+        :param domain_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.
+        :param access_policies: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.
+        :param advanced_options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.
+        :param advanced_security_options: advanced_security_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
+        :param auto_tune_options: auto_tune_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
+        :param cluster_config: cluster_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
+        :param cognito_options: cognito_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
+        :param domain_endpoint_options: domain_endpoint_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
+        :param ebs_options: ebs_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
+        :param encrypt_at_rest: encrypt_at_rest block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#id OpensearchDomain#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ip_address_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.
+        :param log_publishing_options: log_publishing_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
+        :param node_to_node_encryption: node_to_node_encryption block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
+        :param off_peak_window_options: off_peak_window_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
+        :param snapshot_options: snapshot_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
+        :param software_update_options: software_update_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
+        :param vpc_options: vpc_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -3645,14 +3645,14 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def domain_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_name OpensearchDomain#domain_name}.'''
         result = self._values.get("domain_name")
         assert result is not None, "Required property 'domain_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def access_policies(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#access_policies OpensearchDomain#access_policies}.'''
         result = self._values.get("access_policies")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3660,7 +3660,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def advanced_options(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_options OpensearchDomain#advanced_options}.'''
         result = self._values.get("advanced_options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3670,7 +3670,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[OpensearchDomainAdvancedSecurityOptions]:
         '''advanced_security_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#advanced_security_options OpensearchDomain#advanced_security_options}
         '''
         result = self._values.get("advanced_security_options")
         return typing.cast(typing.Optional[OpensearchDomainAdvancedSecurityOptions], result)
@@ -3679,7 +3679,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_tune_options(self) -> typing.Optional[OpensearchDomainAutoTuneOptions]:
         '''auto_tune_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_tune_options OpensearchDomain#auto_tune_options}
         '''
         result = self._values.get("auto_tune_options")
         return typing.cast(typing.Optional[OpensearchDomainAutoTuneOptions], result)
@@ -3688,7 +3688,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_config(self) -> typing.Optional[OpensearchDomainClusterConfig]:
         '''cluster_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cluster_config OpensearchDomain#cluster_config}
         '''
         result = self._values.get("cluster_config")
         return typing.cast(typing.Optional[OpensearchDomainClusterConfig], result)
@@ -3697,7 +3697,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cognito_options(self) -> typing.Optional[OpensearchDomainCognitoOptions]:
         '''cognito_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cognito_options OpensearchDomain#cognito_options}
         '''
         result = self._values.get("cognito_options")
         return typing.cast(typing.Optional[OpensearchDomainCognitoOptions], result)
@@ -3708,7 +3708,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OpensearchDomainDomainEndpointOptions"]:
         '''domain_endpoint_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#domain_endpoint_options OpensearchDomain#domain_endpoint_options}
         '''
         result = self._values.get("domain_endpoint_options")
         return typing.cast(typing.Optional["OpensearchDomainDomainEndpointOptions"], result)
@@ -3717,7 +3717,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def ebs_options(self) -> typing.Optional["OpensearchDomainEbsOptions"]:
         '''ebs_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_options OpensearchDomain#ebs_options}
         '''
         result = self._values.get("ebs_options")
         return typing.cast(typing.Optional["OpensearchDomainEbsOptions"], result)
@@ -3726,20 +3726,20 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encrypt_at_rest(self) -> typing.Optional["OpensearchDomainEncryptAtRest"]:
         '''encrypt_at_rest block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#encrypt_at_rest OpensearchDomain#encrypt_at_rest}
         '''
         result = self._values.get("encrypt_at_rest")
         return typing.cast(typing.Optional["OpensearchDomainEncryptAtRest"], result)
 
     @builtins.property
     def engine_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#engine_version OpensearchDomain#engine_version}.'''
         result = self._values.get("engine_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#id OpensearchDomain#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#id OpensearchDomain#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -3749,7 +3749,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def ip_address_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ip_address_type OpensearchDomain#ip_address_type}.'''
         result = self._values.get("ip_address_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3759,7 +3759,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainLogPublishingOptions"]]]:
         '''log_publishing_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#log_publishing_options OpensearchDomain#log_publishing_options}
         '''
         result = self._values.get("log_publishing_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OpensearchDomainLogPublishingOptions"]]], result)
@@ -3770,7 +3770,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OpensearchDomainNodeToNodeEncryption"]:
         '''node_to_node_encryption block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#node_to_node_encryption OpensearchDomain#node_to_node_encryption}
         '''
         result = self._values.get("node_to_node_encryption")
         return typing.cast(typing.Optional["OpensearchDomainNodeToNodeEncryption"], result)
@@ -3781,7 +3781,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OpensearchDomainOffPeakWindowOptions"]:
         '''off_peak_window_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window_options OpensearchDomain#off_peak_window_options}
         '''
         result = self._values.get("off_peak_window_options")
         return typing.cast(typing.Optional["OpensearchDomainOffPeakWindowOptions"], result)
@@ -3790,7 +3790,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#region OpensearchDomain#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -3799,7 +3799,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def snapshot_options(self) -> typing.Optional["OpensearchDomainSnapshotOptions"]:
         '''snapshot_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#snapshot_options OpensearchDomain#snapshot_options}
         '''
         result = self._values.get("snapshot_options")
         return typing.cast(typing.Optional["OpensearchDomainSnapshotOptions"], result)
@@ -3810,20 +3810,20 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["OpensearchDomainSoftwareUpdateOptions"]:
         '''software_update_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#software_update_options OpensearchDomain#software_update_options}
         '''
         result = self._values.get("software_update_options")
         return typing.cast(typing.Optional["OpensearchDomainSoftwareUpdateOptions"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags OpensearchDomain#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tags_all OpensearchDomain#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3831,7 +3831,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["OpensearchDomainTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#timeouts OpensearchDomain#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["OpensearchDomainTimeouts"], result)
@@ -3840,7 +3840,7 @@ class OpensearchDomainConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def vpc_options(self) -> typing.Optional["OpensearchDomainVpcOptions"]:
         '''vpc_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#vpc_options OpensearchDomain#vpc_options}
         '''
         result = self._values.get("vpc_options")
         return typing.cast(typing.Optional["OpensearchDomainVpcOptions"], result)
@@ -3879,11 +3879,11 @@ class OpensearchDomainDomainEndpointOptions:
         tls_security_policy: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.
-        :param custom_endpoint_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.
-        :param custom_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.
-        :param enforce_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.
-        :param tls_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.
+        :param custom_endpoint: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.
+        :param custom_endpoint_certificate_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.
+        :param custom_endpoint_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.
+        :param enforce_https: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.
+        :param tls_security_policy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__305878cbb026732c4956d097e14311591c9cc809718e025b6b9faed398834e69)
@@ -3906,13 +3906,13 @@ class OpensearchDomainDomainEndpointOptions:
 
     @builtins.property
     def custom_endpoint(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint OpensearchDomain#custom_endpoint}.'''
         result = self._values.get("custom_endpoint")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def custom_endpoint_certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_certificate_arn OpensearchDomain#custom_endpoint_certificate_arn}.'''
         result = self._values.get("custom_endpoint_certificate_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3920,7 +3920,7 @@ class OpensearchDomainDomainEndpointOptions:
     def custom_endpoint_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#custom_endpoint_enabled OpensearchDomain#custom_endpoint_enabled}.'''
         result = self._values.get("custom_endpoint_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -3928,13 +3928,13 @@ class OpensearchDomainDomainEndpointOptions:
     def enforce_https(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enforce_https OpensearchDomain#enforce_https}.'''
         result = self._values.get("enforce_https")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tls_security_policy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#tls_security_policy OpensearchDomain#tls_security_policy}.'''
         result = self._values.get("tls_security_policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4125,11 +4125,11 @@ class OpensearchDomainEbsOptions:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param ebs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.
-        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.
+        :param ebs_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.
+        :param volume_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2075aeaf2b471bc2113d3e77be1040c1f4fa719b0d8433ca013f00e9502e8253)
@@ -4152,32 +4152,32 @@ class OpensearchDomainEbsOptions:
 
     @builtins.property
     def ebs_enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#ebs_enabled OpensearchDomain#ebs_enabled}.'''
         result = self._values.get("ebs_enabled")
         assert result is not None, "Required property 'ebs_enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#iops OpensearchDomain#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#throughput OpensearchDomain#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_size OpensearchDomain#volume_size}.'''
         result = self._values.get("volume_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#volume_type OpensearchDomain#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4348,8 +4348,8 @@ class OpensearchDomainEncryptAtRest:
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ad3f9cf569f146507abf5a81f1d375ee9c1db88ca0fc5a8dbbda079056ecd1de)
@@ -4363,14 +4363,14 @@ class OpensearchDomainEncryptAtRest:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#kms_key_id OpensearchDomain#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4483,9 +4483,9 @@ class OpensearchDomainLogPublishingOptions:
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cloudwatch_log_group_arn OpensearchDomain#cloudwatch_log_group_arn}.
-        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#log_type OpensearchDomain#log_type}.
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param cloudwatch_log_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cloudwatch_log_group_arn OpensearchDomain#cloudwatch_log_group_arn}.
+        :param log_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#log_type OpensearchDomain#log_type}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e5db956dee5870f827878f83243fde4f442cf15e9a9b26230986bb7d1c411fe8)
@@ -4501,14 +4501,14 @@ class OpensearchDomainLogPublishingOptions:
 
     @builtins.property
     def cloudwatch_log_group_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#cloudwatch_log_group_arn OpensearchDomain#cloudwatch_log_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#cloudwatch_log_group_arn OpensearchDomain#cloudwatch_log_group_arn}.'''
         result = self._values.get("cloudwatch_log_group_arn")
         assert result is not None, "Required property 'cloudwatch_log_group_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def log_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#log_type OpensearchDomain#log_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#log_type OpensearchDomain#log_type}.'''
         result = self._values.get("log_type")
         assert result is not None, "Required property 'log_type' is missing"
         return typing.cast(builtins.str, result)
@@ -4517,7 +4517,7 @@ class OpensearchDomainLogPublishingOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4742,7 +4742,7 @@ class OpensearchDomainNodeToNodeEncryption:
         enabled: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a45f6ecc1bbcb37300fed09272493b9b4bce417b15368222a0c708c3414a18b2)
@@ -4753,7 +4753,7 @@ class OpensearchDomainNodeToNodeEncryption:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -4841,8 +4841,8 @@ class OpensearchDomainOffPeakWindowOptions:
         off_peak_window: typing.Optional[typing.Union["OpensearchDomainOffPeakWindowOptionsOffPeakWindow", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
-        :param off_peak_window: off_peak_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.
+        :param off_peak_window: off_peak_window block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
         '''
         if isinstance(off_peak_window, dict):
             off_peak_window = OpensearchDomainOffPeakWindowOptionsOffPeakWindow(**off_peak_window)
@@ -4860,7 +4860,7 @@ class OpensearchDomainOffPeakWindowOptions:
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#enabled OpensearchDomain#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -4870,7 +4870,7 @@ class OpensearchDomainOffPeakWindowOptions:
     ) -> typing.Optional["OpensearchDomainOffPeakWindowOptionsOffPeakWindow"]:
         '''off_peak_window block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#off_peak_window OpensearchDomain#off_peak_window}
         '''
         result = self._values.get("off_peak_window")
         return typing.cast(typing.Optional["OpensearchDomainOffPeakWindowOptionsOffPeakWindow"], result)
@@ -4899,7 +4899,7 @@ class OpensearchDomainOffPeakWindowOptionsOffPeakWindow:
         window_start_time: typing.Optional[typing.Union["OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param window_start_time: window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
+        :param window_start_time: window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
         '''
         if isinstance(window_start_time, dict):
             window_start_time = OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime(**window_start_time)
@@ -4916,7 +4916,7 @@ class OpensearchDomainOffPeakWindowOptionsOffPeakWindow:
     ) -> typing.Optional["OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime"]:
         '''window_start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
         '''
         result = self._values.get("window_start_time")
         return typing.cast(typing.Optional["OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime"], result)
@@ -4961,8 +4961,8 @@ class OpensearchDomainOffPeakWindowOptionsOffPeakWindowOutputReference(
         minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.
         '''
         value = OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime(
             hours=hours, minutes=minutes
@@ -5019,8 +5019,8 @@ class OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime:
         minutes: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14ce8bcd2c7a79dc07040d3d2897546d787dbad3b23cd0833bd3a989a7a8d581)
@@ -5034,13 +5034,13 @@ class OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime:
 
     @builtins.property
     def hours(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#hours OpensearchDomain#hours}.'''
         result = self._values.get("hours")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def minutes(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#minutes OpensearchDomain#minutes}.'''
         result = self._values.get("minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5163,7 +5163,7 @@ class OpensearchDomainOffPeakWindowOptionsOutputReference(
         window_start_time: typing.Optional[typing.Union[OpensearchDomainOffPeakWindowOptionsOffPeakWindowWindowStartTime, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param window_start_time: window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
+        :param window_start_time: window_start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#window_start_time OpensearchDomain#window_start_time}
         '''
         value = OpensearchDomainOffPeakWindowOptionsOffPeakWindow(
             window_start_time=window_start_time
@@ -5239,7 +5239,7 @@ class OpensearchDomainOffPeakWindowOptionsOutputReference(
 class OpensearchDomainSnapshotOptions:
     def __init__(self, *, automated_snapshot_start_hour: jsii.Number) -> None:
         '''
-        :param automated_snapshot_start_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.
+        :param automated_snapshot_start_hour: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4fa6e065e5329ddd146e022433ce1bf7b35872702512d5ca2c8275764456dcfb)
@@ -5250,7 +5250,7 @@ class OpensearchDomainSnapshotOptions:
 
     @builtins.property
     def automated_snapshot_start_hour(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#automated_snapshot_start_hour OpensearchDomain#automated_snapshot_start_hour}.'''
         result = self._values.get("automated_snapshot_start_hour")
         assert result is not None, "Required property 'automated_snapshot_start_hour' is missing"
         return typing.cast(jsii.Number, result)
@@ -5332,7 +5332,7 @@ class OpensearchDomainSoftwareUpdateOptions:
         auto_software_update_enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param auto_software_update_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.
+        :param auto_software_update_enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b068b84041a8019e0762e3cfd9485ffc0b60a45fe7f172ede76fb953bab90e6)
@@ -5345,7 +5345,7 @@ class OpensearchDomainSoftwareUpdateOptions:
     def auto_software_update_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#auto_software_update_enabled OpensearchDomain#auto_software_update_enabled}.'''
         result = self._values.get("auto_software_update_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5439,9 +5439,9 @@ class OpensearchDomainTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e60178eb4300dc3c54286ebfe418f572326f7ef1055d0aa95bf36630918bc570)
@@ -5458,19 +5458,19 @@ class OpensearchDomainTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#create OpensearchDomain#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#delete OpensearchDomain#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#update OpensearchDomain#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5600,8 +5600,8 @@ class OpensearchDomainVpcOptions:
         subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.
+        :param security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66a54199aab94359b712544c91249e463a4f0b360d0263b219ca7bb3c9282449)
@@ -5615,13 +5615,13 @@ class OpensearchDomainVpcOptions:
 
     @builtins.property
     def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#security_group_ids OpensearchDomain#security_group_ids}.'''
         result = self._values.get("security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/opensearch_domain#subnet_ids OpensearchDomain#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 

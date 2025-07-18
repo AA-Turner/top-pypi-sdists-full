@@ -110,7 +110,7 @@ class _Queue(modal._object._Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=1, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
+        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
     ) -> _Queue:
         """Reference a named Queue, creating if necessary.
 
@@ -128,7 +128,7 @@ class _Queue(modal._object._Object):
     @staticmethod
     async def lookup(
         name: str,
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
@@ -367,7 +367,7 @@ class Queue(modal.object.Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=1, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
+        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
     ) -> Queue:
         """Reference a named Queue, creating if necessary.
 
@@ -387,7 +387,7 @@ class Queue(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             create_if_missing: bool = False,
@@ -411,7 +411,7 @@ class Queue(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             create_if_missing: bool = False,

@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Generator, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 from flytekit import ImageSpec, Resources, Secret, Workflow, current_context
 from flytekit.core.context_manager import ExecutionParameters
+from flytekit.extras import accelerators
 
 import union
 from union.artifacts import Artifact
@@ -20,15 +22,15 @@ from union.remote._app_template_factory import (
     ARTIFACT_TYPE_KEY,
     COMMIT_KEY,
     FORMAT_KEY,
+    HUGGINGFACE_SOURCE_KEY,
     MODALITY_KEY,
     MODEL_TYPE_KEY,
+    SHARD_ENGINE_KEY,
+    SHARD_PARALLELISM_KEY,
     TASK_KEY,
     HuggingFaceModelInfo,
+    ShardConfig,
 )
-
-# Created by running maint_tools/build_llm_models.py
-CHUNK_SIZE = 8 * 1024 * 1024  # 8MB
-
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +121,7 @@ def lookup_huggingface_model_info(model_repo: str, commit: str, token: str) -> T
     return model_type, arch
 
 
-def get_partition_keys_for_model(info: HuggingFaceModelInfo) -> Dict[str, str]:
+def get_partition_keys_for_model(info: HuggingFaceModelInfo, commit: str) -> Dict[str, str]:
     """
     Get partition keys for a model, given the architecture, task, modality, serial format and model type.
 
@@ -130,23 +132,20 @@ def get_partition_keys_for_model(info: HuggingFaceModelInfo) -> Dict[str, str]:
         ARCHITECTURE_KEY: info.architecture,
         TASK_KEY: info.task,
         FORMAT_KEY: info.serial_format,
+        HUGGINGFACE_SOURCE_KEY: info.repo,
+        COMMIT_KEY: commit,
         MODALITY_KEY: ",".join(info.modality),
         ARTIFACT_TYPE_KEY: "model",
         MODEL_TYPE_KEY: info.model_type,
+        SHARD_ENGINE_KEY: str(info.shard_config.engine) if info.shard_config else "None",
+        SHARD_PARALLELISM_KEY: str(info.shard_config.args.tensor_parallel_size) if info.shard_config else "None",
     }
-
-
-def _yield_files(hfs, repo_id: str, revision: str) -> Generator[dict, None, None]:
-    for _, _, files in hfs.walk(repo_id, revision=revision, detail=True):
-        for file_details in files.values():
-            yield file_details
 
 
 def download_all_files_to_flytedir(
     repo_id: str,
     commit: str,
     token: str | None = None,
-    chunk_size: int = CHUNK_SIZE,
 ) -> Tuple[union.FlyteDirectory, str | None]:
     """
     TODO we should use hf-transfer for this, but the only option on hf-transfer is to download the files to local disk.
@@ -156,11 +155,10 @@ def download_all_files_to_flytedir(
         :param repo_id: str The repository ID (e.g., 'julien-c/EsperBERTo-small').
         :param commit: str The commit ID.
         :param token: str[optional] The Hugging Face Hub token for authentication.
-        :param chunk_size: int[optional] The chunk size to use when streaming the model files.
     """
-    from huggingface_hub import HfFileSystem
+    from huggingface_hub import HfFileSystem, snapshot_download
 
-    directory = union.FlyteDirectory.new("local_tmp")
+    directory = union.FlyteDirectory.new("model_snapshot")
     card = None
 
     hfs = HfFileSystem(token=token)
@@ -176,22 +174,62 @@ def download_all_files_to_flytedir(
     except FileNotFoundError:
         print("No readme file", flush=True)
 
-    root_name_detail = hfs.info(repo_id, revision=commit)
-    prefix = root_name_detail["name"]
-    prefix_len = len(prefix) + 1
-
-    def _download_file_to_dir(file_details: dict):
-        name = file_details["name"]
-        size = file_details["size"]
-        filename = name[prefix_len:]
-
-        ff = directory.new_file(filename)
-        print(f"Downloading {name} to {ff.path}, size: {size}", flush=True)
-        hfs.download(name, ff.path, revision=commit)
-
-    for file_details in _yield_files(hfs, repo_id=repo_id, revision=commit):
-        _download_file_to_dir(file_details)
+    print(f"Downloading model from {repo_id} to {directory.path}", flush=True)
+    snapshot_download(
+        repo_id=repo_id,
+        revision=commit,
+        local_dir=directory.path,
+        token=token,
+    )
     return directory, card
+
+
+def shard_model(
+    shard_config: ShardConfig,
+    model_path: str,
+) -> union.FlyteDirectory:
+    """Shard a model using the given shard config."""
+
+    from vllm import LLM
+
+    assert shard_config.engine == "vllm", "'vllm' is the only supported sharding engine for now"
+    sharded_model_dir = union.FlyteDirectory.new("sharded_model_snapshot")
+
+    # Create LLM instance from arguments
+    llm = LLM(**shard_config.args.get_vllm_args(model_path))
+    print(f"LLM initialized: {llm}")
+
+    # Check which engine version is being used
+    is_v1_engine = hasattr(llm.llm_engine, "engine_core")
+
+    if is_v1_engine:
+        # For V1 engine, we need to use engine_core.save_sharded_state
+        print("Using V1 engine save path")
+        llm.llm_engine.engine_core.save_sharded_state(
+            path=sharded_model_dir.path,
+            pattern=shard_config.args.file_pattern,
+            max_size=shard_config.args.max_file_size,
+        )
+    else:
+        # For V0 engine
+        print("Using V0 engine save path")
+        model_executor = llm.llm_engine.model_executor
+        model_executor.save_sharded_state(
+            path=sharded_model_dir.path,
+            pattern=shard_config.args.file_pattern,
+            max_size=shard_config.args.max_file_size,
+        )
+
+    # Copy metadata files to output directory
+    print(f"Copying metadata files to {sharded_model_dir.path}")
+    for file in os.listdir(model_path):
+        if os.path.splitext(file)[1] not in (".bin", ".pt", ".safetensors"):
+            if os.path.isdir(os.path.join(model_path, file)):
+                shutil.copytree(os.path.join(model_path, file), os.path.join(sharded_model_dir.path, file))
+            else:
+                shutil.copy(os.path.join(model_path, file), sharded_model_dir.path)
+
+    return sharded_model_dir
 
 
 # Container and secrets are set in the create_hf_model_cache_workflow
@@ -217,15 +255,14 @@ def validate_repo(info: HuggingFaceModelInfo, hf_token_key: str) -> Tuple[str, d
 
 @dataclass
 class ArtifactInfo:
+    artifact_name: str
     blob: str
     model_uri: str
 
 
 # Container, secrets, and resources are set in the create_hf_model_cache_workflow
 @union.task(cache=True, cache_version="1.1")
-def cache_model_from_hf(
-    info: HuggingFaceModelInfo, commit: str, chunk_size: int, retry: int, hf_token_key: str
-) -> ArtifactInfo:
+def cache_model_from_hf(info: HuggingFaceModelInfo, commit: str, retry: int, hf_token_key: str) -> ArtifactInfo:
     """
     This task caches a model from the Hugging Face Hub, given the model info.
     Args:
@@ -235,6 +272,7 @@ def cache_model_from_hf(
     Returns:
         FlyteDirectory: The model artifact.
     """
+    print("Model info: ", info)
     print(f"Caching model from huggingface repo: {info.repo}, commit: {commit}", flush=True)
     ctx = union.current_context()
     token = ctx.secrets.get(key=hf_token_key)
@@ -251,18 +289,22 @@ def cache_model_from_hf(
 
     print(f"Model type: {info.model_type}, architecture: {info.architecture}")
 
-    partitions = get_partition_keys_for_model(info)
-    partitions["huggingface-source"] = info.repo
-    partitions[COMMIT_KEY] = commit
+    partitions = get_partition_keys_for_model(info, commit)
     print(f"Partitions: {partitions}")
 
     print("Downloading files...", flush=True)
-    directory, card = download_all_files_to_flytedir(info.repo, commit, token, chunk_size=chunk_size)
+    directory, card = download_all_files_to_flytedir(info.repo, commit, token)
     print(f"Data downloaded to {directory.path}")
-    artifact_name = info.repo.split("/")[-1]
-    artifact_name = artifact_name.replace(".", "_")
-    if retry > 0:
-        artifact_name = f"{artifact_name}-{retry}"
+
+    if info.shard_config is not None:
+        print(f"Sharding model with {info.shard_config.engine} engine")
+        directory = shard_model(info.shard_config, directory.path)
+
+    if info.artifact_name is None:
+        artifact_name = info.repo.split("/")[-1]
+        artifact_name = artifact_name.replace(".", "-")
+    else:
+        artifact_name = info.artifact_name
 
     o = union.Artifact(
         name=artifact_name,
@@ -278,7 +320,7 @@ def cache_model_from_hf(
     print(f"Emitting artifact, {o}")
     a: union.Artifact = _emit_artifact(ctx, o)
     print(f"Artifact emitted, {a.metadata().uri}")
-    return ArtifactInfo(blob=directory.path, model_uri=a.metadata().uri if a else "NA")
+    return ArtifactInfo(artifact_name=artifact_name, blob=directory.path, model_uri=a.metadata().uri if a else "NA")
 
 
 def create_hf_model_cache_workflow(
@@ -286,6 +328,7 @@ def create_hf_model_cache_workflow(
     hf_token_key: str,
     union_api_key: str,
     resources: Optional[Resources] = None,
+    accelerator: Optional[str] = None,
 ):
     """
     Create workflow runs the cache_model_from_hf task.
@@ -295,19 +338,28 @@ def create_hf_model_cache_workflow(
     retry: this can be used to force a new artifact to be created with the same name and an incremented version,
             this will create a new copy in blob store too
     info: HuggingFaceInfo: The model info.
-    chunk_size: Optional[int]: The chunk size to use when streaming the model files.
 
     The outputs are:
     ArtifactInfo: The model artifact
     """
     imperative_wf = Workflow(name=f"{__name__}.hf_model_cacher")
     imperative_wf.add_workflow_input("info", HuggingFaceModelInfo)
-    imperative_wf.add_workflow_input("chunk_size", int)
     imperative_wf.add_workflow_input("retry", int)
     imperative_wf.add_workflow_input("hf_token_key", str)
 
     if resources is None:
-        resources = union.Resources(mem="2Gi", cpu="2")
+        resources = union.Resources(mem="2Gi", cpu="2", ephemeral_storage="16Gi")
+
+    task_kwargs = {}
+    if accelerator is not None:
+        if accelerator == "nvidia-a100":
+            accelerator = accelerators.A100
+        elif accelerator == "nvidia-a100-80gb":
+            accelerator = accelerators.A100_80GB
+        else:
+            accelerator = accelerators.GPUAccelerator(accelerator)
+        task_kwargs["accelerator"] = accelerator
+        task_kwargs["shared_memory"] = True
 
     hf_secret = Secret(key=hf_token_key)
     union_api_secret = Secret(key=union_api_key, env_var="UNION_API_KEY")
@@ -322,6 +374,7 @@ def create_hf_model_cache_workflow(
         requests=resources,
         limits=resources,
         secret_requests=[hf_secret],
+        **task_kwargs,
     )(validate_repo.task_function)
 
     validate_repo_node = imperative_wf.add_entity(
@@ -335,13 +388,13 @@ def create_hf_model_cache_workflow(
         requests=resources,
         limits=resources,
         secret_requests=[hf_secret, union_api_secret],
+        **task_kwargs,
     )(cache_model_from_hf.task_function)
 
     cache_model_from_hf_node = imperative_wf.add_entity(
         cache_mode_task,
         info=imperative_wf.inputs["info"],
         commit=validate_repo_node.outputs["o0"],
-        chunk_size=imperative_wf.inputs["chunk_size"],
         retry=imperative_wf.inputs["retry"],
         hf_token_key=imperative_wf.inputs["hf_token_key"],
     )

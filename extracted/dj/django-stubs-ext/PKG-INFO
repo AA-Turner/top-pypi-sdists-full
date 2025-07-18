@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs-ext
-Version: 5.2.1
+Version: 5.2.2
 Summary: Monkey-patching and extensions for django-stubs
 Project-URL: Homepage, https://github.com/typeddjango/django-stubs
 Project-URL: Funding, https://github.com/sponsors/typeddjango

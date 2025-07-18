@@ -584,6 +584,24 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         cert_status = response_json.get("status")
         return cert_status
 
+    async def _load_server_dask_config(self, workspace: str | None = None):
+        workspace = workspace or self.default_workspace
+        response = await self._do_request(
+            "GET",
+            self.server + f"/api/v2/user/workspace/{workspace}/dask-config-overrides",
+        )
+        new_settings = await response.json()
+        dask.config.set(new_settings)
+
+    @overload
+    def load_server_dask_config(self: Cloud[Async], workspace: str | None = None): ...
+
+    @overload
+    def load_server_dask_config(self: Cloud[Sync], workspace: str | None = None): ...
+
+    def load_server_dask_config(self, workspace: str | None = None):
+        return self._sync(self._load_server_dask_config, workspace=workspace)
+
     @track_context
     async def _create_cluster(
         self,

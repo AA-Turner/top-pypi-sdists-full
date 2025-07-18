@@ -240,6 +240,7 @@ class Exceptions(BaseClientExceptions):
     ServiceQuotaExceededException: Type[BotocoreClientError]
     ThrottlingException: Type[BotocoreClientError]
     TooManyTagsException: Type[BotocoreClientError]
+    UnauthorizedException: Type[BotocoreClientError]
     ValidationException: Type[BotocoreClientError]
 
 class QConnectClient(AioBaseClient):
@@ -746,7 +747,7 @@ class QConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetRecommendationsRequestTypeDef]
     ) -> GetRecommendationsResponseTypeDef:
         """
-        This API will be discontinued starting June 1, 2024.
+        <important> <p>This API will be discontinued starting June 1, 2024.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/get_recommendations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/client/#get_recommendations)
@@ -959,7 +960,7 @@ class QConnectClient(AioBaseClient):
         self, **kwargs: Unpack[QueryAssistantRequestTypeDef]
     ) -> QueryAssistantResponseTypeDef:
         """
-        This API will be discontinued starting June 1, 2024.
+        <important> <p>This API will be discontinued starting June 1, 2024.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qconnect/client/query_assistant.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qconnect/client/#query_assistant)

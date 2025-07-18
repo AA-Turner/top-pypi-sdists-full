@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Generic, List, Optional, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.resolver import Dependency, DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
@@ -102,8 +102,8 @@ class EntityBase(Generic[T]):
     ) -> SqlExecutor:
         return get_sql_executor()
 
-    def _execute_query(self, sql: str) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(sql)
+    def _execute_query(self, sql: str, **kwargs) -> SnowflakeCursor:
+        return self._sql_executor.execute_query(sql, **kwargs)
 
     @functools.cached_property
     def _conn(self) -> SnowflakeConnection:
@@ -116,13 +116,6 @@ class EntityBase(Generic[T]):
     @property
     def schema(self) -> Optional[str]:
         return self.get_from_fqn_or_conn("schema")
-
-    @property
-    def snow_api_root(self) -> Optional[object]:
-        root = get_cli_context().snow_api_root
-        if root is None:
-            raise ValueError("snow_api_root is not set")
-        return root
 
     @property
     def model(self) -> T:
@@ -140,12 +133,22 @@ class EntityBase(Generic[T]):
     def get_drop_sql(self) -> str:
         return f"DROP {self.model.type.upper()} {self.identifier};"  # type: ignore[attr-defined]
 
+    def _get_fqn(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> FQN:
+        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
+        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
+        return self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use)  # type: ignore
+
+    def _get_sql_identifier(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> str:
+        return str(self._get_fqn(schema, database).sql_identifier)
+
     def _get_identifier(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ) -> str:
-        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
-        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
-        return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"  # type: ignore
+        return str(self._get_fqn(schema, database).identifier)
 
     def get_from_fqn_or_conn(self, attribute_name: str) -> str:
         attribute = getattr(self.fqn, attribute_name, None) or getattr(

@@ -131,7 +131,6 @@ class WebhookSettings:
     # Flag to handle the metadata of a found page
     on_find_metadata: bool
 
-@dataclass
 class CSSSelector(TypedDict):
     """
     Represents a set of CSS selectors grouped under a common name.

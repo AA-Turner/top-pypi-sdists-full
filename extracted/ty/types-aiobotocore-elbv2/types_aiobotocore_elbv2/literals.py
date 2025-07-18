@@ -37,6 +37,9 @@ __all__ = (
     "DescribeSSLPoliciesPaginatorName",
     "DescribeTargetGroupsPaginatorName",
     "DescribeTargetHealthInputIncludeEnumType",
+    "DescribeTrustStoreAssociationsPaginatorName",
+    "DescribeTrustStoreRevocationsPaginatorName",
+    "DescribeTrustStoresPaginatorName",
     "ElasticLoadBalancingv2ServiceName",
     "EnablePrefixForIpv6SourceNatEnumType",
     "EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType",
@@ -86,6 +89,9 @@ DescribeRulesPaginatorName = Literal["describe_rules"]
 DescribeSSLPoliciesPaginatorName = Literal["describe_ssl_policies"]
 DescribeTargetGroupsPaginatorName = Literal["describe_target_groups"]
 DescribeTargetHealthInputIncludeEnumType = Literal["All", "AnomalyDetection"]
+DescribeTrustStoreAssociationsPaginatorName = Literal["describe_trust_store_associations"]
+DescribeTrustStoreRevocationsPaginatorName = Literal["describe_trust_store_revocations"]
+DescribeTrustStoresPaginatorName = Literal["describe_trust_stores"]
 EnablePrefixForIpv6SourceNatEnumType = Literal["off", "on"]
 EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnumType = Literal["off", "on"]
 IpAddressTypeType = Literal["dualstack", "dualstack-without-public-ipv4", "ipv4"]
@@ -138,6 +144,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -278,6 +285,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -335,6 +343,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -390,6 +399,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -534,6 +544,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -558,6 +569,9 @@ PaginatorName = Literal[
     "describe_rules",
     "describe_ssl_policies",
     "describe_target_groups",
+    "describe_trust_store_associations",
+    "describe_trust_store_revocations",
+    "describe_trust_stores",
 ]
 WaiterName = Literal[
     "load_balancer_available",
@@ -569,6 +583,7 @@ WaiterName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

@@ -84,7 +84,8 @@ class DeployableModel:
 _hf_download_image = ImageSpec(
     name="hfhub-cache",
     registry="ghcr.io/unionai-oss",
-    packages=["huggingface_hub[hf_transfer]==0.26.3", "union==0.1.183"],
+    packages=["huggingface_hub[hf_transfer]==0.33.2", "union[vllm]==0.1.185"],
+    apt_packages=["build-essential", "gcc"],
 )
 
 
@@ -328,6 +329,13 @@ class UnionRemote(FlyteRemote):
 
         return union_artifacts
 
+    def _get_latest_artifact_uri(self, artifact_key: art_id.ArtifactKey) -> str:
+        """Gets the latest artifact URI for the given artifact key."""
+        req = artifacts_pb2.SearchArtifactsRequest(artifact_key=artifact_key, limit=1)
+        resp = self.artifacts_client.SearchArtifacts(req)
+        assert len(resp.artifacts) == 1, f"Expected 1 artifact, got {len(resp.artifacts)}"
+        return resp.artifacts[0].metadata.uri
+
     def get_artifact(
         self,
         uri: typing.Optional[str] = None,
@@ -346,20 +354,23 @@ class UnionRemote(FlyteRemote):
         :param get_details: A bool to indicate whether or not to return artifact details.
         :return: The artifact as persisted in the service.
         """
+
         if query:
             if isinstance(query, ArtifactQuery):
-                q = query.to_flyte_idl()
+                query_idl = query.to_flyte_idl()
             else:
-                q = query
+                query_idl = query
+
+            query_idl = art_id.ArtifactQuery(uri=self._get_latest_artifact_uri(query_idl.artifact_id.artifact_key))
         elif uri:
-            q = art_id.ArtifactQuery(uri=uri)
+            query_idl = art_id.ArtifactQuery(uri=uri)
         elif artifact_key:
-            q = art_id.ArtifactQuery(artifact_id=art_id.ArtifactID(artifact_key=artifact_key))
+            query_idl = art_id.ArtifactQuery(uri=self._get_latest_artifact_uri(artifact_key))
         elif artifact_id:
-            q = art_id.ArtifactQuery(artifact_id=artifact_id)
+            query_idl = art_id.ArtifactQuery(artifact_id=artifact_id)
         else:
             raise ValueError("One of uri, key, id")
-        req = artifacts_pb2.GetArtifactRequest(query=q, details=get_details)
+        req = artifacts_pb2.GetArtifactRequest(query=query_idl, details=get_details)
         resp = self.artifacts_client.GetArtifact(req)
         a = Artifact.from_flyte_idl(resp.artifact)
         if a.literal and a.name:
@@ -515,23 +526,25 @@ class UnionRemote(FlyteRemote):
         union_api_key: str,
         project: typing.Optional[str] = None,
         domain: typing.Optional[str] = None,
-        chunk_size: int | None = None,
         retry: int = 0,
         resources: Optional[Resources] = None,
+        accelerator: Optional[str] = None,
     ) -> FlyteWorkflowExecution:
         """
         This executes a background task to cache a model from Hugging Face and returns the handle to the execution.
-        TODO maybe we should verify all requirements are met - 1. validate model 2. validate token exists
-        and launch the execution with name=commit
+
         :param info: The model info.
         :param project: The project where the model will be stored.
         :param domain: The domain where the model will be stored.
-        :param chunk_size: The chunk size to use when streaming the model files.
         :param retry: This can be used to force a new artifact to be created with the same name and an incremented
             version,
         :param resources: Specify compute resource requests for your task.
+        :param accelerator: The accelerator to use for downloading, (optionally) sharding, and caching hugging face
+            model.
         :return: The model artifact.
         """
+        # TODO maybe we should verify all requirements are met - 1. validate model 2. validate token exists
+        # and launch the execution with name=commit
         if project is None:
             project = self.default_project
         if domain is None:
@@ -545,7 +558,7 @@ class UnionRemote(FlyteRemote):
 
         image = self._get_hf_hub_download_image()
         model_cache_wf, source_path, additional_context = create_hf_model_cache_workflow(
-            image, hf_token_key, union_api_key, resources=resources
+            image, hf_token_key, union_api_key, resources=resources, accelerator=accelerator
         )
 
         mod_name = ".".join(model_cache_wf.name.split(".")[:-1])
@@ -557,7 +570,6 @@ class UnionRemote(FlyteRemote):
             wf = self.register_script(model_cache_wf, module_name=mod_name, source_path=source_path)
 
         inputs = {"info": info}
-        inputs["chunk_size"] = chunk_size or 8 * 1024 * 1024
         inputs["retry"] = retry or 0
         inputs["hf_token_key"] = hf_token_key
 

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore
-Version: 2.23.0
-Summary: Type annotations for aiobotocore 2.23.0 generated with mypy-boto3-builder 8.11.0
+Version: 2.23.1
+Summary: Type annotations for aiobotocore 2.23.1 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -35,12 +35,13 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<2.24.0,>=2.23.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==2.23.0; extra == "aiobotocore"
+Requires-Dist: aiobotocore==2.23.1; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-acm<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-acm-pca<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-aiops<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-amp<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-amplify<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-amplifybackend<2.24.0,>=2.23.0; extra == "all"
@@ -181,6 +182,7 @@ Requires-Dist: types-aiobotocore-entityresolution<2.24.0,>=2.23.0; extra == "all
 Requires-Dist: types-aiobotocore-es<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-events<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-evidently<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-evs<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-finspace<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-finspace-data<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-firehose<2.24.0,>=2.23.0; extra == "all"
@@ -238,6 +240,7 @@ Requires-Dist: types-aiobotocore-kafkaconnect<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-kendra<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-kendra-ranking<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-keyspaces<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-keyspacesstreams<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-kinesis<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-kinesis-video-archived-media<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-kinesis-video-media<2.24.0,>=2.23.0; extra == "all"
@@ -293,6 +296,7 @@ Requires-Dist: types-aiobotocore-migration-hub-refactor-spaces<2.24.0,>=2.23.0; 
 Requires-Dist: types-aiobotocore-migrationhub-config<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-migrationhubstrategy<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-mpa<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-mq<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-mturk<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-mwaa<2.24.0,>=2.23.0; extra == "all"
@@ -437,6 +441,7 @@ Requires-Dist: types-aiobotocore-workdocs<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-workmail<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-workmailmessageflow<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-workspaces<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-workspaces-instances<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-workspaces-thin-client<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-workspaces-web<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-xray<2.24.0,>=2.23.0; extra == "all"
@@ -456,6 +461,8 @@ Provides-Extra: acm
 Requires-Dist: types-aiobotocore-acm<2.24.0,>=2.23.0; extra == "acm"
 Provides-Extra: acm-pca
 Requires-Dist: types-aiobotocore-acm-pca<2.24.0,>=2.23.0; extra == "acm-pca"
+Provides-Extra: aiops
+Requires-Dist: types-aiobotocore-aiops<2.24.0,>=2.23.0; extra == "aiops"
 Provides-Extra: amp
 Requires-Dist: types-aiobotocore-amp<2.24.0,>=2.23.0; extra == "amp"
 Provides-Extra: amplify
@@ -736,6 +743,8 @@ Provides-Extra: events
 Requires-Dist: types-aiobotocore-events<2.24.0,>=2.23.0; extra == "events"
 Provides-Extra: evidently
 Requires-Dist: types-aiobotocore-evidently<2.24.0,>=2.23.0; extra == "evidently"
+Provides-Extra: evs
+Requires-Dist: types-aiobotocore-evs<2.24.0,>=2.23.0; extra == "evs"
 Provides-Extra: finspace
 Requires-Dist: types-aiobotocore-finspace<2.24.0,>=2.23.0; extra == "finspace"
 Provides-Extra: finspace-data
@@ -850,6 +859,8 @@ Provides-Extra: kendra-ranking
 Requires-Dist: types-aiobotocore-kendra-ranking<2.24.0,>=2.23.0; extra == "kendra-ranking"
 Provides-Extra: keyspaces
 Requires-Dist: types-aiobotocore-keyspaces<2.24.0,>=2.23.0; extra == "keyspaces"
+Provides-Extra: keyspacesstreams
+Requires-Dist: types-aiobotocore-keyspacesstreams<2.24.0,>=2.23.0; extra == "keyspacesstreams"
 Provides-Extra: kinesis
 Requires-Dist: types-aiobotocore-kinesis<2.24.0,>=2.23.0; extra == "kinesis"
 Provides-Extra: kinesis-video-archived-media
@@ -960,6 +971,8 @@ Provides-Extra: migrationhuborchestrator
 Requires-Dist: types-aiobotocore-migrationhuborchestrator<2.24.0,>=2.23.0; extra == "migrationhuborchestrator"
 Provides-Extra: migrationhubstrategy
 Requires-Dist: types-aiobotocore-migrationhubstrategy<2.24.0,>=2.23.0; extra == "migrationhubstrategy"
+Provides-Extra: mpa
+Requires-Dist: types-aiobotocore-mpa<2.24.0,>=2.23.0; extra == "mpa"
 Provides-Extra: mq
 Requires-Dist: types-aiobotocore-mq<2.24.0,>=2.23.0; extra == "mq"
 Provides-Extra: mturk
@@ -1248,6 +1261,8 @@ Provides-Extra: workmailmessageflow
 Requires-Dist: types-aiobotocore-workmailmessageflow<2.24.0,>=2.23.0; extra == "workmailmessageflow"
 Provides-Extra: workspaces
 Requires-Dist: types-aiobotocore-workspaces<2.24.0,>=2.23.0; extra == "workspaces"
+Provides-Extra: workspaces-instances
+Requires-Dist: types-aiobotocore-workspaces-instances<2.24.0,>=2.23.0; extra == "workspaces-instances"
 Provides-Extra: workspaces-thin-client
 Requires-Dist: types-aiobotocore-workspaces-thin-client<2.24.0,>=2.23.0; extra == "workspaces-thin-client"
 Provides-Extra: workspaces-web
@@ -1281,7 +1296,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore 2.23.0](https://pypi.org/project/aiobotocore/) compatible with
+[aiobotocore 2.23.1](https://pypi.org/project/aiobotocore/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1337,7 +1352,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.23.0' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.23.1' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1633,9 +1648,9 @@ repository.
 
 ## Submodules
 
-- `types-aiobotocore[full]` - Type annotations for all 403 services in one
+- `types-aiobotocore[full]` - Type annotations for all 408 services in one
   package (recommended).
-- `types-aiobotocore[all]` - Type annotations for all 403 services in separate
+- `types-aiobotocore[all]` - Type annotations for all 408 services in separate
   packages.
 - `types-aiobotocore[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/),
@@ -1660,6 +1675,9 @@ repository.
   service.
 - `types-aiobotocore[acm-pca]` - Type annotations for
   [ACMPCA](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm_pca/)
+  service.
+- `types-aiobotocore[aiops]` - Type annotations for
+  [AIOps](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_aiops/)
   service.
 - `types-aiobotocore[amp]` - Type annotations for
   [PrometheusService](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/)
@@ -2081,6 +2099,9 @@ repository.
 - `types-aiobotocore[evidently]` - Type annotations for
   [CloudWatchEvidently](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evidently/)
   service.
+- `types-aiobotocore[evs]` - Type annotations for
+  [EVS](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/)
+  service.
 - `types-aiobotocore[finspace]` - Type annotations for
   [Finspace](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_finspace/)
   service.
@@ -2252,6 +2273,9 @@ repository.
 - `types-aiobotocore[keyspaces]` - Type annotations for
   [Keyspaces](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_keyspaces/)
   service.
+- `types-aiobotocore[keyspacesstreams]` - Type annotations for
+  [KeyspacesStreams](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_keyspacesstreams/)
+  service.
 - `types-aiobotocore[kinesis]` - Type annotations for
   [Kinesis](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kinesis/)
   service.
@@ -2418,6 +2442,9 @@ repository.
   service.
 - `types-aiobotocore[migrationhubstrategy]` - Type annotations for
   [MigrationHubStrategyRecommendations](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_migrationhubstrategy/)
+  service.
+- `types-aiobotocore[mpa]` - Type annotations for
+  [MultipartyApproval](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mpa/)
   service.
 - `types-aiobotocore[mq]` - Type annotations for
   [MQ](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mq/)
@@ -2850,6 +2877,9 @@ repository.
   service.
 - `types-aiobotocore[workspaces]` - Type annotations for
   [WorkSpaces](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces/)
+  service.
+- `types-aiobotocore[workspaces-instances]` - Type annotations for
+  [WorkspacesInstances](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_instances/)
   service.
 - `types-aiobotocore[workspaces-thin-client]` - Type annotations for
   [WorkSpacesThinClient](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_workspaces_thin_client/)

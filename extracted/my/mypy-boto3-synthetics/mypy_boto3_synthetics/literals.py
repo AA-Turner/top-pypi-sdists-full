@@ -28,6 +28,7 @@ __all__ = (
     "CanaryRunTestResultType",
     "CanaryStateReasonCodeType",
     "CanaryStateType",
+    "DependencyTypeType",
     "EncryptionModeType",
     "ProvisionedResourceCleanupSettingType",
     "RegionName",
@@ -67,6 +68,7 @@ CanaryStateType = Literal[
     "STOPPING",
     "UPDATING",
 ]
+DependencyTypeType = Literal["LambdaLayer"]
 EncryptionModeType = Literal["SSE_KMS", "SSE_S3"]
 ProvisionedResourceCleanupSettingType = Literal["AUTOMATIC", "OFF"]
 ResourceToTagType = Literal["lambda-function"]
@@ -115,6 +117,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -347,6 +351,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -407,6 +412,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

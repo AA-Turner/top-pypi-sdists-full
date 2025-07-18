@@ -1,7 +1,9 @@
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, Optional
 from uuid import UUID
+
+from typing_extensions import TypedDict
 
 from langgraph_api.serde import Fragment
 

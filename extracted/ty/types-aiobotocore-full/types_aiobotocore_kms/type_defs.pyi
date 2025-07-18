@@ -33,7 +33,11 @@ from .literals import (
     EncryptionAlgorithmSpecType,
     ExpirationModelTypeType,
     GrantOperationType,
+    ImportStateType,
+    ImportTypeType,
+    IncludeKeyMaterialType,
     KeyManagerTypeType,
+    KeyMaterialStateType,
     KeySpecType,
     KeyStateType,
     KeyUsageTypeType,
@@ -77,6 +81,7 @@ __all__ = (
     "DeleteAliasRequestTypeDef",
     "DeleteCustomKeyStoreRequestTypeDef",
     "DeleteImportedKeyMaterialRequestTypeDef",
+    "DeleteImportedKeyMaterialResponseTypeDef",
     "DeriveSharedSecretRequestTypeDef",
     "DeriveSharedSecretResponseTypeDef",
     "DescribeCustomKeyStoresRequestPaginateTypeDef",
@@ -117,6 +122,7 @@ __all__ = (
     "GrantConstraintsUnionTypeDef",
     "GrantListEntryTypeDef",
     "ImportKeyMaterialRequestTypeDef",
+    "ImportKeyMaterialResponseTypeDef",
     "KeyListEntryTypeDef",
     "KeyMetadataTypeDef",
     "ListAliasesRequestPaginateTypeDef",
@@ -224,6 +230,7 @@ class DeleteCustomKeyStoreRequestTypeDef(TypedDict):
 
 class DeleteImportedKeyMaterialRequestTypeDef(TypedDict):
     KeyId: str
+    KeyMaterialId: NotRequired[str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -323,11 +330,18 @@ class ListKeyPoliciesRequestTypeDef(TypedDict):
 
 class ListKeyRotationsRequestTypeDef(TypedDict):
     KeyId: str
+    IncludeKeyMaterial: NotRequired[IncludeKeyMaterialType]
     Limit: NotRequired[int]
     Marker: NotRequired[str]
 
 class RotationsListEntryTypeDef(TypedDict):
     KeyId: NotRequired[str]
+    KeyMaterialId: NotRequired[str]
+    KeyMaterialDescription: NotRequired[str]
+    ImportState: NotRequired[ImportStateType]
+    KeyMaterialState: NotRequired[KeyMaterialStateType]
+    ExpirationModel: NotRequired[ExpirationModelTypeType]
+    ValidTo: NotRequired[datetime]
     RotationDate: NotRequired[datetime]
     RotationType: NotRequired[RotationTypeType]
 
@@ -462,6 +476,12 @@ class DecryptResponseTypeDef(TypedDict):
     Plaintext: bytes
     EncryptionAlgorithm: EncryptionAlgorithmSpecType
     CiphertextForRecipient: bytes
+    KeyMaterialId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteImportedKeyMaterialResponseTypeDef(TypedDict):
+    KeyId: str
+    KeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeriveSharedSecretResponseTypeDef(TypedDict):
@@ -488,6 +508,7 @@ class GenerateDataKeyPairResponseTypeDef(TypedDict):
     KeyId: str
     KeyPairSpec: DataKeyPairSpecType
     CiphertextForRecipient: bytes
+    KeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GenerateDataKeyPairWithoutPlaintextResponseTypeDef(TypedDict):
@@ -495,6 +516,7 @@ class GenerateDataKeyPairWithoutPlaintextResponseTypeDef(TypedDict):
     PublicKey: bytes
     KeyId: str
     KeyPairSpec: DataKeyPairSpecType
+    KeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GenerateDataKeyResponseTypeDef(TypedDict):
@@ -502,11 +524,13 @@ class GenerateDataKeyResponseTypeDef(TypedDict):
     Plaintext: bytes
     KeyId: str
     CiphertextForRecipient: bytes
+    KeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GenerateDataKeyWithoutPlaintextResponseTypeDef(TypedDict):
     CiphertextBlob: bytes
     KeyId: str
+    KeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GenerateMacResponseTypeDef(TypedDict):
@@ -551,6 +575,11 @@ class GetPublicKeyResponseTypeDef(TypedDict):
     KeyAgreementAlgorithms: List[Literal["ECDH"]]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ImportKeyMaterialResponseTypeDef(TypedDict):
+    KeyId: str
+    KeyMaterialId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListAliasesResponseTypeDef(TypedDict):
     Aliases: List[AliasListEntryTypeDef]
     NextMarker: str
@@ -569,6 +598,8 @@ class ReEncryptResponseTypeDef(TypedDict):
     KeyId: str
     SourceEncryptionAlgorithm: EncryptionAlgorithmSpecType
     DestinationEncryptionAlgorithm: EncryptionAlgorithmSpecType
+    SourceKeyMaterialId: str
+    DestinationKeyMaterialId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RotateKeyOnDemandResponseTypeDef(TypedDict):
@@ -686,6 +717,7 @@ class ListKeyPoliciesRequestPaginateTypeDef(TypedDict):
 
 class ListKeyRotationsRequestPaginateTypeDef(TypedDict):
     KeyId: str
+    IncludeKeyMaterial: NotRequired[IncludeKeyMaterialType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListKeysRequestPaginateTypeDef(TypedDict):
@@ -718,6 +750,9 @@ class ImportKeyMaterialRequestTypeDef(TypedDict):
     EncryptedKeyMaterial: BlobTypeDef
     ValidTo: NotRequired[TimestampTypeDef]
     ExpirationModel: NotRequired[ExpirationModelTypeType]
+    ImportType: NotRequired[ImportTypeType]
+    KeyMaterialDescription: NotRequired[str]
+    KeyMaterialId: NotRequired[str]
 
 class ListKeysResponseTypeDef(TypedDict):
     Keys: List[KeyListEntryTypeDef]
@@ -823,6 +858,7 @@ class KeyMetadataTypeDef(TypedDict):
     PendingDeletionWindowInDays: NotRequired[int]
     MacAlgorithms: NotRequired[List[MacAlgorithmSpecType]]
     XksKeyConfiguration: NotRequired[XksKeyConfigurationTypeTypeDef]
+    CurrentKeyMaterialId: NotRequired[str]
 
 class CreateKeyResponseTypeDef(TypedDict):
     KeyMetadata: KeyMetadataTypeDef

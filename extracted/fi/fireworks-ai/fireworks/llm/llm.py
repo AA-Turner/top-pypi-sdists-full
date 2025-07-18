@@ -1398,7 +1398,6 @@ class LLM:
         reward_function: Callable,
         # BaseTrainingConfig fields
         output_model: Optional[str] = None,
-        warm_start_from: Optional[str] = None,
         jinja_template: Optional[str] = None,
         learning_rate: Optional[float] = 0.0001,
         max_context_length: Optional[int] = 8192,
@@ -1506,7 +1505,7 @@ class LLM:
         max_context_length: Optional[int] = None,
         base_model_weight_precision: Optional[WeightPrecisionLiteral] = None,
         wandb_config: Optional[WandbConfig] = None,
-        evaluation_dataset: Optional[str] = None,
+        evaluation_dataset: Optional[Union[Dataset, str]] = None,
         accelerator_type: Optional[AcceleratorTypeLiteral] = None,
         accelerator_count: Optional[int] = None,
         is_turbo: Optional[bool] = None,
@@ -1531,7 +1530,7 @@ class LLM:
             max_context_length: The maximum context length to use during fine-tuning.
             base_model_weight_precision: The weight precision to use for the base model.
             wandb_config: Configuration for Weights & Biases integration.
-            evaluation_dataset: ID of the dataset to use for evaluation.
+            evaluation_dataset: Dataset or dataset id to use for evaluation.
             accelerator_type: The type of accelerator to use for fine-tuning.
             accelerator_count: The number of accelerators to use.
             is_turbo: Whether to use turbo mode for faster fine-tuning.
@@ -1553,6 +1552,11 @@ class LLM:
             raise ValueError("job name must only contain lowercase a-z, 0-9, and hyphen (-)")
 
         dataset = dataset_or_id.name if isinstance(dataset_or_id, Dataset) else Dataset.from_id(dataset_or_id).name
+        evaluation_dataset_name = (
+            evaluation_dataset.name
+            if isinstance(evaluation_dataset, Dataset)
+            else Dataset.from_id(evaluation_dataset).name if evaluation_dataset is not None else None
+        )
         proto = SyncSupervisedFineTuningJob(
             display_name=display_name,
             epochs=epochs,
@@ -1562,7 +1566,7 @@ class LLM:
             max_context_length=max_context_length,
             base_model_weight_precision=base_model_weight_precision,
             dataset=dataset,
-            evaluation_dataset=evaluation_dataset,
+            evaluation_dataset=evaluation_dataset_name,
             accelerator_type=accelerator_type,
             accelerator_count=accelerator_count,
             region=region,
@@ -1589,6 +1593,7 @@ class LLM:
             llm=self,
             proto=proto,
             dataset_or_id=dataset_or_id,
+            evaluation_dataset=evaluation_dataset,
             api_key=self._gateway._api_key,
         )
         job = job.sync()

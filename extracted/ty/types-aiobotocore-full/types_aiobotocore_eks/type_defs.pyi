@@ -27,6 +27,7 @@ from .literals import (
     AMITypesType,
     AuthenticationModeType,
     CapacityTypesType,
+    CategoryType,
     ClusterIssueCodeType,
     ClusterStatusType,
     ClusterVersionStatusType,
@@ -526,6 +527,8 @@ class CreatePodIdentityAssociationRequestTypeDef(TypedDict):
     roleArn: str
     clientRequestToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    disableSessionTags: NotRequired[bool]
+    targetRoleArn: NotRequired[str]
 
 class PodIdentityAssociationTypeDef(TypedDict):
     clusterName: NotRequired[str]
@@ -538,6 +541,9 @@ class PodIdentityAssociationTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     modifiedAt: NotRequired[datetime]
     ownerArn: NotRequired[str]
+    disableSessionTags: NotRequired[bool]
+    targetRoleArn: NotRequired[str]
+    externalId: NotRequired[str]
 
 class DeleteAccessEntryRequestTypeDef(TypedDict):
     clusterName: str
@@ -719,7 +725,7 @@ class InsightStatusTypeDef(TypedDict):
     reason: NotRequired[str]
 
 class InsightsFilterTypeDef(TypedDict):
-    categories: NotRequired[Sequence[Literal["UPGRADE_READINESS"]]]
+    categories: NotRequired[Sequence[CategoryType]]
     kubernetesVersions: NotRequired[Sequence[str]]
     statuses: NotRequired[Sequence[InsightStatusValueType]]
 
@@ -884,6 +890,8 @@ class UpdatePodIdentityAssociationRequestTypeDef(TypedDict):
     associationId: str
     roleArn: NotRequired[str]
     clientRequestToken: NotRequired[str]
+    disableSessionTags: NotRequired[bool]
+    targetRoleArn: NotRequired[str]
 
 class AssociatedAccessPolicyTypeDef(TypedDict):
     policyArn: NotRequired[str]
@@ -1251,7 +1259,7 @@ InsightSummaryTypeDef = TypedDict(
     {
         "id": NotRequired[str],
         "name": NotRequired[str],
-        "category": NotRequired[Literal["UPGRADE_READINESS"]],
+        "category": NotRequired[CategoryType],
         "kubernetesVersion": NotRequired[str],
         "lastRefreshTime": NotRequired[datetime],
         "lastTransitionTime": NotRequired[datetime],
@@ -1570,7 +1578,7 @@ InsightTypeDef = TypedDict(
     {
         "id": NotRequired[str],
         "name": NotRequired[str],
-        "category": NotRequired[Literal["UPGRADE_READINESS"]],
+        "category": NotRequired[CategoryType],
         "kubernetesVersion": NotRequired[str],
         "lastRefreshTime": NotRequired[datetime],
         "lastTransitionTime": NotRequired[datetime],

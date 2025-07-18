@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mypy-zope
-Version: 1.0.12
+Version: 1.0.13
 Summary: Plugin for mypy to support zope interfaces
 Home-page: https://github.com/Shoobx/mypy-zope
 Author: Andrey Lebedev
@@ -10,7 +10,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -21,7 +20,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mypy<1.17.0,>=1.0.0
+Requires-Dist: mypy<1.18.0,>=1.0.0
 Requires-Dist: zope.interface
 Requires-Dist: zope.schema
 Provides-Extra: test

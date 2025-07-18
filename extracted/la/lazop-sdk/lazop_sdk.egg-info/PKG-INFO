@@ -1,16 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lazop-sdk
-Version: 1.0.2
+Version: 1.0.3
 Summary: Lazada Official SDK
 Home-page: https://github.com/PsKs/lazop-sdk
 Author: Pongsakorn
 Author-email: pongsakorn.psks@gmail.com
 License: README.md
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: requests
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 This SDK from [Open Lazada](https://open.lazada.com/ "Lazada Open Platform")
 
@@ -35,5 +48,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-

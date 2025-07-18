@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: supabase
-Version: 2.16.0
+Version: 2.17.0
 Summary: Supabase client for Python.
 Home-page: https://github.com/supabase/supabase-py
 License: MIT
@@ -15,12 +15,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: gotrue (>=2.11.0,<3.0.0)
+Requires-Dist: gotrue (==2.12.3)
 Requires-Dist: httpx (>=0.26,<0.29)
-Requires-Dist: postgrest (>0.19,<1.2)
-Requires-Dist: realtime (>=2.4.0,<2.6.0)
-Requires-Dist: storage3 (>=0.10,<0.13)
-Requires-Dist: supafunc (>=0.9,<0.11)
+Requires-Dist: postgrest (==1.1.1)
+Requires-Dist: realtime (==2.6.0)
+Requires-Dist: storage3 (==0.12.0)
+Requires-Dist: supafunc (==0.10.1)
 Project-URL: Documentation, https://github.com/supabase/supabase-py
 Project-URL: Repository, https://github.com/supabase/supabase-py
 Description-Content-Type: text/markdown
@@ -61,7 +61,7 @@ conda create --name supabase-py
 conda activate supabase-py
 ```
 
-### PyPi installation
+### PyPI installation
 
 Install the package (for Python >= 3.9):
 
@@ -285,6 +285,14 @@ data = supabase.storage.from_(bucket_name).move(old_file_path, new_file_path)
 ## Contributing
 
 Contributing to the Python libraries are a great way to get involved with the Supabase community. Reach out to us on [Discord](https://discord.supabase.com) or on our [Github Discussions](https://github.com/orgs/supabase/discussions) page if you want to get involved.
+
+## Important: Proper Client Shutdown
+
+To ensure the Supabase client terminates correctly and to prevent resource leaks, you **must** explicitly call:
+
+```python
+client.auth.sign_out()
+```
 
 ### Running Tests
 

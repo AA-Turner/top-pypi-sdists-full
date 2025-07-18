@@ -544,6 +544,7 @@ class cli:
                 "PdfWriter": "pypdf",
                 "import PyPDF2": "PyPDF2",
                 "invoke_api_": "requests",
+                "login_2fac": "pyautogui",
                 "wait_for": "pygetwindow",
                 "from selenium_stealth import stealth": "selenium-stealth",
                 "capmonstercloudclient": "bcpkgfox[capmonstercloudclient]",

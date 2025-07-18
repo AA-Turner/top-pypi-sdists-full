@@ -2003,8 +2003,8 @@ class EC2Client(AioBaseClient):
         self, **kwargs: Unpack[AttachVolumeRequestTypeDef]
     ) -> VolumeAttachmentResponseTypeDef:
         """
-        Attaches an EBS volume to a running or stopped instance and exposes it to the
-        instance with the specified device name.
+        Attaches an Amazon EBS volume to a <code>running</code> or <code>stopped</code>
+        instance, and exposes it to the instance with the specified device name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/attach_volume.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#attach_volume)

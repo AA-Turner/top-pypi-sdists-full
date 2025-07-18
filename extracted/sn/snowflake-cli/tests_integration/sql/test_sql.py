@@ -29,6 +29,37 @@ def test_query_parameter(runner):
 
 
 @pytest.mark.integration
+def test_serializing_various_datatypes_to_json(runner):
+    sql = """
+    SELECT 
+        12::NUMBER as number_col, 
+        12.345::FLOAT as float_col, 
+        TO_BINARY('THIS SHOULD WORK', 'UTF-8') as binary_col,
+        true::BOOLEAN as bool_true_col,
+        false::BOOLEAN as bool_false_col,
+        '2024-01-01'::DATE as date_col,
+        '11:22:33'::TIME as time_col,
+        '2024-01-01 11:22:33'::DATETIME as datetime_col
+        
+    """
+    result = runner.invoke_with_connection_json(["sql", "-q", sql])
+
+    assert result.exit_code == 0
+    assert result.json == [
+        {
+            "NUMBER_COL": 12,
+            "FLOAT_COL": 12.345,
+            "BOOL_TRUE_COL": True,
+            "BOOL_FALSE_COL": False,
+            "DATE_COL": "2024-01-01",
+            "TIME_COL": "11:22:33",
+            "DATETIME_COL": "2024-01-01T11:22:33",
+            "BINARY_COL": "544849532053484f554c4420574f524b",
+        }
+    ]
+
+
+@pytest.mark.integration
 def test_multi_queries_from_file(runner, test_root_path):
     result = runner.invoke_with_connection_json(
         [
@@ -230,3 +261,89 @@ def test_sql_ec(runner):
         ],
     )
     assert result.exit_code == 5, result
+
+
+@pytest.mark.integration
+def test_inner_json_nested_object_extraction(runner):
+    """Test extracting nested JSON objects as proper JSON structures."""
+    nested_json = (
+        '{"user": {"profile": {"name": "Alice", "settings": {"theme": "dark"}}}}'
+    )
+    result = runner.invoke_with_connection_json_ext(
+        [
+            "sql",
+            "-q",
+            f"SELECT GET(PARSE_JSON('{nested_json}'), 'user') as user_object",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert len(result.json) == 1
+
+    # Verify that nested objects are returned as proper JSON structures
+    user_obj = result.json[0]["USER_OBJECT"]
+
+    # Check that user_object contains the complete user structure with nested profile
+    assert isinstance(user_obj, dict)
+    assert "profile" in user_obj
+
+    # Verify the nested profile structure is preserved
+    profile = user_obj["profile"]
+    assert isinstance(profile, dict)
+    assert profile["name"] == "Alice"
+    assert "settings" in profile
+
+    # Verify the deeply nested settings structure is preserved
+    settings = profile["settings"]
+    assert isinstance(settings, dict)
+    assert settings["theme"] == "dark"
+
+
+@pytest.mark.integration
+def test_array_construct_and_object_construct(runner):
+    """Test ARRAY_CONSTRUCT and OBJECT_CONSTRUCT functions return proper JSON structures."""
+    result = runner.invoke_with_connection_json_ext(
+        [
+            "sql",
+            "-q",
+            "SELECT ARRAY_CONSTRUCT(1, 2, 3) as a, OBJECT_CONSTRUCT('foo', 'XXXX', 'bar', 42) as o",
+        ]
+    )
+
+    assert result.exit_code == 0
+    assert len(result.json) == 1
+
+    # Verify that the array is returned as a proper list
+    array_result = result.json[0]["A"]
+    assert isinstance(array_result, list)
+    assert array_result == [1, 2, 3]
+
+    # Verify that the object is returned as a proper dictionary
+    object_result = result.json[0]["O"]
+    assert isinstance(object_result, dict)
+    assert object_result == {"foo": "XXXX", "bar": 42}
+
+
+@pytest.mark.integration
+def test_nested_json_backward_compatibility(runner):
+    """Test that without JSON_EXT format, JSON objects are returned as strings (backward compatibility)."""
+    nested_json = (
+        '{"user": {"profile": {"name": "Alice", "settings": {"theme": "dark"}}}}'
+    )
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"SELECT GET(PARSE_JSON('{nested_json}'), 'user') as user_object"]
+    )
+
+    assert result.exit_code == 0
+    assert len(result.json) == 1
+
+    # Verify that nested objects are returned as strings (original behavior)
+    user_obj = result.json[0]["USER_OBJECT"]
+
+    # Should be a string, not a dict
+    assert isinstance(user_obj, str)
+
+    # The string should contain JSON content
+    assert "profile" in user_obj
+    assert "Alice" in user_obj
+    assert "dark" in user_obj

@@ -171,7 +171,7 @@ impl Builder for AliyunDriveBuilder {
                 ))
             }
         };
-        debug!("backend use drive_type {:?}", drive_type);
+        debug!("backend use drive_type {drive_type:?}");
 
         Ok(AliyunDriveBackend {
             core: Arc::new(AliyunDriveCore {
@@ -199,11 +199,6 @@ impl Builder for AliyunDriveBuilder {
                             list: true,
                             list_with_limit: true,
                             shared: true,
-                            stat_has_content_length: true,
-                            stat_has_content_type: true,
-                            list_has_last_modified: true,
-                            list_has_content_length: true,
-                            list_has_content_type: true,
                             ..Default::default()
                         });
 
@@ -238,10 +233,6 @@ impl Access for AliyunDriveBackend {
     type Writer = AliyunDriveWriter;
     type Lister = oio::PageLister<AliyunDriveLister>;
     type Deleter = oio::OneShotDeleter<AliyunDriveDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

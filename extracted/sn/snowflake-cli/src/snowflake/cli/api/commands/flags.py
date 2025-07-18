@@ -212,6 +212,16 @@ MasterTokenOption = typer.Option(
     hidden=True,
 )
 
+
+TokenOption = typer.Option(
+    None,
+    "--token",
+    help="OAuth token to use when connecting to Snowflake.",
+    callback=_connection_callback("token"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 TokenFilePathOption = typer.Option(
     None,
     "--token-file-path",
@@ -273,6 +283,7 @@ MfaPasscodeOption = typer.Option(
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
+
 
 EnableDiagOption = typer.Option(
     False,
@@ -434,6 +445,7 @@ OutputFormatOption = typer.Option(
     callback=_context_callback("output_format"),
     rich_help_panel=_CLI_BEHAVIOUR,
 )
+
 
 SilentOption = typer.Option(
     False,

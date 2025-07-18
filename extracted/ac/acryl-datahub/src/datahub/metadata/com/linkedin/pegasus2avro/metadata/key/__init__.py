@@ -20,6 +20,8 @@ from ......schema_classes import DataHubActionKeyClass
 from ......schema_classes import DataHubConnectionKeyClass
 from ......schema_classes import DataHubIngestionSourceKeyClass
 from ......schema_classes import DataHubOpenAPISchemaKeyClass
+from ......schema_classes import DataHubPageModuleKeyClass
+from ......schema_classes import DataHubPageTemplateKeyClass
 from ......schema_classes import DataHubPersonaKeyClass
 from ......schema_classes import DataHubPolicyKeyClass
 from ......schema_classes import DataHubRetentionKeyClass
@@ -74,6 +76,8 @@ DataHubActionKey = DataHubActionKeyClass
 DataHubConnectionKey = DataHubConnectionKeyClass
 DataHubIngestionSourceKey = DataHubIngestionSourceKeyClass
 DataHubOpenAPISchemaKey = DataHubOpenAPISchemaKeyClass
+DataHubPageModuleKey = DataHubPageModuleKeyClass
+DataHubPageTemplateKey = DataHubPageTemplateKeyClass
 DataHubPersonaKey = DataHubPersonaKeyClass
 DataHubPolicyKey = DataHubPolicyKeyClass
 DataHubRetentionKey = DataHubRetentionKeyClass

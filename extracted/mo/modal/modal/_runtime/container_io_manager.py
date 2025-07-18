@@ -267,6 +267,7 @@ class _ContainerIOManager:
     app_id: str
     function_def: api_pb2.Function
     checkpoint_id: Optional[str]
+    input_plane_server_url: Optional[str]
 
     calls_completed: int
     total_user_time: float
@@ -290,7 +291,6 @@ class _ContainerIOManager:
 
     _client: _Client
 
-    _GENERATOR_STOP_SENTINEL: ClassVar[Sentinel] = Sentinel()
     _singleton: ClassVar[Optional["_ContainerIOManager"]] = None
 
     def _init(self, container_args: api_pb2.ContainerArguments, client: _Client):
@@ -299,6 +299,12 @@ class _ContainerIOManager:
         self.app_id = container_args.app_id
         self.function_def = container_args.function_def
         self.checkpoint_id = container_args.checkpoint_id or None
+
+        # We could also have the worker pass this in explicitly.
+        self.input_plane_server_url = None
+        for obj in container_args.app_layout.objects:
+            if obj.object_id == self.function_id:
+                self.input_plane_server_url = obj.function_handle_metadata.input_plane_url
 
         self.calls_completed = 0
         self.total_user_time = 0.0
@@ -480,7 +486,11 @@ class _ContainerIOManager:
 
     async def get_data_in(self, function_call_id: str) -> AsyncIterator[Any]:
         """Read from the `data_in` stream of a function call."""
-        async for data in _stream_function_call_data(self._client, function_call_id, "data_in"):
+        stub = self._client.stub
+        if self.input_plane_server_url:
+            stub = await self._client.get_stub(self.input_plane_server_url)
+
+        async for data in _stream_function_call_data(self._client, stub, function_call_id, "data_in"):
             yield data
 
     async def put_data_out(
@@ -506,35 +516,54 @@ class _ContainerIOManager:
             data_chunks.append(chunk)
 
         req = api_pb2.FunctionCallPutDataRequest(function_call_id=function_call_id, data_chunks=data_chunks)
-        await retry_transient_errors(self._client.stub.FunctionCallPutDataOut, req)
 
-    async def generator_output_task(self, function_call_id: str, data_format: int, message_rx: asyncio.Queue) -> None:
-        """Task that feeds generator outputs into a function call's `data_out` stream."""
-        index = 1
-        received_sentinel = False
-        while not received_sentinel:
-            message = await message_rx.get()
-            if message is self._GENERATOR_STOP_SENTINEL:
-                break
-            # ASGI 'http.response.start' and 'http.response.body' msgs are observed to be separated by 1ms.
-            # If we don't sleep here for 1ms we end up with an extra call to .put_data_out().
-            if index == 1:
-                await asyncio.sleep(0.001)
-            serialized_messages = [serialize_data_format(message, data_format)]
-            total_size = len(serialized_messages[0]) + 512
-            while total_size < 16 * 1024 * 1024:  # 16 MiB, maximum size in a single message
-                try:
-                    message = message_rx.get_nowait()
-                except asyncio.QueueEmpty:
+        if self.input_plane_server_url:
+            stub = await self._client.get_stub(self.input_plane_server_url)
+            await retry_transient_errors(stub.FunctionCallPutDataOut, req)
+        else:
+            await retry_transient_errors(self._client.stub.FunctionCallPutDataOut, req)
+
+    @asynccontextmanager
+    async def generator_output_sender(
+        self, function_call_id: str, data_format: int, message_rx: asyncio.Queue
+    ) -> AsyncGenerator[None, None]:
+        """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
+        GENERATOR_STOP_SENTINEL = Sentinel()
+
+        async def generator_output_task():
+            index = 1
+            received_sentinel = False
+            while not received_sentinel:
+                message = await message_rx.get()
+                if message is GENERATOR_STOP_SENTINEL:
                     break
-                if message is self._GENERATOR_STOP_SENTINEL:
-                    received_sentinel = True
-                    break
-                else:
-                    serialized_messages.append(serialize_data_format(message, data_format))
-                    total_size += len(serialized_messages[-1]) + 512  # 512 bytes for estimated framing overhead
-            await self.put_data_out(function_call_id, index, data_format, serialized_messages)
-            index += len(serialized_messages)
+                # ASGI 'http.response.start' and 'http.response.body' msgs are observed to be separated by 1ms.
+                # If we don't sleep here for 1ms we end up with an extra call to .put_data_out().
+                if index == 1:
+                    await asyncio.sleep(0.001)
+                serialized_messages = [serialize_data_format(message, data_format)]
+                total_size = len(serialized_messages[0]) + 512
+                while total_size < 16 * 1024 * 1024:  # 16 MiB, maximum size in a single message
+                    try:
+                        message = message_rx.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+                    if message is GENERATOR_STOP_SENTINEL:
+                        received_sentinel = True
+                        break
+                    else:
+                        serialized_messages.append(serialize_data_format(message, data_format))
+                        total_size += len(serialized_messages[-1]) + 512  # 512 bytes for estimated framing overhead
+                await self.put_data_out(function_call_id, index, data_format, serialized_messages)
+                index += len(serialized_messages)
+
+        task = asyncio.create_task(generator_output_task())
+        try:
+            yield
+        finally:
+            # gracefully stop the task after all current inputs have been sent
+            await message_rx.put(GENERATOR_STOP_SENTINEL)
+            await task
 
     async def _queue_create(self, size: int) -> asyncio.Queue:
         """Create a queue, on the synchronicity event loop (needed on Python 3.8 and 3.9)."""

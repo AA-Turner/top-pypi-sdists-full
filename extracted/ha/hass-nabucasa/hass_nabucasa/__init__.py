@@ -8,10 +8,11 @@ from datetime import datetime, timedelta
 import json
 import logging
 from pathlib import Path
+import random
 import shutil
 from typing import Any, Generic, Literal, TypeVar
 
-from aiohttp import ClientError, ClientSession
+from aiohttp import ClientSession
 from atomicwrites import atomic_write
 import jwt
 
@@ -26,7 +27,6 @@ from .api import (
 )
 from .auth import CognitoAuth
 from .client import CloudClient
-from .cloud_api import async_subscription_info
 from .cloudhooks import Cloudhooks
 from .const import (
     ACCOUNT_URL,
@@ -35,6 +35,7 @@ from .const import (
     DEFAULT_VALUES,
     MODE_DEV,  # noqa: F401
     STATE_CONNECTED,
+    CertificateStatus,
     SubscriptionReconnectionReason,
 )
 from .exceptions import (
@@ -58,6 +59,7 @@ __all__ = [
     "AccountApiError",
     "AlexaApiError",
     "AlreadyConnectedError",
+    "CertificateStatus",
     "Cloud",
     "CloudApiClientError",
     "CloudApiCodedError",
@@ -127,6 +129,7 @@ class Cloud(Generic[_ClientT]):
         self.id_token: str | None = None
         self.refresh_token: str | None = None
         self.started: bool | None = None
+        self._connection_retry_count = 0
 
         # Set reference
         self.client.cloud = self
@@ -484,25 +487,28 @@ class Cloud(Generic[_ClientT]):
             )
             return False
 
-        billing_plan_type = await self._async_get_billing_plan_type()
+        billing_plan_type: str | None = None
+
+        try:
+            async with asyncio.timeout(30):
+                subscription = await self.payments.subscription_info(skip_renew=True)
+            billing_plan_type = subscription.get("billing_plan_type")
+        except (CloudApiError, TimeoutError) as err:
+            _LOGGER.debug("Subscription validation failed - %s", err)
+            self.async_initialize_subscription_reconnection_handler(
+                SubscriptionReconnectionReason.CONNECTION_ERROR
+            )
+            return False
+        except NabuCasaBaseError as err:
+            _LOGGER.debug(err, exc_info=err)
+
         if billing_plan_type is None or billing_plan_type == "no_subscription":
-            _LOGGER.error("No subscription found")
+            _LOGGER.info("No subscription found")
             self.async_initialize_subscription_reconnection_handler(
                 SubscriptionReconnectionReason.NO_SUBSCRIPTION
             )
             return False
         return True
-
-    async def _async_get_billing_plan_type(self) -> str | None:
-        """Get the billing_plan_type status."""
-        billing_plan_type: str | None = None
-        try:
-            async with asyncio.timeout(30):
-                subscription = await async_subscription_info(self, True)
-            billing_plan_type = subscription.get("billing_plan_type")
-        except (CloudError, TimeoutError, ClientError) as err:
-            _LOGGER.warning("Could not get subscription info", exc_info=err)
-        return billing_plan_type
 
     async def _subscription_reconnection_handler(
         self, reason: SubscriptionReconnectionReason
@@ -513,7 +519,13 @@ class Cloud(Generic[_ClientT]):
             now_as_utc = utcnow()
             sub_expired = self.expiration_date
 
-            if sub_expired > (now_as_utc - timedelta(days=1)):
+            if reason == SubscriptionReconnectionReason.CONNECTION_ERROR:
+                self._connection_retry_count += 1
+                base_wait = 0.01 + (
+                    self._connection_retry_count * random.uniform(0.01, 0.09)
+                )
+                wait_hours = min(base_wait, 1.0)
+            elif sub_expired > (now_as_utc - timedelta(days=1)):
                 wait_hours = 3
             elif sub_expired > (now_as_utc - timedelta(days=7)):
                 wait_hours = 12
@@ -528,17 +540,30 @@ class Cloud(Generic[_ClientT]):
                 )
                 break
 
-            _LOGGER.info(
-                "Subscription expired at %s, waiting %s hours for activation",
-                sub_expired.strftime("%Y-%m-%d"),
-                wait_hours,
-            )
-            await self.client.async_create_repair_issue(
-                identifier=issue_identifier,
-                translation_key=reason.value,
-                placeholders={"account_url": ACCOUNT_URL},
-                severity="error",
-            )
+            if reason == SubscriptionReconnectionReason.CONNECTION_ERROR:
+                _LOGGER.info(
+                    "Could not establish connection (attempt %s), "
+                    "waiting %s minutes before retrying",
+                    self._connection_retry_count,
+                    round(wait_hours * 60, 1),
+                )
+                await self.client.async_create_repair_issue(
+                    identifier=issue_identifier,
+                    translation_key=reason.value,
+                    severity="warning",
+                )
+            else:
+                _LOGGER.info(
+                    "Subscription expired at %s, waiting %s hours for activation",
+                    sub_expired.strftime("%Y-%m-%d"),
+                    wait_hours,
+                )
+                await self.client.async_create_repair_issue(
+                    identifier=issue_identifier,
+                    translation_key=reason.value,
+                    placeholders={"account_url": ACCOUNT_URL},
+                    severity="error",
+                )
 
             await asyncio.sleep(wait_hours * 60 * 60)
 
@@ -546,7 +571,11 @@ class Cloud(Generic[_ClientT]):
                 _LOGGER.info("No longer logged in, stopping reconnection handler")
                 break
 
-            await self.auth.async_renew_access_token()
+            try:
+                await self.auth.async_renew_access_token()
+            except CloudError as err:
+                _LOGGER.debug("Could not renew access token (%s)", err)
+                continue
 
             if not self.subscription_expired:
                 await self.initialize()
@@ -555,3 +584,4 @@ class Cloud(Generic[_ClientT]):
         await self.client.async_delete_repair_issue(identifier=issue_identifier)
         _LOGGER.debug("Stopping subscription reconnection handler")
         self._subscription_reconnection_task = None
+        self._connection_retry_count = 0

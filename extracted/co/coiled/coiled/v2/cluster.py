@@ -537,6 +537,45 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         batch_job_container: str | None = None,
         pause_on_exit: bool | None = None,
     ):
+        self.init_time = datetime.datetime.now(tz=datetime.timezone.utc)
+        type(self)._instances.add(self)
+
+        # Determine consistent sync/async
+        if cloud and asynchronous is not None and cloud.asynchronous != asynchronous:
+            warnings.warn(
+                f"Requested a Cluster with asynchronous={asynchronous}, but "
+                f"cloud.asynchronous={cloud.asynchronous}, so the cluster will be"
+                f"{cloud.asynchronous}",
+                stacklevel=2,
+            )
+
+            asynchronous = cloud.asynchronous
+
+        self.scheduler_comm: dask.distributed.rpc | None = None
+
+        # It's annoying that the user must pass in `asynchronous=True` to get an async Cluster object
+        # But I can't think of a good alternative right now.
+        self.cloud: CloudV2SyncAsync = cloud or CloudV2.current(asynchronous=asynchronous)
+
+        if configure_logging:
+            setup_logging()
+
+        if configure_logging is None:
+            # setup logging only if we're not using the widget
+            if not (custom_widget or use_rich_widget()):
+                setup_logging()
+
+        # we really need to call this first before any of the below code errors
+        # out; otherwise because of the fact that this object inherits from
+        # deploy.Cloud __del__ (and perhaps __repr__) will have AttributeErrors
+        # because the gc will run and attributes like `.status` and
+        # `.scheduler_comm` will not have been assigned to the object's instance
+        # yet
+        super().__init__(asynchronous=asynchronous, loop=self.cloud.loop)
+
+        # control-plane can override dask config settings per user/workspace/org
+        self.cloud.load_server_dask_config(workspace=account or workspace)
+
         self._cluster_event_queue = []
 
         # default range for adaptive (defining these here so pyright doesn't complain about ref before assignment)
@@ -593,8 +632,6 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         # NOTE:
         # this attribute is only updated while we wait for cluster to come up
         self.errored_worker_count: int = 0
-        self.init_time = datetime.datetime.now(tz=datetime.timezone.utc)
-        type(self)._instances.add(self)
 
         senv_kwargs = {
             "package_sync": package_sync,
@@ -682,39 +719,6 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     " in the backend_options dict. Only one of those should be specified."
                 )
             backend_options["region_name"] = region
-
-        if configure_logging:
-            setup_logging()
-
-        if configure_logging is None:
-            # setup logging only if we're not using the widget
-            if not (custom_widget or use_rich_widget()):
-                setup_logging()
-
-        # Determine consistent sync/async
-        if cloud and asynchronous is not None and cloud.asynchronous != asynchronous:
-            warnings.warn(
-                f"Requested a Cluster with asynchronous={asynchronous}, but "
-                f"cloud.asynchronous={cloud.asynchronous}, so the cluster will be"
-                f"{cloud.asynchronous}",
-                stacklevel=2,
-            )
-
-            asynchronous = cloud.asynchronous
-
-        self.scheduler_comm: dask.distributed.rpc | None = None
-
-        # It's annoying that the user must pass in `asynchronous=True` to get an async Cluster object
-        # But I can't think of a good alternative right now.
-        self.cloud: CloudV2SyncAsync = cloud or CloudV2.current(asynchronous=asynchronous)
-
-        # we really need to call this first before any of the below code errors
-        # out; otherwise because of the fact that this object inherits from
-        # deploy.Cloud __del__ (and perhaps __repr__) will have AttributeErrors
-        # because the gc will run and attributes like `.status` and
-        # `.scheduler_comm` will not have been assigned to the object's instance
-        # yet
-        super().__init__(asynchronous=asynchronous, loop=self.cloud.loop)
 
         self.timeout = timeout if timeout is not None else self.cloud.default_cluster_timeout
 

@@ -196,9 +196,6 @@ impl Builder for B2Builder {
                         .set_root(&root)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_length: true,
-                            stat_has_content_md5: true,
-                            stat_has_content_type: true,
 
                             read: true,
 
@@ -226,9 +223,6 @@ impl Builder for B2Builder {
                             list_with_limit: true,
                             list_with_start_after: true,
                             list_with_recursive: true,
-                            list_has_content_length: true,
-                            list_has_content_md5: true,
-                            list_has_content_type: true,
 
                             presign: true,
                             presign_read: true,
@@ -269,10 +263,6 @@ impl Access for B2Backend {
     type Writer = B2Writers;
     type Lister = oio::PageLister<B2Lister>;
     type Deleter = oio::OneShotDeleter<B2Deleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

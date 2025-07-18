@@ -34,6 +34,8 @@ __all__ = (
     "IntentType",
     "ListChangeSetsPaginatorName",
     "ListEntitiesPaginatorName",
+    "MachineLearningProductSortByType",
+    "MachineLearningProductVisibilityStringType",
     "MarketplaceCatalogServiceName",
     "OfferSortByType",
     "OfferStateStringType",
@@ -62,6 +64,10 @@ FailureCodeType = Literal["CLIENT_ERROR", "SERVER_FAULT"]
 IntentType = Literal["APPLY", "VALIDATE"]
 ListChangeSetsPaginatorName = Literal["list_change_sets"]
 ListEntitiesPaginatorName = Literal["list_entities"]
+MachineLearningProductSortByType = Literal[
+    "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
+]
+MachineLearningProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
 OfferSortByType = Literal[
     "AvailabilityEndDate",
     "BuyerAccounts",
@@ -102,6 +108,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -242,6 +249,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -299,6 +307,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -354,6 +363,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -498,6 +508,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

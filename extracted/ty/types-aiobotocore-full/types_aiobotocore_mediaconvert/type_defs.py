@@ -321,6 +321,7 @@ from .literals import (
     MovPaddingControlType,
     MovReferenceType,
     Mp3RateControlModeType,
+    Mp4C2paManifestType,
     Mp4CslgAtomType,
     Mp4FreeSpaceBoxType,
     Mp4MoovPlacementType,
@@ -1263,11 +1264,14 @@ class MovSettingsTypeDef(TypedDict):
 
 class Mp4SettingsTypeDef(TypedDict):
     AudioDuration: NotRequired[CmfcAudioDurationType]
+    C2paManifest: NotRequired[Mp4C2paManifestType]
+    CertificateSecret: NotRequired[str]
     CslgAtom: NotRequired[Mp4CslgAtomType]
     CttsVersion: NotRequired[int]
     FreeSpaceBox: NotRequired[Mp4FreeSpaceBoxType]
     MoovPlacement: NotRequired[Mp4MoovPlacementType]
     Mp4MajorBrand: NotRequired[str]
+    SigningKmsKey: NotRequired[str]
 
 
 class MpdSettingsTypeDef(TypedDict):

@@ -91,6 +91,11 @@ class ModalClientStub:
         modal_proto.api_pb2.AttemptStartRequest,
         modal_proto.api_pb2.AttemptStartResponse,
     ]
+    AuthTokenGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.AuthTokenGetRequest,
+        modal_proto.api_pb2.AuthTokenGetResponse,
+    ]
+    """Auth Token"""
     BlobCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.BlobCreateRequest,
         modal_proto.api_pb2.BlobCreateResponse,
@@ -163,6 +168,10 @@ class ModalClientStub:
     ContainerLog: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerLogRequest,
         google.protobuf.empty_pb2.Empty,
+    ]
+    ContainerReloadVolumes: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ContainerReloadVolumesRequest,
+        modal_proto.api_pb2.ContainerReloadVolumesResponse,
     ]
     ContainerStop: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerStopRequest,
@@ -450,6 +459,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxCreateResponse,
     ]
     """Sandboxes"""
+    SandboxGetFromName: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetFromNameRequest,
+        modal_proto.api_pb2.SandboxGetFromNameResponse,
+    ]
     SandboxGetLogs: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.SandboxGetLogsRequest,
         modal_proto.api_pb2.TaskLogsBatch,
@@ -788,6 +801,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.AttemptStartResponse: ...
     @abc.abstractmethod
+    def AuthTokenGet(
+        self,
+        request: modal_proto.api_pb2.AuthTokenGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.AuthTokenGetResponse:
+        """Auth Token"""
+    @abc.abstractmethod
     def BlobCreate(
         self,
         request: modal_proto.api_pb2.BlobCreateRequest,
@@ -894,6 +914,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.ContainerLogRequest,
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def ContainerReloadVolumes(
+        self,
+        request: modal_proto.api_pb2.ContainerReloadVolumesRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ContainerReloadVolumesResponse: ...
     @abc.abstractmethod
     def ContainerStop(
         self,
@@ -1316,6 +1342,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxCreateResponse:
         """Sandboxes"""
+    @abc.abstractmethod
+    def SandboxGetFromName(
+        self,
+        request: modal_proto.api_pb2.SandboxGetFromNameRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetFromNameResponse: ...
     @abc.abstractmethod
     def SandboxGetLogs(
         self,

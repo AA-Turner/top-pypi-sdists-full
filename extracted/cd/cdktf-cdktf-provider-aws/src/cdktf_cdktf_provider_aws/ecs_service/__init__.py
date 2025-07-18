@@ -1,7 +1,7 @@
 r'''
 # `aws_ecs_service`
 
-Refer to the Terraform Registry for docs: [`aws_ecs_service`](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service).
+Refer to the Terraform Registry for docs: [`aws_ecs_service`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EcsService(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.ecsService.EcsService",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service aws_ecs_service}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service aws_ecs_service}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class EcsService(
         capacity_provider_strategy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceCapacityProviderStrategy", typing.Dict[builtins.str, typing.Any]]]]] = None,
         cluster: typing.Optional[builtins.str] = None,
         deployment_circuit_breaker: typing.Optional[typing.Union["EcsServiceDeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_configuration: typing.Optional[typing.Union["EcsServiceDeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union["EcsServiceDeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_maximum_percent: typing.Optional[jsii.Number] = None,
         deployment_minimum_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -95,46 +96,47 @@ class EcsService(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service aws_ecs_service} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service aws_ecs_service} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.
-        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarms EcsService#alarms}
-        :param availability_zone_rebalancing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
-        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#cluster EcsService#cluster}.
-        :param deployment_circuit_breaker: deployment_circuit_breaker block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
-        :param deployment_controller: deployment_controller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
-        :param deployment_maximum_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.
-        :param deployment_minimum_healthy_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.
-        :param desired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.
-        :param force_new_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.
-        :param health_check_grace_period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.
-        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#id EcsService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
-        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
-        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#region EcsService#region}
-        :param scheduling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.
-        :param service_connect_configuration: service_connect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
-        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags EcsService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.
-        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
-        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#triggers EcsService#triggers}.
-        :param volume_configuration: volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
-        :param vpc_lattice_configurations: vpc_lattice_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
-        :param wait_for_steady_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
+        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarms EcsService#alarms}
+        :param availability_zone_rebalancing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
+        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#cluster EcsService#cluster}.
+        :param deployment_circuit_breaker: deployment_circuit_breaker block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
+        :param deployment_configuration: deployment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_configuration EcsService#deployment_configuration}
+        :param deployment_controller: deployment_controller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
+        :param deployment_maximum_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.
+        :param deployment_minimum_healthy_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.
+        :param desired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.
+        :param force_new_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.
+        :param health_check_grace_period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.
+        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#id EcsService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
+        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
+        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#region EcsService#region}
+        :param scheduling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.
+        :param service_connect_configuration: service_connect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
+        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags EcsService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.
+        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
+        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#triggers EcsService#triggers}.
+        :param volume_configuration: volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
+        :param vpc_lattice_configurations: vpc_lattice_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
+        :param wait_for_steady_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -154,6 +156,7 @@ class EcsService(
             capacity_provider_strategy=capacity_provider_strategy,
             cluster=cluster,
             deployment_circuit_breaker=deployment_circuit_breaker,
+            deployment_configuration=deployment_configuration,
             deployment_controller=deployment_controller,
             deployment_maximum_percent=deployment_maximum_percent,
             deployment_minimum_healthy_percent=deployment_minimum_healthy_percent,
@@ -208,7 +211,7 @@ class EcsService(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EcsService to import.
-        :param import_from_id: The id of the existing EcsService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EcsService that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EcsService to import is found.
         '''
         if __debug__:
@@ -228,9 +231,9 @@ class EcsService(
         rollback: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param alarm_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.
-        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.
+        :param alarm_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.
+        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.
         '''
         value = EcsServiceAlarms(
             alarm_names=alarm_names, enable=enable, rollback=rollback
@@ -259,12 +262,33 @@ class EcsService(
         rollback: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.
-        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.
+        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.
         '''
         value = EcsServiceDeploymentCircuitBreaker(enable=enable, rollback=rollback)
 
         return typing.cast(None, jsii.invoke(self, "putDeploymentCircuitBreaker", [value]))
+
+    @jsii.member(jsii_name="putDeploymentConfiguration")
+    def put_deployment_configuration(
+        self,
+        *,
+        bake_time_in_minutes: typing.Optional[builtins.str] = None,
+        lifecycle_hook: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceDeploymentConfigurationLifecycleHook", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        strategy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param bake_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#bake_time_in_minutes EcsService#bake_time_in_minutes}.
+        :param lifecycle_hook: lifecycle_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#lifecycle_hook EcsService#lifecycle_hook}
+        :param strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#strategy EcsService#strategy}.
+        '''
+        value = EcsServiceDeploymentConfiguration(
+            bake_time_in_minutes=bake_time_in_minutes,
+            lifecycle_hook=lifecycle_hook,
+            strategy=strategy,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putDeploymentConfiguration", [value]))
 
     @jsii.member(jsii_name="putDeploymentController")
     def put_deployment_controller(
@@ -273,7 +297,7 @@ class EcsService(
         type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.
         '''
         value = EcsServiceDeploymentController(type=type)
 
@@ -301,9 +325,9 @@ class EcsService(
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#subnets EcsService#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#subnets EcsService#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.
         '''
         value = EcsServiceNetworkConfiguration(
             subnets=subnets,
@@ -349,10 +373,10 @@ class EcsService(
         service: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceServiceConnectConfigurationService", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enabled EcsService#enabled}.
-        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#namespace EcsService#namespace}.
-        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service EcsService#service}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enabled EcsService#enabled}.
+        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#namespace EcsService#namespace}.
+        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service EcsService#service}
         '''
         value = EcsServiceServiceConnectConfiguration(
             enabled=enabled,
@@ -373,10 +397,10 @@ class EcsService(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_name EcsService#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_port EcsService#container_port}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.
+        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_name EcsService#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_port EcsService#container_port}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.
         '''
         value = EcsServiceServiceRegistries(
             registry_arn=registry_arn,
@@ -396,9 +420,9 @@ class EcsService(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#create EcsService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#delete EcsService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#update EcsService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#create EcsService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#delete EcsService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#update EcsService#update}.
         '''
         value = EcsServiceTimeouts(create=create, delete=delete, update=update)
 
@@ -412,8 +436,8 @@ class EcsService(
         name: builtins.str,
     ) -> None:
         '''
-        :param managed_ebs_volume: managed_ebs_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.
+        :param managed_ebs_volume: managed_ebs_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
         '''
         value = EcsServiceVolumeConfiguration(
             managed_ebs_volume=managed_ebs_volume, name=name
@@ -453,6 +477,10 @@ class EcsService(
     @jsii.member(jsii_name="resetDeploymentCircuitBreaker")
     def reset_deployment_circuit_breaker(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDeploymentCircuitBreaker", []))
+
+    @jsii.member(jsii_name="resetDeploymentConfiguration")
+    def reset_deployment_configuration(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDeploymentConfiguration", []))
 
     @jsii.member(jsii_name="resetDeploymentController")
     def reset_deployment_controller(self) -> None:
@@ -610,6 +638,13 @@ class EcsService(
         return typing.cast("EcsServiceDeploymentCircuitBreakerOutputReference", jsii.get(self, "deploymentCircuitBreaker"))
 
     @builtins.property
+    @jsii.member(jsii_name="deploymentConfiguration")
+    def deployment_configuration(
+        self,
+    ) -> "EcsServiceDeploymentConfigurationOutputReference":
+        return typing.cast("EcsServiceDeploymentConfigurationOutputReference", jsii.get(self, "deploymentConfiguration"))
+
+    @builtins.property
     @jsii.member(jsii_name="deploymentController")
     def deployment_controller(self) -> "EcsServiceDeploymentControllerOutputReference":
         return typing.cast("EcsServiceDeploymentControllerOutputReference", jsii.get(self, "deploymentController"))
@@ -689,6 +724,13 @@ class EcsService(
         self,
     ) -> typing.Optional["EcsServiceDeploymentCircuitBreaker"]:
         return typing.cast(typing.Optional["EcsServiceDeploymentCircuitBreaker"], jsii.get(self, "deploymentCircuitBreakerInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentConfigurationInput")
+    def deployment_configuration_input(
+        self,
+    ) -> typing.Optional["EcsServiceDeploymentConfiguration"]:
+        return typing.cast(typing.Optional["EcsServiceDeploymentConfiguration"], jsii.get(self, "deploymentConfigurationInput"))
 
     @builtins.property
     @jsii.member(jsii_name="deploymentControllerInput")
@@ -1197,9 +1239,9 @@ class EcsServiceAlarms:
         rollback: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param alarm_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.
-        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.
+        :param alarm_names: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.
+        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85f31ecc78fc94657bb6f28f3108773f1a5396444a9cac7894755f6e2be2cff4)
@@ -1214,21 +1256,21 @@ class EcsServiceAlarms:
 
     @builtins.property
     def alarm_names(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarm_names EcsService#alarm_names}.'''
         result = self._values.get("alarm_names")
         assert result is not None, "Required property 'alarm_names' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.'''
         result = self._values.get("enable")
         assert result is not None, "Required property 'enable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def rollback(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.'''
         result = self._values.get("rollback")
         assert result is not None, "Required property 'rollback' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -1357,9 +1399,9 @@ class EcsServiceCapacityProviderStrategy:
         weight: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#capacity_provider EcsService#capacity_provider}.
-        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#base EcsService#base}.
-        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#weight EcsService#weight}.
+        :param capacity_provider: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#capacity_provider EcsService#capacity_provider}.
+        :param base: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#base EcsService#base}.
+        :param weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#weight EcsService#weight}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa7aa99743a4dbfdf23df7c936561d7d99b7e13328021ecb92468d079362d46a)
@@ -1376,20 +1418,20 @@ class EcsServiceCapacityProviderStrategy:
 
     @builtins.property
     def capacity_provider(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#capacity_provider EcsService#capacity_provider}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#capacity_provider EcsService#capacity_provider}.'''
         result = self._values.get("capacity_provider")
         assert result is not None, "Required property 'capacity_provider' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def base(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#base EcsService#base}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#base EcsService#base}.'''
         result = self._values.get("base")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#weight EcsService#weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#weight EcsService#weight}.'''
         result = self._values.get("weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1618,6 +1660,7 @@ class EcsServiceCapacityProviderStrategyOutputReference(
         "capacity_provider_strategy": "capacityProviderStrategy",
         "cluster": "cluster",
         "deployment_circuit_breaker": "deploymentCircuitBreaker",
+        "deployment_configuration": "deploymentConfiguration",
         "deployment_controller": "deploymentController",
         "deployment_maximum_percent": "deploymentMaximumPercent",
         "deployment_minimum_healthy_percent": "deploymentMinimumHealthyPercent",
@@ -1667,6 +1710,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         capacity_provider_strategy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceCapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]]] = None,
         cluster: typing.Optional[builtins.str] = None,
         deployment_circuit_breaker: typing.Optional[typing.Union["EcsServiceDeploymentCircuitBreaker", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_configuration: typing.Optional[typing.Union["EcsServiceDeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_controller: typing.Optional[typing.Union["EcsServiceDeploymentController", typing.Dict[builtins.str, typing.Any]]] = None,
         deployment_maximum_percent: typing.Optional[jsii.Number] = None,
         deployment_minimum_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -1706,42 +1750,43 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.
-        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarms EcsService#alarms}
-        :param availability_zone_rebalancing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.
-        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
-        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#cluster EcsService#cluster}.
-        :param deployment_circuit_breaker: deployment_circuit_breaker block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
-        :param deployment_controller: deployment_controller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
-        :param deployment_maximum_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.
-        :param deployment_minimum_healthy_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.
-        :param desired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.
-        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.
-        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.
-        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.
-        :param force_new_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.
-        :param health_check_grace_period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.
-        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#id EcsService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.
-        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
-        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
-        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
-        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
-        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#region EcsService#region}
-        :param scheduling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.
-        :param service_connect_configuration: service_connect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
-        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags EcsService#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.
-        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
-        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#triggers EcsService#triggers}.
-        :param volume_configuration: volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
-        :param vpc_lattice_configurations: vpc_lattice_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
-        :param wait_for_steady_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
+        :param alarms: alarms block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarms EcsService#alarms}
+        :param availability_zone_rebalancing: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.
+        :param capacity_provider_strategy: capacity_provider_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
+        :param cluster: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#cluster EcsService#cluster}.
+        :param deployment_circuit_breaker: deployment_circuit_breaker block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
+        :param deployment_configuration: deployment_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_configuration EcsService#deployment_configuration}
+        :param deployment_controller: deployment_controller block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
+        :param deployment_maximum_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.
+        :param deployment_minimum_healthy_percent: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.
+        :param desired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.
+        :param enable_ecs_managed_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.
+        :param enable_execute_command: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.
+        :param force_delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.
+        :param force_new_deployment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.
+        :param health_check_grace_period_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.
+        :param iam_role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#id EcsService#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param launch_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.
+        :param load_balancer: load_balancer block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
+        :param network_configuration: network_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
+        :param ordered_placement_strategy: ordered_placement_strategy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
+        :param placement_constraints: placement_constraints block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
+        :param platform_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#region EcsService#region}
+        :param scheduling_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.
+        :param service_connect_configuration: service_connect_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
+        :param service_registries: service_registries block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags EcsService#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.
+        :param task_definition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
+        :param triggers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#triggers EcsService#triggers}.
+        :param volume_configuration: volume_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
+        :param vpc_lattice_configurations: vpc_lattice_configurations block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
+        :param wait_for_steady_state: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1749,6 +1794,8 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             alarms = EcsServiceAlarms(**alarms)
         if isinstance(deployment_circuit_breaker, dict):
             deployment_circuit_breaker = EcsServiceDeploymentCircuitBreaker(**deployment_circuit_breaker)
+        if isinstance(deployment_configuration, dict):
+            deployment_configuration = EcsServiceDeploymentConfiguration(**deployment_configuration)
         if isinstance(deployment_controller, dict):
             deployment_controller = EcsServiceDeploymentController(**deployment_controller)
         if isinstance(network_configuration, dict):
@@ -1776,6 +1823,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument capacity_provider_strategy", value=capacity_provider_strategy, expected_type=type_hints["capacity_provider_strategy"])
             check_type(argname="argument cluster", value=cluster, expected_type=type_hints["cluster"])
             check_type(argname="argument deployment_circuit_breaker", value=deployment_circuit_breaker, expected_type=type_hints["deployment_circuit_breaker"])
+            check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
             check_type(argname="argument deployment_controller", value=deployment_controller, expected_type=type_hints["deployment_controller"])
             check_type(argname="argument deployment_maximum_percent", value=deployment_maximum_percent, expected_type=type_hints["deployment_maximum_percent"])
             check_type(argname="argument deployment_minimum_healthy_percent", value=deployment_minimum_healthy_percent, expected_type=type_hints["deployment_minimum_healthy_percent"])
@@ -1833,6 +1881,8 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["cluster"] = cluster
         if deployment_circuit_breaker is not None:
             self._values["deployment_circuit_breaker"] = deployment_circuit_breaker
+        if deployment_configuration is not None:
+            self._values["deployment_configuration"] = deployment_configuration
         if deployment_controller is not None:
             self._values["deployment_controller"] = deployment_controller
         if deployment_maximum_percent is not None:
@@ -1960,7 +2010,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -1969,14 +2019,14 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def alarms(self) -> typing.Optional[EcsServiceAlarms]:
         '''alarms block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#alarms EcsService#alarms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alarms EcsService#alarms}
         '''
         result = self._values.get("alarms")
         return typing.cast(typing.Optional[EcsServiceAlarms], result)
 
     @builtins.property
     def availability_zone_rebalancing(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#availability_zone_rebalancing EcsService#availability_zone_rebalancing}.'''
         result = self._values.get("availability_zone_rebalancing")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1986,14 +2036,14 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceCapacityProviderStrategy]]]:
         '''capacity_provider_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#capacity_provider_strategy EcsService#capacity_provider_strategy}
         '''
         result = self._values.get("capacity_provider_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceCapacityProviderStrategy]]], result)
 
     @builtins.property
     def cluster(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#cluster EcsService#cluster}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#cluster EcsService#cluster}.'''
         result = self._values.get("cluster")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2003,10 +2053,21 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsServiceDeploymentCircuitBreaker"]:
         '''deployment_circuit_breaker block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_circuit_breaker EcsService#deployment_circuit_breaker}
         '''
         result = self._values.get("deployment_circuit_breaker")
         return typing.cast(typing.Optional["EcsServiceDeploymentCircuitBreaker"], result)
+
+    @builtins.property
+    def deployment_configuration(
+        self,
+    ) -> typing.Optional["EcsServiceDeploymentConfiguration"]:
+        '''deployment_configuration block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_configuration EcsService#deployment_configuration}
+        '''
+        result = self._values.get("deployment_configuration")
+        return typing.cast(typing.Optional["EcsServiceDeploymentConfiguration"], result)
 
     @builtins.property
     def deployment_controller(
@@ -2014,26 +2075,26 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsServiceDeploymentController"]:
         '''deployment_controller block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_controller EcsService#deployment_controller}
         '''
         result = self._values.get("deployment_controller")
         return typing.cast(typing.Optional["EcsServiceDeploymentController"], result)
 
     @builtins.property
     def deployment_maximum_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_maximum_percent EcsService#deployment_maximum_percent}.'''
         result = self._values.get("deployment_maximum_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def deployment_minimum_healthy_percent(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#deployment_minimum_healthy_percent EcsService#deployment_minimum_healthy_percent}.'''
         result = self._values.get("deployment_minimum_healthy_percent")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def desired_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#desired_count EcsService#desired_count}.'''
         result = self._values.get("desired_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2041,7 +2102,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_ecs_managed_tags(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_ecs_managed_tags EcsService#enable_ecs_managed_tags}.'''
         result = self._values.get("enable_ecs_managed_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2049,7 +2110,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enable_execute_command(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable_execute_command EcsService#enable_execute_command}.'''
         result = self._values.get("enable_execute_command")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2057,7 +2118,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_delete(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_delete EcsService#force_delete}.'''
         result = self._values.get("force_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2065,25 +2126,25 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_new_deployment(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#force_new_deployment EcsService#force_new_deployment}.'''
         result = self._values.get("force_new_deployment")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def health_check_grace_period_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#health_check_grace_period_seconds EcsService#health_check_grace_period_seconds}.'''
         result = self._values.get("health_check_grace_period_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def iam_role(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iam_role EcsService#iam_role}.'''
         result = self._values.get("iam_role")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#id EcsService#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#id EcsService#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -2093,7 +2154,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def launch_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#launch_type EcsService#launch_type}.'''
         result = self._values.get("launch_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2103,7 +2164,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceLoadBalancer"]]]:
         '''load_balancer block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#load_balancer EcsService#load_balancer}
         '''
         result = self._values.get("load_balancer")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceLoadBalancer"]]], result)
@@ -2114,7 +2175,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsServiceNetworkConfiguration"]:
         '''network_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#network_configuration EcsService#network_configuration}
         '''
         result = self._values.get("network_configuration")
         return typing.cast(typing.Optional["EcsServiceNetworkConfiguration"], result)
@@ -2125,7 +2186,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceOrderedPlacementStrategy"]]]:
         '''ordered_placement_strategy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#ordered_placement_strategy EcsService#ordered_placement_strategy}
         '''
         result = self._values.get("ordered_placement_strategy")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceOrderedPlacementStrategy"]]], result)
@@ -2136,20 +2197,20 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServicePlacementConstraints"]]]:
         '''placement_constraints block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#placement_constraints EcsService#placement_constraints}
         '''
         result = self._values.get("placement_constraints")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServicePlacementConstraints"]]], result)
 
     @builtins.property
     def platform_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#platform_version EcsService#platform_version}.'''
         result = self._values.get("platform_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def propagate_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2157,14 +2218,14 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#region EcsService#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#region EcsService#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def scheduling_strategy(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#scheduling_strategy EcsService#scheduling_strategy}.'''
         result = self._values.get("scheduling_strategy")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2174,7 +2235,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["EcsServiceServiceConnectConfiguration"]:
         '''service_connect_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_connect_configuration EcsService#service_connect_configuration}
         '''
         result = self._values.get("service_connect_configuration")
         return typing.cast(typing.Optional["EcsServiceServiceConnectConfiguration"], result)
@@ -2183,26 +2244,26 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_registries(self) -> typing.Optional["EcsServiceServiceRegistries"]:
         '''service_registries block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service_registries EcsService#service_registries}
         '''
         result = self._values.get("service_registries")
         return typing.cast(typing.Optional["EcsServiceServiceRegistries"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags EcsService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags EcsService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags_all EcsService#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def task_definition(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#task_definition EcsService#task_definition}.'''
         result = self._values.get("task_definition")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2210,14 +2271,14 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EcsServiceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#timeouts EcsService#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EcsServiceTimeouts"], result)
 
     @builtins.property
     def triggers(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#triggers EcsService#triggers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#triggers EcsService#triggers}.'''
         result = self._values.get("triggers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -2225,7 +2286,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def volume_configuration(self) -> typing.Optional["EcsServiceVolumeConfiguration"]:
         '''volume_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_configuration EcsService#volume_configuration}
         '''
         result = self._values.get("volume_configuration")
         return typing.cast(typing.Optional["EcsServiceVolumeConfiguration"], result)
@@ -2236,7 +2297,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceVpcLatticeConfigurations"]]]:
         '''vpc_lattice_configurations block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#vpc_lattice_configurations EcsService#vpc_lattice_configurations}
         '''
         result = self._values.get("vpc_lattice_configurations")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceVpcLatticeConfigurations"]]], result)
@@ -2245,7 +2306,7 @@ class EcsServiceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_for_steady_state(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#wait_for_steady_state EcsService#wait_for_steady_state}.'''
         result = self._values.get("wait_for_steady_state")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2274,8 +2335,8 @@ class EcsServiceDeploymentCircuitBreaker:
         rollback: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.
-        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.
+        :param enable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.
+        :param rollback: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9125a0bb76ed0817f2d603ab646c49d83609d6f8fe6ab99b261db676057b473)
@@ -2288,14 +2349,14 @@ class EcsServiceDeploymentCircuitBreaker:
 
     @builtins.property
     def enable(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enable EcsService#enable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enable EcsService#enable}.'''
         result = self._values.get("enable")
         assert result is not None, "Required property 'enable' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
 
     @builtins.property
     def rollback(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#rollback EcsService#rollback}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#rollback EcsService#rollback}.'''
         result = self._values.get("rollback")
         assert result is not None, "Required property 'rollback' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -2393,6 +2454,437 @@ class EcsServiceDeploymentCircuitBreakerOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bake_time_in_minutes": "bakeTimeInMinutes",
+        "lifecycle_hook": "lifecycleHook",
+        "strategy": "strategy",
+    },
+)
+class EcsServiceDeploymentConfiguration:
+    def __init__(
+        self,
+        *,
+        bake_time_in_minutes: typing.Optional[builtins.str] = None,
+        lifecycle_hook: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceDeploymentConfigurationLifecycleHook", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        strategy: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param bake_time_in_minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#bake_time_in_minutes EcsService#bake_time_in_minutes}.
+        :param lifecycle_hook: lifecycle_hook block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#lifecycle_hook EcsService#lifecycle_hook}
+        :param strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#strategy EcsService#strategy}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8fde43c08549f36d7796b56776e2ebf934fd0d4b6852f676dc5fddb05fb3fc8f)
+            check_type(argname="argument bake_time_in_minutes", value=bake_time_in_minutes, expected_type=type_hints["bake_time_in_minutes"])
+            check_type(argname="argument lifecycle_hook", value=lifecycle_hook, expected_type=type_hints["lifecycle_hook"])
+            check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if bake_time_in_minutes is not None:
+            self._values["bake_time_in_minutes"] = bake_time_in_minutes
+        if lifecycle_hook is not None:
+            self._values["lifecycle_hook"] = lifecycle_hook
+        if strategy is not None:
+            self._values["strategy"] = strategy
+
+    @builtins.property
+    def bake_time_in_minutes(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#bake_time_in_minutes EcsService#bake_time_in_minutes}.'''
+        result = self._values.get("bake_time_in_minutes")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def lifecycle_hook(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceDeploymentConfigurationLifecycleHook"]]]:
+        '''lifecycle_hook block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#lifecycle_hook EcsService#lifecycle_hook}
+        '''
+        result = self._values.get("lifecycle_hook")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceDeploymentConfigurationLifecycleHook"]]], result)
+
+    @builtins.property
+    def strategy(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#strategy EcsService#strategy}.'''
+        result = self._values.get("strategy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceDeploymentConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentConfigurationLifecycleHook",
+    jsii_struct_bases=[],
+    name_mapping={
+        "hook_target_arn": "hookTargetArn",
+        "lifecycle_stages": "lifecycleStages",
+        "role_arn": "roleArn",
+    },
+)
+class EcsServiceDeploymentConfigurationLifecycleHook:
+    def __init__(
+        self,
+        *,
+        hook_target_arn: builtins.str,
+        lifecycle_stages: typing.Sequence[builtins.str],
+        role_arn: builtins.str,
+    ) -> None:
+        '''
+        :param hook_target_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#hook_target_arn EcsService#hook_target_arn}.
+        :param lifecycle_stages: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#lifecycle_stages EcsService#lifecycle_stages}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01ee9b053694ad6d57dc5bad46bd9c57f91b5fe88971914560164860adddc092)
+            check_type(argname="argument hook_target_arn", value=hook_target_arn, expected_type=type_hints["hook_target_arn"])
+            check_type(argname="argument lifecycle_stages", value=lifecycle_stages, expected_type=type_hints["lifecycle_stages"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "hook_target_arn": hook_target_arn,
+            "lifecycle_stages": lifecycle_stages,
+            "role_arn": role_arn,
+        }
+
+    @builtins.property
+    def hook_target_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#hook_target_arn EcsService#hook_target_arn}.'''
+        result = self._values.get("hook_target_arn")
+        assert result is not None, "Required property 'hook_target_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def lifecycle_stages(self) -> typing.List[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#lifecycle_stages EcsService#lifecycle_stages}.'''
+        result = self._values.get("lifecycle_stages")
+        assert result is not None, "Required property 'lifecycle_stages' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceDeploymentConfigurationLifecycleHook(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EcsServiceDeploymentConfigurationLifecycleHookList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentConfigurationLifecycleHookList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff939d75d4126b36c74dd46aaba49357c090eaac57d3e6fd6c6c12c43dcd917a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "EcsServiceDeploymentConfigurationLifecycleHookOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb69c32966073ece2a83fb453d110fb30ddc6af9953a1ca54b33eaef3e672721)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("EcsServiceDeploymentConfigurationLifecycleHookOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d66ae99bb42dedb1e85635d8f0debc3d4507668c85858f0dd477e37db7672775)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9e214461f3174cc6cae0254d4d05d9765de335ed5a1f9c54cab988400d886a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__030cff4f14f632851a54331163f5e571fc8a3eb81f7e4f3b7600435712685c8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37e18a345e38e67939fbe92934d15f08dafe63f7b81d826af068ffec5fc3199b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EcsServiceDeploymentConfigurationLifecycleHookOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentConfigurationLifecycleHookOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3062b17a57dfc8f33fb8cd4b110d50bdd863176b83da6688f407238db12f2dcb)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="hookTargetArnInput")
+    def hook_target_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "hookTargetArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecycleStagesInput")
+    def lifecycle_stages_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "lifecycleStagesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArnInput")
+    def role_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hookTargetArn")
+    def hook_target_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "hookTargetArn"))
+
+    @hook_target_arn.setter
+    def hook_target_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b51881ad9c41843ee8d80281af1a03c086c40fc47bae8f91f36dcffc6ba06dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "hookTargetArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecycleStages")
+    def lifecycle_stages(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "lifecycleStages"))
+
+    @lifecycle_stages.setter
+    def lifecycle_stages(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__040778a29ee8830563db7da6d4036ff5f9b09e8bd40ee53a847cef037590a3c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "lifecycleStages", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fa58308a852f8ebd553f45006f1b52e28fa6c287817d27a98dcd101561aa1d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceDeploymentConfigurationLifecycleHook]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceDeploymentConfigurationLifecycleHook]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceDeploymentConfigurationLifecycleHook]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b12cdba97512d220f535c8fdc31e7f5651dd256dd709d0c6ed0eb814233e25e3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EcsServiceDeploymentConfigurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentConfigurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__387363f72f79a9b7a4bef06b6d2db606ac445fa0863bdd3e9ee3f24eb5ddb55d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putLifecycleHook")
+    def put_lifecycle_hook(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceDeploymentConfigurationLifecycleHook, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3ccfd1898798058d8682b3060c43f663f6e6ea83c15fcbbb6f8ac32609362a9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putLifecycleHook", [value]))
+
+    @jsii.member(jsii_name="resetBakeTimeInMinutes")
+    def reset_bake_time_in_minutes(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBakeTimeInMinutes", []))
+
+    @jsii.member(jsii_name="resetLifecycleHook")
+    def reset_lifecycle_hook(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetLifecycleHook", []))
+
+    @jsii.member(jsii_name="resetStrategy")
+    def reset_strategy(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetStrategy", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecycleHook")
+    def lifecycle_hook(self) -> EcsServiceDeploymentConfigurationLifecycleHookList:
+        return typing.cast(EcsServiceDeploymentConfigurationLifecycleHookList, jsii.get(self, "lifecycleHook"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bakeTimeInMinutesInput")
+    def bake_time_in_minutes_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bakeTimeInMinutesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="lifecycleHookInput")
+    def lifecycle_hook_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]], jsii.get(self, "lifecycleHookInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="strategyInput")
+    def strategy_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "strategyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bakeTimeInMinutes")
+    def bake_time_in_minutes(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "bakeTimeInMinutes"))
+
+    @bake_time_in_minutes.setter
+    def bake_time_in_minutes(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67f05b1c262d768ac15bda945fb45b70da4e9f1f263e5b4b1bce499b03bd0930)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bakeTimeInMinutes", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="strategy")
+    def strategy(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "strategy"))
+
+    @strategy.setter
+    def strategy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5616029b52ea89a4d040aa6f159c923b5d3490875dad758624e7b2932f432ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "strategy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[EcsServiceDeploymentConfiguration]:
+        return typing.cast(typing.Optional[EcsServiceDeploymentConfiguration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[EcsServiceDeploymentConfiguration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ed305f8514a4691e60d996aa7983501a30f264a4318f2d16ebccc0d167597a24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.ecsService.EcsServiceDeploymentController",
     jsii_struct_bases=[],
     name_mapping={"type": "type"},
@@ -2400,7 +2892,7 @@ class EcsServiceDeploymentCircuitBreakerOutputReference(
 class EcsServiceDeploymentController:
     def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a33a1c6b6338697bd525e389f83ef4d5c0e9a1a601ffbecc9774fcace92d097)
@@ -2411,7 +2903,7 @@ class EcsServiceDeploymentController:
 
     @builtins.property
     def type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.'''
         result = self._values.get("type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2490,6 +2982,7 @@ class EcsServiceDeploymentControllerOutputReference(
     name_mapping={
         "container_name": "containerName",
         "container_port": "containerPort",
+        "advanced_configuration": "advancedConfiguration",
         "elb_name": "elbName",
         "target_group_arn": "targetGroupArn",
     },
@@ -2500,25 +2993,32 @@ class EcsServiceLoadBalancer:
         *,
         container_name: builtins.str,
         container_port: jsii.Number,
+        advanced_configuration: typing.Optional[typing.Union["EcsServiceLoadBalancerAdvancedConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         elb_name: typing.Optional[builtins.str] = None,
         target_group_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_name EcsService#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_port EcsService#container_port}.
-        :param elb_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#elb_name EcsService#elb_name}.
-        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_name EcsService#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_port EcsService#container_port}.
+        :param advanced_configuration: advanced_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#advanced_configuration EcsService#advanced_configuration}
+        :param elb_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#elb_name EcsService#elb_name}.
+        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.
         '''
+        if isinstance(advanced_configuration, dict):
+            advanced_configuration = EcsServiceLoadBalancerAdvancedConfiguration(**advanced_configuration)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__859d58bc32ead0c8025867156f7f8f097738fd5922e31e8a7fc30b4337d61ac2)
             check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
             check_type(argname="argument container_port", value=container_port, expected_type=type_hints["container_port"])
+            check_type(argname="argument advanced_configuration", value=advanced_configuration, expected_type=type_hints["advanced_configuration"])
             check_type(argname="argument elb_name", value=elb_name, expected_type=type_hints["elb_name"])
             check_type(argname="argument target_group_arn", value=target_group_arn, expected_type=type_hints["target_group_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "container_name": container_name,
             "container_port": container_port,
         }
+        if advanced_configuration is not None:
+            self._values["advanced_configuration"] = advanced_configuration
         if elb_name is not None:
             self._values["elb_name"] = elb_name
         if target_group_arn is not None:
@@ -2526,27 +3026,38 @@ class EcsServiceLoadBalancer:
 
     @builtins.property
     def container_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_name EcsService#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_name EcsService#container_name}.'''
         result = self._values.get("container_name")
         assert result is not None, "Required property 'container_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_port EcsService#container_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_port EcsService#container_port}.'''
         result = self._values.get("container_port")
         assert result is not None, "Required property 'container_port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
+    def advanced_configuration(
+        self,
+    ) -> typing.Optional["EcsServiceLoadBalancerAdvancedConfiguration"]:
+        '''advanced_configuration block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#advanced_configuration EcsService#advanced_configuration}
+        '''
+        result = self._values.get("advanced_configuration")
+        return typing.cast(typing.Optional["EcsServiceLoadBalancerAdvancedConfiguration"], result)
+
+    @builtins.property
     def elb_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#elb_name EcsService#elb_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#elb_name EcsService#elb_name}.'''
         result = self._values.get("elb_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def target_group_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.'''
         result = self._values.get("target_group_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2560,6 +3071,194 @@ class EcsServiceLoadBalancer:
         return "EcsServiceLoadBalancer(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceLoadBalancerAdvancedConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alternate_target_group_arn": "alternateTargetGroupArn",
+        "production_listener_rule": "productionListenerRule",
+        "role_arn": "roleArn",
+        "test_listener_rule": "testListenerRule",
+    },
+)
+class EcsServiceLoadBalancerAdvancedConfiguration:
+    def __init__(
+        self,
+        *,
+        alternate_target_group_arn: builtins.str,
+        production_listener_rule: builtins.str,
+        role_arn: builtins.str,
+        test_listener_rule: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param alternate_target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alternate_target_group_arn EcsService#alternate_target_group_arn}.
+        :param production_listener_rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#production_listener_rule EcsService#production_listener_rule}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param test_listener_rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_listener_rule EcsService#test_listener_rule}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa1ce5f067945786388c0917b067e6056f62092e716a902bb9b82fd8df9e1296)
+            check_type(argname="argument alternate_target_group_arn", value=alternate_target_group_arn, expected_type=type_hints["alternate_target_group_arn"])
+            check_type(argname="argument production_listener_rule", value=production_listener_rule, expected_type=type_hints["production_listener_rule"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument test_listener_rule", value=test_listener_rule, expected_type=type_hints["test_listener_rule"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alternate_target_group_arn": alternate_target_group_arn,
+            "production_listener_rule": production_listener_rule,
+            "role_arn": role_arn,
+        }
+        if test_listener_rule is not None:
+            self._values["test_listener_rule"] = test_listener_rule
+
+    @builtins.property
+    def alternate_target_group_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alternate_target_group_arn EcsService#alternate_target_group_arn}.'''
+        result = self._values.get("alternate_target_group_arn")
+        assert result is not None, "Required property 'alternate_target_group_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def production_listener_rule(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#production_listener_rule EcsService#production_listener_rule}.'''
+        result = self._values.get("production_listener_rule")
+        assert result is not None, "Required property 'production_listener_rule' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def test_listener_rule(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_listener_rule EcsService#test_listener_rule}.'''
+        result = self._values.get("test_listener_rule")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceLoadBalancerAdvancedConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EcsServiceLoadBalancerAdvancedConfigurationOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceLoadBalancerAdvancedConfigurationOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80696ba0d9f33108355919a49b9ad0c26ccabdf645f41e7ec70c691fb88e16dd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="resetTestListenerRule")
+    def reset_test_listener_rule(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTestListenerRule", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="alternateTargetGroupArnInput")
+    def alternate_target_group_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alternateTargetGroupArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="productionListenerRuleInput")
+    def production_listener_rule_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "productionListenerRuleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArnInput")
+    def role_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="testListenerRuleInput")
+    def test_listener_rule_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "testListenerRuleInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="alternateTargetGroupArn")
+    def alternate_target_group_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "alternateTargetGroupArn"))
+
+    @alternate_target_group_arn.setter
+    def alternate_target_group_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2888f5399496d1db015c4e0b2b5ae6d3d1388c29f9bf7fec75b6df0072085ff)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alternateTargetGroupArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productionListenerRule")
+    def production_listener_rule(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "productionListenerRule"))
+
+    @production_listener_rule.setter
+    def production_listener_rule(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94459e4f55b4be5c1e0b96f2c9aa4b45a3fd45e5bcd3445b2d8606730bae03c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productionListenerRule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d6da84fa2ee8e8e21e0fe1d3d3085fdec12f54c89adf01a1c81a54550a0ca3ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="testListenerRule")
+    def test_listener_rule(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "testListenerRule"))
+
+    @test_listener_rule.setter
+    def test_listener_rule(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d7a4f980e9cb5dbb82802d7a9ae4211b84783f437872b5b039d43fc17cd666d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "testListenerRule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration]:
+        return typing.cast(typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49b3dd270c33f42a9723733b9c2a8cc1defa997894f7e154c18de8408261ce3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class EcsServiceLoadBalancerList(
@@ -2678,6 +3377,34 @@ class EcsServiceLoadBalancerOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="putAdvancedConfiguration")
+    def put_advanced_configuration(
+        self,
+        *,
+        alternate_target_group_arn: builtins.str,
+        production_listener_rule: builtins.str,
+        role_arn: builtins.str,
+        test_listener_rule: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param alternate_target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#alternate_target_group_arn EcsService#alternate_target_group_arn}.
+        :param production_listener_rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#production_listener_rule EcsService#production_listener_rule}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param test_listener_rule: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_listener_rule EcsService#test_listener_rule}.
+        '''
+        value = EcsServiceLoadBalancerAdvancedConfiguration(
+            alternate_target_group_arn=alternate_target_group_arn,
+            production_listener_rule=production_listener_rule,
+            role_arn=role_arn,
+            test_listener_rule=test_listener_rule,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putAdvancedConfiguration", [value]))
+
+    @jsii.member(jsii_name="resetAdvancedConfiguration")
+    def reset_advanced_configuration(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAdvancedConfiguration", []))
+
     @jsii.member(jsii_name="resetElbName")
     def reset_elb_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetElbName", []))
@@ -2685,6 +3412,20 @@ class EcsServiceLoadBalancerOutputReference(
     @jsii.member(jsii_name="resetTargetGroupArn")
     def reset_target_group_arn(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTargetGroupArn", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="advancedConfiguration")
+    def advanced_configuration(
+        self,
+    ) -> EcsServiceLoadBalancerAdvancedConfigurationOutputReference:
+        return typing.cast(EcsServiceLoadBalancerAdvancedConfigurationOutputReference, jsii.get(self, "advancedConfiguration"))
+
+    @builtins.property
+    @jsii.member(jsii_name="advancedConfigurationInput")
+    def advanced_configuration_input(
+        self,
+    ) -> typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration]:
+        return typing.cast(typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration], jsii.get(self, "advancedConfigurationInput"))
 
     @builtins.property
     @jsii.member(jsii_name="containerNameInput")
@@ -2790,9 +3531,9 @@ class EcsServiceNetworkConfiguration:
         security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#subnets EcsService#subnets}.
-        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.
-        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.
+        :param subnets: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#subnets EcsService#subnets}.
+        :param assign_public_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.
+        :param security_groups: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f31e825239d89b506c434a6a19c640f2dc838cba263b0db72e497466d50378d)
@@ -2809,7 +3550,7 @@ class EcsServiceNetworkConfiguration:
 
     @builtins.property
     def subnets(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#subnets EcsService#subnets}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#subnets EcsService#subnets}.'''
         result = self._values.get("subnets")
         assert result is not None, "Required property 'subnets' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2818,13 +3559,13 @@ class EcsServiceNetworkConfiguration:
     def assign_public_ip(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#assign_public_ip EcsService#assign_public_ip}.'''
         result = self._values.get("assign_public_ip")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#security_groups EcsService#security_groups}.'''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -2955,8 +3696,8 @@ class EcsServiceOrderedPlacementStrategy:
         field: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.
-        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#field EcsService#field}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.
+        :param field: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#field EcsService#field}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ef471e724f97abd3512a2cec1e440258e19d0b7f9db8fd89b88e493e3619813)
@@ -2970,14 +3711,14 @@ class EcsServiceOrderedPlacementStrategy:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def field(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#field EcsService#field}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#field EcsService#field}.'''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3181,8 +3922,8 @@ class EcsServicePlacementConstraints:
         expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#expression EcsService#expression}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#expression EcsService#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32083fa2a3ef530f2e54508ffe30ab534fa1b0fa99f2feac6315f59063ed34dd)
@@ -3196,14 +3937,14 @@ class EcsServicePlacementConstraints:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#type EcsService#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#type EcsService#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#expression EcsService#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#expression EcsService#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3414,10 +4155,10 @@ class EcsServiceServiceConnectConfiguration:
         service: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceServiceConnectConfigurationService", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enabled EcsService#enabled}.
-        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
-        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#namespace EcsService#namespace}.
-        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service EcsService#service}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enabled EcsService#enabled}.
+        :param log_configuration: log_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
+        :param namespace: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#namespace EcsService#namespace}.
+        :param service: service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service EcsService#service}
         '''
         if isinstance(log_configuration, dict):
             log_configuration = EcsServiceServiceConnectConfigurationLogConfiguration(**log_configuration)
@@ -3439,7 +4180,7 @@ class EcsServiceServiceConnectConfiguration:
 
     @builtins.property
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#enabled EcsService#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#enabled EcsService#enabled}.'''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
         return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], result)
@@ -3450,14 +4191,14 @@ class EcsServiceServiceConnectConfiguration:
     ) -> typing.Optional["EcsServiceServiceConnectConfigurationLogConfiguration"]:
         '''log_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_configuration EcsService#log_configuration}
         '''
         result = self._values.get("log_configuration")
         return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationLogConfiguration"], result)
 
     @builtins.property
     def namespace(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#namespace EcsService#namespace}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#namespace EcsService#namespace}.'''
         result = self._values.get("namespace")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3467,7 +4208,7 @@ class EcsServiceServiceConnectConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationService"]]]:
         '''service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#service EcsService#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#service EcsService#service}
         '''
         result = self._values.get("service")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationService"]]], result)
@@ -3502,9 +4243,9 @@ class EcsServiceServiceConnectConfigurationLogConfiguration:
         secret_option: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceServiceConnectConfigurationLogConfigurationSecretOption", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param log_driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.
-        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#options EcsService#options}.
-        :param secret_option: secret_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
+        :param log_driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.
+        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#options EcsService#options}.
+        :param secret_option: secret_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0df4cb8da78c9837800438b9c6e8947d8bb28620f3216cb140303d9cde171955)
@@ -3521,14 +4262,14 @@ class EcsServiceServiceConnectConfigurationLogConfiguration:
 
     @builtins.property
     def log_driver(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.'''
         result = self._values.get("log_driver")
         assert result is not None, "Required property 'log_driver' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def options(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#options EcsService#options}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#options EcsService#options}.'''
         result = self._values.get("options")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -3538,7 +4279,7 @@ class EcsServiceServiceConnectConfigurationLogConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationLogConfigurationSecretOption"]]]:
         '''secret_option block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
         '''
         result = self._values.get("secret_option")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationLogConfigurationSecretOption"]]], result)
@@ -3672,8 +4413,8 @@ class EcsServiceServiceConnectConfigurationLogConfigurationOutputReference(
 class EcsServiceServiceConnectConfigurationLogConfigurationSecretOption:
     def __init__(self, *, name: builtins.str, value_from: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.
-        :param value_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#value_from EcsService#value_from}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
+        :param value_from: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#value_from EcsService#value_from}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d413e97b100fa593bb4753c38abbe9597400cd1f8db685cfb744563a993daf0e)
@@ -3686,14 +4427,14 @@ class EcsServiceServiceConnectConfigurationLogConfigurationSecretOption:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value_from(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#value_from EcsService#value_from}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#value_from EcsService#value_from}.'''
         result = self._values.get("value_from")
         assert result is not None, "Required property 'value_from' is missing"
         return typing.cast(builtins.str, result)
@@ -3910,9 +4651,9 @@ class EcsServiceServiceConnectConfigurationOutputReference(
         secret_option: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceServiceConnectConfigurationLogConfigurationSecretOption, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param log_driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.
-        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#options EcsService#options}.
-        :param secret_option: secret_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
+        :param log_driver: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#log_driver EcsService#log_driver}.
+        :param options: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#options EcsService#options}.
+        :param secret_option: secret_option block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#secret_option EcsService#secret_option}
         '''
         value = EcsServiceServiceConnectConfigurationLogConfiguration(
             log_driver=log_driver, options=options, secret_option=secret_option
@@ -4050,12 +4791,12 @@ class EcsServiceServiceConnectConfigurationService:
         tls: typing.Optional[typing.Union["EcsServiceServiceConnectConfigurationServiceTls", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port_name EcsService#port_name}.
-        :param client_alias: client_alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#client_alias EcsService#client_alias}
-        :param discovery_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#discovery_name EcsService#discovery_name}.
-        :param ingress_port_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#ingress_port_override EcsService#ingress_port_override}.
-        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#timeout EcsService#timeout}
-        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tls EcsService#tls}
+        :param port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port_name EcsService#port_name}.
+        :param client_alias: client_alias block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#client_alias EcsService#client_alias}
+        :param discovery_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#discovery_name EcsService#discovery_name}.
+        :param ingress_port_override: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#ingress_port_override EcsService#ingress_port_override}.
+        :param timeout: timeout block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#timeout EcsService#timeout}
+        :param tls: tls block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tls EcsService#tls}
         '''
         if isinstance(client_alias, dict):
             client_alias = EcsServiceServiceConnectConfigurationServiceClientAlias(**client_alias)
@@ -4087,7 +4828,7 @@ class EcsServiceServiceConnectConfigurationService:
 
     @builtins.property
     def port_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port_name EcsService#port_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port_name EcsService#port_name}.'''
         result = self._values.get("port_name")
         assert result is not None, "Required property 'port_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4098,20 +4839,20 @@ class EcsServiceServiceConnectConfigurationService:
     ) -> typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAlias"]:
         '''client_alias block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#client_alias EcsService#client_alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#client_alias EcsService#client_alias}
         '''
         result = self._values.get("client_alias")
         return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAlias"], result)
 
     @builtins.property
     def discovery_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#discovery_name EcsService#discovery_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#discovery_name EcsService#discovery_name}.'''
         result = self._values.get("discovery_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def ingress_port_override(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#ingress_port_override EcsService#ingress_port_override}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#ingress_port_override EcsService#ingress_port_override}.'''
         result = self._values.get("ingress_port_override")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4121,7 +4862,7 @@ class EcsServiceServiceConnectConfigurationService:
     ) -> typing.Optional["EcsServiceServiceConnectConfigurationServiceTimeout"]:
         '''timeout block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#timeout EcsService#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#timeout EcsService#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationServiceTimeout"], result)
@@ -4130,7 +4871,7 @@ class EcsServiceServiceConnectConfigurationService:
     def tls(self) -> typing.Optional["EcsServiceServiceConnectConfigurationServiceTls"]:
         '''tls block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tls EcsService#tls}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tls EcsService#tls}
         '''
         result = self._values.get("tls")
         return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationServiceTls"], result)
@@ -4150,7 +4891,11 @@ class EcsServiceServiceConnectConfigurationService:
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAlias",
     jsii_struct_bases=[],
-    name_mapping={"port": "port", "dns_name": "dnsName"},
+    name_mapping={
+        "port": "port",
+        "dns_name": "dnsName",
+        "test_traffic_rules": "testTrafficRules",
+    },
 )
 class EcsServiceServiceConnectConfigurationServiceClientAlias:
     def __init__(
@@ -4158,33 +4903,49 @@ class EcsServiceServiceConnectConfigurationServiceClientAlias:
         *,
         port: jsii.Number,
         dns_name: typing.Optional[builtins.str] = None,
+        test_traffic_rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.
-        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.
+        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.
+        :param test_traffic_rules: test_traffic_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_traffic_rules EcsService#test_traffic_rules}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47bbeb9ff5f08b09e627fa6f1a05d3f890de93222a5738730ad9780f0e511818)
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
+            check_type(argname="argument test_traffic_rules", value=test_traffic_rules, expected_type=type_hints["test_traffic_rules"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "port": port,
         }
         if dns_name is not None:
             self._values["dns_name"] = dns_name
+        if test_traffic_rules is not None:
+            self._values["test_traffic_rules"] = test_traffic_rules
 
     @builtins.property
     def port(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.'''
         result = self._values.get("port")
         assert result is not None, "Required property 'port' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def dns_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.'''
         result = self._values.get("dns_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def test_traffic_rules(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules"]]]:
+        '''test_traffic_rules block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_traffic_rules EcsService#test_traffic_rules}
+        '''
+        result = self._values.get("test_traffic_rules")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4218,9 +4979,33 @@ class EcsServiceServiceConnectConfigurationServiceClientAliasOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putTestTrafficRules")
+    def put_test_traffic_rules(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c7d03591b878efb3a18432f4b5fc152fbf115f0c15eb71b02851be4adb87f3a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putTestTrafficRules", [value]))
+
     @jsii.member(jsii_name="resetDnsName")
     def reset_dns_name(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDnsName", []))
+
+    @jsii.member(jsii_name="resetTestTrafficRules")
+    def reset_test_traffic_rules(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTestTrafficRules", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="testTrafficRules")
+    def test_traffic_rules(
+        self,
+    ) -> "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesList":
+        return typing.cast("EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesList", jsii.get(self, "testTrafficRules"))
 
     @builtins.property
     @jsii.member(jsii_name="dnsNameInput")
@@ -4231,6 +5016,13 @@ class EcsServiceServiceConnectConfigurationServiceClientAliasOutputReference(
     @jsii.member(jsii_name="portInput")
     def port_input(self) -> typing.Optional[jsii.Number]:
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "portInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="testTrafficRulesInput")
+    def test_traffic_rules_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules"]]], jsii.get(self, "testTrafficRulesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="dnsName")
@@ -4270,6 +5062,453 @@ class EcsServiceServiceConnectConfigurationServiceClientAliasOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__063d3c174d6d01e977345f0b3a2550a125db81710d1822b6b26f2a5fa565defa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules",
+    jsii_struct_bases=[],
+    name_mapping={"header": "header"},
+)
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules:
+    def __init__(
+        self,
+        *,
+        header: typing.Optional[typing.Union["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#header EcsService#header}
+        '''
+        if isinstance(header, dict):
+            header = EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader(**header)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4193874ddcf23592b71414f4e9aeeb27dfb36ba81d0732ae8c22c2d2dcb91004)
+            check_type(argname="argument header", value=header, expected_type=type_hints["header"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if header is not None:
+            self._values["header"] = header
+
+    @builtins.property
+    def header(
+        self,
+    ) -> typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader"]:
+        '''header block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#header EcsService#header}
+        '''
+        result = self._values.get("header")
+        return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value": "value"},
+)
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        value: typing.Union["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
+        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#value EcsService#value}
+        '''
+        if isinstance(value, dict):
+            value = EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue(**value)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9677d214b3aaa5c478e1967e9ce46cfea45cce8b9a81bf1b7842e599e12140c1)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value": value,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(
+        self,
+    ) -> "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue":
+        '''value block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#value EcsService#value}
+        '''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast("EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af49704b912601941a5ceb77e8533d521cc88c659985be41badbe89cde47dd8a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putValue")
+    def put_value(self, *, exact: builtins.str) -> None:
+        '''
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#exact EcsService#exact}.
+        '''
+        value = EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue(
+            exact=exact
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putValue", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(
+        self,
+    ) -> "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValueOutputReference":
+        return typing.cast("EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValueOutputReference", jsii.get(self, "value"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nameInput")
+    def name_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nameInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="valueInput")
+    def value_input(
+        self,
+    ) -> typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue"]:
+        return typing.cast(typing.Optional["EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue"], jsii.get(self, "valueInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27dfe70bc533214004fe30fd9389884da84d8f25f6b98b9beaad6df338c048a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader]:
+        return typing.cast(typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb72b69862a163bca59a726ca010648a0b1c6e1c646b56fde8581caa85ab0702)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue",
+    jsii_struct_bases=[],
+    name_mapping={"exact": "exact"},
+)
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue:
+    def __init__(self, *, exact: builtins.str) -> None:
+        '''
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#exact EcsService#exact}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2ea0cd0555b3a9852690a17036dd264541187aab460331667fcfc6ceaf138aa)
+            check_type(argname="argument exact", value=exact, expected_type=type_hints["exact"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "exact": exact,
+        }
+
+    @builtins.property
+    def exact(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#exact EcsService#exact}.'''
+        result = self._values.get("exact")
+        assert result is not None, "Required property 'exact' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValueOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValueOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f058c2b6d776340d1d1cf5cb94875341c5d23eca64aa715fd78482df23481249)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="exactInput")
+    def exact_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "exactInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="exact")
+    def exact(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "exact"))
+
+    @exact.setter
+    def exact(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__496ebb8b24c134fe2436068622d888259978981013b40696892470d5653fdf57)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exact", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue]:
+        return typing.cast(typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31d9a63f5dd9ddc8383ae2c156fa91bb11db62fd62c93b5b36f0e5776e609c3b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__774ef57b7ff76a65195cf7765e32cbc230f0eebab1d203bc8d908dac913c4fdc)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d6e9ba5a2a9c788b4c97e48dab3ec30eea22f6f8e39e299edc6b3414e986554)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac30d76afd9fd5b1fe0f6cc77e1701867ba42aac1d7d1195e276242269d84e56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d91aafcce7a0cb47acd9bc5a41e610d3a8a247e1ce183ebb3757345e1d2a5f2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b2c2327052f76ebc348db8ee5ea1a3539f17c6b8a25f7aa173e66efd3188b0f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6cc7d242beb08e882f7f61e6cffa5c4b2597219c8873e124b5691bdf02116fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.ecsService.EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a30c7f2ebeaa7125241c18b808215f7f6c2b844f52d124fe9fa98e936853a05)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="putHeader")
+    def put_header(
+        self,
+        *,
+        name: builtins.str,
+        value: typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue, typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
+        :param value: value block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#value EcsService#value}
+        '''
+        value_ = EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader(
+            name=name, value=value
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putHeader", [value_]))
+
+    @jsii.member(jsii_name="resetHeader")
+    def reset_header(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetHeader", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="header")
+    def header(
+        self,
+    ) -> EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderOutputReference:
+        return typing.cast(EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderOutputReference, jsii.get(self, "header"))
+
+    @builtins.property
+    @jsii.member(jsii_name="headerInput")
+    def header_input(
+        self,
+    ) -> typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader]:
+        return typing.cast(typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader], jsii.get(self, "headerInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee1526445684f313ab9b26cd08f74e1632fe9aaca3a06b8dfd78748302f2cbc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -4399,13 +5638,15 @@ class EcsServiceServiceConnectConfigurationServiceOutputReference(
         *,
         port: jsii.Number,
         dns_name: typing.Optional[builtins.str] = None,
+        test_traffic_rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.
-        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.
+        :param dns_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#dns_name EcsService#dns_name}.
+        :param test_traffic_rules: test_traffic_rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#test_traffic_rules EcsService#test_traffic_rules}
         '''
         value = EcsServiceServiceConnectConfigurationServiceClientAlias(
-            port=port, dns_name=dns_name
+            port=port, dns_name=dns_name, test_traffic_rules=test_traffic_rules
         )
 
         return typing.cast(None, jsii.invoke(self, "putClientAlias", [value]))
@@ -4418,8 +5659,8 @@ class EcsServiceServiceConnectConfigurationServiceOutputReference(
         per_request_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.
-        :param per_request_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.
+        :param idle_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.
+        :param per_request_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.
         '''
         value = EcsServiceServiceConnectConfigurationServiceTimeout(
             idle_timeout_seconds=idle_timeout_seconds,
@@ -4437,9 +5678,9 @@ class EcsServiceServiceConnectConfigurationServiceOutputReference(
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issuer_cert_authority: issuer_cert_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param issuer_cert_authority: issuer_cert_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
         '''
         value = EcsServiceServiceConnectConfigurationServiceTls(
             issuer_cert_authority=issuer_cert_authority,
@@ -4594,8 +5835,8 @@ class EcsServiceServiceConnectConfigurationServiceTimeout:
         per_request_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param idle_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.
-        :param per_request_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.
+        :param idle_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.
+        :param per_request_timeout_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__acd5f3cba49b77dc8cb97d8af18491ec35f289586790fadcc103e17552dfb464)
@@ -4609,13 +5850,13 @@ class EcsServiceServiceConnectConfigurationServiceTimeout:
 
     @builtins.property
     def idle_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#idle_timeout_seconds EcsService#idle_timeout_seconds}.'''
         result = self._values.get("idle_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def per_request_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#per_request_timeout_seconds EcsService#per_request_timeout_seconds}.'''
         result = self._values.get("per_request_timeout_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4729,9 +5970,9 @@ class EcsServiceServiceConnectConfigurationServiceTls:
         role_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param issuer_cert_authority: issuer_cert_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
-        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param issuer_cert_authority: issuer_cert_authority block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
+        :param kms_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
         '''
         if isinstance(issuer_cert_authority, dict):
             issuer_cert_authority = EcsServiceServiceConnectConfigurationServiceTlsIssuerCertAuthority(**issuer_cert_authority)
@@ -4754,7 +5995,7 @@ class EcsServiceServiceConnectConfigurationServiceTls:
     ) -> "EcsServiceServiceConnectConfigurationServiceTlsIssuerCertAuthority":
         '''issuer_cert_authority block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#issuer_cert_authority EcsService#issuer_cert_authority}
         '''
         result = self._values.get("issuer_cert_authority")
         assert result is not None, "Required property 'issuer_cert_authority' is missing"
@@ -4762,13 +6003,13 @@ class EcsServiceServiceConnectConfigurationServiceTls:
 
     @builtins.property
     def kms_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key EcsService#kms_key}.'''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
         result = self._values.get("role_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4792,7 +6033,7 @@ class EcsServiceServiceConnectConfigurationServiceTls:
 class EcsServiceServiceConnectConfigurationServiceTlsIssuerCertAuthority:
     def __init__(self, *, aws_pca_authority_arn: builtins.str) -> None:
         '''
-        :param aws_pca_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.
+        :param aws_pca_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__760de0232b7282a180d4eab7d62f218212fa4c80f2c7e94ed7396fdd80d90d71)
@@ -4803,7 +6044,7 @@ class EcsServiceServiceConnectConfigurationServiceTlsIssuerCertAuthority:
 
     @builtins.property
     def aws_pca_authority_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.'''
         result = self._values.get("aws_pca_authority_arn")
         assert result is not None, "Required property 'aws_pca_authority_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4898,7 +6139,7 @@ class EcsServiceServiceConnectConfigurationServiceTlsOutputReference(
     @jsii.member(jsii_name="putIssuerCertAuthority")
     def put_issuer_cert_authority(self, *, aws_pca_authority_arn: builtins.str) -> None:
         '''
-        :param aws_pca_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.
+        :param aws_pca_authority_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#aws_pca_authority_arn EcsService#aws_pca_authority_arn}.
         '''
         value = EcsServiceServiceConnectConfigurationServiceTlsIssuerCertAuthority(
             aws_pca_authority_arn=aws_pca_authority_arn
@@ -5000,10 +6241,10 @@ class EcsServiceServiceRegistries:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.
-        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_name EcsService#container_name}.
-        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_port EcsService#container_port}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.
+        :param registry_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.
+        :param container_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_name EcsService#container_name}.
+        :param container_port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_port EcsService#container_port}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__49d054ac575759ce43dc7c1243def0aab3cbd20903efb2eb3f47cc53e219ffb8)
@@ -5023,26 +6264,26 @@ class EcsServiceServiceRegistries:
 
     @builtins.property
     def registry_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#registry_arn EcsService#registry_arn}.'''
         result = self._values.get("registry_arn")
         assert result is not None, "Required property 'registry_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def container_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_name EcsService#container_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_name EcsService#container_name}.'''
         result = self._values.get("container_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def container_port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#container_port EcsService#container_port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#container_port EcsService#container_port}.'''
         result = self._values.get("container_port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port EcsService#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port EcsService#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -5188,9 +6429,9 @@ class EcsServiceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#create EcsService#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#delete EcsService#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#update EcsService#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#create EcsService#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#delete EcsService#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#update EcsService#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86923f7af7efb03700c7c69d239b5d2587a7e31ab3a3fee09ea9dca37cbdedbc)
@@ -5207,19 +6448,19 @@ class EcsServiceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#create EcsService#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#create EcsService#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#delete EcsService#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#delete EcsService#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#update EcsService#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#update EcsService#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5349,8 +6590,8 @@ class EcsServiceVolumeConfiguration:
         name: builtins.str,
     ) -> None:
         '''
-        :param managed_ebs_volume: managed_ebs_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.
+        :param managed_ebs_volume: managed_ebs_volume block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.
         '''
         if isinstance(managed_ebs_volume, dict):
             managed_ebs_volume = EcsServiceVolumeConfigurationManagedEbsVolume(**managed_ebs_volume)
@@ -5367,7 +6608,7 @@ class EcsServiceVolumeConfiguration:
     def managed_ebs_volume(self) -> "EcsServiceVolumeConfigurationManagedEbsVolume":
         '''managed_ebs_volume block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#managed_ebs_volume EcsService#managed_ebs_volume}
         '''
         result = self._values.get("managed_ebs_volume")
         assert result is not None, "Required property 'managed_ebs_volume' is missing"
@@ -5375,7 +6616,7 @@ class EcsServiceVolumeConfiguration:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#name EcsService#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#name EcsService#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5426,17 +6667,17 @@ class EcsServiceVolumeConfigurationManagedEbsVolume:
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.
-        :param file_system_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iops EcsService#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.
-        :param size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.
-        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#throughput EcsService#throughput}.
-        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.
+        :param file_system_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iops EcsService#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.
+        :param size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.
+        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#throughput EcsService#throughput}.
+        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d4f1b464075ec2941cba5f3721ab100cc34aae84ffa4329f03432c1124d08f4)
@@ -5477,7 +6718,7 @@ class EcsServiceVolumeConfigurationManagedEbsVolume:
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -5486,37 +6727,37 @@ class EcsServiceVolumeConfigurationManagedEbsVolume:
     def encrypted(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.'''
         result = self._values.get("encrypted")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def file_system_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.'''
         result = self._values.get("file_system_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iops(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iops EcsService#iops}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iops EcsService#iops}.'''
         result = self._values.get("iops")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def size_in_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.'''
         result = self._values.get("size_in_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def snapshot_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.'''
         result = self._values.get("snapshot_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5526,26 +6767,26 @@ class EcsServiceVolumeConfigurationManagedEbsVolume:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceVolumeConfigurationManagedEbsVolumeTagSpecifications"]]]:
         '''tag_specifications block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
         '''
         result = self._values.get("tag_specifications")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EcsServiceVolumeConfigurationManagedEbsVolumeTagSpecifications"]]], result)
 
     @builtins.property
     def throughput(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#throughput EcsService#throughput}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#throughput EcsService#throughput}.'''
         result = self._values.get("throughput")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_initialization_rate(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.'''
         result = self._values.get("volume_initialization_rate")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def volume_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.'''
         result = self._values.get("volume_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5859,9 +7100,9 @@ class EcsServiceVolumeConfigurationManagedEbsVolumeTagSpecifications:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''
-        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#resource_type EcsService#resource_type}.
-        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags EcsService#tags}.
+        :param resource_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#resource_type EcsService#resource_type}.
+        :param propagate_tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags EcsService#tags}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9be8357a4fc3a3f42d7b441143823e28edba02199ebae570b7b97b741fe60e60)
@@ -5878,20 +7119,20 @@ class EcsServiceVolumeConfigurationManagedEbsVolumeTagSpecifications:
 
     @builtins.property
     def resource_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#resource_type EcsService#resource_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#resource_type EcsService#resource_type}.'''
         result = self._values.get("resource_type")
         assert result is not None, "Required property 'resource_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def propagate_tags(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#propagate_tags EcsService#propagate_tags}.'''
         result = self._values.get("propagate_tags")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tags EcsService#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tags EcsService#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -6140,17 +7381,17 @@ class EcsServiceVolumeConfigurationOutputReference(
         volume_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
-        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.
-        :param file_system_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.
-        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#iops EcsService#iops}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.
-        :param size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.
-        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.
-        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
-        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#throughput EcsService#throughput}.
-        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.
-        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param encrypted: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#encrypted EcsService#encrypted}.
+        :param file_system_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#file_system_type EcsService#file_system_type}.
+        :param iops: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#iops EcsService#iops}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#kms_key_id EcsService#kms_key_id}.
+        :param size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#size_in_gb EcsService#size_in_gb}.
+        :param snapshot_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#snapshot_id EcsService#snapshot_id}.
+        :param tag_specifications: tag_specifications block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#tag_specifications EcsService#tag_specifications}
+        :param throughput: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#throughput EcsService#throughput}.
+        :param volume_initialization_rate: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_initialization_rate EcsService#volume_initialization_rate}.
+        :param volume_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#volume_type EcsService#volume_type}.
         '''
         value = EcsServiceVolumeConfigurationManagedEbsVolume(
             role_arn=role_arn,
@@ -6233,9 +7474,9 @@ class EcsServiceVpcLatticeConfigurations:
         target_group_arn: builtins.str,
     ) -> None:
         '''
-        :param port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port_name EcsService#port_name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
-        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.
+        :param port_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port_name EcsService#port_name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.
+        :param target_group_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7e8ba0869c791f01d0d4a7cee3ab09263edfe6f9a8cd9671d98e7b934f0ef1a)
@@ -6250,21 +7491,21 @@ class EcsServiceVpcLatticeConfigurations:
 
     @builtins.property
     def port_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#port_name EcsService#port_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#port_name EcsService#port_name}.'''
         result = self._values.get("port_name")
         assert result is not None, "Required property 'port_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#role_arn EcsService#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_group_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/ecs_service#target_group_arn EcsService#target_group_arn}.'''
         result = self._values.get("target_group_arn")
         assert result is not None, "Required property 'target_group_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -6479,9 +7720,16 @@ __all__ = [
     "EcsServiceConfig",
     "EcsServiceDeploymentCircuitBreaker",
     "EcsServiceDeploymentCircuitBreakerOutputReference",
+    "EcsServiceDeploymentConfiguration",
+    "EcsServiceDeploymentConfigurationLifecycleHook",
+    "EcsServiceDeploymentConfigurationLifecycleHookList",
+    "EcsServiceDeploymentConfigurationLifecycleHookOutputReference",
+    "EcsServiceDeploymentConfigurationOutputReference",
     "EcsServiceDeploymentController",
     "EcsServiceDeploymentControllerOutputReference",
     "EcsServiceLoadBalancer",
+    "EcsServiceLoadBalancerAdvancedConfiguration",
+    "EcsServiceLoadBalancerAdvancedConfigurationOutputReference",
     "EcsServiceLoadBalancerList",
     "EcsServiceLoadBalancerOutputReference",
     "EcsServiceNetworkConfiguration",
@@ -6502,6 +7750,13 @@ __all__ = [
     "EcsServiceServiceConnectConfigurationService",
     "EcsServiceServiceConnectConfigurationServiceClientAlias",
     "EcsServiceServiceConnectConfigurationServiceClientAliasOutputReference",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderOutputReference",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValueOutputReference",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesList",
+    "EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesOutputReference",
     "EcsServiceServiceConnectConfigurationServiceList",
     "EcsServiceServiceConnectConfigurationServiceOutputReference",
     "EcsServiceServiceConnectConfigurationServiceTimeout",
@@ -6538,6 +7793,7 @@ def _typecheckingstub__012ed58a780b8ded03bd07d6b3cb9748d51b0d3592c35a2e17e3020f2
     capacity_provider_strategy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceCapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]]] = None,
     cluster: typing.Optional[builtins.str] = None,
     deployment_circuit_breaker: typing.Optional[typing.Union[EcsServiceDeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_configuration: typing.Optional[typing.Union[EcsServiceDeploymentConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[EcsServiceDeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_maximum_percent: typing.Optional[jsii.Number] = None,
     deployment_minimum_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -6891,6 +8147,7 @@ def _typecheckingstub__70768dc21675c30951181620157e265b6664264cdccace6db5d90363a
     capacity_provider_strategy: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceCapacityProviderStrategy, typing.Dict[builtins.str, typing.Any]]]]] = None,
     cluster: typing.Optional[builtins.str] = None,
     deployment_circuit_breaker: typing.Optional[typing.Union[EcsServiceDeploymentCircuitBreaker, typing.Dict[builtins.str, typing.Any]]] = None,
+    deployment_configuration: typing.Optional[typing.Union[EcsServiceDeploymentConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_controller: typing.Optional[typing.Union[EcsServiceDeploymentController, typing.Dict[builtins.str, typing.Any]]] = None,
     deployment_maximum_percent: typing.Optional[jsii.Number] = None,
     deployment_minimum_healthy_percent: typing.Optional[jsii.Number] = None,
@@ -6958,6 +8215,126 @@ def _typecheckingstub__b197f7742e726e508d6a33f66e68b95095b78529d123d5e2945f829fb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8fde43c08549f36d7796b56776e2ebf934fd0d4b6852f676dc5fddb05fb3fc8f(
+    *,
+    bake_time_in_minutes: typing.Optional[builtins.str] = None,
+    lifecycle_hook: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceDeploymentConfigurationLifecycleHook, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    strategy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01ee9b053694ad6d57dc5bad46bd9c57f91b5fe88971914560164860adddc092(
+    *,
+    hook_target_arn: builtins.str,
+    lifecycle_stages: typing.Sequence[builtins.str],
+    role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff939d75d4126b36c74dd46aaba49357c090eaac57d3e6fd6c6c12c43dcd917a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb69c32966073ece2a83fb453d110fb30ddc6af9953a1ca54b33eaef3e672721(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d66ae99bb42dedb1e85635d8f0debc3d4507668c85858f0dd477e37db7672775(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9e214461f3174cc6cae0254d4d05d9765de335ed5a1f9c54cab988400d886a1(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__030cff4f14f632851a54331163f5e571fc8a3eb81f7e4f3b7600435712685c8c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37e18a345e38e67939fbe92934d15f08dafe63f7b81d826af068ffec5fc3199b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceDeploymentConfigurationLifecycleHook]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3062b17a57dfc8f33fb8cd4b110d50bdd863176b83da6688f407238db12f2dcb(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b51881ad9c41843ee8d80281af1a03c086c40fc47bae8f91f36dcffc6ba06dc(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__040778a29ee8830563db7da6d4036ff5f9b09e8bd40ee53a847cef037590a3c1(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fa58308a852f8ebd553f45006f1b52e28fa6c287817d27a98dcd101561aa1d3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b12cdba97512d220f535c8fdc31e7f5651dd256dd709d0c6ed0eb814233e25e3(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceDeploymentConfigurationLifecycleHook]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__387363f72f79a9b7a4bef06b6d2db606ac445fa0863bdd3e9ee3f24eb5ddb55d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3ccfd1898798058d8682b3060c43f663f6e6ea83c15fcbbb6f8ac32609362a9(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceDeploymentConfigurationLifecycleHook, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67f05b1c262d768ac15bda945fb45b70da4e9f1f263e5b4b1bce499b03bd0930(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c5616029b52ea89a4d040aa6f159c923b5d3490875dad758624e7b2932f432ab(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed305f8514a4691e60d996aa7983501a30f264a4318f2d16ebccc0d167597a24(
+    value: typing.Optional[EcsServiceDeploymentConfiguration],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6a33a1c6b6338697bd525e389f83ef4d5c0e9a1a601ffbecc9774fcace92d097(
     *,
     type: typing.Optional[builtins.str] = None,
@@ -6988,8 +8365,56 @@ def _typecheckingstub__859d58bc32ead0c8025867156f7f8f097738fd5922e31e8a7fc30b433
     *,
     container_name: builtins.str,
     container_port: jsii.Number,
+    advanced_configuration: typing.Optional[typing.Union[EcsServiceLoadBalancerAdvancedConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     elb_name: typing.Optional[builtins.str] = None,
     target_group_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa1ce5f067945786388c0917b067e6056f62092e716a902bb9b82fd8df9e1296(
+    *,
+    alternate_target_group_arn: builtins.str,
+    production_listener_rule: builtins.str,
+    role_arn: builtins.str,
+    test_listener_rule: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80696ba0d9f33108355919a49b9ad0c26ccabdf645f41e7ec70c691fb88e16dd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2888f5399496d1db015c4e0b2b5ae6d3d1388c29f9bf7fec75b6df0072085ff(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94459e4f55b4be5c1e0b96f2c9aa4b45a3fd45e5bcd3445b2d8606730bae03c5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d6da84fa2ee8e8e21e0fe1d3d3085fdec12f54c89adf01a1c81a54550a0ca3ed(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d7a4f980e9cb5dbb82802d7a9ae4211b84783f437872b5b039d43fc17cd666d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49b3dd270c33f42a9723733b9c2a8cc1defa997894f7e154c18de8408261ce3b(
+    value: typing.Optional[EcsServiceLoadBalancerAdvancedConfiguration],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7427,6 +8852,7 @@ def _typecheckingstub__47bbeb9ff5f08b09e627fa6f1a05d3f890de93222a5738730ad9780f0
     *,
     port: jsii.Number,
     dns_name: typing.Optional[builtins.str] = None,
+    test_traffic_rules: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules, typing.Dict[builtins.str, typing.Any]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7434,6 +8860,12 @@ def _typecheckingstub__47bbeb9ff5f08b09e627fa6f1a05d3f890de93222a5738730ad9780f0
 def _typecheckingstub__4853c5e5536fd0c998090e91355d4e995ab05d4950e07a0828a1c055da2c8f91(
     terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
     terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c7d03591b878efb3a18432f4b5fc152fbf115f0c15eb71b02851be4adb87f3a(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules, typing.Dict[builtins.str, typing.Any]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7452,6 +8884,119 @@ def _typecheckingstub__5449decdf0b81717a8a0019f5147361724fd7d3956516ca18b66ca4c4
 
 def _typecheckingstub__063d3c174d6d01e977345f0b3a2550a125db81710d1822b6b26f2a5fa565defa(
     value: typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAlias],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4193874ddcf23592b71414f4e9aeeb27dfb36ba81d0732ae8c22c2d2dcb91004(
+    *,
+    header: typing.Optional[typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9677d214b3aaa5c478e1967e9ce46cfea45cce8b9a81bf1b7842e599e12140c1(
+    *,
+    name: builtins.str,
+    value: typing.Union[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue, typing.Dict[builtins.str, typing.Any]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af49704b912601941a5ceb77e8533d521cc88c659985be41badbe89cde47dd8a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27dfe70bc533214004fe30fd9389884da84d8f25f6b98b9beaad6df338c048a5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb72b69862a163bca59a726ca010648a0b1c6e1c646b56fde8581caa85ab0702(
+    value: typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeader],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2ea0cd0555b3a9852690a17036dd264541187aab460331667fcfc6ceaf138aa(
+    *,
+    exact: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f058c2b6d776340d1d1cf5cb94875341c5d23eca64aa715fd78482df23481249(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__496ebb8b24c134fe2436068622d888259978981013b40696892470d5653fdf57(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31d9a63f5dd9ddc8383ae2c156fa91bb11db62fd62c93b5b36f0e5776e609c3b(
+    value: typing.Optional[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRulesHeaderValue],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__774ef57b7ff76a65195cf7765e32cbc230f0eebab1d203bc8d908dac913c4fdc(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d6e9ba5a2a9c788b4c97e48dab3ec30eea22f6f8e39e299edc6b3414e986554(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac30d76afd9fd5b1fe0f6cc77e1701867ba42aac1d7d1195e276242269d84e56(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d91aafcce7a0cb47acd9bc5a41e610d3a8a247e1ce183ebb3757345e1d2a5f2(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b2c2327052f76ebc348db8ee5ea1a3539f17c6b8a25f7aa173e66efd3188b0f(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6cc7d242beb08e882f7f61e6cffa5c4b2597219c8873e124b5691bdf02116fe(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a30c7f2ebeaa7125241c18b808215f7f6c2b844f52d124fe9fa98e936853a05(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cee1526445684f313ab9b26cd08f74e1632fe9aaca3a06b8dfd78748302f2cbc(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EcsServiceServiceConnectConfigurationServiceClientAliasTestTrafficRules]],
 ) -> None:
     """Type checking stubs"""
     pass

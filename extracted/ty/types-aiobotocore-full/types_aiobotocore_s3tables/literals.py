@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_s3tables.literals import JobStatusType
+    from types_aiobotocore_s3tables.literals import IcebergCompactionStrategyType
 
-    data: JobStatusType = "Disabled"
+    data: IcebergCompactionStrategyType = "auto"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "IcebergCompactionStrategyType",
     "JobStatusType",
     "ListNamespacesPaginatorName",
     "ListTableBucketsPaginatorName",
@@ -41,6 +42,7 @@ __all__ = (
 )
 
 
+IcebergCompactionStrategyType = Literal["auto", "binpack", "sort", "z-order"]
 JobStatusType = Literal["Disabled", "Failed", "Not_Yet_Run", "Successful"]
 ListNamespacesPaginatorName = Literal["list_namespaces"]
 ListTableBucketsPaginatorName = Literal["list_table_buckets"]
@@ -60,6 +62,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -200,6 +203,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -257,6 +261,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -312,6 +317,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -456,6 +462,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

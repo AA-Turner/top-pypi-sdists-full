@@ -39,6 +39,8 @@ __all__ = (
     "FunctionVersionType",
     "InvocationTypeType",
     "InvokeModeType",
+    "KafkaSchemaRegistryAuthTypeType",
+    "KafkaSchemaValidationAttributeType",
     "LambdaServiceName",
     "LastUpdateStatusReasonCodeType",
     "LastUpdateStatusType",
@@ -64,6 +66,7 @@ __all__ = (
     "ResourceServiceName",
     "ResponseStreamingInvocationTypeType",
     "RuntimeType",
+    "SchemaRegistryEventRecordFormatType",
     "ServiceName",
     "SnapStartApplyOnType",
     "SnapStartOptimizationStatusType",
@@ -93,6 +96,10 @@ FunctionUrlAuthTypeType = Literal["AWS_IAM", "NONE"]
 FunctionVersionType = Literal["ALL"]
 InvocationTypeType = Literal["DryRun", "Event", "RequestResponse"]
 InvokeModeType = Literal["BUFFERED", "RESPONSE_STREAM"]
+KafkaSchemaRegistryAuthTypeType = Literal[
+    "BASIC_AUTH", "CLIENT_CERTIFICATE_TLS_AUTH", "SERVER_ROOT_CA_CERTIFICATE"
+]
+KafkaSchemaValidationAttributeType = Literal["KEY", "VALUE"]
 LastUpdateStatusReasonCodeType = Literal[
     "DisabledKMSKey",
     "EFSIOError",
@@ -178,6 +185,7 @@ RuntimeType = Literal[
     "ruby3.3",
     "ruby3.4",
 ]
+SchemaRegistryEventRecordFormatType = Literal["JSON", "SOURCE"]
 SnapStartApplyOnType = Literal["None", "PublishedVersions"]
 SnapStartOptimizationStatusType = Literal["Off", "On"]
 SourceAccessTypeType = Literal[
@@ -226,6 +234,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -366,6 +375,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -423,6 +433,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -478,6 +489,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -622,6 +634,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -662,6 +675,7 @@ WaiterName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

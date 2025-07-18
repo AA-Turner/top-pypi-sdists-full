@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = "pulpcore"
-version = "3.83.1"
+version = "3.83.2"
 description = "Pulp Django Application and Related Modules"
 readme = "README.md"
 authors = [
@@ -74,7 +74,11 @@ dependencies = [
 sftp = ["django-storages[sftp]==1.14.6"]
 s3 = ["django-storages[boto3]==1.14.6"]
 google = ["django-storages[google]==1.14.6"]
-azure = ["django-storages[azure]==1.14.6"]
+azure = [
+    "django-storages[azure]==1.14.6",
+    # pinned until https://github.com/Azure/Azurite/issues/2562 is resolved
+    "azure-storage-blob<12.26.0",
+]
 prometheus = ["django-prometheus"]
 kafka = [
   # Pinned because project warns "things might (and will) break with every update"
@@ -208,7 +212,7 @@ ignore = [
 [tool.bumpversion]
 # This section is managed by the plugin template. Do not edit manually.
 
-current_version = "3.83.1"
+current_version = "3.83.2"
 commit = false
 tag = false
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<alpha>0a)?(?P<patch>\\d+)(\\.(?P<release>[a-z]+))?"

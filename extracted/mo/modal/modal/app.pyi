@@ -129,7 +129,7 @@ class _App:
         image: typing.Optional[modal.image._Image] = None,
         secrets: collections.abc.Sequence[modal.secret._Secret] = [],
         volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume._Volume] = {},
-        include_source: typing.Optional[bool] = None,
+        include_source: bool = True,
     ) -> None:
         """Construct a new app, optionally with default image, mounts, secrets, or volumes.
 
@@ -299,22 +299,38 @@ class _App:
     def _init_container(self, client: modal.client._Client, running_app: modal.running_app.RunningApp): ...
     @property
     def registered_functions(self) -> dict[str, modal._functions._Function]:
-        """All modal.Function objects registered on the app."""
+        """All modal.Function objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_classes(self) -> dict[str, modal.cls._Cls]:
-        """All modal.Cls objects registered on the app."""
+        """All modal.Cls objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_entrypoints(self) -> dict[str, _LocalEntrypoint]:
-        """All local CLI entrypoints registered on the app."""
+        """All local CLI entrypoints registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_web_endpoints(self) -> list[str]:
-        """Names of web endpoint (ie. webhook) functions registered on the app."""
+        """Names of web endpoint (ie. webhook) functions registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     def local_entrypoint(
@@ -414,8 +430,8 @@ class _App:
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
         allow_cross_region_volumes: typing.Optional[bool] = None,
+        _experimental_buffer_containers: typing.Optional[int] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -455,6 +471,7 @@ class _App:
         block_network: bool = False,
         restrict_modal_access: bool = False,
         max_inputs: typing.Optional[int] = None,
+        i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
@@ -574,7 +591,7 @@ class App:
         image: typing.Optional[modal.image.Image] = None,
         secrets: collections.abc.Sequence[modal.secret.Secret] = [],
         volumes: dict[typing.Union[str, pathlib.PurePosixPath], modal.volume.Volume] = {},
-        include_source: typing.Optional[bool] = None,
+        include_source: bool = True,
     ) -> None:
         """Construct a new app, optionally with default image, mounts, secrets, or volumes.
 
@@ -887,22 +904,38 @@ class App:
     def _init_container(self, client: modal.client.Client, running_app: modal.running_app.RunningApp): ...
     @property
     def registered_functions(self) -> dict[str, modal.functions.Function]:
-        """All modal.Function objects registered on the app."""
+        """All modal.Function objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_classes(self) -> dict[str, modal.cls.Cls]:
-        """All modal.Cls objects registered on the app."""
+        """All modal.Cls objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_entrypoints(self) -> dict[str, LocalEntrypoint]:
-        """All local CLI entrypoints registered on the app."""
+        """All local CLI entrypoints registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     @property
     def registered_web_endpoints(self) -> list[str]:
-        """Names of web endpoint (ie. webhook) functions registered on the app."""
+        """Names of web endpoint (ie. webhook) functions registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         ...
 
     def local_entrypoint(
@@ -1002,8 +1035,8 @@ class App:
         concurrency_limit: typing.Optional[int] = None,
         container_idle_timeout: typing.Optional[int] = None,
         allow_concurrent_inputs: typing.Optional[int] = None,
-        _experimental_buffer_containers: typing.Optional[int] = None,
         allow_cross_region_volumes: typing.Optional[bool] = None,
+        _experimental_buffer_containers: typing.Optional[int] = None,
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         ...
@@ -1043,6 +1076,7 @@ class App:
         block_network: bool = False,
         restrict_modal_access: bool = False,
         max_inputs: typing.Optional[int] = None,
+        i6pn: typing.Optional[bool] = None,
         include_source: typing.Optional[bool] = None,
         experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,

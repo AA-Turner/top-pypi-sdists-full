@@ -65,6 +65,17 @@ def app_history(
         authenticated_client = hosting.get_authenticated_client(
             token=token, interactive=interactive
         )
+
+        if not app_id:
+            config = hosting.read_config("cloud.yml")
+            if config:
+                app_id = config.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
         if app_name is not None and app_id is None:
             result = hosting.search_app(
                 app_name=app_name,
@@ -209,6 +220,17 @@ def stop_app(
         authenticated_client = hosting.get_authenticated_client(
             token=token, interactive=interactive
         )
+
+        if not app_id:
+            config = hosting.read_config("cloud.yml")
+            if config:
+                app_id = config.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
         if app_name is not None and app_id is None:
             app_result = hosting.search_app(
                 app_name=app_name,
@@ -262,6 +284,17 @@ def start_app(
         authenticated_client = hosting.get_authenticated_client(
             token=token, interactive=interactive
         )
+
+        if not app_id:
+            config = hosting.read_config("cloud.yml")
+            if config:
+                app_id = config.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
         if app_name is not None and app_id is None:
             app_result = hosting.search_app(
                 app_name=app_name,
@@ -315,6 +348,17 @@ def delete_app(
         authenticated_client = hosting.get_authenticated_client(
             token=token, interactive=interactive
         )
+
+        if not app_id:
+            config = hosting.read_config("cloud.yml")
+            if config:
+                app_id = config.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
         if app_name is not None and app_id is None:
             app_result = hosting.search_app(
                 app_name=app_name,
@@ -389,6 +433,17 @@ def app_logs(
     authenticated_client = hosting.get_authenticated_client(
         token=token, interactive=interactive
     )
+
+    if not app_id:
+        config = hosting.read_config("cloud.yml")
+        if config:
+            app_id = config.get("appid", None)
+            if not isinstance(app_id, (str, type(None))):
+                console.error(
+                    "app_id must be a string or None. Please check your config file."
+                )
+                raise click.exceptions.Exit(1)
+
     if app_name is not None and app_id is None:
         app_result = hosting.search_app(
             app_name=app_name,
@@ -420,21 +475,21 @@ def app_logs(
             client=authenticated_client,
             cursor=cursor,
         )
-        if result:
-            if isinstance(result, list):
-                if len(result) == 2:
-                    cursor = result[1]
-                    result = result[0]
-                if not result:
-                    console.warn("No logs found for the specified criteria.")
-                    raise click.exceptions.Exit(0)
-                result.reverse()
-                for log in result:
-                    if pretty:
-                        log = pprint.pformat(log, indent=2)  # type: ignore  # noqa: PGH003
-                    console.info(log)
-            else:
-                console.warn("Unable to retrieve logs.")
+        if isinstance(result, list):
+            if len(result) == 2:
+                cursor = result[1]
+                result = result[0]
+            if not result:
+                console.warn("No logs found for the specified criteria.")
+                return
+            result.reverse()
+            for log in result:
+                if pretty:
+                    log = pprint.pformat(log, indent=2)  # type: ignore  # noqa: PGH003
+                console.info(log)
+        else:
+            console.warn("Unable to retrieve logs.")
+            return
         if interactive and follow:
             from rich.prompt import Prompt
 
@@ -573,6 +628,16 @@ def scale_app(
             token=token, interactive=interactive
         )
 
+        if not app_id:
+            config_dict = hosting.read_config("cloud.yml")
+            if config_dict:
+                app_id = config_dict.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
         cli_args = hosting.ScaleAppCliArgs.create(
             regions=list(regions), vm_type=vm_type, scale_type=scale_type
         )
@@ -625,4 +690,77 @@ def scale_app(
         ScaleParamError,
     ) as err:
         console.error(err.args[0])
+        raise click.exceptions.Exit(1) from err
+
+
+@apps_cli.command(name="inspect")
+@click.argument("app_id", required=False)
+@click.option("--token", help="The authentication token.")
+@click.option(
+    "--loglevel",
+    type=click.Choice([level.value for level in constants.LogLevel]),
+    default=constants.LogLevel.INFO.value,
+    help="The log level to use.",
+)
+@click.option(
+    "--json/--no-json",
+    "-j",
+    "as_json",
+    is_flag=True,
+    help="Whether to output the result in JSON format.",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    "-i",
+    is_flag=True,
+    default=True,
+    help="Whether to use interactive mode.",
+)
+def inspect_app(
+    app_id: str | None,
+    token: str | None,
+    loglevel: str,
+    as_json: bool,
+    interactive: bool,
+):
+    """Retrieve detailed information about a specific application."""
+    from reflex_cli.utils import hosting
+
+    console.set_log_level(loglevel)
+    try:
+        authenticated_client = hosting.get_authenticated_client(
+            token=token, interactive=interactive
+        )
+
+        if not app_id:
+            config_dict = hosting.read_config("cloud.yml")
+            if config_dict:
+                app_id = config_dict.get("appid", None)
+                if not isinstance(app_id, (str, type(None))):
+                    console.error(
+                        "app_id must be a string or None. Please check your config file."
+                    )
+                    raise click.exceptions.Exit(1)
+
+        if not app_id:
+            console.error("No valid app_id provided or found in cloud.yml.")
+            raise click.exceptions.Exit(1)
+
+        app_info = hosting.get_app(app_id=app_id, client=authenticated_client)
+
+        if as_json:
+            console.print(json.dumps(app_info))
+            return
+
+        if app_info:
+            if isinstance(app_info, dict):
+                headers = list(app_info.keys())
+                values = [list(app_info.values())]
+                console.print_table(values, headers=headers)
+            else:
+                console.print(str(app_info))
+        else:
+            console.print("No app information found.")
+    except NotAuthenticatedError as err:
+        console.error("You are not authenticated. Run `reflex login` to authenticate.")
         raise click.exceptions.Exit(1) from err

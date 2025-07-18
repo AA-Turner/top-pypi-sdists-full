@@ -234,6 +234,10 @@ pub(crate) async fn lock(
 
             Ok(ExitStatus::Success)
         }
+        Err(err @ ProjectError::LockMismatch(..)) => {
+            writeln!(printer.stderr(), "{}", err.to_string().bold())?;
+            Ok(ExitStatus::Failure)
+        }
         Err(ProjectError::Operation(err)) => {
             diagnostics::OperationDiagnostic::native_tls(network_settings.native_tls)
                 .report(err)
@@ -346,8 +350,11 @@ impl<'env> LockOperation<'env> {
                 .await?;
 
                 // If the lockfile changed, return an error.
-                if matches!(result, LockResult::Changed(_, _)) {
-                    return Err(ProjectError::LockMismatch(Box::new(result.into_lock())));
+                if let LockResult::Changed(prev, cur) = result {
+                    return Err(ProjectError::LockMismatch(
+                        prev.map(Box::new),
+                        Box::new(cur),
+                    ));
                 }
 
                 Ok(result)
@@ -437,6 +444,7 @@ async fn do_lock(
     // Collect the requirements, etc.
     let members = target.members();
     let packages = target.packages();
+    let required_members = target.required_members();
     let requirements = target.requirements();
     let overrides = target.overrides();
     let constraints = target.constraints();
@@ -686,6 +694,7 @@ async fn do_lock(
             target.install_path(),
             packages,
             &members,
+            required_members,
             &requirements,
             &dependency_groups,
             &constraints,
@@ -899,6 +908,7 @@ impl ValidatedLock {
         install_path: &Path,
         packages: &BTreeMap<PackageName, WorkspaceMember>,
         members: &[PackageName],
+        required_members: &BTreeSet<PackageName>,
         requirements: &[Requirement],
         dependency_groups: &BTreeMap<GroupName, Vec<Requirement>>,
         constraints: &[Requirement],
@@ -1110,6 +1120,7 @@ impl ValidatedLock {
                 install_path,
                 packages,
                 members,
+                required_members,
                 requirements,
                 constraints,
                 overrides,

@@ -1,4 +1,4 @@
-VERSION = "0.1.7"
+VERSION = "0.1.8"
 
 # this will be templated during the build
-GIT_COMMIT = "26ef38e22f884aabecbcdc02640beb2e8ec55abb"
+GIT_COMMIT = "b862af307888af607c82d4d2a3a53e12d6265720"

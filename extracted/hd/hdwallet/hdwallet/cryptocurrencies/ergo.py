@@ -6,7 +6,7 @@
 
 from ..slip44 import CoinTypes
 from ..ecc import SLIP10Secp256k1ECC
-from ..const import (
+from ..consts import (
     Info, Entropies, Mnemonics, Seeds, HDs, Addresses, AddressTypes, Networks, Params, XPrivateKeyVersions, XPublicKeyVersions
 )
 from .icryptocurrency import (
@@ -16,6 +16,7 @@ from .icryptocurrency import (
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     TYPE = 0x00
     XPRIVATE_KEY_VERSIONS = XPrivateKeyVersions({
         "P2PKH": 0x488ade4
@@ -28,6 +29,7 @@ class Mainnet(INetwork):
 
 class Testnet(INetwork):
 
+    NAME = "testnet"
     TYPE = 0x10
     XPRIVATE_KEY_VERSIONS = XPrivateKeyVersions({
         "P2PKH": 0x04358394
@@ -51,6 +53,7 @@ class Ergo(ICryptocurrency):
     })
     ECC = SLIP10Secp256k1ECC
     COIN_TYPE = CoinTypes.Ergo
+    SUPPORT_BIP38 = False
     NETWORKS = Networks({
         "MAINNET": Mainnet, "TESTNET": Testnet
     })
@@ -68,10 +71,15 @@ class Ergo(ICryptocurrency):
         "BIP32", "BIP44"
     })
     DEFAULT_HD = HDS.BIP44
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     ADDRESSES = Addresses({
         "ERGO": "Ergo"
     })
     DEFAULT_ADDRESS = ADDRESSES.ERGO
+    SEMANTICS = [
+        "p2pkh"
+    ]
+    DEFAULT_SEMANTIC = "p2pkh"
     ADDRESS_TYPES = AddressTypes({
         "P2PKH": "p2pkh",
         "P2SH": "p2sh"

@@ -25,10 +25,16 @@ from ..usecases.age_detection import AgeDetectionUseCase, AgeDetectionConfig
 from ..usecases.weld_defect_detection import WeldDefectUseCase,WeldDefectConfig
 from ..usecases.price_tag_detection import PriceTagUseCase, PriceTagConfig
 from ..usecases.mask_detection import MaskDetectionConfig, MaskDetectionUseCase
+from ..usecases.banana_defect_detection import BananaMonitoringUseCase,BananaMonitoringConfig
+from ..usecases.distracted_driver_detection import DistractedDriverUseCase, DistractedDriverConfig
+from ..usecases.emergency_vehicle_detection import EmergencyVehicleUseCase, EmergencyVehicleConfig
+from ..usecases.solar_panel import SolarPanelUseCase, SolarPanelConfig
+from ..usecases.chicken_pose_detection import ChickenPoseDetectionUseCase,ChickenPoseDetectionConfig
 
 __all__ = [
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
+    'BananaMonitoringUseCase',
     'AdvancedCustomerServiceUseCase',
     'BasicCountingTrackingUseCase',
     'LicensePlateUseCase',
@@ -47,8 +53,13 @@ __all__ = [
     'AgeDetectionUseCase',
     'WeldDefectUseCase',
     'PriceTagUseCase',
+    'DistractedDriverUseCase',
+    'EmergencyVehicleUseCase',
+    'ChickenPoseDetectionUseCase',
+    'SolarPanelUseCase',
     'PeopleCountingConfig',
     'PotholeConfig',
+    'BananaMonitoringConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',
     'PPEComplianceConfig',
@@ -65,5 +76,9 @@ __all__ = [
     'PedestrianDetectionConfig',
     'AgeDetectionConfig',
     'WeldDefectConfig',
-    'PriceTagConfig'
+    'PriceTagConfig',
+    'DistractedDriverConfig',
+    'EmergencyVehicleConfig',
+    'ChickenPoseDetectionConfig',
+    'SolarPanelConfig'
 ]

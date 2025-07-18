@@ -6,7 +6,7 @@
 
 from ..slip44 import CoinTypes
 from ..ecc import SLIP10Secp256k1ECC
-from ..const import (
+from ..consts import (
     Info, WitnessVersions, Entropies, Mnemonics, Seeds, HDs, Addresses, AddressTypes, Networks, XPrivateKeyVersions, XPublicKeyVersions
 )
 from .icryptocurrency import (
@@ -16,6 +16,7 @@ from .icryptocurrency import (
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     LEGACY_PUBLIC_KEY_ADDRESS_PREFIX = 0x00
     LEGACY_SCRIPT_ADDRESS_PREFIX = 0x05
     STD_PUBLIC_KEY_ADDRESS_PREFIX = 0x00
@@ -46,6 +47,7 @@ class Mainnet(INetwork):
 
 class Testnet(INetwork):
 
+    NAME = "testnet"
     LEGACY_PUBLIC_KEY_ADDRESS_PREFIX = 0x6f
     LEGACY_SCRIPT_ADDRESS_PREFIX = 0xc4
     STD_PUBLIC_KEY_ADDRESS_PREFIX = 0x00
@@ -76,6 +78,7 @@ class Testnet(INetwork):
 
 class Regtest(Testnet):
 
+    NAME = "regtest"
     HRP = "bchreg"
 
 
@@ -91,6 +94,7 @@ class BitcoinCash(ICryptocurrency):
     })
     ECC = SLIP10Secp256k1ECC
     COIN_TYPE = CoinTypes.BitcoinCash
+    SUPPORT_BIP38 = False
     NETWORKS = Networks({
         "MAINNET": Mainnet, "TESTNET": Testnet, "REGTEST": Regtest
     })
@@ -108,10 +112,15 @@ class BitcoinCash(ICryptocurrency):
         "BIP32", "BIP44"
     })
     DEFAULT_HD = HDS.BIP44
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     ADDRESSES = Addresses((
         "P2PKH", "P2SH", "P2WPKH", {"P2WPKH_IN_P2SH": "P2WPKH-In-P2SH"}, "P2WSH", {"P2WSH_IN_P2SH": "P2WSH-In-P2SH"}
     ))
     DEFAULT_ADDRESS = ADDRESSES.P2PKH
+    SEMANTICS = [
+        "p2pkh", "p2sh", "p2wpkh", "p2wpkh-in-p2sh", "p2wsh", "p2wsh-in-p2sh"
+    ]
+    DEFAULT_SEMANTIC = "p2pkh"
     ADDRESS_TYPES = AddressTypes({
         "STD": "std",
         "LEGACY": "legacy"

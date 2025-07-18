@@ -63,7 +63,7 @@ class _Secret(modal._object._Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=1, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
+        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
     ) -> _Secret:
         """Reference a Secret by its name.
 
@@ -84,7 +84,7 @@ class _Secret(modal._object._Object):
     @staticmethod
     async def lookup(
         name: str,
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         required_keys: list[str] = [],
@@ -96,7 +96,7 @@ class _Secret(modal._object._Object):
     async def create_deployed(
         deployment_name: str,
         env_dict: dict[str, str],
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         overwrite: bool = False,
@@ -167,7 +167,7 @@ class Secret(modal.object.Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=1, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
+        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, required_keys: list[str] = []
     ) -> Secret:
         """Reference a Secret by its name.
 
@@ -190,7 +190,7 @@ class Secret(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             required_keys: list[str] = [],
@@ -202,7 +202,7 @@ class Secret(modal.object.Object):
             self,
             /,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             required_keys: list[str] = [],
@@ -218,7 +218,7 @@ class Secret(modal.object.Object):
             /,
             deployment_name: str,
             env_dict: dict[str, str],
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             overwrite: bool = False,
@@ -231,7 +231,7 @@ class Secret(modal.object.Object):
             /,
             deployment_name: str,
             env_dict: dict[str, str],
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             overwrite: bool = False,

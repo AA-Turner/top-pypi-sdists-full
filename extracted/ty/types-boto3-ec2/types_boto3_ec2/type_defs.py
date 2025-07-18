@@ -16684,6 +16684,7 @@ class ImageTypeDef(TypedDict):
     ImageAllowed: NotRequired[bool]
     SourceImageId: NotRequired[str]
     SourceImageRegion: NotRequired[str]
+    FreeTierEligible: NotRequired[bool]
     ImageId: NotRequired[str]
     ImageLocation: NotRequired[str]
     State: NotRequired[ImageStateType]

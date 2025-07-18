@@ -5,9 +5,11 @@ from typing import Optional
 
 from pydantic import Field
 from pydantic import field_validator
+from pydantic import model_validator
+from typing_extensions import Self
 
-from ..base import ComplexAttribute
-from ..base import Required
+from ..annotations import Required
+from ..attributes import ComplexAttribute
 from .message import Message
 
 
@@ -17,7 +19,7 @@ class PatchOperation(ComplexAttribute):
         remove = "remove"
         add = "add"
 
-    op: Optional[Optional[Op]] = None
+    op: Op
     """Each PATCH operation object MUST have exactly one "op" member, whose
     value indicates the operation to perform and MAY be one of "add", "remove",
     or "replace".
@@ -32,11 +34,23 @@ class PatchOperation(ComplexAttribute):
     """The "path" attribute value is a String containing an attribute path
     describing the target of the operation."""
 
+    @model_validator(mode="after")
+    def validate_path(self) -> Self:
+        # The "path" attribute value is a String containing an attribute path
+        # describing the target of the operation. The "path" attribute is
+        # OPTIONAL for "add" and "replace" and is REQUIRED for "remove"
+        # operations. See relevant operation sections below for details.
+
+        if self.path is None and self.op == PatchOperation.Op.remove:
+            raise ValueError("Op.path is required for remove operations")
+
+        return self
+
     value: Optional[Any] = None
 
     @field_validator("op", mode="before")
     @classmethod
-    def normalize_op(cls, v):
+    def normalize_op(cls, v: Any) -> Any:
         """Ignorecase for op.
 
         This brings
@@ -63,8 +77,8 @@ class PatchOp(Message):
         "urn:ietf:params:scim:api:messages:2.0:PatchOp"
     ]
 
-    operations: Optional[list[PatchOperation]] = Field(
-        None, serialization_alias="Operations"
+    operations: Annotated[Optional[list[PatchOperation]], Required.true] = Field(
+        None, serialization_alias="Operations", min_length=1
     )
     """The body of an HTTP PATCH request MUST contain the attribute
     "Operations", whose value is an array of one or more PATCH operations."""

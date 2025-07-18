@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.3.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.4.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.3.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.4.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -299,6 +299,7 @@ __all__ = [
     "bedrockagent_agent_collaborator",
     "bedrockagent_agent_knowledge_base_association",
     "bedrockagent_data_source",
+    "bedrockagent_flow",
     "bedrockagent_knowledge_base",
     "bedrockagent_prompt",
     "budgets_budget",
@@ -955,6 +956,7 @@ __all__ = [
     "data_aws_route53_zones",
     "data_aws_route_table",
     "data_aws_route_tables",
+    "data_aws_s3_access_point",
     "data_aws_s3_account_public_access_block",
     "data_aws_s3_bucket",
     "data_aws_s3_bucket_object",
@@ -1355,6 +1357,7 @@ __all__ = [
     "fsx_openzfs_file_system",
     "fsx_openzfs_snapshot",
     "fsx_openzfs_volume",
+    "fsx_s3_access_point_attachment",
     "fsx_windows_file_system",
     "gamelift_alias",
     "gamelift_build",
@@ -2419,6 +2422,7 @@ from . import bedrockagent_agent_alias
 from . import bedrockagent_agent_collaborator
 from . import bedrockagent_agent_knowledge_base_association
 from . import bedrockagent_data_source
+from . import bedrockagent_flow
 from . import bedrockagent_knowledge_base
 from . import bedrockagent_prompt
 from . import budgets_budget
@@ -3075,6 +3079,7 @@ from . import data_aws_route53_resolver_rules
 from . import data_aws_route53_traffic_policy_document
 from . import data_aws_route53_zone
 from . import data_aws_route53_zones
+from . import data_aws_s3_access_point
 from . import data_aws_s3_account_public_access_block
 from . import data_aws_s3_bucket
 from . import data_aws_s3_bucket_object
@@ -3475,6 +3480,7 @@ from . import fsx_ontap_volume
 from . import fsx_openzfs_file_system
 from . import fsx_openzfs_snapshot
 from . import fsx_openzfs_volume
+from . import fsx_s3_access_point_attachment
 from . import fsx_windows_file_system
 from . import gamelift_alias
 from . import gamelift_build

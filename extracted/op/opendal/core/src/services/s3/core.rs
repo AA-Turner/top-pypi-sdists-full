@@ -20,14 +20,16 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Write;
+use std::sync::atomic;
 use std::sync::atomic::AtomicBool;
-use std::sync::{atomic, Arc};
+use std::sync::Arc;
 use std::time::Duration;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use bytes::Bytes;
 use constants::X_AMZ_META_PREFIX;
+use http::header::HeaderName;
 use http::header::CACHE_CONTROL;
 use http::header::CONTENT_DISPOSITION;
 use http::header::CONTENT_ENCODING;
@@ -35,8 +37,9 @@ use http::header::CONTENT_LENGTH;
 use http::header::CONTENT_TYPE;
 use http::header::HOST;
 use http::header::IF_MATCH;
+use http::header::IF_MODIFIED_SINCE;
 use http::header::IF_NONE_MATCH;
-use http::header::{HeaderName, IF_MODIFIED_SINCE, IF_UNMODIFIED_SINCE};
+use http::header::IF_UNMODIFIED_SINCE;
 use http::HeaderValue;
 use http::Request;
 use http::Response;
@@ -1030,11 +1033,11 @@ impl S3Core {
                 .expect("write into string must succeed");
         }
         if !delimiter.is_empty() {
-            write!(url, "&delimiter={}", delimiter).expect("write into string must succeed");
+            write!(url, "&delimiter={delimiter}").expect("write into string must succeed");
         }
 
         if let Some(limit) = limit {
-            write!(url, "&max-keys={}", limit).expect("write into string must succeed");
+            write!(url, "&max-keys={limit}").expect("write into string must succeed");
         }
         if !key_marker.is_empty() {
             write!(url, "&key-marker={}", percent_encode_path(key_marker))

@@ -340,6 +340,7 @@ __all__ = (
     "MatchmakingRuleSetTypeDef",
     "MatchmakingTicketTypeDef",
     "PaginatorConfigTypeDef",
+    "PingBeaconTypeDef",
     "PlacedPlayerSessionTypeDef",
     "PlayerLatencyPolicyTypeDef",
     "PlayerLatencyTypeDef",
@@ -402,6 +403,7 @@ __all__ = (
     "TerminateGameSessionInputTypeDef",
     "TerminateGameSessionOutputTypeDef",
     "TimestampTypeDef",
+    "UDPEndpointTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateAliasInputTypeDef",
     "UpdateAliasOutputTypeDef",
@@ -661,11 +663,6 @@ class GameSessionQueueDestinationTypeDef(TypedDict):
 class PlayerLatencyPolicyTypeDef(TypedDict):
     MaximumIndividualPlayerLatencyMilliseconds: NotRequired[int]
     PolicyDurationSeconds: NotRequired[int]
-
-
-class LocationModelTypeDef(TypedDict):
-    LocationName: NotRequired[str]
-    LocationArn: NotRequired[str]
 
 
 class MatchmakingRuleSetTypeDef(TypedDict):
@@ -1202,6 +1199,11 @@ class ListScriptsInputTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceARN: str
+
+
+class UDPEndpointTypeDef(TypedDict):
+    Domain: NotRequired[str]
+    Port: NotRequired[int]
 
 
 class PriorityConfigurationOverrideTypeDef(TypedDict):
@@ -1845,17 +1847,6 @@ class UpdateMatchmakingConfigurationInputTypeDef(TypedDict):
     FlexMatchMode: NotRequired[FlexMatchModeType]
 
 
-class CreateLocationOutputTypeDef(TypedDict):
-    Location: LocationModelTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListLocationsOutputTypeDef(TypedDict):
-    Locations: List[LocationModelTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class CreateMatchmakingRuleSetOutputTypeDef(TypedDict):
     RuleSet: MatchmakingRuleSetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2188,6 +2179,10 @@ class InstanceAccessTypeDef(TypedDict):
     IpAddress: NotRequired[str]
     OperatingSystem: NotRequired[OperatingSystemType]
     Credentials: NotRequired[InstanceCredentialsTypeDef]
+
+
+class PingBeaconTypeDef(TypedDict):
+    UDPEndpoint: NotRequired[UDPEndpointTypeDef]
 
 
 PriorityConfigurationOverrideUnionTypeDef = Union[
@@ -2557,6 +2552,12 @@ class GetInstanceAccessOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class LocationModelTypeDef(TypedDict):
+    LocationName: NotRequired[str]
+    LocationArn: NotRequired[str]
+    PingBeacon: NotRequired[PingBeaconTypeDef]
+
+
 class StartGameSessionPlacementInputTypeDef(TypedDict):
     PlacementId: str
     GameSessionQueueName: str
@@ -2679,6 +2680,17 @@ class StartMatchBackfillOutputTypeDef(TypedDict):
 class StartMatchmakingOutputTypeDef(TypedDict):
     MatchmakingTicket: MatchmakingTicketTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateLocationOutputTypeDef(TypedDict):
+    Location: LocationModelTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListLocationsOutputTypeDef(TypedDict):
+    Locations: List[LocationModelTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class CreateFleetInputTypeDef(TypedDict):

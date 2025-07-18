@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext, suppress
 from dataclasses import dataclass
+from functools import wraps
 from sys import maxsize
 from typing import TYPE_CHECKING, override
 
@@ -11,12 +12,14 @@ from redis.asyncio import Redis
 
 from utilities.asyncio import loop_until_succeed, sleep_td, timeout_td
 from utilities.contextlib import enhanced_async_context_manager
+from utilities.contextvars import yield_set_context
 from utilities.iterables import always_iterable
 from utilities.logging import get_logger
 from utilities.whenever import MILLISECOND, SECOND, to_seconds
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterable
+    from contextvars import ContextVar
 
     from whenever import Delta
 
@@ -56,6 +59,7 @@ async def try_yield_coroutine_looper(
     throttle: Delta | None = None,
     logger: LoggerOrName | None = None,
     sleep_error: Delta | None = None,
+    context: ContextVar[bool] | None = None,
 ) -> AsyncIterator[CoroutineLooper | None]:
     """Try acquire access to a coroutine looper."""
     try:  # skipif-ci-and-not-linux
@@ -69,7 +73,12 @@ async def try_yield_coroutine_looper(
             sleep=sleep_acquire,
             throttle=throttle,
         ) as lock:
-            yield CoroutineLooper(lock=lock, logger=logger, sleep=sleep_error)
+            looper = CoroutineLooper(lock=lock, logger=logger, sleep=sleep_error)
+            if context is None:
+                yield looper
+            else:
+                with yield_set_context(context):
+                    yield looper
     except _YieldAccessUnableToAcquireLockError as error:  # skipif-ci-and-not-linux
         if logger is not None:
             get_logger(logger=logger).info("%s", error)
@@ -88,12 +97,22 @@ class CoroutineLooper:
     async def __call__[**P](
         self, func: Callable[P, Coro[None]], *args: P.args, **kwargs: P.kwargs
     ) -> bool:
-        def make_coro() -> Coro[None]:
-            return func(*args, **kwargs)
-
         return await loop_until_succeed(
-            make_coro, logger=self.logger, errors=ExtendUnlockedLock, sleep=self.sleep
+            lambda: self._make_coro(func, *args, **kwargs),
+            logger=self.logger,
+            errors=ExtendUnlockedLock,
+            sleep=self.sleep,
         )
+
+    def _make_coro[**P](
+        self, func: Callable[P, Coro[None]], /, *args: P.args, **kwargs: P.kwargs
+    ) -> Coro[None]:
+        @wraps(func)
+        async def wrapped() -> None:
+            await extend_lock(lock=self.lock)
+            return await func(*args, **kwargs)
+
+        return wrapped()
 
 
 ##

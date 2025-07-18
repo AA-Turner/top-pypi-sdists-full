@@ -26,6 +26,7 @@ __all__ = (
     "AGAModeForWorkSpaceEnumType",
     "AGAPreferredProtocolForDirectoryType",
     "AGAPreferredProtocolForWorkSpaceType",
+    "AccessEndpointTypeType",
     "AccessPropertyValueType",
     "AccountLinkStatusEnumType",
     "ApplicationAssociatedResourceTypeType",
@@ -62,6 +63,7 @@ __all__ = (
     "EndpointEncryptionModeType",
     "ImageAssociatedResourceTypeType",
     "ImageTypeType",
+    "InternetFallbackProtocolType",
     "ListAccountLinksPaginatorName",
     "ListAvailableManagementCidrRangesPaginatorName",
     "LogUploadEnumType",
@@ -109,6 +111,7 @@ AGAModeForDirectoryEnumType = Literal["DISABLED", "ENABLED_AUTO"]
 AGAModeForWorkSpaceEnumType = Literal["DISABLED", "ENABLED_AUTO", "INHERITED"]
 AGAPreferredProtocolForDirectoryType = Literal["NONE", "TCP"]
 AGAPreferredProtocolForWorkSpaceType = Literal["INHERITED", "NONE", "TCP"]
+AccessEndpointTypeType = Literal["STREAMING_WSP"]
 AccessPropertyValueType = Literal["ALLOW", "DENY"]
 AccountLinkStatusEnumType = Literal[
     "LINKED", "LINKING_FAILED", "LINK_NOT_FOUND", "PENDING_ACCEPTANCE_BY_TARGET_ACCOUNT", "REJECTED"
@@ -194,6 +197,7 @@ DescribeWorkspacesPoolsFilterOperatorType = Literal[
 EndpointEncryptionModeType = Literal["FIPS_VALIDATED", "STANDARD_TLS"]
 ImageAssociatedResourceTypeType = Literal["APPLICATION"]
 ImageTypeType = Literal["OWNED", "SHARED"]
+InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
 ListAvailableManagementCidrRangesPaginatorName = Literal["list_available_management_cidr_ranges"]
 LogUploadEnumType = Literal["DISABLED", "ENABLED"]
@@ -380,6 +384,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -520,6 +525,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -577,6 +583,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -632,6 +639,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -776,6 +784,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

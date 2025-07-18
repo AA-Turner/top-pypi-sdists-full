@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stac-pydantic
-Version: 3.3.2
+Version: 3.4.0
 Summary: Pydantic data models for the STAC spec
 Author-email: Arturo Engineering <engineering@arturo.ai>
 License: MIT

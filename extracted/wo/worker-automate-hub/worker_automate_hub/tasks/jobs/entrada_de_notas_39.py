@@ -125,16 +125,22 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         # Procura campo documento
         console.print("Navegando pela Janela de Nota Fiscal de Entrada...\n")
-        document_type = await select_documento_type(
-            "NOTA FISCAL DE ENTRADA ELETRONICA - DANFE"
-        )
-        if document_type.sucesso == True:
+        # Tenta a primeira opção
+        document_type = await select_documento_type("NOTA FISCAL DE ENTRADA ELETRONICA - DANFE")
+
+        # Se falhou, tenta a segunda
+        if not document_type.sucesso:
+            document_type = await select_documento_type("DANFE - NOTA FISCAL DE ENTRADA ELETRONICA - DANFE")
+
+        # Verifica o resultado final
+        if document_type.sucesso:
             console.log(document_type.retorno, style="bold green")
         else:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=document_type.retorno,
-                status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
         await worker_sleep(10)
@@ -461,7 +467,7 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 status=RpaHistoricoStatusEnum.Descartado,
             )
 
-        await worker_sleep(80)
+        await worker_sleep(120)
         
         await emsys.verify_warning_and_error("Information", "No")
         
@@ -933,6 +939,7 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             app = Application().connect(class_name="TFrmTelaSelecao")
             main_window = app["TFrmTelaSelecao"]
             send_keys("%o")
+            
             await worker_sleep(7)
         
         try:

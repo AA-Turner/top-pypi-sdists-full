@@ -7,9 +7,14 @@ import sglang.srt.model_loader.loader
 import torch
 from sglang.srt.configs.device_config import DeviceConfig
 from sglang.srt.configs.model_config import ModelConfig
-from sglang.srt.server import launch_server
 from sglang.srt.server_args import prepare_server_args
 from sglang.srt.utils import kill_process_tree
+
+try:
+    from sglang.srt.server import launch_server
+except ModuleNotFoundError:
+    from sglang.launch_server import launch_server
+
 
 from ..config import (
     LOCAL_MODEL_PATH,

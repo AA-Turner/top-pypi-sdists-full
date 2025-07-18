@@ -28,7 +28,8 @@ use reqsign::HuaweicloudObsConfig;
 use reqsign::HuaweicloudObsCredentialLoader;
 use reqsign::HuaweicloudObsSigner;
 
-use super::core::{constants, ObsCore};
+use super::core::constants;
+use super::core::ObsCore;
 use super::delete::ObsDeleter;
 use super::error::parse_error;
 use super::lister::ObsLister;
@@ -160,7 +161,7 @@ impl Builder for ObsBuilder {
         debug!("backend build started: {:?}", &self);
 
         let root = normalize_root(&self.config.root.unwrap_or_default());
-        debug!("backend use root {}", root);
+        debug!("backend use root {root}");
 
         let bucket = match &self.config.bucket {
             Some(bucket) => Ok(bucket.to_string()),
@@ -239,16 +240,6 @@ impl Builder for ObsBuilder {
                             stat: true,
                             stat_with_if_match: true,
                             stat_with_if_none_match: true,
-                            stat_has_cache_control: true,
-                            stat_has_content_length: true,
-                            stat_has_content_type: true,
-                            stat_has_content_encoding: true,
-                            stat_has_content_range: true,
-                            stat_has_etag: true,
-                            stat_has_content_md5: true,
-                            stat_has_last_modified: true,
-                            stat_has_content_disposition: true,
-                            stat_has_user_metadata: true,
 
                             read: true,
 
@@ -280,7 +271,6 @@ impl Builder for ObsBuilder {
 
                             list: true,
                             list_with_recursive: true,
-                            list_has_content_length: true,
 
                             presign: true,
                             presign_stat: true,
@@ -321,10 +311,6 @@ impl Access for ObsBackend {
     type Writer = ObsWriters;
     type Lister = oio::PageLister<ObsLister>;
     type Deleter = oio::OneShotDeleter<ObsDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -354,7 +340,7 @@ impl Access for ObsBackend {
                     .collect::<HashMap<_, _>>();
 
                 if !user_meta.is_empty() {
-                    meta.with_user_metadata(user_meta);
+                    meta = meta.with_user_metadata(user_meta);
                 }
 
                 if let Some(v) = parse_header_to_str(headers, constants::X_OBS_VERSION_ID)? {

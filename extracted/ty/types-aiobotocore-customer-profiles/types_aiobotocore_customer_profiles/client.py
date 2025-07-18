@@ -30,6 +30,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     GetSimilarProfilesPaginator,
+    ListDomainLayoutsPaginator,
     ListEventStreamsPaginator,
     ListEventTriggersPaginator,
     ListObjectTypeAttributesPaginator,
@@ -45,6 +46,8 @@ from .type_defs import (
     BatchGetProfileResponseTypeDef,
     CreateCalculatedAttributeDefinitionRequestTypeDef,
     CreateCalculatedAttributeDefinitionResponseTypeDef,
+    CreateDomainLayoutRequestTypeDef,
+    CreateDomainLayoutResponseTypeDef,
     CreateDomainRequestTypeDef,
     CreateDomainResponseTypeDef,
     CreateEventStreamRequestTypeDef,
@@ -62,6 +65,8 @@ from .type_defs import (
     CreateSegmentSnapshotRequestTypeDef,
     CreateSegmentSnapshotResponseTypeDef,
     DeleteCalculatedAttributeDefinitionRequestTypeDef,
+    DeleteDomainLayoutRequestTypeDef,
+    DeleteDomainLayoutResponseTypeDef,
     DeleteDomainRequestTypeDef,
     DeleteDomainResponseTypeDef,
     DeleteEventStreamRequestTypeDef,
@@ -88,6 +93,8 @@ from .type_defs import (
     GetCalculatedAttributeDefinitionResponseTypeDef,
     GetCalculatedAttributeForProfileRequestTypeDef,
     GetCalculatedAttributeForProfileResponseTypeDef,
+    GetDomainLayoutRequestTypeDef,
+    GetDomainLayoutResponseTypeDef,
     GetDomainRequestTypeDef,
     GetDomainResponseTypeDef,
     GetEventStreamRequestTypeDef,
@@ -124,6 +131,8 @@ from .type_defs import (
     ListCalculatedAttributeDefinitionsResponseTypeDef,
     ListCalculatedAttributesForProfileRequestTypeDef,
     ListCalculatedAttributesForProfileResponseTypeDef,
+    ListDomainLayoutsRequestTypeDef,
+    ListDomainLayoutsResponseTypeDef,
     ListDomainsRequestTypeDef,
     ListDomainsResponseTypeDef,
     ListEventStreamsRequestTypeDef,
@@ -166,6 +175,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateCalculatedAttributeDefinitionRequestTypeDef,
     UpdateCalculatedAttributeDefinitionResponseTypeDef,
+    UpdateDomainLayoutRequestTypeDef,
+    UpdateDomainLayoutResponseTypeDef,
     UpdateDomainRequestTypeDef,
     UpdateDomainResponseTypeDef,
     UpdateEventTriggerRequestTypeDef,
@@ -285,6 +296,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#create_domain)
         """
 
+    async def create_domain_layout(
+        self, **kwargs: Unpack[CreateDomainLayoutRequestTypeDef]
+    ) -> CreateDomainLayoutResponseTypeDef:
+        """
+        Creates the layout to view data for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/create_domain_layout.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#create_domain_layout)
+        """
+
     async def create_event_stream(
         self, **kwargs: Unpack[CreateEventStreamRequestTypeDef]
     ) -> CreateEventStreamResponseTypeDef:
@@ -376,6 +397,16 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_domain.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_domain)
+        """
+
+    async def delete_domain_layout(
+        self, **kwargs: Unpack[DeleteDomainLayoutRequestTypeDef]
+    ) -> DeleteDomainLayoutResponseTypeDef:
+        """
+        Deletes the layout used to view data for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/delete_domain_layout.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#delete_domain_layout)
         """
 
     async def delete_event_stream(
@@ -519,6 +550,16 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_domain.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_domain)
+        """
+
+    async def get_domain_layout(
+        self, **kwargs: Unpack[GetDomainLayoutRequestTypeDef]
+    ) -> GetDomainLayoutResponseTypeDef:
+        """
+        Gets the layout to view data for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_domain_layout.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_domain_layout)
         """
 
     async def get_event_stream(
@@ -694,6 +735,16 @@ class CustomerProfilesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_calculated_attributes_for_profile.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_calculated_attributes_for_profile)
+        """
+
+    async def list_domain_layouts(
+        self, **kwargs: Unpack[ListDomainLayoutsRequestTypeDef]
+    ) -> ListDomainLayoutsResponseTypeDef:
+        """
+        Lists the existing layouts that can be used to view data for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/list_domain_layouts.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#list_domain_layouts)
         """
 
     async def list_domains(
@@ -929,6 +980,16 @@ class CustomerProfilesClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#update_domain)
         """
 
+    async def update_domain_layout(
+        self, **kwargs: Unpack[UpdateDomainLayoutRequestTypeDef]
+    ) -> UpdateDomainLayoutResponseTypeDef:
+        """
+        Updates the layout used to view data for a specific domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/update_domain_layout.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#update_domain_layout)
+        """
+
     async def update_event_trigger(
         self, **kwargs: Unpack[UpdateEventTriggerRequestTypeDef]
     ) -> UpdateEventTriggerResponseTypeDef:
@@ -953,6 +1014,17 @@ class CustomerProfilesClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_similar_profiles"]
     ) -> GetSimilarProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/customer-profiles/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_customer_profiles/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_domain_layouts"]
+    ) -> ListDomainLayoutsPaginator:
         """
         Create a paginator for an operation.
 

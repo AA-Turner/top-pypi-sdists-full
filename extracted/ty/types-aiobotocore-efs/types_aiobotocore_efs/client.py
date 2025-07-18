@@ -341,7 +341,7 @@ class EFSClient(AioBaseClient):
     ) -> LifecycleConfigurationDescriptionTypeDef:
         """
         Returns the current <code>LifecycleConfiguration</code> object for the
-        specified Amazon EFS file system.
+        specified EFS file system.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/efs/client/describe_lifecycle_configuration.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_efs/client/#describe_lifecycle_configuration)

@@ -42,6 +42,7 @@ __all__ = (
     "ListResourceInventoryPaginatorName",
     "ListUsageForLicenseConfigurationPaginatorName",
     "PaginatorName",
+    "ProductCodeTypeType",
     "ReceivedStatusType",
     "RegionName",
     "RenewTypeType",
@@ -159,6 +160,7 @@ ListLicenseSpecificationsForResourcePaginatorName = Literal[
 ]
 ListResourceInventoryPaginatorName = Literal["list_resource_inventory"]
 ListUsageForLicenseConfigurationPaginatorName = Literal["list_usage_for_license_configuration"]
+ProductCodeTypeType = Literal["marketplace"]
 ReceivedStatusType = Literal[
     "ACTIVE",
     "DELETED",
@@ -182,6 +184,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -322,6 +325,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -379,6 +383,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -434,6 +439,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -578,6 +584,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

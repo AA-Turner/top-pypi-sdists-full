@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openjij
-Version: 0.10.14
+Version: 0.10.15
 Summary: Framework for the Ising model and QUBO.
 Home-page: https://www.openjij.org
 Author: Jij Inc.
@@ -30,7 +30,7 @@ Requires-Dist: numpy<2.4.0,>=1.17.3
 Requires-Dist: dimod<0.13.0
 Requires-Dist: scipy<1.12.0,>=1.7.3
 Requires-Dist: requests<2.32.0,>=2.28.0
-Requires-Dist: jij-cimod<1.7.0,>=1.6.0
+Requires-Dist: jij-cimod<1.8.0,>=1.6.0
 Requires-Dist: typing-extensions>=4.2.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
@@ -144,11 +144,11 @@ $ git clone git@github.com:OpenJij/OpenJij.git
 $ cd OpenJij
 $ python -m venv .venv
 $ source .venv/bin/activate  # or `.venv\Scripts\activate` on Windows
-$ pip install -r requirements.txt
-
+$ pip-compile setup.cfg
+$ pip-compile dev-requirements.in
+$ pip-sync requirements.txt dev-requirements.txt
 # Build C++ extension only (faster than full install)
 $ python setup.py build_ext --inplace
-
 # Install Python code in editable mode
 $ pip install -e . --no-build-isolation
 ```

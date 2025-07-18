@@ -116,20 +116,15 @@ def gather_all_imports_and_local_classes(tree: ast.Module) -> Tuple[list[str], l
     type_checking_imports: list[str] = []
     local_classes: list[str] = []
 
+    # Get all TYPE_CHECKING aliases
+    aliases = find_type_checking_aliases(tree)
+
     # Track if we're inside a TYPE_CHECKING conditional
     def is_type_checking_if(node: ast.AST) -> bool:
         if not isinstance(node, ast.If):
             return False
-        # Check if the condition is 'TYPE_CHECKING'
-        if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
-            return True
-        # Check if the condition is 'typing.TYPE_CHECKING'
-        if (
-            isinstance(node.test, ast.Attribute)
-            and isinstance(node.test.value, ast.Name)
-            and node.test.value.id == "typing"
-            and node.test.attr == "TYPE_CHECKING"
-        ):
+        # Check if the condition is any of the known TYPE_CHECKING aliases
+        if isinstance(node.test, ast.Name) and node.test.id in aliases:
             return True
         return False
 
@@ -196,6 +191,23 @@ def get_detailed_type_hint_errors(
             errors[attr_name] = e
 
     return errors
+
+
+def get_type_checking_imports(file_path: str) -> list[str]:
+    """
+    Extract all imported objects from TYPE_CHECKING blocks in a Python file.
+
+    Args:
+        file_path: Path to the Python file to analyze
+
+    Returns:
+        List of imported object names from TYPE_CHECKING blocks
+    """
+    with open(file_path, "r") as f:
+        tree = ast.parse(f.read())
+
+    _, type_checking_imports, _ = gather_all_imports_and_local_classes(tree)
+    return type_checking_imports
 
 
 def check_if_subpackage(base_package: Union[ModuleType, str], submodule_name: str) -> bool:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: MAVProxy
-Version: 1.8.71
+Version: 1.8.73
 Summary: MAVProxy MAVLink ground station
 Home-page: https://github.com/ArduPilot/MAVProxy
 Author: Andrew Tridgell
@@ -18,6 +18,8 @@ Requires-Dist: pymavlink>=2.4.14
 Requires-Dist: pyserial>=3.0
 Requires-Dist: numpy
 Requires-Dist: pynmeagps
+Provides-Extra: cesium
+Requires-Dist: tornado; extra == "cesium"
 Provides-Extra: server
 Requires-Dist: flask; extra == "server"
 Provides-Extra: recommended
@@ -32,6 +34,16 @@ Requires-Dist: piexif; extra == "recommended"
 Requires-Dist: pynmea2; extra == "recommended"
 Requires-Dist: Pygame; extra == "recommended"
 Requires-Dist: Pillow; extra == "recommended"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 A MAVLink protocol proxy and ground station. MAVProxy
 is oriented towards command line operation, and is suitable for embedding in

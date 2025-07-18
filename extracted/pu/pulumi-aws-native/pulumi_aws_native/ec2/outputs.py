@@ -197,6 +197,7 @@ __all__ = [
     'SpotFleetVCpuCountRangeRequest',
     'SseSpecificationProperties',
     'TagSpecification',
+    'TrafficMirrorFilterRuleTrafficMirrorPortRange',
     'TransitGatewayConnectOptions',
     'TransitGatewayPeeringAttachmentPeeringAttachmentStatus',
     'VerifiedAccessEndpointCidrOptions',
@@ -5735,18 +5736,14 @@ class LaunchTemplateEbs(dict):
         :param builtins.str snapshot_id: The ID of the snapshot.
         :param builtins.int throughput: The throughput to provision for a ``gp3`` volume, with a maximum of 1,000 MiB/s.
                 Valid Range: Minimum value of 125. Maximum value of 1000.
-        :param builtins.int volume_initialization_rate: Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), in MiB/s, at which to download the snapshot blocks from Amazon S3 to the volume. This is also known as *volume initialization* . Specifying a volume initialization rate ensures that the volume is initialized at a predictable and consistent rate after creation.
-               
-               This parameter is supported only for volumes created from snapshots. Omit this parameter if:
-               
-               - You want to create the volume using fast snapshot restore. You must specify a snapshot that is enabled for fast snapshot restore. In this case, the volume is fully initialized at creation.
-               
-               > If you specify a snapshot that is enabled for fast snapshot restore and a volume initialization rate, the volume will be initialized at the specified rate instead of fast snapshot restore.
-               - You want to create a volume that is initialized at the default rate.
-               
-               For more information, see [Initialize Amazon EBS volumes](https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html) in the *Amazon EC2 User Guide* .
-               
-               Valid range: 100 - 300 MiB/s
+        :param builtins.int volume_initialization_rate: Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), in MiB/s, at which to download the snapshot blocks from Amazon S3 to the volume. This is also known as *volume initialization*. Specifying a volume initialization rate ensures that the volume is initialized at a predictable and consistent rate after creation.
+                This parameter is supported only for volumes created from snapshots. Omit this parameter if:
+                 +  You want to create the volume using fast snapshot restore. You must specify a snapshot that is enabled for fast snapshot restore. In this case, the volume is fully initialized at creation.
+                 If you specify a snapshot that is enabled for fast snapshot restore and a volume initialization rate, the volume will be initialized at the specified rate instead of fast snapshot restore.
+                  +  You want to create a volume that is initialized at the default rate.
+                 
+                For more information, see [Initialize Amazon EBS volumes](https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html) in the *Amazon EC2 User Guide*.
+                Valid range: 100 - 300 MiB/s
         :param builtins.int volume_size: The size of the volume, in GiBs. You must specify either a snapshot ID or a volume size. The following are the supported volumes sizes for each volume type:
                  +  ``gp2`` and ``gp3``: 1 - 16,384 GiB
                  +  ``io1``: 4 - 16,384 GiB
@@ -5834,18 +5831,14 @@ class LaunchTemplateEbs(dict):
     @pulumi.getter(name="volumeInitializationRate")
     def volume_initialization_rate(self) -> Optional[builtins.int]:
         """
-        Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), in MiB/s, at which to download the snapshot blocks from Amazon S3 to the volume. This is also known as *volume initialization* . Specifying a volume initialization rate ensures that the volume is initialized at a predictable and consistent rate after creation.
-
-        This parameter is supported only for volumes created from snapshots. Omit this parameter if:
-
-        - You want to create the volume using fast snapshot restore. You must specify a snapshot that is enabled for fast snapshot restore. In this case, the volume is fully initialized at creation.
-
-        > If you specify a snapshot that is enabled for fast snapshot restore and a volume initialization rate, the volume will be initialized at the specified rate instead of fast snapshot restore.
-        - You want to create a volume that is initialized at the default rate.
-
-        For more information, see [Initialize Amazon EBS volumes](https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html) in the *Amazon EC2 User Guide* .
-
-        Valid range: 100 - 300 MiB/s
+        Specifies the Amazon EBS Provisioned Rate for Volume Initialization (volume initialization rate), in MiB/s, at which to download the snapshot blocks from Amazon S3 to the volume. This is also known as *volume initialization*. Specifying a volume initialization rate ensures that the volume is initialized at a predictable and consistent rate after creation.
+         This parameter is supported only for volumes created from snapshots. Omit this parameter if:
+          +  You want to create the volume using fast snapshot restore. You must specify a snapshot that is enabled for fast snapshot restore. In this case, the volume is fully initialized at creation.
+          If you specify a snapshot that is enabled for fast snapshot restore and a volume initialization rate, the volume will be initialized at the specified rate instead of fast snapshot restore.
+           +  You want to create a volume that is initialized at the default rate.
+          
+         For more information, see [Initialize Amazon EBS volumes](https://docs.aws.amazon.com/ebs/latest/userguide/initalize-volume.html) in the *Amazon EC2 User Guide*.
+         Valid range: 100 - 300 MiB/s
         """
         return pulumi.get(self, "volume_initialization_rate")
 
@@ -14536,6 +14529,54 @@ class TagSpecification(dict):
         The tags to apply to the resource.
         """
         return pulumi.get(self, "tags")
+
+
+@pulumi.output_type
+class TrafficMirrorFilterRuleTrafficMirrorPortRange(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "fromPort":
+            suggest = "from_port"
+        elif key == "toPort":
+            suggest = "to_port"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in TrafficMirrorFilterRuleTrafficMirrorPortRange. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        TrafficMirrorFilterRuleTrafficMirrorPortRange.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        TrafficMirrorFilterRuleTrafficMirrorPortRange.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 from_port: builtins.int,
+                 to_port: builtins.int):
+        """
+        :param builtins.int from_port: The first port in the Traffic Mirror port range.
+        :param builtins.int to_port: The last port in the Traffic Mirror port range.
+        """
+        pulumi.set(__self__, "from_port", from_port)
+        pulumi.set(__self__, "to_port", to_port)
+
+    @property
+    @pulumi.getter(name="fromPort")
+    def from_port(self) -> builtins.int:
+        """
+        The first port in the Traffic Mirror port range.
+        """
+        return pulumi.get(self, "from_port")
+
+    @property
+    @pulumi.getter(name="toPort")
+    def to_port(self) -> builtins.int:
+        """
+        The last port in the Traffic Mirror port range.
+        """
+        return pulumi.get(self, "to_port")
 
 
 @pulumi.output_type

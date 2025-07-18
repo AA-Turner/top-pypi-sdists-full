@@ -34,7 +34,7 @@ class PriceTagConfig(BaseConfig):
     # Placeholder alert config for structural compatibility
     alert_config: Optional[AlertConfig] = None
 
-    confidence_threshold: float = 0.4
+    confidence_threshold: float = 0.45
 
     # Only relevant classes: Price Tag is index 0
     index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {
@@ -84,8 +84,8 @@ class PriceTagUseCase(BaseProcessor):
         self._track_aliases: Dict[Any, Any] = {}
         self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
         # Tunable parameters – adjust if necessary for specific scenarios
-        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
-        self._track_merge_time_window: float = 7.0  # seconds within which to merge
+        self._track_merge_iou_threshold: float = 0.4  # IoU ≥ 0.05 → same price tag
+        self._track_merge_time_window: float = 2.0  # seconds within which to merge
 
     def _update_tracking_state(self, detections: List[Dict[str, Any]]) -> None:
         """

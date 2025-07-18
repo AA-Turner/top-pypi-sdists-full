@@ -105,7 +105,7 @@ class Function(
         rdma: typing.Optional[bool] = None,
         max_inputs: typing.Optional[int] = None,
         ephemeral_disk: typing.Optional[int] = None,
-        include_source: typing.Optional[bool] = None,
+        include_source: bool = True,
         experimental_options: typing.Optional[dict[str, str]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
@@ -240,10 +240,10 @@ class Function(
     keep_warm: __keep_warm_spec[typing_extensions.Self]
 
     @classmethod
-    def _from_name(cls, app_name: str, name: str, namespace, environment_name: typing.Optional[str]): ...
+    def _from_name(cls, app_name: str, name: str, namespace=None, environment_name: typing.Optional[str] = None): ...
     @classmethod
     def from_name(
-        cls: type[Function], app_name: str, name: str, *, namespace=1, environment_name: typing.Optional[str] = None
+        cls: type[Function], app_name: str, name: str, *, namespace=None, environment_name: typing.Optional[str] = None
     ) -> Function:
         """Reference a Function from a deployed App by its name.
 
@@ -263,7 +263,7 @@ class Function(
             /,
             app_name: str,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Function:
@@ -286,7 +286,7 @@ class Function(
             /,
             app_name: str,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Function:

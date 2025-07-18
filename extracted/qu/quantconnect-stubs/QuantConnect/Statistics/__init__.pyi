@@ -461,6 +461,15 @@ class PortfolioStatistics(System.Object):
     def value_at_risk_95(self, value: float) -> None:
         ...
 
+    @property
+    def drawdown_recovery(self) -> int:
+        """The recovery time of the maximum drawdown."""
+        ...
+
+    @drawdown_recovery.setter
+    def drawdown_recovery(self, value: int) -> None:
+        ...
+
     @overload
     def __init__(self, profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], equity: System.Collections.Generic.SortedDictionary[datetime.datetime, float], portfolio_turnover: System.Collections.Generic.SortedDictionary[datetime.datetime, float], list_performance: typing.List[float], list_benchmark: typing.List[float], starting_capital: float, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int, win_count: typing.Optional[int] = None, loss_count: typing.Optional[int] = None) -> None:
         """
@@ -568,6 +577,36 @@ class PerformanceMetrics(System.Object):
 
     PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
     """The average Portfolio Turnover"""
+
+    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
+    """The recovery time of the maximum drawdown."""
+
+
+class DrawdownMetrics(System.Object):
+    """
+    Represents the result of a drawdown analysis, including the maximum drawdown percentage
+    and the maximum recovery time in days.
+    """
+
+    @property
+    def drawdown(self) -> float:
+        """Gets the maximum drawdown as a positive percentage."""
+        ...
+
+    @property
+    def drawdown_recovery(self) -> int:
+        """Gets the maximum recovery time in days from peak to full recovery."""
+        ...
+
+    def __init__(self, drawdown: float, recovery_time: int) -> None:
+        """
+        Initializes a new instance of the DrawdownMetrics class
+        with the specified maximum drawdown and recovery time.
+        
+        :param drawdown: The maximum drawdown as a positive percentage.
+        :param recovery_time: The maximum number of days it took to recover from a drawdown.
+        """
+        ...
 
 
 class TradeStatistics(System.Object):
@@ -1174,6 +1213,18 @@ class Statistics(System.Object):
         ...
 
     @staticmethod
+    def calculate_drawdown_metrics(equity_over_time: System.Collections.Generic.SortedDictionary[datetime.datetime, float], rounding: int = 2) -> QuantConnect.Statistics.DrawdownMetrics:
+        """
+        Calculates the maximum drawdown percentage and the maximum recovery time (in days)
+        from a historical equity time series.
+        
+        :param equity_over_time: Time series of equity values indexed by date
+        :param rounding: Number of decimals to round the results to
+        :returns: A DrawdownMetrics object containing MaxDrawdown (percentage) and MaxRecoveryTime (in days).
+        """
+        ...
+
+    @staticmethod
     def compounding_annual_performance(starting_capital: float, final_capital: float, years: float) -> float:
         """
         Annual compounded returns statistic based on the final-starting capital and years.
@@ -1186,13 +1237,6 @@ class Statistics(System.Object):
         ...
 
     @staticmethod
-    @overload
-    def drawdown_percent(equity_over_time: System.Collections.Generic.SortedDictionary[datetime.datetime, float], rounding: int = 2) -> float:
-        """Drawdown maximum percentage."""
-        ...
-
-    @staticmethod
-    @overload
     def drawdown_percent(current: float, high: float, rounding_decimals: int = 2) -> float:
         """
         Calculate the drawdown between a high and current value

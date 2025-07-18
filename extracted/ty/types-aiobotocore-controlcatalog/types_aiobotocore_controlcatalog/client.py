@@ -30,6 +30,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListCommonControlsPaginator,
+    ListControlMappingsPaginator,
     ListControlsPaginator,
     ListDomainsPaginator,
     ListObjectivesPaginator,
@@ -39,6 +40,8 @@ from .type_defs import (
     GetControlResponseTypeDef,
     ListCommonControlsRequestTypeDef,
     ListCommonControlsResponseTypeDef,
+    ListControlMappingsRequestTypeDef,
+    ListControlMappingsResponseTypeDef,
     ListControlsRequestTypeDef,
     ListControlsResponseTypeDef,
     ListDomainsRequestTypeDef,
@@ -127,12 +130,22 @@ class ControlCatalogClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#list_common_controls)
         """
 
+    async def list_control_mappings(
+        self, **kwargs: Unpack[ListControlMappingsRequestTypeDef]
+    ) -> ListControlMappingsResponseTypeDef:
+        """
+        Returns a paginated list of control mappings from the Control Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/client/list_control_mappings.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#list_control_mappings)
+        """
+
     async def list_controls(
         self, **kwargs: Unpack[ListControlsRequestTypeDef]
     ) -> ListControlsResponseTypeDef:
         """
-        Returns a paginated list of all available controls in the Amazon Web Services
-        Control Catalog library.
+        Returns a paginated list of all available controls in the Control Catalog
+        library.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/client/list_controls.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#list_controls)
@@ -142,8 +155,7 @@ class ControlCatalogClient(AioBaseClient):
         self, **kwargs: Unpack[ListDomainsRequestTypeDef]
     ) -> ListDomainsResponseTypeDef:
         """
-        Returns a paginated list of domains from the Amazon Web Services Control
-        Catalog.
+        Returns a paginated list of domains from the Control Catalog.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/client/list_domains.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#list_domains)
@@ -153,8 +165,7 @@ class ControlCatalogClient(AioBaseClient):
         self, **kwargs: Unpack[ListObjectivesRequestTypeDef]
     ) -> ListObjectivesResponseTypeDef:
         """
-        Returns a paginated list of objectives from the Amazon Web Services Control
-        Catalog.
+        Returns a paginated list of objectives from the Control Catalog.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/client/list_objectives.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#list_objectives)
@@ -164,6 +175,17 @@ class ControlCatalogClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_common_controls"]
     ) -> ListCommonControlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_control_mappings"]
+    ) -> ListControlMappingsPaginator:
         """
         Create a paginator for an operation.
 

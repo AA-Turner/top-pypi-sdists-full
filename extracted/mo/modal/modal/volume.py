@@ -26,6 +26,7 @@ from google.protobuf.message import Message
 from grpclib import GRPCError, Status
 from synchronicity.async_wrap import asynccontextmanager
 
+import modal.exception
 import modal_proto.api_pb2
 from modal.exception import InvalidError, VolumeUploadTimeoutError
 from modal_proto import api_pb2
@@ -49,7 +50,7 @@ from ._utils.blob_utils import (
     get_file_upload_spec_from_fileobj,
     get_file_upload_spec_from_path,
 )
-from ._utils.deprecation import deprecation_warning
+from ._utils.deprecation import deprecation_warning, warn_if_passing_namespace
 from ._utils.grpc_utils import retry_transient_errors
 from ._utils.http_utils import ClientSessionRegistry
 from ._utils.name_utils import check_object_name
@@ -155,6 +156,8 @@ class _Volume(_Object, type_prefix="vo"):
 
         The Volume is mounted as a read-only volume in a function. Any file system write operation into the
         mounted volume will result in an error.
+
+        Added in v1.0.5.
         """
 
         async def _load(new_volume: _Volume, resolver: Resolver, existing_object_id: Optional[str]):
@@ -182,7 +185,7 @@ class _Volume(_Object, type_prefix="vo"):
     def from_name(
         name: str,
         *,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
+        namespace=None,  # mdmd:line-hidden
         environment_name: Optional[str] = None,
         create_if_missing: bool = False,
         version: "typing.Optional[modal_proto.api_pb2.VolumeFsVersion.ValueType]" = None,
@@ -205,11 +208,11 @@ class _Volume(_Object, type_prefix="vo"):
         ```
         """
         check_object_name(name, "Volume")
+        warn_if_passing_namespace(namespace, "modal.Volume.from_name")
 
         async def _load(self: _Volume, resolver: Resolver, existing_object_id: Optional[str]):
             req = api_pb2.VolumeGetOrCreateRequest(
                 deployment_name=name,
-                namespace=namespace,
                 environment_name=_get_environment_name(environment_name, resolver),
                 object_creation_type=(api_pb2.OBJECT_CREATION_TYPE_CREATE_IF_MISSING if create_if_missing else None),
                 version=version,
@@ -275,7 +278,7 @@ class _Volume(_Object, type_prefix="vo"):
     @staticmethod
     async def lookup(
         name: str,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
+        namespace=None,  # mdmd:line-hidden
         client: Optional[_Client] = None,
         environment_name: Optional[str] = None,
         create_if_missing: bool = False,
@@ -300,9 +303,9 @@ class _Volume(_Object, type_prefix="vo"):
             " It can be replaced with `modal.Volume.from_name`."
             "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
         )
+        warn_if_passing_namespace(namespace, "modal.Volume.lookup")
         obj = _Volume.from_name(
             name,
-            namespace=namespace,
             environment_name=environment_name,
             create_if_missing=create_if_missing,
             version=version,
@@ -316,18 +319,18 @@ class _Volume(_Object, type_prefix="vo"):
     @staticmethod
     async def create_deployed(
         deployment_name: str,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
+        namespace=None,  # mdmd:line-hidden
         client: Optional[_Client] = None,
         environment_name: Optional[str] = None,
         version: "typing.Optional[modal_proto.api_pb2.VolumeFsVersion.ValueType]" = None,
     ) -> str:
         """mdmd:hidden"""
         check_object_name(deployment_name, "Volume")
+        warn_if_passing_namespace(namespace, "modal.Volume.create_deployed")
         if client is None:
             client = await _Client.from_env()
         request = api_pb2.VolumeGetOrCreateRequest(
             deployment_name=deployment_name,
-            namespace=namespace,
             environment_name=_get_environment_name(environment_name),
             object_creation_type=api_pb2.OBJECT_CREATION_TYPE_CREATE_FAIL_IF_EXISTS,
             version=version,
@@ -449,8 +452,8 @@ class _Volume(_Object, type_prefix="vo"):
 
         try:
             response = await retry_transient_errors(self._client.stub.VolumeGetFile2, req)
-        except GRPCError as exc:
-            raise FileNotFoundError(exc.message) if exc.status == Status.NOT_FOUND else exc
+        except modal.exception.NotFoundError as exc:
+            raise FileNotFoundError(exc.args[0])
 
         async def read_block(block_url: str) -> bytes:
             async with ClientSessionRegistry.get_session().get(block_url) as get_response:
@@ -483,8 +486,8 @@ class _Volume(_Object, type_prefix="vo"):
 
         try:
             response = await retry_transient_errors(self._client.stub.VolumeGetFile2, req)
-        except GRPCError as exc:
-            raise FileNotFoundError(exc.message) if exc.status == Status.NOT_FOUND else exc
+        except modal.exception.NotFoundError as exc:
+            raise FileNotFoundError(exc.args[0])
 
         # TODO(dflemstr): Sane default limit? Make configurable?
         download_semaphore = asyncio.Semaphore(multiprocessing.cpu_count())
@@ -526,12 +529,15 @@ class _Volume(_Object, type_prefix="vo"):
         if self._read_only:
             raise InvalidError("Read-only Volume can not be written to")
 
-        if self._is_v1:
-            req = api_pb2.VolumeRemoveFileRequest(volume_id=self.object_id, path=path, recursive=recursive)
-            await retry_transient_errors(self._client.stub.VolumeRemoveFile, req)
-        else:
-            req = api_pb2.VolumeRemoveFile2Request(volume_id=self.object_id, path=path, recursive=recursive)
-            await retry_transient_errors(self._client.stub.VolumeRemoveFile2, req)
+        try:
+            if self._is_v1:
+                req = api_pb2.VolumeRemoveFileRequest(volume_id=self.object_id, path=path, recursive=recursive)
+                await retry_transient_errors(self._client.stub.VolumeRemoveFile, req)
+            else:
+                req = api_pb2.VolumeRemoveFile2Request(volume_id=self.object_id, path=path, recursive=recursive)
+                await retry_transient_errors(self._client.stub.VolumeRemoveFile2, req)
+        except modal.exception.NotFoundError as exc:
+            raise FileNotFoundError(exc.args[0])
 
     @live_method
     async def copy_files(self, src_paths: Sequence[str], dst_path: str, recursive: bool = False) -> None:

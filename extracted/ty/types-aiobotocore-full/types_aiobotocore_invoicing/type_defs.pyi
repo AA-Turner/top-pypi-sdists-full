@@ -20,6 +20,8 @@ import sys
 from datetime import datetime
 from typing import Union
 
+from .literals import InvoiceTypeType, ListInvoiceSummariesResourceTypeType
+
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
     from builtins import list as List
@@ -32,20 +34,36 @@ else:
     from typing_extensions import NotRequired, TypedDict
 
 __all__ = (
+    "AmountBreakdownTypeDef",
     "BatchGetInvoiceProfileRequestTypeDef",
     "BatchGetInvoiceProfileResponseTypeDef",
+    "BillingPeriodTypeDef",
     "CreateInvoiceUnitRequestTypeDef",
     "CreateInvoiceUnitResponseTypeDef",
+    "CurrencyExchangeDetailsTypeDef",
+    "DateIntervalTypeDef",
     "DeleteInvoiceUnitRequestTypeDef",
     "DeleteInvoiceUnitResponseTypeDef",
+    "DiscountsBreakdownAmountTypeDef",
+    "DiscountsBreakdownTypeDef",
+    "EntityTypeDef",
+    "FeesBreakdownAmountTypeDef",
+    "FeesBreakdownTypeDef",
     "FiltersTypeDef",
     "GetInvoiceUnitRequestTypeDef",
     "GetInvoiceUnitResponseTypeDef",
+    "InvoiceCurrencyAmountTypeDef",
     "InvoiceProfileTypeDef",
+    "InvoiceSummariesFilterTypeDef",
+    "InvoiceSummariesSelectorTypeDef",
+    "InvoiceSummaryTypeDef",
     "InvoiceUnitRuleOutputTypeDef",
     "InvoiceUnitRuleTypeDef",
     "InvoiceUnitRuleUnionTypeDef",
     "InvoiceUnitTypeDef",
+    "ListInvoiceSummariesRequestPaginateTypeDef",
+    "ListInvoiceSummariesRequestTypeDef",
+    "ListInvoiceSummariesResponseTypeDef",
     "ListInvoiceUnitsRequestPaginateTypeDef",
     "ListInvoiceUnitsRequestTypeDef",
     "ListInvoiceUnitsResponseTypeDef",
@@ -56,6 +74,8 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "TagResourceRequestTypeDef",
+    "TaxesBreakdownAmountTypeDef",
+    "TaxesBreakdownTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateInvoiceUnitRequestTypeDef",
@@ -72,19 +92,41 @@ class ResponseMetadataTypeDef(TypedDict):
     RetryAttempts: int
     HostId: NotRequired[str]
 
+class BillingPeriodTypeDef(TypedDict):
+    Month: int
+    Year: int
+
 class ResourceTagTypeDef(TypedDict):
     Key: str
     Value: str
 
+class CurrencyExchangeDetailsTypeDef(TypedDict):
+    SourceCurrencyCode: NotRequired[str]
+    TargetCurrencyCode: NotRequired[str]
+    Rate: NotRequired[str]
+
+TimestampTypeDef = Union[datetime, str]
+
 class DeleteInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
+
+class DiscountsBreakdownAmountTypeDef(TypedDict):
+    Description: NotRequired[str]
+    Amount: NotRequired[str]
+    Rate: NotRequired[str]
+
+class EntityTypeDef(TypedDict):
+    InvoicingEntity: NotRequired[str]
+
+class FeesBreakdownAmountTypeDef(TypedDict):
+    Description: NotRequired[str]
+    Amount: NotRequired[str]
+    Rate: NotRequired[str]
 
 class FiltersTypeDef(TypedDict):
     Names: NotRequired[Sequence[str]]
     InvoiceReceivers: NotRequired[Sequence[str]]
     Accounts: NotRequired[Sequence[str]]
-
-TimestampTypeDef = Union[datetime, str]
 
 class InvoiceUnitRuleOutputTypeDef(TypedDict):
     LinkedAccounts: NotRequired[List[str]]
@@ -100,6 +142,10 @@ class ReceiverAddressTypeDef(TypedDict):
     CompanyName: NotRequired[str]
     PostalCode: NotRequired[str]
 
+class InvoiceSummariesSelectorTypeDef(TypedDict):
+    ResourceType: ListInvoiceSummariesResourceTypeType
+    Value: str
+
 class InvoiceUnitRuleTypeDef(TypedDict):
     LinkedAccounts: NotRequired[Sequence[str]]
 
@@ -110,6 +156,11 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
+
+class TaxesBreakdownAmountTypeDef(TypedDict):
+    Description: NotRequired[str]
+    Amount: NotRequired[str]
+    Rate: NotRequired[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -135,9 +186,21 @@ class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
     ResourceTags: Sequence[ResourceTagTypeDef]
 
+class DateIntervalTypeDef(TypedDict):
+    StartDate: TimestampTypeDef
+    EndDate: TimestampTypeDef
+
 class GetInvoiceUnitRequestTypeDef(TypedDict):
     InvoiceUnitArn: str
     AsOf: NotRequired[TimestampTypeDef]
+
+class DiscountsBreakdownTypeDef(TypedDict):
+    Breakdown: NotRequired[List[DiscountsBreakdownAmountTypeDef]]
+    TotalAmount: NotRequired[str]
+
+class FeesBreakdownTypeDef(TypedDict):
+    Breakdown: NotRequired[List[FeesBreakdownAmountTypeDef]]
+    TotalAmount: NotRequired[str]
 
 class ListInvoiceUnitsRequestTypeDef(TypedDict):
     Filters: NotRequired[FiltersTypeDef]
@@ -179,6 +242,15 @@ class ListInvoiceUnitsRequestPaginateTypeDef(TypedDict):
     AsOf: NotRequired[TimestampTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class TaxesBreakdownTypeDef(TypedDict):
+    Breakdown: NotRequired[List[TaxesBreakdownAmountTypeDef]]
+    TotalAmount: NotRequired[str]
+
+class InvoiceSummariesFilterTypeDef(TypedDict):
+    TimeInterval: NotRequired[DateIntervalTypeDef]
+    BillingPeriod: NotRequired[BillingPeriodTypeDef]
+    InvoicingEntity: NotRequired[str]
+
 class ListInvoiceUnitsResponseTypeDef(TypedDict):
     InvoiceUnits: List[InvoiceUnitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -201,3 +273,46 @@ class UpdateInvoiceUnitRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     TaxInheritanceDisabled: NotRequired[bool]
     Rule: NotRequired[InvoiceUnitRuleUnionTypeDef]
+
+class AmountBreakdownTypeDef(TypedDict):
+    SubTotalAmount: NotRequired[str]
+    Discounts: NotRequired[DiscountsBreakdownTypeDef]
+    Taxes: NotRequired[TaxesBreakdownTypeDef]
+    Fees: NotRequired[FeesBreakdownTypeDef]
+
+class ListInvoiceSummariesRequestPaginateTypeDef(TypedDict):
+    Selector: InvoiceSummariesSelectorTypeDef
+    Filter: NotRequired[InvoiceSummariesFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListInvoiceSummariesRequestTypeDef(TypedDict):
+    Selector: InvoiceSummariesSelectorTypeDef
+    Filter: NotRequired[InvoiceSummariesFilterTypeDef]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class InvoiceCurrencyAmountTypeDef(TypedDict):
+    TotalAmount: NotRequired[str]
+    TotalAmountBeforeTax: NotRequired[str]
+    CurrencyCode: NotRequired[str]
+    AmountBreakdown: NotRequired[AmountBreakdownTypeDef]
+    CurrencyExchangeDetails: NotRequired[CurrencyExchangeDetailsTypeDef]
+
+class InvoiceSummaryTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    InvoiceId: NotRequired[str]
+    IssuedDate: NotRequired[datetime]
+    DueDate: NotRequired[datetime]
+    Entity: NotRequired[EntityTypeDef]
+    BillingPeriod: NotRequired[BillingPeriodTypeDef]
+    InvoiceType: NotRequired[InvoiceTypeType]
+    OriginalInvoiceId: NotRequired[str]
+    PurchaseOrderNumber: NotRequired[str]
+    BaseCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]
+    TaxCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]
+    PaymentCurrencyAmount: NotRequired[InvoiceCurrencyAmountTypeDef]
+
+class ListInvoiceSummariesResponseTypeDef(TypedDict):
+    InvoiceSummaries: List[InvoiceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]

@@ -4,8 +4,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import structlog
-from langchain_core.runnables.config import var_child_runnable_config
-from langgraph.constants import CONF, CONFIG_KEY_STORE
+from langchain_core.runnables.config import RunnableConfig, var_child_runnable_config
+from langgraph.constants import CONF
 from starlette.applications import Starlette
 
 from langgraph_runtime_inmem import queue
@@ -21,7 +21,7 @@ async def lifespan(
     **kwargs: Any,
 ):
     import langgraph_api.config as config
-    from langgraph_api import __version__, graph, thread_ttl
+    from langgraph_api import __version__, feature_flags, graph, thread_ttl
     from langgraph_api import store as api_store
     from langgraph_api.asyncio import SimpleTaskGroup, set_event_loop
     from langgraph_api.http import start_http_client, stop_http_client
@@ -58,7 +58,22 @@ async def lifespan(
             else:
                 await logger.ainfo("Using custom store. Skipping store TTL sweeper.")
             tg.create_task(thread_ttl.thread_ttl_sweep_loop())
-            var_child_runnable_config.set({CONF: {CONFIG_KEY_STORE: store_instance}})
+
+            if feature_flags.USE_RUNTIME_API:
+                from langgraph._internal._constants import CONFIG_KEY_RUNTIME
+                from langgraph.runtime import Runtime
+
+                langgraph_config: RunnableConfig = {
+                    CONF: {CONFIG_KEY_RUNTIME: Runtime(store=store_instance)}
+                }
+            else:
+                from langgraph.constants import CONFIG_KEY_STORE
+
+                langgraph_config: RunnableConfig = {
+                    CONF: {CONFIG_KEY_STORE: store_instance}
+                }
+
+            var_child_runnable_config.set(langgraph_config)
 
             # Keep after the setter above so users can access the store from within the factory function
             await graph.collect_graphs_from_env(True)

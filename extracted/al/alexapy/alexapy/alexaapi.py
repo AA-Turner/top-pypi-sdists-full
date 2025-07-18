@@ -1723,11 +1723,8 @@ class AlexaAPI:
         )
         # _LOGGER.debug("%s: Response: %s", hide_email(login.email),
         #               await response.json(content_type=None))
-        return (
-            ((await response.json(content_type=None))["data"]["endpoints"]["items"])
-            if response
-            else None
-        )
+        resp_body = await response.json(content_type=None) if response else None
+        return resp_body.get("data", {}).get("endpoints", {}).get("items", None)
 
     @staticmethod
     @_catch_all_exceptions
@@ -1745,8 +1742,12 @@ class AlexaAPI:
             hide_email(login.email),
             network_detail,
         )
+        if network_detail is None:
+            return None
         details = []
         for el in network_detail:
+            if el.get("legacyAppliance", None) is None:
+                return None
             details.append(el["legacyAppliance"])
         return details
 

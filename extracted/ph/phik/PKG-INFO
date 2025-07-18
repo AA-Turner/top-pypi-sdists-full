@@ -1,32 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: phik
-Version: 0.12.4
+Version: 0.12.5
 Summary: Phi_K correlation analyzer library
-Author-Email: KPMG N.V. The Netherlands <kave@kpmg.com>
+Author-Email: "KPMG N.V. The Netherlands" <kave@kpmg.com>
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: numpy>=1.18.0
 Requires-Dist: scipy>=1.5.2
 Requires-Dist: pandas>=0.25.1
 Requires-Dist: matplotlib>=2.2.3
 Requires-Dist: joblib>=0.14.1
+Provides-Extra: test
 Requires-Dist: pytest>=4.0.2; extra == "test"
 Requires-Dist: pytest-pylint>=0.13.0; extra == "test"
-Provides-Extra: test
 Description-Content-Type: text/x-rst
 
 ==========================
 Phi_K Correlation Constant
 ==========================
 
-* Version: 0.12.4. Released: Jan 2024
+* Version: 0.12.5. Released: Jul 2025
 * Release notes: https://github.com/KaveIO/PhiK/blob/master/CHANGES.rst
 * Repository: https://github.com/kaveio/phik
 * Documentation: https://phik.readthedocs.io
@@ -34,7 +33,7 @@ Phi_K Correlation Constant
 
 Phi_K is a practical correlation constant that works consistently between categorical, ordinal and interval variables.
 It is based on several refinements to Pearson's hypothesis test of independence of two variables. Essentially, the
-contingency test statistic of two variables is interpreted as coming from a rotated bi-variate normal distribution,
+contingency test statistic of two variables is interpreted as if coming from a rotated bi-variate normal distribution,
 where the tilt is interpreted as Phi_K.
 
 The combined features of Phi_K form an advantage over existing coefficients. First, it works consistently between categorical, ordinal and interval variables.

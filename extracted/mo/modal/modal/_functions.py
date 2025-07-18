@@ -40,18 +40,17 @@ from ._utils.async_utils import (
     synchronizer,
     warn_if_generator_is_not_consumed,
 )
-from ._utils.deprecation import deprecation_warning
+from ._utils.blob_utils import MAX_OBJECT_SIZE_BYTES
+from ._utils.deprecation import deprecation_warning, warn_if_passing_namespace
 from ._utils.function_utils import (
     ATTEMPT_TIMEOUT_GRACE_PERIOD,
     OUTPUTS_TIMEOUT,
     FunctionCreationStatus,
     FunctionInfo,
-    IncludeSourceMode,
     _create_input,
     _process_result,
     _stream_function_call_data,
     get_function_type,
-    get_include_source_mode,
     is_async,
 )
 from ._utils.grpc_utils import RetryWarningMessage, retry_transient_errors
@@ -145,6 +144,7 @@ class _Invocation:
             args,
             kwargs,
             stub,
+            max_object_size_bytes=function._max_object_size_bytes,
             method_name=function._use_method_name,
             function_call_invocation_type=function_call_invocation_type,
         )
@@ -332,7 +332,7 @@ class _Invocation:
         items_total: Union[int, None] = None
         async with aclosing(
             async_merge(
-                _stream_function_call_data(self.client, self.function_call_id, variant="data_out"),
+                _stream_function_call_data(self.client, None, self.function_call_id, variant="data_out"),
                 callable_to_agen(self.run_function),
             )
         ) as streamer:
@@ -386,16 +386,20 @@ class _InputPlaneInvocation:
         function_id = function.object_id
         control_plane_stub = client.stub
         # Note: Blob upload is done on the control plane stub, not the input plane stub!
-        input_item = await _create_input(args, kwargs, control_plane_stub, method_name=function._use_method_name)
+        input_item = await _create_input(
+            args,
+            kwargs,
+            control_plane_stub,
+            max_object_size_bytes=function._max_object_size_bytes,
+            method_name=function._use_method_name,
+        )
 
         request = api_pb2.AttemptStartRequest(
             function_id=function_id,
             parent_input_id=current_input_id() or "",
             input=input_item,
         )
-        metadata: list[tuple[str, str]] = []
-        if input_plane_region and input_plane_region != "":
-            metadata.append(("x-modal-input-plane-region", input_plane_region))
+        metadata = await _InputPlaneInvocation._get_metadata(input_plane_region, client)
         response = await retry_transient_errors(stub.AttemptStart, request, metadata=metadata)
         attempt_token = response.attempt_token
 
@@ -411,9 +415,7 @@ class _InputPlaneInvocation:
                 timeout_secs=OUTPUTS_TIMEOUT,
                 requested_at=time.time(),
             )
-            metadata: list[tuple[str, str]] = []
-            if self.input_plane_region and self.input_plane_region != "":
-                metadata.append(("x-modal-input-plane-region", self.input_plane_region))
+            metadata = await self._get_metadata(self.input_plane_region, self.client)
             await_response: api_pb2.AttemptAwaitResponse = await retry_transient_errors(
                 self.stub.AttemptAwait,
                 await_request,
@@ -443,9 +445,18 @@ class _InputPlaneInvocation:
                         self.attempt_token = retry_response.attempt_token
                         continue
 
+                control_plane_stub = self.client.stub
+                # Note: Blob download is done on the control plane stub, not the input plane stub!
                 return await _process_result(
-                    await_response.output.result, await_response.output.data_format, self.stub, self.client
+                    await_response.output.result, await_response.output.data_format, control_plane_stub, self.client
                 )
+
+    @staticmethod
+    async def _get_metadata(input_plane_region: str, client: _Client) -> list[tuple[str, str]]:
+        if not input_plane_region:
+            return []
+        token = await client._auth_token_manager.get_token()
+        return [("x-modal-input-plane-region", input_plane_region), ("x-modal-auth-token", token)]
 
 
 # Wrapper type for api_pb2.FunctionStats
@@ -585,8 +596,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         rdma: Optional[bool] = None,
         max_inputs: Optional[int] = None,
         ephemeral_disk: Optional[int] = None,
-        # current default: first-party, future default: main-package
-        include_source: Optional[bool] = None,
+        include_source: bool = True,
         experimental_options: Optional[dict[str, str]] = None,
         _experimental_proxy_ip: Optional[str] = None,
         _experimental_custom_scaling_factor: Optional[float] = None,
@@ -611,15 +621,10 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             assert not webhook_config
             assert not schedule
 
-        include_source_mode = get_include_source_mode(include_source)
-        if include_source_mode != IncludeSourceMode.INCLUDE_NOTHING:
-            entrypoint_mounts = info.get_entrypoint_mount()
-        else:
-            entrypoint_mounts = {}
-
+        entrypoint_mount = info.get_entrypoint_mount() if include_source else {}
         all_mounts = [
             _get_client_mount(),
-            *entrypoint_mounts.values(),
+            *entrypoint_mount.values(),
         ]
 
         retry_policy = _parse_retries(
@@ -646,34 +651,6 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             scheduler_placement=scheduler_placement,
             proxy=proxy,
         )
-
-        if info.user_cls and not is_auto_snapshot:
-            build_functions = _find_partial_methods_for_user_cls(info.user_cls, _PartialFunctionFlags.BUILD).items()
-            for k, pf in build_functions:
-                build_function = pf.raw_f
-                snapshot_info = FunctionInfo(build_function, user_cls=info.user_cls)
-                snapshot_function = _Function.from_local(
-                    snapshot_info,
-                    app=None,
-                    image=image,
-                    secrets=secrets,
-                    gpu=gpu,
-                    network_file_systems=network_file_systems,
-                    volumes=volumes,
-                    memory=memory,
-                    timeout=pf.params.build_timeout,
-                    cpu=cpu,
-                    ephemeral_disk=ephemeral_disk,
-                    is_builder_function=True,
-                    is_auto_snapshot=True,
-                    scheduler_placement=scheduler_placement,
-                    include_source=include_source,
-                )
-                image = _Image._from_args(
-                    base_images={"base": image},
-                    build_function=snapshot_function,
-                    force_build=image.force_build or bool(pf.params.force_build),
-                )
 
         # Note that we also do these checks in FunctionCreate; could drop them here
         if min_containers is not None and not isinstance(min_containers, int):
@@ -734,7 +711,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         validated_network_file_systems = validate_network_file_systems(network_file_systems)
 
         # Validate image
-        if image is not None and not isinstance(image, _Image):
+        if image is not None and not isinstance(image, _Image):  # type: ignore[unreachable]
             raise InvalidError(f"Expected modal.Image object. Got {type(image)}.")
 
         method_definitions: Optional[dict[str, api_pb2.MethodDefinition]] = None
@@ -1144,7 +1121,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
 
         def _deps():
             if options:
-                return [v for _, v in options.validated_volumes] + list(options.secrets)
+                all_deps = [v for _, v in options.validated_volumes] + list(options.secrets)
+                return [dep for dep in all_deps if not dep.is_hydrated]
             return []
 
         fun: _Function = _Function._from_loader(_load, "Function(parametrized)", hydrate_lazily=True, deps=_deps)
@@ -1241,7 +1219,13 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         await self.update_autoscaler(min_containers=warm_pool_size)
 
     @classmethod
-    def _from_name(cls, app_name: str, name: str, namespace, environment_name: Optional[str]):
+    def _from_name(
+        cls,
+        app_name: str,
+        name: str,
+        namespace=None,  # mdmd:line-hidden
+        environment_name: Optional[str] = None,
+    ):
         # internal function lookup implementation that allows lookup of class "service functions"
         # in addition to non-class functions
         async def _load_remote(self: _Function, resolver: Resolver, existing_object_id: Optional[str]):
@@ -1249,25 +1233,22 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             request = api_pb2.FunctionGetRequest(
                 app_name=app_name,
                 object_tag=name,
-                namespace=namespace,
                 environment_name=_get_environment_name(environment_name, resolver) or "",
             )
             try:
                 response = await retry_transient_errors(resolver.client.stub.FunctionGet, request)
-            except GRPCError as exc:
-                if exc.status == Status.NOT_FOUND:
-                    env_context = f" (in the '{environment_name}' environment)" if environment_name else ""
-                    raise NotFoundError(
-                        f"Lookup failed for Function '{name}' from the '{app_name}' app{env_context}: {exc.message}."
-                    )
-                else:
-                    raise
+            except NotFoundError as exc:
+                # refine the error message
+                env_context = f" (in the '{environment_name}' environment)" if environment_name else ""
+                raise NotFoundError(
+                    f"Lookup failed for Function '{name}' from the '{app_name}' app{env_context}: {exc}."
+                ) from None
 
             print_server_warnings(response.server_warnings)
 
             self._hydrate(response.function_id, resolver.client, response.handle_metadata)
 
-        rep = f"Function.from_name({app_name}, {name})"
+        rep = f"Function.from_name('{app_name}', '{name}')"
         return cls._from_loader(_load_remote, rep, is_another_app=True, hydrate_lazily=True)
 
     @classmethod
@@ -1276,7 +1257,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         app_name: str,
         name: str,
         *,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
+        namespace=None,  # mdmd:line-hidden
         environment_name: Optional[str] = None,
     ) -> "_Function":
         """Reference a Function from a deployed App by its name.
@@ -1300,13 +1281,14 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
                 f"instance.{method_name}.remote(...)\n",
             )
 
-        return cls._from_name(app_name, name, namespace, environment_name)
+        warn_if_passing_namespace(namespace, "modal.Function.from_name")
+        return cls._from_name(app_name, name, environment_name=environment_name)
 
     @staticmethod
     async def lookup(
         app_name: str,
         name: str,
-        namespace=api_pb2.DEPLOYMENT_NAMESPACE_WORKSPACE,
+        namespace=None,  # mdmd:line-hidden
         client: Optional[_Client] = None,
         environment_name: Optional[str] = None,
     ) -> "_Function":
@@ -1328,7 +1310,8 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             " It can be replaced with `modal.Function.from_name`."
             "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
         )
-        obj = _Function.from_name(app_name, name, namespace=namespace, environment_name=environment_name)
+        warn_if_passing_namespace(namespace, "modal.Function.lookup")
+        obj = _Function.from_name(app_name, name, environment_name=environment_name)
         if client is None:
             client = await _Client.from_env()
         resolver = Resolver(client=client)
@@ -1407,6 +1390,15 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
         self._definition_id = metadata.definition_id
         self._input_plane_url = metadata.input_plane_url
         self._input_plane_region = metadata.input_plane_region
+        # The server may pass back a larger max object size for some input plane users. This applies to input plane
+        # users only - anyone using the control plane will get the standard limit.
+        # There are some cases like FunctionPrecreate where this value is not set at all. We expect that this field
+        # will eventually be hydrated with the correct value, but just to be defensive, if the field is not set we use
+        # MAX_OBJECT_SIZE_BYTES, otherwise it would get set to 0. Accidentally using 0 would cause us to blob upload
+        # everything, so let's avoid that.
+        self._max_object_size_bytes = (
+            metadata.max_object_size_bytes if metadata.HasField("max_object_size_bytes") else MAX_OBJECT_SIZE_BYTES
+        )
 
     def _get_metadata(self):
         # Overridden concrete implementation of base class method
@@ -1423,6 +1415,7 @@ class _Function(typing.Generic[P, ReturnType, OriginalReturnType], _Object, type
             function_schema=self._metadata.function_schema if self._metadata else None,
             input_plane_url=self._input_plane_url,
             input_plane_region=self._input_plane_region,
+            max_object_size_bytes=self._max_object_size_bytes,
         )
 
     def _check_no_web_url(self, fn_name: str):

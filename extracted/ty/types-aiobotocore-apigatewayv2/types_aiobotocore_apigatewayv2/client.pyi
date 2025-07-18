@@ -39,6 +39,7 @@ from .paginator import (
     GetRouteResponsesPaginator,
     GetRoutesPaginator,
     GetStagesPaginator,
+    ListRoutingRulesPaginator,
 )
 from .type_defs import (
     CreateApiMappingRequestTypeDef,
@@ -61,6 +62,8 @@ from .type_defs import (
     CreateRouteResponseRequestTypeDef,
     CreateRouteResponseResponseTypeDef,
     CreateRouteResultTypeDef,
+    CreateRoutingRuleRequestTypeDef,
+    CreateRoutingRuleResponseTypeDef,
     CreateStageRequestTypeDef,
     CreateStageResponseTypeDef,
     CreateVpcLinkRequestTypeDef,
@@ -79,6 +82,7 @@ from .type_defs import (
     DeleteRouteRequestTypeDef,
     DeleteRouteResponseRequestTypeDef,
     DeleteRouteSettingsRequestTypeDef,
+    DeleteRoutingRuleRequestTypeDef,
     DeleteStageRequestTypeDef,
     DeleteVpcLinkRequestTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -126,6 +130,8 @@ from .type_defs import (
     GetRouteResultTypeDef,
     GetRoutesRequestTypeDef,
     GetRoutesResponseTypeDef,
+    GetRoutingRuleRequestTypeDef,
+    GetRoutingRuleResponseTypeDef,
     GetStageRequestTypeDef,
     GetStageResponseTypeDef,
     GetStagesRequestTypeDef,
@@ -138,6 +144,10 @@ from .type_defs import (
     GetVpcLinksResponseTypeDef,
     ImportApiRequestTypeDef,
     ImportApiResponseTypeDef,
+    ListRoutingRulesRequestTypeDef,
+    ListRoutingRulesResponseTypeDef,
+    PutRoutingRuleRequestTypeDef,
+    PutRoutingRuleResponseTypeDef,
     ReimportApiRequestTypeDef,
     ReimportApiResponseTypeDef,
     ResetAuthorizersCacheRequestTypeDef,
@@ -325,6 +335,16 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_route_response)
         """
 
+    async def create_routing_rule(
+        self, **kwargs: Unpack[CreateRoutingRuleRequestTypeDef]
+    ) -> CreateRoutingRuleResponseTypeDef:
+        """
+        Creates a RoutingRule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/create_routing_rule.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#create_routing_rule)
+        """
+
     async def create_stage(
         self, **kwargs: Unpack[CreateStageRequestTypeDef]
     ) -> CreateStageResponseTypeDef:
@@ -483,6 +503,16 @@ class ApiGatewayV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_route_settings.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_route_settings)
+        """
+
+    async def delete_routing_rule(
+        self, **kwargs: Unpack[DeleteRoutingRuleRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a routing rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/delete_routing_rule.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#delete_routing_rule)
         """
 
     async def delete_stage(
@@ -725,6 +755,26 @@ class ApiGatewayV2Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_routes)
         """
 
+    async def get_routing_rule(
+        self, **kwargs: Unpack[GetRoutingRuleRequestTypeDef]
+    ) -> GetRoutingRuleResponseTypeDef:
+        """
+        Gets a routing rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_routing_rule.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_routing_rule)
+        """
+
+    async def list_routing_rules(
+        self, **kwargs: Unpack[ListRoutingRulesRequestTypeDef]
+    ) -> ListRoutingRulesResponseTypeDef:
+        """
+        Lists routing rules.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/list_routing_rules.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#list_routing_rules)
+        """
+
     async def get_stage(self, **kwargs: Unpack[GetStageRequestTypeDef]) -> GetStageResponseTypeDef:
         """
         Gets a Stage.
@@ -779,6 +829,16 @@ class ApiGatewayV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/import_api.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#import_api)
+        """
+
+    async def put_routing_rule(
+        self, **kwargs: Unpack[PutRoutingRuleRequestTypeDef]
+    ) -> PutRoutingRuleResponseTypeDef:
+        """
+        Updates a routing rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/put_routing_rule.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#put_routing_rule)
         """
 
     async def reimport_api(
@@ -1032,6 +1092,17 @@ class ApiGatewayV2Client(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_stages"]
     ) -> GetStagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/apigatewayv2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apigatewayv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_routing_rules"]
+    ) -> ListRoutingRulesPaginator:
         """
         Create a paginator for an operation.
 

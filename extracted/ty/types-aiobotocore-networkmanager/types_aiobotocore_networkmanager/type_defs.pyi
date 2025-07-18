@@ -502,6 +502,8 @@ class LocationTypeDef(TypedDict):
 class VpcOptionsTypeDef(TypedDict):
     Ipv6Support: NotRequired[bool]
     ApplianceModeSupport: NotRequired[bool]
+    DnsSupport: NotRequired[bool]
+    SecurityGroupReferencingSupport: NotRequired[bool]
 
 class DeleteAttachmentRequestTypeDef(TypedDict):
     AttachmentId: str
@@ -1757,6 +1759,9 @@ class CoreNetworkChangeValuesTypeDef(TypedDict):
     InsideCidrBlocks: NotRequired[List[str]]
     SharedSegments: NotRequired[List[str]]
     ServiceInsertionActions: NotRequired[List[ServiceInsertionActionTypeDef]]
+    VpnEcmpSupport: NotRequired[bool]
+    DnsSupport: NotRequired[bool]
+    SecurityGroupReferencingSupport: NotRequired[bool]
 
 class RouteAnalysisTypeDef(TypedDict):
     GlobalNetworkId: NotRequired[str]

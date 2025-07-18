@@ -36,6 +36,7 @@ from .usecases import (
     PotholeSegmentationUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
+    BananaMonitoringUseCase,
     MaskDetectionUseCase,
     CarDamageDetectionUseCase,
     FireSmokeUseCase,
@@ -44,12 +45,16 @@ from .usecases import (
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
+    ChickenPoseDetectionUseCase,
 
     AgeDetectionUseCase,
     WeldDefectUseCase,
 
     AgeDetectionUseCase,
-    PriceTagUseCase
+    PriceTagUseCase,
+    DistractedDriverUseCase,
+    EmergencyVehicleUseCase,
+    SolarPanelUseCase
 
 
 )
@@ -122,6 +127,8 @@ class PostProcessor:
         registry.register_use_case("car_damage", "car_damage_detection", CarDamageDetectionUseCase)
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
+        registry.register_use_case("traffic", "fruit_monitoring", BananaMonitoringUseCase)
+        
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
         registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
         registry.register_use_case("general", "face_emotion", FaceEmotionUseCase)
@@ -132,6 +139,10 @@ class PostProcessor:
         registry.register_use_case("weld", "weld_defect_detection", WeldDefectUseCase)
         registry.register_use_case("price_tag", "price_tag_detection", PriceTagUseCase)
         registry.register_use_case("mask_detection", "mask_detection", MaskDetectionUseCase)
+        registry.register_use_case("automobile", "distracted_driver_detection", DistractedDriverUseCase)
+        registry.register_use_case("traffic", "emergency_vehicle_detection", EmergencyVehicleUseCase)
+        registry.register_use_case("energy", "solar_panel", SolarPanelUseCase)
+        registry.register_use_case("agriculture", "chicken_pose_detection", ChickenPoseDetectionUseCase)
         
         logger.debug("Registered use cases with registry")
     
@@ -225,6 +236,10 @@ class PostProcessor:
             if isinstance(use_case, ColorDetectionUseCase):
                 result = use_case.process(data, parsed_config, input_bytes, context, stream_info)
             elif isinstance(use_case, VehicleMonitoringUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, BananaMonitoringUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, ChickenPoseDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FlareAnalysisUseCase):
                 result = use_case.process(data, parsed_config,input_bytes, context, stream_info)

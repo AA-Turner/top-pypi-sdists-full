@@ -4,6 +4,7 @@ import modal._object
 import modal._resolver
 import modal._utils.blob_utils
 import modal.client
+import modal.file_pattern_matcher
 import modal.object
 import modal_proto.api_pb2
 import pathlib
@@ -49,14 +50,24 @@ class _MountFile(_MountEntry):
         ...
 
 class _MountDir(_MountEntry):
-    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: Callable[[pathlib.Path], bool], recursive: bool)"""
+    """_MountDir(local_dir: pathlib.Path, remote_path: pathlib.PurePosixPath, ignore: Union[Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher], recursive: bool)"""
 
     local_dir: pathlib.Path
     remote_path: pathlib.PurePosixPath
-    ignore: collections.abc.Callable[[pathlib.Path], bool]
+    ignore: typing.Union[
+        collections.abc.Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher
+    ]
     recursive: bool
 
     def description(self): ...
+    def _walk_and_prune(self, top_dir: pathlib.Path) -> collections.abc.Generator[str, None, None]:
+        """Walk directories and prune ignored directories early."""
+        ...
+
+    def _walk_all(self, top_dir: pathlib.Path) -> collections.abc.Generator[str, None, None]:
+        """Walk all directories without early pruning - safe for complex/inverted ignore patterns."""
+        ...
+
     def get_files_to_upload(self): ...
     def watch_entry(self): ...
     def top_level_paths(self) -> list[tuple[pathlib.Path, pathlib.PurePosixPath]]: ...
@@ -64,7 +75,9 @@ class _MountDir(_MountEntry):
         self,
         local_dir: pathlib.Path,
         remote_path: pathlib.PurePosixPath,
-        ignore: collections.abc.Callable[[pathlib.Path], bool],
+        ignore: typing.Union[
+            collections.abc.Callable[[pathlib.Path], bool], modal.file_pattern_matcher._AbstractPatternMatcher
+        ],
         recursive: bool,
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""

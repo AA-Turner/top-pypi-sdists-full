@@ -8,7 +8,7 @@ from typing import List
 
 from ..slip44 import CoinTypes
 from ..ecc import KholawEd25519ECC
-from ..const import (
+from ..consts import (
     Info, NestedNamespace, Entropies, Mnemonics, Seeds, HDs, Addresses, AddressTypes, Networks, Params, XPrivateKeyVersions, XPublicKeyVersions
 )
 from .icryptocurrency import (
@@ -33,6 +33,7 @@ class Types(NestedNamespace):
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     TYPE = 1
     PAYMENT_ADDRESS_HRP = "addr"
     REWARD_ADDRESS_HRP = "stake"
@@ -46,6 +47,7 @@ class Mainnet(INetwork):
 
 class Testnet(INetwork):
 
+    NAME = "testnet"
     TYPE = 0
     PAYMENT_ADDRESS_HRP = "addr_test"
     REWARD_ADDRESS_HRP = "stake_test"
@@ -70,6 +72,7 @@ class Cardano(ICryptocurrency):
     })
     ECC = KholawEd25519ECC
     COIN_TYPE = CoinTypes.Cardano
+    SUPPORT_BIP38 = False
     NETWORKS = Networks({
         "MAINNET": Mainnet, "TESTNET": Testnet
     })
@@ -87,6 +90,7 @@ class Cardano(ICryptocurrency):
         "CARDANO": "Cardano"
     })
     DEFAULT_HD = HDS.CARDANO
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     TYPES = Types({
         "BYRON_ICARUS": "byron-icarus",
         "BYRON_LEDGER": "byron-ledger",
@@ -98,6 +102,10 @@ class Cardano(ICryptocurrency):
         "CARDANO": "Cardano"
     })
     DEFAULT_ADDRESS = ADDRESSES.CARDANO
+    SEMANTICS = [
+        "p2pkh"
+    ]
+    DEFAULT_SEMANTIC = "p2pkh"
     ADDRESS_TYPES = AddressTypes({
         "PUBLIC_KEY": "public-key",
         "REDEMPTION": "redemption",

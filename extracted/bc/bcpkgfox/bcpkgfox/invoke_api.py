@@ -1,4 +1,5 @@
 from typing import Optional
+from threading import Thread
 import time
 
 def invoke_api_list(link: str, token: str, method: Optional[str] = "GET", headers: Optional[str] = None, print_response: Optional[bool] = False) -> dict:
@@ -179,6 +180,34 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
             self.code_timeout = code_timeout
             self.driver = driver
 
+    class Pop_up_protection(login_2fac):
+        def __init__(self):
+            super().__init__()
+            self.status = False
+
+        def __monitor(self):
+            while self.status:
+
+                handles = self.driver.window_handles
+                if len(handles) > 1:
+                    self.driver.switch_to.window(self.driver.window_handles[-1])
+
+                try:
+                    alert = self.driver.switch_to.alert
+                    alert.accept()
+                except:
+                    pass
+
+                time.sleep(0.1)
+
+        def start(self):
+            self.status = True
+            protection = Thread(target=self.__monitor, daemon=True)
+            protection.start()
+
+        def stop(self):
+            self.status = False
+
     class tool(login_2fac):
         def find_element_with_wait(self, by, value, timeout=10):
             global driver
@@ -252,9 +281,57 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
         def __init__(self):
             super().__init__()
 
-        def codes_2_fac(self):
+        def extension_check(self):
 
-            self.extension_check()
+            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+            time.sleep(3)
+
+            for _ in range(10):
+
+                # Caso a extensão já esteja instalada
+                try:
+                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=1)
+                    return
+                except: pass
+
+                try:
+                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Insira aqui o seu email"]', timeout=1)
+                    return
+                except: pass
+
+                # Caso a extensão não esteja instala
+                if 'This page has been blocked by Chrome' in driver.page_source:
+                    break
+
+                if 'eliezer@bcfox.com.br' in self.driver.page_source:
+                    tools.find_element_with_wait(By.XPATH, "//span[text()='alterar']").click()
+                    return
+
+            # Abrir uma nova aba
+            self.driver.execute_script("window.open('');")
+
+            # Fechar a aba original
+            self.driver.close()
+
+            # Mudar para a nova aba
+            self.driver.switch_to.window(self.driver.window_handles[-1])
+
+            time.sleep(1)
+
+            self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
+
+            tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'no Chrome') or contains(text(), 'Usar') or contains(text(), 'Add to Chrome')]").click()
+            time.sleep(5)
+
+            # Envia TAB e ENTER do teclado físico
+            pyautogui.press('tab')
+            time.sleep(0.5)
+            pyautogui.press('enter')
+            time.sleep(5)
+
+            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
+
+        def codes_2_fac(self):
 
             try:
                 tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=2).send_keys(self.system)
@@ -407,63 +484,19 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
             time.sleep(5)
             handles = self.driver.window_handles
             self.driver.switch_to.window(handles[-1])
+            protection.stop()
             if len(handles) > 1:
                 self.driver.switch_to.window(handles[0])
                 self.driver.close()
                 self.driver.switch_to.window(handles[-1])
 
-        def extension_check(self):
-
-            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
-            time.sleep(3)
-
-            for _ in range(10):
-
-                # Caso a extensão já esteja instalada
-                try:
-                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Digite ou selecione um sistema pra acessar"]', timeout=1)
-                    return
-                except: pass
-
-                try:
-                    tools.find_element_with_wait(By.XPATH, '//input[@placeholder="Insira aqui o seu email"]', timeout=1)
-                    return
-                except: pass
-
-                # Caso a extensão não esteja instala
-                if 'This page has been blocked by Chrome' in driver.page_source:
-                    break
-
-                if 'eliezer@bcfox.com.br' in self.driver.page_source:
-                    tools.find_element_with_wait(By.XPATH, "//span[text()='alterar']").click()
-                    return
-
-            # Abrir uma nova aba
-            self.driver.execute_script("window.open('');")
-
-            # Fechar a aba original
-            self.driver.close()
-
-            # Mudar para a nova aba
-            self.driver.switch_to.window(self.driver.window_handles[-1])
-
-            time.sleep(1)
-
-            self.driver.get("https://chromewebstore.google.com/detail/whom-gerenciador-de-certi/lnidijeaekolpfeckelhkomndglcglhh")
-
-            tools.find_element_with_wait(By.XPATH, "//span[contains(text(), 'no Chrome') or contains(text(), 'Usar') or contains(text(), 'Add to Chrome')]").click()
-            time.sleep(5)
-
-            # Envia TAB e ENTER do teclado físico
-            pyautogui.press('tab')
-            time.sleep(0.5)
-            pyautogui.press('enter')
-            time.sleep(5)
-
-            self.driver.get('chrome-extension://lnidijeaekolpfeckelhkomndglcglhh/index.html')
-
+    # Instances
     tools = tool()
     api = invokes_whoom()
+    protection = Pop_up_protection()
     bot = whoom_codes()
 
+    # Operacional
+    bot.extension_check()
+    protection.start()
     bot.codes_2_fac()

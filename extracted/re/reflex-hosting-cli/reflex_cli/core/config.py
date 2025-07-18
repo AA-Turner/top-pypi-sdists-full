@@ -146,6 +146,8 @@ class Config:
     envfile: str = dataclasses.field(default=".env")
     project: str | None = dataclasses.field(default=None)
     packages: list[str] = dataclasses.field(default_factory=list)
+    appid: str | None = dataclasses.field(default=None)
+    strategy: str | None = dataclasses.field(default=None)
 
     _cloud_yaml_path: Path = dataclasses.field(
         default_factory=lambda: Path.cwd() / constants.Dirs.CLOUD

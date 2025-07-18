@@ -363,7 +363,12 @@ class _Cls(modal._object._Object):
 
     @classmethod
     def from_name(
-        cls: type[_Cls], app_name: str, name: str, *, namespace=1, environment_name: typing.Optional[str] = None
+        cls: type[_Cls],
+        app_name: str,
+        name: str,
+        *,
+        namespace: typing.Any = None,
+        environment_name: typing.Optional[str] = None,
     ) -> _Cls:
         """Reference a Cls from a deployed App by its name.
 
@@ -453,7 +458,7 @@ class _Cls(modal._object._Object):
     async def lookup(
         app_name: str,
         name: str,
-        namespace=1,
+        namespace=None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
     ) -> _Cls:
@@ -522,7 +527,12 @@ class Cls(modal.object.Object):
 
     @classmethod
     def from_name(
-        cls: type[Cls], app_name: str, name: str, *, namespace=1, environment_name: typing.Optional[str] = None
+        cls: type[Cls],
+        app_name: str,
+        name: str,
+        *,
+        namespace: typing.Any = None,
+        environment_name: typing.Optional[str] = None,
     ) -> Cls:
         """Reference a Cls from a deployed App by its name.
 
@@ -614,7 +624,7 @@ class Cls(modal.object.Object):
             /,
             app_name: str,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Cls:
@@ -639,7 +649,7 @@ class Cls(modal.object.Object):
             /,
             app_name: str,
             name: str,
-            namespace=1,
+            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
         ) -> Cls:

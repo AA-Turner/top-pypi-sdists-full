@@ -40,6 +40,7 @@ from .literals import (
     PutModeType,
     QuotaPeriodTypeType,
     ResourceOwnerType,
+    RoutingModeType,
     SecurityPolicyType,
     UnauthorizedCacheControlHeaderStrategyType,
     VpcLinkStatusType,
@@ -1563,6 +1564,7 @@ class DomainNameResponseTypeDef(TypedDict):
     ownershipVerificationCertificateArn: str
     managementPolicy: str
     policy: str
+    routingMode: RoutingModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1588,6 +1590,7 @@ class DomainNameTypeDef(TypedDict):
     ownershipVerificationCertificateArn: NotRequired[str]
     managementPolicy: NotRequired[str]
     policy: NotRequired[str]
+    routingMode: NotRequired[RoutingModeType]
 
 
 EndpointConfigurationUnionTypeDef = Union[
@@ -2069,6 +2072,7 @@ class CreateDomainNameRequestTypeDef(TypedDict):
     mutualTlsAuthentication: NotRequired[MutualTlsAuthenticationInputTypeDef]
     ownershipVerificationCertificateArn: NotRequired[str]
     policy: NotRequired[str]
+    routingMode: NotRequired[RoutingModeType]
 
 
 class CreateRestApiRequestTypeDef(TypedDict):

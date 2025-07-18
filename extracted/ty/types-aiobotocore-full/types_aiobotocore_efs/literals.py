@@ -30,6 +30,7 @@ __all__ = (
     "DescribeReplicationConfigurationsPaginatorName",
     "DescribeTagsPaginatorName",
     "EFSServiceName",
+    "IpAddressTypeType",
     "LifeCycleStateType",
     "PaginatorName",
     "PerformanceModeType",
@@ -54,6 +55,7 @@ DescribeFileSystemsPaginatorName = Literal["describe_file_systems"]
 DescribeMountTargetsPaginatorName = Literal["describe_mount_targets"]
 DescribeReplicationConfigurationsPaginatorName = Literal["describe_replication_configurations"]
 DescribeTagsPaginatorName = Literal["describe_tags"]
+IpAddressTypeType = Literal["DUAL_STACK", "IPV4_ONLY", "IPV6_ONLY"]
 LifeCycleStateType = Literal["available", "creating", "deleted", "deleting", "error", "updating"]
 PerformanceModeType = Literal["generalPurpose", "maxIO"]
 ReplicationOverwriteProtectionType = Literal["DISABLED", "ENABLED", "REPLICATING"]
@@ -91,6 +93,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -231,6 +234,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -288,6 +292,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -343,6 +348,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -487,6 +493,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -513,6 +520,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

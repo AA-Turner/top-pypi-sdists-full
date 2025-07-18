@@ -105,6 +105,7 @@ __all__ = (
     "RDSDBMetricNameType",
     "RDSDBMetricStatisticType",
     "RDSDBRecommendationFilterNameType",
+    "RDSEstimatedMonthlyVolumeIOPsCostVariationType",
     "RDSInstanceFindingReasonCodeType",
     "RDSInstanceFindingType",
     "RDSSavingsEstimationModeSourceType",
@@ -414,6 +415,7 @@ ExportableLicenseFieldType = Literal[
 ]
 ExportableRDSDBFieldType = Literal[
     "AccountId",
+    "ClusterWriter",
     "CurrentDBInstanceClass",
     "CurrentInstanceOnDemandHourlyPrice",
     "CurrentInstancePerformanceRisk",
@@ -422,6 +424,10 @@ ExportableRDSDBFieldType = Literal[
     "CurrentStorageConfigurationMaxAllocatedStorage",
     "CurrentStorageConfigurationStorageThroughput",
     "CurrentStorageConfigurationStorageType",
+    "CurrentStorageEstimatedClusterInstanceOnDemandMonthlyCost",
+    "CurrentStorageEstimatedClusterStorageIOOnDemandMonthlyCost",
+    "CurrentStorageEstimatedClusterStorageOnDemandMonthlyCost",
+    "CurrentStorageEstimatedMonthlyVolumeIOPsCostVariation",
     "CurrentStorageOnDemandMonthlyPrice",
     "DBClusterIdentifier",
     "EffectiveRecommendationPreferencesCpuVendorArchitectures",
@@ -452,10 +458,14 @@ ExportableRDSDBFieldType = Literal[
     "StorageFinding",
     "StorageFindingReasonCodes",
     "StorageRecommendationOptionsAllocatedStorage",
+    "StorageRecommendationOptionsEstimatedClusterInstanceOnDemandMonthlyCost",
+    "StorageRecommendationOptionsEstimatedClusterStorageIOOnDemandMonthlyCost",
+    "StorageRecommendationOptionsEstimatedClusterStorageOnDemandMonthlyCost",
     "StorageRecommendationOptionsEstimatedMonthlySavingsCurrency",
     "StorageRecommendationOptionsEstimatedMonthlySavingsCurrencyAfterDiscounts",
     "StorageRecommendationOptionsEstimatedMonthlySavingsValue",
     "StorageRecommendationOptionsEstimatedMonthlySavingsValueAfterDiscounts",
+    "StorageRecommendationOptionsEstimatedMonthlyVolumeIOPsCostVariation",
     "StorageRecommendationOptionsIOPS",
     "StorageRecommendationOptionsMaxAllocatedStorage",
     "StorageRecommendationOptionsOnDemandMonthlyPrice",
@@ -482,6 +492,9 @@ ExportableRDSDBFieldType = Literal[
     "UtilizationMetricsReadIOPSEphemeralStorageMaximum",
     "UtilizationMetricsStorageNetworkReceiveThroughputMaximum",
     "UtilizationMetricsStorageNetworkTransmitThroughputMaximum",
+    "UtilizationMetricsVolumeBytesUsedAverage",
+    "UtilizationMetricsVolumeReadIOPsAverage",
+    "UtilizationMetricsVolumeWriteIOPsAverage",
     "UtilizationMetricsWriteIOPSEphemeralStorageMaximum",
 ]
 ExportableVolumeFieldType = Literal[
@@ -680,6 +693,9 @@ RDSDBMetricNameType = Literal[
     "ReadIOPSEphemeralStorage",
     "StorageNetworkReceiveThroughput",
     "StorageNetworkTransmitThroughput",
+    "VolumeBytesUsed",
+    "VolumeReadIOPs",
+    "VolumeWriteIOPs",
     "WriteIOPSEphemeralStorage",
 ]
 RDSDBMetricStatisticType = Literal["Average", "Maximum", "Minimum"]
@@ -690,6 +706,7 @@ RDSDBRecommendationFilterNameType = Literal[
     "StorageFinding",
     "StorageFindingReasonCode",
 ]
+RDSEstimatedMonthlyVolumeIOPsCostVariationType = Literal["High", "Low", "Medium", "None"]
 RDSInstanceFindingReasonCodeType = Literal[
     "CPUOverprovisioned",
     "CPUUnderprovisioned",
@@ -711,13 +728,15 @@ RDSSavingsEstimationModeSourceType = Literal[
     "CostExplorerRightsizing", "CostOptimizationHub", "PublicPricing"
 ]
 RDSStorageFindingReasonCodeType = Literal[
+    "DBClusterStorageOptionAvailable",
+    "DBClusterStorageSavingsAvailable",
     "EBSVolumeAllocatedStorageUnderprovisioned",
     "EBSVolumeIOPSOverprovisioned",
     "EBSVolumeThroughputOverprovisioned",
     "EBSVolumeThroughputUnderprovisioned",
     "NewGenerationStorageTypeAvailable",
 ]
-RDSStorageFindingType = Literal["Optimized", "Overprovisioned", "Underprovisioned"]
+RDSStorageFindingType = Literal["NotOptimized", "Optimized", "Overprovisioned", "Underprovisioned"]
 RecommendationPreferenceNameType = Literal[
     "EnhancedInfrastructureMetrics",
     "ExternalMetricsPreference",
@@ -727,6 +746,7 @@ RecommendationPreferenceNameType = Literal[
     "UtilizationPreferences",
 ]
 RecommendationSourceTypeType = Literal[
+    "AuroraDBClusterStorage",
     "AutoScalingGroup",
     "EbsVolume",
     "Ec2Instance",
@@ -737,6 +757,7 @@ RecommendationSourceTypeType = Literal[
     "RdsDBInstanceStorage",
 ]
 ResourceTypeType = Literal[
+    "AuroraDBClusterStorage",
     "AutoScalingGroup",
     "EbsVolume",
     "Ec2Instance",
@@ -756,6 +777,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -896,6 +918,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -953,6 +976,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -1008,6 +1032,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -1152,6 +1177,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

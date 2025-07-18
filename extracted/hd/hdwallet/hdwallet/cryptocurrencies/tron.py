@@ -6,7 +6,7 @@
 
 from ..slip44 import CoinTypes
 from ..ecc import SLIP10Secp256k1ECC
-from ..const import (
+from ..consts import (
     Info, Entropies, Mnemonics, Seeds, HDs, Addresses, Networks, Params, XPrivateKeyVersions, XPublicKeyVersions
 )
 from .icryptocurrency import (
@@ -16,6 +16,7 @@ from .icryptocurrency import (
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     PUBLIC_KEY_ADDRESS_PREFIX = 0x41
     SCRIPT_ADDRESS_PREFIX = 0x05
     XPRIVATE_KEY_VERSIONS = XPrivateKeyVersions({
@@ -44,6 +45,7 @@ class Tron(ICryptocurrency):
     })
     ECC = SLIP10Secp256k1ECC
     COIN_TYPE = CoinTypes.Tron
+    SUPPORT_BIP38 = False
     NETWORKS = Networks({
         "MAINNET": Mainnet
     })
@@ -61,10 +63,15 @@ class Tron(ICryptocurrency):
         "BIP32", "BIP44"
     })
     DEFAULT_HD = HDS.BIP44
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     ADDRESSES = Addresses({
         "TRON": "Tron"
     })
     DEFAULT_ADDRESS = ADDRESSES.TRON
+    SEMANTICS = [
+        "p2pkh", "p2sh"
+    ]
+    DEFAULT_SEMANTIC = "p2pkh"
     PARAMS = Params({
         "ALPHABET": "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
     })

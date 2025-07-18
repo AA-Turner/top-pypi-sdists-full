@@ -6,7 +6,7 @@
 
 from ..slip44 import CoinTypes
 from ..ecc import SLIP10Secp256k1ECC
-from ..const import (
+from ..consts import (
     Info, Entropies, Mnemonics, Seeds, HDs, Addresses, Networks, XPrivateKeyVersions, XPublicKeyVersions
 )
 from .icryptocurrency import (
@@ -16,6 +16,7 @@ from .icryptocurrency import (
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     PUBLIC_KEY_ADDRESS_PREFIX = 0xab3
     SCRIPT_ADDRESS_PREFIX = 0xab8
     XPRIVATE_KEY_VERSIONS = XPrivateKeyVersions({
@@ -61,7 +62,12 @@ class LitecoinZ(ICryptocurrency):
         "BIP32", "BIP44"
     })
     DEFAULT_HD = HDS.BIP44
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     ADDRESSES = Addresses({
         "P2PKH", "P2SH"
     })
     DEFAULT_ADDRESS = ADDRESSES.P2PKH
+    SEMANTICS = [
+        "p2pkh", "p2sh"
+    ]
+    DEFAULT_SEMANTIC = "p2pkh"

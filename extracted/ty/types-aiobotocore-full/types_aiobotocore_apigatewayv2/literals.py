@@ -44,6 +44,7 @@ __all__ = (
     "IntegrationTypeType",
     "IpAddressTypeType",
     "JSONYAMLType",
+    "ListRoutingRulesPaginatorName",
     "LoggingLevelType",
     "OAS30Type",
     "PaginatorName",
@@ -51,6 +52,7 @@ __all__ = (
     "ProtocolTypeType",
     "RegionName",
     "ResourceServiceName",
+    "RoutingModeType",
     "SecurityPolicyType",
     "ServiceName",
     "VpcLinkStatusType",
@@ -80,10 +82,12 @@ GetStagesPaginatorName = Literal["get_stages"]
 IntegrationTypeType = Literal["AWS", "AWS_PROXY", "HTTP", "HTTP_PROXY", "MOCK"]
 IpAddressTypeType = Literal["dualstack", "ipv4"]
 JSONYAMLType = Literal["JSON", "YAML"]
+ListRoutingRulesPaginatorName = Literal["list_routing_rules"]
 LoggingLevelType = Literal["ERROR", "INFO", "OFF"]
 OAS30Type = Literal["OAS30"]
 PassthroughBehaviorType = Literal["NEVER", "WHEN_NO_MATCH", "WHEN_NO_TEMPLATES"]
 ProtocolTypeType = Literal["HTTP", "WEBSOCKET"]
+RoutingModeType = Literal["API_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_API_MAPPING"]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
 VpcLinkStatusType = Literal["AVAILABLE", "DELETING", "FAILED", "INACTIVE", "PENDING"]
 VpcLinkVersionType = Literal["V2"]
@@ -93,6 +97,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -233,6 +238,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -290,6 +296,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -345,6 +352,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -489,6 +497,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -516,10 +525,12 @@ PaginatorName = Literal[
     "get_route_responses",
     "get_routes",
     "get_stages",
+    "list_routing_rules",
 ]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

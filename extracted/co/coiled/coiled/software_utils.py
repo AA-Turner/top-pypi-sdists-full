@@ -739,18 +739,23 @@ def set_auth_for_url(url: Url | str) -> str:
     netloc = parsed_url.netloc or ""
 
     if not password:
+        use_netrc = dask.config.get("coiled.package_sync.conda.cred_sources.netrc", True)
+        use_keyring = dask.config.get("coiled.package_sync.conda.cred_sources.keyring", True)
+        use_conda_auth = dask.config.get("coiled.package_sync.conda.cred_sources.conda", True)
+        use_mamba_auth = dask.config.get("coiled.package_sync.conda.cred_sources.mamba", True)
+
         no_auth_url = parsed_url._replace(auth=None).url
         auth_parts = (
             # get_netrc_auth takes a URL, but only uses the netloc part
-            get_netrc_auth(no_auth_url)
+            (get_netrc_auth(no_auth_url) if use_netrc else None)
             # keyring could have URL stored by full URL or netloc
-            or get_keyring_auth(no_auth_url, username)
-            or get_keyring_auth(netloc, username)
+            or (
+                (get_keyring_auth(no_auth_url, username) or get_keyring_auth(netloc, username)) if use_keyring else None
+            )
             # conda-auth stores things in keyring in its own format
-            or get_conda_auth(no_auth_url)
+            or (get_conda_auth(no_auth_url) if use_conda_auth else None)
             # mamba could have URL stored by netloc/path or netloc
-            or get_mamba_auth(f"{netloc}{path}")
-            or get_mamba_auth(netloc)
+            or ((get_mamba_auth(f"{netloc}{path}") or get_mamba_auth(netloc)) if use_mamba_auth else None)
         )
         if auth_parts is not None:
             username, password = auth_parts
@@ -778,7 +783,9 @@ NETRC_FILES = (".netrc", "_netrc")
 def get_netrc_auth(url: str, raise_errors=False) -> tuple[str | None, str | None] | None:
     """Returns the Requests tuple auth for a given url from netrc."""
 
-    netrc_file = os.environ.get("NETRC")
+    # If dask config is set, then the default netrc locations won't be used at all, but env var
+    # takes precedence over dask config if both are set.
+    netrc_file = os.environ.get("NETRC") or dask.config.get("coiled.package_sync.conda.netrc_path", None)
     if netrc_file is not None:
         netrc_locations = (netrc_file,)
     else:

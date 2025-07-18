@@ -13,6 +13,7 @@ Usage::
     from types_aiobotocore_controlcatalog.client import ControlCatalogClient
     from types_aiobotocore_controlcatalog.paginator import (
         ListCommonControlsPaginator,
+        ListControlMappingsPaginator,
         ListControlsPaginator,
         ListDomainsPaginator,
         ListObjectivesPaginator,
@@ -23,6 +24,7 @@ Usage::
         client: ControlCatalogClient
 
         list_common_controls_paginator: ListCommonControlsPaginator = client.get_paginator("list_common_controls")
+        list_control_mappings_paginator: ListControlMappingsPaginator = client.get_paginator("list_control_mappings")
         list_controls_paginator: ListControlsPaginator = client.get_paginator("list_controls")
         list_domains_paginator: ListDomainsPaginator = client.get_paginator("list_domains")
         list_objectives_paginator: ListObjectivesPaginator = client.get_paginator("list_objectives")
@@ -39,6 +41,8 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     ListCommonControlsRequestPaginateTypeDef,
     ListCommonControlsResponseTypeDef,
+    ListControlMappingsRequestPaginateTypeDef,
+    ListControlMappingsResponseTypeDef,
     ListControlsRequestPaginateTypeDef,
     ListControlsResponseTypeDef,
     ListDomainsRequestPaginateTypeDef,
@@ -54,6 +58,7 @@ else:
 
 __all__ = (
     "ListCommonControlsPaginator",
+    "ListControlMappingsPaginator",
     "ListControlsPaginator",
     "ListDomainsPaginator",
     "ListObjectivesPaginator",
@@ -75,6 +80,24 @@ class ListCommonControlsPaginator(_ListCommonControlsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/paginator/ListCommonControls.html#ControlCatalog.Paginator.ListCommonControls.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/paginators/#listcommoncontrolspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListControlMappingsPaginatorBase = AioPaginator[ListControlMappingsResponseTypeDef]
+else:
+    _ListControlMappingsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListControlMappingsPaginator(_ListControlMappingsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/paginator/ListControlMappings.html#ControlCatalog.Paginator.ListControlMappings)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/paginators/#listcontrolmappingspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListControlMappingsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListControlMappingsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/controlcatalog/paginator/ListControlMappings.html#ControlCatalog.Paginator.ListControlMappings.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_controlcatalog/paginators/#listcontrolmappingspaginator)
         """
 
 if TYPE_CHECKING:

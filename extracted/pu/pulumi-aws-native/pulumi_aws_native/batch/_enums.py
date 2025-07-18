@@ -7,11 +7,31 @@ import pulumi
 from enum import Enum
 
 __all__ = [
+    'ComputeEnvironmentLaunchTemplateSpecificationOverrideUserdataType',
+    'ComputeEnvironmentLaunchTemplateSpecificationUserdataType',
     'ConsumableResourceResourceType',
     'JobQueueJobStateTimeLimitActionAction',
     'JobQueueJobStateTimeLimitActionState',
     'JobQueueState',
 ]
+
+
+@pulumi.type_token("aws-native:batch:ComputeEnvironmentLaunchTemplateSpecificationOverrideUserdataType")
+class ComputeEnvironmentLaunchTemplateSpecificationOverrideUserdataType(builtins.str, Enum):
+    """
+    The EKS node initialization process to use. You only need to specify this value if you are using a custom AMI. The default value is `EKS_BOOTSTRAP_SH` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose `EKS_NODEADM` .
+    """
+    EKS_BOOTSTRAP_SH = "EKS_BOOTSTRAP_SH"
+    EKS_NODEADM = "EKS_NODEADM"
+
+
+@pulumi.type_token("aws-native:batch:ComputeEnvironmentLaunchTemplateSpecificationUserdataType")
+class ComputeEnvironmentLaunchTemplateSpecificationUserdataType(builtins.str, Enum):
+    """
+    The EKS node initialization process to use. You only need to specify this value if you are using a custom AMI. The default value is `EKS_BOOTSTRAP_SH` . If *imageType* is a custom AMI based on EKS_AL2023 or EKS_AL2023_NVIDIA then you must choose `EKS_NODEADM` .
+    """
+    EKS_BOOTSTRAP_SH = "EKS_BOOTSTRAP_SH"
+    EKS_NODEADM = "EKS_NODEADM"
 
 
 @pulumi.type_token("aws-native:batch:ConsumableResourceResourceType")

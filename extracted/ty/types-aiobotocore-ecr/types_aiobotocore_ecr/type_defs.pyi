@@ -226,6 +226,8 @@ class AwsEcrContainerImageDetailsTypeDef(TypedDict):
     imageTags: NotRequired[List[str]]
     platform: NotRequired[str]
     pushedAt: NotRequired[datetime]
+    lastInUseAt: NotRequired[datetime]
+    inUseCount: NotRequired[int]
     registry: NotRequired[str]
     repositoryName: NotRequired[str]
 

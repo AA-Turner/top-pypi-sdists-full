@@ -29,6 +29,7 @@ __all__ = (
     "AgentCollaborationType",
     "AgentStatusType",
     "AgentsforBedrockServiceName",
+    "AliasInvocationStateType",
     "CachePointTypeType",
     "ChunkingStrategyType",
     "ConcurrencyTypeType",
@@ -135,6 +136,7 @@ AgentStatusType = Literal[
     "UPDATING",
     "VERSIONING",
 ]
+AliasInvocationStateType = Literal["ACCEPT_INVOCATIONS", "REJECT_INVOCATIONS"]
 CachePointTypeType = Literal["default"]
 ChunkingStrategyType = Literal["FIXED_SIZE", "HIERARCHICAL", "NONE", "SEMANTIC"]
 ConcurrencyTypeType = Literal["Automatic", "Manual"]
@@ -305,6 +307,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -445,6 +448,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -502,6 +506,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -557,6 +562,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -701,6 +707,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

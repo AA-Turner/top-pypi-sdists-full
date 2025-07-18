@@ -110,6 +110,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.AttemptStartRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.AttemptStartResponse.FromString,
                 )
+        self.AuthTokenGet = channel.unary_unary(
+                '/modal.client.ModalClient/AuthTokenGet',
+                request_serializer=modal__proto_dot_api__pb2.AuthTokenGetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.AuthTokenGetResponse.FromString,
+                )
         self.BlobCreate = channel.unary_unary(
                 '/modal.client.ModalClient/BlobCreate',
                 request_serializer=modal__proto_dot_api__pb2.BlobCreateRequest.SerializeToString,
@@ -194,6 +199,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/ContainerLog',
                 request_serializer=modal__proto_dot_api__pb2.ContainerLogRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.ContainerReloadVolumes = channel.unary_unary(
+                '/modal.client.ModalClient/ContainerReloadVolumes',
+                request_serializer=modal__proto_dot_api__pb2.ContainerReloadVolumesRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ContainerReloadVolumesResponse.FromString,
                 )
         self.ContainerStop = channel.unary_unary(
                 '/modal.client.ModalClient/ContainerStop',
@@ -534,6 +544,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/SandboxCreate',
                 request_serializer=modal__proto_dot_api__pb2.SandboxCreateRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxCreateResponse.FromString,
+                )
+        self.SandboxGetFromName = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxGetFromName',
+                request_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.FromString,
                 )
         self.SandboxGetLogs = channel.unary_stream(
                 '/modal.client.ModalClient/SandboxGetLogs',
@@ -918,6 +933,13 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AuthTokenGet(self, request, context):
+        """Auth Token
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def BlobCreate(self, request, context):
         """Blobs
         """
@@ -1020,6 +1042,12 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ContainerLog(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ContainerReloadVolumes(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1447,6 +1475,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SandboxGetFromName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SandboxGetLogs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1865,6 +1899,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.AttemptStartRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.AttemptStartResponse.SerializeToString,
             ),
+            'AuthTokenGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.AuthTokenGet,
+                    request_deserializer=modal__proto_dot_api__pb2.AuthTokenGetRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.AuthTokenGetResponse.SerializeToString,
+            ),
             'BlobCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.BlobCreate,
                     request_deserializer=modal__proto_dot_api__pb2.BlobCreateRequest.FromString,
@@ -1949,6 +1988,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.ContainerLog,
                     request_deserializer=modal__proto_dot_api__pb2.ContainerLogRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'ContainerReloadVolumes': grpc.unary_unary_rpc_method_handler(
+                    servicer.ContainerReloadVolumes,
+                    request_deserializer=modal__proto_dot_api__pb2.ContainerReloadVolumesRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ContainerReloadVolumesResponse.SerializeToString,
             ),
             'ContainerStop': grpc.unary_unary_rpc_method_handler(
                     servicer.ContainerStop,
@@ -2289,6 +2333,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.SandboxCreate,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxCreateRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxCreateResponse.SerializeToString,
+            ),
+            'SandboxGetFromName': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxGetFromName,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.SerializeToString,
             ),
             'SandboxGetLogs': grpc.unary_stream_rpc_method_handler(
                     servicer.SandboxGetLogs,
@@ -2884,6 +2933,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def AuthTokenGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/AuthTokenGet',
+            modal__proto_dot_api__pb2.AuthTokenGetRequest.SerializeToString,
+            modal__proto_dot_api__pb2.AuthTokenGetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def BlobCreate(request,
             target,
             options=(),
@@ -3169,6 +3235,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ContainerLog',
             modal__proto_dot_api__pb2.ContainerLogRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ContainerReloadVolumes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ContainerReloadVolumes',
+            modal__proto_dot_api__pb2.ContainerReloadVolumesRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ContainerReloadVolumesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -4325,6 +4408,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxCreate',
             modal__proto_dot_api__pb2.SandboxCreateRequest.SerializeToString,
             modal__proto_dot_api__pb2.SandboxCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxGetFromName(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetFromName',
+            modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxGetFromNameResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

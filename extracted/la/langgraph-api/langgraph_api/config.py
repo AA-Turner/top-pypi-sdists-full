@@ -1,10 +1,11 @@
 import os
 from os import environ, getenv
-from typing import Literal, TypedDict
+from typing import Literal
 
 import orjson
 from starlette.config import Config, undefined
 from starlette.datastructures import CommaSeparatedStrings
+from typing_extensions import TypedDict
 
 from langgraph_api import traceblock
 

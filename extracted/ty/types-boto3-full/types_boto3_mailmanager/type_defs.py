@@ -313,17 +313,17 @@ class AddHeaderActionTypeDef(TypedDict):
 
 
 class AddonInstanceTypeDef(TypedDict):
-    AddonInstanceArn: NotRequired[str]
     AddonInstanceId: NotRequired[str]
-    AddonName: NotRequired[str]
     AddonSubscriptionId: NotRequired[str]
+    AddonName: NotRequired[str]
+    AddonInstanceArn: NotRequired[str]
     CreatedTimestamp: NotRequired[datetime]
 
 
 class AddonSubscriptionTypeDef(TypedDict):
+    AddonSubscriptionId: NotRequired[str]
     AddonName: NotRequired[str]
     AddonSubscriptionArn: NotRequired[str]
-    AddonSubscriptionId: NotRequired[str]
     CreatedTimestamp: NotRequired[datetime]
 
 
@@ -332,8 +332,8 @@ class AddressFilterTypeDef(TypedDict):
 
 
 class AddressListTypeDef(TypedDict):
-    AddressListArn: str
     AddressListId: str
+    AddressListArn: str
     AddressListName: str
     CreatedTimestamp: datetime
     LastUpdatedTimestamp: datetime
@@ -386,8 +386,8 @@ class ImportDataFormatTypeDef(TypedDict):
 
 
 class IngressPointConfigurationTypeDef(TypedDict):
-    SecretArn: NotRequired[str]
     SmtpPassword: NotRequired[str]
+    SecretArn: NotRequired[str]
 
 
 class DeleteAddonInstanceRequestTypeDef(TypedDict):
@@ -436,13 +436,13 @@ class DeliverToQBusinessActionTypeDef(TypedDict):
 
 
 class DeregisterMemberFromAddressListRequestTypeDef(TypedDict):
-    Address: str
     AddressListId: str
+    Address: str
 
 
 class EnvelopeTypeDef(TypedDict):
-    From: NotRequired[str]
     Helo: NotRequired[str]
+    From: NotRequired[str]
     To: NotRequired[List[str]]
 
 
@@ -451,10 +451,10 @@ class S3ExportDestinationConfigurationTypeDef(TypedDict):
 
 
 class ExportStatusTypeDef(TypedDict):
-    CompletionTimestamp: NotRequired[datetime]
-    ErrorMessage: NotRequired[str]
-    State: NotRequired[ExportStateType]
     SubmissionTimestamp: NotRequired[datetime]
+    CompletionTimestamp: NotRequired[datetime]
+    State: NotRequired[ExportStateType]
+    ErrorMessage: NotRequired[str]
 
 
 class GetAddonInstanceRequestTypeDef(TypedDict):
@@ -484,9 +484,9 @@ class GetArchiveMessageContentRequestTypeDef(TypedDict):
 MessageBodyTypeDef = TypedDict(
     "MessageBodyTypeDef",
     {
+        "Text": NotRequired[str],
         "Html": NotRequired[str],
         "MessageMalformed": NotRequired[bool],
-        "Text": NotRequired[str],
     },
 )
 
@@ -496,19 +496,19 @@ class GetArchiveMessageRequestTypeDef(TypedDict):
 
 
 class MetadataTypeDef(TypedDict):
-    ConfigurationSet: NotRequired[str]
+    Timestamp: NotRequired[datetime]
     IngressPointId: NotRequired[str]
+    TrafficPolicyId: NotRequired[str]
     RuleSetId: NotRequired[str]
     SenderHostname: NotRequired[str]
     SenderIpAddress: NotRequired[str]
-    SendingMethod: NotRequired[str]
-    SendingPool: NotRequired[str]
-    SourceArn: NotRequired[str]
-    SourceIdentity: NotRequired[str]
-    Timestamp: NotRequired[datetime]
     TlsCipherSuite: NotRequired[str]
     TlsProtocol: NotRequired[str]
-    TrafficPolicyId: NotRequired[str]
+    SendingMethod: NotRequired[str]
+    SourceIdentity: NotRequired[str]
+    SendingPool: NotRequired[str]
+    ConfigurationSet: NotRequired[str]
+    SourceArn: NotRequired[str]
 
 
 class GetArchiveRequestTypeDef(TypedDict):
@@ -520,10 +520,10 @@ class GetArchiveSearchRequestTypeDef(TypedDict):
 
 
 class SearchStatusTypeDef(TypedDict):
-    CompletionTimestamp: NotRequired[datetime]
-    ErrorMessage: NotRequired[str]
-    State: NotRequired[SearchStateType]
     SubmissionTimestamp: NotRequired[datetime]
+    CompletionTimestamp: NotRequired[datetime]
+    State: NotRequired[SearchStateType]
+    ErrorMessage: NotRequired[str]
 
 
 class GetArchiveSearchResultsRequestTypeDef(TypedDict):
@@ -535,8 +535,8 @@ class GetIngressPointRequestTypeDef(TypedDict):
 
 
 class GetMemberOfAddressListRequestTypeDef(TypedDict):
-    Address: str
     AddressListId: str
+    Address: str
 
 
 class GetRelayRequestTypeDef(TypedDict):
@@ -544,8 +544,8 @@ class GetRelayRequestTypeDef(TypedDict):
 
 
 class RelayAuthenticationOutputTypeDef(TypedDict):
-    NoAuthentication: NotRequired[Dict[str, Any]]
     SecretArn: NotRequired[str]
+    NoAuthentication: NotRequired[Dict[str, Any]]
 
 
 class GetRuleSetRequestTypeDef(TypedDict):
@@ -562,8 +562,8 @@ class IngressAnalysisTypeDef(TypedDict):
 
 
 class IngressIsInAddressListOutputTypeDef(TypedDict):
-    AddressLists: List[str]
     Attribute: Literal["RECIPIENT"]
+    AddressLists: List[str]
 
 
 class IngressIpToEvaluateTypeDef(TypedDict):
@@ -575,21 +575,21 @@ class IngressIpv6ToEvaluateTypeDef(TypedDict):
 
 
 class IngressIsInAddressListTypeDef(TypedDict):
-    AddressLists: Sequence[str]
     Attribute: Literal["RECIPIENT"]
+    AddressLists: Sequence[str]
 
 
 class IngressPointPasswordConfigurationTypeDef(TypedDict):
-    PreviousSmtpPasswordExpiryTimestamp: NotRequired[datetime]
-    PreviousSmtpPasswordVersion: NotRequired[str]
     SmtpPasswordVersion: NotRequired[str]
+    PreviousSmtpPasswordVersion: NotRequired[str]
+    PreviousSmtpPasswordExpiryTimestamp: NotRequired[datetime]
 
 
 IngressPointTypeDef = TypedDict(
     "IngressPointTypeDef",
     {
-        "IngressPointId": str,
         "IngressPointName": str,
+        "IngressPointId": str,
         "Status": IngressPointStatusType,
         "Type": IngressPointTypeType,
         "ARecord": NotRequired[str],
@@ -646,8 +646,8 @@ class ListArchivesRequestTypeDef(TypedDict):
 
 
 class ListIngressPointsRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
     PageSize: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class SavedAddressTypeDef(TypedDict):
@@ -656,14 +656,14 @@ class SavedAddressTypeDef(TypedDict):
 
 
 class ListRelaysRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
     PageSize: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class RelayTypeDef(TypedDict):
-    LastModifiedTimestamp: NotRequired[datetime]
     RelayId: NotRequired[str]
     RelayName: NotRequired[str]
+    LastModifiedTimestamp: NotRequired[datetime]
 
 
 class ListRuleSetsRequestTypeDef(TypedDict):
@@ -672,9 +672,9 @@ class ListRuleSetsRequestTypeDef(TypedDict):
 
 
 class RuleSetTypeDef(TypedDict):
-    LastModificationDate: NotRequired[datetime]
     RuleSetId: NotRequired[str]
     RuleSetName: NotRequired[str]
+    LastModificationDate: NotRequired[datetime]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -682,14 +682,14 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class ListTrafficPoliciesRequestTypeDef(TypedDict):
-    NextToken: NotRequired[str]
     PageSize: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class TrafficPolicyTypeDef(TypedDict):
-    DefaultAction: AcceptActionType
-    TrafficPolicyId: str
     TrafficPolicyName: str
+    TrafficPolicyId: str
+    DefaultAction: AcceptActionType
 
 
 class PrivateNetworkConfigurationTypeDef(TypedDict):
@@ -701,8 +701,8 @@ class PublicNetworkConfigurationTypeDef(TypedDict):
 
 
 class RegisterMemberToAddressListRequestTypeDef(TypedDict):
-    Address: str
     AddressListId: str
+    Address: str
 
 
 class RelayActionTypeDef(TypedDict):
@@ -712,8 +712,8 @@ class RelayActionTypeDef(TypedDict):
 
 
 class RelayAuthenticationTypeDef(TypedDict):
-    NoAuthentication: NotRequired[Mapping[str, Any]]
     SecretArn: NotRequired[str]
+    NoAuthentication: NotRequired[Mapping[str, Any]]
 
 
 class ReplaceRecipientActionOutputTypeDef(TypedDict):
@@ -738,16 +738,16 @@ class SendActionTypeDef(TypedDict):
 
 
 class SnsActionTypeDef(TypedDict):
-    RoleArn: str
     TopicArn: str
+    RoleArn: str
     ActionFailurePolicy: NotRequired[ActionFailurePolicyType]
     Encoding: NotRequired[SnsNotificationEncodingType]
     PayloadType: NotRequired[SnsNotificationPayloadTypeType]
 
 
 class RuleIsInAddressListOutputTypeDef(TypedDict):
-    AddressLists: List[str]
     Attribute: RuleAddressListEmailAttributeType
+    AddressLists: List[str]
 
 
 class RuleDmarcExpressionOutputTypeDef(TypedDict):
@@ -765,8 +765,8 @@ class RuleIpToEvaluateTypeDef(TypedDict):
 
 
 class RuleIsInAddressListTypeDef(TypedDict):
-    AddressLists: Sequence[str]
     Attribute: RuleAddressListEmailAttributeType
+    AddressLists: Sequence[str]
 
 
 class RuleNumberToEvaluateTypeDef(TypedDict):
@@ -805,14 +805,14 @@ class ListMembersOfAddressListRequestTypeDef(TypedDict):
 
 
 class RuleStringToEvaluateTypeDef(TypedDict):
-    Analysis: NotRequired[AnalysisTypeDef]
     Attribute: NotRequired[RuleStringEmailAttributeType]
     MimeHeaderAttribute: NotRequired[str]
+    Analysis: NotRequired[AnalysisTypeDef]
 
 
 class RuleVerdictToEvaluateTypeDef(TypedDict):
-    Analysis: NotRequired[AnalysisTypeDef]
     Attribute: NotRequired[RuleVerdictAttributeType]
+    Analysis: NotRequired[AnalysisTypeDef]
 
 
 class ArchiveBooleanExpressionTypeDef(TypedDict):
@@ -859,8 +859,8 @@ class CreateAddressListRequestTypeDef(TypedDict):
 class CreateArchiveRequestTypeDef(TypedDict):
     ArchiveName: str
     ClientToken: NotRequired[str]
-    KmsKeyArn: NotRequired[str]
     Retention: NotRequired[ArchiveRetentionTypeDef]
+    KmsKeyArn: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -916,9 +916,9 @@ class CreateTrafficPolicyResponseTypeDef(TypedDict):
 
 
 class GetAddonInstanceResponseTypeDef(TypedDict):
-    AddonInstanceArn: str
-    AddonName: str
     AddonSubscriptionId: str
+    AddonName: str
+    AddonInstanceArn: str
     CreatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -931,8 +931,8 @@ class GetAddonSubscriptionResponseTypeDef(TypedDict):
 
 
 class GetAddressListResponseTypeDef(TypedDict):
-    AddressListArn: str
     AddressListId: str
+    AddressListArn: str
     AddressListName: str
     CreatedTimestamp: datetime
     LastUpdatedTimestamp: datetime
@@ -940,14 +940,14 @@ class GetAddressListResponseTypeDef(TypedDict):
 
 
 class GetArchiveResponseTypeDef(TypedDict):
-    ArchiveArn: str
     ArchiveId: str
     ArchiveName: str
+    ArchiveArn: str
     ArchiveState: ArchiveStateType
-    CreatedTimestamp: datetime
-    KmsKeyArn: str
-    LastUpdatedTimestamp: datetime
     Retention: ArchiveRetentionTypeDef
+    CreatedTimestamp: datetime
+    LastUpdatedTimestamp: datetime
+    KmsKeyArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -998,71 +998,71 @@ class StartArchiveSearchResponseTypeDef(TypedDict):
 
 class CreateAddressListImportJobRequestTypeDef(TypedDict):
     AddressListId: str
-    ImportDataFormat: ImportDataFormatTypeDef
     Name: str
+    ImportDataFormat: ImportDataFormatTypeDef
     ClientToken: NotRequired[str]
 
 
 class GetAddressListImportJobResponseTypeDef(TypedDict):
-    AddressListId: str
-    CompletedTimestamp: datetime
-    CreatedTimestamp: datetime
-    Error: str
-    FailedItemsCount: int
-    ImportDataFormat: ImportDataFormatTypeDef
-    ImportedItemsCount: int
     JobId: str
     Name: str
-    PreSignedUrl: str
-    StartTimestamp: datetime
     Status: ImportJobStatusType
+    PreSignedUrl: str
+    ImportedItemsCount: int
+    FailedItemsCount: int
+    ImportDataFormat: ImportDataFormatTypeDef
+    AddressListId: str
+    CreatedTimestamp: datetime
+    StartTimestamp: datetime
+    CompletedTimestamp: datetime
+    Error: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ImportJobTypeDef(TypedDict):
-    AddressListId: str
-    CreatedTimestamp: datetime
-    ImportDataFormat: ImportDataFormatTypeDef
     JobId: str
     Name: str
-    PreSignedUrl: str
     Status: ImportJobStatusType
+    PreSignedUrl: str
+    ImportDataFormat: ImportDataFormatTypeDef
+    AddressListId: str
+    CreatedTimestamp: datetime
+    ImportedItemsCount: NotRequired[int]
+    FailedItemsCount: NotRequired[int]
+    StartTimestamp: NotRequired[datetime]
     CompletedTimestamp: NotRequired[datetime]
     Error: NotRequired[str]
-    FailedItemsCount: NotRequired[int]
-    ImportedItemsCount: NotRequired[int]
-    StartTimestamp: NotRequired[datetime]
 
 
 class UpdateIngressPointRequestTypeDef(TypedDict):
     IngressPointId: str
-    IngressPointConfiguration: NotRequired[IngressPointConfigurationTypeDef]
     IngressPointName: NotRequired[str]
-    RuleSetId: NotRequired[str]
     StatusToUpdate: NotRequired[IngressPointStatusToUpdateType]
+    RuleSetId: NotRequired[str]
     TrafficPolicyId: NotRequired[str]
+    IngressPointConfiguration: NotRequired[IngressPointConfigurationTypeDef]
 
 
 class RowTypeDef(TypedDict):
     ArchivedMessageId: NotRequired[str]
-    Cc: NotRequired[str]
-    Date: NotRequired[str]
-    Envelope: NotRequired[EnvelopeTypeDef]
-    From: NotRequired[str]
-    HasAttachments: NotRequired[bool]
-    InReplyTo: NotRequired[str]
-    IngressPointId: NotRequired[str]
-    MessageId: NotRequired[str]
-    ReceivedHeaders: NotRequired[List[str]]
     ReceivedTimestamp: NotRequired[datetime]
-    SenderHostname: NotRequired[str]
-    SenderIpAddress: NotRequired[str]
-    SourceArn: NotRequired[str]
-    Subject: NotRequired[str]
+    Date: NotRequired[str]
     To: NotRequired[str]
+    From: NotRequired[str]
+    Cc: NotRequired[str]
+    Subject: NotRequired[str]
+    MessageId: NotRequired[str]
+    HasAttachments: NotRequired[bool]
+    ReceivedHeaders: NotRequired[List[str]]
+    InReplyTo: NotRequired[str]
     XMailer: NotRequired[str]
     XOriginalMailer: NotRequired[str]
     XPriority: NotRequired[str]
+    IngressPointId: NotRequired[str]
+    SenderHostname: NotRequired[str]
+    SenderIpAddress: NotRequired[str]
+    Envelope: NotRequired[EnvelopeTypeDef]
+    SourceArn: NotRequired[str]
 
 
 class ExportDestinationConfigurationTypeDef(TypedDict):
@@ -1080,9 +1080,9 @@ class GetArchiveMessageContentResponseTypeDef(TypedDict):
 
 
 class GetArchiveMessageResponseTypeDef(TypedDict):
-    Envelope: EnvelopeTypeDef
     MessageDownloadLink: str
     Metadata: MetadataTypeDef
+    Envelope: EnvelopeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1092,20 +1092,20 @@ class SearchSummaryTypeDef(TypedDict):
 
 
 class GetRelayResponseTypeDef(TypedDict):
-    Authentication: RelayAuthenticationOutputTypeDef
-    CreatedTimestamp: datetime
-    LastModifiedTimestamp: datetime
-    RelayArn: str
     RelayId: str
+    RelayArn: str
     RelayName: str
     ServerName: str
     ServerPort: int
+    Authentication: RelayAuthenticationOutputTypeDef
+    CreatedTimestamp: datetime
+    LastModifiedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class IngressStringToEvaluateTypeDef(TypedDict):
-    Analysis: NotRequired[IngressAnalysisTypeDef]
     Attribute: NotRequired[Literal["RECIPIENT"]]
+    Analysis: NotRequired[IngressAnalysisTypeDef]
 
 
 class IngressBooleanToEvaluateOutputTypeDef(TypedDict):
@@ -1237,8 +1237,8 @@ class ListTrafficPoliciesResponseTypeDef(TypedDict):
 
 
 class NetworkConfigurationTypeDef(TypedDict):
-    PrivateNetworkConfiguration: NotRequired[PrivateNetworkConfigurationTypeDef]
     PublicNetworkConfiguration: NotRequired[PublicNetworkConfigurationTypeDef]
+    PrivateNetworkConfiguration: NotRequired[PrivateNetworkConfigurationTypeDef]
 
 
 RelayAuthenticationUnionTypeDef = Union[
@@ -1250,21 +1250,21 @@ ReplaceRecipientActionUnionTypeDef = Union[
 
 
 class RuleActionOutputTypeDef(TypedDict):
-    AddHeader: NotRequired[AddHeaderActionTypeDef]
+    Drop: NotRequired[Dict[str, Any]]
+    Relay: NotRequired[RelayActionTypeDef]
     Archive: NotRequired[ArchiveActionTypeDef]
+    WriteToS3: NotRequired[S3ActionTypeDef]
+    Send: NotRequired[SendActionTypeDef]
+    AddHeader: NotRequired[AddHeaderActionTypeDef]
+    ReplaceRecipient: NotRequired[ReplaceRecipientActionOutputTypeDef]
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
-    Drop: NotRequired[Dict[str, Any]]
     PublishToSns: NotRequired[SnsActionTypeDef]
-    Relay: NotRequired[RelayActionTypeDef]
-    ReplaceRecipient: NotRequired[ReplaceRecipientActionOutputTypeDef]
-    Send: NotRequired[SendActionTypeDef]
-    WriteToS3: NotRequired[S3ActionTypeDef]
 
 
 class RuleBooleanToEvaluateOutputTypeDef(TypedDict):
-    Analysis: NotRequired[AnalysisTypeDef]
     Attribute: NotRequired[RuleBooleanEmailAttributeType]
+    Analysis: NotRequired[AnalysisTypeDef]
     IsInAddressList: NotRequired[RuleIsInAddressListOutputTypeDef]
 
 
@@ -1321,13 +1321,13 @@ class RuleVerdictExpressionTypeDef(TypedDict):
 
 
 class ArchiveFilterConditionOutputTypeDef(TypedDict):
-    BooleanExpression: NotRequired[ArchiveBooleanExpressionTypeDef]
     StringExpression: NotRequired[ArchiveStringExpressionOutputTypeDef]
+    BooleanExpression: NotRequired[ArchiveBooleanExpressionTypeDef]
 
 
 class ArchiveFilterConditionTypeDef(TypedDict):
-    BooleanExpression: NotRequired[ArchiveBooleanExpressionTypeDef]
     StringExpression: NotRequired[ArchiveStringExpressionTypeDef]
+    BooleanExpression: NotRequired[ArchiveBooleanExpressionTypeDef]
 
 
 class ListAddressListImportJobsResponseTypeDef(TypedDict):
@@ -1387,9 +1387,9 @@ CreateIngressPointRequestTypeDef = TypedDict(
     "CreateIngressPointRequestTypeDef",
     {
         "IngressPointName": str,
+        "Type": IngressPointTypeType,
         "RuleSetId": str,
         "TrafficPolicyId": str,
-        "Type": IngressPointTypeType,
         "ClientToken": NotRequired[str],
         "IngressPointConfiguration": NotRequired[IngressPointConfigurationTypeDef],
         "NetworkConfiguration": NotRequired[NetworkConfigurationTypeDef],
@@ -1399,51 +1399,51 @@ CreateIngressPointRequestTypeDef = TypedDict(
 GetIngressPointResponseTypeDef = TypedDict(
     "GetIngressPointResponseTypeDef",
     {
-        "ARecord": str,
-        "CreatedTimestamp": datetime,
-        "IngressPointArn": str,
-        "IngressPointAuthConfiguration": IngressPointAuthConfigurationTypeDef,
         "IngressPointId": str,
         "IngressPointName": str,
-        "LastUpdatedTimestamp": datetime,
-        "NetworkConfiguration": NetworkConfigurationTypeDef,
-        "RuleSetId": str,
+        "IngressPointArn": str,
         "Status": IngressPointStatusType,
-        "TrafficPolicyId": str,
         "Type": IngressPointTypeType,
+        "ARecord": str,
+        "RuleSetId": str,
+        "TrafficPolicyId": str,
+        "IngressPointAuthConfiguration": IngressPointAuthConfigurationTypeDef,
+        "NetworkConfiguration": NetworkConfigurationTypeDef,
+        "CreatedTimestamp": datetime,
+        "LastUpdatedTimestamp": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class CreateRelayRequestTypeDef(TypedDict):
-    Authentication: RelayAuthenticationUnionTypeDef
     RelayName: str
     ServerName: str
     ServerPort: int
+    Authentication: RelayAuthenticationUnionTypeDef
     ClientToken: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class UpdateRelayRequestTypeDef(TypedDict):
     RelayId: str
-    Authentication: NotRequired[RelayAuthenticationUnionTypeDef]
     RelayName: NotRequired[str]
     ServerName: NotRequired[str]
     ServerPort: NotRequired[int]
+    Authentication: NotRequired[RelayAuthenticationUnionTypeDef]
 
 
 class RuleActionTypeDef(TypedDict):
-    AddHeader: NotRequired[AddHeaderActionTypeDef]
+    Drop: NotRequired[Mapping[str, Any]]
+    Relay: NotRequired[RelayActionTypeDef]
     Archive: NotRequired[ArchiveActionTypeDef]
+    WriteToS3: NotRequired[S3ActionTypeDef]
+    Send: NotRequired[SendActionTypeDef]
+    AddHeader: NotRequired[AddHeaderActionTypeDef]
+    ReplaceRecipient: NotRequired[ReplaceRecipientActionUnionTypeDef]
     DeliverToMailbox: NotRequired[DeliverToMailboxActionTypeDef]
     DeliverToQBusiness: NotRequired[DeliverToQBusinessActionTypeDef]
-    Drop: NotRequired[Mapping[str, Any]]
     PublishToSns: NotRequired[SnsActionTypeDef]
-    Relay: NotRequired[RelayActionTypeDef]
-    ReplaceRecipient: NotRequired[ReplaceRecipientActionUnionTypeDef]
-    Send: NotRequired[SendActionTypeDef]
-    WriteToS3: NotRequired[S3ActionTypeDef]
 
 
 class RuleBooleanExpressionOutputTypeDef(TypedDict):
@@ -1455,8 +1455,8 @@ RuleIpExpressionUnionTypeDef = Union[RuleIpExpressionTypeDef, RuleIpExpressionOu
 
 
 class RuleBooleanToEvaluateTypeDef(TypedDict):
-    Analysis: NotRequired[AnalysisTypeDef]
     Attribute: NotRequired[RuleBooleanEmailAttributeType]
+    Analysis: NotRequired[AnalysisTypeDef]
     IsInAddressList: NotRequired[RuleIsInAddressListUnionTypeDef]
 
 
@@ -1484,11 +1484,11 @@ IngressStringExpressionUnionTypeDef = Union[
 
 
 class PolicyConditionOutputTypeDef(TypedDict):
-    BooleanExpression: NotRequired[IngressBooleanExpressionOutputTypeDef]
+    StringExpression: NotRequired[IngressStringExpressionOutputTypeDef]
     IpExpression: NotRequired[IngressIpv4ExpressionOutputTypeDef]
     Ipv6Expression: NotRequired[IngressIpv6ExpressionOutputTypeDef]
-    StringExpression: NotRequired[IngressStringExpressionOutputTypeDef]
     TlsExpression: NotRequired[IngressTlsProtocolExpressionTypeDef]
+    BooleanExpression: NotRequired[IngressBooleanExpressionOutputTypeDef]
 
 
 IngressBooleanToEvaluateUnionTypeDef = Union[
@@ -1499,11 +1499,11 @@ RuleActionUnionTypeDef = Union[RuleActionTypeDef, RuleActionOutputTypeDef]
 
 class RuleConditionOutputTypeDef(TypedDict):
     BooleanExpression: NotRequired[RuleBooleanExpressionOutputTypeDef]
-    DmarcExpression: NotRequired[RuleDmarcExpressionOutputTypeDef]
-    IpExpression: NotRequired[RuleIpExpressionOutputTypeDef]
-    NumberExpression: NotRequired[RuleNumberExpressionTypeDef]
     StringExpression: NotRequired[RuleStringExpressionOutputTypeDef]
+    NumberExpression: NotRequired[RuleNumberExpressionTypeDef]
+    IpExpression: NotRequired[RuleIpExpressionOutputTypeDef]
     VerdictExpression: NotRequired[RuleVerdictExpressionOutputTypeDef]
+    DmarcExpression: NotRequired[RuleDmarcExpressionOutputTypeDef]
 
 
 RuleBooleanToEvaluateUnionTypeDef = Union[
@@ -1513,12 +1513,12 @@ RuleBooleanToEvaluateUnionTypeDef = Union[
 
 class GetArchiveExportResponseTypeDef(TypedDict):
     ArchiveId: str
-    ExportDestinationConfiguration: ExportDestinationConfigurationTypeDef
     Filters: ArchiveFiltersOutputTypeDef
     FromTimestamp: datetime
-    MaxResults: int
-    Status: ExportStatusTypeDef
     ToTimestamp: datetime
+    MaxResults: int
+    ExportDestinationConfiguration: ExportDestinationConfigurationTypeDef
+    Status: ExportStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1526,9 +1526,9 @@ class GetArchiveSearchResponseTypeDef(TypedDict):
     ArchiveId: str
     Filters: ArchiveFiltersOutputTypeDef
     FromTimestamp: datetime
+    ToTimestamp: datetime
     MaxResults: int
     Status: SearchStatusTypeDef
-    ToTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1536,8 +1536,8 @@ ArchiveFiltersUnionTypeDef = Union[ArchiveFiltersTypeDef, ArchiveFiltersOutputTy
 
 
 class PolicyStatementOutputTypeDef(TypedDict):
-    Action: AcceptActionType
     Conditions: List[PolicyConditionOutputTypeDef]
+    Action: AcceptActionType
 
 
 class IngressBooleanExpressionTypeDef(TypedDict):
@@ -1547,8 +1547,8 @@ class IngressBooleanExpressionTypeDef(TypedDict):
 
 class RuleOutputTypeDef(TypedDict):
     Actions: List[RuleActionOutputTypeDef]
-    Conditions: NotRequired[List[RuleConditionOutputTypeDef]]
     Name: NotRequired[str]
+    Conditions: NotRequired[List[RuleConditionOutputTypeDef]]
     Unless: NotRequired[List[RuleConditionOutputTypeDef]]
 
 
@@ -1559,31 +1559,31 @@ class RuleBooleanExpressionTypeDef(TypedDict):
 
 class StartArchiveExportRequestTypeDef(TypedDict):
     ArchiveId: str
-    ExportDestinationConfiguration: ExportDestinationConfigurationTypeDef
     FromTimestamp: TimestampTypeDef
     ToTimestamp: TimestampTypeDef
+    ExportDestinationConfiguration: ExportDestinationConfigurationTypeDef
     Filters: NotRequired[ArchiveFiltersUnionTypeDef]
-    IncludeMetadata: NotRequired[bool]
     MaxResults: NotRequired[int]
+    IncludeMetadata: NotRequired[bool]
 
 
 class StartArchiveSearchRequestTypeDef(TypedDict):
     ArchiveId: str
     FromTimestamp: TimestampTypeDef
-    MaxResults: int
     ToTimestamp: TimestampTypeDef
+    MaxResults: int
     Filters: NotRequired[ArchiveFiltersUnionTypeDef]
 
 
 class GetTrafficPolicyResponseTypeDef(TypedDict):
-    CreatedTimestamp: datetime
-    DefaultAction: AcceptActionType
-    LastUpdatedTimestamp: datetime
-    MaxMessageSizeBytes: int
-    PolicyStatements: List[PolicyStatementOutputTypeDef]
-    TrafficPolicyArn: str
-    TrafficPolicyId: str
     TrafficPolicyName: str
+    TrafficPolicyId: str
+    TrafficPolicyArn: str
+    PolicyStatements: List[PolicyStatementOutputTypeDef]
+    MaxMessageSizeBytes: int
+    DefaultAction: AcceptActionType
+    CreatedTimestamp: datetime
+    LastUpdatedTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1593,11 +1593,11 @@ IngressBooleanExpressionUnionTypeDef = Union[
 
 
 class GetRuleSetResponseTypeDef(TypedDict):
+    RuleSetId: str
+    RuleSetArn: str
+    RuleSetName: str
     CreatedDate: datetime
     LastModificationDate: datetime
-    RuleSetArn: str
-    RuleSetId: str
-    RuleSetName: str
     Rules: List[RuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1608,20 +1608,20 @@ RuleBooleanExpressionUnionTypeDef = Union[
 
 
 class PolicyConditionTypeDef(TypedDict):
-    BooleanExpression: NotRequired[IngressBooleanExpressionUnionTypeDef]
+    StringExpression: NotRequired[IngressStringExpressionUnionTypeDef]
     IpExpression: NotRequired[IngressIpv4ExpressionUnionTypeDef]
     Ipv6Expression: NotRequired[IngressIpv6ExpressionUnionTypeDef]
-    StringExpression: NotRequired[IngressStringExpressionUnionTypeDef]
     TlsExpression: NotRequired[IngressTlsProtocolExpressionTypeDef]
+    BooleanExpression: NotRequired[IngressBooleanExpressionUnionTypeDef]
 
 
 class RuleConditionTypeDef(TypedDict):
     BooleanExpression: NotRequired[RuleBooleanExpressionUnionTypeDef]
-    DmarcExpression: NotRequired[RuleDmarcExpressionUnionTypeDef]
-    IpExpression: NotRequired[RuleIpExpressionUnionTypeDef]
-    NumberExpression: NotRequired[RuleNumberExpressionTypeDef]
     StringExpression: NotRequired[RuleStringExpressionUnionTypeDef]
+    NumberExpression: NotRequired[RuleNumberExpressionTypeDef]
+    IpExpression: NotRequired[RuleIpExpressionUnionTypeDef]
     VerdictExpression: NotRequired[RuleVerdictExpressionUnionTypeDef]
+    DmarcExpression: NotRequired[RuleDmarcExpressionUnionTypeDef]
 
 
 PolicyConditionUnionTypeDef = Union[PolicyConditionTypeDef, PolicyConditionOutputTypeDef]
@@ -1629,14 +1629,14 @@ RuleConditionUnionTypeDef = Union[RuleConditionTypeDef, RuleConditionOutputTypeD
 
 
 class PolicyStatementTypeDef(TypedDict):
-    Action: AcceptActionType
     Conditions: Sequence[PolicyConditionUnionTypeDef]
+    Action: AcceptActionType
 
 
 class RuleTypeDef(TypedDict):
     Actions: Sequence[RuleActionUnionTypeDef]
-    Conditions: NotRequired[Sequence[RuleConditionUnionTypeDef]]
     Name: NotRequired[str]
+    Conditions: NotRequired[Sequence[RuleConditionUnionTypeDef]]
     Unless: NotRequired[Sequence[RuleConditionUnionTypeDef]]
 
 
@@ -1645,9 +1645,9 @@ RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
 
 
 class CreateTrafficPolicyRequestTypeDef(TypedDict):
-    DefaultAction: AcceptActionType
-    PolicyStatements: Sequence[PolicyStatementUnionTypeDef]
     TrafficPolicyName: str
+    PolicyStatements: Sequence[PolicyStatementUnionTypeDef]
+    DefaultAction: AcceptActionType
     ClientToken: NotRequired[str]
     MaxMessageSizeBytes: NotRequired[int]
     Tags: NotRequired[Sequence[TagTypeDef]]
@@ -1655,10 +1655,10 @@ class CreateTrafficPolicyRequestTypeDef(TypedDict):
 
 class UpdateTrafficPolicyRequestTypeDef(TypedDict):
     TrafficPolicyId: str
+    TrafficPolicyName: NotRequired[str]
+    PolicyStatements: NotRequired[Sequence[PolicyStatementUnionTypeDef]]
     DefaultAction: NotRequired[AcceptActionType]
     MaxMessageSizeBytes: NotRequired[int]
-    PolicyStatements: NotRequired[Sequence[PolicyStatementUnionTypeDef]]
-    TrafficPolicyName: NotRequired[str]
 
 
 class CreateRuleSetRequestTypeDef(TypedDict):

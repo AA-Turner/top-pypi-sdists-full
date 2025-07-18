@@ -29,6 +29,7 @@ from .literals import (
     AggregationTypeType,
     AmiSortByType,
     ArchitectureType,
+    AssociationResultStatusCodeType,
     AwsEcrContainerSortByType,
     CisFindingStatusType,
     CisReportFormatType,
@@ -45,7 +46,12 @@ from .literals import (
     CisStringComparisonType,
     CisTargetStatusReasonType,
     CisTargetStatusType,
+    CodeRepositoryProviderTypeType,
+    CodeRepositorySortByType,
+    CodeScanStatusType,
     CodeSnippetErrorCodeType,
+    ConfigurationLevelType,
+    ContinuousIntegrationScanEventType,
     CoverageResourceTypeType,
     CoverageStringComparisonType,
     DayType,
@@ -74,6 +80,8 @@ from .literals import (
     FreeTrialTypeType,
     GroupKeyType,
     ImageLayerSortByType,
+    IntegrationStatusType,
+    IntegrationTypeType,
     LambdaFunctionSortByType,
     LambdaLayerSortByType,
     ListCisScansDetailLevelType,
@@ -83,6 +91,7 @@ from .literals import (
     PackageManagerType,
     PackageSortByType,
     PackageTypeType,
+    PeriodicScanFrequencyType,
     RelationshipStatusType,
     ReportFormatType,
     ReportingErrorCodeType,
@@ -90,6 +99,7 @@ from .literals import (
     ResourceScanTypeType,
     ResourceStringComparisonType,
     ResourceTypeType,
+    RuleSetCategoryType,
     RuntimeType,
     SbomReportFormatType,
     ScanModeType,
@@ -127,6 +137,7 @@ __all__ = (
     "AggregationResponseTypeDef",
     "AmiAggregationResponseTypeDef",
     "AmiAggregationTypeDef",
+    "AssociateConfigurationRequestTypeDef",
     "AssociateMemberRequestTypeDef",
     "AssociateMemberResponseTypeDef",
     "AtigDataTypeDef",
@@ -139,6 +150,10 @@ __all__ = (
     "AwsEksMetadataDetailsTypeDef",
     "AwsEksWorkloadInfoTypeDef",
     "AwsLambdaFunctionDetailsTypeDef",
+    "BatchAssociateCodeSecurityScanConfigurationRequestTypeDef",
+    "BatchAssociateCodeSecurityScanConfigurationResponseTypeDef",
+    "BatchDisassociateCodeSecurityScanConfigurationRequestTypeDef",
+    "BatchDisassociateCodeSecurityScanConfigurationResponseTypeDef",
     "BatchGetAccountStatusRequestTypeDef",
     "BatchGetAccountStatusResponseTypeDef",
     "BatchGetCodeSnippetRequestTypeDef",
@@ -182,10 +197,24 @@ __all__ = (
     "ClusterMetadataTypeDef",
     "CodeFilePathTypeDef",
     "CodeLineTypeDef",
+    "CodeRepositoryAggregationResponseTypeDef",
+    "CodeRepositoryAggregationTypeDef",
+    "CodeRepositoryDetailsTypeDef",
+    "CodeRepositoryMetadataTypeDef",
+    "CodeRepositoryOnDemandScanTypeDef",
+    "CodeSecurityIntegrationSummaryTypeDef",
+    "CodeSecurityResourceTypeDef",
+    "CodeSecurityScanConfigurationAssociationSummaryTypeDef",
+    "CodeSecurityScanConfigurationOutputTypeDef",
+    "CodeSecurityScanConfigurationSummaryTypeDef",
+    "CodeSecurityScanConfigurationTypeDef",
+    "CodeSecurityScanConfigurationUnionTypeDef",
     "CodeSnippetErrorTypeDef",
     "CodeSnippetResultTypeDef",
     "CodeVulnerabilityDetailsTypeDef",
     "ComputePlatformTypeDef",
+    "ContinuousIntegrationScanConfigurationOutputTypeDef",
+    "ContinuousIntegrationScanConfigurationTypeDef",
     "CountsTypeDef",
     "CoverageDateFilterTypeDef",
     "CoverageFilterCriteriaTypeDef",
@@ -196,10 +225,16 @@ __all__ = (
     "CreateCisScanConfigurationRequestTypeDef",
     "CreateCisScanConfigurationResponseTypeDef",
     "CreateCisTargetsTypeDef",
+    "CreateCodeSecurityIntegrationRequestTypeDef",
+    "CreateCodeSecurityIntegrationResponseTypeDef",
+    "CreateCodeSecurityScanConfigurationRequestTypeDef",
+    "CreateCodeSecurityScanConfigurationResponseTypeDef",
     "CreateFilterRequestTypeDef",
     "CreateFilterResponseTypeDef",
     "CreateFindingsReportRequestTypeDef",
     "CreateFindingsReportResponseTypeDef",
+    "CreateGitLabSelfManagedIntegrationDetailTypeDef",
+    "CreateIntegrationDetailTypeDef",
     "CreateSbomExportRequestTypeDef",
     "CreateSbomExportResponseTypeDef",
     "Cvss2TypeDef",
@@ -215,6 +250,10 @@ __all__ = (
     "DelegatedAdminTypeDef",
     "DeleteCisScanConfigurationRequestTypeDef",
     "DeleteCisScanConfigurationResponseTypeDef",
+    "DeleteCodeSecurityIntegrationRequestTypeDef",
+    "DeleteCodeSecurityIntegrationResponseTypeDef",
+    "DeleteCodeSecurityScanConfigurationRequestTypeDef",
+    "DeleteCodeSecurityScanConfigurationResponseTypeDef",
     "DeleteFilterRequestTypeDef",
     "DeleteFilterResponseTypeDef",
     "DescribeOrganizationConfigurationResponseTypeDef",
@@ -223,6 +262,7 @@ __all__ = (
     "DisableDelegatedAdminAccountResponseTypeDef",
     "DisableRequestTypeDef",
     "DisableResponseTypeDef",
+    "DisassociateConfigurationRequestTypeDef",
     "DisassociateMemberRequestTypeDef",
     "DisassociateMemberResponseTypeDef",
     "Ec2ConfigurationStateTypeDef",
@@ -246,6 +286,7 @@ __all__ = (
     "ExploitObservedTypeDef",
     "ExploitabilityDetailsTypeDef",
     "FailedAccountTypeDef",
+    "FailedAssociationResultTypeDef",
     "FailedMemberAccountEc2DeepInspectionStatusStateTypeDef",
     "FilterCriteriaOutputTypeDef",
     "FilterCriteriaTypeDef",
@@ -267,6 +308,12 @@ __all__ = (
     "GetClustersForImageRequestPaginateTypeDef",
     "GetClustersForImageRequestTypeDef",
     "GetClustersForImageResponseTypeDef",
+    "GetCodeSecurityIntegrationRequestTypeDef",
+    "GetCodeSecurityIntegrationResponseTypeDef",
+    "GetCodeSecurityScanConfigurationRequestTypeDef",
+    "GetCodeSecurityScanConfigurationResponseTypeDef",
+    "GetCodeSecurityScanRequestTypeDef",
+    "GetCodeSecurityScanResponseTypeDef",
     "GetConfigurationResponseTypeDef",
     "GetDelegatedAdminAccountResponseTypeDef",
     "GetEc2DeepInspectionConfigurationResponseTypeDef",
@@ -304,6 +351,12 @@ __all__ = (
     "ListCisScansRequestPaginateTypeDef",
     "ListCisScansRequestTypeDef",
     "ListCisScansResponseTypeDef",
+    "ListCodeSecurityIntegrationsRequestTypeDef",
+    "ListCodeSecurityIntegrationsResponseTypeDef",
+    "ListCodeSecurityScanConfigurationAssociationsRequestTypeDef",
+    "ListCodeSecurityScanConfigurationAssociationsResponseTypeDef",
+    "ListCodeSecurityScanConfigurationsRequestTypeDef",
+    "ListCodeSecurityScanConfigurationsResponseTypeDef",
     "ListCoverageRequestPaginateTypeDef",
     "ListCoverageRequestTypeDef",
     "ListCoverageResponseTypeDef",
@@ -343,9 +396,13 @@ __all__ = (
     "PackageFilterTypeDef",
     "PackageVulnerabilityDetailsTypeDef",
     "PaginatorConfigTypeDef",
+    "PeriodicScanConfigurationTypeDef",
     "PermissionTypeDef",
     "PortRangeFilterTypeDef",
     "PortRangeTypeDef",
+    "ProjectCodeSecurityScanConfigurationTypeDef",
+    "ProjectContinuousIntegrationScanConfigurationTypeDef",
+    "ProjectPeriodicScanConfigurationTypeDef",
     "RecommendationTypeDef",
     "RemediationTypeDef",
     "RepositoryAggregationResponseTypeDef",
@@ -366,6 +423,7 @@ __all__ = (
     "ScheduleOutputTypeDef",
     "ScheduleTypeDef",
     "ScheduleUnionTypeDef",
+    "ScopeSettingsTypeDef",
     "SearchVulnerabilitiesFilterCriteriaTypeDef",
     "SearchVulnerabilitiesRequestPaginateTypeDef",
     "SearchVulnerabilitiesRequestTypeDef",
@@ -376,6 +434,8 @@ __all__ = (
     "SortCriteriaTypeDef",
     "StartCisSessionMessageTypeDef",
     "StartCisSessionRequestTypeDef",
+    "StartCodeSecurityScanRequestTypeDef",
+    "StartCodeSecurityScanResponseTypeDef",
     "StateTypeDef",
     "StatusCountsTypeDef",
     "StepTypeDef",
@@ -383,6 +443,7 @@ __all__ = (
     "StopCisSessionMessageTypeDef",
     "StopCisSessionRequestTypeDef",
     "StringFilterTypeDef",
+    "SuccessfulAssociationResultTypeDef",
     "SuggestedFixTypeDef",
     "TagFilterTypeDef",
     "TagResourceRequestTypeDef",
@@ -394,12 +455,19 @@ __all__ = (
     "UpdateCisScanConfigurationRequestTypeDef",
     "UpdateCisScanConfigurationResponseTypeDef",
     "UpdateCisTargetsTypeDef",
+    "UpdateCodeSecurityIntegrationRequestTypeDef",
+    "UpdateCodeSecurityIntegrationResponseTypeDef",
+    "UpdateCodeSecurityScanConfigurationRequestTypeDef",
+    "UpdateCodeSecurityScanConfigurationResponseTypeDef",
     "UpdateConfigurationRequestTypeDef",
     "UpdateEc2DeepInspectionConfigurationRequestTypeDef",
     "UpdateEc2DeepInspectionConfigurationResponseTypeDef",
     "UpdateEncryptionKeyRequestTypeDef",
     "UpdateFilterRequestTypeDef",
     "UpdateFilterResponseTypeDef",
+    "UpdateGitHubIntegrationDetailTypeDef",
+    "UpdateGitLabSelfManagedIntegrationDetailTypeDef",
+    "UpdateIntegrationDetailsTypeDef",
     "UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef",
     "UpdateOrganizationConfigurationRequestTypeDef",
     "UpdateOrganizationConfigurationResponseTypeDef",
@@ -437,6 +505,7 @@ ResourceStatusTypeDef = TypedDict(
     {
         "ec2": StatusType,
         "ecr": StatusType,
+        "codeRepository": NotRequired[StatusType],
         "lambda": NotRequired[StatusType],
         "lambdaCode": NotRequired[StatusType],
     },
@@ -451,6 +520,9 @@ class FindingTypeAggregationTypeDef(TypedDict):
 class StringFilterTypeDef(TypedDict):
     comparison: StringComparisonType
     value: str
+
+class CodeSecurityResourceTypeDef(TypedDict):
+    projectId: NotRequired[str]
 
 class AssociateMemberRequestTypeDef(TypedDict):
     accountId: str
@@ -473,6 +545,7 @@ AutoEnableTypeDef = TypedDict(
     {
         "ec2": bool,
         "ecr": bool,
+        "codeRepository": NotRequired[bool],
         "lambda": NotRequired[bool],
         "lambdaCode": NotRequired[bool],
     },
@@ -658,6 +731,42 @@ class CodeLineTypeDef(TypedDict):
     content: str
     lineNumber: int
 
+class CodeRepositoryDetailsTypeDef(TypedDict):
+    integrationArn: NotRequired[str]
+    projectName: NotRequired[str]
+    providerType: NotRequired[CodeRepositoryProviderTypeType]
+
+class ScanStatusTypeDef(TypedDict):
+    reason: ScanStatusReasonType
+    statusCode: ScanStatusCodeType
+
+CodeSecurityIntegrationSummaryTypeDef = TypedDict(
+    "CodeSecurityIntegrationSummaryTypeDef",
+    {
+        "createdOn": datetime,
+        "integrationArn": str,
+        "lastUpdateOn": datetime,
+        "name": str,
+        "status": IntegrationStatusType,
+        "statusReason": str,
+        "type": IntegrationTypeType,
+        "tags": NotRequired[Dict[str, str]],
+    },
+)
+
+class ContinuousIntegrationScanConfigurationOutputTypeDef(TypedDict):
+    supportedEvents: List[ContinuousIntegrationScanEventType]
+
+class PeriodicScanConfigurationTypeDef(TypedDict):
+    frequency: NotRequired[PeriodicScanFrequencyType]
+    frequencyExpression: NotRequired[str]
+
+class ScopeSettingsTypeDef(TypedDict):
+    projectSelectionScope: NotRequired[Literal["ALL"]]
+
+class ContinuousIntegrationScanConfigurationTypeDef(TypedDict):
+    supportedEvents: Sequence[ContinuousIntegrationScanEventType]
+
 class SuggestedFixTypeDef(TypedDict):
     code: NotRequired[str]
     description: NotRequired[str]
@@ -684,10 +793,6 @@ class CoverageStringFilterTypeDef(TypedDict):
     comparison: CoverageStringComparisonType
     value: str
 
-class ScanStatusTypeDef(TypedDict):
-    reason: ScanStatusReasonType
-    statusCode: ScanStatusCodeType
-
 class CreateCisTargetsTypeDef(TypedDict):
     accountIds: Sequence[str]
     targetResourceTags: Mapping[str, Sequence[str]]
@@ -696,6 +801,10 @@ class DestinationTypeDef(TypedDict):
     bucketName: str
     kmsKeyArn: str
     keyPrefix: NotRequired[str]
+
+class CreateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
+    accessToken: str
+    instanceUrl: str
 
 class Cvss2TypeDef(TypedDict):
     baseScore: NotRequired[float]
@@ -732,6 +841,12 @@ class DelegatedAdminTypeDef(TypedDict):
     relationshipStatus: NotRequired[RelationshipStatusType]
 
 class DeleteCisScanConfigurationRequestTypeDef(TypedDict):
+    scanConfigurationArn: str
+
+class DeleteCodeSecurityIntegrationRequestTypeDef(TypedDict):
+    integrationArn: str
+
+class DeleteCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
     scanConfigurationArn: str
 
 class DeleteFilterRequestTypeDef(TypedDict):
@@ -837,6 +952,13 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+class GetCodeSecurityIntegrationRequestTypeDef(TypedDict):
+    integrationArn: str
+    tags: NotRequired[Mapping[str, str]]
+
+class GetCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
+    scanConfigurationArn: str
+
 class GetEncryptionKeyRequestTypeDef(TypedDict):
     resourceType: ResourceTypeType
     scanType: ScanTypeType
@@ -870,6 +992,19 @@ class ListAccountPermissionsRequestTypeDef(TypedDict):
 class PermissionTypeDef(TypedDict):
     operation: OperationType
     service: ServiceType
+
+class ListCodeSecurityIntegrationsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListCodeSecurityScanConfigurationAssociationsRequestTypeDef(TypedDict):
+    scanConfigurationArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListCodeSecurityScanConfigurationsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListDelegatedAdminAccountsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -919,6 +1054,14 @@ class VulnerablePackageTypeDef(TypedDict):
     remediation: NotRequired[str]
     sourceLambdaLayerArn: NotRequired[str]
     sourceLayerHash: NotRequired[str]
+
+class ProjectContinuousIntegrationScanConfigurationTypeDef(TypedDict):
+    ruleSetCategories: NotRequired[List[RuleSetCategoryType]]
+    supportedEvent: NotRequired[ContinuousIntegrationScanEventType]
+
+class ProjectPeriodicScanConfigurationTypeDef(TypedDict):
+    frequencyExpression: NotRequired[str]
+    ruleSetCategories: NotRequired[List[RuleSetCategoryType]]
 
 class RecommendationTypeDef(TypedDict):
     Url: NotRequired[str]
@@ -978,6 +1121,13 @@ class UpdateEncryptionKeyRequestTypeDef(TypedDict):
     resourceType: ResourceTypeType
     scanType: ScanTypeType
 
+class UpdateGitHubIntegrationDetailTypeDef(TypedDict):
+    code: str
+    installationId: str
+
+class UpdateGitLabSelfManagedIntegrationDetailTypeDef(TypedDict):
+    authCode: str
+
 class UpdateOrgEc2DeepInspectionConfigurationRequestTypeDef(TypedDict):
     orgPackagePaths: Sequence[str]
 
@@ -1012,6 +1162,15 @@ class AwsEcrContainerAggregationResponseTypeDef(TypedDict):
     inUseCount: NotRequired[int]
     lastInUseAt: NotRequired[datetime]
     repository: NotRequired[str]
+    severityCounts: NotRequired[SeverityCountsTypeDef]
+
+class CodeRepositoryAggregationResponseTypeDef(TypedDict):
+    projectNames: str
+    accountId: NotRequired[str]
+    exploitAvailableActiveFindingsCount: NotRequired[int]
+    fixAvailableActiveFindingsCount: NotRequired[int]
+    providerType: NotRequired[str]
+    resourceId: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
 
 class Ec2InstanceAggregationResponseTypeDef(TypedDict):
@@ -1074,6 +1233,7 @@ ResourceStateTypeDef = TypedDict(
     {
         "ec2": StateTypeDef,
         "ecr": StateTypeDef,
+        "codeRepository": NotRequired[StateTypeDef],
         "lambda": NotRequired[StateTypeDef],
         "lambdaCode": NotRequired[StateTypeDef],
     },
@@ -1094,6 +1254,13 @@ class FailedAccountTypeDef(TypedDict):
 class AmiAggregationTypeDef(TypedDict):
     amis: NotRequired[Sequence[StringFilterTypeDef]]
     sortBy: NotRequired[AmiSortByType]
+    sortOrder: NotRequired[SortOrderType]
+
+class CodeRepositoryAggregationTypeDef(TypedDict):
+    projectNames: NotRequired[Sequence[StringFilterTypeDef]]
+    providerTypes: NotRequired[Sequence[StringFilterTypeDef]]
+    resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
+    sortBy: NotRequired[CodeRepositorySortByType]
     sortOrder: NotRequired[SortOrderType]
 
 class ImageLayerAggregationTypeDef(TypedDict):
@@ -1128,6 +1295,35 @@ class TitleAggregationTypeDef(TypedDict):
     titles: NotRequired[Sequence[StringFilterTypeDef]]
     vulnerabilityIds: NotRequired[Sequence[StringFilterTypeDef]]
 
+class AssociateConfigurationRequestTypeDef(TypedDict):
+    resource: CodeSecurityResourceTypeDef
+    scanConfigurationArn: str
+
+class CodeSecurityScanConfigurationAssociationSummaryTypeDef(TypedDict):
+    resource: NotRequired[CodeSecurityResourceTypeDef]
+
+class DisassociateConfigurationRequestTypeDef(TypedDict):
+    resource: CodeSecurityResourceTypeDef
+    scanConfigurationArn: str
+
+class FailedAssociationResultTypeDef(TypedDict):
+    resource: NotRequired[CodeSecurityResourceTypeDef]
+    scanConfigurationArn: NotRequired[str]
+    statusCode: NotRequired[AssociationResultStatusCodeType]
+    statusMessage: NotRequired[str]
+
+class GetCodeSecurityScanRequestTypeDef(TypedDict):
+    resource: CodeSecurityResourceTypeDef
+    scanId: str
+
+class StartCodeSecurityScanRequestTypeDef(TypedDict):
+    resource: CodeSecurityResourceTypeDef
+    clientToken: NotRequired[str]
+
+class SuccessfulAssociationResultTypeDef(TypedDict):
+    resource: NotRequired[CodeSecurityResourceTypeDef]
+    scanConfigurationArn: NotRequired[str]
+
 class AssociateMemberResponseTypeDef(TypedDict):
     accountId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1144,6 +1340,16 @@ class CreateCisScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateCodeSecurityIntegrationResponseTypeDef(TypedDict):
+    authorizationUrl: str
+    integrationArn: str
+    status: IntegrationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
+    scanConfigurationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateFilterResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1157,6 +1363,14 @@ class CreateSbomExportResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteCisScanConfigurationResponseTypeDef(TypedDict):
+    scanConfigurationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteCodeSecurityIntegrationResponseTypeDef(TypedDict):
+    integrationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1181,6 +1395,33 @@ class GetCisScanReportResponseTypeDef(TypedDict):
     url: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+GetCodeSecurityIntegrationResponseTypeDef = TypedDict(
+    "GetCodeSecurityIntegrationResponseTypeDef",
+    {
+        "authorizationUrl": str,
+        "createdOn": datetime,
+        "integrationArn": str,
+        "lastUpdateOn": datetime,
+        "name": str,
+        "status": IntegrationStatusType,
+        "statusReason": str,
+        "tags": Dict[str, str],
+        "type": IntegrationTypeType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+class GetCodeSecurityScanResponseTypeDef(TypedDict):
+    accountId: str
+    createdAt: datetime
+    lastCommitId: str
+    resource: CodeSecurityResourceTypeDef
+    scanId: str
+    status: CodeScanStatusType
+    statusReason: str
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetEc2DeepInspectionConfigurationResponseTypeDef(TypedDict):
     errorMessage: str
     orgPackagePaths: List[str]
@@ -1196,7 +1437,21 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartCodeSecurityScanResponseTypeDef(TypedDict):
+    scanId: str
+    status: CodeScanStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateCisScanConfigurationResponseTypeDef(TypedDict):
+    scanConfigurationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCodeSecurityIntegrationResponseTypeDef(TypedDict):
+    integrationArn: str
+    status: IntegrationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1366,6 +1621,41 @@ class CodeVulnerabilityDetailsTypeDef(TypedDict):
     ruleId: NotRequired[str]
     sourceLambdaLayerArn: NotRequired[str]
 
+class CodeRepositoryOnDemandScanTypeDef(TypedDict):
+    lastScanAt: NotRequired[datetime]
+    lastScannedCommitId: NotRequired[str]
+    scanStatus: NotRequired[ScanStatusTypeDef]
+
+class ListCodeSecurityIntegrationsResponseTypeDef(TypedDict):
+    integrations: List[CodeSecurityIntegrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CodeSecurityScanConfigurationOutputTypeDef(TypedDict):
+    ruleSetCategories: List[RuleSetCategoryType]
+    continuousIntegrationScanConfiguration: NotRequired[
+        ContinuousIntegrationScanConfigurationOutputTypeDef
+    ]
+    periodicScanConfiguration: NotRequired[PeriodicScanConfigurationTypeDef]
+
+class CodeSecurityScanConfigurationSummaryTypeDef(TypedDict):
+    name: str
+    ownerAccountId: str
+    ruleSetCategories: List[RuleSetCategoryType]
+    scanConfigurationArn: str
+    continuousIntegrationScanSupportedEvents: NotRequired[List[ContinuousIntegrationScanEventType]]
+    frequencyExpression: NotRequired[str]
+    periodicScanFrequency: NotRequired[PeriodicScanFrequencyType]
+    scopeSettings: NotRequired[ScopeSettingsTypeDef]
+    tags: NotRequired[Dict[str, str]]
+
+class CodeSecurityScanConfigurationTypeDef(TypedDict):
+    ruleSetCategories: Sequence[RuleSetCategoryType]
+    continuousIntegrationScanConfiguration: NotRequired[
+        ContinuousIntegrationScanConfigurationTypeDef
+    ]
+    periodicScanConfiguration: NotRequired[PeriodicScanConfigurationTypeDef]
+
 class CodeSnippetResultTypeDef(TypedDict):
     codeSnippet: NotRequired[List[CodeLineTypeDef]]
     endLine: NotRequired[int]
@@ -1378,6 +1668,9 @@ class ListCoverageStatisticsResponseTypeDef(TypedDict):
     totalCounts: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CreateIntegrationDetailTypeDef(TypedDict):
+    gitlabSelfManaged: NotRequired[CreateGitLabSelfManagedIntegrationDetailTypeDef]
 
 class CvssScoreDetailsTypeDef(TypedDict):
     score: float
@@ -1513,12 +1806,6 @@ class ListMembersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class ResourceScanMetadataTypeDef(TypedDict):
-    ec2: NotRequired[Ec2MetadataTypeDef]
-    ecrImage: NotRequired[EcrContainerImageMetadataTypeDef]
-    ecrRepository: NotRequired[EcrRepositoryMetadataTypeDef]
-    lambdaFunction: NotRequired[LambdaFunctionMetadataTypeDef]
-
 class ListAccountPermissionsResponseTypeDef(TypedDict):
     permissions: List[PermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1538,6 +1825,12 @@ class PackageVulnerabilityDetailsTypeDef(TypedDict):
     vendorSeverity: NotRequired[str]
     vendorUpdatedAt: NotRequired[datetime]
     vulnerablePackages: NotRequired[List[VulnerablePackageTypeDef]]
+
+class ProjectCodeSecurityScanConfigurationTypeDef(TypedDict):
+    continuousIntegrationScanConfigurations: NotRequired[
+        List[ProjectContinuousIntegrationScanConfigurationTypeDef]
+    ]
+    periodicScanConfigurations: NotRequired[List[ProjectPeriodicScanConfigurationTypeDef]]
 
 class RemediationTypeDef(TypedDict):
     recommendation: NotRequired[RecommendationTypeDef]
@@ -1582,6 +1875,10 @@ class StopCisSessionMessageTypeDef(TypedDict):
     computePlatform: NotRequired[ComputePlatformTypeDef]
     reason: NotRequired[str]
 
+class UpdateIntegrationDetailsTypeDef(TypedDict):
+    github: NotRequired[UpdateGitHubIntegrationDetailTypeDef]
+    gitlabSelfManaged: NotRequired[UpdateGitLabSelfManagedIntegrationDetailTypeDef]
+
 class UsageTotalTypeDef(TypedDict):
     accountId: NotRequired[str]
     usage: NotRequired[List[UsageTypeDef]]
@@ -1590,6 +1887,7 @@ class AggregationResponseTypeDef(TypedDict):
     accountAggregation: NotRequired[AccountAggregationResponseTypeDef]
     amiAggregation: NotRequired[AmiAggregationResponseTypeDef]
     awsEcrContainerAggregation: NotRequired[AwsEcrContainerAggregationResponseTypeDef]
+    codeRepositoryAggregation: NotRequired[CodeRepositoryAggregationResponseTypeDef]
     ec2InstanceAggregation: NotRequired[Ec2InstanceAggregationResponseTypeDef]
     findingTypeAggregation: NotRequired[FindingTypeAggregationResponseTypeDef]
     imageLayerAggregation: NotRequired[ImageLayerAggregationResponseTypeDef]
@@ -1614,8 +1912,31 @@ class EnableResponseTypeDef(TypedDict):
     failedAccounts: List[FailedAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class BatchAssociateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
+    associateConfigurationRequests: Sequence[AssociateConfigurationRequestTypeDef]
+
+class ListCodeSecurityScanConfigurationAssociationsResponseTypeDef(TypedDict):
+    associations: List[CodeSecurityScanConfigurationAssociationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class BatchDisassociateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
+    disassociateConfigurationRequests: Sequence[DisassociateConfigurationRequestTypeDef]
+
+class BatchAssociateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
+    failedAssociations: List[FailedAssociationResultTypeDef]
+    successfulAssociations: List[SuccessfulAssociationResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchDisassociateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
+    failedAssociations: List[FailedAssociationResultTypeDef]
+    successfulAssociations: List[SuccessfulAssociationResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class FilterCriteriaOutputTypeDef(TypedDict):
     awsAccountId: NotRequired[List[StringFilterTypeDef]]
+    codeRepositoryProjectName: NotRequired[List[StringFilterTypeDef]]
+    codeRepositoryProviderType: NotRequired[List[StringFilterTypeDef]]
     codeVulnerabilityDetectorName: NotRequired[List[StringFilterTypeDef]]
     codeVulnerabilityDetectorTags: NotRequired[List[StringFilterTypeDef]]
     codeVulnerabilityFilePath: NotRequired[List[StringFilterTypeDef]]
@@ -1668,6 +1989,7 @@ class ResourceDetailsTypeDef(TypedDict):
     awsEc2Instance: NotRequired[AwsEc2InstanceDetailsTypeDef]
     awsEcrContainerImage: NotRequired[AwsEcrContainerImageDetailsTypeDef]
     awsLambdaFunction: NotRequired[AwsLambdaFunctionDetailsTypeDef]
+    codeRepository: NotRequired[CodeRepositoryDetailsTypeDef]
 
 class SendCisSessionTelemetryRequestTypeDef(TypedDict):
     messages: Sequence[CisSessionMessageTypeDef]
@@ -1698,6 +2020,9 @@ class ListCisScansFilterCriteriaTypeDef(TypedDict):
 
 class CoverageFilterCriteriaTypeDef(TypedDict):
     accountId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    codeRepositoryProjectName: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    codeRepositoryProviderType: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    codeRepositoryProviderTypeVisibility: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     ec2InstanceTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
     ecrImageInUseCount: NotRequired[Sequence[CoverageNumberFilterTypeDef]]
     ecrImageLastInUseAt: NotRequired[Sequence[CoverageDateFilterTypeDef]]
@@ -1708,6 +2033,7 @@ class CoverageFilterCriteriaTypeDef(TypedDict):
     lambdaFunctionRuntime: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     lambdaFunctionTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
     lastScannedAt: NotRequired[Sequence[CoverageDateFilterTypeDef]]
+    lastScannedCommitId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     resourceId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     resourceType: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     scanMode: NotRequired[Sequence[CoverageStringFilterTypeDef]]
@@ -1719,6 +2045,8 @@ DateFilterUnionTypeDef = Union[DateFilterTypeDef, DateFilterOutputTypeDef]
 
 class FilterCriteriaTypeDef(TypedDict):
     awsAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    codeRepositoryProjectName: NotRequired[Sequence[StringFilterTypeDef]]
+    codeRepositoryProviderType: NotRequired[Sequence[StringFilterTypeDef]]
     codeVulnerabilityDetectorName: NotRequired[Sequence[StringFilterTypeDef]]
     codeVulnerabilityDetectorTags: NotRequired[Sequence[StringFilterTypeDef]]
     codeVulnerabilityFilePath: NotRequired[Sequence[StringFilterTypeDef]]
@@ -1830,10 +2158,40 @@ class ListCisScanConfigurationsRequestTypeDef(TypedDict):
     sortBy: NotRequired[CisScanConfigurationsSortByType]
     sortOrder: NotRequired[CisSortOrderType]
 
+class GetCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
+    configuration: CodeSecurityScanConfigurationOutputTypeDef
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    level: ConfigurationLevelType
+    name: str
+    scanConfigurationArn: str
+    scopeSettings: ScopeSettingsTypeDef
+    tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCodeSecurityScanConfigurationsResponseTypeDef(TypedDict):
+    configurations: List[CodeSecurityScanConfigurationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+CodeSecurityScanConfigurationUnionTypeDef = Union[
+    CodeSecurityScanConfigurationTypeDef, CodeSecurityScanConfigurationOutputTypeDef
+]
+
 class BatchGetCodeSnippetResponseTypeDef(TypedDict):
     codeSnippetResults: List[CodeSnippetResultTypeDef]
     errors: List[CodeSnippetErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+CreateCodeSecurityIntegrationRequestTypeDef = TypedDict(
+    "CreateCodeSecurityIntegrationRequestTypeDef",
+    {
+        "name": str,
+        "type": IntegrationTypeType,
+        "details": NotRequired[CreateIntegrationDetailTypeDef],
+        "tags": NotRequired[Mapping[str, str]],
+    },
+)
 
 class InspectorScoreDetailsTypeDef(TypedDict):
     adjustedCvss: NotRequired[CvssScoreDetailsTypeDef]
@@ -1870,20 +2228,19 @@ class BatchGetFreeTrialInfoResponseTypeDef(TypedDict):
     failedAccounts: List[FreeTrialInfoErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CoveredResourceTypeDef(TypedDict):
-    accountId: str
-    resourceId: str
-    resourceType: CoverageResourceTypeType
-    scanType: ScanTypeType
-    lastScannedAt: NotRequired[datetime]
-    resourceMetadata: NotRequired[ResourceScanMetadataTypeDef]
-    scanMode: NotRequired[ScanModeType]
-    scanStatus: NotRequired[ScanStatusTypeDef]
-
 class NetworkReachabilityDetailsTypeDef(TypedDict):
     networkPath: NetworkPathTypeDef
     openPortRange: PortRangeTypeDef
     protocol: NetworkProtocolType
+
+class CodeRepositoryMetadataTypeDef(TypedDict):
+    projectName: str
+    providerType: str
+    providerTypeVisibility: str
+    integrationArn: NotRequired[str]
+    lastScannedCommitId: NotRequired[str]
+    onDemandScan: NotRequired[CodeRepositoryOnDemandScanTypeDef]
+    scanConfiguration: NotRequired[ProjectCodeSecurityScanConfigurationTypeDef]
 
 GetSbomExportResponseTypeDef = TypedDict(
     "GetSbomExportResponseTypeDef",
@@ -1906,6 +2263,10 @@ class StopCisSessionRequestTypeDef(TypedDict):
     message: StopCisSessionMessageTypeDef
     scanJobId: str
     sessionToken: str
+
+class UpdateCodeSecurityIntegrationRequestTypeDef(TypedDict):
+    details: UpdateIntegrationDetailsTypeDef
+    integrationArn: str
 
 class ListUsageTotalsResponseTypeDef(TypedDict):
     totals: List[UsageTotalTypeDef]
@@ -2009,6 +2370,17 @@ class AwsEcrContainerAggregationTypeDef(TypedDict):
 
 FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
 
+class CreateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
+    configuration: CodeSecurityScanConfigurationUnionTypeDef
+    level: ConfigurationLevelType
+    name: str
+    scopeSettings: NotRequired[ScopeSettingsTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
+    configuration: CodeSecurityScanConfigurationUnionTypeDef
+    scanConfigurationArn: str
+
 class CisScanConfigurationTypeDef(TypedDict):
     scanConfigurationArn: str
     ownerId: NotRequired[str]
@@ -2020,10 +2392,12 @@ class CisScanConfigurationTypeDef(TypedDict):
 
 ScheduleUnionTypeDef = Union[ScheduleTypeDef, ScheduleOutputTypeDef]
 
-class ListCoverageResponseTypeDef(TypedDict):
-    coveredResources: List[CoveredResourceTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class ResourceScanMetadataTypeDef(TypedDict):
+    codeRepository: NotRequired[CodeRepositoryMetadataTypeDef]
+    ec2: NotRequired[Ec2MetadataTypeDef]
+    ecrImage: NotRequired[EcrContainerImageMetadataTypeDef]
+    ecrRepository: NotRequired[EcrRepositoryMetadataTypeDef]
+    lambdaFunction: NotRequired[LambdaFunctionMetadataTypeDef]
 
 class CreateSbomExportRequestTypeDef(TypedDict):
     reportFormat: SbomReportFormatType
@@ -2070,6 +2444,7 @@ class AggregationRequestTypeDef(TypedDict):
     accountAggregation: NotRequired[AccountAggregationTypeDef]
     amiAggregation: NotRequired[AmiAggregationTypeDef]
     awsEcrContainerAggregation: NotRequired[AwsEcrContainerAggregationTypeDef]
+    codeRepositoryAggregation: NotRequired[CodeRepositoryAggregationTypeDef]
     ec2InstanceAggregation: NotRequired[Ec2InstanceAggregationTypeDef]
     findingTypeAggregation: NotRequired[FindingTypeAggregationTypeDef]
     imageLayerAggregation: NotRequired[ImageLayerAggregationTypeDef]
@@ -2130,6 +2505,16 @@ class UpdateCisScanConfigurationRequestTypeDef(TypedDict):
     securityLevel: NotRequired[CisSecurityLevelType]
     targets: NotRequired[UpdateCisTargetsTypeDef]
 
+class CoveredResourceTypeDef(TypedDict):
+    accountId: str
+    resourceId: str
+    resourceType: CoverageResourceTypeType
+    scanType: ScanTypeType
+    lastScannedAt: NotRequired[datetime]
+    resourceMetadata: NotRequired[ResourceScanMetadataTypeDef]
+    scanMode: NotRequired[ScanModeType]
+    scanStatus: NotRequired[ScanStatusTypeDef]
+
 class GetClustersForImageResponseTypeDef(TypedDict):
     cluster: List[ClusterInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2151,4 +2536,9 @@ class ListFindingAggregationsRequestTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[StringFilterTypeDef]]
     aggregationRequest: NotRequired[AggregationRequestTypeDef]
     maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListCoverageResponseTypeDef(TypedDict):
+    coveredResources: List[CoveredResourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

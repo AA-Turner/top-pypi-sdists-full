@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_invoicing.literals import ListInvoiceUnitsPaginatorName
+    from types_aiobotocore_invoicing.literals import InvoiceTypeType
 
-    data: ListInvoiceUnitsPaginatorName = "list_invoice_units"
+    data: InvoiceTypeType = "CREDIT_MEMO"
     ```
 """
 
@@ -22,13 +22,19 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "InvoiceTypeType",
     "InvoicingServiceName",
+    "ListInvoiceSummariesPaginatorName",
+    "ListInvoiceSummariesResourceTypeType",
     "ListInvoiceUnitsPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
 )
 
+InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE"]
+ListInvoiceSummariesPaginatorName = Literal["list_invoice_summaries"]
+ListInvoiceSummariesResourceTypeType = Literal["ACCOUNT_ID", "INVOICE_ID"]
 ListInvoiceUnitsPaginatorName = Literal["list_invoice_units"]
 InvoicingServiceName = Literal["invoicing"]
 ServiceName = Literal[
@@ -36,6 +42,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -176,6 +183,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -233,6 +241,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -288,6 +297,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -432,6 +442,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -448,4 +459,4 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_invoice_units"]
+PaginatorName = Literal["list_invoice_summaries", "list_invoice_units"]

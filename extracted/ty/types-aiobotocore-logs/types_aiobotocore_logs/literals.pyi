@@ -41,6 +41,7 @@ __all__ = (
     "DistributionType",
     "EntityRejectionErrorTypeType",
     "EvaluationFrequencyType",
+    "EventSourceType",
     "ExportTaskStatusCodeType",
     "FilterLogEventsPaginatorName",
     "FlattenedElementType",
@@ -52,6 +53,7 @@ __all__ = (
     "ListLogAnomalyDetectorsPaginatorName",
     "ListLogGroupsForQueryPaginatorName",
     "LogGroupClassType",
+    "OCSFVersionType",
     "OpenSearchResourceStatusTypeType",
     "OrderByType",
     "OutputFormatType",
@@ -101,6 +103,7 @@ EntityRejectionErrorTypeType = Literal[
 EvaluationFrequencyType = Literal[
     "FIFTEEN_MIN", "FIVE_MIN", "ONE_HOUR", "ONE_MIN", "TEN_MIN", "THIRTY_MIN"
 ]
+EventSourceType = Literal["AWSWAF", "CloudTrail", "EKSAudit", "Route53Resolver", "VPCFlow"]
 ExportTaskStatusCodeType = Literal[
     "CANCELLED", "COMPLETED", "FAILED", "PENDING", "PENDING_CANCEL", "RUNNING"
 ]
@@ -114,6 +117,7 @@ ListAnomaliesPaginatorName = Literal["list_anomalies"]
 ListLogAnomalyDetectorsPaginatorName = Literal["list_log_anomaly_detectors"]
 ListLogGroupsForQueryPaginatorName = Literal["list_log_groups_for_query"]
 LogGroupClassType = Literal["DELIVERY", "INFREQUENT_ACCESS", "STANDARD"]
+OCSFVersionType = Literal["V1.1"]
 OpenSearchResourceStatusTypeType = Literal["ACTIVE", "ERROR", "NOT_FOUND"]
 OrderByType = Literal["LastEventTime", "LogStreamName"]
 OutputFormatType = Literal["json", "parquet", "plain", "raw", "w3c"]
@@ -168,6 +172,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -308,6 +313,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -365,6 +371,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -420,6 +427,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -564,6 +572,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -601,6 +610,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

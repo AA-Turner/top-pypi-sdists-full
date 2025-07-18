@@ -157,7 +157,7 @@ class Input:
             elif isinstance(self.value, str):
                 self.name = self.value
             else:
-                msg = "If name is not provided, then value must be a is an ArtifactQuery, URLQuery, or str"
+                msg = "If name is not provided, then the Input value must be an ArtifactQuery, URLQuery, or str"
                 raise ValueError(msg)
 
 

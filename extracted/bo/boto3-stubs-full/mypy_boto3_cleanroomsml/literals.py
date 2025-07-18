@@ -56,6 +56,7 @@ __all__ = (
     "PaginatorName",
     "PolicyExistenceConditionType",
     "ResourceServiceName",
+    "ResultFormatType",
     "S3DataDistributionTypeType",
     "ServiceName",
     "SharedAudienceMetricsType",
@@ -325,6 +326,7 @@ MLInputChannelStatusType = Literal[
 MetricsStatusType = Literal["PUBLISH_FAILED", "PUBLISH_SUCCEEDED"]
 NoiseLevelTypeType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 PolicyExistenceConditionType = Literal["POLICY_MUST_EXIST", "POLICY_MUST_NOT_EXIST"]
+ResultFormatType = Literal["CSV", "PARQUET"]
 S3DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 SharedAudienceMetricsType = Literal["ALL", "NONE"]
 TagOnCreatePolicyType = Literal["FROM_PARENT_RESOURCE", "NONE"]

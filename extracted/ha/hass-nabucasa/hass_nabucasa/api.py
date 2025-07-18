@@ -15,6 +15,7 @@ from aiohttp import (
     ClientResponse,
     ClientResponseError,
     ClientTimeout,
+    ContentTypeError,
     hdrs,
 )
 
@@ -28,6 +29,14 @@ if TYPE_CHECKING:
     T = TypeVar("T")
 
 _LOGGER = logging.getLogger(__name__)
+
+ALLOW_EMPTY_RESPONSE = frozenset(
+    {
+        "DELETE",
+        "POST",
+        "HEAD",
+    }
+)
 
 
 def api_exception_handler(
@@ -229,12 +238,12 @@ class ApiBase(ABC):
         )
 
         if resp.status < 500:
-            with contextlib.suppress(JSONDecodeError):
+            with contextlib.suppress(ContentTypeError, JSONDecodeError):
                 data = await resp.json()
 
         self._do_log_response(resp, data)
 
-        if data is None and resp.method.upper() != "DELETE":
+        if data is None and resp.method.upper() not in ALLOW_EMPTY_RESPONSE:
             raise CloudApiError("Failed to parse API response") from None
 
         if (

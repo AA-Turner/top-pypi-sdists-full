@@ -74,7 +74,10 @@ class InferenceInterface:
 
         # Set up index to category mapping
         self.index_to_category = self.action_tracker.get_index_to_category()
-        self.target_categories = list(self.index_to_category.values())
+        if self.index_to_category:
+            self.target_categories = list(self.index_to_category.values())
+        else:
+            self.target_categories = []
         
         # Set up default post-processing configuration
         self.post_processing_config = None

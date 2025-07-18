@@ -6,6 +6,7 @@ from typing import Any
 from typing import List  # noqa : UP005,UP035
 from typing import Literal
 from typing import Optional
+from typing import TypeVar
 from typing import Union
 from typing import get_origin
 
@@ -16,23 +17,24 @@ from pydantic.alias_generators import to_pascal
 from pydantic.alias_generators import to_snake
 from pydantic_core import Url
 
+from ..annotations import CaseExact
+from ..annotations import Mutability
+from ..annotations import Required
+from ..annotations import Returned
+from ..annotations import Uniqueness
+from ..attributes import ComplexAttribute
+from ..attributes import MultiValuedComplexAttribute
+from ..attributes import is_complex_attribute
 from ..base import BaseModel
-from ..base import CaseExact
-from ..base import ComplexAttribute
-from ..base import ExternalReference
-from ..base import MultiValuedComplexAttribute
-from ..base import Mutability
-from ..base import Reference
-from ..base import Required
-from ..base import Returned
-from ..base import Uniqueness
-from ..base import URIReference
-from ..base import is_complex_attribute
 from ..constants import RESERVED_WORDS
+from ..reference import ExternalReference
+from ..reference import Reference
+from ..reference import URIReference
 from ..utils import Base64Bytes
 from ..utils import normalize_attribute_name
-from .resource import Extension
 from .resource import Resource
+
+T = TypeVar("T", bound=BaseModel)
 
 
 def make_python_identifier(identifier: str) -> str:
@@ -46,9 +48,9 @@ def make_python_identifier(identifier: str) -> str:
 
 def make_python_model(
     obj: Union["Schema", "Attribute"],
-    base: Optional[type[BaseModel]] = None,
-    multiple=False,
-) -> Union[Resource, Extension]:
+    base: type[T],
+    multiple: bool = False,
+) -> type[T]:
     """Build a Python model from a Schema or an Attribute object."""
     if isinstance(obj, Attribute):
         pydantic_attributes = {
@@ -56,7 +58,6 @@ def make_python_model(
             for attr in (obj.sub_attributes or [])
             if attr.name
         }
-        base = MultiValuedComplexAttribute if multiple else ComplexAttribute
 
     else:
         pydantic_attributes = {
@@ -69,14 +70,17 @@ def make_python_model(
             Field(default=[obj.id]),
         )
 
+    if not obj.name:
+        raise ValueError("Schema or Attribute 'name' must be defined")
+
     model_name = to_pascal(to_snake(obj.name))
-    model = create_model(model_name, __base__=base, **pydantic_attributes)
+    model: type[T] = create_model(model_name, __base__=base, **pydantic_attributes)  # type: ignore[call-overload]
 
     # Set the ComplexType class as a member of the model
     # e.g. make Member an attribute of Group
     for attr_name in model.model_fields:
         attr_type = model.get_field_root_type(attr_name)
-        if is_complex_attribute(attr_type):
+        if attr_type and is_complex_attribute(attr_type):
             setattr(model, attr_type.__name__, attr_type)
 
     return model
@@ -95,7 +99,7 @@ class Attribute(ComplexAttribute):
 
         def to_python(
             self,
-            multiple=False,
+            multiple: bool = False,
             reference_types: Optional[list[str]] = None,
         ) -> type:
             if self.value == self.reference and reference_types is not None:
@@ -122,32 +126,32 @@ class Attribute(ComplexAttribute):
             return attr_types[self.value]
 
         @classmethod
-        def from_python(cls, pytype) -> str:
+        def from_python(cls, pytype: type) -> "Attribute.Type":
             if get_origin(pytype) == Reference:
-                return cls.reference.value
+                return cls.reference
 
-            if is_complex_attribute(pytype):
-                return cls.complex.value
+            if pytype and is_complex_attribute(pytype):
+                return cls.complex
 
             if pytype in (Required, CaseExact):
-                return cls.boolean.value
+                return cls.boolean
 
             attr_types = {
-                str: cls.string.value,
-                bool: cls.boolean.value,
-                float: cls.decimal.value,
-                int: cls.integer.value,
-                datetime: cls.date_time.value,
-                Base64Bytes: cls.binary.value,
+                str: cls.string,
+                bool: cls.boolean,
+                float: cls.decimal,
+                int: cls.integer,
+                datetime: cls.date_time,
+                Base64Bytes: cls.binary,
             }
-            return attr_types.get(pytype, cls.string.value)
+            return attr_types.get(pytype, cls.string)
 
     name: Annotated[
         Optional[str], Mutability.read_only, Required.true, CaseExact.true
     ] = None
     """The attribute's name."""
 
-    type: Annotated[Type, Mutability.read_only, Required.true] = Field(
+    type: Annotated[Optional[Type], Mutability.read_only, Required.true] = Field(
         None, examples=[item.value for item in Type]
     )
     """The attribute's data type."""
@@ -206,15 +210,17 @@ class Attribute(ComplexAttribute):
     """When an attribute is of type "complex", "subAttributes" defines a set of
     sub-attributes."""
 
-    def to_python(self) -> Optional[tuple[Any, Field]]:
+    def to_python(self) -> Optional[tuple[Any, Any]]:
         """Build tuple suited to be passed to pydantic 'create_model'."""
-        if not self.name:
+        if not self.name or not self.type:
             return None
 
-        attr_type = self.type.to_python(self.multi_valued, self.reference_types)
+        attr_type = self.type.to_python(bool(self.multi_valued), self.reference_types)
 
         if attr_type in (ComplexAttribute, MultiValuedComplexAttribute):
-            attr_type = make_python_model(obj=self, multiple=self.multi_valued)
+            attr_type = make_python_model(
+                obj=self, base=attr_type, multiple=bool(self.multi_valued)
+            )
 
         if self.multi_valued:
             attr_type = list[attr_type]  # type: ignore
@@ -245,7 +251,7 @@ class Attribute(ComplexAttribute):
                 return sub_attribute
         return None
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> "Attribute":
         """Find an attribute by its name."""
         if attribute := self.get_attribute(name):
             return attribute
@@ -287,7 +293,7 @@ class Schema(Resource):
                 return attribute
         return None
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> "Attribute":  # type: ignore[override]
         """Find an attribute by its name."""
         if attribute := self.get_attribute(name):
             return attribute

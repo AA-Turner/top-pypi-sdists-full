@@ -305,7 +305,13 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
             "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
         ),
-        pytest.param("str_1", id="string_as_categorical"),
+        pytest.param(
+            "str_1",
+            id="string_as_categorical",
+            marks=pytest.mark.xfail(
+                reason="Formulaic does not treat new-style strings as categorical yet"
+            ),
+        ),
     ],
 )
 def test_matrix_against_pandas(df, formula, ensure_full_rank):
@@ -830,6 +836,17 @@ def test_unseen_missing(cat_missing_method):
             result_unseen.toarray(), np.array([[1, 0], [0, 1], [0, 0]])
         )
         assert result_unseen.column_names == ["cat_1[a]", "cat_1[b]"]
+
+
+def test_drop_all_levels():
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["A", "A", "A"], categories=["A", "B"]),
+        }
+    )
+    X = tm.from_formula("C(cat_1) + 1", df, ensure_full_rank=True)
+    X_repl = X.model_spec.get_model_matrix(df)
+    np.testing.assert_array_equal(X.toarray(), X_repl.toarray())
 
 
 # Tests from formulaic's test suite

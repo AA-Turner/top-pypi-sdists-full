@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flyteidl
-Version: 1.15.3
+Version: 1.16.0
 Summary: IDL for Flyte Platform
 Author-email: Flyte Contributors <admin@flyte.org>
 License: Apache-2.0

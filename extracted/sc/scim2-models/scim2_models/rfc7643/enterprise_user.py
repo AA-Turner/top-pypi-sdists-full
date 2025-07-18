@@ -4,10 +4,10 @@ from typing import Optional
 
 from pydantic import Field
 
-from ..base import ComplexAttribute
-from ..base import Mutability
-from ..base import Reference
-from ..base import Required
+from ..annotations import Mutability
+from ..annotations import Required
+from ..attributes import ComplexAttribute
+from ..reference import Reference
 from .resource import Extension
 
 

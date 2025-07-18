@@ -19,6 +19,8 @@ from ._enums import *
 __all__ = [
     'ConstraintsPropertiesArgs',
     'ConstraintsPropertiesArgsDict',
+    'EvaluationFormAutoEvaluationConfigurationArgs',
+    'EvaluationFormAutoEvaluationConfigurationArgsDict',
     'EvaluationFormBaseItemArgs',
     'EvaluationFormBaseItemArgsDict',
     'EvaluationFormItemArgs',
@@ -236,6 +238,29 @@ class ConstraintsPropertiesArgs:
 
 
 if not MYPY:
+    class EvaluationFormAutoEvaluationConfigurationArgsDict(TypedDict):
+        enabled: NotRequired[pulumi.Input[builtins.bool]]
+elif False:
+    EvaluationFormAutoEvaluationConfigurationArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EvaluationFormAutoEvaluationConfigurationArgs:
+    def __init__(__self__, *,
+                 enabled: Optional[pulumi.Input[builtins.bool]] = None):
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @property
+    @pulumi.getter
+    def enabled(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "enabled")
+
+    @enabled.setter
+    def enabled(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "enabled", value)
+
+
+if not MYPY:
     class EvaluationFormBaseItemArgsDict(TypedDict):
         """
         An item at the root level. All items must be sections.
@@ -331,7 +356,8 @@ if not MYPY:
         """
         Information about the automation configuration in numeric questions.
         """
-        property_value: pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgsDict']
+        answer_source: NotRequired[Any]
+        property_value: NotRequired[pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgsDict']]
         """
         The property value of the automation.
         """
@@ -341,23 +367,36 @@ elif False:
 @pulumi.input_type
 class EvaluationFormNumericQuestionAutomationArgs:
     def __init__(__self__, *,
-                 property_value: pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']):
+                 answer_source: Optional[Any] = None,
+                 property_value: Optional[pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']] = None):
         """
         Information about the automation configuration in numeric questions.
         :param pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs'] property_value: The property value of the automation.
         """
-        pulumi.set(__self__, "property_value", property_value)
+        if answer_source is not None:
+            pulumi.set(__self__, "answer_source", answer_source)
+        if property_value is not None:
+            pulumi.set(__self__, "property_value", property_value)
+
+    @property
+    @pulumi.getter(name="answerSource")
+    def answer_source(self) -> Optional[Any]:
+        return pulumi.get(self, "answer_source")
+
+    @answer_source.setter
+    def answer_source(self, value: Optional[Any]):
+        pulumi.set(self, "answer_source", value)
 
     @property
     @pulumi.getter(name="propertyValue")
-    def property_value(self) -> pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']:
+    def property_value(self) -> Optional[pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']]:
         """
         The property value of the automation.
         """
         return pulumi.get(self, "property_value")
 
     @property_value.setter
-    def property_value(self, value: pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']):
+    def property_value(self, value: Optional[pulumi.Input['EvaluationFormNumericQuestionPropertyValueAutomationArgs']]):
         pulumi.set(self, "property_value", value)
 
 
@@ -1758,6 +1797,11 @@ if not MYPY:
         contact_lens: NotRequired[pulumi.Input[builtins.bool]]
         contactflow_logs: NotRequired[pulumi.Input[builtins.bool]]
         early_media: NotRequired[pulumi.Input[builtins.bool]]
+        enhanced_chat_monitoring: NotRequired[pulumi.Input[builtins.bool]]
+        enhanced_contact_monitoring: NotRequired[pulumi.Input[builtins.bool]]
+        high_volume_out_bound: NotRequired[pulumi.Input[builtins.bool]]
+        multi_party_chat_conference: NotRequired[pulumi.Input[builtins.bool]]
+        multi_party_conference: NotRequired[pulumi.Input[builtins.bool]]
         use_custom_tts_voices: NotRequired[pulumi.Input[builtins.bool]]
 elif False:
     InstanceAttributesArgsDict: TypeAlias = Mapping[str, Any]
@@ -1771,6 +1815,11 @@ class InstanceAttributesArgs:
                  contact_lens: Optional[pulumi.Input[builtins.bool]] = None,
                  contactflow_logs: Optional[pulumi.Input[builtins.bool]] = None,
                  early_media: Optional[pulumi.Input[builtins.bool]] = None,
+                 enhanced_chat_monitoring: Optional[pulumi.Input[builtins.bool]] = None,
+                 enhanced_contact_monitoring: Optional[pulumi.Input[builtins.bool]] = None,
+                 high_volume_out_bound: Optional[pulumi.Input[builtins.bool]] = None,
+                 multi_party_chat_conference: Optional[pulumi.Input[builtins.bool]] = None,
+                 multi_party_conference: Optional[pulumi.Input[builtins.bool]] = None,
                  use_custom_tts_voices: Optional[pulumi.Input[builtins.bool]] = None):
         pulumi.set(__self__, "inbound_calls", inbound_calls)
         pulumi.set(__self__, "outbound_calls", outbound_calls)
@@ -1782,6 +1831,16 @@ class InstanceAttributesArgs:
             pulumi.set(__self__, "contactflow_logs", contactflow_logs)
         if early_media is not None:
             pulumi.set(__self__, "early_media", early_media)
+        if enhanced_chat_monitoring is not None:
+            pulumi.set(__self__, "enhanced_chat_monitoring", enhanced_chat_monitoring)
+        if enhanced_contact_monitoring is not None:
+            pulumi.set(__self__, "enhanced_contact_monitoring", enhanced_contact_monitoring)
+        if high_volume_out_bound is not None:
+            pulumi.set(__self__, "high_volume_out_bound", high_volume_out_bound)
+        if multi_party_chat_conference is not None:
+            pulumi.set(__self__, "multi_party_chat_conference", multi_party_chat_conference)
+        if multi_party_conference is not None:
+            pulumi.set(__self__, "multi_party_conference", multi_party_conference)
         if use_custom_tts_voices is not None:
             pulumi.set(__self__, "use_custom_tts_voices", use_custom_tts_voices)
 
@@ -1838,6 +1897,51 @@ class InstanceAttributesArgs:
     @early_media.setter
     def early_media(self, value: Optional[pulumi.Input[builtins.bool]]):
         pulumi.set(self, "early_media", value)
+
+    @property
+    @pulumi.getter(name="enhancedChatMonitoring")
+    def enhanced_chat_monitoring(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "enhanced_chat_monitoring")
+
+    @enhanced_chat_monitoring.setter
+    def enhanced_chat_monitoring(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "enhanced_chat_monitoring", value)
+
+    @property
+    @pulumi.getter(name="enhancedContactMonitoring")
+    def enhanced_contact_monitoring(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "enhanced_contact_monitoring")
+
+    @enhanced_contact_monitoring.setter
+    def enhanced_contact_monitoring(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "enhanced_contact_monitoring", value)
+
+    @property
+    @pulumi.getter(name="highVolumeOutBound")
+    def high_volume_out_bound(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "high_volume_out_bound")
+
+    @high_volume_out_bound.setter
+    def high_volume_out_bound(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "high_volume_out_bound", value)
+
+    @property
+    @pulumi.getter(name="multiPartyChatConference")
+    def multi_party_chat_conference(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "multi_party_chat_conference")
+
+    @multi_party_chat_conference.setter
+    def multi_party_chat_conference(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "multi_party_chat_conference", value)
+
+    @property
+    @pulumi.getter(name="multiPartyConference")
+    def multi_party_conference(self) -> Optional[pulumi.Input[builtins.bool]]:
+        return pulumi.get(self, "multi_party_conference")
+
+    @multi_party_conference.setter
+    def multi_party_conference(self, value: Optional[pulumi.Input[builtins.bool]]):
+        pulumi.set(self, "multi_party_conference", value)
 
     @property
     @pulumi.getter(name="useCustomTtsVoices")
@@ -3147,7 +3251,7 @@ if not MYPY:
         type: pulumi.Input['RuleReferenceType']
         """
         The type of the reference. ``DATE`` must be of type Epoch timestamp. 
-          *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
+         *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
         """
         value: pulumi.Input[builtins.str]
         """
@@ -3164,7 +3268,7 @@ class RuleReferenceArgs:
         """
         Information about the reference when the ``referenceType`` is ``URL``. Otherwise, null. (Supports variable injection in the ``Value`` field.)
         :param pulumi.Input['RuleReferenceType'] type: The type of the reference. ``DATE`` must be of type Epoch timestamp. 
-                 *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
+                *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
         :param pulumi.Input[builtins.str] value: A valid value for the reference. For example, for a URL reference, a formatted URL that is displayed to an agent in the Contact Control Panel (CCP).
         """
         pulumi.set(__self__, "type", type)
@@ -3175,7 +3279,7 @@ class RuleReferenceArgs:
     def type(self) -> pulumi.Input['RuleReferenceType']:
         """
         The type of the reference. ``DATE`` must be of type Epoch timestamp. 
-          *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
+         *Allowed values*: ``URL`` | ``ATTACHMENT`` | ``NUMBER`` | ``STRING`` | ``DATE`` | ``EMAIL``
         """
         return pulumi.get(self, "type")
 
@@ -3208,12 +3312,12 @@ if not MYPY:
         content_type: pulumi.Input['RuleSendNotificationActionContentType']
         """
         Content type format.
-          *Allowed value*: ``PLAIN_TEXT``
+         *Allowed value*: ``PLAIN_TEXT``
         """
         delivery_method: pulumi.Input['RuleSendNotificationActionDeliveryMethod']
         """
         Notification delivery method.
-          *Allowed value*: ``EMAIL``
+         *Allowed value*: ``EMAIL``
         """
         recipient: pulumi.Input['RuleNotificationRecipientTypeArgsDict']
         """
@@ -3238,9 +3342,9 @@ class RuleSendNotificationActionArgs:
         Information about the send notification action.
         :param pulumi.Input[builtins.str] content: Notification content. Supports variable injection. For more information, see [JSONPath reference](https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html) in the *Administrators Guide*.
         :param pulumi.Input['RuleSendNotificationActionContentType'] content_type: Content type format.
-                 *Allowed value*: ``PLAIN_TEXT``
+                *Allowed value*: ``PLAIN_TEXT``
         :param pulumi.Input['RuleSendNotificationActionDeliveryMethod'] delivery_method: Notification delivery method.
-                 *Allowed value*: ``EMAIL``
+                *Allowed value*: ``EMAIL``
         :param pulumi.Input['RuleNotificationRecipientTypeArgs'] recipient: Notification recipient.
         :param pulumi.Input[builtins.str] subject: The subject of the email if the delivery method is ``EMAIL``. Supports variable injection. For more information, see [JSONPath reference](https://docs.aws.amazon.com/connect/latest/adminguide/contact-lens-variable-injection.html) in the *Administrators Guide*.
         """
@@ -3268,7 +3372,7 @@ class RuleSendNotificationActionArgs:
     def content_type(self) -> pulumi.Input['RuleSendNotificationActionContentType']:
         """
         Content type format.
-          *Allowed value*: ``PLAIN_TEXT``
+         *Allowed value*: ``PLAIN_TEXT``
         """
         return pulumi.get(self, "content_type")
 
@@ -3281,7 +3385,7 @@ class RuleSendNotificationActionArgs:
     def delivery_method(self) -> pulumi.Input['RuleSendNotificationActionDeliveryMethod']:
         """
         Notification delivery method.
-          *Allowed value*: ``EMAIL``
+         *Allowed value*: ``EMAIL``
         """
         return pulumi.get(self, "delivery_method")
 

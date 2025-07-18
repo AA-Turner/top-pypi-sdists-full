@@ -63,6 +63,7 @@ vllm = [
 ]
 sglang = [
     "sglang[all]>=0.4.5",
+    "flashinfer-python>=0.2.3",
     "datamodel-code-generator==0.28.5",
     "torch>=2.5.1",
     "aiofiles==24.1.0",

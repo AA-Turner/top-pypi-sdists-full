@@ -41,6 +41,10 @@ from .paginator import (
     ListVpcEndpointAssociationsPaginator,
 )
 from .type_defs import (
+    AcceptNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    AcceptNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
+    AssociateAvailabilityZonesRequestTypeDef,
+    AssociateAvailabilityZonesResponseTypeDef,
     AssociateFirewallPolicyRequestTypeDef,
     AssociateFirewallPolicyResponseTypeDef,
     AssociateSubnetsRequestTypeDef,
@@ -59,6 +63,8 @@ from .type_defs import (
     DeleteFirewallPolicyResponseTypeDef,
     DeleteFirewallRequestTypeDef,
     DeleteFirewallResponseTypeDef,
+    DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteRuleGroupRequestTypeDef,
     DeleteRuleGroupResponseTypeDef,
@@ -82,10 +88,14 @@ from .type_defs import (
     DescribeRuleGroupMetadataResponseTypeDef,
     DescribeRuleGroupRequestTypeDef,
     DescribeRuleGroupResponseTypeDef,
+    DescribeRuleGroupSummaryRequestTypeDef,
+    DescribeRuleGroupSummaryResponseTypeDef,
     DescribeTLSInspectionConfigurationRequestTypeDef,
     DescribeTLSInspectionConfigurationResponseTypeDef,
     DescribeVpcEndpointAssociationRequestTypeDef,
     DescribeVpcEndpointAssociationResponseTypeDef,
+    DisassociateAvailabilityZonesRequestTypeDef,
+    DisassociateAvailabilityZonesResponseTypeDef,
     DisassociateSubnetsRequestTypeDef,
     DisassociateSubnetsResponseTypeDef,
     GetAnalysisReportResultsRequestTypeDef,
@@ -109,6 +119,8 @@ from .type_defs import (
     ListVpcEndpointAssociationsRequestTypeDef,
     ListVpcEndpointAssociationsResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
+    RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef,
+    RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef,
     StartAnalysisReportRequestTypeDef,
     StartAnalysisReportResponseTypeDef,
     StartFlowCaptureRequestTypeDef,
@@ -117,6 +129,8 @@ from .type_defs import (
     StartFlowFlushResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAvailabilityZoneChangeProtectionRequestTypeDef,
+    UpdateAvailabilityZoneChangeProtectionResponseTypeDef,
     UpdateFirewallAnalysisSettingsRequestTypeDef,
     UpdateFirewallAnalysisSettingsResponseTypeDef,
     UpdateFirewallDeleteProtectionRequestTypeDef,
@@ -200,6 +214,27 @@ class NetworkFirewallClient(AioBaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/generate_presigned_url.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#generate_presigned_url)
+        """
+
+    async def accept_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[AcceptNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> AcceptNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Accepts a transit gateway attachment request for Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/accept_network_firewall_transit_gateway_attachment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#accept_network_firewall_transit_gateway_attachment)
+        """
+
+    async def associate_availability_zones(
+        self, **kwargs: Unpack[AssociateAvailabilityZonesRequestTypeDef]
+    ) -> AssociateAvailabilityZonesResponseTypeDef:
+        """
+        Associates the specified Availability Zones with a transit gateway-attached
+        firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/associate_availability_zones.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#associate_availability_zones)
         """
 
     async def associate_firewall_policy(
@@ -292,6 +327,16 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_firewall_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_firewall_policy)
+        """
+
+    async def delete_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[DeleteNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> DeleteNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Deletes a transit gateway attachment from a Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_network_firewall_transit_gateway_attachment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#delete_network_firewall_transit_gateway_attachment)
         """
 
     async def delete_resource_policy(
@@ -418,6 +463,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_rule_group_metadata)
         """
 
+    async def describe_rule_group_summary(
+        self, **kwargs: Unpack[DescribeRuleGroupSummaryRequestTypeDef]
+    ) -> DescribeRuleGroupSummaryResponseTypeDef:
+        """
+        Returns detailed information for a stateful rule group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_rule_group_summary.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_rule_group_summary)
+        """
+
     async def describe_tls_inspection_configuration(
         self, **kwargs: Unpack[DescribeTLSInspectionConfigurationRequestTypeDef]
     ) -> DescribeTLSInspectionConfigurationResponseTypeDef:
@@ -436,6 +491,17 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_vpc_endpoint_association.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#describe_vpc_endpoint_association)
+        """
+
+    async def disassociate_availability_zones(
+        self, **kwargs: Unpack[DisassociateAvailabilityZonesRequestTypeDef]
+    ) -> DisassociateAvailabilityZonesResponseTypeDef:
+        """
+        Removes the specified Availability Zone associations from a transit
+        gateway-attached firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/disassociate_availability_zones.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#disassociate_availability_zones)
         """
 
     async def disassociate_subnets(
@@ -562,6 +628,16 @@ class NetworkFirewallClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#put_resource_policy)
         """
 
+    async def reject_network_firewall_transit_gateway_attachment(
+        self, **kwargs: Unpack[RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef]
+    ) -> RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef:
+        """
+        Rejects a transit gateway attachment request for Network Firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/reject_network_firewall_transit_gateway_attachment.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#reject_network_firewall_transit_gateway_attachment)
+        """
+
     async def start_analysis_report(
         self, **kwargs: Unpack[StartAnalysisReportRequestTypeDef]
     ) -> StartAnalysisReportResponseTypeDef:
@@ -608,6 +684,17 @@ class NetworkFirewallClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/untag_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#untag_resource)
+        """
+
+    async def update_availability_zone_change_protection(
+        self, **kwargs: Unpack[UpdateAvailabilityZoneChangeProtectionRequestTypeDef]
+    ) -> UpdateAvailabilityZoneChangeProtectionResponseTypeDef:
+        """
+        Modifies the <code>AvailabilityZoneChangeProtection</code> setting for a
+        transit gateway-attached firewall.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_availability_zone_change_protection.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_network_firewall/client/#update_availability_zone_change_protection)
         """
 
     async def update_firewall_analysis_settings(

@@ -155,8 +155,6 @@ impl Builder for GithubBuilder {
                         .set_root(&root)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_length: true,
-                            stat_has_etag: true,
 
                             read: true,
 
@@ -169,8 +167,6 @@ impl Builder for GithubBuilder {
 
                             list: true,
                             list_with_recursive: true,
-                            list_has_content_length: true,
-                            list_has_etag: true,
 
                             shared: true,
 
@@ -205,10 +201,6 @@ impl Access for GithubBackend {
     type Writer = GithubWriters;
     type Lister = oio::PageLister<GithubLister>;
     type Deleter = oio::OneShotDeleter<GithubDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -219,7 +211,7 @@ impl Access for GithubBackend {
 
         let resp = self
             .core
-            .upload(&format!("{}.gitkeep", path), empty_bytes)
+            .upload(&format!("{path}.gitkeep"), empty_bytes)
             .await?;
 
         let status = resp.status();

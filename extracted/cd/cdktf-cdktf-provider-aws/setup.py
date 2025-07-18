@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.2.0",
+    "version": "21.3.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -196,6 +196,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.bedrockagent_agent_collaborator",
         "cdktf_cdktf_provider_aws.bedrockagent_agent_knowledge_base_association",
         "cdktf_cdktf_provider_aws.bedrockagent_data_source",
+        "cdktf_cdktf_provider_aws.bedrockagent_flow",
         "cdktf_cdktf_provider_aws.bedrockagent_knowledge_base",
         "cdktf_cdktf_provider_aws.bedrockagent_prompt",
         "cdktf_cdktf_provider_aws.budgets_budget",
@@ -852,6 +853,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.data_aws_route53_traffic_policy_document",
         "cdktf_cdktf_provider_aws.data_aws_route53_zone",
         "cdktf_cdktf_provider_aws.data_aws_route53_zones",
+        "cdktf_cdktf_provider_aws.data_aws_s3_access_point",
         "cdktf_cdktf_provider_aws.data_aws_s3_account_public_access_block",
         "cdktf_cdktf_provider_aws.data_aws_s3_bucket",
         "cdktf_cdktf_provider_aws.data_aws_s3_bucket_object",
@@ -1252,6 +1254,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.fsx_openzfs_file_system",
         "cdktf_cdktf_provider_aws.fsx_openzfs_snapshot",
         "cdktf_cdktf_provider_aws.fsx_openzfs_volume",
+        "cdktf_cdktf_provider_aws.fsx_s3_access_point_attachment",
         "cdktf_cdktf_provider_aws.fsx_windows_file_system",
         "cdktf_cdktf_provider_aws.gamelift_alias",
         "cdktf_cdktf_provider_aws.gamelift_build",
@@ -2141,7 +2144,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.2.0.jsii.tgz"
+            "provider-aws@21.3.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

@@ -27087,13 +27087,6 @@ class SagemakerServicecatalogPortfolio(Base):
         return list(response.values())[0]
 
 
-class Session(Base):
-    """
-    Class representing resource Session
-
-    """
-
-
 class Space(Base):
     """
     Class representing resource Space

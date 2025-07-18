@@ -75,12 +75,17 @@ from .usecases.underwater_pollution_detection import UnderwaterPlasticConfig
 from .usecases.pedestrian_detection import PedestrianDetectionConfig
 from .usecases.age_detection import AgeDetectionConfig
 from .usecases.mask_detection import MaskDetectionConfig
+from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
 
 
 from .usecases.weld_defect_detection import WeldDefectConfig
 
 from .usecases.car_damage_detection import CarDamageConfig
 from .usecases.price_tag_detection import PriceTagConfig
+from .usecases.banana_defect_detection import BananaMonitoringConfig
+from .usecases.distracted_driver_detection import DistractedDriverConfig
+from .usecases.emergency_vehicle_detection import EmergencyVehicleConfig
+from .usecases.solar_panel import SolarPanelConfig
 
 # Use case implementations
 from .usecases import (
@@ -102,8 +107,13 @@ from .usecases import (
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
     AgeDetectionUseCase,
+    BananaMonitoringUseCase,
     WeldDefectUseCase,
-    PriceTagUseCase
+    PriceTagUseCase,
+    DistractedDriverUseCase,
+    EmergencyVehicleUseCase,
+    SolarPanelUseCase,
+    ChickenPoseDetectionUseCase
 )
 
 # Register use cases automatically
@@ -124,10 +134,15 @@ _underwater_pollution_detection = UnderwaterPlasticUseCase()
 _pedestrian_detection = PedestrianDetectionUseCase()
 _age_detection = AgeDetectionUseCase()
 _mask_detection = MaskDetectionUseCase()
+_banana_defect_detection = BananaMonitoringUseCase()
+_chicken_pose_detection = ChickenPoseDetectionUseCase()
 
 _weld_defect_detection = WeldDefectUseCase()
 _pricetag_detection = PriceTagUseCase()
 _car_damage = CarDamageDetectionUseCase()
+_distracted_driver = DistractedDriverUseCase()
+_emergency_vehicle_detection = EmergencyVehicleUseCase()
+_solar_panel = SolarPanelUseCase()
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -148,8 +163,15 @@ registry.register_use_case(_age_detection.category, _age_detection.name, AgeDete
 registry.register_use_case(_pricetag_detection.category, _pricetag_detection.name, PriceTagUseCase)
 registry.register_use_case(_weld_defect_detection.category, _weld_defect_detection.name, WeldDefectUseCase  )
 registry.register_use_case(_mask_detection.category, _mask_detection.name, MaskDetectionUseCase)
+registry.register_use_case(_banana_defect_detection.category, _banana_defect_detection.name, BananaMonitoringUseCase)
+registry.register_use_case(_chicken_pose_detection.category, _chicken_pose_detection.name, ChickenPoseDetectionUseCase)
+
 
 registry.register_use_case(_car_damage.category, _car_damage.name, CarDamageDetectionUseCase)
+registry.register_use_case(_distracted_driver.category, _distracted_driver.name, DistractedDriverUseCase)
+
+registry.register_use_case(_emergency_vehicle_detection.category, _emergency_vehicle_detection.name, EmergencyVehicleUseCase)
+registry.register_use_case(_solar_panel.category, _solar_panel.name, SolarPanelUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -301,6 +323,11 @@ __all__ = [
     'AgeDetectionConfig',
     'WeldDefectConfig',
     'PriceTagConfig',
+    'BananaMonitoringConfig',
+    'DistractedDriverConfig',
+    'EmergencyVehicleConfig',
+    'SolarPanelConfig',
+    'ChickenPoseDetectionConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -322,7 +349,12 @@ __all__ = [
     'PedestrianDetectionUseCase',
     'AgeDetectionUseCase',
     'WeldDefectUseCase',
+    'BananaMonitoringUseCase',
     'PriceTagUseCase',
+    'DistractedDriverUseCase',
+    'EmergencyVehicleUseCase',
+    'SolarPanelUseCase',
+    'ChickenPoseDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

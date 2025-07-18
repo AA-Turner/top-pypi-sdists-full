@@ -38,8 +38,8 @@ use uv_resolver::{
     AnnotationStyle, DependencyMode, ExcludeNewer, ForkStrategy, PrereleaseMode, ResolutionMode,
 };
 use uv_settings::{
-    Combine, FilesystemOptions, Options, PipOptions, PublishOptions, PythonInstallMirrors,
-    ResolverInstallerOptions, ResolverOptions,
+    Combine, EnvironmentOptions, FilesystemOptions, Options, PipOptions, PublishOptions,
+    PythonInstallMirrors, ResolverInstallerOptions, ResolverOptions,
 };
 use uv_static::EnvVars;
 use uv_torch::TorchMode;
@@ -933,6 +933,8 @@ pub(crate) struct PythonInstallSettings {
     pub(crate) targets: Vec<String>,
     pub(crate) reinstall: bool,
     pub(crate) force: bool,
+    pub(crate) bin: Option<bool>,
+    pub(crate) registry: Option<bool>,
     pub(crate) python_install_mirror: Option<String>,
     pub(crate) pypy_install_mirror: Option<String>,
     pub(crate) python_downloads_json_url: Option<String>,
@@ -942,7 +944,11 @@ pub(crate) struct PythonInstallSettings {
 impl PythonInstallSettings {
     /// Resolve the [`PythonInstallSettings`] from the CLI and filesystem configuration.
     #[allow(clippy::needless_pass_by_value)]
-    pub(crate) fn resolve(args: PythonInstallArgs, filesystem: Option<FilesystemOptions>) -> Self {
+    pub(crate) fn resolve(
+        args: PythonInstallArgs,
+        filesystem: Option<FilesystemOptions>,
+        environment: EnvironmentOptions,
+    ) -> Self {
         let options = filesystem.map(FilesystemOptions::into_options);
         let (python_mirror, pypy_mirror, python_downloads_json_url) = match options {
             Some(options) => (
@@ -961,6 +967,10 @@ impl PythonInstallSettings {
             install_dir,
             targets,
             reinstall,
+            bin,
+            no_bin,
+            registry,
+            no_registry,
             force,
             mirror: _,
             pypy_mirror: _,
@@ -973,6 +983,9 @@ impl PythonInstallSettings {
             targets,
             reinstall,
             force,
+            bin: flag(bin, no_bin, "bin").or(environment.python_install_bin),
+            registry: flag(registry, no_registry, "registry")
+                .or(environment.python_install_registry),
             python_install_mirror: python_mirror,
             pypy_install_mirror: pypy_mirror,
             python_downloads_json_url,
@@ -988,10 +1001,12 @@ pub(crate) struct PythonUpgradeSettings {
     pub(crate) install_dir: Option<PathBuf>,
     pub(crate) targets: Vec<String>,
     pub(crate) force: bool,
+    pub(crate) registry: Option<bool>,
     pub(crate) python_install_mirror: Option<String>,
     pub(crate) pypy_install_mirror: Option<String>,
     pub(crate) python_downloads_json_url: Option<String>,
     pub(crate) default: bool,
+    pub(crate) bin: Option<bool>,
 }
 
 impl PythonUpgradeSettings {
@@ -1013,6 +1028,8 @@ impl PythonUpgradeSettings {
             args.python_downloads_json_url.or(python_downloads_json_url);
         let force = false;
         let default = false;
+        let bin = None;
+        let registry = None;
 
         let PythonUpgradeArgs {
             install_dir,
@@ -1026,10 +1043,12 @@ impl PythonUpgradeSettings {
             install_dir,
             targets,
             force,
+            registry,
             python_install_mirror: python_mirror,
             pypy_install_mirror: pypy_mirror,
             python_downloads_json_url,
             default,
+            bin,
         }
     }
 }
@@ -1332,7 +1351,7 @@ pub(crate) struct AddSettings {
     pub(crate) package: Option<PackageName>,
     pub(crate) script: Option<PathBuf>,
     pub(crate) python: Option<String>,
-    pub(crate) workspace: bool,
+    pub(crate) workspace: Option<bool>,
     pub(crate) install_mirrors: PythonInstallMirrors,
     pub(crate) refresh: Refresh,
     pub(crate) indexes: Vec<Index>,
@@ -1371,6 +1390,7 @@ impl AddSettings {
             script,
             python,
             workspace,
+            no_workspace,
         } = args;
 
         let dependency_type = if let Some(extra) = optional {
@@ -1471,7 +1491,7 @@ impl AddSettings {
             package,
             script,
             python: python.and_then(Maybe::into_option),
-            workspace,
+            workspace: flag(workspace, no_workspace, "workspace"),
             editable: flag(editable, no_editable, "editable"),
             extras: extra.unwrap_or_default(),
             refresh: Refresh::from(refresh),
@@ -2603,6 +2623,7 @@ impl BuildSettings {
 pub(crate) struct VenvSettings {
     pub(crate) seed: bool,
     pub(crate) allow_existing: bool,
+    pub(crate) clear: bool,
     pub(crate) path: Option<PathBuf>,
     pub(crate) prompt: Option<String>,
     pub(crate) system_site_packages: bool,
@@ -2621,6 +2642,7 @@ impl VenvSettings {
             no_system,
             seed,
             allow_existing,
+            clear,
             path,
             prompt,
             system_site_packages,
@@ -2638,6 +2660,7 @@ impl VenvSettings {
         Self {
             seed,
             allow_existing,
+            clear,
             path,
             prompt,
             system_site_packages,

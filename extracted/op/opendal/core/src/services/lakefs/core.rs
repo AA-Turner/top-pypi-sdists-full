@@ -15,15 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::raw::*;
-use crate::*;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::sync::Arc;
+
 use http::header;
 use http::Request;
 use http::Response;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::fmt::Debug;
-use std::sync::Arc;
+
+use crate::raw::*;
+use crate::*;
 
 pub struct LakefsCore {
     pub info: Arc<AccessorInfo>,
@@ -125,15 +127,15 @@ impl LakefsCore {
         }
 
         if !delimiter.is_empty() {
-            url.push_str(&format!("&delimiter={}", delimiter));
+            url.push_str(&format!("&delimiter={delimiter}"));
         }
 
         if let Some(amount) = amount {
-            url.push_str(&format!("&amount={}", amount));
+            url.push_str(&format!("&amount={amount}"));
         }
 
         if let Some(after) = after {
-            url.push_str(&format!("&after={}", after));
+            url.push_str(&format!("&after={after}"));
         }
 
         let mut req = Request::get(&url);

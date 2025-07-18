@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: izulu
-Version: 0.50.0
+Version: 0.55.0
 Summary: The exceptional library
 Author-email: Dima Burmistrov <pyctrl.dev@gmail.com>
 License: Copyright (c) 2023-2025 Dmitry Burmistrov
@@ -37,6 +37,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
@@ -1118,4 +1119,3 @@ License
 
 This project is licensed under the X11 License (extended MIT) - see the
 `LICENSE <https://github.com/pyctrl/izulu/blob/main/LICENSE>`__ file for details
-

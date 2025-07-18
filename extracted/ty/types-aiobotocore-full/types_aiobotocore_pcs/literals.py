@@ -44,7 +44,15 @@ __all__ = (
 
 AccountingModeType = Literal["NONE", "STANDARD"]
 ClusterStatusType = Literal[
-    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+    "ACTIVE",
+    "CREATE_FAILED",
+    "CREATING",
+    "DELETE_FAILED",
+    "DELETING",
+    "SUSPENDED",
+    "SUSPENDING",
+    "UPDATE_FAILED",
+    "UPDATING",
 ]
 ComputeNodeGroupStatusType = Literal[
     "ACTIVE",
@@ -53,6 +61,8 @@ ComputeNodeGroupStatusType = Literal[
     "DELETED",
     "DELETE_FAILED",
     "DELETING",
+    "SUSPENDED",
+    "SUSPENDING",
     "UPDATE_FAILED",
     "UPDATING",
 ]
@@ -62,7 +72,15 @@ ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
 PurchaseOptionType = Literal["ONDEMAND", "SPOT"]
 QueueStatusType = Literal[
-    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
+    "ACTIVE",
+    "CREATE_FAILED",
+    "CREATING",
+    "DELETE_FAILED",
+    "DELETING",
+    "SUSPENDED",
+    "SUSPENDING",
+    "UPDATE_FAILED",
+    "UPDATING",
 ]
 SchedulerTypeType = Literal["SLURM"]
 SizeType = Literal["LARGE", "MEDIUM", "SMALL"]
@@ -75,6 +93,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -215,6 +234,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -272,6 +292,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -327,6 +348,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -471,6 +493,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

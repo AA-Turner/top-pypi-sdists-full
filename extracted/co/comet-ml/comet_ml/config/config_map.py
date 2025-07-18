@@ -23,6 +23,12 @@ from .config_constants import (
     DEFAULT_STREAMER_MSG_TIMEOUT,
     DEFAULT_SYSTEM_MONITORING_INTERVAL,
     FALLBACK_STREAMER_CONNECTION_CHECK_INTERVAL_SECONDS,
+    GET_OR_ADD_RUN_RETRY_BACKOFF_FACTOR,
+    GET_OR_ADD_RUN_RETRY_BACKOFF_MAX,
+    GET_OR_ADD_RUN_RETRY_CONNECT,
+    GET_OR_ADD_RUN_RETRY_READ,
+    GET_OR_ADD_RUN_RETRY_STATUS,
+    GET_OR_ADD_RUN_RETRY_TOTAL,
     HTTP_SESSION_RETRY_BACKOFF_FACTOR_DEFAULT,
     HTTP_SESSION_RETRY_TOTAL_DEFAULT,
     MESSAGE_BATCH_METRIC_INTERVAL_SECONDS,
@@ -274,5 +280,29 @@ CONFIG_MAP = {
     "comet.http_session.retry_backoff_factor": {
         "type": int,
         "default": HTTP_SESSION_RETRY_BACKOFF_FACTOR_DEFAULT,
+    },
+    "comet.get_or_add_experiment.retry_connect": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_CONNECT,
+    },
+    "comet.get_or_add_experiment.retry_read": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_READ,
+    },
+    "comet.get_or_add_experiment.retry_status": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_STATUS,
+    },
+    "comet.get_or_add_experiment.retry_total": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_TOTAL,
+    },
+    "comet.get_or_add_experiment.retry_backoff_factor": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_BACKOFF_FACTOR,
+    },
+    "comet.get_or_add_experiment.retry_backoff_max": {
+        "type": int,
+        "default": GET_OR_ADD_RUN_RETRY_BACKOFF_MAX,
     },
 }

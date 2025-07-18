@@ -47,6 +47,8 @@ else:
 
 __all__ = (
     "AccountEnrollmentStatusTypeDef",
+    "AuroraDbClusterStorageConfigurationTypeDef",
+    "AuroraDbClusterStorageTypeDef",
     "BlockStoragePerformanceConfigurationTypeDef",
     "ComputeConfigurationTypeDef",
     "ComputeSavingsPlansConfigurationTypeDef",
@@ -128,6 +130,9 @@ class AccountEnrollmentStatusTypeDef(TypedDict):
     status: NotRequired[EnrollmentStatusType]
     lastUpdatedTimestamp: NotRequired[datetime]
     createdTimestamp: NotRequired[datetime]
+
+class AuroraDbClusterStorageConfigurationTypeDef(TypedDict):
+    storageType: NotRequired[str]
 
 class BlockStoragePerformanceConfigurationTypeDef(TypedDict):
     iops: NotRequired[float]
@@ -568,6 +573,10 @@ class SageMakerSavingsPlansTypeDef(TypedDict):
     configuration: NotRequired[SageMakerSavingsPlansConfigurationTypeDef]
     costCalculation: NotRequired[SavingsPlansCostCalculationTypeDef]
 
+class AuroraDbClusterStorageTypeDef(TypedDict):
+    configuration: NotRequired[AuroraDbClusterStorageConfigurationTypeDef]
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
 class EbsVolumeTypeDef(TypedDict):
     configuration: NotRequired[EbsVolumeConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
@@ -612,6 +621,7 @@ class ResourceDetailsTypeDef(TypedDict):
     sageMakerSavingsPlans: NotRequired[SageMakerSavingsPlansTypeDef]
     rdsDbInstance: NotRequired[RdsDbInstanceTypeDef]
     rdsDbInstanceStorage: NotRequired[RdsDbInstanceStorageTypeDef]
+    auroraDbClusterStorage: NotRequired[AuroraDbClusterStorageTypeDef]
     dynamoDbReservedCapacity: NotRequired[DynamoDbReservedCapacityTypeDef]
     memoryDbReservedInstances: NotRequired[MemoryDbReservedInstancesTypeDef]
 

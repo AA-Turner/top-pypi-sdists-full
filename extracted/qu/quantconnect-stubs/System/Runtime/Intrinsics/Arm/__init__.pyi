@@ -7023,6 +7023,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def add_rounded_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svraddhnb[_u16](svuint16_t op1, svuint16_t op2)
+          RADDHNB Zresult.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def add_rounded_high_narrowing_odd(even: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svraddhnt[_u16](svuint8_t even, svuint16_t op1, svuint16_t op2)
+          RADDHNT Ztied.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
     def add_saturate(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svqadd[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
@@ -7121,6 +7137,14 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
           UHADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
           UHADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
           UHADD Ztied2.B, Pg/M, Ztied2.B, Zop1.B
+        """
+        ...
+
+    @staticmethod
+    def fused_add_rounded_halving(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrhadd[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          URHADD Ztied1.B, Pg/M, Ztied1.B, Zop2.B
         """
         ...
 
@@ -7573,6 +7597,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svuint8_t svsubhnt[_u16](svuint8_t even, svuint16_t op1, svuint16_t op2)
           SUBHNT Ztied.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def subtract_rounded_high_narrowing_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrsubhnb[_u16](svuint16_t op1, svuint16_t op2)
+          RSUBHNB Zresult.B, Zop1.H, Zop2.H
+        """
+        ...
+
+    @staticmethod
+    def subtract_rounded_high_narrowing_odd(even: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svrsubhnt[_u16](svuint8_t even, svuint16_t op1, svuint16_t op2)
+          RSUBHNT Ztied.B, Zop1.H, Zop2.H
         """
         ...
 

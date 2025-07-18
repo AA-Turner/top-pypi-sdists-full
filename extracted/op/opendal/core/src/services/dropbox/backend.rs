@@ -40,10 +40,6 @@ impl Access for DropboxBackend {
     type Writer = oio::OneShotWriter<DropboxWriter>;
     type Lister = oio::PageLister<DropboxLister>;
     type Deleter = oio::OneShotDeleter<DropboxDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -62,7 +58,7 @@ impl Access for DropboxBackend {
             if "file" == decoded_response.tag {
                 return Err(Error::new(
                     ErrorKind::NotADirectory,
-                    format!("it's not a directory {}", path),
+                    format!("it's not a directory {path}"),
                 ));
             }
         }
@@ -99,7 +95,7 @@ impl Access for DropboxBackend {
                     } else {
                         return Err(Error::new(
                             ErrorKind::Unexpected,
-                            format!("no size found for file {}", path),
+                            format!("no size found for file {path}"),
                         ));
                     }
                 }

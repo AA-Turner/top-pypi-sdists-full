@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock.literals import ApplicationTypeType
+    from types_aiobotocore_bedrock.literals import AgreementStatusType
 
-    data: ApplicationTypeType = "ModelEvaluation"
+    data: AgreementStatusType = "AVAILABLE"
     ```
 """
 
@@ -22,10 +22,13 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgreementStatusType",
     "ApplicationTypeType",
+    "AuthorizationStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
     "CustomizationTypeType",
+    "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
     "EvaluationJobTypeType",
     "EvaluationTaskTypeType",
@@ -34,6 +37,7 @@ __all__ = (
     "FoundationModelLifecycleStatusType",
     "GuardrailContentFilterActionType",
     "GuardrailContentFilterTypeType",
+    "GuardrailContentFiltersTierNameType",
     "GuardrailContextualGroundingActionType",
     "GuardrailContextualGroundingFilterTypeType",
     "GuardrailFilterStrengthType",
@@ -44,6 +48,7 @@ __all__ = (
     "GuardrailStatusType",
     "GuardrailTopicActionType",
     "GuardrailTopicTypeType",
+    "GuardrailTopicsTierNameType",
     "GuardrailWordActionType",
     "InferenceProfileStatusType",
     "InferenceProfileTypeType",
@@ -67,12 +72,15 @@ __all__ = (
     "ModelImportJobStatusType",
     "ModelInvocationJobStatusType",
     "ModelModalityType",
+    "ModelStatusType",
+    "OfferTypeType",
     "PaginatorName",
     "PerformanceConfigLatencyType",
     "PromptRouterStatusType",
     "PromptRouterTypeType",
     "ProvisionedModelStatusType",
     "QueryTransformationTypeType",
+    "RegionAvailabilityType",
     "RegionName",
     "ResourceServiceName",
     "RetrieveAndGenerateTypeType",
@@ -86,9 +94,12 @@ __all__ = (
     "StatusType",
 )
 
+AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
+AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
-CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING"]
+CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
+EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
     "Completed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
 ]
@@ -103,6 +114,7 @@ GuardrailContentFilterActionType = Literal["BLOCK", "NONE"]
 GuardrailContentFilterTypeType = Literal[
     "HATE", "INSULTS", "MISCONDUCT", "PROMPT_ATTACK", "SEXUAL", "VIOLENCE"
 ]
+GuardrailContentFiltersTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailContextualGroundingActionType = Literal["BLOCK", "NONE"]
 GuardrailContextualGroundingFilterTypeType = Literal["GROUNDING", "RELEVANCE"]
 GuardrailFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
@@ -145,6 +157,7 @@ GuardrailSensitiveInformationActionType = Literal["ANONYMIZE", "BLOCK", "NONE"]
 GuardrailStatusType = Literal["CREATING", "DELETING", "FAILED", "READY", "UPDATING", "VERSIONING"]
 GuardrailTopicActionType = Literal["BLOCK", "NONE"]
 GuardrailTopicTypeType = Literal["DENY"]
+GuardrailTopicsTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailWordActionType = Literal["BLOCK", "NONE"]
 InferenceProfileStatusType = Literal["ACTIVE"]
 InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]
@@ -183,11 +196,14 @@ ModelInvocationJobStatusType = Literal[
     "Validating",
 ]
 ModelModalityType = Literal["EMBEDDING", "IMAGE", "TEXT"]
+ModelStatusType = Literal["Active", "Creating", "Failed"]
+OfferTypeType = Literal["ALL", "PUBLIC"]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 PromptRouterStatusType = Literal["AVAILABLE"]
 PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
 QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
+RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
@@ -202,6 +218,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -342,6 +359,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -399,6 +417,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -454,6 +473,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -598,6 +618,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

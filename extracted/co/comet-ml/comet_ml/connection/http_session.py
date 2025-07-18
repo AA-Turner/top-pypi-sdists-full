@@ -26,6 +26,7 @@ from urllib3 import Retry
 from ..authhook import aws_sagemaker
 from ..config import Config, get_config
 from ..utils import get_comet_version
+from . import retry_with_full_jitter
 from .ca_certs import setup_ca_certs
 from .http_adapters import HTTPSAdapter, HTTPSTCPKeepAliveAdapter
 
@@ -156,7 +157,6 @@ def get_retry_strategy(
     backoff_factor: Optional[float] = None,
     config: Optional[Config] = None,
 ) -> Retry:
-
     # The total backoff sleeping time is computed like that:
     # backoff = 2
     # retries = 3
@@ -172,6 +172,7 @@ def get_retry_strategy(
 
     if total_retries is None:
         total_retries = config.get_int(None, "comet.http_session.retry_total")
+
     if backoff_factor is None:
         backoff_factor = float(
             config.get_int(None, "comet.http_session.retry_backoff_factor")
@@ -188,6 +189,40 @@ def get_retry_strategy(
         status_forcelist=status_forcelist,
         raise_on_status=False,
         **kwargs
+    )
+
+
+def get_retry_strategy_for_get_or_add_run(
+    status_forcelist: List[int],
+    config: Optional[Config],
+) -> Retry:
+    # The total backoff sleeping time is computed like that:
+    # backoff = 2
+    # retries = 3
+    # s = lambda b, i: b * (2 ** (i - 1)) * (1 + random.random())
+    # sleep = sum(s(backoff, i) for i in range(1, retries + 1))
+    # Will wait up to 14s
+
+    connect_retries = config.get_int(None, "comet.get_or_add_experiment.retry_connect")
+    status_retries = config.get_int(None, "comet.get_or_add_experiment.retry_status")
+    read_retries = config.get_int(None, "comet.get_or_add_experiment.retry_read")
+    total_retries = config.get_int(None, "comet.get_or_add_experiment.retry_total")
+
+    backoff_factor = config.get_int(
+        None, "comet.get_or_add_experiment.retry_backoff_factor"
+    )
+    backoff_max = config.get_int(None, "comet.get_or_add_experiment.retry_backoff_max")
+
+    return retry_with_full_jitter.RetryWithFullJitter(
+        connect=connect_retries,
+        read=read_retries,
+        total=total_retries,
+        status=status_retries,
+        backoff_factor=backoff_factor,
+        backoff_max=backoff_max,
+        status_forcelist=status_forcelist,
+        raise_on_status=False,
+        allowed_methods=None,
     )
 
 

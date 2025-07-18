@@ -613,6 +613,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         partitioned_by: tuple[Feature, ...] | None,
         data_lineage: Dict[str, Dict[str, Dict[str, List[str]]]] | None,
         sql_settings: SQLResolverSettings | None,
+        resource_group: str | None = None,
         name: None = None,  # deprecated
     ):
         self._function_definition = ... if function_definition is None else function_definition
@@ -646,6 +647,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self.is_cell_magic = False
         self.name = fqn.split(".")[-1]
         self.resource_hint = resource_hint
+        self.resource_group = resource_group
         self._parse = parse
         self.static = static
         self.total = total
@@ -2142,6 +2144,7 @@ def online(
     total: bool = False,
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
+    resource_group: str | None = None,
 ) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]:
     ...
 
@@ -2170,6 +2173,7 @@ def online(
     total: bool = False,
     unique_on: Collection[Any] | None = None,
     partitioned_by: Collection[Any] | None = None,
+    resource_group: str | None = None,
 ) -> Union[Callable[[Callable[P, T]], ResolverProtocol[P, T]], ResolverProtocol[P, T]]:
     """Decorator to create an online resolver.
 
@@ -2252,6 +2256,10 @@ def online(
         This field indicates that this resolver executes its query against a data storage system that is
         partitioned by a particular set of columns.
         This is most common with data-warehouse sources like Snowflake, BigQuery or Databricks.
+    resource_group
+        The resource group for the resolver: this is used to isolate execution of
+        the resolver onto a separate pod (or set of nodes), allowing model inference
+        to be run in a separate environment, such as on a GPU-enabled node.
 
     Returns
     -------
@@ -2329,6 +2337,7 @@ def online(
             partitioned_by=None,
             data_lineage=None,
             sql_settings=None,
+            resource_group=resource_group,
         )
 
         resolver.add_to_registry(override=False)
@@ -2768,7 +2777,7 @@ class StreamResolver(Resolver[P, T]):
             fqn_to_declared_windows = {
                 o.fqn: sorted(o.window_durations) for o in _flatten_features(self.output) if o.is_windowed
             }
-            periods = [f'{fqn}[{", ".join(f"{window}s")}]' for fqn, window in fqn_to_declared_windows.items()]
+            periods = [f"{fqn}[{', '.join(f'{window}s')}]" for fqn, window in fqn_to_declared_windows.items()]
             raise ValueError(f"All features must have the same window periods. Found {', '.join(periods)}")
         self.window_periods_seconds = next(iter(fqn_to_windows.values()), ())
         # Mapping of window (in secs) to mapping of (original feature, windowed pseudofeature)

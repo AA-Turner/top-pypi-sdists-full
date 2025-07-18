@@ -3,11 +3,12 @@ import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import TypedDict, cast
+from typing import cast
 
 import structlog
 from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
 from starlette.exceptions import HTTPException
+from typing_extensions import TypedDict
 
 import langgraph_api.logging as lg_logging
 from langgraph_api.auth.custom import SimpleUser, normalize_user

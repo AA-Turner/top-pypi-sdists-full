@@ -3005,6 +3005,7 @@ class ClassicAddress(AIOBoto3ServiceResource):
     customer_owned_ip: Awaitable[str]
     customer_owned_ipv4_pool: Awaitable[str]
     carrier_ip: Awaitable[str]
+    subnet_id: Awaitable[str]
     service_managed: Awaitable[ServiceManagedType]
     instance_id: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
@@ -3353,8 +3354,8 @@ class Instance(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[AttachVolumeRequestInstanceAttachVolumeTypeDef]
     ) -> VolumeAttachmentResponseTypeDef:
         """
-        Attaches an EBS volume to a running or stopped instance and exposes it to the
-        instance with the specified device name.
+        Attaches an Amazon EBS volume to a <code>running</code> or <code>stopped</code>
+        instance, and exposes it to the instance with the specified device name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/instance/attach_volume.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#instanceattach_volume-method)
@@ -3900,6 +3901,7 @@ class NetworkInterface(AIOBoto3ServiceResource):
     ipv6_native: Awaitable[bool]
     ipv6_address: Awaitable[str]
     operator: Awaitable[OperatorResponseTypeDef]
+    associated_subnets: Awaitable[List[str]]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4152,6 +4154,7 @@ class Route(AIOBoto3ServiceResource):
     state: Awaitable[RouteStateType]
     vpc_peering_connection_id: Awaitable[str]
     core_network_arn: Awaitable[str]
+    odb_network_arn: Awaitable[str]
     meta: EC2ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -4566,6 +4569,7 @@ class Subnet(AIOBoto3ServiceResource):
     ipv6_native: Awaitable[bool]
     private_dns_name_options_on_launch: Awaitable[PrivateDnsNameOptionsOnLaunchTypeDef]
     block_public_access_states: Awaitable[BlockPublicAccessStatesTypeDef]
+    type: Awaitable[str]
     subnet_id: Awaitable[str]
     state: Awaitable[SubnetStateType]
     vpc_id: Awaitable[str]
@@ -4719,8 +4723,8 @@ class Volume(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[AttachVolumeRequestVolumeAttachToInstanceTypeDef]
     ) -> VolumeAttachmentResponseTypeDef:
         """
-        Attaches an EBS volume to a running or stopped instance and exposes it to the
-        instance with the specified device name.
+        Attaches an Amazon EBS volume to a <code>running</code> or <code>stopped</code>
+        instance, and exposes it to the instance with the specified device name.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/volume/attach_to_instance.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/service_resource/#volumeattach_to_instance-method)
@@ -5143,6 +5147,7 @@ class VpcAddress(AIOBoto3ServiceResource):
     customer_owned_ip: Awaitable[str]
     customer_owned_ipv4_pool: Awaitable[str]
     carrier_ip: Awaitable[str]
+    subnet_id: Awaitable[str]
     service_managed: Awaitable[ServiceManagedType]
     instance_id: Awaitable[str]
     public_ip: Awaitable[str]

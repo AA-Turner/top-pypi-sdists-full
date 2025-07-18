@@ -43,6 +43,8 @@ __all__ = (
     "IncludeOptionsType",
     "IncludeType",
     "JobScheduleDayOfTheWeekType",
+    "LayoutTypeType",
+    "ListDomainLayoutsPaginatorName",
     "ListEventStreamsPaginatorName",
     "ListEventTriggersPaginatorName",
     "ListObjectTypeAttributesPaginatorName",
@@ -58,6 +60,7 @@ __all__ = (
     "PeriodUnitType",
     "QueryResultType",
     "RangeUnitType",
+    "ReadinessStatusType",
     "RegionName",
     "ResourceServiceName",
     "RuleBasedMatchingStatusType",
@@ -151,6 +154,8 @@ IncludeType = Literal["ALL", "ANY", "NONE"]
 JobScheduleDayOfTheWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
+LayoutTypeType = Literal["PROFILE_EXPLORER"]
+ListDomainLayoutsPaginatorName = Literal["list_domain_layouts"]
 ListEventStreamsPaginatorName = Literal["list_event_streams"]
 ListEventTriggersPaginatorName = Literal["list_event_triggers"]
 ListObjectTypeAttributesPaginatorName = Literal["list_object_type_attributes"]
@@ -197,6 +202,7 @@ PartyTypeType = Literal["BUSINESS", "INDIVIDUAL", "OTHER"]
 PeriodUnitType = Literal["DAYS", "HOURS", "MONTHS", "WEEKS"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
 RangeUnitType = Literal["DAYS"]
+ReadinessStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PREPARING"]
 RuleBasedMatchingStatusType = Literal["ACTIVE", "IN_PROGRESS", "PENDING"]
 S3ConnectorOperatorType = Literal[
     "ADDITION",
@@ -269,10 +275,19 @@ ServiceNowConnectorOperatorType = Literal[
 ]
 SourceConnectorTypeType = Literal["Marketo", "S3", "Salesforce", "Servicenow", "Zendesk"]
 StandardIdentifierType = Literal[
+    "AIR_BOOKING",
+    "AIR_PREFERENCE",
+    "AIR_SEGMENT",
     "ASSET",
     "CASE",
     "COMMUNICATION_RECORD",
+    "HOTEL_PREFERENCE",
+    "HOTEL_RESERVATION",
+    "HOTEL_STAY_REVENUE",
     "LOOKUP_ONLY",
+    "LOYALTY",
+    "LOYALTY_PROMOTION",
+    "LOYALTY_TRANSACTION",
     "NEW_ONLY",
     "ORDER",
     "PROFILE",
@@ -320,6 +335,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -460,6 +476,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -517,6 +534,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -572,6 +590,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -716,6 +735,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -734,6 +754,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "get_similar_profiles",
+    "list_domain_layouts",
     "list_event_streams",
     "list_event_triggers",
     "list_object_type_attributes",

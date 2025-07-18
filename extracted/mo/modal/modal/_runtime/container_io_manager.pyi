@@ -89,6 +89,7 @@ class _ContainerIOManager:
     app_id: str
     function_def: modal_proto.api_pb2.Function
     checkpoint_id: typing.Optional[str]
+    input_plane_server_url: typing.Optional[str]
     calls_completed: int
     total_user_time: float
     current_input_id: typing.Optional[str]
@@ -106,7 +107,6 @@ class _ContainerIOManager:
     _is_interactivity_enabled: bool
     _fetching_inputs: bool
     _client: modal.client._Client
-    _GENERATOR_STOP_SENTINEL: typing.ClassVar[Sentinel]
     _singleton: typing.ClassVar[typing.Optional[_ContainerIOManager]]
 
     def _init(self, container_args: modal_proto.api_pb2.ContainerArguments, client: modal.client._Client): ...
@@ -148,10 +148,10 @@ class _ContainerIOManager:
         """
         ...
 
-    async def generator_output_task(
+    def generator_output_sender(
         self, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
-    ) -> None:
-        """Task that feeds generator outputs into a function call's `data_out` stream."""
+    ) -> typing.AsyncContextManager[None]:
+        """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
         ...
 
     async def _queue_create(self, size: int) -> asyncio.queues.Queue:
@@ -251,6 +251,7 @@ class ContainerIOManager:
     app_id: str
     function_def: modal_proto.api_pb2.Function
     checkpoint_id: typing.Optional[str]
+    input_plane_server_url: typing.Optional[str]
     calls_completed: int
     total_user_time: float
     current_input_id: typing.Optional[str]
@@ -268,7 +269,6 @@ class ContainerIOManager:
     _is_interactivity_enabled: bool
     _fetching_inputs: bool
     _client: modal.client.Client
-    _GENERATOR_STOP_SENTINEL: typing.ClassVar[Sentinel]
     _singleton: typing.ClassVar[typing.Optional[ContainerIOManager]]
 
     def __init__(self, /, *args, **kwargs):
@@ -367,16 +367,20 @@ class ContainerIOManager:
 
     put_data_out: __put_data_out_spec[typing_extensions.Self]
 
-    class __generator_output_task_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None:
-            """Task that feeds generator outputs into a function call's `data_out` stream."""
+    class __generator_output_sender_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(
+            self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[None]:
+            """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
             ...
 
-        async def aio(self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue) -> None:
-            """Task that feeds generator outputs into a function call's `data_out` stream."""
+        def aio(
+            self, /, function_call_id: str, data_format: int, message_rx: asyncio.queues.Queue
+        ) -> typing.AsyncContextManager[None]:
+            """Runs background task that feeds generator outputs into a function call's `data_out` stream."""
             ...
 
-    generator_output_task: __generator_output_task_spec[typing_extensions.Self]
+    generator_output_sender: __generator_output_sender_spec[typing_extensions.Self]
 
     class ___queue_create_spec(typing_extensions.Protocol[SUPERSELF]):
         def __call__(self, /, size: int) -> asyncio.queues.Queue:

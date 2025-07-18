@@ -6,7 +6,7 @@
 
 from ..slip44 import CoinTypes
 from ..ecc import SLIP10Ed25519MoneroECC
-from ..const import (
+from ..consts import (
     Info, Entropies, Mnemonics, Seeds, HDs, Addresses, AddressTypes, Networks, Params
 )
 from .icryptocurrency import (
@@ -16,6 +16,7 @@ from .icryptocurrency import (
 
 class Mainnet(INetwork):
 
+    NAME = "mainnet"
     STANDARD = 0x12
     INTEGRATED = 0x13
     SUB_ADDRESS = 0x2a
@@ -23,6 +24,7 @@ class Mainnet(INetwork):
 
 class Stagenet(INetwork):
 
+    NAME = "stagenet"
     STANDARD = 0x18
     INTEGRATED = 0x19
     SUB_ADDRESS = 0x24
@@ -30,6 +32,7 @@ class Stagenet(INetwork):
 
 class Testnet(INetwork):
 
+    NAME = "testnet"
     STANDARD = 0x35
     INTEGRATED = 0x36
     SUB_ADDRESS = 0x3f
@@ -48,6 +51,7 @@ class Monero(ICryptocurrency):
     })
     ECC = SLIP10Ed25519MoneroECC
     COIN_TYPE = CoinTypes.Monero
+    SUPPORT_BIP38 = False
     NETWORKS = Networks({
         "MAINNET": Mainnet, "STAGENET": Stagenet, "TESTNET": Testnet
     })
@@ -65,6 +69,7 @@ class Monero(ICryptocurrency):
         "MONERO": "Monero"
     })
     DEFAULT_HD = HDS.MONERO
+    DEFAULT_PATH = f"m/44'/{COIN_TYPE}'/0'/0/0"
     ADDRESSES = Addresses({
         "MONERO": "Monero"
     })

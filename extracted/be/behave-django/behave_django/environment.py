@@ -1,3 +1,4 @@
+import inspect
 from copy import copy
 
 import django
@@ -64,8 +65,7 @@ class BehaveHooksMixin:
     testcase_class = None
 
     def patch_context(self, context):
-        """
-        Patches the context to add utility functions
+        """Patch the context to add utility functions.
 
         Sets up the base_url, and the get_url() utility function.
         """
@@ -75,15 +75,12 @@ class BehaveHooksMixin:
         object.__setattr__(context, '__class__', PatchedContext)
 
     def setup_testclass(self, context):
-        """
-        Adds the test instance to context
-        """
+        """Add the test instance to context."""
         context.test = self.testcase_class()
 
     def setup_fixtures(self, context):
-        """
-        Sets up fixtures
-        """
+        """Set up fixtures."""
+
         if getattr(context, 'fixtures', None):
             if django.VERSION >= (5, 2):
                 context.test.__class__.fixtures = copy(context.fixtures)
@@ -103,8 +100,7 @@ class BehaveHooksMixin:
             load_registered_fixtures(context)
 
     def setup_test(self, context):
-        """
-        Sets up the Django test
+        """Set up the Django test.
 
         This method runs the code necessary to create the test database, start
         the live server, etc.
@@ -117,9 +113,7 @@ class BehaveHooksMixin:
         context.test()
 
     def teardown_test(self, context):
-        """
-        Tears down the Django test
-        """
+        """Tear down the Django test."""
         context.test.tearDownClass()
         context.test._post_teardown(run=True)
         del context.test
@@ -127,23 +121,54 @@ class BehaveHooksMixin:
 
 def monkey_patch_behave(django_test_runner):
     """
-    Integrate behave_django in behave via before/after scenario hooks
+    Integrate behave_django in behave via before/after scenario hooks.
     """
     behave_run_hook = ModelRunner.run_hook
 
-    def run_hook(self, name, context, *args):
-        if name == 'before_all':
-            django_test_runner.patch_context(context)
+    # Check if the new Behave version uses the updated run_hook signature.
+    # In newer versions, the signature is (self, hook_name, *args) and
+    # context is accessed via `self.context`.
+    # In older versions, it was (self, name, context, *args)
+    sig = inspect.signature(behave_run_hook)
+    param_names = list(sig.parameters.keys())
+    # New version uses 'hook_name', old used 'name'
+    # See https://github.com/behave/behave/commit/f4d5028
+    uses_new_signature = 'hook_name' in param_names
 
-        behave_run_hook(self, name, context, *args)
+    if uses_new_signature:
+        # New Behave version: context is available as self.context
+        def run_hook(self, hook_name, *args):
+            context = self.context
 
-        if name == 'before_scenario':
-            django_test_runner.setup_testclass(context)
-            django_test_runner.setup_fixtures(context)
-            django_test_runner.setup_test(context)
-            behave_run_hook(self, 'django_ready', context)
+            if hook_name == 'before_all':
+                django_test_runner.patch_context(context)
 
-        if name == 'after_scenario':
-            django_test_runner.teardown_test(context)
+            behave_run_hook(self, hook_name, *args)
+
+            if hook_name == 'before_scenario':
+                django_test_runner.setup_testclass(context)
+                django_test_runner.setup_fixtures(context)
+                django_test_runner.setup_test(context)
+                # In new Behave version, context is automatically passed by run_hook
+                behave_run_hook(self, 'django_ready')
+
+            if hook_name == 'after_scenario':
+                django_test_runner.teardown_test(context)
+    else:
+        # Old Behave version: context is passed as parameter
+        def run_hook(self, name, context, *args):
+            if name == 'before_all':
+                django_test_runner.patch_context(context)
+
+            behave_run_hook(self, name, context, *args)
+
+            if name == 'before_scenario':
+                django_test_runner.setup_testclass(context)
+                django_test_runner.setup_fixtures(context)
+                django_test_runner.setup_test(context)
+                behave_run_hook(self, 'django_ready', context)
+
+            if name == 'after_scenario':
+                django_test_runner.teardown_test(context)
 
     ModelRunner.run_hook = run_hook

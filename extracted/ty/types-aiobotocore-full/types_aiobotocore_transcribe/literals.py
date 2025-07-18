@@ -98,6 +98,7 @@ LanguageCodeType = Literal[
     "en-ZA",
     "es-ES",
     "es-US",
+    "et-EE",
     "et-ET",
     "eu-ES",
     "fa-IR",
@@ -176,7 +177,9 @@ MediaFormatType = Literal["amr", "flac", "m4a", "mp3", "mp4", "ogg", "wav", "web
 MedicalContentIdentificationTypeType = Literal["PHI"]
 MedicalScribeJobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
 MedicalScribeLanguageCodeType = Literal["en-US"]
-MedicalScribeNoteTemplateType = Literal["GIRPP", "HISTORY_AND_PHYSICAL"]
+MedicalScribeNoteTemplateType = Literal[
+    "BEHAVIORAL_SOAP", "BIRP", "DAP", "GIRPP", "HISTORY_AND_PHYSICAL", "PHYSICAL_SOAP", "SIRP"
+]
 MedicalScribeParticipantRoleType = Literal["CLINICIAN", "PATIENT"]
 ModelStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 OutputLocationTypeType = Literal["CUSTOMER_BUCKET", "SERVICE_BUCKET"]
@@ -212,6 +215,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -352,6 +356,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -409,6 +414,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -464,6 +470,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -608,6 +615,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

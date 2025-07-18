@@ -18,6 +18,9 @@ Usage::
         DescribeRulesPaginator,
         DescribeSSLPoliciesPaginator,
         DescribeTargetGroupsPaginator,
+        DescribeTrustStoreAssociationsPaginator,
+        DescribeTrustStoreRevocationsPaginator,
+        DescribeTrustStoresPaginator,
         ElasticLoadBalancingv2Client,
         LoadBalancerAvailableWaiter,
         LoadBalancerExistsWaiter,
@@ -45,6 +48,9 @@ Usage::
     describe_rules_paginator: DescribeRulesPaginator = client.get_paginator("describe_rules")
     describe_ssl_policies_paginator: DescribeSSLPoliciesPaginator = client.get_paginator("describe_ssl_policies")
     describe_target_groups_paginator: DescribeTargetGroupsPaginator = client.get_paginator("describe_target_groups")
+    describe_trust_store_associations_paginator: DescribeTrustStoreAssociationsPaginator = client.get_paginator("describe_trust_store_associations")
+    describe_trust_store_revocations_paginator: DescribeTrustStoreRevocationsPaginator = client.get_paginator("describe_trust_store_revocations")
+    describe_trust_stores_paginator: DescribeTrustStoresPaginator = client.get_paginator("describe_trust_stores")
     ```
 """
 
@@ -57,6 +63,9 @@ from .paginator import (
     DescribeRulesPaginator,
     DescribeSSLPoliciesPaginator,
     DescribeTargetGroupsPaginator,
+    DescribeTrustStoreAssociationsPaginator,
+    DescribeTrustStoreRevocationsPaginator,
+    DescribeTrustStoresPaginator,
 )
 from .waiter import (
     LoadBalancerAvailableWaiter,
@@ -78,6 +87,9 @@ __all__ = (
     "DescribeRulesPaginator",
     "DescribeSSLPoliciesPaginator",
     "DescribeTargetGroupsPaginator",
+    "DescribeTrustStoreAssociationsPaginator",
+    "DescribeTrustStoreRevocationsPaginator",
+    "DescribeTrustStoresPaginator",
     "ElasticLoadBalancingv2Client",
     "LoadBalancerAvailableWaiter",
     "LoadBalancerExistsWaiter",

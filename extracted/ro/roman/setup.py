@@ -20,14 +20,14 @@ desc = ('{}\n\n{}'.format(open('README.rst').read(),
 
 setup(
     name='roman',
-    version='5.0',
+    version='5.1',
     author="Mark Pilgrim",
     maintainer="Zope Foundation and Contributors",
     maintainer_email="zope-dev@zope.dev",
     description="Integer to Roman numerals converter",
     long_description=desc,
     long_description_content_type='text/x-rst',
-    license="ZPL 2.1",
+    license="ZPL-2.1",
     keywords="roman",
     classifiers=[
         'Development Status :: 5 - Production/Stable',

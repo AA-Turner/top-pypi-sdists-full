@@ -62,8 +62,10 @@ __all__ = (
     "StatefulRuleDirectionType",
     "StatefulRuleProtocolType",
     "StreamExceptionPolicyType",
+    "SummaryRuleOptionType",
     "TCPFlagType",
     "TargetTypeType",
+    "TransitGatewayAttachmentStatusType",
 )
 
 
@@ -94,7 +96,9 @@ LogTypeType = Literal["ALERT", "FLOW", "TLS"]
 OverrideActionType = Literal["DROP_TO_ALERT"]
 PerObjectSyncStatusType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
 ResourceManagedStatusType = Literal["ACCOUNT", "MANAGED"]
-ResourceManagedTypeType = Literal["AWS_MANAGED_DOMAIN_LISTS", "AWS_MANAGED_THREAT_SIGNATURES"]
+ResourceManagedTypeType = Literal[
+    "ACTIVE_THREAT_DEFENSE", "AWS_MANAGED_DOMAIN_LISTS", "AWS_MANAGED_THREAT_SIGNATURES"
+]
 ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
 RuleGroupTypeType = Literal["STATEFUL", "STATELESS"]
@@ -107,6 +111,7 @@ StatefulRuleProtocolType = Literal[
     "DNS",
     "FTP",
     "HTTP",
+    "HTTP2",
     "ICMP",
     "IKEV2",
     "IMAP",
@@ -114,6 +119,7 @@ StatefulRuleProtocolType = Literal[
     "KRB5",
     "MSN",
     "NTP",
+    "QUIC",
     "SMB",
     "SMTP",
     "SSH",
@@ -123,14 +129,27 @@ StatefulRuleProtocolType = Literal[
     "UDP",
 ]
 StreamExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
+SummaryRuleOptionType = Literal["METADATA", "MSG", "SID"]
 TCPFlagType = Literal["ACK", "CWR", "ECE", "FIN", "PSH", "RST", "SYN", "URG"]
 TargetTypeType = Literal["HTTP_HOST", "TLS_SNI"]
+TransitGatewayAttachmentStatusType = Literal[
+    "CREATING",
+    "DELETED",
+    "DELETING",
+    "ERROR",
+    "FAILED",
+    "PENDING_ACCEPTANCE",
+    "READY",
+    "REJECTED",
+    "REJECTING",
+]
 NetworkFirewallServiceName = Literal["network-firewall"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -271,6 +290,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -328,6 +348,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -383,6 +404,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -527,6 +549,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

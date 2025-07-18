@@ -66,6 +66,7 @@ MemberAccountDiscountVisibilityType = Literal["All", "None"]
 OrderType = Literal["Asc", "Desc"]
 PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 ResourceTypeType = Literal[
+    "AuroraDbClusterStorage",
     "ComputeSavingsPlans",
     "DynamoDbReservedCapacity",
     "EbsVolume",
@@ -94,6 +95,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -234,6 +236,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -291,6 +294,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -346,6 +350,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -490,6 +495,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

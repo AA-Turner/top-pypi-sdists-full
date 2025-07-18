@@ -20,6 +20,7 @@ import sys
 from datetime import datetime
 
 from .literals import (
+    IcebergCompactionStrategyType,
     JobStatusType,
     MaintenanceStatusType,
     SSEAlgorithmType,
@@ -198,12 +199,14 @@ class GetTablePolicyRequestTypeDef(TypedDict):
     name: str
 
 class GetTableRequestTypeDef(TypedDict):
-    tableBucketARN: str
-    namespace: str
-    name: str
+    tableBucketARN: NotRequired[str]
+    namespace: NotRequired[str]
+    name: NotRequired[str]
+    tableArn: NotRequired[str]
 
 class IcebergCompactionSettingsTypeDef(TypedDict):
     targetFileSizeMB: NotRequired[int]
+    strategy: NotRequired[IcebergCompactionStrategyType]
 
 SchemaFieldTypeDef = TypedDict(
     "SchemaFieldTypeDef",

@@ -28,6 +28,7 @@ __all__ = (
     "CanaryRunTestResultType",
     "CanaryStateReasonCodeType",
     "CanaryStateType",
+    "DependencyTypeType",
     "EncryptionModeType",
     "ProvisionedResourceCleanupSettingType",
     "RegionName",
@@ -67,6 +68,7 @@ CanaryStateType = Literal[
     "STOPPING",
     "UPDATING",
 ]
+DependencyTypeType = Literal["LambdaLayer"]
 EncryptionModeType = Literal["SSE_KMS", "SSE_S3"]
 ProvisionedResourceCleanupSettingType = Literal["AUTOMATIC", "OFF"]
 ResourceToTagType = Literal["lambda-function"]

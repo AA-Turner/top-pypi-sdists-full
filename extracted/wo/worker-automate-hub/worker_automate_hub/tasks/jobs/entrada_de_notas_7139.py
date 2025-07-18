@@ -1,6 +1,7 @@
 import asyncio
 import getpass
 import os
+import pyperclip
 import warnings
 import time
 import uuid
@@ -50,11 +51,67 @@ from worker_automate_hub.utils.util import (
     carregamento_import_xml,
     errors_generate_after_import,
 )
+from worker_automate_hub.utils.utils_nfe_entrada import EMSys
+
+emsys = EMSys()
 
 pyautogui.PAUSE = 0.5
 pyautogui.FAILSAFE = False
 console = Console()
 
+async def parse_copied_content(content):
+        lines = content.strip().split("\n")
+        data_list = []
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("Código"):
+                headers_line = line
+                headers = headers_line.split("\t")
+                i += 1
+                if i < len(lines):
+                    data_line = lines[i].strip()
+                    data = data_line.split("\t")
+                    if len(headers) == len(data):
+                        item_dict = dict(zip(headers, data))
+                        data_list.append(item_dict)
+                    else:
+                        console.print(
+                            "Número de cabeçalhos e dados não correspondem.",
+                            style="bold red",
+                        )
+                        console.print(f"Cabeçalhos: {headers}")
+                        console.print(f"Dados: {data}")
+                else:
+                    console.print(
+                        "Sem linha de dados após cabeçalho.", style="bold red"
+                    )
+                i += 1
+            else:
+                i += 1
+
+        final_list = []
+        for item in data_list:
+            try:
+                new_item = {
+                    "codigo": int(item["Código"]),
+                    "descricao": item["Descrição"],
+                    "curto": float(item["R$ Curto"].replace(".", "").replace(",", ".")),
+                    "custo_min": float(
+                        item["R$ Custo Min."]
+                        .replace("worker_automate_hub/utils/utils_nfe_entrada.py.", "")
+                        .replace(",", ".")
+                    ),
+                    "custo_max": float(
+                        item["R$ Custo Máx."].replace(".", "").replace(",", ".")
+                    ),
+                }
+                final_list.append(new_item)
+            except Exception as e:
+                console.print(
+                    f"Erro ao processar item: {item}. Erro: {e}", style="bold red"
+                )
+        return final_list
 
 async def entrada_de_notas_7139(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     """
@@ -633,34 +690,158 @@ async def entrada_de_notas_7139(task: RpaProcessoEntradaDTO) -> RpaRetornoProces
         
 
         await worker_sleep(6)
-        nf_imported = await check_nota_importada(nota.get("nfe"))
-        if nf_imported.sucesso == True:
-            await worker_sleep(3)
-            console.print("\nVerifica se a nota ja foi lançada...")
-            nf_chave_acesso = int(nota.get("nfe"))
-            status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
-            if status_nf_emsys.get("status") == "Lançada":
-                console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
-                return RpaRetornoProcessoDTO(
-                    sucesso=True,
-                    retorno="Nota Lançada com sucesso!",
-                    status=RpaHistoricoStatusEnum.Sucesso,
+        
+        try:
+            console.print("Iniciando a coleta de dados do grid...\n")
+            app = Application(backend="uia").connect(class_name="TFrmTelaSelecao")
+            main_window = app.window(class_name="TFrmTelaSelecao")
+            grid = main_window.child_window(class_name="TcxGridSite")
+            grid.set_focus()
+            grid_wrapper = grid.wrapper_object()
+            send_keys("^({HOME})")
+            await worker_sleep(1)
+
+            data_list = []
+            last_content = ""
+            repeat_count = 0
+            max_repeats = 2
+
+            while True:
+                send_keys("^c")
+                await worker_sleep(1)
+                current_content = pyperclip.paste().strip()
+
+                if not current_content:
+                    console.print(
+                        "Nenhum conteúdo copiado, encerrando loop.", style="bold red"
+                    )
+                    break
+
+                if current_content == last_content:
+                    repeat_count += 1
+                    if repeat_count >= max_repeats:
+                        console.print(
+                            "Não há mais itens para processar. Fim do grid alcançado.",
+                            style="bold green",
+                        )
+                        break
+                else:
+                    item_data = await parse_copied_content(current_content)
+                    data_list.extend(item_data)
+                    last_content = current_content
+                    repeat_count = 0
+
+                send_keys("{DOWN}")
+                await worker_sleep(1)
+
+            console.print(f"Dados coletados: {data_list}")
+
+            itens_invalidos = []
+            for item in data_list:
+                custo_min = item["custo_min"]
+                custo_max = item["custo_max"]
+                valor_curto = item["curto"]
+                intervalo = custo_max - custo_min
+                limite_inferior = custo_min - (intervalo * 0.8)
+                limite_superior = custo_max + (intervalo * 0.8)
+
+                if not (limite_inferior <= valor_curto <= limite_superior):
+                    console.print(
+                        f"[bold red]Item fora da faixa permitida:[/bold red] "
+                        f"Código={item['codigo']} | Curto={valor_curto} | "
+                        f"Faixa esperada: [{limite_inferior:.2f} - {limite_superior:.2f}]"
+                    )
+                    itens_invalidos.append(item["codigo"])
+
+            if itens_invalidos:
+                console.print(
+                    "Itens que Ultrapassaram a Variação Máxima de Custo",
+                    style="bold yellow",
                 )
-            else:
-                console.print("Erro ao lançar nota", style="bold red")
+                console.print(f"Códigos dos itens: {itens_invalidos}")
+                send_keys("{ESC}")
+                observacao = f"Itens que ultrapassaram a variação máxima de custo: {itens_invalidos}. Processo cancelado."
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
-                    retorno=f"Pop-up nota incluida encontrada, porém nota encontrada como 'já lançada' trazendo as seguintes informações: {nf_imported.retorno} - {error_work}",
+                    retorno=observacao,
                     status=RpaHistoricoStatusEnum.Falha,
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
                 )
-        else:
-            console.print("Erro ao lançar nota", style="bold red")
+            else:
+                console.print(
+                    "Todos os itens estão dentro da variação de custo permitida.",
+                    style="bold green",
+                )
+                send_keys("{ENTER}")
+                observacao = "Todos os itens estão dentro da variação de custo permitida. Processo concluído com sucesso."
+
+                try:
+                    await worker_sleep(2)
+                    console.print(
+                        "Verificando a existência de POP-UP de Itens que Ultrapassam a Variação Máxima de Custo ...\n"
+                    )
+                    itens_variacao_maxima = await is_window_open_by_class(
+                        "TFrmTelaSelecao", "TFrmTelaSelecao"
+                    )
+                    if itens_variacao_maxima["IsOpened"]:
+                        app = Application().connect(class_name="TFrmTelaSelecao")
+                        main_window = app["TFrmTelaSelecao"]
+                        send_keys("%o")
+
+                    await worker_sleep(2)
+                except:
+                    observacao = (
+                        "Falha ao clicar em OK no POP-UP de Itens que Ultrapassam a Variação Máxima de Custo."
+                    )
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=observacao,
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],     
+                    )
+                
+                await worker_sleep(5)
+        
+            
+                panel_TPage = main_window.child_window(class_name="TPage", title="Formulario")
+                
+                
+                nf_imported = await check_nota_importada(nota.get("nfe"))
+                if nf_imported.sucesso == True:
+                    await worker_sleep(3)
+                    console.print("\nVerifica se a nota ja foi lançada...")
+                    nf_chave_acesso = int(nota.get("nfe"))
+                    status_nf_emsys = await get_status_nf_emsys(nf_chave_acesso)
+                    if status_nf_emsys.get("status") == "Lançada":
+                        console.print("\nNota lançada com sucesso, processo finalizado...", style="bold green")
+                        return RpaRetornoProcessoDTO(
+                            sucesso=True,
+                            retorno="Nota Lançada com sucesso!",
+                            status=RpaHistoricoStatusEnum.Sucesso,
+                        )
+                    else:
+                        console.print("Erro ao lançar nota", style="bold red")
+                        return RpaRetornoProcessoDTO(
+                            sucesso=False,
+                            retorno=f"Pop-up nota incluida encontrada, porém nota encontrada como 'já lançada' trazendo as seguintes informações: {nf_imported.retorno} - {error_work}",
+                            status=RpaHistoricoStatusEnum.Falha,
+                            tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                        )
+                else:
+                    console.print("Erro ao lançar nota", style="bold red")
+                    return RpaRetornoProcessoDTO(
+                        sucesso=False,
+                        retorno=f"Erro ao lançar nota, erro: {nf_imported.retorno}",
+                        status=RpaHistoricoStatusEnum.Falha,
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    )     
+               
+        except Exception as error:
             return RpaRetornoProcessoDTO(
                 sucesso=False,
-                retorno=f"Erro ao lançar nota, erro: {nf_imported.retorno}",
+                retorno=f"Erro inesperado: {str(error)}",
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
     except Exception as ex:

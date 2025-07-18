@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.17.5
+Version: 0.18.0
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -16,8 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Manufacturing
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,43 +24,42 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Operating System :: OS Independent
-Requires-Python: <4,>=3.8
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fpdf2
 Requires-Dist: grpcio<1.74,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil
-Requires-Dist: pyedb>=0.4.0; python_version == "3.7"
-Requires-Dist: pyedb!=0.28.0,>=0.24.0; python_version > "3.7"
+Requires-Dist: pyedb!=0.28.0,>=0.24.0
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tomli-w
 Requires-Dist: rpyc<6.1,>=6.0.0
 Requires-Dist: pyyaml
 Requires-Dist: defusedxml<8.0,>=0.7
 Requires-Dist: numpy<2.3,>=1.20.0
+Requires-Dist: pydantic<2.12,>=2.6.4
 Provides-Extra: unit-tests
 Requires-Dist: pytest<8.5,>=7.4.0; extra == "unit-tests"
-Requires-Dist: pytest-cov<6.2,>=4.0.0; extra == "unit-tests"
+Requires-Dist: pytest-cov<6.3,>=4.0.0; extra == "unit-tests"
 Requires-Dist: mock<5.3,>=5.1.0; extra == "unit-tests"
 Provides-Extra: integration-tests
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "integration-tests"
 Requires-Dist: pandas<2.4,>=1.1.0; extra == "integration-tests"
 Requires-Dist: pyaedt[unit-tests]; extra == "integration-tests"
 Provides-Extra: tests
-Requires-Dist: ansys-tools-visualization-interface; python_version >= "3.10" and extra == "tests"
+Requires-Dist: ansys-tools-visualization-interface; extra == "tests"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "tests"
 Requires-Dist: osmnx<2.1,>=1.1.0; extra == "tests"
 Requires-Dist: pyaedt[integration-tests]; extra == "tests"
 Requires-Dist: pytest-timeout<2.5,>=2.3.0; extra == "tests"
-Requires-Dist: pytest-xdist<3.8,>=3.5.0; extra == "tests"
+Requires-Dist: pytest-xdist<3.9,>=3.5.0; extra == "tests"
 Requires-Dist: pyvista[io]<0.46,>=0.38.0; extra == "tests"
 Requires-Dist: scikit-rf<1.8,>=0.30.0; extra == "tests"
-Requires-Dist: tables; python_version >= "3.10" and extra == "tests"
+Requires-Dist: tables; extra == "tests"
 Provides-Extra: dotnet
 Requires-Dist: ansys-pythonnet>=3.1.0rc3; extra == "dotnet"
-Requires-Dist: cffi==1.17.1; (platform_system == "Linux" and python_version == "3.7") and extra == "dotnet"
-Requires-Dist: cffi<1.18,>=1.16.0; (platform_system == "Linux" and python_version > "3.7") and extra == "dotnet"
+Requires-Dist: cffi<1.18,>=1.16.0; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: dotnetcore2==3.1.23; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
 Provides-Extra: doc
@@ -71,22 +68,20 @@ Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: numpydoc<1.9,>=1.5.0; extra == "doc"
 Requires-Dist: recommonmark; extra == "doc"
 Requires-Dist: Sphinx<8.3,>=7.1.0; extra == "doc"
-Requires-Dist: sphinx-autobuild==2021.3.14; python_version == "3.8" and extra == "doc"
-Requires-Dist: sphinx-autobuild==2024.10.3; python_version > "3.8" and extra == "doc"
+Requires-Dist: sphinx-autobuild==2024.10.3; extra == "doc"
 Requires-Dist: sphinx-copybutton<0.6,>=0.5.0; extra == "doc"
 Requires-Dist: sphinx-gallery<0.20,>=0.14.0; extra == "doc"
 Requires-Dist: sphinx_design<0.7,>=0.4.0; extra == "doc"
 Requires-Dist: pyvista[io]<0.46,>=0.38.0; extra == "doc"
-Requires-Dist: ansys-tools-visualization-interface; python_version >= "3.10" and extra == "doc"
+Requires-Dist: ansys-tools-visualization-interface; extra == "doc"
 Provides-Extra: graphics
-Requires-Dist: ansys-tools-visualization-interface; python_version >= "3.10" and extra == "graphics"
+Requires-Dist: ansys-tools-visualization-interface; extra == "graphics"
 Requires-Dist: pyvista[io]<0.45,>=0.38.0; extra == "graphics"
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "graphics"
 Requires-Dist: vtk<9.4,>=9.0; extra == "graphics"
 Provides-Extra: jupyter
 Requires-Dist: jupyterlab<4.5,>=3.6.0; extra == "jupyter"
 Requires-Dist: ipython<9.1,>=7.30.0; extra == "jupyter"
-Requires-Dist: ipyvtklink<0.2.4,>=0.2.0; extra == "jupyter"
 Provides-Extra: all
 Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "all"
 Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "all"
@@ -94,7 +89,7 @@ Requires-Dist: osmnx<2.1,>=1.1.0; extra == "all"
 Requires-Dist: pandas<2.4,>=1.1.0; extra == "all"
 Requires-Dist: pyvista[io]<0.46,>=0.38.0; extra == "all"
 Requires-Dist: fast-simplification>=0.1.7; extra == "all"
-Requires-Dist: ansys-tools-visualization-interface; python_version >= "3.10" and extra == "all"
+Requires-Dist: ansys-tools-visualization-interface; extra == "all"
 Requires-Dist: tables; python_version >= "3.10" and extra == "all"
 Requires-Dist: scikit-rf<1.8,>=0.30.0; extra == "all"
 Requires-Dist: pyaedt[jupyter]; extra == "all"
@@ -108,7 +103,7 @@ Requires-Dist: pandas<2.4,>=1.1.0; extra == "examples"
 Requires-Dist: pyvista<0.45,>=0.38.0; extra == "examples"
 Requires-Dist: fast-simplification>=0.1.7; extra == "examples"
 Requires-Dist: joblib<1.6,>=1.4.0; extra == "examples"
-Requires-Dist: plotly<6.2,>=6.0; extra == "examples"
+Requires-Dist: plotly<6.3,>=6.0; extra == "examples"
 Requires-Dist: scikit-rf<1.8,>=0.30.0; extra == "examples"
 Dynamic: license-file
 
@@ -127,13 +122,14 @@ Dynamic: license-file
 [![PyAnsys](https://img.shields.io/badge/Py-Ansys-ffc107.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAABDklEQVQ4jWNgoDfg5mD8vE7q/3bpVyskbW0sMRUwofHD7Dh5OBkZGBgW7/3W2tZpa2tLQEOyOzeEsfumlK2tbVpaGj4N6jIs1lpsDAwMJ278sveMY2BgCA0NFRISwqkhyQ1q/Nyd3zg4OBgYGNjZ2ePi4rB5loGBhZnhxTLJ/9ulv26Q4uVk1NXV/f///////69du4Zdg78lx//t0v+3S88rFISInD59GqIH2esIJ8G9O2/XVwhjzpw5EAam1xkkBJn/bJX+v1365hxxuCAfH9+3b9/+////48cPuNehNsS7cDEzMTAwMMzb+Q2u4dOnT2vWrMHu9ZtzxP9vl/69RVpCkBlZ3N7enoDXBwEAAA+YYitOilMVAAAAAElFTkSuQmCC)](https://docs.pyansys.com/)
 [![pypi](https://img.shields.io/pypi/v/pyaedt.svg?logo=python&logoColor=white)](https://pypi.org/project/pyaedt/)
 [![PyPIact](https://static.pepy.tech/badge/pyaedt/month)](https://www.pepy.tech/projects/pyaedt)
-[![PythonVersion](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PythonVersion](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![GH-CI](https://github.com/ansys/pyaedt/actions/workflows/ci_cd.yml/badge.svg)](https://github.com/ansys/pyaedt/actions/workflows/ci_cd.yml)
 [![codecov](https://codecov.io/gh/ansys/pyaedt/branch/main/graph/badge.svg)](https://codecov.io/gh/ansys/pyaedt)
 [![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/blog/license/mit)
 [![black](https://img.shields.io/badge/code%20style-black-000000.svg?style=flat)](https://github.com/psf/black)
 [![Anaconda](https://anaconda.org/conda-forge/pyaedt/badges/version.svg)](https://anaconda.org/conda-forge/pyaedt)
 [![pre-commit](https://results.pre-commit.ci/badge/github/ansys/pyaedt/main.svg)](https://results.pre-commit.ci/latest/github/ansys/pyaedt/main)
+[![deep-wiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ansys/pyaedt)
 
 ## What is PyAEDT?
 
@@ -184,7 +180,7 @@ PyAEDT has different compatibility requirements based on its version. Below is a
     - Compatible with Python 3.7 and versions up to Python 3.11.
   - AEDT Compatibility:
     - All tests were conducted using AEDT 2024 R1.
-- PyAEDT Version ≥ 0.9.0:
+-  0.9.0 <= PyAEDT Version < 0.18.0:
   - Python Compatibility:
     - Dropped support for python 3.7 and below.
     - Compatible with Python 3.8 and versions up to Python 3.12.
@@ -192,6 +188,12 @@ PyAEDT has different compatibility requirements based on its version. Below is a
     - Version 0.9.x has been tested using AEDT 2024 R1.
     - From versions 0.10.0 to 0.13.3, all tests have been performed with AEDT 2024 R2.
     - Starting from version 0.14.0, all tests are performed with AEDT 2025 R1.
+- PyAEDT Version ≥ 0.18.0:
+  - Python Compatibility:
+    - Dropped support for Python 3.8 and 3.9.
+    - Compatible with Python 3.10 and versions up to Python 3.13.
+  - AEDT Compatibility:
+    - All tests were conducted using AEDT 2025 R1.
 
 
 ## About PyAnsys

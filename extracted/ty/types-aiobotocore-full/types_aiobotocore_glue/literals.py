@@ -34,6 +34,7 @@ __all__ = (
     "CloudWatchEncryptionModeType",
     "ColumnStatisticsStateType",
     "ColumnStatisticsTypeType",
+    "CompactionStrategyType",
     "ComparatorType",
     "CompatibilityType",
     "CompressionTypeType",
@@ -92,6 +93,9 @@ __all__ = (
     "GlueServiceName",
     "HudiTargetCompressionTypeType",
     "HyperTargetCompressionTypeType",
+    "IcebergNullOrderType",
+    "IcebergSortDirectionType",
+    "IcebergStructTypeEnumType",
     "IcebergTargetCompressionTypeType",
     "InclusionAnnotationValueType",
     "IntegrationStatusType",
@@ -214,6 +218,7 @@ ColumnStatisticsStateType = Literal["FAILED", "RUNNING", "STARTING", "STOPPED", 
 ColumnStatisticsTypeType = Literal[
     "BINARY", "BOOLEAN", "DATE", "DECIMAL", "DOUBLE", "LONG", "STRING"
 ]
+CompactionStrategyType = Literal["binpack", "sort", "z-order"]
 ComparatorType = Literal[
     "EQUALS", "GREATER_THAN", "GREATER_THAN_EQUALS", "LESS_THAN", "LESS_THAN_EQUALS"
 ]
@@ -384,6 +389,9 @@ GlueRecordTypeType = Literal[
 ]
 HudiTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 HyperTargetCompressionTypeType = Literal["uncompressed"]
+IcebergNullOrderType = Literal["nulls-first", "nulls-last"]
+IcebergSortDirectionType = Literal["asc", "desc"]
+IcebergStructTypeEnumType = Literal["struct"]
 IcebergTargetCompressionTypeType = Literal["gzip", "lzo", "snappy", "uncompressed"]
 InclusionAnnotationValueType = Literal["EXCLUDE", "INCLUDE"]
 IntegrationStatusType = Literal[
@@ -554,6 +562,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -694,6 +703,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -751,6 +761,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -806,6 +817,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -950,6 +962,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -1000,6 +1013,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

@@ -4,6 +4,7 @@ import copy
 import dataclasses
 import functools
 import inspect
+import os
 import re
 import weakref
 from collections.abc import Mapping, MutableMapping
@@ -44,6 +45,7 @@ from chalk.features.underscore import Underscore
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.utils.collections import ensure_tuple, get_unique_item, OrderedSet
 from chalk.utils.duration import CHALK_MAX_TIMEDELTA, Duration, parse_chalk_duration
+from chalk.utils.import_utils import get_type_checking_imports
 from chalk.utils.json import JSON, pyarrow_json_type
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.pydanticutil.pydantic_compat import (
@@ -1286,6 +1288,39 @@ class Feature(Generic[_TPrim, _TRich]):
                 code="32",
                 raise_error=TypeError,
             )
+        except NameError as ne:
+            object_str = ne.name
+            assert self.features_cls is not None
+            assert self.features_cls.__chalk_source_info__.filename is not None
+            if object_str in get_type_checking_imports(self.features_cls.__chalk_source_info__.filename):
+                filename_only = os.path.basename(self.features_cls.__chalk_source_info__.filename)
+                self.lsp_error_builder.add_diagnostic(
+                    message=(
+                        f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
+                        f"has a join function that is incorrectly configured. "
+                        f"Object '{object_str}' is imported in the file '{filename_only}' "
+                        f"under 'if TYPE_CHECKING', which means it cannot be used as an actual Python object in this lambda function. "
+                        f"Please surround the feature in the join from the imported class with quotes."
+                    ),
+                    label="invalid join",
+                    range=self.lsp_error_builder.property_value_range(self.attribute_name)
+                          or self.lsp_error_builder.property_range(self.attribute_name),
+                    code="32",
+                    raise_error=TypeError,
+                )
+            else:
+                self.lsp_error_builder.add_diagnostic(
+                    message=(
+                        f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
+                        f"has a join lambda function that is incorrectly configured. "
+                        f"Object '{object_str}' is not imported in the file '{self.features_cls.__chalk_source_info__.filename}'. "
+                    ),
+                    label="invalid join",
+                    range=self.lsp_error_builder.property_value_range(self.attribute_name)
+                          or self.lsp_error_builder.property_range(self.attribute_name),
+                    code="32",
+                    raise_error=TypeError,
+                )
         except Exception:
             assert self.features_cls is not None
             self.lsp_error_builder.add_diagnostic(

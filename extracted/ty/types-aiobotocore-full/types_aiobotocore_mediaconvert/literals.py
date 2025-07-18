@@ -333,6 +333,7 @@ __all__ = (
     "MovPaddingControlType",
     "MovReferenceType",
     "Mp3RateControlModeType",
+    "Mp4C2paManifestType",
     "Mp4CslgAtomType",
     "Mp4FreeSpaceBoxType",
     "Mp4MoovPlacementType",
@@ -807,7 +808,7 @@ DvbSubtitleShadowColorType = Literal["AUTO", "BLACK", "NONE", "WHITE"]
 DvbSubtitleStylePassthroughType = Literal["DISABLED", "ENABLED"]
 DvbSubtitleTeletextSpacingType = Literal["AUTO", "FIXED_GRID", "PROPORTIONAL"]
 DvbSubtitlingTypeType = Literal["HEARING_IMPAIRED", "STANDARD"]
-DvbddsHandlingType = Literal["NONE", "NO_DISPLAY_WINDOW", "SPECIFIED"]
+DvbddsHandlingType = Literal["NONE", "NO_DISPLAY_WINDOW", "SPECIFIED", "SPECIFIED_OPTIMAL"]
 DynamicAudioSelectorTypeType = Literal["ALL_TRACKS", "LANGUAGE_CODE"]
 Eac3AtmosBitstreamModeType = Literal["COMPLETE_MAIN"]
 Eac3AtmosCodingModeType = Literal[
@@ -1261,6 +1262,7 @@ MovMpeg2FourCCControlType = Literal["MPEG", "XDCAM"]
 MovPaddingControlType = Literal["NONE", "OMNEON"]
 MovReferenceType = Literal["EXTERNAL", "SELF_CONTAINED"]
 Mp3RateControlModeType = Literal["CBR", "VBR"]
+Mp4C2paManifestType = Literal["EXCLUDE", "INCLUDE"]
 Mp4CslgAtomType = Literal["EXCLUDE", "INCLUDE"]
 Mp4FreeSpaceBoxType = Literal["EXCLUDE", "INCLUDE"]
 Mp4MoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
@@ -1556,6 +1558,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -1696,6 +1699,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -1753,6 +1757,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -1808,6 +1813,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -1952,6 +1958,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

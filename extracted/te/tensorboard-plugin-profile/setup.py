@@ -18,7 +18,7 @@ import os
 import setuptools
 
 PROJECT_NAME = 'tensorboard_plugin_profile'
-VERSION = '2.20.2'
+VERSION = '2.20.4'
 
 
 def get_long_description():

@@ -1,10 +1,15 @@
 import shlex
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 from flytekit.core.artifact import ArtifactQuery
+from flytekit.core.pod_template import PodTemplate
 
+from union import ImageSpec
 from union.app import App, Input
+
+FLASH_INFER_INDEX_URL = "https://flashinfer.ai/whl/cu124/torch2.5"
+DEFAULT_SGLANG_IMAGE = "managed.cr.union.ai/sglang:stable"
 
 
 @dataclass
@@ -47,8 +52,8 @@ class SGLangApp(App):
 
     port: int = 8000
     type: str = "SGLang"
+    container_image: Optional[Union[str, ImageSpec, PodTemplate]] = None
     extra_args: Union[str, List[str]] = ""
-    # In the future support ArtifactQuery
     model: Union[str, ArtifactQuery] = ""
     model_id: str = ""
     stream_model: bool = True
@@ -84,8 +89,22 @@ class SGLangApp(App):
         elif isinstance(self.model, ArtifactQuery):
             input_type = None
         else:
-            msg = "model must be a string of ArtifactQuery"
+            msg = "model must be a string or ArtifactQuery"
             raise TypeError(msg)
+
+        if self.container_image is None:
+            self.container_image = DEFAULT_SGLANG_IMAGE
+        elif isinstance(self.container_image, ImageSpec):
+            # NOTE: the flashinfer index url has to be included because the
+            # union builder fails to install the nvidia drivers needed to
+            # install flashinfer.
+            if (
+                self.container_image.pip_extra_index_url
+                and FLASH_INFER_INDEX_URL not in self.container_image.pip_extra_index_url
+            ):
+                self.container_image.pip_extra_index_url.append(FLASH_INFER_INDEX_URL)
+            elif self.container_image.pip_extra_index_url is None:
+                self.container_image.pip_extra_index_url = [FLASH_INFER_INDEX_URL]
 
         input_kwargs = {}
         if self.stream_model:

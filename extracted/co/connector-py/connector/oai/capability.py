@@ -33,6 +33,8 @@ from connector.generated import (
     ErrorCode,
     FindEntitlementAssociationsRequest,
     FindEntitlementAssociationsResponse,
+    GetAccountRequest,
+    GetAccountResponse,
     GetAuthorizationUrlRequest,
     GetAuthorizationUrlResponse,
     GetLastActivityRequest,
@@ -705,5 +707,9 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.DOWNGRADE_LICENSE: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=DowngradeLicenseRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=DowngradeLicenseResponse, is_request=False),
+    ),
+    StandardCapabilityName.GET_ACCOUNT: CapabilitySignature(
+        input_payload=_payload_type_data(envelope_type=GetAccountRequest, is_request=True),
+        output_payload=_payload_type_data(envelope_type=GetAccountResponse, is_request=False),
     ),
 }

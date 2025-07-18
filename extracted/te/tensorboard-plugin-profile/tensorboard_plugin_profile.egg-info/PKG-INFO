@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorboard_plugin_profile
-Version: 2.20.2
+Version: 2.20.4
 Summary: XProf Profiler Plugin
 Home-page: https://github.com/openxla/xprof
 Author: Google Inc.
@@ -17,7 +17,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >= 3.9, < 3.13
 Description-Content-Type: text/markdown
-Requires-Dist: xprof==2.20.2
+Requires-Dist: xprof==2.20.4
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -51,8 +51,8 @@ class View(MetricsLayerBase, SQLReplacement):
         if "sets" not in definition:
             definition["sets"] = []
         self.__all_fields = None
-        if "name" in definition and isinstance(definition["name"], str):
-            definition["name"] = definition["name"].lower()
+        if "name" in definition:
+            definition["name"] = self.normalize_name(definition["name"])
 
         self.project: Project = project
         self.validate(definition)
@@ -113,7 +113,7 @@ class View(MetricsLayerBase, SQLReplacement):
             raise QueryError(f"View {self.name} has neither sql_table_name nor derived_table defined")
 
         if filter_literal:
-            return f"(select * from {base_clause} WHERE {filter_literal}) as {self.name}"
+            return f"(select * from {base_clause} as {self.name} WHERE {filter_literal}) as {self.name}"
         else:
             return f"{base_clause} as {self.name}"
 

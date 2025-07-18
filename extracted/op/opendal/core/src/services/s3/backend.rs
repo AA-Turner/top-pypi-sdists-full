@@ -22,10 +22,12 @@ use std::fmt::Write;
 use std::str::FromStr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
 use constants::X_AMZ_META_PREFIX;
+use constants::X_AMZ_VERSION_ID;
 use http::Response;
 use http::StatusCode;
 use log::debug;
@@ -38,19 +40,20 @@ use reqsign::AwsCredentialLoad;
 use reqsign::AwsDefaultLoader;
 use reqsign::AwsV4Signer;
 use reqwest::Url;
-use std::sync::LazyLock;
 
 use super::core::*;
 use super::delete::S3Deleter;
 use super::error::parse_error;
-use super::lister::{S3ListerV1, S3ListerV2, S3Listers, S3ObjectVersionsLister};
+use super::lister::S3ListerV1;
+use super::lister::S3ListerV2;
+use super::lister::S3Listers;
+use super::lister::S3ObjectVersionsLister;
 use super::writer::S3Writer;
 use super::writer::S3Writers;
 use crate::raw::oio::PageLister;
 use crate::raw::*;
 use crate::services::S3Config;
 use crate::*;
-use constants::X_AMZ_VERSION_ID;
 
 /// Allow constructing correct region endpoint if user gives a global endpoint.
 static ENDPOINT_TEMPLATES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
@@ -640,7 +643,7 @@ impl S3Builder {
             endpoint.to_string()
         } else {
             // Prefix https if endpoint doesn't start with scheme.
-            format!("https://{}", endpoint)
+            format!("https://{endpoint}")
         };
 
         // Remove bucket name from endpoint.
@@ -786,7 +789,7 @@ impl Builder for S3Builder {
             v => {
                 return Err(Error::new(
                     ErrorKind::ConfigInvalid,
-                    format!("{:?} is not a supported checksum_algorithm.", v),
+                    format!("{v:?} is not a supported checksum_algorithm."),
                 ))
             }
         };
@@ -906,7 +909,6 @@ impl Builder for S3Builder {
                         .set_name(bucket)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_encoding: true,
                             stat_with_if_match: true,
                             stat_with_if_none_match: true,
                             stat_with_if_modified_since: true,
@@ -921,16 +923,6 @@ impl Builder for S3Builder {
                                 .config
                                 .disable_stat_with_override,
                             stat_with_version: self.config.enable_versioning,
-                            stat_has_cache_control: true,
-                            stat_has_content_length: true,
-                            stat_has_content_type: true,
-                            stat_has_content_range: true,
-                            stat_has_etag: true,
-                            stat_has_content_md5: true,
-                            stat_has_last_modified: true,
-                            stat_has_content_disposition: true,
-                            stat_has_user_metadata: true,
-                            stat_has_version: true,
 
                             read: true,
                             read_with_if_match: true,
@@ -979,10 +971,6 @@ impl Builder for S3Builder {
                             list_with_recursive: true,
                             list_with_versions: self.config.enable_versioning,
                             list_with_deleted: self.config.enable_versioning,
-                            list_has_etag: true,
-                            list_has_content_md5: true,
-                            list_has_content_length: true,
-                            list_has_last_modified: true,
 
                             presign: true,
                             presign_stat: true,
@@ -1034,10 +1022,6 @@ impl Access for S3Backend {
     type Writer = S3Writers;
     type Lister = S3Listers;
     type Deleter = oio::BatchDeleter<S3Deleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()
@@ -1055,7 +1039,7 @@ impl Access for S3Backend {
 
                 let user_meta = parse_prefixed_headers(headers, X_AMZ_META_PREFIX);
                 if !user_meta.is_empty() {
-                    meta.with_user_metadata(user_meta);
+                    meta = meta.with_user_metadata(user_meta);
                 }
 
                 if let Some(v) = parse_header_to_str(headers, X_AMZ_VERSION_ID)? {
@@ -1277,7 +1261,7 @@ mod tests {
 
         for (name, endpoint, bucket, expected) in cases {
             let region = S3Builder::detect_region(endpoint, bucket).await;
-            assert_eq!(region.as_deref(), expected, "{}", name);
+            assert_eq!(region.as_deref(), expected, "{name}");
         }
     }
 }

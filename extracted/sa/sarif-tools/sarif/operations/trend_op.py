@@ -3,7 +3,7 @@ Code for `sarif trend` command.
 """
 
 import csv
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 from sarif import sarif_file
 from sarif.sarif_file import SarifFileSet
@@ -11,7 +11,11 @@ from sarif.sarif_file import SarifFileSet
 TIMESTAMP_COLUMNS = ["Date", "Tool", *sarif_file.SARIF_SEVERITIES_WITH_NONE]
 
 
-def generate_trend_csv(input_files: SarifFileSet, output_file: str, dateformat: str):
+def generate_trend_csv(
+    input_files: SarifFileSet,
+    output_file: str,
+    dateformat: Literal["dmy", "mdy", "ymd"],
+) -> None:
     """
     Generate a timeline csv of the issues from the SARIF files.  Each SARIF file must contain a
     timestamp of the form 20211012T110000Z in its filename.
@@ -64,9 +68,10 @@ def generate_trend_csv(input_files: SarifFileSet, output_file: str, dateformat: 
 
 
 def _write_csv(output_file: str, error_storage: List[Dict]) -> None:
-    # newline="" to avoid \r\r\n - see https://stackoverflow.com/a/3191811/316578
-    with open(output_file, "w", newline="", encoding="utf-8") as file_out:
-        writer = csv.DictWriter(file_out, TIMESTAMP_COLUMNS, extrasaction="ignore")
+    with open(output_file, "w", encoding="utf-8") as file_out:
+        writer = csv.DictWriter(
+            file_out, TIMESTAMP_COLUMNS, extrasaction="ignore", lineterminator="\n"
+        )
         writer.writeheader()
         for key in error_storage:
             writer.writerow(key)

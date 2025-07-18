@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth
-Version: 2025.7.3
+Version: 2025.7.4
 Summary: 2-5X faster LLM finetuning
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python
 Requires-Python: <3.13,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: unsloth_zoo>=2025.7.4
+Requires-Dist: unsloth_zoo>=2025.7.5
 Requires-Dist: torch>=2.4.0
 Requires-Dist: xformers>=0.0.27.post2
 Requires-Dist: bitsandbytes
@@ -30,7 +30,7 @@ Requires-Dist: psutil
 Requires-Dist: wheel>=0.42.0
 Requires-Dist: numpy
 Requires-Dist: accelerate>=0.34.1
-Requires-Dist: trl!=0.15.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9
+Requires-Dist: trl!=0.15.0,!=0.19.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9
 Requires-Dist: peft!=0.11.0,>=0.7.1
 Requires-Dist: protobuf
 Requires-Dist: huggingface_hub
@@ -38,7 +38,7 @@ Requires-Dist: hf_transfer
 Requires-Dist: diffusers
 Requires-Dist: torchvision
 Provides-Extra: huggingface
-Requires-Dist: unsloth_zoo>=2025.7.4; extra == "huggingface"
+Requires-Dist: unsloth_zoo>=2025.7.5; extra == "huggingface"
 Requires-Dist: packaging; extra == "huggingface"
 Requires-Dist: tyro; extra == "huggingface"
 Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,>=4.51.3; extra == "huggingface"
@@ -49,7 +49,7 @@ Requires-Dist: psutil; extra == "huggingface"
 Requires-Dist: wheel>=0.42.0; extra == "huggingface"
 Requires-Dist: numpy; extra == "huggingface"
 Requires-Dist: accelerate>=0.34.1; extra == "huggingface"
-Requires-Dist: trl!=0.15.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9; extra == "huggingface"
+Requires-Dist: trl!=0.15.0,!=0.19.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9; extra == "huggingface"
 Requires-Dist: peft!=0.11.0,>=0.7.1; extra == "huggingface"
 Requires-Dist: protobuf; extra == "huggingface"
 Requires-Dist: huggingface_hub; extra == "huggingface"
@@ -228,7 +228,7 @@ Requires-Dist: bitsandbytes>=0.43.3; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[cu121onlytorch220]; extra == "colab-ampere-torch220"
 Requires-Dist: unsloth[flashattention]; extra == "colab-ampere-torch220"
 Provides-Extra: colab-new
-Requires-Dist: unsloth_zoo>=2025.7.4; extra == "colab-new"
+Requires-Dist: unsloth_zoo>=2025.7.5; extra == "colab-new"
 Requires-Dist: packaging; extra == "colab-new"
 Requires-Dist: tyro; extra == "colab-new"
 Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,!=4.53.0,>=4.51.3; extra == "colab-new"
@@ -245,7 +245,7 @@ Requires-Dist: bitsandbytes>=0.43.3; extra == "colab-new"
 Requires-Dist: unsloth[triton]; extra == "colab-new"
 Provides-Extra: colab-no-deps
 Requires-Dist: accelerate>=0.34.1; extra == "colab-no-deps"
-Requires-Dist: trl!=0.15.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9; extra == "colab-no-deps"
+Requires-Dist: trl!=0.15.0,!=0.19.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9; extra == "colab-no-deps"
 Requires-Dist: peft>=0.7.1; extra == "colab-no-deps"
 Requires-Dist: xformers<0.0.27; extra == "colab-no-deps"
 Requires-Dist: bitsandbytes>=0.43.3; extra == "colab-no-deps"
@@ -402,7 +402,7 @@ Notebooks are beginner friendly. Read our [guide](https://docs.unsloth.ai/get-st
 | **Mistral v0.3 (7B)**    | [▶️ Start for free](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Mistral_v0.3_(7B)-Conversational.ipynb)               | 2.2x faster | 75% less |
 | **Orpheus-TTS (3B)**     | [▶️ Start for free](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Orpheus_(3B)-TTS.ipynb)               | 1.5x faster | 50% less |
 
-- See all our notebooks for: [Kaggle](https://github.com/unslothai/notebooks?tab=readme-ov-file#-kaggle-notebooks), [GRPO](https://docs.unsloth.ai/get-started/unsloth-notebooks), **[TTS](https://docs.unsloth.ai/get-started/unsloth-notebooks#text-to-speech-tts-notebooks)** & [Vision](https://docs.unsloth.ai/get-started/unsloth-notebooks#vision-multimodal-notebooks)
+- See all our notebooks for: [Kaggle](https://github.com/unslothai/notebooks?tab=readme-ov-file#-kaggle-notebooks), [GRPO](https://docs.unsloth.ai/get-started/unsloth-notebooks#grpo-reasoning-rl-notebooks), **[TTS](https://docs.unsloth.ai/get-started/unsloth-notebooks#text-to-speech-tts-notebooks)** & [Vision](https://docs.unsloth.ai/get-started/unsloth-notebooks#vision-multimodal-notebooks)
 - See [all our models](https://docs.unsloth.ai/get-started/all-our-models) and [all our notebooks](https://github.com/unslothai/notebooks)
 - See detailed documentation for Unsloth [here](https://docs.unsloth.ai/)
 

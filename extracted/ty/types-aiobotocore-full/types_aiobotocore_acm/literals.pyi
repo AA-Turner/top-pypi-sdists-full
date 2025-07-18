@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_acm.literals import CertificateManagedByType
+    from types_aiobotocore_acm.literals import CertificateExportType
 
-    data: CertificateManagedByType = "CLOUDFRONT"
+    data: CertificateExportType = "DISABLED"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ACMServiceName",
+    "CertificateExportType",
     "CertificateManagedByType",
     "CertificateStatusType",
     "CertificateTransparencyLoggingPreferenceType",
@@ -48,6 +49,7 @@ __all__ = (
     "WaiterName",
 )
 
+CertificateExportType = Literal["DISABLED", "ENABLED"]
 CertificateManagedByType = Literal["CLOUDFRONT"]
 CertificateStatusType = Literal[
     "EXPIRED",
@@ -137,6 +139,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -277,6 +280,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -334,6 +338,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -389,6 +394,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -533,6 +539,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -554,6 +561,7 @@ WaiterName = Literal["certificate_validated"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

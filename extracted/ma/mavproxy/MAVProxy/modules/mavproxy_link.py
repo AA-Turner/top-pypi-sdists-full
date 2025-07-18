@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''enable run-time addition and removal of master link, just like --master on the cnd line
 
@@ -30,6 +30,7 @@ from MAVProxy.modules.lib import mp_module
 from MAVProxy.modules.lib import mp_util
 
 if mp_util.has_wxpython:
+    from MAVProxy.modules.lib.mp_menu import MPMenuCallTextDialog
     from MAVProxy.modules.lib.mp_menu import MPMenuSubMenu
     from MAVProxy.modules.lib.mp_menu import MPMenuItem
     from MAVProxy.modules.lib.wx_addlink import MPMenulinkAddDialog
@@ -109,12 +110,28 @@ class LinkModule(mp_module.MPModule):
         self.menu_added_console = False
         if mp_util.has_wxpython:
             self.menu_rm = MPMenuSubMenu('Remove', items=[])
-            self.menu = MPMenuSubMenu('Link',
-                                      items=[MPMenuItem('Add...', 'Add...', '# link add ', handler=MPMenulinkAddDialog()),
-                                             self.menu_rm,
-                                             MPMenuItem('Ports', 'Ports', '# link ports'),
-                                             MPMenuItem('List', 'List', '# link list'),
-                                             MPMenuItem('Status', 'Status', '# link')])
+
+            items = [
+                MPMenuItem('Add...', 'Add...', '# link add ', handler=MPMenulinkAddDialog()),
+                self.menu_rm,
+                MPMenuItem('Ports', 'Ports', '# link ports'),
+                MPMenuItem('List', 'List', '# link list'),
+                MPMenuItem('Status', 'Status', '# link')]
+            # wsproto is not installed by default.
+            # Only add the menu if it's available.
+            try:
+                import wsproto  # noqa: F401
+            except ImportError:
+                pass
+            else:
+                items.append(
+                    MPMenuItem('Start Websocket Server', 'Start Websocket Server', '# output add wsserver:0.0.0.0:',
+                               handler=MPMenuCallTextDialog(
+                                   title='Websocket Port',
+                                   default=56781
+                               )))
+
+            self.menu = MPMenuSubMenu('Link', items=items)
             self.last_menu_update = 0
 
     def idle_task(self):
@@ -154,7 +171,7 @@ class LinkModule(mp_module.MPModule):
                                   str(self.status.counters['MasterIn'][master.linknum]) + "," +
                                   str(self.status.bytecounters['MasterIn'][master.linknum].total()) + "," +
                                   str(linkdelay) + "," +
-                                  str(100 * round(master.packet_loss(), 3)) + "\n")
+                                  str(round(master.packet_loss(), 3)) + "\n")
 
         # update outstanding TimeSyncRequest objects.  Reap any which
         # are past their use-by date:
@@ -416,6 +433,12 @@ class LinkModule(mp_module.MPModule):
         conn.highest_msec = {}
         conn.target_system = self.settings.target_system
         self.apply_link_attributes(conn, optional_attributes)
+
+        # if we are using signing then sign the new link
+        signing = self.mpstate.module('signing')
+        if signing:
+            signing.setup_signing_device(conn, device)
+
         self.mpstate.mav_master.append(conn)
         self.status.counters['MasterIn'].append(0)
         self.status.bytecounters['MasterIn'].append(self.status.ByteCounter())
@@ -566,6 +589,9 @@ class LinkModule(mp_module.MPModule):
             master.link_delayed = False
 
     def colors_for_severity(self, severity):
+        # Windows and Linux have wildly difference concepts of
+        # "green",so use specific RGB values:
+        green = (0, 128, 0)
         severity_colors = {
             # tuple is (fg, bg) (as in "white on red")
             mavutil.mavlink.MAV_SEVERITY_EMERGENCY: ('white', 'red'),
@@ -574,8 +600,8 @@ class LinkModule(mp_module.MPModule):
             mavutil.mavlink.MAV_SEVERITY_ERROR: ('black', 'orange'),
             mavutil.mavlink.MAV_SEVERITY_WARNING: ('black', 'orange'),
             mavutil.mavlink.MAV_SEVERITY_NOTICE: ('black', 'yellow'),
-            mavutil.mavlink.MAV_SEVERITY_INFO: ('white', 'green'),
-            mavutil.mavlink.MAV_SEVERITY_DEBUG: ('white', 'green'),
+            mavutil.mavlink.MAV_SEVERITY_INFO: ('white', green),
+            mavutil.mavlink.MAV_SEVERITY_DEBUG: ('white', green),
         }
         try:
             return severity_colors[severity]
@@ -612,6 +638,35 @@ class LinkModule(mp_module.MPModule):
             self.status.last_apm_msg_time = time.time()
         del self.status.statustexts_by_sysidcompid[key][id]
 
+    mav_types_which_are_not_vehicles = frozenset([
+        "MAV_TYPE_GCS",
+        "MAV_TYPE_ONBOARD_CONTROLLER",
+        "MAV_TYPE_GIMBAL",
+        "MAV_TYPE_ADSB",
+        "MAV_TYPE_CAMERA",
+        "MAV_TYPE_CHARGING_STATION",
+        "MAV_TYPE_SERVO",
+        "MAV_TYPE_ODID",
+        "MAV_TYPE_BATTERY",
+        "MAV_TYPE_LOG",
+        "MAV_TYPE_OSD",
+        "MAV_TYPE_IMU",
+        "MAV_TYPE_GPS",
+        "MAV_TYPE_WINCH",
+    ])
+
+    mav_autopilots_which_are_not_vehicles = frozenset([
+        mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+        mavutil.mavlink.MAV_AUTOPILOT_RESERVED,
+    ])
+
+    component_ids_which_are_not_vehicles = frozenset([
+        mavutil.mavlink.MAV_COMP_ID_ADSB,
+        mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_1,
+        mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_2,
+        mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_3
+    ])
+
     def heartbeat_is_from_autopilot(self, m):
         '''returns true if m is a HEARTBEAT (or HIGH_LATENCY2) message and
         looks like it is from an actual autopilot rather than from e.g. a
@@ -622,45 +677,39 @@ class LinkModule(mp_module.MPModule):
         if mtype not in ['HEARTBEAT', 'HIGH_LATENCY2']:
             return False
 
-        mav_autopilots_which_are_not_vehicles = frozenset([
-            mavutil.mavlink.MAV_AUTOPILOT_INVALID,
-            mavutil.mavlink.MAV_AUTOPILOT_RESERVED,
-        ])
-        if m.autopilot in mav_autopilots_which_are_not_vehicles:
+        if m.autopilot in LinkModule.mav_autopilots_which_are_not_vehicles:
             return False
 
         # this is a rather bogus assumption - and might break people's
         # setups.  It should probably be removed in favour of trusting
         # the MAV_TYPE field.
-        component_ids_which_are_not_vehicles = frozenset([
-            mavutil.mavlink.MAV_COMP_ID_ADSB,
-            mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_1,
-            mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_2,
-            mavutil.mavlink.MAV_COMP_ID_ODID_TXRX_3
-        ])
-        if m.get_srcComponent() in component_ids_which_are_not_vehicles:
+        if m.get_srcComponent() in LinkModule.component_ids_which_are_not_vehicles:
             return False
 
-        mav_types_which_are_not_vehicles = frozenset([
-            mavutil.mavlink.MAV_TYPE_GCS,
-            mavutil.mavlink.MAV_TYPE_ONBOARD_CONTROLLER,
-            mavutil.mavlink.MAV_TYPE_GIMBAL,
-            mavutil.mavlink.MAV_TYPE_ADSB,
-            mavutil.mavlink.MAV_TYPE_CAMERA,
-            mavutil.mavlink.MAV_TYPE_CHARGING_STATION,
-            mavutil.mavlink.MAV_TYPE_SERVO,
-            mavutil.mavlink.MAV_TYPE_ODID,
-            mavutil.mavlink.MAV_TYPE_BATTERY,
-            mavutil.mavlink.MAV_TYPE_LOG,
-            mavutil.mavlink.MAV_TYPE_OSD,
-            mavutil.mavlink.MAV_TYPE_IMU,
-            mavutil.mavlink.MAV_TYPE_GPS,
-            mavutil.mavlink.MAV_TYPE_WINCH,
-        ])
-        if m.type in mav_types_which_are_not_vehicles:
+        found_mav_type = False
+        # not all of these are present in all versions of mavlink:
+        for t in LinkModule.mav_types_which_are_not_vehicles:
+            if getattr(mavutil.mavlink, t, None) is not None:
+                found_mav_type = True
+                break
+
+        if not found_mav_type:
             return False
 
         return True
+
+    mav_type_planes = [
+        mavutil.mavlink.MAV_TYPE_FIXED_WING,
+        mavutil.mavlink.MAV_TYPE_VTOL_QUADROTOR,
+        mavutil.mavlink.MAV_TYPE_VTOL_TILTROTOR,
+    ]
+    # VTOL_DUOROTOR was renamed to VTOL_TAILSITTER_DUOROTOR
+    for possible_plane_type in "VTOL_DUOROTOR", "VTOL_TAILSITTER_DUOROTOR":
+        t = f"MAV_TYPE_{possible_plane_type}"
+        attr = getattr(mavutil.mavlink, t, None)
+        if attr is None:
+            continue
+        mav_type_planes.append(attr)
 
     def master_msg_handling(self, m, master):
         '''link message handling for an upstream link'''
@@ -726,11 +775,7 @@ class LinkModule(mp_module.MPModule):
                 self.status.last_mode_announced = master.flightmode
                 self.say("Mode " + self.status.flightmode)
 
-            if m.type in [
-                    mavutil.mavlink.MAV_TYPE_FIXED_WING,
-                    mavutil.mavlink.MAV_TYPE_VTOL_DUOROTOR,
-                    mavutil.mavlink.MAV_TYPE_VTOL_QUADROTOR,
-                    mavutil.mavlink.MAV_TYPE_VTOL_TILTROTOR]:
+            if m.type in self.mav_type_planes:
                 self.mpstate.vehicle_type = 'plane'
                 self.mpstate.vehicle_name = 'ArduPlane'
             elif m.type in [mavutil.mavlink.MAV_TYPE_GROUND_ROVER,
@@ -884,7 +929,10 @@ class LinkModule(mp_module.MPModule):
                 res = res[11:]
                 if (m.target_component not in [mavutil.mavlink.MAV_COMP_ID_MAVCAN] and
                     m.command not in [mavutil.mavlink.MAV_CMD_GET_HOME_POSITION,
-                                      mavutil.mavlink.MAV_CMD_DO_DIGICAM_CONTROL]):
+                                      mavutil.mavlink.MAV_CMD_DO_DIGICAM_CONTROL,
+                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_MODE,
+                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_ZOOM,
+                                      mavutil.mavlink.MAV_CMD_SET_CAMERA_FOCUS]):
                     self.mpstate.console.writeln("Got COMMAND_ACK: %s: %s" % (cmd, res))
             except Exception:
                 self.mpstate.console.writeln("Got MAVLink msg: %s" % m)
@@ -1015,6 +1063,10 @@ class LinkModule(mp_module.MPModule):
             if self.mpstate.settings.mavfwd_rate or mtype != 'REQUEST_DATA_STREAM':
                 if mtype not in self.no_fwd_types:
                     for r in self.mpstate.mav_outputs:
+                        if hasattr(r, 'ws') and r.ws is not None:
+                            from wsproto.connection import ConnectionState
+                            if r.ws.state != ConnectionState.OPEN:  # Ensure Websocket handshake is done
+                                continue
                         r.write(m.get_msgbuf())
 
             sysid = m.get_srcSystem()

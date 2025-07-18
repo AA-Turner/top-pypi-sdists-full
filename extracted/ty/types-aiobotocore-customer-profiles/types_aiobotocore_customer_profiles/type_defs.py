@@ -47,6 +47,7 @@ from .literals import (
     PartyTypeType,
     PeriodUnitType,
     QueryResultType,
+    ReadinessStatusType,
     RuleBasedMatchingStatusType,
     S3ConnectorOperatorType,
     SalesforceConnectorOperatorType,
@@ -121,6 +122,8 @@ __all__ = (
     "ConsolidationUnionTypeDef",
     "CreateCalculatedAttributeDefinitionRequestTypeDef",
     "CreateCalculatedAttributeDefinitionResponseTypeDef",
+    "CreateDomainLayoutRequestTypeDef",
+    "CreateDomainLayoutResponseTypeDef",
     "CreateDomainRequestTypeDef",
     "CreateDomainResponseTypeDef",
     "CreateEventStreamRequestTypeDef",
@@ -141,6 +144,8 @@ __all__ = (
     "DateDimensionTypeDef",
     "DateDimensionUnionTypeDef",
     "DeleteCalculatedAttributeDefinitionRequestTypeDef",
+    "DeleteDomainLayoutRequestTypeDef",
+    "DeleteDomainLayoutResponseTypeDef",
     "DeleteDomainRequestTypeDef",
     "DeleteDomainResponseTypeDef",
     "DeleteEventStreamRequestTypeDef",
@@ -202,6 +207,8 @@ __all__ = (
     "GetCalculatedAttributeDefinitionResponseTypeDef",
     "GetCalculatedAttributeForProfileRequestTypeDef",
     "GetCalculatedAttributeForProfileResponseTypeDef",
+    "GetDomainLayoutRequestTypeDef",
+    "GetDomainLayoutResponseTypeDef",
     "GetDomainRequestTypeDef",
     "GetDomainResponseTypeDef",
     "GetEventStreamRequestTypeDef",
@@ -241,6 +248,7 @@ __all__ = (
     "IntegrationConfigTypeDef",
     "JobScheduleTypeDef",
     "JobStatsTypeDef",
+    "LayoutItemTypeDef",
     "ListAccountIntegrationsRequestTypeDef",
     "ListAccountIntegrationsResponseTypeDef",
     "ListCalculatedAttributeDefinitionItemTypeDef",
@@ -250,6 +258,9 @@ __all__ = (
     "ListCalculatedAttributesForProfileRequestTypeDef",
     "ListCalculatedAttributesForProfileResponseTypeDef",
     "ListDomainItemTypeDef",
+    "ListDomainLayoutsRequestPaginateTypeDef",
+    "ListDomainLayoutsRequestTypeDef",
+    "ListDomainLayoutsResponseTypeDef",
     "ListDomainsRequestTypeDef",
     "ListDomainsResponseTypeDef",
     "ListEventStreamsRequestPaginateTypeDef",
@@ -325,6 +336,7 @@ __all__ = (
     "PutProfileObjectTypeResponseTypeDef",
     "RangeOverrideTypeDef",
     "RangeTypeDef",
+    "ReadinessTypeDef",
     "ResponseMetadataTypeDef",
     "RuleBasedMatchingRequestTypeDef",
     "RuleBasedMatchingResponseTypeDef",
@@ -354,12 +366,15 @@ __all__ = (
     "UpdateAddressTypeDef",
     "UpdateCalculatedAttributeDefinitionRequestTypeDef",
     "UpdateCalculatedAttributeDefinitionResponseTypeDef",
+    "UpdateDomainLayoutRequestTypeDef",
+    "UpdateDomainLayoutResponseTypeDef",
     "UpdateDomainRequestTypeDef",
     "UpdateDomainResponseTypeDef",
     "UpdateEventTriggerRequestTypeDef",
     "UpdateEventTriggerResponseTypeDef",
     "UpdateProfileRequestTypeDef",
     "UpdateProfileResponseTypeDef",
+    "ValueRangeTypeDef",
     "WorkflowAttributesTypeDef",
     "WorkflowMetricsTypeDef",
     "WorkflowStepItemTypeDef",
@@ -481,6 +496,7 @@ class CalculatedAttributeValueTypeDef(TypedDict):
     IsDataPartial: NotRequired[str]
     ProfileId: NotRequired[str]
     Value: NotRequired[str]
+    LastObjectTimestamp: NotRequired[datetime]
 
 
 class BatchGetProfileErrorTypeDef(TypedDict):
@@ -503,11 +519,6 @@ class RangeOverrideTypeDef(TypedDict):
     End: NotRequired[int]
 
 
-class RangeTypeDef(TypedDict):
-    Value: int
-    Unit: Literal["DAYS"]
-
-
 class ThresholdTypeDef(TypedDict):
     Value: str
     Operator: OperatorType
@@ -523,6 +534,22 @@ class ConnectorOperatorTypeDef(TypedDict):
 
 class ConsolidationTypeDef(TypedDict):
     MatchingAttributesList: Sequence[Sequence[str]]
+
+
+class ReadinessTypeDef(TypedDict):
+    ProgressPercentage: NotRequired[int]
+    Message: NotRequired[str]
+
+
+class CreateDomainLayoutRequestTypeDef(TypedDict):
+    DomainName: str
+    LayoutDefinitionName: str
+    Description: str
+    DisplayName: str
+    LayoutType: Literal["PROFILE_EXPLORER"]
+    Layout: str
+    IsDefault: NotRequired[bool]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class CreateEventStreamRequestTypeDef(TypedDict):
@@ -554,6 +581,11 @@ class DateDimensionTypeDef(TypedDict):
 class DeleteCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
     DomainName: str
     CalculatedAttributeName: str
+
+
+class DeleteDomainLayoutRequestTypeDef(TypedDict):
+    DomainName: str
+    LayoutDefinitionName: str
 
 
 class DeleteDomainRequestTypeDef(TypedDict):
@@ -738,6 +770,11 @@ class GetCalculatedAttributeForProfileRequestTypeDef(TypedDict):
     CalculatedAttributeName: str
 
 
+class GetDomainLayoutRequestTypeDef(TypedDict):
+    DomainName: str
+    LayoutDefinitionName: str
+
+
 class GetDomainRequestTypeDef(TypedDict):
     DomainName: str
 
@@ -857,6 +894,17 @@ class JobScheduleTypeDef(TypedDict):
     Time: str
 
 
+class LayoutItemTypeDef(TypedDict):
+    LayoutDefinitionName: str
+    Description: str
+    DisplayName: str
+    LayoutType: Literal["PROFILE_EXPLORER"]
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    IsDefault: NotRequired[bool]
+    Tags: NotRequired[Dict[str, str]]
+
+
 class ListAccountIntegrationsRequestTypeDef(TypedDict):
     Uri: str
     NextToken: NotRequired[str]
@@ -884,6 +932,8 @@ class ListCalculatedAttributeDefinitionItemTypeDef(TypedDict):
     Description: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
+    UseHistoricalData: NotRequired[bool]
+    Status: NotRequired[ReadinessStatusType]
     Tags: NotRequired[Dict[str, str]]
 
 
@@ -898,6 +948,7 @@ class ListCalculatedAttributeForProfileItemTypeDef(TypedDict):
     DisplayName: NotRequired[str]
     IsDataPartial: NotRequired[str]
     Value: NotRequired[str]
+    LastObjectTimestamp: NotRequired[datetime]
 
 
 class ListCalculatedAttributesForProfileRequestTypeDef(TypedDict):
@@ -912,6 +963,12 @@ class ListDomainItemTypeDef(TypedDict):
     CreatedAt: datetime
     LastUpdatedAt: datetime
     Tags: NotRequired[Dict[str, str]]
+
+
+class ListDomainLayoutsRequestTypeDef(TypedDict):
+    DomainName: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 
 class ListDomainsRequestTypeDef(TypedDict):
@@ -1068,6 +1125,11 @@ class PutProfileObjectRequestTypeDef(TypedDict):
     DomainName: str
 
 
+class ValueRangeTypeDef(TypedDict):
+    Start: int
+    End: int
+
+
 class S3SourcePropertiesTypeDef(TypedDict):
     BucketName: str
     BucketPrefix: NotRequired[str]
@@ -1110,9 +1172,33 @@ class UpdateAddressTypeDef(TypedDict):
     PostalCode: NotRequired[str]
 
 
+class UpdateDomainLayoutRequestTypeDef(TypedDict):
+    DomainName: str
+    LayoutDefinitionName: str
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    IsDefault: NotRequired[bool]
+    LayoutType: NotRequired[Literal["PROFILE_EXPLORER"]]
+    Layout: NotRequired[str]
+
+
 class AddProfileKeyResponseTypeDef(TypedDict):
     KeyName: str
     Values: List[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateDomainLayoutResponseTypeDef(TypedDict):
+    LayoutDefinitionName: str
+    Description: str
+    DisplayName: str
+    IsDefault: bool
+    LayoutType: Literal["PROFILE_EXPLORER"]
+    Layout: str
+    Version: str
+    Tags: Dict[str, str]
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1152,6 +1238,11 @@ class CreateSegmentEstimateResponseTypeDef(TypedDict):
 
 class CreateSegmentSnapshotResponseTypeDef(TypedDict):
     SnapshotId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDomainLayoutResponseTypeDef(TypedDict):
+    Message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1208,6 +1299,21 @@ class GetCalculatedAttributeForProfileResponseTypeDef(TypedDict):
     DisplayName: str
     IsDataPartial: str
     Value: str
+    LastObjectTimestamp: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDomainLayoutResponseTypeDef(TypedDict):
+    LayoutDefinitionName: str
+    Description: str
+    DisplayName: str
+    IsDefault: bool
+    LayoutType: Literal["PROFILE_EXPLORER"]
+    Layout: str
+    Version: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1290,6 +1396,20 @@ class PutIntegrationResponseTypeDef(TypedDict):
 
 class PutProfileObjectResponseTypeDef(TypedDict):
     ProfileObjectUniqueKey: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateDomainLayoutResponseTypeDef(TypedDict):
+    LayoutDefinitionName: str
+    Description: str
+    DisplayName: str
+    IsDefault: bool
+    LayoutType: Literal["PROFILE_EXPLORER"]
+    Layout: str
+    Version: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1414,12 +1534,6 @@ class ScheduledTriggerPropertiesTypeDef(TypedDict):
 
 class ConditionOverridesTypeDef(TypedDict):
     Range: NotRequired[RangeOverrideTypeDef]
-
-
-class ConditionsTypeDef(TypedDict):
-    Range: NotRequired[RangeTypeDef]
-    ObjectCount: NotRequired[int]
-    Threshold: NotRequired[ThresholdTypeDef]
 
 
 class TaskTypeDef(TypedDict):
@@ -1600,6 +1714,11 @@ class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListDomainLayoutsRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListEventStreamsRequestPaginateTypeDef(TypedDict):
     DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1624,6 +1743,12 @@ class ListRuleBasedMatchesRequestPaginateTypeDef(TypedDict):
 class ListSegmentDefinitionsRequestPaginateTypeDef(TypedDict):
     DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDomainLayoutsResponseTypeDef(TypedDict):
+    Items: List[LayoutItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListAccountIntegrationsResponseTypeDef(TypedDict):
@@ -1705,6 +1830,14 @@ MatchingRuleUnionTypeDef = Union[MatchingRuleTypeDef, MatchingRuleOutputTypeDef]
 ObjectAttributeUnionTypeDef = Union[ObjectAttributeTypeDef, ObjectAttributeOutputTypeDef]
 ObjectTypeKeyUnionTypeDef = Union[ObjectTypeKeyTypeDef, ObjectTypeKeyOutputTypeDef]
 ProfileDimensionUnionTypeDef = Union[ProfileDimensionTypeDef, ProfileDimensionOutputTypeDef]
+
+
+class RangeTypeDef(TypedDict):
+    Value: NotRequired[int]
+    Unit: NotRequired[Literal["DAYS"]]
+    ValueRange: NotRequired[ValueRangeTypeDef]
+    TimestampSource: NotRequired[str]
+    TimestampFormat: NotRequired[str]
 
 
 class SourceConnectorPropertiesTypeDef(TypedDict):
@@ -1818,27 +1951,6 @@ class CalculatedAttributeDimensionTypeDef(TypedDict):
     DimensionType: AttributeDimensionTypeType
     Values: Sequence[str]
     ConditionOverrides: NotRequired[ConditionOverridesTypeDef]
-
-
-class UpdateCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
-    DomainName: str
-    CalculatedAttributeName: str
-    DisplayName: NotRequired[str]
-    Description: NotRequired[str]
-    Conditions: NotRequired[ConditionsTypeDef]
-
-
-class UpdateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
-    CalculatedAttributeName: str
-    DisplayName: str
-    Description: str
-    CreatedAt: datetime
-    LastUpdatedAt: datetime
-    Statistic: StatisticType
-    Conditions: ConditionsTypeDef
-    AttributeDetails: AttributeDetailsOutputTypeDef
-    Tags: Dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AutoMergingTypeDef(TypedDict):
@@ -1990,6 +2102,12 @@ class AddressDimensionTypeDef(TypedDict):
     State: NotRequired[ProfileDimensionUnionTypeDef]
 
 
+class ConditionsTypeDef(TypedDict):
+    Range: NotRequired[RangeTypeDef]
+    ObjectCount: NotRequired[int]
+    Threshold: NotRequired[ThresholdTypeDef]
+
+
 class SourceFlowConfigTypeDef(TypedDict):
     ConnectorType: SourceConnectorTypeType
     SourceConnectorProperties: SourceConnectorPropertiesTypeDef
@@ -2121,6 +2239,30 @@ EventTriggerDimensionUnionTypeDef = Union[
 AddressDimensionUnionTypeDef = Union[AddressDimensionTypeDef, AddressDimensionOutputTypeDef]
 
 
+class UpdateCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
+    DomainName: str
+    CalculatedAttributeName: str
+    DisplayName: NotRequired[str]
+    Description: NotRequired[str]
+    Conditions: NotRequired[ConditionsTypeDef]
+
+
+class UpdateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
+    CalculatedAttributeName: str
+    DisplayName: str
+    Description: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Statistic: StatisticType
+    Conditions: ConditionsTypeDef
+    AttributeDetails: AttributeDetailsOutputTypeDef
+    UseHistoricalData: bool
+    Status: ReadinessStatusType
+    Readiness: ReadinessTypeDef
+    Tags: Dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class FlowDefinitionTypeDef(TypedDict):
     FlowName: str
     KmsArn: str
@@ -2158,6 +2300,9 @@ class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
     Statistic: StatisticType
     CreatedAt: datetime
     LastUpdatedAt: datetime
+    UseHistoricalData: bool
+    Status: ReadinessStatusType
+    Readiness: ReadinessTypeDef
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2172,6 +2317,9 @@ class GetCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
     Filter: FilterOutputTypeDef
     Conditions: ConditionsTypeDef
     AttributeDetails: AttributeDetailsOutputTypeDef
+    UseHistoricalData: bool
+    Status: ReadinessStatusType
+    Readiness: ReadinessTypeDef
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2258,6 +2406,7 @@ class CreateCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Conditions: NotRequired[ConditionsTypeDef]
     Filter: NotRequired[FilterUnionTypeDef]
+    UseHistoricalData: NotRequired[bool]
     Tags: NotRequired[Mapping[str, str]]
 
 

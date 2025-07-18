@@ -142,7 +142,7 @@ impl Builder for HuggingfaceBuilder {
             )),
             Some(repo_type) => Err(Error::new(
                 ErrorKind::ConfigInvalid,
-                format!("unknown repo_type: {}", repo_type).as_str(),
+                format!("unknown repo_type: {repo_type}").as_str(),
             )
             .with_operation("Builder::build")
             .with_context("service", Scheme::Huggingface)),
@@ -176,15 +176,11 @@ impl Builder for HuggingfaceBuilder {
                     am.set_scheme(Scheme::Huggingface)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_length: true,
-                            stat_has_last_modified: true,
 
                             read: true,
 
                             list: true,
                             list_with_recursive: true,
-                            list_has_content_length: true,
-                            list_has_last_modified: true,
 
                             shared: true,
 
@@ -213,10 +209,6 @@ impl Access for HuggingfaceBackend {
     type Writer = ();
     type Lister = oio::PageLister<HuggingfaceLister>;
     type Deleter = ();
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

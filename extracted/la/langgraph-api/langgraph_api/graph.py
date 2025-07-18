@@ -9,13 +9,13 @@ import warnings
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from itertools import filterfalse
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 from uuid import UUID, uuid5
 
 import orjson
 import structlog
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.constants import CONFIG_KEY_CHECKPOINTER, CONFIG_KEY_STORE
+from langgraph.constants import CONFIG_KEY_CHECKPOINTER
 from langgraph.graph import StateGraph
 from langgraph.pregel import Pregel
 from langgraph.store.base import BaseStore
@@ -23,6 +23,7 @@ from starlette.exceptions import HTTPException
 
 from langgraph_api import asyncio as lg_asyncio
 from langgraph_api import config
+from langgraph_api.feature_flags import USE_RUNTIME_API
 from langgraph_api.js.base import BaseRemotePregel, is_js_path
 from langgraph_api.schema import Config
 from langgraph_api.utils.config import run_in_executor, var_child_runnable_config
@@ -128,8 +129,24 @@ async def get_graph(
     value = GRAPHS[graph_id]
     if graph_id in FACTORY_ACCEPTS_CONFIG:
         config = lg_config.ensure_config(config)
-        if store is not None and not config["configurable"].get(CONFIG_KEY_STORE):
-            config["configurable"][CONFIG_KEY_STORE] = store
+
+        if store is not None:
+            if USE_RUNTIME_API:
+                from langgraph._internal._constants import CONFIG_KEY_RUNTIME
+                from langgraph.runtime import Runtime
+
+                if (
+                    (runtime := config["configurable"].get(CONFIG_KEY_RUNTIME))
+                    is not None
+                ) and runtime.store is None:
+                    patched_runtime = cast(Runtime, runtime).override(store=store)
+                    config["configurable"][CONFIG_KEY_RUNTIME] = patched_runtime
+            else:
+                from langgraph.constants import CONFIG_KEY_STORE
+
+                if not config["configurable"].get(CONFIG_KEY_STORE):
+                    config["configurable"][CONFIG_KEY_STORE] = store
+
         if checkpointer is not None and not config["configurable"].get(
             CONFIG_KEY_CHECKPOINTER
         ):

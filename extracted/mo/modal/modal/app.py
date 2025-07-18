@@ -171,10 +171,10 @@ class _App:
         self,
         name: Optional[str] = None,
         *,
-        image: Optional[_Image] = None,  # default image for all functions (default is `modal.Image.debian_slim()`)
-        secrets: Sequence[_Secret] = [],  # default secrets for all functions
-        volumes: dict[Union[str, PurePosixPath], _Volume] = {},  # default volumes for all functions
-        include_source: Optional[bool] = None,
+        image: Optional[_Image] = None,  # Default Image for the App (otherwise default to `modal.Image.debian_slim()`)
+        secrets: Sequence[_Secret] = [],  # Secrets to add for all Functions in the App
+        volumes: dict[Union[str, PurePosixPath], _Volume] = {},  # Volume mounts to use for all Functions
+        include_source: bool = True,  # Default configuration for adding Function source file(s) to the Modal container
     ) -> None:
         """Construct a new app, optionally with default image, mounts, secrets, or volumes.
 
@@ -508,22 +508,38 @@ class _App:
 
     @property
     def registered_functions(self) -> dict[str, _Function]:
-        """All modal.Function objects registered on the app."""
+        """All modal.Function objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         return self._functions
 
     @property
     def registered_classes(self) -> dict[str, _Cls]:
-        """All modal.Cls objects registered on the app."""
+        """All modal.Cls objects registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         return self._classes
 
     @property
     def registered_entrypoints(self) -> dict[str, _LocalEntrypoint]:
-        """All local CLI entrypoints registered on the app."""
+        """All local CLI entrypoints registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         return self._local_entrypoints
 
     @property
     def registered_web_endpoints(self) -> list[str]:
-        """Names of web endpoint (ie. webhook) functions registered on the app."""
+        """Names of web endpoint (ie. webhook) functions registered on the app.
+
+        Note: this property is populated only during the build phase, and it is not
+        expected to work when a deplyoed App has been retrieved via `modal.App.lookup`.
+        """
         return self._web_endpoints
 
     def local_entrypoint(
@@ -639,8 +655,9 @@ class _App:
         # With `max_inputs = 1`, containers will be single-use.
         max_inputs: Optional[int] = None,
         i6pn: Optional[bool] = None,  # Whether to enable IPv6 container networking within the region.
-        # Whether the function's home package should be included in the image - defaults to True
-        include_source: Optional[bool] = None,  # When `False`, don't automatically add the App source to the container.
+        # Whether the file or directory containing the Function's source should automatically be included
+        # in the container. When unset, falls back to the App-level configuration, or is otherwise True by default.
+        include_source: Optional[bool] = None,
         experimental_options: Optional[dict[str, Any]] = None,
         # Parameters below here are experimental. Use with caution!
         _experimental_scheduler_placement: Optional[
@@ -654,8 +671,8 @@ class _App:
         concurrency_limit: Optional[int] = None,  # Replaced with `max_containers`
         container_idle_timeout: Optional[int] = None,  # Replaced with `scaledown_window`
         allow_concurrent_inputs: Optional[int] = None,  # Replaced with the `@modal.concurrent` decorator
-        _experimental_buffer_containers: Optional[int] = None,  # Now stable API with `buffer_containers`
         allow_cross_region_volumes: Optional[bool] = None,  # Always True on the Modal backend now
+        _experimental_buffer_containers: Optional[int] = None,  # Now stable API with `buffer_containers`
     ) -> _FunctionDecoratorType:
         """Decorator to register a new Modal Function with this App."""
         if isinstance(_warn_parentheses_missing, _Image):
@@ -863,6 +880,7 @@ class _App:
         # Limits the number of inputs a container handles before shutting down.
         # Use `max_inputs = 1` for single-use containers.
         max_inputs: Optional[int] = None,
+        i6pn: Optional[bool] = None,  # Whether to enable IPv6 container networking within the region.
         include_source: Optional[bool] = None,  # When `False`, don't automatically add the App source to the container.
         experimental_options: Optional[dict[str, Any]] = None,
         # Parameters below here are experimental. Use with caution!
@@ -913,12 +931,23 @@ class _App:
                 else:
                     max_concurrent_inputs = allow_concurrent_inputs
                     target_concurrent_inputs = None
+
+                if wrapped_cls.flags & _PartialFunctionFlags.CLUSTERED:
+                    cluster_size = wrapped_cls.params.cluster_size
+                else:
+                    cluster_size = None
             else:
                 user_cls = wrapped_cls
                 max_concurrent_inputs = allow_concurrent_inputs
                 target_concurrent_inputs = None
+                cluster_size = None
             if not inspect.isclass(user_cls):
                 raise TypeError("The @app.cls decorator must be used on a class.")
+
+            interface_methods = _find_partial_methods_for_user_cls(user_cls, _PartialFunctionFlags.interface_flags())
+            if cluster_size:
+                if len(interface_methods) > 1:
+                    raise InvalidError(f"Modal class {user_cls.__name__} cannot have multiple methods when clustered.")
 
             batch_functions = _find_partial_methods_for_user_cls(user_cls, _PartialFunctionFlags.BATCHED)
             if batch_functions:
@@ -949,6 +978,8 @@ class _App:
 
             info = FunctionInfo(None, serialized=serialized, user_cls=user_cls)
 
+            i6pn_enabled = i6pn or cluster_size is not None
+
             cls_func = _Function.from_local(
                 info,
                 app=self,
@@ -977,6 +1008,8 @@ class _App:
                 restrict_modal_access=restrict_modal_access,
                 max_inputs=max_inputs,
                 scheduler_placement=scheduler_placement,
+                i6pn_enabled=i6pn_enabled,
+                cluster_size=cluster_size,
                 include_source=include_source if include_source is not None else self._include_source_default,
                 experimental_options={k: str(v) for k, v in (experimental_options or {}).items()},
                 _experimental_proxy_ip=_experimental_proxy_ip,

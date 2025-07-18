@@ -9,7 +9,7 @@ import ujson as json
 from importlib import import_module
 from time import time_ns
 
-from datadog_lambda.dsm import set_dsm_context
+from datadog_lambda.asm import asm_set_context, asm_start_response, asm_start_request
 from datadog_lambda.extension import should_use_extension, flush_extension
 from datadog_lambda.cold_start import (
     set_cold_start,
@@ -25,7 +25,6 @@ from datadog_lambda.constants import (
     Headers,
 )
 from datadog_lambda.module_name import modify_module_name
-from datadog_lambda.patch import patch_all
 from datadog_lambda.span_pointers import calculate_span_pointers
 from datadog_lambda.tag_object import tag_object
 from datadog_lambda.tracing import (
@@ -142,8 +141,6 @@ class _LambdaDecorator(object):
             os.environ[DD_REQUESTS_SERVICE_NAME] = os.environ.get(
                 DD_SERVICE, "aws.lambda"
             )
-            # Patch third-party libraries for tracing
-            patch_all()
 
             # Enable LLM Observability
             if config.llmobs_enabled:
@@ -165,10 +162,9 @@ class _LambdaDecorator(object):
             self.response = self.func(event, context, **kwargs)
             return self.response
         except Exception:
-            if not should_use_extension:
-                from datadog_lambda.metric import submit_errors_metric
+            from datadog_lambda.metric import submit_errors_metric
 
-                submit_errors_metric(context)
+            submit_errors_metric(context)
 
             if self.span:
                 self.span.set_traceback()
@@ -240,8 +236,10 @@ class _LambdaDecorator(object):
                     self.inferred_span = create_inferred_span(
                         event, context, event_source, config.decode_authorizer_context
                     )
-                if config.data_streams_enabled:
-                    set_dsm_context(event, event_source)
+
+                if config.appsec_enabled:
+                    asm_set_context(event_source)
+
                 self.span = create_function_execution_span(
                     context=context,
                     function_name=config.function_name,
@@ -253,6 +251,8 @@ class _LambdaDecorator(object):
                     parent_span=self.inferred_span,
                     span_pointers=calculate_span_pointers(event_source, event),
                 )
+                if config.appsec_enabled:
+                    asm_start_request(self.span, event, event_source, self.trigger_tags)
             else:
                 set_correlation_ids()
             if config.profiling_enabled and is_new_sandbox():
@@ -285,6 +285,15 @@ class _LambdaDecorator(object):
 
                 if status_code:
                     self.span.set_tag("http.status_code", status_code)
+
+                if config.appsec_enabled:
+                    asm_start_response(
+                        self.span,
+                        status_code,
+                        self.event_source,
+                        response=self.response,
+                    )
+
                 self.span.finish()
 
             if self.inferred_span:

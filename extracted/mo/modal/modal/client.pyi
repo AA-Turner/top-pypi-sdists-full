@@ -4,6 +4,7 @@ import collections.abc
 import google.protobuf.message
 import grpclib.client
 import modal._utils.async_utils
+import modal._utils.auth_token_manager
 import modal_proto.api_grpc
 import modal_proto.modal_api_grpc
 import synchronicity.combined_types
@@ -24,10 +25,11 @@ class _Client:
     _cancellation_context: modal._utils.async_utils.TaskContext
     _cancellation_context_event_loop: asyncio.events.AbstractEventLoop
     _stub: typing.Optional[modal_proto.api_grpc.ModalClientStub]
+    _auth_token_manager: modal._utils.auth_token_manager._AuthTokenManager
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.5"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.0"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -149,10 +151,11 @@ class Client:
     _cancellation_context: modal._utils.async_utils.TaskContext
     _cancellation_context_event_loop: asyncio.events.AbstractEventLoop
     _stub: typing.Optional[modal_proto.api_grpc.ModalClientStub]
+    _auth_token_manager: modal._utils.auth_token_manager._AuthTokenManager
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.0.5"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "1.1.0"
     ):
         """mdmd:hidden
         The Modal client object is not intended to be instantiated directly by users.
@@ -320,6 +323,10 @@ class Client:
             None,
         ],
     ) -> collections.abc.AsyncGenerator[typing.Any, None]: ...
+
+class grpc_error_converter:
+    def __enter__(self): ...
+    def __exit__(self, exc_type, exc, traceback) -> bool: ...
 
 class UnaryUnaryWrapper(typing.Generic[RequestType, ResponseType]):
     """Abstract base class for generic types.

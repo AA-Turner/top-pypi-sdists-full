@@ -39,7 +39,7 @@ def _common_options() -> typing.List[click.Option]:
             param_decls=["-p", "--project"],
             required=False,
             type=str,
-            default="default",
+            default=None,
             help="Project to operate on",
             show_default=True,
         ),

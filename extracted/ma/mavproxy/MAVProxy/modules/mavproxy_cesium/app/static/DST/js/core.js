@@ -9,21 +9,14 @@ $(function () { // init tool tips and only show on hover
     var vehicle_offset_x = 25
     var vehicle_offset_y = 25
     var vehicle_offset_z = 25
-    var vehicle_model = '/'+app_prefix+'static/DST/models/rat.gltf'
+    var vehicle_model = '/'+app_prefix+'static/DST/models/Cesium_Air.glb'
     
-    var position = Cesium.Cartesian3.fromDegrees(0, 0, 0);
-    var heading = 0;
-    var pitch = 0;
-    var roll = 0;
-    var hpr = new Cesium.HeadingPitchRoll(heading, pitch, roll);
-    var orientation = Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
-    	
+    var position = Cesium.Cartesian3.fromDegrees(0, 0, 0); 	
     	
     vehicle_offset = new Cesium.Cartesian3(vehicle_offset_x,vehicle_offset_y,vehicle_offset_z)
     viewer.entities.add({
-    	id : "vehicle",
+    	id : 'vehicle',
         position : position,
-        orientation : orientation,
         
         model : {
         	allowPicking : false,
@@ -73,7 +66,11 @@ $(function () { // init tool tips and only show on hover
 
     var aircraft = {};
     var pos_target = {lat:null, lon:null, alt_wgs84:null, show:true, color:Cesium.Color.FUCHSIA};
-    var fence = {points:[], show:true, alt_agl:500, color:Cesium.Color.GREEN};
+
+	// Array to store references to all inclusion circle fence primitives.
+	const inclusion_circles = []; 
+	// Array to store references to all exclusion circle fence primitives.
+	const exclusion_circles = []; 
     var home_alt_wgs84 = undefined;
     var data_stream = {};
     var flightmode = null;
@@ -102,39 +99,120 @@ $(function () { // init tool tips and only show on hover
     }
     
     function update_fence_data(fence_data) {
-        console.log(fence_data)
+
+		if (Object.keys(fence_data).length == 0) {
+			clear_fences();
+		}
         
-        fence.points = [];
-        
-        
-        for (var point in fence_data){
-        	if (fence_data.hasOwnProperty(point)) {
-        	
-        		var pointOfInterest = Cesium.Cartographic.fromDegrees(
-        				fence_data[point].lng, fence_data[point].lat, 5000, new Cesium.Cartographic()
-        			);
-				  	// Sample the terrain (async)
-				  	Cesium.sampleTerrainMostDetailed(viewer.terrainProvider, [ pointOfInterest ]).then(function(samples) {
-				  		terrain_sample_height = samples[0].height
-				  	});
-				  	fence.points.push(fence_data[point].lng, fence_data[point].lat, fence.alt_agl+terrain_sample_height); //[ lon, lat, alt, lon, lat, alt, etc. ]
-				  
-				  draw_fence();
-        	}
+        for (var idx in fence_data){
+			var fence_item = fence_data[idx];
+
+			// MAV_CMD_NAV_FENCE_POLYGON_VERTEX_INCLUSION
+			const POLYGON_VERTEX_INCLUSION = 5001;
+			// MAV_CMD_NAV_FENCE_POLYGON_VERTEX_EXCLUSION
+			const POLYGON_VERTEX_EXCLUSION = 5002
+			// MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION
+			const CIRCLE_INCLUSION = 5003;
+			// MAV_CMD_NAV_FENCE_CIRCLE_EXCLUSION
+			const CIRCLE_EXCLUSION = 5004;
+
+			if (fence_item.command == CIRCLE_INCLUSION) {
+				draw_inclusion_circle(fence_item);
+			} else if (fence_item.command == CIRCLE_EXCLUSION) {
+				draw_exclusion_circle(fence_item);
+			} else  {
+				console.warn("MISSION_ITEM is not yet supported: ", fence_item)
+			}
+
         };
     }
-    function draw_fence() {
-    		viewer.entities.remove(viewer.entities.getById('fence_wall'))
-    	if (fence.points.length > 9) {
-    		var fence_wall = viewer.entities.add({
-		    	id : "fence_wall",
-		    	wall : {
-		    		positions: Cesium.Cartesian3.fromDegreesArrayHeights( fence.points )
-		    	},
-		    	show : fence.show
-		     })
-    	}
-     };
+
+	function clear_fences() {
+
+		if (inclusion_circles.length === 0) {
+			console.warn("No inclusion circles to clear.");
+			return;
+		}
+	
+		// Remove all circle primitives from the scene
+		inclusion_circles.forEach(circlePrimitive => {
+			viewer.scene.primitives.remove(circlePrimitive);
+		});
+	
+		// Clear the array
+		inclusion_circles.length = 0;
+	
+		console.log("All inclusion circles cleared.");
+	}
+
+	function toggle_fences() {
+		// Remove all circle primitives from the scene
+		inclusion_circles.forEach(circlePrimitive => {
+			circlePrimitive.show = !circlePrimitive.show;
+		});	
+	}
+
+	function draw_inclusion_circle(mission_item_circle) {
+		// Given a mavlink MISSION_ITEM of
+		// type MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION, draw it.
+
+		const circle = new Cesium.CircleGeometry({
+			center : Cesium.Cartesian3.fromDegrees(
+				mission_item_circle.y,
+				mission_item_circle.x),
+			radius : mission_item_circle.param1
+		});
+
+		const circleInstance = new Cesium.GeometryInstance({
+			geometry : circle,
+			id : `inclusionCircle-${inclusion_circles.length}`,
+			attributes : {
+			  color : new Cesium.ColorGeometryInstanceAttribute(0.0, 1.0, 0.0, 0.15)
+			}
+		});
+
+		    // Create the primitive
+		const circlePrimitive = new Cesium.GroundPrimitive({
+			geometryInstances: circleInstance
+		});
+		  
+		// Add the primitive to the scene
+		viewer.scene.primitives.add(circlePrimitive);
+
+		// Store the reference in the array
+		inclusion_circles.push(circlePrimitive);
+	};
+
+	function draw_exclusion_circle(mission_item_circle) {
+		// Given a mavlink MISSION_ITEM of
+		// type MAV_CMD_NAV_FENCE_CIRCLE_INCLUSION, draw it.
+
+		const circle = new Cesium.CircleGeometry({
+			center : Cesium.Cartesian3.fromDegrees(
+				mission_item_circle.y,
+				mission_item_circle.x),
+			radius : mission_item_circle.param1
+		});
+
+		const circleInstance = new Cesium.GeometryInstance({
+			geometry : circle,
+			id : `exclusionCircle-${inclusion_circles.length}`,
+			attributes : {
+			  color : new Cesium.ColorGeometryInstanceAttribute(1.0, 0.0, 0.0, 0.15)
+			}
+		});
+
+		    // Create the primitive
+		const circlePrimitive = new Cesium.GroundPrimitive({
+			geometryInstances: circleInstance
+		});
+		  
+		// Add the primitive to the scene
+		viewer.scene.primitives.add(circlePrimitive);
+
+		// Store the reference in the array
+		exclusion_circles.push(circlePrimitive);
+	}
     
     function update_mission_data(mision_data) {
  
@@ -166,18 +244,21 @@ $(function () { // init tool tips and only show on hover
     function update_aircraft_data() {
     	if (data_stream.ATTITUDE && data_stream.GLOBAL_POSITION_INT) {
             var entity = viewer.entities.getById('vehicle');
+			if (!entity) {
+				console.log("No vehicle entity.");
+				return;
+			}
             
             aircraft.lat = data_stream.GLOBAL_POSITION_INT.lat*Math.pow(10.0, -7);
             aircraft.lon = data_stream.GLOBAL_POSITION_INT.lon*Math.pow(10.0, -7);
             aircraft.alt_wgs84 = data_stream.GLOBAL_POSITION_INT.alt*Math.pow(10.0, -3);
+			aircraft.alt_wgs84 = aircraft.alt_wgs84;
             aircraft.roll = data_stream.ATTITUDE.roll
             aircraft.pitch = data_stream.ATTITUDE.pitch
-            aircraft.yaw = data_stream.ATTITUDE.yaw
-            
+            aircraft.yaw = data_stream.ATTITUDE.yaw           
             aircraft.position = Cesium.Cartesian3.fromDegrees(aircraft.lon, aircraft.lat, aircraft.alt_wgs84);
-		    aircraft.hpr = new Cesium.HeadingPitchRoll(aircraft.yaw+Math.PI/2, -aircraft.pitch, -aircraft.roll);
+		    aircraft.hpr = new Cesium.HeadingPitchRoll(aircraft.yaw - Math.PI/2, aircraft.pitch, aircraft.roll);
 		    aircraft.orientation = Cesium.Transforms.headingPitchRollQuaternion(aircraft.position, aircraft.hpr);
-		    
 		    entity.position = aircraft.position;
 		    entity.orientation = aircraft.orientation;
 	        
@@ -254,9 +335,26 @@ $(function () { // init tool tips and only show on hover
                 
                 viewer.camera.frustum.fov = default_camera_settings.fov; // this works
                 viewer.camera.frustum.aspectRatio = default_camera_settings.aspect_ratio; // this works
-                
+
+				// Get the aircraft's position and orientation
+				const aircraftPosition = aircraft.position;
+				const heading = aircraft.yaw; // aircraft's yaw in radians
+
+				// Calculate the forward vector (facing direction) from the aircraft's heading
+				const direction = new Cesium.Cartesian3(
+					Math.sin(heading), // X component (forward)
+					Math.cos(heading), // Y component (forward)
+					0 // Z component (horizontal)
+				);
+
+				// Scale the direction vector to move 20 meters forward
+				const cameraOffset = Cesium.Cartesian3.multiplyByScalar(direction, 10, new Cesium.Cartesian3());
+
+				// Calculate the new camera position by adding the offset to the aircraft's position
+				const cameraPosition = Cesium.Cartesian3.add(aircraftPosition, cameraOffset, new Cesium.Cartesian3());
+
                 viewer.camera.setView({
-	        	    destination : aircraft.position,
+	        	    destination : cameraPosition,
 	        	    orientation: {
 	        	        heading : aircraft.yaw,
 	        	        pitch : aircraft.pitch,
@@ -297,8 +395,14 @@ $(function () { // init tool tips and only show on hover
                 viewer.camera.frustum.aspectRatio = mount_camera_settings.aspect_ratio; // this works
                 console.log(Cesium.Math.toDegrees(viewer.camera.frustum.fov), Cesium.Math.toDegrees(viewer.camera.frustum.fovy));
                 
+				// Position the camera below the belly of the aircraft
+				const downwardOffset = new Cesium.Cartesian3(0, 0, -10);
+
+				// Add the downward offset to the aircraft's position
+				const cameraPosition = Cesium.Cartesian3.add(aircraft.position, downwardOffset, new Cesium.Cartesian3());
+
                 viewer.camera.setView({
-	        	    destination : aircraft.position,
+	        	    destination : cameraPosition,
 	        	    orientation : {
 				        direction : lookDir,
 				        up : upDir
@@ -598,7 +702,7 @@ $(function () { // init tool tips and only show on hover
     }
     
     
- // setup an event handler for the mouse movement
+    // setup an event handler for the mouse movement
     var pos_handler = new Cesium.ScreenSpaceEventHandler(canvas);
  
     var selected = {

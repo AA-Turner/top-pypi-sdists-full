@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use core::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
 use bytes::Buf;
-use core::fmt::Debug;
 use http::Response;
 use http::StatusCode;
 use log::debug;
@@ -100,7 +100,6 @@ impl WebhdfsBuilder {
 
     /// Set the username of this backend,
     /// used for authentication
-    ///
     pub fn user_name(mut self, user_name: &str) -> Self {
         if !user_name.is_empty() {
             self.config.user_name = Some(user_name.to_string());
@@ -159,7 +158,7 @@ impl Builder for WebhdfsBuilder {
     /// exits.
     /// if the directory does not exit, the directory will be automatically created
     fn build(self) -> Result<impl Access> {
-        debug!("start building backend: {:?}", self);
+        debug!("start building backend: {self:?}");
 
         let root = normalize_root(&self.config.root.unwrap_or_default());
         debug!("backend use root {root}");
@@ -175,7 +174,7 @@ impl Builder for WebhdfsBuilder {
             }
             None => WEBHDFS_DEFAULT_ENDPOINT.to_string(),
         };
-        debug!("backend use endpoint {}", endpoint);
+        debug!("backend use endpoint {endpoint}");
 
         let atomic_write_dir = self.config.atomic_write_dir;
 
@@ -186,8 +185,6 @@ impl Builder for WebhdfsBuilder {
             .set_root(&root)
             .set_native_capability(Capability {
                 stat: true,
-                stat_has_content_length: true,
-                stat_has_last_modified: true,
 
                 read: true,
 
@@ -199,8 +196,6 @@ impl Builder for WebhdfsBuilder {
                 delete: true,
 
                 list: true,
-                list_has_content_length: true,
-                list_has_last_modified: true,
 
                 shared: true,
 
@@ -261,10 +256,6 @@ impl Access for WebhdfsBackend {
     type Writer = WebhdfsWriters;
     type Lister = oio::PageLister<WebhdfsLister>;
     type Deleter = oio::OneShotDeleter<WebhdfsDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

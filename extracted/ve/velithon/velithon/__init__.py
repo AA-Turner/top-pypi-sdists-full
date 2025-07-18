@@ -3,7 +3,7 @@
 Velithon is a modern, fast (high-performance), web framework for building APIs
 """
 
-__version__ = '0.4.3'
+__version__ = '0.5.0'
 
 # Core application
 from .application import Velithon
@@ -59,6 +59,33 @@ from .status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+# Memory management utilities
+from .memory_management import (
+    enable_memory_optimizations,
+    disable_memory_optimizations,
+    get_memory_stats,
+    manual_memory_cleanup,
+    get_memory_optimizer,
+    RequestMemoryContext,
+    with_memory_optimization,
+    with_lightweight_memory_optimization,
+    set_lightweight_mode,
+    get_memory_context,
+)
+
+# Memory management middleware
+from .middleware.memory_management import (
+    MemoryManagementMiddleware,
+    MemoryMonitoringMiddleware,
+    GCTuningMiddleware,
+    add_memory_management,
+    add_memory_monitoring,
+    add_gc_tuning,
+)
+
+# Performance configuration
+from .performance import PerformanceConfig, configure_performance
+
 __all__ = [
     'HTTP_200_OK',
     'HTTP_201_CREATED',
@@ -100,4 +127,25 @@ __all__ = [
     'gateway_route',
     'request_response',
     'websocket_route',
+    # Memory optimization functions
+    'enable_memory_optimizations',
+    'disable_memory_optimizations',
+    'get_memory_stats',
+    'manual_memory_cleanup',
+    'get_memory_optimizer',
+    'RequestMemoryContext',
+    'with_memory_optimization',
+    'with_lightweight_memory_optimization',
+    'set_lightweight_mode',
+    'get_memory_context',
+    # Memory management middleware
+    'MemoryManagementMiddleware',
+    'MemoryMonitoringMiddleware',
+    'GCTuningMiddleware',
+    'add_memory_management',
+    'add_memory_monitoring',
+    'add_gc_tuning',
+    # Performance configuration
+    'PerformanceConfig',
+    'configure_performance',
 ]

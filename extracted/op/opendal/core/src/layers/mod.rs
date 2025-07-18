@@ -39,11 +39,6 @@ pub use logging::LoggingLayer;
 mod timeout;
 pub use timeout::TimeoutLayer;
 
-#[cfg(feature = "layers-blocking")]
-mod blocking;
-#[cfg(feature = "layers-blocking")]
-pub use blocking::BlockingLayer;
-
 #[cfg(feature = "layers-chaos")]
 mod chaos;
 #[cfg(feature = "layers-chaos")]
@@ -72,6 +67,13 @@ mod prometheus_client;
 pub use self::prometheus_client::PrometheusClientLayer;
 #[cfg(feature = "layers-prometheus-client")]
 pub use self::prometheus_client::PrometheusClientLayerBuilder;
+
+#[cfg(feature = "layers-fastmetrics")]
+mod fastmetrics;
+#[cfg(feature = "layers-fastmetrics")]
+pub use self::fastmetrics::FastmetricsLayer;
+#[cfg(feature = "layers-fastmetrics")]
+pub use self::fastmetrics::FastmetricsLayerBuilder;
 
 mod retry;
 pub use self::retry::RetryInterceptor;
@@ -123,3 +125,6 @@ mod correctness_check;
 pub(crate) use correctness_check::CorrectnessCheckLayer;
 mod capability_check;
 pub use capability_check::CapabilityCheckLayer;
+
+mod http_client;
+pub use http_client::HttpClientLayer;

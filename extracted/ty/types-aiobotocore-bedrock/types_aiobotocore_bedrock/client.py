@@ -45,8 +45,12 @@ from .paginator import (
 from .type_defs import (
     BatchDeleteEvaluationJobRequestTypeDef,
     BatchDeleteEvaluationJobResponseTypeDef,
+    CreateCustomModelRequestTypeDef,
+    CreateCustomModelResponseTypeDef,
     CreateEvaluationJobRequestTypeDef,
     CreateEvaluationJobResponseTypeDef,
+    CreateFoundationModelAgreementRequestTypeDef,
+    CreateFoundationModelAgreementResponseTypeDef,
     CreateGuardrailRequestTypeDef,
     CreateGuardrailResponseTypeDef,
     CreateGuardrailVersionRequestTypeDef,
@@ -68,6 +72,7 @@ from .type_defs import (
     CreateProvisionedModelThroughputRequestTypeDef,
     CreateProvisionedModelThroughputResponseTypeDef,
     DeleteCustomModelRequestTypeDef,
+    DeleteFoundationModelAgreementRequestTypeDef,
     DeleteGuardrailRequestTypeDef,
     DeleteImportedModelRequestTypeDef,
     DeleteInferenceProfileRequestTypeDef,
@@ -79,6 +84,8 @@ from .type_defs import (
     GetCustomModelResponseTypeDef,
     GetEvaluationJobRequestTypeDef,
     GetEvaluationJobResponseTypeDef,
+    GetFoundationModelAvailabilityRequestTypeDef,
+    GetFoundationModelAvailabilityResponseTypeDef,
     GetFoundationModelRequestTypeDef,
     GetFoundationModelResponseTypeDef,
     GetGuardrailRequestTypeDef,
@@ -102,10 +109,13 @@ from .type_defs import (
     GetPromptRouterResponseTypeDef,
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
+    GetUseCaseForModelAccessResponseTypeDef,
     ListCustomModelsRequestTypeDef,
     ListCustomModelsResponseTypeDef,
     ListEvaluationJobsRequestTypeDef,
     ListEvaluationJobsResponseTypeDef,
+    ListFoundationModelAgreementOffersRequestTypeDef,
+    ListFoundationModelAgreementOffersResponseTypeDef,
     ListFoundationModelsRequestTypeDef,
     ListFoundationModelsResponseTypeDef,
     ListGuardrailsRequestTypeDef,
@@ -131,6 +141,7 @@ from .type_defs import (
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutModelInvocationLoggingConfigurationRequestTypeDef,
+    PutUseCaseForModelAccessRequestTypeDef,
     RegisterMarketplaceModelEndpointRequestTypeDef,
     RegisterMarketplaceModelEndpointResponseTypeDef,
     StopEvaluationJobRequestTypeDef,
@@ -218,6 +229,16 @@ class BedrockClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#batch_delete_evaluation_job)
         """
 
+    async def create_custom_model(
+        self, **kwargs: Unpack[CreateCustomModelRequestTypeDef]
+    ) -> CreateCustomModelResponseTypeDef:
+        """
+        Creates a new custom model in Amazon Bedrock.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#create_custom_model)
+        """
+
     async def create_evaluation_job(
         self, **kwargs: Unpack[CreateEvaluationJobRequestTypeDef]
     ) -> CreateEvaluationJobResponseTypeDef:
@@ -226,6 +247,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_evaluation_job.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#create_evaluation_job)
+        """
+
+    async def create_foundation_model_agreement(
+        self, **kwargs: Unpack[CreateFoundationModelAgreementRequestTypeDef]
+    ) -> CreateFoundationModelAgreementResponseTypeDef:
+        """
+        Request a model access agreement for the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_foundation_model_agreement.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#create_foundation_model_agreement)
         """
 
     async def create_guardrail(
@@ -343,6 +374,16 @@ class BedrockClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#delete_custom_model)
         """
 
+    async def delete_foundation_model_agreement(
+        self, **kwargs: Unpack[DeleteFoundationModelAgreementRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Delete the model access agreement for the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_foundation_model_agreement.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#delete_foundation_model_agreement)
+        """
+
     async def delete_guardrail(
         self, **kwargs: Unpack[DeleteGuardrailRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -426,10 +467,7 @@ class BedrockClient(AioBaseClient):
     ) -> GetCustomModelResponseTypeDef:
         """
         Get the properties associated with a Amazon Bedrock custom model that you have
-        created.For more information, see <a
-        href="https://docs.aws.amazon.com/bedrock/latest/userguide/custom-models.html">Custom
-        models</a> in the <a
-        href="https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-service...
+        created.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_custom_model)
@@ -453,6 +491,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_foundation_model.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_foundation_model)
+        """
+
+    async def get_foundation_model_availability(
+        self, **kwargs: Unpack[GetFoundationModelAvailabilityRequestTypeDef]
+    ) -> GetFoundationModelAvailabilityResponseTypeDef:
+        """
+        Get information about the Foundation model availability.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_foundation_model_availability.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_foundation_model_availability)
         """
 
     async def get_guardrail(
@@ -568,6 +616,14 @@ class BedrockClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_provisioned_model_throughput)
         """
 
+    async def get_use_case_for_model_access(self) -> GetUseCaseForModelAccessResponseTypeDef:
+        """
+        Get usecase for model access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_use_case_for_model_access.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_use_case_for_model_access)
+        """
+
     async def list_custom_models(
         self, **kwargs: Unpack[ListCustomModelsRequestTypeDef]
     ) -> ListCustomModelsResponseTypeDef:
@@ -587,6 +643,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_evaluation_jobs.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#list_evaluation_jobs)
+        """
+
+    async def list_foundation_model_agreement_offers(
+        self, **kwargs: Unpack[ListFoundationModelAgreementOffersRequestTypeDef]
+    ) -> ListFoundationModelAgreementOffersResponseTypeDef:
+        """
+        Get the offers associated with the specified model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_foundation_model_agreement_offers.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#list_foundation_model_agreement_offers)
         """
 
     async def list_foundation_models(
@@ -718,6 +784,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_model_invocation_logging_configuration.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#put_model_invocation_logging_configuration)
+        """
+
+    async def put_use_case_for_model_access(
+        self, **kwargs: Unpack[PutUseCaseForModelAccessRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Put usecase for model access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/put_use_case_for_model_access.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#put_use_case_for_model_access)
         """
 
     async def register_marketplace_model_endpoint(

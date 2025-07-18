@@ -7,14 +7,18 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from ......schema_classes import ApplicationsSettingsClass
 from ......schema_classes import DocPropagationFeatureSettingsClass
+from ......schema_classes import GlobalHomePageSettingsClass
 from ......schema_classes import GlobalSettingsInfoClass
 from ......schema_classes import GlobalViewsSettingsClass
 from ......schema_classes import OidcSettingsClass
 from ......schema_classes import SsoSettingsClass
 
 
+ApplicationsSettings = ApplicationsSettingsClass
 DocPropagationFeatureSettings = DocPropagationFeatureSettingsClass
+GlobalHomePageSettings = GlobalHomePageSettingsClass
 GlobalSettingsInfo = GlobalSettingsInfoClass
 GlobalViewsSettings = GlobalViewsSettingsClass
 OidcSettings = OidcSettingsClass

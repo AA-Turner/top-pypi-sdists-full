@@ -29,6 +29,7 @@ from .literals import (
     EventTypeType,
     FailureCodeType,
     GetCampaignStateBatchFailureCodeType,
+    InstanceLimitsHandlingType,
     InstanceOnboardingJobFailureCodeType,
     InstanceOnboardingJobStatusCodeType,
     LocalTimeZoneDetectionTypeType,
@@ -96,8 +97,13 @@ __all__ = (
     "GetCampaignStateResponseTypeDef",
     "GetConnectInstanceConfigRequestTypeDef",
     "GetConnectInstanceConfigResponseTypeDef",
+    "GetInstanceCommunicationLimitsRequestTypeDef",
+    "GetInstanceCommunicationLimitsResponseTypeDef",
     "GetInstanceOnboardingJobStatusRequestTypeDef",
     "GetInstanceOnboardingJobStatusResponseTypeDef",
+    "InstanceCommunicationLimitsConfigOutputTypeDef",
+    "InstanceCommunicationLimitsConfigTypeDef",
+    "InstanceCommunicationLimitsConfigUnionTypeDef",
     "InstanceConfigTypeDef",
     "InstanceIdFilterTypeDef",
     "InstanceOnboardingJobStatusTypeDef",
@@ -123,6 +129,7 @@ __all__ = (
     "ProfileOutboundRequestTypeDef",
     "ProgressiveConfigTypeDef",
     "PutConnectInstanceIntegrationRequestTypeDef",
+    "PutInstanceCommunicationLimitsRequestTypeDef",
     "PutOutboundRequestBatchRequestTypeDef",
     "PutOutboundRequestBatchResponseTypeDef",
     "PutProfileOutboundRequestBatchRequestTypeDef",
@@ -330,6 +337,9 @@ GetCampaignStateRequestTypeDef = TypedDict(
 )
 
 class GetConnectInstanceConfigRequestTypeDef(TypedDict):
+    connectInstanceId: str
+
+class GetInstanceCommunicationLimitsRequestTypeDef(TypedDict):
     connectInstanceId: str
 
 class GetInstanceOnboardingJobStatusRequestTypeDef(TypedDict):
@@ -632,8 +642,16 @@ class ListCampaignsResponseTypeDef(TypedDict):
 
 class CommunicationLimitsConfigOutputTypeDef(TypedDict):
     allChannelSubtypes: NotRequired[CommunicationLimitsOutputTypeDef]
+    instanceLimitsHandling: NotRequired[InstanceLimitsHandlingType]
+
+class InstanceCommunicationLimitsConfigOutputTypeDef(TypedDict):
+    allChannelSubtypes: NotRequired[CommunicationLimitsOutputTypeDef]
 
 class CommunicationLimitsConfigTypeDef(TypedDict):
+    allChannelSubtypes: NotRequired[CommunicationLimitsTypeDef]
+    instanceLimitsHandling: NotRequired[InstanceLimitsHandlingType]
+
+class InstanceCommunicationLimitsConfigTypeDef(TypedDict):
     allChannelSubtypes: NotRequired[CommunicationLimitsTypeDef]
 
 class GetConnectInstanceConfigResponseTypeDef(TypedDict):
@@ -695,8 +713,15 @@ class OutboundRequestTypeDef(TypedDict):
     expirationTime: TimestampTypeDef
     channelSubtypeParameters: ChannelSubtypeParametersTypeDef
 
+class GetInstanceCommunicationLimitsResponseTypeDef(TypedDict):
+    communicationLimitsConfig: InstanceCommunicationLimitsConfigOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 CommunicationLimitsConfigUnionTypeDef = Union[
     CommunicationLimitsConfigTypeDef, CommunicationLimitsConfigOutputTypeDef
+]
+InstanceCommunicationLimitsConfigUnionTypeDef = Union[
+    InstanceCommunicationLimitsConfigTypeDef, InstanceCommunicationLimitsConfigOutputTypeDef
 ]
 UpdateCampaignScheduleRequestTypeDef = TypedDict(
     "UpdateCampaignScheduleRequestTypeDef",
@@ -742,6 +767,11 @@ UpdateCampaignCommunicationLimitsRequestTypeDef = TypedDict(
         "communicationLimitsOverride": CommunicationLimitsConfigUnionTypeDef,
     },
 )
+
+class PutInstanceCommunicationLimitsRequestTypeDef(TypedDict):
+    connectInstanceId: str
+    communicationLimitsConfig: InstanceCommunicationLimitsConfigUnionTypeDef
+
 ChannelSubtypeConfigUnionTypeDef = Union[
     ChannelSubtypeConfigTypeDef, ChannelSubtypeConfigOutputTypeDef
 ]

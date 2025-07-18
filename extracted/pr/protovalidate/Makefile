@@ -9,15 +9,14 @@ MAKEFLAGS += --no-print-directory
 BIN := .tmp/bin
 export PATH := $(BIN):$(PATH)
 export GOBIN := $(abspath $(BIN))
-# Set to use a different Python interpreter. For example, `PYTHON=python make test`.
-PYTHON ?= python3
+export PYTHONPATH ?= gen
 CONFORMANCE_ARGS ?= --strict_message --expected_failures=tests/conformance/nonconforming.yaml --timeout 10s
 ADD_LICENSE_HEADER := $(BIN)/license-header \
 		--license-type apache \
 		--copyright-holder "Buf Technologies, Inc." \
 		--year-range "2023-2025"
 # This version should be kept in sync with the version in buf.yaml
-PROTOVALIDATE_VERSION ?= v0.13.3
+PROTOVALIDATE_VERSION ?= v0.14.0
 # Version of the cel-spec that this implementation is conformant with
 # This should be kept in sync with the version in format_test.py
 CEL_SPEC_VERSION ?= v0.24.0
@@ -47,27 +46,27 @@ generate: $(BIN)/buf $(BIN)/license-header ## Regenerate code and license header
 .PHONY: format
 format: install $(BIN)/license-header ## Format code
 	$(ADD_LICENSE_HEADER)
-	pipenv run ruff format protovalidate tests
-	pipenv run ruff check --fix protovalidate tests
+	uv run -- ruff format protovalidate tests
+	uv run -- ruff check --fix protovalidate tests
 
 .PHONY: test
 test: generate install gettestdata ## Run unit tests
-	pipenv run pytest
+	uv run -- pytest
 
 .PHONY: conformance
 conformance: $(BIN)/protovalidate-conformance generate install ## Run conformance tests
-	protovalidate-conformance $(CONFORMANCE_ARGS) pipenv -- --python $(PYTHON) run python3 -m tests.conformance.runner
+	protovalidate-conformance $(CONFORMANCE_ARGS) uv -- run python3 -m tests.conformance.runner
 
 .PHONY: lint
 lint: install ## Lint code
-	pipenv run ruff format --check --diff protovalidate tests
-	pipenv run mypy protovalidate
-	pipenv run ruff check protovalidate tests
-	pipenv verify
+	uv run -- ruff format --check --diff protovalidate tests
+	uv run -- mypy protovalidate
+	uv run -- ruff check protovalidate tests
+	uv sync --locked
 
 .PHONY: install
 install: ## Install dependencies
-	pipenv --python $(PYTHON) sync --dev
+	uv sync --dev
 
 .PHONY: checkgenerate
 checkgenerate: generate

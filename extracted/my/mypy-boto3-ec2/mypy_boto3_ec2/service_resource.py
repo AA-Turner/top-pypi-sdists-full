@@ -2900,6 +2900,7 @@ class Image(ServiceResource):
     image_allowed: bool
     source_image_id: str
     source_image_region: str
+    free_tier_eligible: bool
     image_id: str
     image_location: str
     state: ImageStateType

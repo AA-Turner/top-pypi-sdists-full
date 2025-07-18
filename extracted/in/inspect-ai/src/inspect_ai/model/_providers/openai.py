@@ -1,4 +1,5 @@
 import os
+import re
 from logging import getLogger
 from typing import Any, Literal, cast
 
@@ -30,13 +31,6 @@ from .._model_call import ModelCall
 from .._model_output import ModelOutput
 from .._openai import (
     OpenAIAsyncHttpxClient,
-    is_codex,
-    is_computer_use_preview,
-    is_gpt,
-    is_o1,
-    is_o1_early,
-    is_o3_mini,
-    is_o_series,
     model_output_from_openai,
     openai_chat_messages,
     openai_chat_tool_choice,
@@ -56,6 +50,7 @@ logger = getLogger(__name__)
 OPENAI_API_KEY = "OPENAI_API_KEY"
 AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY"
 AZUREAI_OPENAI_API_KEY = "AZUREAI_OPENAI_API_KEY"
+AZUREAI_AUDIENCE = "AZUREAI_AUDIENCE"
 
 
 # NOTE: If you are creating a new provider that is OpenAI compatible you should inherit from OpenAICompatibleAPI rather than OpenAPAPI.
@@ -116,21 +111,42 @@ class OpenAIAPI(ModelAPI):
             900.0 if self.service_tier == "flex" else None
         )
 
-        # resolve api_key
+        # resolve api_key or managed identity (for Azure)
+        self.token_provider = None
         if not self.api_key:
             if self.service == "azure":
                 self.api_key = os.environ.get(
                     AZUREAI_OPENAI_API_KEY, os.environ.get(AZURE_OPENAI_API_KEY, None)
                 )
+                if not self.api_key:
+                    # try managed identity (Microsoft Entra ID)
+                    try:
+                        from azure.identity import (
+                            DefaultAzureCredential,
+                            get_bearer_token_provider,
+                        )
+
+                        self.token_provider = get_bearer_token_provider(
+                            DefaultAzureCredential(),
+                            os.environ.get(
+                                AZUREAI_AUDIENCE,
+                                "https://cognitiveservices.azure.com/.default",
+                            ),
+                        )
+                    except ImportError:
+                        raise PrerequisiteError(
+                            "ERROR: The OpenAI provider requires the `azure-identity` package for managed identity support."
+                        )
             else:
                 self.api_key = os.environ.get(OPENAI_API_KEY, None)
 
-            if not self.api_key:
+            if not self.api_key and not self.token_provider:
                 raise environment_prerequisite_error(
                     "OpenAI",
                     [
                         OPENAI_API_KEY,
                         AZUREAI_OPENAI_API_KEY,
+                        "or managed identity (Entra ID)",
                     ],
                 )
 
@@ -164,8 +180,10 @@ class OpenAIAPI(ModelAPI):
                     os.environ.get("OPENAI_API_VERSION", "2025-03-01-preview"),
                 )
 
+            # use managed identity if available, otherwise API key
             self.client: AsyncAzureOpenAI | AsyncOpenAI = AsyncAzureOpenAI(
                 api_key=self.api_key,
+                azure_ad_token_provider=self.token_provider,
                 api_version=api_version,
                 azure_endpoint=base_url,
                 http_client=http_client,
@@ -190,25 +208,35 @@ class OpenAIAPI(ModelAPI):
         return self.service == "azure"
 
     def is_o_series(self) -> bool:
-        return is_o_series(self.service_model_name())
+        name = self.service_model_name()
+        if bool(re.match(r"^o\d+", name)):
+            return True
+        else:
+            return not self.is_gpt() and bool(re.search(r"o\d+", name))
 
     def is_o1(self) -> bool:
-        return is_o1(self.service_model_name())
+        name = self.service_model_name()
+        return "o1" in name and not self.is_o1_early()
 
     def is_o1_early(self) -> bool:
-        return is_o1_early(self.service_model_name())
+        name = self.service_model_name()
+        return "o1-mini" in name or "o1-preview" in name
 
     def is_o3_mini(self) -> bool:
-        return is_o3_mini(self.service_model_name())
+        name = self.service_model_name()
+        return "o3-mini" in name
 
     def is_computer_use_preview(self) -> bool:
-        return is_computer_use_preview(self.service_model_name())
+        name = self.service_model_name()
+        return "computer-use-preview" in name
 
     def is_codex(self) -> bool:
-        return is_codex(self.service_model_name())
+        name = self.service_model_name()
+        return "codex" in name
 
     def is_gpt(self) -> bool:
-        return is_gpt(self.service_model_name())
+        name = self.service_model_name()
+        return "gpt" in name
 
     @override
     async def aclose(self) -> None:
@@ -261,6 +289,7 @@ class OpenAIAPI(ModelAPI):
                 tool_choice=tool_choice,
                 config=config,
                 service_tier=self.service_tier,
+                openai_api=self,
             )
 
         # allocate request_id (so we can see it from ModelCall)

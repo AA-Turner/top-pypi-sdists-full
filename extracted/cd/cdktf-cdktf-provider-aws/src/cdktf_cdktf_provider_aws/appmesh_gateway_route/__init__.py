@@ -1,7 +1,7 @@
 r'''
 # `aws_appmesh_gateway_route`
 
-Refer to the Terraform Registry for docs: [`aws_appmesh_gateway_route`](https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route).
+Refer to the Terraform Registry for docs: [`aws_appmesh_gateway_route`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppmeshGatewayRoute(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.appmeshGatewayRoute.AppmeshGatewayRoute",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route aws_appmesh_gateway_route}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route aws_appmesh_gateway_route}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class AppmeshGatewayRoute(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route aws_appmesh_gateway_route} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route aws_appmesh_gateway_route} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
-        :param virtual_gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
+        :param virtual_gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class AppmeshGatewayRoute(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppmeshGatewayRoute to import.
-        :param import_from_id: The id of the existing AppmeshGatewayRoute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppmeshGatewayRoute that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppmeshGatewayRoute to import is found.
         '''
         if __debug__:
@@ -148,10 +148,10 @@ class AppmeshGatewayRoute(
         priority: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param grpc_route: grpc_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
-        :param http2_route: http2_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
-        :param http_route: http_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.
+        :param grpc_route: grpc_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
+        :param http2_route: http2_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
+        :param http_route: http_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.
         '''
         value = AppmeshGatewayRouteSpec(
             grpc_route=grpc_route,
@@ -415,15 +415,15 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
-        :param virtual_gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.
+        :param mesh_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param spec: spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
+        :param virtual_gateway_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param mesh_owner: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -544,14 +544,14 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_name AppmeshGatewayRoute#mesh_name}.'''
         result = self._values.get("mesh_name")
         assert result is not None, "Required property 'mesh_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -560,7 +560,7 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def spec(self) -> "AppmeshGatewayRouteSpec":
         '''spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#spec AppmeshGatewayRoute#spec}
         '''
         result = self._values.get("spec")
         assert result is not None, "Required property 'spec' is missing"
@@ -568,14 +568,14 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def virtual_gateway_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_gateway_name AppmeshGatewayRoute#virtual_gateway_name}.'''
         result = self._values.get("virtual_gateway_name")
         assert result is not None, "Required property 'virtual_gateway_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#id AppmeshGatewayRoute#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -585,7 +585,7 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def mesh_owner(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#mesh_owner AppmeshGatewayRoute#mesh_owner}.'''
         result = self._values.get("mesh_owner")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -593,20 +593,20 @@ class AppmeshGatewayRouteConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#region AppmeshGatewayRoute#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags AppmeshGatewayRoute#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#tags_all AppmeshGatewayRoute#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -642,10 +642,10 @@ class AppmeshGatewayRouteSpec:
         priority: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param grpc_route: grpc_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
-        :param http2_route: http2_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
-        :param http_route: http_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
-        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.
+        :param grpc_route: grpc_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
+        :param http2_route: http2_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
+        :param http_route: http_route block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
+        :param priority: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.
         '''
         if isinstance(grpc_route, dict):
             grpc_route = AppmeshGatewayRouteSpecGrpcRoute(**grpc_route)
@@ -673,7 +673,7 @@ class AppmeshGatewayRouteSpec:
     def grpc_route(self) -> typing.Optional["AppmeshGatewayRouteSpecGrpcRoute"]:
         '''grpc_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#grpc_route AppmeshGatewayRoute#grpc_route}
         '''
         result = self._values.get("grpc_route")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecGrpcRoute"], result)
@@ -682,7 +682,7 @@ class AppmeshGatewayRouteSpec:
     def http2_route(self) -> typing.Optional["AppmeshGatewayRouteSpecHttp2Route"]:
         '''http2_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http2_route AppmeshGatewayRoute#http2_route}
         '''
         result = self._values.get("http2_route")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2Route"], result)
@@ -691,14 +691,14 @@ class AppmeshGatewayRouteSpec:
     def http_route(self) -> typing.Optional["AppmeshGatewayRouteSpecHttpRoute"]:
         '''http_route block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#http_route AppmeshGatewayRoute#http_route}
         '''
         result = self._values.get("http_route")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRoute"], result)
 
     @builtins.property
     def priority(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#priority AppmeshGatewayRoute#priority}.'''
         result = self._values.get("priority")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -727,8 +727,8 @@ class AppmeshGatewayRouteSpecGrpcRoute:
         match: typing.Union["AppmeshGatewayRouteSpecGrpcRouteMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(action, dict):
             action = AppmeshGatewayRouteSpecGrpcRouteAction(**action)
@@ -747,7 +747,7 @@ class AppmeshGatewayRouteSpecGrpcRoute:
     def action(self) -> "AppmeshGatewayRouteSpecGrpcRouteAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -757,7 +757,7 @@ class AppmeshGatewayRouteSpecGrpcRoute:
     def match(self) -> "AppmeshGatewayRouteSpecGrpcRouteMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -787,7 +787,7 @@ class AppmeshGatewayRouteSpecGrpcRouteAction:
         target: typing.Union["AppmeshGatewayRouteSpecGrpcRouteActionTarget", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
         '''
         if isinstance(target, dict):
             target = AppmeshGatewayRouteSpecGrpcRouteActionTarget(**target)
@@ -802,7 +802,7 @@ class AppmeshGatewayRouteSpecGrpcRouteAction:
     def target(self) -> "AppmeshGatewayRouteSpecGrpcRouteActionTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -848,8 +848,8 @@ class AppmeshGatewayRouteSpecGrpcRouteActionOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         value = AppmeshGatewayRouteSpecGrpcRouteActionTarget(
             virtual_service=virtual_service, port=port
@@ -898,8 +898,8 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTarget:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         if isinstance(virtual_service, dict):
             virtual_service = AppmeshGatewayRouteSpecGrpcRouteActionTargetVirtualService(**virtual_service)
@@ -919,7 +919,7 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTarget:
     ) -> "AppmeshGatewayRouteSpecGrpcRouteActionTargetVirtualService":
         '''virtual_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
         '''
         result = self._values.get("virtual_service")
         assert result is not None, "Required property 'virtual_service' is missing"
@@ -927,7 +927,7 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTarget:
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -966,7 +966,7 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTargetOutputReference(
     @jsii.member(jsii_name="putVirtualService")
     def put_virtual_service(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         value = AppmeshGatewayRouteSpecGrpcRouteActionTargetVirtualService(
             virtual_service_name=virtual_service_name
@@ -1035,7 +1035,7 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTargetOutputReference(
 class AppmeshGatewayRouteSpecGrpcRouteActionTargetVirtualService:
     def __init__(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cb63ce84aae52475febf1a0caab518396dbe45d706a35624f0979baf955e41ff)
@@ -1046,7 +1046,7 @@ class AppmeshGatewayRouteSpecGrpcRouteActionTargetVirtualService:
 
     @builtins.property
     def virtual_service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
         result = self._values.get("virtual_service_name")
         assert result is not None, "Required property 'virtual_service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1131,8 +1131,8 @@ class AppmeshGatewayRouteSpecGrpcRouteMatch:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89d96db30d4321e8cac5b5f7bf6ca798ad83b6e1f9b9c93722e25eb1017e52d0)
@@ -1146,14 +1146,14 @@ class AppmeshGatewayRouteSpecGrpcRouteMatch:
 
     @builtins.property
     def service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.'''
         result = self._values.get("service_name")
         assert result is not None, "Required property 'service_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1270,7 +1270,7 @@ class AppmeshGatewayRouteSpecGrpcRouteOutputReference(
         target: typing.Union[AppmeshGatewayRouteSpecGrpcRouteActionTarget, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
         '''
         value = AppmeshGatewayRouteSpecGrpcRouteAction(target=target)
 
@@ -1284,8 +1284,8 @@ class AppmeshGatewayRouteSpecGrpcRouteOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#service_name AppmeshGatewayRoute#service_name}.
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         value = AppmeshGatewayRouteSpecGrpcRouteMatch(
             service_name=service_name, port=port
@@ -1342,8 +1342,8 @@ class AppmeshGatewayRouteSpecHttp2Route:
         match: typing.Union["AppmeshGatewayRouteSpecHttp2RouteMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(action, dict):
             action = AppmeshGatewayRouteSpecHttp2RouteAction(**action)
@@ -1362,7 +1362,7 @@ class AppmeshGatewayRouteSpecHttp2Route:
     def action(self) -> "AppmeshGatewayRouteSpecHttp2RouteAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -1372,7 +1372,7 @@ class AppmeshGatewayRouteSpecHttp2Route:
     def match(self) -> "AppmeshGatewayRouteSpecHttp2RouteMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -1403,8 +1403,8 @@ class AppmeshGatewayRouteSpecHttp2RouteAction:
         rewrite: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttp2RouteActionRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
-        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         if isinstance(target, dict):
             target = AppmeshGatewayRouteSpecHttp2RouteActionTarget(**target)
@@ -1424,7 +1424,7 @@ class AppmeshGatewayRouteSpecHttp2RouteAction:
     def target(self) -> "AppmeshGatewayRouteSpecHttp2RouteActionTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1436,7 +1436,7 @@ class AppmeshGatewayRouteSpecHttp2RouteAction:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewrite"]:
         '''rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         result = self._values.get("rewrite")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewrite"], result)
@@ -1482,9 +1482,9 @@ class AppmeshGatewayRouteSpecHttp2RouteActionOutputReference(
         prefix: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteActionRewrite(
             hostname=hostname, path=path, prefix=prefix
@@ -1500,8 +1500,8 @@ class AppmeshGatewayRouteSpecHttp2RouteActionOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteActionTarget(
             virtual_service=virtual_service, port=port
@@ -1571,9 +1571,9 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewrite:
         prefix: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         if isinstance(hostname, dict):
             hostname = AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname(**hostname)
@@ -1600,7 +1600,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname"]:
         '''hostname block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname"], result)
@@ -1611,7 +1611,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewritePath"]:
         '''path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewritePath"], result)
@@ -1622,7 +1622,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix"]:
         '''prefix block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix"], result)
@@ -1647,7 +1647,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewrite:
 class AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname:
     def __init__(self, *, default_target_hostname: builtins.str) -> None:
         '''
-        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
+        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__baf9e1a744ccd05fdd3d39b3cc85ce7d6c6f143271dc52879341b1e97c1e946b)
@@ -1658,7 +1658,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname:
 
     @builtins.property
     def default_target_hostname(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.'''
         result = self._values.get("default_target_hostname")
         assert result is not None, "Required property 'default_target_hostname' is missing"
         return typing.cast(builtins.str, result)
@@ -1753,7 +1753,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewriteOutputReference(
     @jsii.member(jsii_name="putHostname")
     def put_hostname(self, *, default_target_hostname: builtins.str) -> None:
         '''
-        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
+        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteActionRewriteHostname(
             default_target_hostname=default_target_hostname
@@ -1764,7 +1764,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewriteOutputReference(
     @jsii.member(jsii_name="putPath")
     def put_path(self, *, exact: builtins.str) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteActionRewritePath(exact=exact)
 
@@ -1778,8 +1778,8 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewriteOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
+        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
         '''
         value_ = AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix(
             default_prefix=default_prefix, value=value
@@ -1867,7 +1867,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewriteOutputReference(
 class AppmeshGatewayRouteSpecHttp2RouteActionRewritePath:
     def __init__(self, *, exact: builtins.str) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b5fc71a360927161983661d12d1bea6033425ad204d035a61bf06c9e80a2f2c4)
@@ -1878,7 +1878,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewritePath:
 
     @builtins.property
     def exact(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(builtins.str, result)
@@ -1963,8 +1963,8 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
+        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7b944f8f4337901e916017185cc4e68ee6b82f79e845fd1d82a8a841e0173865)
@@ -1978,13 +1978,13 @@ class AppmeshGatewayRouteSpecHttp2RouteActionRewritePrefix:
 
     @builtins.property
     def default_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.'''
         result = self._values.get("default_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2093,8 +2093,8 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTarget:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         if isinstance(virtual_service, dict):
             virtual_service = AppmeshGatewayRouteSpecHttp2RouteActionTargetVirtualService(**virtual_service)
@@ -2114,7 +2114,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTarget:
     ) -> "AppmeshGatewayRouteSpecHttp2RouteActionTargetVirtualService":
         '''virtual_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
         '''
         result = self._values.get("virtual_service")
         assert result is not None, "Required property 'virtual_service' is missing"
@@ -2122,7 +2122,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTarget:
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2161,7 +2161,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTargetOutputReference(
     @jsii.member(jsii_name="putVirtualService")
     def put_virtual_service(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteActionTargetVirtualService(
             virtual_service_name=virtual_service_name
@@ -2230,7 +2230,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTargetOutputReference(
 class AppmeshGatewayRouteSpecHttp2RouteActionTargetVirtualService:
     def __init__(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5114646cd76daf1b4ac291dea8fd7ade5b52cf612cf9af13b7b275fe5965a17)
@@ -2241,7 +2241,7 @@ class AppmeshGatewayRouteSpecHttp2RouteActionTargetVirtualService:
 
     @builtins.property
     def virtual_service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
         result = self._values.get("virtual_service_name")
         assert result is not None, "Required property 'virtual_service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -2337,12 +2337,12 @@ class AppmeshGatewayRouteSpecHttp2RouteMatch:
         query_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         if isinstance(hostname, dict):
             hostname = AppmeshGatewayRouteSpecHttp2RouteMatchHostname(**hostname)
@@ -2376,7 +2376,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatch:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttp2RouteMatchHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttp2RouteMatchHeader"]]], result)
@@ -2387,7 +2387,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatch:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHostname"]:
         '''hostname block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHostname"], result)
@@ -2396,20 +2396,20 @@ class AppmeshGatewayRouteSpecHttp2RouteMatch:
     def path(self) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchPath"]:
         '''path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchPath"], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2419,7 +2419,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatch:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter"]]]:
         '''query_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         result = self._values.get("query_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter"]]], result)
@@ -2450,9 +2450,9 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeader:
         match: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param invert: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param invert: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(match, dict):
             match = AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch(**match)
@@ -2471,7 +2471,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2480,7 +2480,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeader:
     def invert(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.'''
         result = self._values.get("invert")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -2490,7 +2490,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeader:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch"]:
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch"], result)
@@ -2622,11 +2622,11 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         if isinstance(range, dict):
             range = AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange(**range)
@@ -2651,13 +2651,13 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2667,20 +2667,20 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange"]:
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
         '''
         result = self._values.get("range")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange"], result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2719,8 +2719,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchOutputReference(
     @jsii.member(jsii_name="putRange")
     def put_range(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange(
             end=end, start=start
@@ -2856,8 +2856,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchOutputReference(
 class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange:
     def __init__(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f8d04e0260712cbdb4ef7c6b9fddb9df9bc48799e618ba923b924043f27c6dd)
@@ -2870,14 +2870,14 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatchRange:
 
     @builtins.property
     def end(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(jsii.Number, result)
@@ -3003,11 +3003,11 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHeaderOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatchHeaderMatch(
             exact=exact, prefix=prefix, range=range, regex=regex, suffix=suffix
@@ -3105,8 +3105,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHostname:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2da8d99cc4439d2501492455dbc188f1318b1b0f5256c7707e8f18f41579d4b4)
@@ -3120,13 +3120,13 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchHostname:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3263,8 +3263,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatchHostname(
             exact=exact, suffix=suffix
@@ -3280,8 +3280,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchOutputReference(
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatchPath(exact=exact, regex=regex)
 
@@ -3437,8 +3437,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchPath:
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3862586a7d50c40caa72cf9c5b743e429f076ba193b5fce661a8d9d550fbb0f8)
@@ -3452,13 +3452,13 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchPath:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3567,8 +3567,8 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter:
         match: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(match, dict):
             match = AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch(**match)
@@ -3584,7 +3584,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -3595,7 +3595,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch"]:
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch"], result)
@@ -3713,7 +3713,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterList(
 class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch:
     def __init__(self, *, exact: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8ab134abae802d3a8e011fe8ae7ce840eecf31d5cbb7341cc9ae707ef8e8ddf8)
@@ -3724,7 +3724,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3828,7 +3828,7 @@ class AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterOutputReference(
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameterMatch(exact=exact)
 
@@ -3915,8 +3915,8 @@ class AppmeshGatewayRouteSpecHttp2RouteOutputReference(
         rewrite: typing.Optional[typing.Union[AppmeshGatewayRouteSpecHttp2RouteActionRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
-        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteAction(target=target, rewrite=rewrite)
 
@@ -3934,12 +3934,12 @@ class AppmeshGatewayRouteSpecHttp2RouteOutputReference(
         query_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AppmeshGatewayRouteSpecHttp2RouteMatchQueryParameter, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         value = AppmeshGatewayRouteSpecHttp2RouteMatch(
             header=header,
@@ -4001,8 +4001,8 @@ class AppmeshGatewayRouteSpecHttpRoute:
         match: typing.Union["AppmeshGatewayRouteSpecHttpRouteMatch", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(action, dict):
             action = AppmeshGatewayRouteSpecHttpRouteAction(**action)
@@ -4021,7 +4021,7 @@ class AppmeshGatewayRouteSpecHttpRoute:
     def action(self) -> "AppmeshGatewayRouteSpecHttpRouteAction":
         '''action block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
         '''
         result = self._values.get("action")
         assert result is not None, "Required property 'action' is missing"
@@ -4031,7 +4031,7 @@ class AppmeshGatewayRouteSpecHttpRoute:
     def match(self) -> "AppmeshGatewayRouteSpecHttpRouteMatch":
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         assert result is not None, "Required property 'match' is missing"
@@ -4062,8 +4062,8 @@ class AppmeshGatewayRouteSpecHttpRouteAction:
         rewrite: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttpRouteActionRewrite", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
-        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         if isinstance(target, dict):
             target = AppmeshGatewayRouteSpecHttpRouteActionTarget(**target)
@@ -4083,7 +4083,7 @@ class AppmeshGatewayRouteSpecHttpRouteAction:
     def target(self) -> "AppmeshGatewayRouteSpecHttpRouteActionTarget":
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -4095,7 +4095,7 @@ class AppmeshGatewayRouteSpecHttpRouteAction:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewrite"]:
         '''rewrite block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         result = self._values.get("rewrite")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewrite"], result)
@@ -4141,9 +4141,9 @@ class AppmeshGatewayRouteSpecHttpRouteActionOutputReference(
         prefix: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         value = AppmeshGatewayRouteSpecHttpRouteActionRewrite(
             hostname=hostname, path=path, prefix=prefix
@@ -4159,8 +4159,8 @@ class AppmeshGatewayRouteSpecHttpRouteActionOutputReference(
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteActionTarget(
             virtual_service=virtual_service, port=port
@@ -4226,9 +4226,9 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewrite:
         prefix: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param prefix: prefix block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         if isinstance(hostname, dict):
             hostname = AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname(**hostname)
@@ -4255,7 +4255,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname"]:
         '''hostname block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname"], result)
@@ -4266,7 +4266,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewritePath"]:
         '''path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewritePath"], result)
@@ -4277,7 +4277,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewrite:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix"]:
         '''prefix block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix"], result)
@@ -4302,7 +4302,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewrite:
 class AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname:
     def __init__(self, *, default_target_hostname: builtins.str) -> None:
         '''
-        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
+        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__048c6ffd4a3d57c6ae9de2310274073e8fc9e0dff787ddf5aad4a8a99208afaf)
@@ -4313,7 +4313,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname:
 
     @builtins.property
     def default_target_hostname(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.'''
         result = self._values.get("default_target_hostname")
         assert result is not None, "Required property 'default_target_hostname' is missing"
         return typing.cast(builtins.str, result)
@@ -4408,7 +4408,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewriteOutputReference(
     @jsii.member(jsii_name="putHostname")
     def put_hostname(self, *, default_target_hostname: builtins.str) -> None:
         '''
-        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
+        :param default_target_hostname: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_target_hostname AppmeshGatewayRoute#default_target_hostname}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteActionRewriteHostname(
             default_target_hostname=default_target_hostname
@@ -4419,7 +4419,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewriteOutputReference(
     @jsii.member(jsii_name="putPath")
     def put_path(self, *, exact: builtins.str) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteActionRewritePath(exact=exact)
 
@@ -4433,8 +4433,8 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewriteOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
+        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
         '''
         value_ = AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix(
             default_prefix=default_prefix, value=value
@@ -4522,7 +4522,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewriteOutputReference(
 class AppmeshGatewayRouteSpecHttpRouteActionRewritePath:
     def __init__(self, *, exact: builtins.str) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6073a80dba819ce7044564fdb94db88fc3b93482ba6add5a31da5fb43dcb5fa2)
@@ -4533,7 +4533,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewritePath:
 
     @builtins.property
     def exact(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         assert result is not None, "Required property 'exact' is missing"
         return typing.cast(builtins.str, result)
@@ -4618,8 +4618,8 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
+        :param default_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__70926ac39fb20d9f6ede0459ee24f540873e26a9a73986543033c5778e155413)
@@ -4633,13 +4633,13 @@ class AppmeshGatewayRouteSpecHttpRouteActionRewritePrefix:
 
     @builtins.property
     def default_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#default_prefix AppmeshGatewayRoute#default_prefix}.'''
         result = self._values.get("default_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#value AppmeshGatewayRoute#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4748,8 +4748,8 @@ class AppmeshGatewayRouteSpecHttpRouteActionTarget:
         port: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param virtual_service: virtual_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
         '''
         if isinstance(virtual_service, dict):
             virtual_service = AppmeshGatewayRouteSpecHttpRouteActionTargetVirtualService(**virtual_service)
@@ -4769,7 +4769,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionTarget:
     ) -> "AppmeshGatewayRouteSpecHttpRouteActionTargetVirtualService":
         '''virtual_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service AppmeshGatewayRoute#virtual_service}
         '''
         result = self._values.get("virtual_service")
         assert result is not None, "Required property 'virtual_service' is missing"
@@ -4777,7 +4777,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionTarget:
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4816,7 +4816,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionTargetOutputReference(
     @jsii.member(jsii_name="putVirtualService")
     def put_virtual_service(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteActionTargetVirtualService(
             virtual_service_name=virtual_service_name
@@ -4885,7 +4885,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionTargetOutputReference(
 class AppmeshGatewayRouteSpecHttpRouteActionTargetVirtualService:
     def __init__(self, *, virtual_service_name: builtins.str) -> None:
         '''
-        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
+        :param virtual_service_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4c709d6d322c9276447646bd0a265dc9c9c2e23943cdf87415bc4c05c06847a)
@@ -4896,7 +4896,7 @@ class AppmeshGatewayRouteSpecHttpRouteActionTargetVirtualService:
 
     @builtins.property
     def virtual_service_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#virtual_service_name AppmeshGatewayRoute#virtual_service_name}.'''
         result = self._values.get("virtual_service_name")
         assert result is not None, "Required property 'virtual_service_name' is missing"
         return typing.cast(builtins.str, result)
@@ -4992,12 +4992,12 @@ class AppmeshGatewayRouteSpecHttpRouteMatch:
         query_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         if isinstance(hostname, dict):
             hostname = AppmeshGatewayRouteSpecHttpRouteMatchHostname(**hostname)
@@ -5031,7 +5031,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatch:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttpRouteMatchHeader"]]]:
         '''header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
         '''
         result = self._values.get("header")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttpRouteMatchHeader"]]], result)
@@ -5042,7 +5042,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatch:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHostname"]:
         '''hostname block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
         '''
         result = self._values.get("hostname")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHostname"], result)
@@ -5051,20 +5051,20 @@ class AppmeshGatewayRouteSpecHttpRouteMatch:
     def path(self) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchPath"]:
         '''path block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
         '''
         result = self._values.get("path")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchPath"], result)
 
     @builtins.property
     def port(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.'''
         result = self._values.get("port")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5074,7 +5074,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatch:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter"]]]:
         '''query_parameter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         result = self._values.get("query_parameter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter"]]], result)
@@ -5105,9 +5105,9 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeader:
         match: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param invert: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param invert: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(match, dict):
             match = AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch(**match)
@@ -5126,7 +5126,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeader:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5135,7 +5135,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeader:
     def invert(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#invert AppmeshGatewayRoute#invert}.'''
         result = self._values.get("invert")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -5145,7 +5145,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeader:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch"]:
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch"], result)
@@ -5277,11 +5277,11 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         if isinstance(range, dict):
             range = AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange(**range)
@@ -5306,13 +5306,13 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.'''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5322,20 +5322,20 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange"]:
         '''range block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
         '''
         result = self._values.get("range")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange"], result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5374,8 +5374,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchOutputReference(
     @jsii.member(jsii_name="putRange")
     def put_range(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange(
             end=end, start=start
@@ -5511,8 +5511,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchOutputReference(
 class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange:
     def __init__(self, *, end: jsii.Number, start: jsii.Number) -> None:
         '''
-        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
-        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
+        :param end: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.
+        :param start: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f0884b717987c6fd2a6c1ec9113e73658735e63651ee2cd885ebac189cea212)
@@ -5525,14 +5525,14 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatchRange:
 
     @builtins.property
     def end(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#end AppmeshGatewayRoute#end}.'''
         result = self._values.get("end")
         assert result is not None, "Required property 'end' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def start(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#start AppmeshGatewayRoute#start}.'''
         result = self._values.get("start")
         assert result is not None, "Required property 'start' is missing"
         return typing.cast(jsii.Number, result)
@@ -5658,11 +5658,11 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHeaderOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param range: range block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#range AppmeshGatewayRoute#range}
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatchHeaderMatch(
             exact=exact, prefix=prefix, range=range, regex=regex, suffix=suffix
@@ -5760,8 +5760,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHostname:
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__89d41646d880450216f963307cc63a096aabf8442775f16ea0c1e185076ba076)
@@ -5775,13 +5775,13 @@ class AppmeshGatewayRouteSpecHttpRouteMatchHostname:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def suffix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.'''
         result = self._values.get("suffix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5918,8 +5918,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchOutputReference(
         suffix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param suffix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#suffix AppmeshGatewayRoute#suffix}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatchHostname(
             exact=exact, suffix=suffix
@@ -5935,8 +5935,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchOutputReference(
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatchPath(exact=exact, regex=regex)
 
@@ -6092,8 +6092,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchPath:
         regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
-        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param regex: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80cbc2a55f7b9894eb76834e44604c3156fff11671e9fab676e71e53f16c9b17)
@@ -6107,13 +6107,13 @@ class AppmeshGatewayRouteSpecHttpRouteMatchPath:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def regex(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#regex AppmeshGatewayRoute#regex}.'''
         result = self._values.get("regex")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6222,8 +6222,8 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter:
         match: typing.Optional[typing.Union["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         if isinstance(match, dict):
             match = AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch(**match)
@@ -6239,7 +6239,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#name AppmeshGatewayRoute#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -6250,7 +6250,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter:
     ) -> typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch"]:
         '''match block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional["AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch"], result)
@@ -6368,7 +6368,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterList(
 class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch:
     def __init__(self, *, exact: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b9cd7006848e32107497034a42e4ff9d8a59befeeebdb9788dd2c0a6991f9df)
@@ -6379,7 +6379,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch:
 
     @builtins.property
     def exact(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.'''
         result = self._values.get("exact")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6483,7 +6483,7 @@ class AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterOutputReference(
     @jsii.member(jsii_name="putMatch")
     def put_match(self, *, exact: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
+        :param exact: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#exact AppmeshGatewayRoute#exact}.
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatchQueryParameterMatch(exact=exact)
 
@@ -6570,8 +6570,8 @@ class AppmeshGatewayRouteSpecHttpRouteOutputReference(
         rewrite: typing.Optional[typing.Union[AppmeshGatewayRouteSpecHttpRouteActionRewrite, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
-        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#target AppmeshGatewayRoute#target}
+        :param rewrite: rewrite block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#rewrite AppmeshGatewayRoute#rewrite}
         '''
         value = AppmeshGatewayRouteSpecHttpRouteAction(target=target, rewrite=rewrite)
 
@@ -6589,12 +6589,12 @@ class AppmeshGatewayRouteSpecHttpRouteOutputReference(
         query_parameter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[AppmeshGatewayRouteSpecHttpRouteMatchQueryParameter, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
-        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
-        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
-        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
-        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
-        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
+        :param header: header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#header AppmeshGatewayRoute#header}
+        :param hostname: hostname block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#hostname AppmeshGatewayRoute#hostname}
+        :param path: path block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#path AppmeshGatewayRoute#path}
+        :param port: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#port AppmeshGatewayRoute#port}.
+        :param prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#prefix AppmeshGatewayRoute#prefix}.
+        :param query_parameter: query_parameter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#query_parameter AppmeshGatewayRoute#query_parameter}
         '''
         value = AppmeshGatewayRouteSpecHttpRouteMatch(
             header=header,
@@ -6671,8 +6671,8 @@ class AppmeshGatewayRouteSpecOutputReference(
         match: typing.Union[AppmeshGatewayRouteSpecGrpcRouteMatch, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         value = AppmeshGatewayRouteSpecGrpcRoute(action=action, match=match)
 
@@ -6686,8 +6686,8 @@ class AppmeshGatewayRouteSpecOutputReference(
         match: typing.Union[AppmeshGatewayRouteSpecHttp2RouteMatch, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         value = AppmeshGatewayRouteSpecHttp2Route(action=action, match=match)
 
@@ -6701,8 +6701,8 @@ class AppmeshGatewayRouteSpecOutputReference(
         match: typing.Union[AppmeshGatewayRouteSpecHttpRouteMatch, typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
-        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.3.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
+        :param action: action block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#action AppmeshGatewayRoute#action}
+        :param match: match block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/appmesh_gateway_route#match AppmeshGatewayRoute#match}
         '''
         value = AppmeshGatewayRouteSpecHttpRoute(action=action, match=match)
 

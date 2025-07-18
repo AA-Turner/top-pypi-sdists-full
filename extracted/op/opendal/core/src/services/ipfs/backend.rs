@@ -121,7 +121,7 @@ impl Builder for IpfsBuilder {
             .with_context("service", Scheme::Ipfs)
             .with_context("root", &root));
         }
-        debug!("backend use root {}", root);
+        debug!("backend use root {root}");
 
         let endpoint = match &self.config.endpoint {
             Some(endpoint) => Ok(endpoint.clone()),
@@ -136,10 +136,6 @@ impl Builder for IpfsBuilder {
             .set_root(&root)
             .set_native_capability(Capability {
                 stat: true,
-                stat_has_content_length: true,
-                stat_has_content_type: true,
-                stat_has_etag: true,
-                stat_has_content_disposition: true,
 
                 read: true,
 
@@ -180,10 +176,6 @@ impl Access for IpfsBackend {
     type Writer = ();
     type Lister = oio::PageLister<DirStream>;
     type Deleter = ();
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

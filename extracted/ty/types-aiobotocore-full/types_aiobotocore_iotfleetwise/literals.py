@@ -176,13 +176,16 @@ UpdateCampaignActionType = Literal["APPROVE", "RESUME", "SUSPEND", "UPDATE"]
 UpdateModeType = Literal["Merge", "Overwrite"]
 VehicleAssociationBehaviorType = Literal["CreateIotThing", "ValidateIotThingExists"]
 VehicleMiddlewareProtocolType = Literal["ROS_2"]
-VehicleStateType = Literal["CREATED", "DELETING", "HEALTHY", "READY", "SUSPENDED"]
+VehicleStateType = Literal[
+    "CREATED", "DELETING", "HEALTHY", "READY", "READY_FOR_CHECKIN", "SUSPENDED"
+]
 IoTFleetWiseServiceName = Literal["iotfleetwise"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -323,6 +326,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -380,6 +384,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -435,6 +440,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -579,6 +585,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

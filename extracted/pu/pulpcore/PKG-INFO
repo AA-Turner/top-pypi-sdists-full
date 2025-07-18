@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulpcore
-Version: 3.83.1
+Version: 3.83.2
 Summary: Pulp Django Application and Related Modules
 Author-email: Pulp Team <pulp-list@redhat.com>
 Project-URL: Homepage, https://pulpproject.org
@@ -70,6 +70,7 @@ Provides-Extra: google
 Requires-Dist: django-storages[google]==1.14.6; extra == "google"
 Provides-Extra: azure
 Requires-Dist: django-storages[azure]==1.14.6; extra == "azure"
+Requires-Dist: azure-storage-blob<12.26.0; extra == "azure"
 Provides-Extra: prometheus
 Requires-Dist: django-prometheus; extra == "prometheus"
 Provides-Extra: kafka

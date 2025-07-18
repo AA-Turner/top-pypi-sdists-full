@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 base class for modules generally transfering items using the MISSION_ITEM protocol
@@ -10,6 +10,7 @@ import copy
 import os
 import re
 import struct
+import sys
 import time
 
 from pymavlink import mavutil
@@ -294,7 +295,7 @@ on'''
             self.wp_requested = {}
             self.wp_received = {}
 
-        elif mtype in ["MISSION_REQUEST"]:
+        elif mtype in frozenset(["MISSION_REQUEST", "MISSION_REQUEST_INT"]):
             self.process_waypoint_request(m, self.master)
 
     def idle_task(self):
@@ -345,6 +346,10 @@ on'''
            MISSION_ITEM_INT to give cm level accuracy
         '''
         if wp.get_type() == 'MISSION_ITEM_INT':
+            if not isinstance(wp.x, int):
+                print("BUG! wp.x is not integer")
+            if not isinstance(wp.y, int):
+                print("BUG! wp.y is not integer")
             return wp
         if self.has_location(wp.command):
             p5 = int(wp.x*1.0e7)
@@ -428,7 +433,12 @@ on'''
         if wp.mission_type != self.mav_mission_type():
             print("Wrong mission type in (%s)" % str(wp))
 
-        self.master.mav.send(wp_send)
+        try:
+            self.master.mav.send(wp_send)
+        except struct.error:
+            # this is often "required argument is not an integer"
+            mavutil.dump_message_verbose(sys.stderr, wp_send)
+            raise
 
         self.loading_waypoint_lasttime = time.time()
 
@@ -558,8 +568,12 @@ on'''
             alt2 = self.module('terrain').ElevationModel.GetElevation(wp.x, wp.y)
             if alt1 is not None and alt2 is not None:
                 wp.z += alt1 - alt2
-        wp.x = lat
-        wp.y = lon
+        if isinstance(wp, mavutil.mavlink.MAVLink_mission_item_int_message):
+            wp.x = int(lat * 1e7)
+            wp.y = int(lon * 1e7)
+        else:
+            wp.x = lat
+            wp.y = lon
 
         wp.target_system    = self.target_system
         wp.target_component = self.target_component

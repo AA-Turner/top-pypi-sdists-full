@@ -1,19 +1,16 @@
 from typing import Annotated
 from typing import Optional
-from typing import get_args
-from typing import get_origin
 
 from pydantic import Field
 from typing_extensions import Self
 
-from ..base import CaseExact
-from ..base import ComplexAttribute
-from ..base import Mutability
-from ..base import Reference
-from ..base import Required
-from ..base import Returned
-from ..base import URIReference
-from ..utils import UNION_TYPES
+from ..annotations import CaseExact
+from ..annotations import Mutability
+from ..annotations import Required
+from ..annotations import Returned
+from ..attributes import ComplexAttribute
+from ..reference import Reference
+from ..reference import URIReference
 from .resource import Resource
 
 
@@ -85,21 +82,15 @@ class ResourceType(Resource):
         """Build a naive ResourceType from a resource model."""
         schema = resource_model.model_fields["schemas"].default[0]
         name = schema.split(":")[-1]
-        if resource_model.__pydantic_generic_metadata__["args"]:
-            extensions = resource_model.__pydantic_generic_metadata__["args"][0]
-            extensions = (
-                get_args(extensions)
-                if get_origin(extensions) in UNION_TYPES
-                else [extensions]
-            )
-        else:
-            extensions = []
 
-        return ResourceType(
+        # Get extensions from the metadata system
+        extensions = getattr(resource_model, "__scim_extension_metadata__", [])
+
+        return cls(
             id=name,
             name=name,
             description=name,
-            endpoint=f"/{name}s",
+            endpoint=Reference[URIReference](f"/{name}s"),
             schema_=schema,
             schema_extensions=[
                 SchemaExtension(

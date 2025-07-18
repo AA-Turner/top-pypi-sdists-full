@@ -520,7 +520,7 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             except:
                 console.print("Não foi possivel clicar no Botão OK... \n")
 
-            await worker_sleep(3)
+            await worker_sleep(5)
 
             console.print(
                 "Verificando a existencia da tela Informações para importação da Nota Fiscal Eletrônica...\n"
@@ -550,7 +550,7 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
 
-        await worker_sleep(15)
+        await worker_sleep(20)
 
         try:
             console.print("Verificando itens não localizados ou NCM...\n")

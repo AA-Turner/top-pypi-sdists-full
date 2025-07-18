@@ -51,7 +51,6 @@ class CesiumModule(mp_module.MPModule):
         self.aircraft = {'lat':None, 'lon':None, 'alt_wgs84':None,
                          'roll':None, 'pitch':None, 'yaw':None}
         self.pos_target = {'lat':None, 'lon':None, 'alt_wgs84':None}
-        self.fence = {}
         self.mission = {}
         
         self.server_thread = None
@@ -129,16 +128,18 @@ class CesiumModule(mp_module.MPModule):
 
 
     def send_fence(self):
-        '''load and draw the fence in cesium'''
-        self.fence = {}
-        self.fence_points_to_send = self.mpstate.public_modules['fence'].fenceloader.points
-        for point in self.fence_points_to_send:
-            point_dict = point.to_dict()
-            idx = point_dict['idx']
-            del point_dict['idx']
-            if idx != 0: # dont include the return location
-                self.fence[idx] = point_dict
-        self.send_data({"fence_data":self.fence})
+        '''load and draw the fence in cesium.
+        
+        This transforms the mission items into a dict keyed by index.
+        '''
+        wploader = self.mpstate.public_modules['fence'].wploader
+        fence = dict()
+        for point in [point.to_dict() for point in wploader.wpoints]:
+            idx = point['seq']
+            del point['seq']
+            fence[idx] = point
+        self.send_data({"fence_data": fence})
+
             
     def send_mission(self):
         '''load and draw the mission in cesium'''
@@ -190,8 +191,8 @@ class CesiumModule(mp_module.MPModule):
             self.rally_change_time = time.time()
     
         # if the fence has changed, redisplay
-        if self.fence_change_time != self.module('fence').fenceloader.last_change:
-            self.fence_change_time = self.module('fence').fenceloader.last_change
+        if self.fence_change_time != self.module('fence').wploader.last_change:
+            self.fence_change_time = self.module('fence').wploader.last_change
             self.send_fence()
                 
     def idle_task(self):
@@ -225,13 +226,19 @@ class CesiumModule(mp_module.MPModule):
                 self.mpstate.functions.process_stdin('wp remove %u' % int(payload['wp_remove']))
              
             elif 'wp_list' in payload.keys():
+                # Drop the payload value; it doesn't matter.
                 self.mpstate.functions.process_stdin('wp list')
                  
             elif 'fence_list' in payload.keys():
+                # Drop the payload value; it doesn't matter.
                 self.mpstate.functions.process_stdin('fence list')
+
+            elif 'fence_clear' in payload.keys():
+                # Drop the payload value; it doesn't matter.
+                self.mpstate.functions.process_stdin('fence clear')
              
             else:
-                pass
+                print("Unknown payload")
    
     def unload(self):
         '''unload module'''

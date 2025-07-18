@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Mapping, Option
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.dataset
 import pyarrow.parquet as pq
 from pyarrow.fs import S3FileSystem
 
@@ -55,6 +54,8 @@ class AthenaResultHandle:
         return self.compressed_size * 8
 
     def to_arrow(self, fs: S3FileSystem) -> pa.Table:
+        import pyarrow.dataset
+
         dataset = pyarrow.dataset.dataset(self.uri, format="parquet", filesystem=fs)
         return dataset.to_table()
 

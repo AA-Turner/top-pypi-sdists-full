@@ -7627,7 +7627,7 @@ class MonitoredTableRuleInput(sgqlc.types.Input):
     """Monitoring rule type"""
 
 
-class MonteCarloStateMappingInput(sgqlc.types.Input):
+class MonteCarloStatusMappingInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("servicenow_incident_state", "incident_feedback")
     servicenow_incident_state = sgqlc.types.Field(
@@ -8752,7 +8752,7 @@ class ServiceNowIntegrationOptionsInput(sgqlc.types.Input):
     set_description_field = sgqlc.types.Field(Boolean, graphql_name="setDescriptionField")
 
     status_mappings = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStateMappingInput)),
+        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStatusMappingInput)),
         graphql_name="statusMappings",
     )
 
@@ -8782,7 +8782,9 @@ class ServiceNowWebhookConfigInput(sgqlc.types.Input):
     state_mappings = sgqlc.types.Field(
         sgqlc.types.list_of(ServiceNowStateMappingInput), graphql_name="stateMappings"
     )
-    """Status mapping"""
+    """Mapping FROM ServiceNow incident states TO Monte Carlo alert
+    status
+    """
 
 
 class SetIncidentFeedbackInput(sgqlc.types.Input):
@@ -23641,7 +23643,7 @@ class MonteCarloConfigTemplateUpdateResponse(sgqlc.types.Type):
     """Informational messages"""
 
 
-class MonteCarloStateMapping(sgqlc.types.Type):
+class MonteCarloStatusMapping(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("servicenow_incident_state", "incident_feedback")
     servicenow_incident_state = sgqlc.types.Field(
@@ -58990,7 +58992,7 @@ class ServiceNowIntegrationOptions(sgqlc.types.Type):
     )
 
     status_mappings = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStateMapping)),
+        sgqlc.types.list_of(sgqlc.types.non_null(MonteCarloStatusMapping)),
         graphql_name="statusMappings",
     )
 
@@ -59110,7 +59112,9 @@ class ServiceNowWebhookConfigOutput(sgqlc.types.Type):
     state_mappings = sgqlc.types.Field(
         sgqlc.types.list_of(ServiceNowStateMappingOutput), graphql_name="stateMappings"
     )
-    """Status mapping"""
+    """Mapping FROM ServiceNow incident states TO Monte Carlo alert
+    status
+    """
 
 
 class SetAccountBillingPlan(sgqlc.types.Type):

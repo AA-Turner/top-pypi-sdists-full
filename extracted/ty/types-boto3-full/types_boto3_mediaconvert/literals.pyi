@@ -25,6 +25,7 @@ __all__ = (
     "AacAudioDescriptionBroadcasterMixType",
     "AacCodecProfileType",
     "AacCodingModeType",
+    "AacLoudnessMeasurementModeType",
     "AacRateControlModeType",
     "AacRawFormatType",
     "AacSpecificationType",
@@ -481,10 +482,11 @@ __all__ = (
 )
 
 AacAudioDescriptionBroadcasterMixType = Literal["BROADCASTER_MIXED_AD", "NORMAL"]
-AacCodecProfileType = Literal["HEV1", "HEV2", "LC"]
+AacCodecProfileType = Literal["HEV1", "HEV2", "LC", "XHE"]
 AacCodingModeType = Literal[
     "AD_RECEIVER_MIX", "CODING_MODE_1_0", "CODING_MODE_1_1", "CODING_MODE_2_0", "CODING_MODE_5_1"
 ]
+AacLoudnessMeasurementModeType = Literal["ANCHOR", "PROGRAM"]
 AacRateControlModeType = Literal["CBR", "VBR"]
 AacRawFormatType = Literal["LATM_LOAS", "NONE"]
 AacSpecificationType = Literal["MPEG2", "MPEG4"]
@@ -696,6 +698,7 @@ CodecType = Literal[
     "EAC3",
     "FLAC",
     "HEVC",
+    "JPEG2000",
     "MJPEG",
     "MP3",
     "MP4V",
@@ -853,7 +856,7 @@ F4vMoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
-FormatType = Literal["matroska", "mp4", "quicktime", "webm"]
+FormatType = Literal["matroska", "mp4", "mxf", "quicktime", "webm"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 GifFramerateConversionAlgorithmType = Literal["DUPLICATE_DROP", "INTERPOLATE"]

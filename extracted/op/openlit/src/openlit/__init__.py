@@ -137,7 +137,9 @@ def module_exists(module_name):
     return True
 
 
-def instrument_if_available(instrumentor_name, instrumentor_instance, config, disabled_instrumentors):
+def instrument_if_available(
+    instrumentor_name, instrumentor_instance, config, disabled_instrumentors
+):
     """Instruments the specified instrumentor if its library is available."""
     if instrumentor_name in disabled_instrumentors:
         logger.info("Instrumentor %s is disabled", instrumentor_name)
@@ -242,13 +244,13 @@ def init(
 
         # Setup events based on the provided or default configuration.
         event_provider = setup_events(
-                application_name=application_name,
-                environment=environment,
-                event_logger=event_logger,
-                otlp_endpoint=None,
-                otlp_headers=None,
-                disable_batch=disable_batch,
-            )
+            application_name=application_name,
+            environment=environment,
+            event_logger=event_logger,
+            otlp_endpoint=None,
+            otlp_headers=None,
+            disable_batch=disable_batch,
+        )
 
         if not event_provider:
             logger.error("OpenLIT events setup failed. Events will not be available")
@@ -266,10 +268,15 @@ def init(
             logger.error(
                 "OpenLIT metrics setup failed. Metrics will not be available: %s", err
             )
-            return
+            # Set metrics_dict to None and disable metrics instead of returning early
+            metrics_dict = None
+            disable_metrics = True
 
-        if os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower == "false":
-            capture_message_content=False
+        if (
+            os.getenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "").lower
+            == "false"
+        ):
+            capture_message_content = False
 
         # Update global configuration with the provided settings.
         config.update_config(
@@ -462,9 +469,7 @@ def trace(wrapped):
                     SERVICE_NAME,
                     OpenlitConfig.application_name,
                 )
-                span.set_attribute(
-                    DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment
-                )
+                span.set_attribute(DEPLOYMENT_ENVIRONMENT, OpenlitConfig.environment)
             except Exception as meta_exception:
                 logging.error(
                     "Failed to set metadata for %s: %s",

@@ -1,7 +1,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 [tool.poetry]
 name = "AlexaPy"
-version = "1.29.6"
+version = "1.29.7"
 description = "Python API to control Amazon Echo Devices Programmatically."
 authors = [
   "Keaton Taylor <keatonstaylor@gmail.com>",

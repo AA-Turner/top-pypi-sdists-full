@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weaviate-client
-Version: 4.16.0
+Version: 4.16.1
 Summary: A python native Weaviate client
 Home-page: https://github.com/weaviate/weaviate-python-client
 Author: Weaviate

@@ -131,10 +131,6 @@ impl Builder for YandexDiskBuilder {
                         .set_root(&root)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_last_modified: true,
-                            stat_has_content_md5: true,
-                            stat_has_content_type: true,
-                            stat_has_content_length: true,
 
                             create_dir: true,
 
@@ -149,10 +145,6 @@ impl Builder for YandexDiskBuilder {
 
                             list: true,
                             list_with_limit: true,
-                            list_has_last_modified: true,
-                            list_has_content_md5: true,
-                            list_has_content_type: true,
-                            list_has_content_length: true,
 
                             shared: true,
 
@@ -185,10 +177,6 @@ impl Access for YandexDiskBackend {
     type Writer = YandexDiskWriters;
     type Lister = oio::PageLister<YandexDiskLister>;
     type Deleter = oio::OneShotDeleter<YandexDiskDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

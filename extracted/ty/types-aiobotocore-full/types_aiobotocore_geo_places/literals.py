@@ -58,12 +58,14 @@ __all__ = (
 AutocompleteAdditionalFeatureType = Literal["Core"]
 AutocompleteFilterPlaceTypeType = Literal["Locality", "PostalCode"]
 AutocompleteIntendedUseType = Literal["SingleUse"]
-GeocodeAdditionalFeatureType = Literal["Access", "TimeZone"]
+GeocodeAdditionalFeatureType = Literal["Access", "Intersections", "SecondaryAddresses", "TimeZone"]
 GeocodeFilterPlaceTypeType = Literal[
     "InterpolatedAddress", "Intersection", "Locality", "PointAddress", "PostalCode", "Street"
 ]
 GeocodeIntendedUseType = Literal["SingleUse", "Storage"]
-GetPlaceAdditionalFeatureType = Literal["Access", "Contact", "Phonemes", "TimeZone"]
+GetPlaceAdditionalFeatureType = Literal[
+    "Access", "Contact", "Phonemes", "SecondaryAddresses", "TimeZone"
+]
 GetPlaceIntendedUseType = Literal["SingleUse", "Storage"]
 PlaceTypeType = Literal[
     "Block",
@@ -76,6 +78,7 @@ PlaceTypeType = Literal[
     "PointOfInterest",
     "PostalCode",
     "Region",
+    "SecondaryAddress",
     "Street",
     "SubBlock",
     "SubDistrict",
@@ -86,7 +89,7 @@ PostalCodeModeType = Literal["EnumerateSpannedLocalities", "MergeAllSpannedLocal
 PostalCodeTypeType = Literal["UspsZip", "UspsZipPlus4"]
 QueryTypeType = Literal["BusinessChain", "Category"]
 RecordTypeCodeType = Literal["Firm", "General", "HighRise", "PostOfficeBox", "Rural", "Street"]
-ReverseGeocodeAdditionalFeatureType = Literal["Access", "TimeZone"]
+ReverseGeocodeAdditionalFeatureType = Literal["Access", "Intersections", "TimeZone"]
 ReverseGeocodeFilterPlaceTypeType = Literal[
     "InterpolatedAddress", "Intersection", "Locality", "PointAddress", "Street"
 ]
@@ -106,6 +109,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -246,6 +250,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -303,6 +308,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -358,6 +364,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -502,6 +509,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: craft-cli
-Version: 3.0.0
+Version: 3.1.0
 Summary: Command Line Interface
 Author-email: Canonical Ltd <snapcraft@lists.snapcraft.io>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -176,7 +176,6 @@ Project-URL: Issues, https://github.com/canonical/craft-cli/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
@@ -192,55 +191,31 @@ Requires-Dist: pywin32; sys_platform == "win32"
 Requires-Dist: jinja2>=3.1.5
 Requires-Dist: overrides>=7.7.0
 Requires-Dist: typing-extensions
-Provides-Extra: dev
-Requires-Dist: coverage[toml]==7.6.1; extra == "dev"
-Requires-Dist: pytest==8.3.3; extra == "dev"
-Requires-Dist: pytest-cov==5.0.0; extra == "dev"
-Requires-Dist: pytest-mock==3.14.0; extra == "dev"
-Requires-Dist: pytest-subprocess; extra == "dev"
-Provides-Extra: lint
-Requires-Dist: codespell[toml]==2.3.0; extra == "lint"
-Requires-Dist: yamllint==1.35.1; extra == "lint"
-Provides-Extra: types
-Requires-Dist: mypy[reports]==1.12.0; extra == "types"
-Requires-Dist: pyright==1.1.388; extra == "types"
-Requires-Dist: types-Pygments; extra == "types"
-Requires-Dist: types-colorama; extra == "types"
-Requires-Dist: types-setuptools; extra == "types"
-Provides-Extra: docs
-Requires-Dist: sphinx-toolbox==3.8.1; extra == "docs"
-Requires-Dist: sphinx-lint==1.0.0; extra == "docs"
-Requires-Dist: pytest>=7.0.0; extra == "docs"
-Requires-Dist: canonical-sphinx[full]==0.2.0; extra == "docs"
 
-*********
-Craft CLI
-*********
+# Craft CLI
 
-A Command Line Client builder that follows the `Canonical's Guidelines for a Command Line
-Interface <https://discourse.ubuntu.com/c/design/cli-guidelines/62>`_.
+A Command Line Client builder that follows the [Canonical's Guidelines
+for a Command Line
+Interface](https://discourse.ubuntu.com/c/design/cli-guidelines/62).
 
 The library provides two main functionalities:
 
-- a framework to define and execute application commands, which involves argument parsing and the provision of help texts
+- a framework to define and execute application commands, which
+  involves argument parsing and the provision of help texts
+- infrastructure to handle the terminal and present all the outputs
+  for the different application needs
 
-- infrastructure to handle the terminal and present all the outputs for the different application needs
+## Documentation
 
+The [documentation](https://craft-cli.readthedocs.io) is available on
+Read The Docs.
 
-Documentation
--------------
+## Contribute to Craft CLI
 
-The `documentation <https://craft-cli.readthedocs.io>`_ is available on Read The Docs.
+Craft CLI is open source and part of the Canonical family. We would love your help.
 
+If you're interested, start with the [contribution guide](CONTRIBUTING.md).
 
-Contributing
-------------
-
-See the `<HACKING.rst>`_ document for details on how to contribute.
-
-
-License
--------
+## License
 
 Free software: GNU Lesser General Public License v3
-

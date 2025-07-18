@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: sarif-tools
-Version: 3.0.4
+Version: 3.0.5
 Summary: SARIF tools
-Home-page: https://github.com/microsoft/sarif-tools
 Author: Microsoft
 Requires-Python: >=3.8,<4.0
 Classifier: License :: OSI Approved :: MIT License
@@ -14,12 +13,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: jinja2 (>=3.1.4,<4.0.0)
+Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
 Requires-Dist: jsonpath-ng (>=1.6.0,<2.0.0)
 Requires-Dist: matplotlib (>=3.7,<4.0)
 Requires-Dist: python-docx (>=1.1.2,<2.0.0)
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
 Project-URL: Bug Tracker, https://github.com/microsoft/sarif-tools/issues
+Project-URL: Homepage, https://github.com/microsoft/sarif-tools
 Description-Content-Type: text/markdown
 
 # SARIF Tools
@@ -700,7 +700,7 @@ The data in each `result` object can then be used for filtering via the `--filte
 
 ```yaml
 # Lines beginning with # are interpreted as comments and ignored.
-# Optional description for the filter.  If no title is specified, the filter file name is used.
+# Optional description for the filter.  If not specified, the filter file name is used.
 description: Example filter from README.md
 
 # Optional configuration section to override default values.

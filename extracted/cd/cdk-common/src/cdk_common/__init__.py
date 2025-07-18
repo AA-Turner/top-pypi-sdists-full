@@ -5588,6 +5588,22 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_BEDROCK_AGENT_CORE_MEMORY_BEDROCK_MODEL_INFERENCE_EXECUTION_ROLE_POLICY = "AMAZON_BEDROCK_AGENT_CORE_MEMORY_BEDROCK_MODEL_INFERENCE_EXECUTION_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
+    BEDROCK_AGENT_CORE_FULL_ACCESS = "BEDROCK_AGENT_CORE_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSROLES_ANYWHERE_FULL_ACCESS = "AWSROLES_ANYWHERE_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSROLES_ANYWHERE_READ_ONLY = "AWSROLES_ANYWHERE_READ_ONLY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

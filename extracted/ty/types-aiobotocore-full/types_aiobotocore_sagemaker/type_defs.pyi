@@ -442,6 +442,13 @@ __all__ = (
     "CategoricalParameterRangeTypeDef",
     "CategoricalParameterRangeUnionTypeDef",
     "CategoricalParameterTypeDef",
+    "CfnCreateTemplateProviderTypeDef",
+    "CfnStackCreateParameterTypeDef",
+    "CfnStackDetailTypeDef",
+    "CfnStackParameterTypeDef",
+    "CfnStackUpdateParameterTypeDef",
+    "CfnTemplateProviderDetailTypeDef",
+    "CfnUpdateTemplateProviderTypeDef",
     "ChannelOutputTypeDef",
     "ChannelSpecificationOutputTypeDef",
     "ChannelSpecificationTypeDef",
@@ -610,6 +617,7 @@ __all__ = (
     "CreateSpaceResponseTypeDef",
     "CreateStudioLifecycleConfigRequestTypeDef",
     "CreateStudioLifecycleConfigResponseTypeDef",
+    "CreateTemplateProviderTypeDef",
     "CreateTrainingJobRequestTypeDef",
     "CreateTrainingJobResponseTypeDef",
     "CreateTrainingPlanRequestTypeDef",
@@ -1751,6 +1759,7 @@ __all__ = (
     "TagTypeDef",
     "TargetPlatformTypeDef",
     "TargetTrackingScalingPolicyConfigurationTypeDef",
+    "TemplateProviderDetailTypeDef",
     "TensorBoardAppSettingsTypeDef",
     "TensorBoardOutputConfigTypeDef",
     "TextClassificationJobConfigTypeDef",
@@ -1887,6 +1896,7 @@ __all__ = (
     "UpdateProjectOutputTypeDef",
     "UpdateSpaceRequestTypeDef",
     "UpdateSpaceResponseTypeDef",
+    "UpdateTemplateProviderTypeDef",
     "UpdateTrainingJobRequestTypeDef",
     "UpdateTrainingJobResponseTypeDef",
     "UpdateTrialComponentRequestTypeDef",
@@ -2242,6 +2252,23 @@ class CategoricalParameterRangeTypeDef(TypedDict):
 class CategoricalParameterTypeDef(TypedDict):
     Name: str
     Value: Sequence[str]
+
+class CfnStackCreateParameterTypeDef(TypedDict):
+    Key: str
+    Value: NotRequired[str]
+
+class CfnStackDetailTypeDef(TypedDict):
+    StatusMessage: str
+    Name: NotRequired[str]
+    Id: NotRequired[str]
+
+class CfnStackParameterTypeDef(TypedDict):
+    Key: str
+    Value: NotRequired[str]
+
+class CfnStackUpdateParameterTypeDef(TypedDict):
+    Key: str
+    Value: NotRequired[str]
 
 class ShuffleConfigTypeDef(TypedDict):
     Seed: int
@@ -5774,6 +5801,24 @@ CategoricalParameterRangeUnionTypeDef = Union[
 class EnvironmentParameterRangesTypeDef(TypedDict):
     CategoricalParameterRanges: NotRequired[Sequence[CategoricalParameterTypeDef]]
 
+class CfnCreateTemplateProviderTypeDef(TypedDict):
+    TemplateName: str
+    TemplateURL: str
+    RoleARN: NotRequired[str]
+    Parameters: NotRequired[Sequence[CfnStackCreateParameterTypeDef]]
+
+class CfnTemplateProviderDetailTypeDef(TypedDict):
+    TemplateName: str
+    TemplateURL: str
+    RoleARN: NotRequired[str]
+    Parameters: NotRequired[List[CfnStackParameterTypeDef]]
+    StackDetail: NotRequired[CfnStackDetailTypeDef]
+
+class CfnUpdateTemplateProviderTypeDef(TypedDict):
+    TemplateName: str
+    TemplateURL: str
+    Parameters: NotRequired[Sequence[CfnStackUpdateParameterTypeDef]]
+
 class ClarifyShapConfigTypeDef(TypedDict):
     ShapBaselineConfig: ClarifyShapBaselineConfigTypeDef
     NumberOfSamples: NotRequired[int]
@@ -8982,6 +9027,15 @@ class EndpointInputConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
     EnvironmentParameterRanges: NotRequired[EnvironmentParameterRangesTypeDef]
 
+class CreateTemplateProviderTypeDef(TypedDict):
+    CfnTemplateProvider: NotRequired[CfnCreateTemplateProviderTypeDef]
+
+class TemplateProviderDetailTypeDef(TypedDict):
+    CfnTemplateProviderDetail: NotRequired[CfnTemplateProviderDetailTypeDef]
+
+class UpdateTemplateProviderTypeDef(TypedDict):
+    CfnTemplateProvider: NotRequired[CfnUpdateTemplateProviderTypeDef]
+
 class ClarifyExplainerConfigOutputTypeDef(TypedDict):
     ShapConfig: ClarifyShapConfigTypeDef
     EnableExplanations: NotRequired[str]
@@ -9800,47 +9854,9 @@ class GetSearchSuggestionsRequestTypeDef(TypedDict):
     Resource: ResourceTypeType
     SuggestionQuery: NotRequired[SuggestionQueryTypeDef]
 
-class DescribeProjectOutputTypeDef(TypedDict):
-    ProjectArn: str
-    ProjectName: str
-    ProjectId: str
-    ProjectDescription: str
-    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetailsOutputTypeDef
-    ServiceCatalogProvisionedProductDetails: ServiceCatalogProvisionedProductDetailsTypeDef
-    ProjectStatus: ProjectStatusType
-    CreatedBy: UserContextTypeDef
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    LastModifiedBy: UserContextTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ProjectTypeDef(TypedDict):
-    ProjectArn: NotRequired[str]
-    ProjectName: NotRequired[str]
-    ProjectId: NotRequired[str]
-    ProjectDescription: NotRequired[str]
-    ServiceCatalogProvisioningDetails: NotRequired[ServiceCatalogProvisioningDetailsOutputTypeDef]
-    ServiceCatalogProvisionedProductDetails: NotRequired[
-        ServiceCatalogProvisionedProductDetailsTypeDef
-    ]
-    ProjectStatus: NotRequired[ProjectStatusType]
-    CreatedBy: NotRequired[UserContextTypeDef]
-    CreationTime: NotRequired[datetime]
-    Tags: NotRequired[List[TagTypeDef]]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedBy: NotRequired[UserContextTypeDef]
-
 ServiceCatalogProvisioningDetailsUnionTypeDef = Union[
     ServiceCatalogProvisioningDetailsTypeDef, ServiceCatalogProvisioningDetailsOutputTypeDef
 ]
-
-class UpdateProjectInputTypeDef(TypedDict):
-    ProjectName: str
-    ProjectDescription: NotRequired[str]
-    ServiceCatalogProvisioningUpdateDetails: NotRequired[
-        ServiceCatalogProvisioningUpdateDetailsTypeDef
-    ]
-    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class HumanLoopConfigOutputTypeDef(TypedDict):
     WorkteamArn: str
@@ -10197,6 +10213,47 @@ class RecommendationJobInputConfigTypeDef(TypedDict):
     ContainerConfig: NotRequired[RecommendationJobContainerConfigTypeDef]
     Endpoints: NotRequired[Sequence[EndpointInfoTypeDef]]
     VpcConfig: NotRequired[RecommendationJobVpcConfigTypeDef]
+
+class DescribeProjectOutputTypeDef(TypedDict):
+    ProjectArn: str
+    ProjectName: str
+    ProjectId: str
+    ProjectDescription: str
+    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetailsOutputTypeDef
+    ServiceCatalogProvisionedProductDetails: ServiceCatalogProvisionedProductDetailsTypeDef
+    ProjectStatus: ProjectStatusType
+    TemplateProviderDetails: List[TemplateProviderDetailTypeDef]
+    CreatedBy: UserContextTypeDef
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ProjectTypeDef(TypedDict):
+    ProjectArn: NotRequired[str]
+    ProjectName: NotRequired[str]
+    ProjectId: NotRequired[str]
+    ProjectDescription: NotRequired[str]
+    ServiceCatalogProvisioningDetails: NotRequired[ServiceCatalogProvisioningDetailsOutputTypeDef]
+    ServiceCatalogProvisionedProductDetails: NotRequired[
+        ServiceCatalogProvisionedProductDetailsTypeDef
+    ]
+    ProjectStatus: NotRequired[ProjectStatusType]
+    CreatedBy: NotRequired[UserContextTypeDef]
+    CreationTime: NotRequired[datetime]
+    TemplateProviderDetails: NotRequired[List[TemplateProviderDetailTypeDef]]
+    Tags: NotRequired[List[TagTypeDef]]
+    LastModifiedTime: NotRequired[datetime]
+    LastModifiedBy: NotRequired[UserContextTypeDef]
+
+class UpdateProjectInputTypeDef(TypedDict):
+    ProjectName: str
+    ProjectDescription: NotRequired[str]
+    ServiceCatalogProvisioningUpdateDetails: NotRequired[
+        ServiceCatalogProvisioningUpdateDetailsTypeDef
+    ]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    TemplateProvidersToUpdate: NotRequired[Sequence[UpdateTemplateProviderTypeDef]]
 
 class ExplainerConfigOutputTypeDef(TypedDict):
     ClarifyExplainerConfig: NotRequired[ClarifyExplainerConfigOutputTypeDef]
@@ -10708,6 +10765,7 @@ class CreateProjectInputTypeDef(TypedDict):
     ProjectDescription: NotRequired[str]
     ServiceCatalogProvisioningDetails: NotRequired[ServiceCatalogProvisioningDetailsUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    TemplateProviders: NotRequired[Sequence[CreateTemplateProviderTypeDef]]
 
 class DescribeFlowDefinitionResponseTypeDef(TypedDict):
     FlowDefinitionArn: str

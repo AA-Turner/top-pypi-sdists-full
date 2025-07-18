@@ -203,9 +203,15 @@ def deploy(
         raise click.exceptions.Exit(1)
     try:
         if app_name and not app_id:
+            search_project_id = project_id
+            if not interactive and not project and not search_project_id:
+                search_project_id = hosting.get_selected_project()
+            elif interactive and not project:
+                search_project_id = None
+
             app = hosting.search_app(
                 app_name=app_name,
-                project_id=project_id,
+                project_id=search_project_id,
                 client=authenticated_client,
                 interactive=interactive,
             )
@@ -217,6 +223,30 @@ def deploy(
         console.error(f"Deployment failed: {ex}")
         raise click.exceptions.Exit(1) from ex
 
+    if app and interactive and not project and not app_id:
+        default_project_id = hosting.get_selected_project()
+        app_project_id = app.get("project_id")
+
+        if app_project_id and (
+            not default_project_id or app_project_id != default_project_id
+        ):
+            app_project = hosting.get_project(
+                app_project_id, client=authenticated_client
+            )
+            app_project_name = app_project.get("name", "Unknown")
+            if (
+                console.ask(
+                    f"Deploy to app '{app['name']}' in project '{app_project_name}'?",
+                    choices=["y", "n"],
+                    default="y",
+                )
+                != "y"
+            ):
+                console.info("Deployment cancelled.")
+                raise click.exceptions.Exit(0)
+
+            project_id = app_project_id
+
     if not app and interactive:
         if (
             console.ask(
@@ -226,6 +256,61 @@ def deploy(
             )
             == "y"
         ):
+            # Check if we need confirmation for deploying to non-default project
+            if not project:
+                default_project_id = hosting.get_selected_project()
+                if not default_project_id:
+                    try:
+                        if project_id:
+                            target_project = hosting.get_project(
+                                project_id, client=authenticated_client
+                            )
+                            project_name = target_project.get("name", "Unknown")
+                        else:
+                            token = hosting.get_existing_access_token()
+                            default_project_id = hosting.get_default_project(token)
+                            if default_project_id:
+                                default_project = hosting.get_project(
+                                    default_project_id, client=authenticated_client
+                                )
+                                project_name = default_project.get(
+                                    "name", "Default Project"
+                                )
+                            else:
+                                project_name = "Default Project"
+                    except Exception:
+                        project_name = "Unknown"
+
+                    if (
+                        console.ask(
+                            f"Create and deploy app '{app_name}' in project '{project_name}'?",
+                            choices=["y", "n"],
+                            default="y",
+                        )
+                        != "y"
+                    ):
+                        console.info("Deployment cancelled.")
+                        raise click.exceptions.Exit(0)
+                elif project_id and project_id != default_project_id:
+                    try:
+                        target_project = hosting.get_project(
+                            project_id, client=authenticated_client
+                        )
+                        project_name = target_project.get("name", "Unknown")
+                    except Exception:
+                        project_name = "Unknown"
+
+                    if (
+                        console.ask(
+                            f"Create and deploy app '{app_name}' in project '{project_name}'?",
+                            choices=["y", "n"],
+                            default="y",
+                        )
+                        != "y"
+                    ):
+                        console.info("Deployment cancelled.")
+                        raise click.exceptions.Exit(0)
+
             if description is None:
                 description = console.ask(
                     "App Description (Enter to skip)",

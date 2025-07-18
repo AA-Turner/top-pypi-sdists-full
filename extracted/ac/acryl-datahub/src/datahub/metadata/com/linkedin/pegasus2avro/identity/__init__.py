@@ -12,6 +12,7 @@ from .....schema_classes import CorpGroupInfoClass
 from .....schema_classes import CorpUserAppearanceSettingsClass
 from .....schema_classes import CorpUserCredentialsClass
 from .....schema_classes import CorpUserEditableInfoClass
+from .....schema_classes import CorpUserHomePageSettingsClass
 from .....schema_classes import CorpUserInfoClass
 from .....schema_classes import CorpUserSettingsClass
 from .....schema_classes import CorpUserStatusClass
@@ -27,6 +28,7 @@ CorpGroupInfo = CorpGroupInfoClass
 CorpUserAppearanceSettings = CorpUserAppearanceSettingsClass
 CorpUserCredentials = CorpUserCredentialsClass
 CorpUserEditableInfo = CorpUserEditableInfoClass
+CorpUserHomePageSettings = CorpUserHomePageSettingsClass
 CorpUserInfo = CorpUserInfoClass
 CorpUserSettings = CorpUserSettingsClass
 CorpUserStatus = CorpUserStatusClass

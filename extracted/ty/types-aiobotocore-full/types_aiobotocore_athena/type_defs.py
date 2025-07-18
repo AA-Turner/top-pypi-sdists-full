@@ -32,6 +32,7 @@ from .literals import (
     ExecutorStateType,
     ExecutorTypeType,
     QueryExecutionStateType,
+    QueryResultTypeType,
     SessionStateType,
     StatementTypeType,
     WorkGroupStateType,
@@ -181,6 +182,9 @@ __all__ = (
     "ListTagsForResourceOutputTypeDef",
     "ListWorkGroupsInputTypeDef",
     "ListWorkGroupsOutputTypeDef",
+    "ManagedQueryResultsConfigurationTypeDef",
+    "ManagedQueryResultsConfigurationUpdatesTypeDef",
+    "ManagedQueryResultsEncryptionConfigurationTypeDef",
     "NamedQueryTypeDef",
     "NotebookMetadataTypeDef",
     "NotebookSessionSummaryTypeDef",
@@ -594,6 +598,7 @@ class GetQueryResultsInputTypeDef(TypedDict):
     QueryExecutionId: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    QueryResultType: NotRequired[QueryResultTypeType]
 
 
 class GetQueryRuntimeStatisticsInputTypeDef(TypedDict):
@@ -751,6 +756,10 @@ class ListTagsForResourceInputTypeDef(TypedDict):
 class ListWorkGroupsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ManagedQueryResultsEncryptionConfigurationTypeDef(TypedDict):
+    KmsKey: str
 
 
 class QueryExecutionContextTypeDef(TypedDict):
@@ -1169,6 +1178,7 @@ class ListNotebookMetadataInputTypeDef(TypedDict):
 
 class GetQueryResultsInputPaginateTypeDef(TypedDict):
     QueryExecutionId: str
+    QueryResultType: NotRequired[QueryResultTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1230,6 +1240,17 @@ class ListPreparedStatementsOutputTypeDef(TypedDict):
     PreparedStatements: List[PreparedStatementSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ManagedQueryResultsConfigurationTypeDef(TypedDict):
+    Enabled: bool
+    EncryptionConfiguration: NotRequired[ManagedQueryResultsEncryptionConfigurationTypeDef]
+
+
+class ManagedQueryResultsConfigurationUpdatesTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    EncryptionConfiguration: NotRequired[ManagedQueryResultsEncryptionConfigurationTypeDef]
+    RemoveEncryptionConfiguration: NotRequired[bool]
 
 
 class QueryExecutionStatisticsTypeDef(TypedDict):
@@ -1303,45 +1324,6 @@ class ResultSetTypeDef(TypedDict):
     ResultSetMetadata: NotRequired[ResultSetMetadataTypeDef]
 
 
-class WorkGroupConfigurationTypeDef(TypedDict):
-    ResultConfiguration: NotRequired[ResultConfigurationTypeDef]
-    EnforceWorkGroupConfiguration: NotRequired[bool]
-    PublishCloudWatchMetricsEnabled: NotRequired[bool]
-    BytesScannedCutoffPerQuery: NotRequired[int]
-    RequesterPaysEnabled: NotRequired[bool]
-    EngineVersion: NotRequired[EngineVersionTypeDef]
-    AdditionalConfiguration: NotRequired[str]
-    ExecutionRole: NotRequired[str]
-    CustomerContentEncryptionConfiguration: NotRequired[
-        CustomerContentEncryptionConfigurationTypeDef
-    ]
-    EnableMinimumEncryptionConfiguration: NotRequired[bool]
-    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
-    QueryResultsS3AccessGrantsConfiguration: NotRequired[
-        QueryResultsS3AccessGrantsConfigurationTypeDef
-    ]
-
-
-class WorkGroupConfigurationUpdatesTypeDef(TypedDict):
-    EnforceWorkGroupConfiguration: NotRequired[bool]
-    ResultConfigurationUpdates: NotRequired[ResultConfigurationUpdatesTypeDef]
-    PublishCloudWatchMetricsEnabled: NotRequired[bool]
-    BytesScannedCutoffPerQuery: NotRequired[int]
-    RemoveBytesScannedCutoffPerQuery: NotRequired[bool]
-    RequesterPaysEnabled: NotRequired[bool]
-    EngineVersion: NotRequired[EngineVersionTypeDef]
-    RemoveCustomerContentEncryptionConfiguration: NotRequired[bool]
-    AdditionalConfiguration: NotRequired[str]
-    ExecutionRole: NotRequired[str]
-    CustomerContentEncryptionConfiguration: NotRequired[
-        CustomerContentEncryptionConfigurationTypeDef
-    ]
-    EnableMinimumEncryptionConfiguration: NotRequired[bool]
-    QueryResultsS3AccessGrantsConfiguration: NotRequired[
-        QueryResultsS3AccessGrantsConfigurationTypeDef
-    ]
-
-
 class GetSessionResponseTypeDef(TypedDict):
     SessionId: str
     Description: str
@@ -1376,6 +1358,49 @@ class ListSessionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class WorkGroupConfigurationTypeDef(TypedDict):
+    ResultConfiguration: NotRequired[ResultConfigurationTypeDef]
+    ManagedQueryResultsConfiguration: NotRequired[ManagedQueryResultsConfigurationTypeDef]
+    EnforceWorkGroupConfiguration: NotRequired[bool]
+    PublishCloudWatchMetricsEnabled: NotRequired[bool]
+    BytesScannedCutoffPerQuery: NotRequired[int]
+    RequesterPaysEnabled: NotRequired[bool]
+    EngineVersion: NotRequired[EngineVersionTypeDef]
+    AdditionalConfiguration: NotRequired[str]
+    ExecutionRole: NotRequired[str]
+    CustomerContentEncryptionConfiguration: NotRequired[
+        CustomerContentEncryptionConfigurationTypeDef
+    ]
+    EnableMinimumEncryptionConfiguration: NotRequired[bool]
+    IdentityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    QueryResultsS3AccessGrantsConfiguration: NotRequired[
+        QueryResultsS3AccessGrantsConfigurationTypeDef
+    ]
+
+
+class WorkGroupConfigurationUpdatesTypeDef(TypedDict):
+    EnforceWorkGroupConfiguration: NotRequired[bool]
+    ResultConfigurationUpdates: NotRequired[ResultConfigurationUpdatesTypeDef]
+    ManagedQueryResultsConfigurationUpdates: NotRequired[
+        ManagedQueryResultsConfigurationUpdatesTypeDef
+    ]
+    PublishCloudWatchMetricsEnabled: NotRequired[bool]
+    BytesScannedCutoffPerQuery: NotRequired[int]
+    RemoveBytesScannedCutoffPerQuery: NotRequired[bool]
+    RequesterPaysEnabled: NotRequired[bool]
+    EngineVersion: NotRequired[EngineVersionTypeDef]
+    RemoveCustomerContentEncryptionConfiguration: NotRequired[bool]
+    AdditionalConfiguration: NotRequired[str]
+    ExecutionRole: NotRequired[str]
+    CustomerContentEncryptionConfiguration: NotRequired[
+        CustomerContentEncryptionConfigurationTypeDef
+    ]
+    EnableMinimumEncryptionConfiguration: NotRequired[bool]
+    QueryResultsS3AccessGrantsConfiguration: NotRequired[
+        QueryResultsS3AccessGrantsConfigurationTypeDef
+    ]
+
+
 class QueryRuntimeStatisticsTypeDef(TypedDict):
     Timeline: NotRequired[QueryRuntimeStatisticsTimelineTypeDef]
     Rows: NotRequired[QueryRuntimeStatisticsRowsTypeDef]
@@ -1386,6 +1411,7 @@ class QueryExecutionTypeDef(TypedDict):
     QueryExecutionId: NotRequired[str]
     Query: NotRequired[str]
     StatementType: NotRequired[StatementTypeType]
+    ManagedQueryResultsConfiguration: NotRequired[ManagedQueryResultsConfigurationTypeDef]
     ResultConfiguration: NotRequired[ResultConfigurationTypeDef]
     ResultReuseConfiguration: NotRequired[ResultReuseConfigurationTypeDef]
     QueryExecutionContext: NotRequired[QueryExecutionContextTypeDef]

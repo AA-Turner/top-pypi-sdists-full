@@ -1,13 +1,11 @@
-[tool.poetry]
+[project]
 name = "timezonefinder"
-version = "6.5.9"
+version = "6.6.0"
 description = "python package for finding the timezone of any point on earth (coordinates) offline"
-authors = ["jannikmi <github@michelfe.it>"]
-license = "MIT"
+authors = [{name = "jannikmi", email = "github@michelfe.it"}]
+# Replace with license="MIT" with setuptools>=71
+license = {file="LICENSE"}
 readme = "README.rst"
-repository = "https://github.com/jannikmi/timezonefinder"
-homepage = "https://timezonefinder.michelfe.it/gui"
-documentation = "https://timezonefinder.readthedocs.io/en/latest/"
 keywords = ["timezone", "coordinates", "latitude", "longitude", "location", "offline", "polygon"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -16,70 +14,68 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Localization",
-]
-include = [
-    "timezonefinder/*.bin",
-    "timezonefinder/*.json",
-    "timezonefinder/py.typed",
-    "timezonefinder/inside_poly_extension/*",
-    "timezonefinder/inside_polygon_ext*so",
-    #    "build.py", # Note: auto included
-]
-#exclude = ["my_package/excluded.py"]
 
-[tool.poetry.scripts]
+     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+requires-python = ">=3.9,<4"
+dependencies = [
+    # https://numpy.org/neps/nep-0029-deprecation_policy.html
+    "numpy<3,>=1.23; python_version >= '3.9'",
+    "h3>4",
+    "cffi<2,>=1.15.1",
+    "flatbuffers>=25.2.10",
+]
+
+[project.urls]
+homepage = "https://timezonefinder.michelfe.it/gui"
+repository = "https://github.com/jannikmi/timezonefinder"
+documentation = "https://timezonefinder.readthedocs.io/en/latest/"
+
+[project.scripts]
 timezonefinder = "timezonefinder.command_line:main"
 
-[tool.poetry.dependencies]
-python = ">=3.8,<4"
-# https://numpy.org/neps/nep-0029-deprecation_policy.html
-# numpy 1.21+ required for python 3.8
-numpy = [
-    { version = ">=1.21,<3", python = "<3.9" },
-    { version = ">=1.23,<3", python = ">=3.9" }
+[dependency-groups]
+docs = [
+    "Sphinx<6,>=5",
+    "sphinx-rtd-theme<2,>=1",
 ]
-h3 = ">4"
-cffi = ">=1.15.1,<2"
-
-# optional dependencies (extras)
+dev = [
+    "tox",
+    "pytest",
+    "pre-commit",
+    "mypy",
+    "rstcheck",
+    "isort",
+    "ruff",
+    "cibuildwheel",
+    # used in example scripts
+    "pytz>=2022.7.1"
+]
 numba = [
-    { version = ">=0.56,<1", python = "<3.12", optional = true },
-    { version = ">=0.59,<1", python = ">=3.12", optional = true }
+  "numba>=0.56,<1; python_version < '3.12'",
+  "numba>=0.59,<1; python_version >= '3.12'",
 ]
-pytz = { version = ">=2022.7.1", optional = true }
-
-[tool.poetry.group.docs]
-optional = true
-
-[tool.poetry.group.docs.dependencies]
-Sphinx = "^5"
-sphinx-rtd-theme = "^1"
-
-[tool.poetry.group.dev.dependencies]
-tox = "*"
-pytest = "*"
-pre-commit = "*"
-mypy = "*"
-rstcheck = "*"
-isort = "*"
-ruff = "*"
-cibuildwheel = "*"
-
-[tool.poetry.extras]
-numba = ["numba"]
-pytz = ["pytz"]
+pytz = [
+    "pytz>=2022.7.1"
+]
 
 [build-system]
-requires = ["poetry-core>=1.0.0,<2.0.0", "cffi", "setuptools>=65.5"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61", "cffi"]
+# Use setuptools build backend to build CFFI extensions via setup.py
+build-backend = "setuptools.build_meta"
 
-[tool.poetry.build]
-script = "build.py"
-generate-setup-file = false
+[tool.setuptools]
+packages = ["timezonefinder", "timezonefinder.inside_poly_extension"]
 
+[tool.setuptools.package-data]
+timezonefinder = ["data/*", "inside_poly_extension/*"]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 src = ["timezonefinder", "tests", "build.py"]
 
 [tool.ruff.lint.isort]
@@ -92,11 +88,10 @@ legacy_tox_ini = """
     isolated_build = true
     envlist =
         # TODO python 3.13 with numba
-        docs,py{38,39,310,311,312}{,-numba,-pytz},py313{,-pytz}
+        docs,py{39,310,311,312}{,-numba,-pytz},py313{,-pytz}
 
     [gh-actions]
     python =
-        3.8: py38{,-numba,-pytz}
         3.9: py39{,-numba,-pytz}
         3.10: py310{,-numba,-pytz}
         3.11: py311{,-numba,-pytz}
@@ -107,17 +102,16 @@ legacy_tox_ini = """
     [testenv:docs]
     description = build documentation
     basepython = python3.12
-    allowlist_externals = poetry,sphinx-build
+    allowlist_externals = uv,sphinx-build
     commands =
-      poetry install -v --with docs
+      uv run -v --group docs python3 --version
       sphinx-build -d "{envtmpdir}{/}doctree" docs "{toxworkdir}{/}docs_out" --color -b html
       python -c 'print(r"documentation available under file://{toxworkdir}{/}docs_out{/}index.html")'
 
     [testenv]
-    allowlist_externals = poetry
+    allowlist_externals = uv
     commands =
-        !numba: poetry install -v
-        numba:  poetry install -v --extras numba
-        pytz:  poetry install -v --extras pytz
-        poetry run pytest {posargs}
+        !numba: uv run -v pytest {posargs}
+        numba:  uv run -v --group numba pytest {posargs}
+        pytz:   uv run -v --group pytz pytest {posargs}
 """

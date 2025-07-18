@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import dataclasses
 import importlib.metadata
@@ -352,6 +353,8 @@ def get_existing_access_token() -> str:
         If not found, return empty string for it instead.
 
     """
+    import os
+
     console.debug("Fetching token from existing config...")
     access_token = ""
     try:
@@ -362,6 +365,12 @@ def get_existing_access_token() -> str:
         console.debug(
             f"Unable to fetch token from {constants.Hosting.HOSTING_JSON} due to: {ex}"
         )
+
+    if not access_token:
+        access_token = os.environ.get("REFLEX_ACCESS_TOKEN", "")
+        if access_token:
+            console.debug("Using REFLEX_ACCESS_TOKEN from environment")
+
     return access_token
 
 
@@ -1513,18 +1522,29 @@ def get_app_logs(
     if cursor:
         params += f"&cursor={cursor}"
     try:
-        response = httpx.get(
-            urljoin(
-                constants.Hosting.HOSTING_SERVICE,
-                f"/v1/apps/{app['id']}/logsv2{params}",
-            ),
-            headers=authorization_header(client.token),
-        )
-        response.raise_for_status()
+        with console.status("Fetching application logs..."):
+            response = httpx.get(
+                urljoin(
+                    constants.Hosting.HOSTING_SERVICE,
+                    f"/v1/apps/{app['id']}/logsv2{params}",
+                ),
+                headers=authorization_header(client.token),
+            )
+            response.raise_for_status()
+    except httpx.RequestError:
+        return []
     except httpx.HTTPStatusError as ex:
-        ex_details = ex.response.json().get("detail")
-        return f"get app logs failed: {ex_details}"
-    return response.json()
+        try:
+            ex_details = ex.response.json().get("detail")
+        except json.JSONDecodeError:
+            return []
+        else:
+            return f"get app logs failed: {ex_details}"
+    else:
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            return []
 
 
 def list_apps(client: AuthenticatedClient, project: str | None = None) -> list[dict]:
@@ -1907,6 +1927,40 @@ def authenticate_on_browser() -> tuple[str, dict[str, Any]]:
     return access_token, validated_info
 
 
+def get_default_project(access_token: str) -> str | None:
+    """Decode an access token without verifying its signature.
+
+    Args:
+        access_token: The JWT access token to decode.
+
+    Returns:
+        user/project ID if decoding is successful, None otherwise.
+
+    """
+    try:
+        # Split the JWT token into its three parts
+        parts = access_token.split(".")
+        if len(parts) != 3:
+            return None
+
+        # Decode the payload (second part)
+        payload = parts[1]
+
+        # Add padding if necessary for base64 decoding
+        padding = len(payload) % 4
+        if padding:
+            payload += "=" * (4 - padding)
+
+        # Decode the base64 payload
+        decoded_bytes = base64.urlsafe_b64decode(payload)
+        decoded = json.loads(decoded_bytes.decode("utf-8"))
+
+        return decoded.get("sub")
+    except Exception:
+        # Return empty values if decoding fails
+        return None
+
+
 def validate_token_with_retries(access_token: str) -> dict[str, Any]:
     """Validate the access token without retries.
 
@@ -1977,26 +2031,67 @@ def read_config(path: str) -> dict:
         return {}
 
 
-def generate_config():
-    """Generate the config file."""
+def generate_config(interactive: bool = True, token: str | None = None):
+    """Generate the config file with app-based prefilling.
+
+    Args:
+        interactive: Whether to use interactive mode for authentication and app selection.
+        token: An existing authentication token to use instead of interactive auth.
+
+    Raises:
+        click.exceptions.Exit: If authentication fails or user cancels operation.
+    """
     import yaml
 
     if Path("cloud.yml").exists():
         console.error("cloud.yml already exists.")
         return
-    default = {
-        "name": "default",
-        "description": "",
-        "regions": {"sjc": 1},
-        "vmtype": "c1m1",
-        "hostname": None,
-        "envfile": ".env",
-        "project": None,
-        "packages": ["procps"],
-    }
+
+    try:
+        authenticated_client = get_authenticated_client(
+            token=token, interactive=interactive
+        )
+    except click.exceptions.Exit:
+        console.error("Authentication required to generate prefilled config.")
+        raise
+
+    current_dir_name = Path.cwd().name
+
+    try:
+        app = search_app(
+            app_name=current_dir_name,
+            project_id=None,
+            client=authenticated_client,
+            interactive=interactive,
+        )
+    except click.exceptions.Exit:
+        raise
+    except Exception as ex:
+        console.warn(f"Could not search for apps: {ex}")
+        app = None
+
+    if app:
+        console.info(f"Found app '{app['name']}' - prefilling config with app data.")
+        default = {"name": app["name"]}
+
+        if app.get("id"):
+            default["appid"] = app["id"]
+        if app.get("description"):
+            default["description"] = app["description"]
+        if app.get("project_id"):
+            default["project"] = app["project_id"]
+    else:
+        console.info(
+            f"No app found with name '{current_dir_name}' - creating config with minimal defaults."
+        )
+        default = {"name": current_dir_name}
+
     with Path("cloud.yml").open("w") as config_file:
         yaml.dump(default, config_file, default_flow_style=False, sort_keys=False)
     console.success("cloud.yml created successfully.")
+    console.info(
+        "For more configuration options, see: https://reflex.dev/docs/hosting/config-file/"
+    )
     return
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.4
+Version: 1.7.5
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -573,6 +573,8 @@ Provides-Extra: clickhouse
 Requires-Dist: clickhouse-connect; extra == "clickhouse"
 Provides-Extra: pinecone
 Requires-Dist: pinecone==5.4.2; extra == "pinecone"
+Provides-Extra: surrealdb
+Requires-Dist: surrealdb>=1.0.4; extra == "surrealdb"
 Provides-Extra: pdf
 Requires-Dist: pypdf; extra == "pdf"
 Requires-Dist: rapidocr_onnxruntime; extra == "pdf"
@@ -664,6 +666,7 @@ Requires-Dist: agno[weaviate]; extra == "vectordbs"
 Requires-Dist: agno[milvusdb]; extra == "vectordbs"
 Requires-Dist: agno[clickhouse]; extra == "vectordbs"
 Requires-Dist: agno[pinecone]; extra == "vectordbs"
+Requires-Dist: agno[surrealdb]; extra == "vectordbs"
 Provides-Extra: knowledge
 Requires-Dist: agno[pdf]; extra == "knowledge"
 Requires-Dist: agno[docx]; extra == "knowledge"

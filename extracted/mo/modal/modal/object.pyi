@@ -89,7 +89,10 @@ class Object:
     def _get_metadata(self) -> typing.Optional[google.protobuf.message.Message]: ...
     def _validate_is_hydrated(self): ...
     def clone(self) -> typing_extensions.Self:
-        """mdmd:hidden Clone a given hydrated object."""
+        """mdmd:hidden Clone a given hydrated object.
+
+        Note: This is not intended to be public API and has no public use. It will be removed in a future release.
+        """
         ...
 
     @classmethod

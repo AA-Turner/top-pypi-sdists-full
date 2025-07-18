@@ -36,6 +36,7 @@ __all__ = (
     "FailureCodeType",
     "GetCampaignStateBatchFailureCodeType",
     "InstanceIdFilterOperatorType",
+    "InstanceLimitsHandlingType",
     "InstanceOnboardingJobFailureCodeType",
     "InstanceOnboardingJobStatusCodeType",
     "ListCampaignsPaginatorName",
@@ -65,6 +66,7 @@ EventTypeType = Literal[
 FailureCodeType = Literal["BufferLimitExceeded", "InvalidInput", "RequestThrottled", "UnknownError"]
 GetCampaignStateBatchFailureCodeType = Literal["ResourceNotFound", "UnknownError"]
 InstanceIdFilterOperatorType = Literal["Eq"]
+InstanceLimitsHandlingType = Literal["OPT_IN", "OPT_OUT"]
 InstanceOnboardingJobFailureCodeType = Literal[
     "EVENT_BRIDGE_ACCESS_DENIED",
     "EVENT_BRIDGE_MANAGED_RULE_LIMIT_EXCEEDED",
@@ -86,6 +88,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -226,6 +229,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -283,6 +287,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -338,6 +343,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -482,6 +488,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -501,6 +508,9 @@ ResourceServiceName = Literal[
 PaginatorName = Literal["list_campaigns", "list_connect_instance_integrations"]
 RegionName = Literal[
     "af-south-1",
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-southeast-1",
     "ap-southeast-2",
     "ca-central-1",
     "eu-central-1",

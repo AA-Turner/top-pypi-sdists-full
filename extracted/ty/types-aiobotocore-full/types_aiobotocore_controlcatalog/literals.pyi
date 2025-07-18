@@ -27,9 +27,11 @@ __all__ = (
     "ControlScopeType",
     "ControlSeverityType",
     "ListCommonControlsPaginatorName",
+    "ListControlMappingsPaginatorName",
     "ListControlsPaginatorName",
     "ListDomainsPaginatorName",
     "ListObjectivesPaginatorName",
+    "MappingTypeType",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
@@ -39,15 +41,18 @@ ControlBehaviorType = Literal["DETECTIVE", "PREVENTIVE", "PROACTIVE"]
 ControlScopeType = Literal["GLOBAL", "REGIONAL"]
 ControlSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 ListCommonControlsPaginatorName = Literal["list_common_controls"]
+ListControlMappingsPaginatorName = Literal["list_control_mappings"]
 ListControlsPaginatorName = Literal["list_controls"]
 ListDomainsPaginatorName = Literal["list_domains"]
 ListObjectivesPaginatorName = Literal["list_objectives"]
+MappingTypeType = Literal["COMMON_CONTROL", "FRAMEWORK"]
 ControlCatalogServiceName = Literal["controlcatalog"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -188,6 +193,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -245,6 +251,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -300,6 +307,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -444,6 +452,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -460,4 +469,10 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_common_controls", "list_controls", "list_domains", "list_objectives"]
+PaginatorName = Literal[
+    "list_common_controls",
+    "list_control_mappings",
+    "list_controls",
+    "list_domains",
+    "list_objectives",
+]

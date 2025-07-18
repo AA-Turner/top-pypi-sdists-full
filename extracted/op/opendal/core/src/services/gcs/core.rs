@@ -20,11 +20,16 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fmt::Write;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use backon::ExponentialBuilder;
 use backon::Retryable;
-use bytes::{Buf, Bytes};
+use bytes::Buf;
+use bytes::Bytes;
+use constants::*;
+use http::header::CACHE_CONTROL;
+use http::header::CONTENT_DISPOSITION;
 use http::header::CONTENT_ENCODING;
 use http::header::CONTENT_LENGTH;
 use http::header::CONTENT_TYPE;
@@ -42,12 +47,10 @@ use reqsign::GoogleToken;
 use reqsign::GoogleTokenLoader;
 use serde::Deserialize;
 use serde::Serialize;
-use std::sync::LazyLock;
 
 use super::uri::percent_encode_path;
 use crate::raw::*;
 use crate::*;
-use constants::*;
 
 pub mod constants {
     pub const X_GOOG_ACL: &str = "x-goog-acl";
@@ -290,7 +293,7 @@ impl GcsCore {
         );
 
         if let Some(acl) = &self.predefined_acl {
-            write!(&mut url, "&predefinedAcl={}", acl).unwrap();
+            write!(&mut url, "&predefinedAcl={acl}").unwrap();
         }
 
         // Makes the operation conditional on whether the object's current generation
@@ -369,7 +372,11 @@ impl GcsCore {
         }
 
         if let Some(acl) = &self.predefined_acl {
-            req = req.header(X_GOOG_ACL, acl);
+            if let Some(predefined_acl_in_xml_spec) = predefined_acl_to_xml_header(acl) {
+                req = req.header(X_GOOG_ACL, predefined_acl_in_xml_spec);
+            } else {
+                log::warn!("Unrecognized predefined_acl. Ignoring");
+            }
         }
 
         if let Some(storage_class) = &self.default_storage_class {
@@ -560,14 +567,50 @@ impl GcsCore {
         self.send(req).await
     }
 
-    pub async fn gcs_initiate_multipart_upload(&self, path: &str) -> Result<Response<Buffer>> {
+    pub async fn gcs_initiate_multipart_upload(
+        &self,
+        path: &str,
+        op: &OpWrite,
+    ) -> Result<Response<Buffer>> {
         let p = build_abs_path(&self.root, path);
 
         let url = format!("{}/{}/{}?uploads", self.endpoint, self.bucket, p);
 
-        let mut req = Request::post(&url)
+        let mut builder = Request::post(&url)
             .header(CONTENT_LENGTH, 0)
-            .extension(Operation::Write)
+            .extension(Operation::Write);
+
+        if let Some(header_val) = op.content_disposition() {
+            builder = builder.header(CONTENT_DISPOSITION, header_val);
+        }
+
+        if let Some(header_val) = op.content_encoding() {
+            builder = builder.header(CONTENT_ENCODING, header_val);
+        }
+
+        if let Some(header_val) = op.content_type() {
+            builder = builder.header(CONTENT_TYPE, header_val);
+        }
+
+        if let Some(header_val) = op.cache_control() {
+            builder = builder.header(CACHE_CONTROL, header_val);
+        }
+
+        if let Some(metadata) = op.user_metadata() {
+            for (k, v) in metadata {
+                builder = builder.header(&format!("x-goog-meta-{k}"), v);
+            }
+        }
+
+        if let Some(acl) = self.predefined_acl.as_ref() {
+            if let Some(predefined_acl_in_xml_spec) = predefined_acl_to_xml_header(acl) {
+                builder = builder.header(X_GOOG_ACL, predefined_acl_in_xml_spec);
+            } else {
+                log::warn!("Unrecognized predefined_acl. Ignoring");
+            }
+        }
+
+        let mut req = builder
             .body(Buffer::new())
             .map_err(new_request_build_error)?;
 
@@ -701,10 +744,23 @@ impl GcsCore {
         m.set_last_modified(parse_datetime_from_rfc3339(&meta.updated)?);
 
         if !meta.metadata.is_empty() {
-            m.with_user_metadata(meta.metadata);
+            m = m.with_user_metadata(meta.metadata);
         }
 
         Ok(m)
+    }
+}
+
+// https://cloud.google.com/storage/docs/xml-api/reference-headers#xgoogacl
+fn predefined_acl_to_xml_header(predefined_acl: &str) -> Option<&'static str> {
+    match predefined_acl {
+        "projectPrivate" => Some("project-private"),
+        "private" => Some("private"),
+        "bucketOwnerRead" => Some("bucket-owner-read"),
+        "bucketOwnerFullControl" => Some("bucket-owner-full-control"),
+        "publicRead" => Some("public-read"),
+        "authenticatedRead" => Some("authenticated-read"),
+        _ => None,
     }
 }
 

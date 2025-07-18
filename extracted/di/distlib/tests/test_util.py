@@ -429,7 +429,8 @@ class UtilTestCase(DistlibTestCase):
             name = os.path.join(HERE, name)
             td = tempfile.mkdtemp()
             try:
-                self.assertRaises(ValueError, unarchive, name, td)
+                # OSError is raised on Windows on CPython 3.13, pypy-3.11
+                self.assertRaises((OSError, ValueError), unarchive, name, td)
             finally:
                 shutil.rmtree(td)
 
@@ -440,6 +441,7 @@ class UtilTestCase(DistlibTestCase):
         self.assertRaises(AssertionError, is_string_sequence, [])
 
     @unittest.skipIf('SKIP_ONLINE' in os.environ, 'Skipping online test')
+    @unittest.skipIf('SKIP_EXT_PACKAGE_DATA' in os.environ, 'Skipping test requiring external package data')
     @unittest.skipUnless(ssl, 'SSL required for this test.')
     def test_package_data(self):
         data = get_package_data(name='config', version='0.3.6')

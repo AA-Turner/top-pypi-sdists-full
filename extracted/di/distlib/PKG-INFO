@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: distlib
-Version: 0.3.9
+Version: 0.4.0
 Summary: Distribution utilities
 Home-page: https://github.com/pypa/distlib
 Author: Vinay Sajip

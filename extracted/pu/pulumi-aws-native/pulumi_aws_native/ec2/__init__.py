@@ -73,6 +73,9 @@ from .get_subnet import *
 from .get_subnet_cidr_block import *
 from .get_subnet_network_acl_association import *
 from .get_subnet_route_table_association import *
+from .get_traffic_mirror_filter import *
+from .get_traffic_mirror_filter_rule import *
+from .get_traffic_mirror_target import *
 from .get_transit_gateway import *
 from .get_transit_gateway_attachment import *
 from .get_transit_gateway_connect import *
@@ -145,6 +148,9 @@ from .subnet import *
 from .subnet_cidr_block import *
 from .subnet_network_acl_association import *
 from .subnet_route_table_association import *
+from .traffic_mirror_filter import *
+from .traffic_mirror_filter_rule import *
+from .traffic_mirror_target import *
 from .transit_gateway import *
 from .transit_gateway_attachment import *
 from .transit_gateway_connect import *

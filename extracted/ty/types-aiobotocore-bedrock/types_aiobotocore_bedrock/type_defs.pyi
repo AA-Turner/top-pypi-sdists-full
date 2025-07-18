@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock.type_defs import BatchDeleteEvaluationJobErrorTypeDef
+    from types_aiobotocore_bedrock.type_defs import AgreementAvailabilityTypeDef
 
-    data: BatchDeleteEvaluationJobErrorTypeDef = ...
+    data: AgreementAvailabilityTypeDef = ...
     ```
 """
 
@@ -23,9 +23,12 @@ from typing import IO, Any, Union
 from aiobotocore.response import StreamingBody
 
 from .literals import (
+    AgreementStatusType,
     ApplicationTypeType,
+    AuthorizationStatusType,
     CommitmentDurationType,
     CustomizationTypeType,
+    EntitlementAvailabilityType,
     EvaluationJobStatusType,
     EvaluationJobTypeType,
     EvaluationTaskTypeType,
@@ -33,6 +36,7 @@ from .literals import (
     FineTuningJobStatusType,
     FoundationModelLifecycleStatusType,
     GuardrailContentFilterActionType,
+    GuardrailContentFiltersTierNameType,
     GuardrailContentFilterTypeType,
     GuardrailContextualGroundingActionType,
     GuardrailContextualGroundingFilterTypeType,
@@ -42,6 +46,7 @@ from .literals import (
     GuardrailSensitiveInformationActionType,
     GuardrailStatusType,
     GuardrailTopicActionType,
+    GuardrailTopicsTierNameType,
     GuardrailWordActionType,
     InferenceProfileTypeType,
     InferenceTypeType,
@@ -52,9 +57,12 @@ from .literals import (
     ModelImportJobStatusType,
     ModelInvocationJobStatusType,
     ModelModalityType,
+    ModelStatusType,
+    OfferTypeType,
     PerformanceConfigLatencyType,
     PromptRouterTypeType,
     ProvisionedModelStatusType,
+    RegionAvailabilityType,
     RetrieveAndGenerateTypeType,
     SearchTypeType,
     SortOrderType,
@@ -73,6 +81,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AgreementAvailabilityTypeDef",
     "AutomatedEvaluationConfigOutputTypeDef",
     "AutomatedEvaluationConfigTypeDef",
     "AutomatedEvaluationCustomMetricConfigOutputTypeDef",
@@ -88,8 +97,12 @@ __all__ = (
     "ByteContentDocOutputTypeDef",
     "ByteContentDocTypeDef",
     "CloudWatchConfigTypeDef",
+    "CreateCustomModelRequestTypeDef",
+    "CreateCustomModelResponseTypeDef",
     "CreateEvaluationJobRequestTypeDef",
     "CreateEvaluationJobResponseTypeDef",
+    "CreateFoundationModelAgreementRequestTypeDef",
+    "CreateFoundationModelAgreementResponseTypeDef",
     "CreateGuardrailRequestTypeDef",
     "CreateGuardrailResponseTypeDef",
     "CreateGuardrailVersionRequestTypeDef",
@@ -120,6 +133,7 @@ __all__ = (
     "CustomizationConfigTypeDef",
     "DataProcessingDetailsTypeDef",
     "DeleteCustomModelRequestTypeDef",
+    "DeleteFoundationModelAgreementRequestTypeDef",
     "DeleteGuardrailRequestTypeDef",
     "DeleteImportedModelRequestTypeDef",
     "DeleteInferenceProfileRequestTypeDef",
@@ -127,6 +141,7 @@ __all__ = (
     "DeletePromptRouterRequestTypeDef",
     "DeleteProvisionedModelThroughputRequestTypeDef",
     "DeregisterMarketplaceModelEndpointRequestTypeDef",
+    "DimensionalPriceRateTypeDef",
     "DistillationConfigTypeDef",
     "EndpointConfigOutputTypeDef",
     "EndpointConfigTypeDef",
@@ -171,6 +186,8 @@ __all__ = (
     "GetCustomModelResponseTypeDef",
     "GetEvaluationJobRequestTypeDef",
     "GetEvaluationJobResponseTypeDef",
+    "GetFoundationModelAvailabilityRequestTypeDef",
+    "GetFoundationModelAvailabilityResponseTypeDef",
     "GetFoundationModelRequestTypeDef",
     "GetFoundationModelResponseTypeDef",
     "GetGuardrailRequestTypeDef",
@@ -194,9 +211,12 @@ __all__ = (
     "GetPromptRouterResponseTypeDef",
     "GetProvisionedModelThroughputRequestTypeDef",
     "GetProvisionedModelThroughputResponseTypeDef",
+    "GetUseCaseForModelAccessResponseTypeDef",
     "GuardrailConfigurationTypeDef",
     "GuardrailContentFilterConfigTypeDef",
     "GuardrailContentFilterTypeDef",
+    "GuardrailContentFiltersTierConfigTypeDef",
+    "GuardrailContentFiltersTierTypeDef",
     "GuardrailContentPolicyConfigTypeDef",
     "GuardrailContentPolicyTypeDef",
     "GuardrailContextualGroundingFilterConfigTypeDef",
@@ -218,6 +238,8 @@ __all__ = (
     "GuardrailTopicPolicyConfigTypeDef",
     "GuardrailTopicPolicyTypeDef",
     "GuardrailTopicTypeDef",
+    "GuardrailTopicsTierConfigTypeDef",
+    "GuardrailTopicsTierTypeDef",
     "GuardrailWordConfigTypeDef",
     "GuardrailWordPolicyConfigTypeDef",
     "GuardrailWordPolicyTypeDef",
@@ -243,12 +265,15 @@ __all__ = (
     "KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef",
     "KnowledgeBaseVectorSearchConfigurationOutputTypeDef",
     "KnowledgeBaseVectorSearchConfigurationTypeDef",
+    "LegalTermTypeDef",
     "ListCustomModelsRequestPaginateTypeDef",
     "ListCustomModelsRequestTypeDef",
     "ListCustomModelsResponseTypeDef",
     "ListEvaluationJobsRequestPaginateTypeDef",
     "ListEvaluationJobsRequestTypeDef",
     "ListEvaluationJobsResponseTypeDef",
+    "ListFoundationModelAgreementOffersRequestTypeDef",
+    "ListFoundationModelAgreementOffersResponseTypeDef",
     "ListFoundationModelsRequestTypeDef",
     "ListFoundationModelsResponseTypeDef",
     "ListGuardrailsRequestPaginateTypeDef",
@@ -295,15 +320,18 @@ __all__ = (
     "ModelInvocationJobS3InputDataConfigTypeDef",
     "ModelInvocationJobS3OutputDataConfigTypeDef",
     "ModelInvocationJobSummaryTypeDef",
+    "OfferTypeDef",
     "OrchestrationConfigurationTypeDef",
     "OutputDataConfigTypeDef",
     "PaginatorConfigTypeDef",
     "PerformanceConfigurationTypeDef",
+    "PricingTermTypeDef",
     "PromptRouterSummaryTypeDef",
     "PromptRouterTargetModelTypeDef",
     "PromptTemplateTypeDef",
     "ProvisionedModelSummaryTypeDef",
     "PutModelInvocationLoggingConfigurationRequestTypeDef",
+    "PutUseCaseForModelAccessRequestTypeDef",
     "QueryTransformationConfigurationTypeDef",
     "RAGConfigOutputTypeDef",
     "RAGConfigTypeDef",
@@ -332,9 +360,11 @@ __all__ = (
     "StopEvaluationJobRequestTypeDef",
     "StopModelCustomizationJobRequestTypeDef",
     "StopModelInvocationJobRequestTypeDef",
+    "SupportTermTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TeacherModelConfigTypeDef",
+    "TermDetailsTypeDef",
     "TextInferenceConfigOutputTypeDef",
     "TextInferenceConfigTypeDef",
     "TimestampTypeDef",
@@ -355,10 +385,15 @@ __all__ = (
     "ValidationDetailsTypeDef",
     "ValidatorMetricTypeDef",
     "ValidatorTypeDef",
+    "ValidityTermTypeDef",
     "VpcConfigOutputTypeDef",
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
 )
+
+class AgreementAvailabilityTypeDef(TypedDict):
+    status: AgreementStatusType
+    errorMessage: NotRequired[str]
 
 class BatchDeleteEvaluationJobErrorTypeDef(TypedDict):
     jobIdentifier: str
@@ -393,12 +428,16 @@ class S3ConfigTypeDef(TypedDict):
     bucketName: str
     keyPrefix: NotRequired[str]
 
-class EvaluationOutputDataConfigTypeDef(TypedDict):
-    s3Uri: str
-
 class TagTypeDef(TypedDict):
     key: str
     value: str
+
+class EvaluationOutputDataConfigTypeDef(TypedDict):
+    s3Uri: str
+
+class CreateFoundationModelAgreementRequestTypeDef(TypedDict):
+    offerToken: str
+    modelId: str
 
 class GuardrailCrossRegionConfigTypeDef(TypedDict):
     guardrailProfileIdentifier: str
@@ -431,6 +470,7 @@ class CustomModelSummaryTypeDef(TypedDict):
     baseModelName: str
     customizationType: NotRequired[CustomizationTypeType]
     ownerAccountId: NotRequired[str]
+    modelStatus: NotRequired[ModelStatusType]
 
 class CustomModelUnitsTypeDef(TypedDict):
     customModelUnitsPerModelCopy: NotRequired[int]
@@ -443,6 +483,9 @@ class DataProcessingDetailsTypeDef(TypedDict):
 
 class DeleteCustomModelRequestTypeDef(TypedDict):
     modelIdentifier: str
+
+class DeleteFoundationModelAgreementRequestTypeDef(TypedDict):
+    modelId: str
 
 class DeleteGuardrailRequestTypeDef(TypedDict):
     guardrailIdentifier: str
@@ -465,6 +508,12 @@ class DeleteProvisionedModelThroughputRequestTypeDef(TypedDict):
 
 class DeregisterMarketplaceModelEndpointRequestTypeDef(TypedDict):
     endpointArn: str
+
+class DimensionalPriceRateTypeDef(TypedDict):
+    dimension: NotRequired[str]
+    price: NotRequired[str]
+    description: NotRequired[str]
+    unit: NotRequired[str]
 
 class TeacherModelConfigTypeDef(TypedDict):
     teacherModelIdentifier: str
@@ -525,6 +574,9 @@ class ValidatorMetricTypeDef(TypedDict):
 
 class GetEvaluationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
+
+class GetFoundationModelAvailabilityRequestTypeDef(TypedDict):
+    modelId: str
 
 class GetFoundationModelRequestTypeDef(TypedDict):
     modelIdentifier: str
@@ -599,6 +651,13 @@ GuardrailContentFilterTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailContentFiltersTierConfigTypeDef(TypedDict):
+    tierName: GuardrailContentFiltersTierNameType
+
+class GuardrailContentFiltersTierTypeDef(TypedDict):
+    tierName: GuardrailContentFiltersTierNameType
+
 GuardrailContextualGroundingFilterConfigTypeDef = TypedDict(
     "GuardrailContextualGroundingFilterConfigTypeDef",
     {
@@ -693,6 +752,10 @@ GuardrailTopicConfigTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailTopicsTierConfigTypeDef(TypedDict):
+    tierName: GuardrailTopicsTierNameType
+
 GuardrailTopicTypeDef = TypedDict(
     "GuardrailTopicTypeDef",
     {
@@ -706,6 +769,9 @@ GuardrailTopicTypeDef = TypedDict(
         "outputEnabled": NotRequired[bool],
     },
 )
+
+class GuardrailTopicsTierTypeDef(TypedDict):
+    tierName: GuardrailTopicsTierNameType
 
 class GuardrailWordConfigTypeDef(TypedDict):
     text: str
@@ -752,12 +818,19 @@ class TextInferenceConfigTypeDef(TypedDict):
     maxTokens: NotRequired[int]
     stopSequences: NotRequired[Sequence[str]]
 
+class LegalTermTypeDef(TypedDict):
+    url: NotRequired[str]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
 TimestampTypeDef = Union[datetime, str]
+
+class ListFoundationModelAgreementOffersRequestTypeDef(TypedDict):
+    modelId: str
+    offerType: NotRequired[OfferTypeType]
 
 class ListFoundationModelsRequestTypeDef(TypedDict):
     byProvider: NotRequired[str]
@@ -883,6 +956,12 @@ class StopModelCustomizationJobRequestTypeDef(TypedDict):
 class StopModelInvocationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
 
+class SupportTermTypeDef(TypedDict):
+    refundPolicyDescription: NotRequired[str]
+
+class ValidityTermTypeDef(TypedDict):
+    agreementDuration: NotRequired[str]
+
 class UntagResourceRequestTypeDef(TypedDict):
     resourceARN: str
     tagKeys: Sequence[str]
@@ -900,8 +979,16 @@ class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
     evaluationJobs: List[BatchDeleteEvaluationJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateCustomModelResponseTypeDef(TypedDict):
+    modelArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateEvaluationJobResponseTypeDef(TypedDict):
     jobArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateFoundationModelAgreementResponseTypeDef(TypedDict):
+    modelId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateGuardrailResponseTypeDef(TypedDict):
@@ -945,6 +1032,14 @@ class CreateProvisionedModelThroughputResponseTypeDef(TypedDict):
     provisionedModelArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetFoundationModelAvailabilityResponseTypeDef(TypedDict):
+    modelId: str
+    agreementAvailability: AgreementAvailabilityTypeDef
+    authorizationStatus: AuthorizationStatusType
+    entitlementAvailability: EntitlementAvailabilityType
+    regionAvailability: RegionAvailabilityType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetProvisionedModelThroughputResponseTypeDef(TypedDict):
     modelUnits: int
     desiredModelUnits: int
@@ -959,6 +1054,10 @@ class GetProvisionedModelThroughputResponseTypeDef(TypedDict):
     failureMessage: str
     commitmentDuration: CommitmentDurationType
     commitmentExpirationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
+    formData: bytes
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateGuardrailResponseTypeDef(TypedDict):
@@ -978,6 +1077,9 @@ class ByteContentDocTypeDef(TypedDict):
     identifier: str
     contentType: str
     data: BlobTypeDef
+
+class PutUseCaseForModelAccessRequestTypeDef(TypedDict):
+    formData: BlobTypeDef
 
 class CloudWatchConfigTypeDef(TypedDict):
     logGroupName: str
@@ -1092,6 +1194,9 @@ class ListCustomModelsResponseTypeDef(TypedDict):
     modelSummaries: List[CustomModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class PricingTermTypeDef(TypedDict):
+    rateCard: List[DimensionalPriceRateTypeDef]
 
 class DistillationConfigTypeDef(TypedDict):
     teacherModelConfig: TeacherModelConfigTypeDef
@@ -1234,9 +1339,11 @@ class SageMakerEndpointOutputTypeDef(TypedDict):
 
 class GuardrailContentPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContentFilterConfigTypeDef]
+    tierConfig: NotRequired[GuardrailContentFiltersTierConfigTypeDef]
 
 class GuardrailContentPolicyTypeDef(TypedDict):
     filters: NotRequired[List[GuardrailContentFilterTypeDef]]
+    tier: NotRequired[GuardrailContentFiltersTierTypeDef]
 
 class GuardrailContextualGroundingPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContextualGroundingFilterConfigTypeDef]
@@ -1254,9 +1361,11 @@ class GuardrailSensitiveInformationPolicyTypeDef(TypedDict):
 
 class GuardrailTopicPolicyConfigTypeDef(TypedDict):
     topicsConfig: Sequence[GuardrailTopicConfigTypeDef]
+    tierConfig: NotRequired[GuardrailTopicsTierConfigTypeDef]
 
 class GuardrailTopicPolicyTypeDef(TypedDict):
     topics: List[GuardrailTopicTypeDef]
+    tier: NotRequired[GuardrailTopicsTierTypeDef]
 
 class GuardrailWordPolicyConfigTypeDef(TypedDict):
     wordsConfig: NotRequired[Sequence[GuardrailWordConfigTypeDef]]
@@ -1306,6 +1415,7 @@ class ListCustomModelsRequestPaginateTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCustomModelsRequestTypeDef(TypedDict):
@@ -1319,6 +1429,7 @@ class ListCustomModelsRequestTypeDef(TypedDict):
     sortBy: NotRequired[Literal["CreationTime"]]
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
+    modelStatus: NotRequired[ModelStatusType]
 
 class ListEvaluationJobsRequestPaginateTypeDef(TypedDict):
     creationTimeAfter: NotRequired[TimestampTypeDef]
@@ -1545,6 +1656,12 @@ class ListPromptRoutersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class TermDetailsTypeDef(TypedDict):
+    usageBasedPricingTerm: PricingTermTypeDef
+    legalTerm: LegalTermTypeDef
+    supportTerm: SupportTermTypeDef
+    validityTerm: NotRequired[ValidityTermTypeDef]
+
 class CustomizationConfigTypeDef(TypedDict):
     distillationConfig: NotRequired[DistillationConfigTypeDef]
 
@@ -1689,6 +1806,14 @@ class GenerationConfigurationTypeDef(TypedDict):
     kbInferenceConfig: NotRequired[KbInferenceConfigTypeDef]
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
+class CreateCustomModelRequestTypeDef(TypedDict):
+    modelName: str
+    modelSourceConfig: ModelDataSourceTypeDef
+    modelKmsKeyArn: NotRequired[str]
+    roleArn: NotRequired[str]
+    modelTags: NotRequired[Sequence[TagTypeDef]]
+    clientRequestToken: NotRequired[str]
+
 class GetImportedModelResponseTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -1804,8 +1929,8 @@ class ModelCustomizationJobSummaryTypeDef(TypedDict):
     jobName: str
     status: ModelCustomizationJobStatusType
     creationTime: datetime
-    lastModifiedTime: NotRequired[datetime]
     statusDetails: NotRequired[StatusDetailsTypeDef]
+    lastModifiedTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
     customModelArn: NotRequired[str]
     customModelName: NotRequired[str]
@@ -1821,6 +1946,11 @@ class GetModelInvocationLoggingConfigurationResponseTypeDef(TypedDict):
 
 class PutModelInvocationLoggingConfigurationRequestTypeDef(TypedDict):
     loggingConfig: LoggingConfigTypeDef
+
+class OfferTypeDef(TypedDict):
+    offerToken: str
+    termDetails: TermDetailsTypeDef
+    offerId: NotRequired[str]
 
 class HumanEvaluationConfigOutputTypeDef(TypedDict):
     datasetMetricConfigs: List[EvaluationDatasetMetricConfigOutputTypeDef]
@@ -1890,6 +2020,11 @@ class ListModelCustomizationJobsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ListFoundationModelAgreementOffersResponseTypeDef(TypedDict):
+    modelId: str
+    offers: List[OfferTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class KnowledgeBaseRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
     knowledgeBaseId: str
     modelArn: str
@@ -1952,6 +2087,8 @@ class GetCustomModelResponseTypeDef(TypedDict):
     validationMetrics: List[ValidatorMetricTypeDef]
     creationTime: datetime
     customizationConfig: CustomizationConfigTypeDef
+    modelStatus: ModelStatusType
+    failureMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetModelCustomizationJobResponseTypeDef(TypedDict):
@@ -1962,8 +2099,8 @@ class GetModelCustomizationJobResponseTypeDef(TypedDict):
     clientRequestToken: str
     roleArn: str
     status: ModelCustomizationJobStatusType
-    failureMessage: str
     statusDetails: StatusDetailsTypeDef
+    failureMessage: str
     creationTime: datetime
     lastModifiedTime: datetime
     endTime: datetime

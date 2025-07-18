@@ -19,26 +19,22 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 import gzip
 import json
 import logging
 import os
 import re
 import threading
-import time
 from typing import Any, List, Optional, TypedDict
 
 from etils import epath
-from ratelimit import limits
-from ratelimit import sleep_and_retry
 import six
 from werkzeug import wrappers
 
 from xprof import version
 from xprof.convert import raw_to_tool_data as convert
 from xprof.standalone.tensorboard_shim import base_plugin
-from xprof.standalone.tensorboard_shim import context as tb_context
 from xprof.standalone.tensorboard_shim import plugin_asset_util
 
 
@@ -396,10 +392,30 @@ def validate_xplane_asset_paths(asset_paths: List[str]) -> None:
     FileNotFoundError: If any of the xplane asset paths do not exist.
   """
   for asset_path in asset_paths:
-    if str(asset_path).endswith(TOOLS['xplane']) and not epath.Path(
-        asset_path
-    ).exists():
+    if (
+        str(asset_path).endswith(TOOLS['xplane'])
+        and not epath.Path(asset_path).exists()
+    ):
       raise FileNotFoundError(f'Invalid asset path: {asset_path}')
+
+
+def _get_bool_arg(
+    args: Mapping[str, Any], arg_name: str, default: bool
+) -> bool:
+  """Gets a boolean argument from a request.
+
+  Args:
+    args: The werkzeug request arguments.
+    arg_name: The name of the argument.
+    default: The default value if the argument is not present.
+
+  Returns:
+    The boolean value of the argument.
+  """
+  arg_str = args.get(arg_name)
+  if arg_str is None:
+    return default
+  return arg_str.lower() == 'true'
 
 
 class ProfilePlugin(base_plugin.TBPlugin):
@@ -637,19 +653,19 @@ class ProfilePlugin(base_plugin.TBPlugin):
     host = request.args.get('host')
     module_name = request.args.get('module_name')
     tqx = request.args.get('tqx')
-    use_saved_result_str = request.args.get('use_saved_result', 'true')
-    use_saved_result = use_saved_result_str.lower() != 'false'
+    use_saved_result = _get_bool_arg(request.args, 'use_saved_result', True)
+    full_dma = _get_bool_arg(request.args, 'full_dma', False)
     run_dir = self._run_dir(run)
 
-    # Check if the cache file exists and if the version is the same as the
-    # current version. If not, set use_saved_result to False.
+    # Check if the cache file exists and if the cache file version is less
+    # than the current plugin version, clear the cache.
     try:
       if epath.Path(os.path.join(run_dir, CACHE_VERSION_FILE)).exists():
         with epath.Path(os.path.join(run_dir, CACHE_VERSION_FILE)).open(
             'r'
         ) as f:
           cache_version = f.read().strip()
-          if cache_version != version.__version__:
+          if cache_version < version.__version__:
             use_saved_result = False
       else:
         use_saved_result = False
@@ -680,6 +696,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     if tool == 'trace_viewer@':
       options = {}
       options['resolution'] = request.args.get('resolution', 8000)
+      options['full_dma'] = full_dma
       if request.args.get('start_time_ms') is not None:
         options['start_time_ms'] = request.args.get('start_time_ms')
       if request.args.get('end_time_ms') is not None:
@@ -946,8 +963,7 @@ class ProfilePlugin(base_plugin.TBPlugin):
     represents a single instance of profile data collection, more similar to a
     "step" of data in typical TensorBoard semantics. These runs reside in
     subdirectories of the plugins/profile directory within any regular
-    TensorBoard run directory (defined as a subdirectory of the logdir that
-    contains at least one tfevents file) or within the logdir root directory
+    TensorBoard run directory or within the logdir root directory
     itself (even if it contains no tfevents file and would thus not be
     considered a normal TensorBoard run, for backwards compatibility).
 
@@ -991,11 +1007,6 @@ class ProfilePlugin(base_plugin.TBPlugin):
     # TODO(kcai): Remove this block once we can rely on walk() to get all
     #             subdirectories, this requires python 3.12.
     def find_all_subdirectories(top_path: epath.Path) -> Iterator[epath.Path]:
-      @sleep_and_retry
-      @limits(
-          calls=MAX_GCS_REQUESTS / AVERAGE_SUBDIR_NUMBER,
-          period=LIMIT_WINDOW_SECONDS,
-      )
       def get_subdirectories(
           current_dir: epath.Path, dirs_to_visit: collections.deque[epath.Path]
       ):
@@ -1011,72 +1022,46 @@ class ProfilePlugin(base_plugin.TBPlugin):
 
       dirs_to_visit = collections.deque([top_path])
 
-      logger.info(
-          'Start to find all subdirectories of %s at %s, subjected to be'
-          ' throttled by %d requests per %d seconds',
-          top_path,
-          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-          MAX_GCS_REQUESTS,
-          LIMIT_WINDOW_SECONDS,
-      )
       while dirs_to_visit:
         current_dir = dirs_to_visit.popleft()
         yield current_dir
         get_subdirectories(current_dir, dirs_to_visit)
-      logger.info(
-          'Finish finding all subdirectories of %s at %s',
-          top_path,
-          time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()),
-      )
 
-    ctx = tb_context.RequestContext()
-    tb_runs = set()
-    # Get all tfevents files that TensorBoard would consider runs.
-    # TODO(kcai): Remove this block once we can rely on the behavior of
-    #             list_runs() returning all subdirectories with tfevents files.
-    for run in self.data_provider.list_runs(ctx, experiment_id=''):
-      # Ensure that we also check the parent directory of runs generated by
-      # Tensorboard.
-      # Example:
-      # logs/
-      #   2024-08-20-12-34-56/
-      #     plugins/profile/run1/hostA.trace
-      #     train/events.out.tfevents.foo
-      #     validation/events.out.tfevents.foo
-      # list_runs() will return:
-      #   2024-08-20-12-34-56/train
-      #   2024-08-20-12-34-56/validation
-      # and we want to ensure that we also check the parent directory:
-      #   2024-08-20-12-34-56/
-      if os.path.basename(run.run_name) in ['train', 'validation']:
-        tb_runs.add(os.path.dirname(run.run_name))
-    # Ensure that we also check the root logdir and all subdirectories, even if
-    # it isn't a recognized TensorBoard run (i.e. has no tfevents file directly
-    # under it), to remain backwards compatible with previously profile plugin
-    # behavior. Note that we check if logdir is a directory to handle case where
+    # Ensure that we check the root logdir and all subdirectories.
+    # Note that we check if logdir is a directory to handle case where
     # it's actually a multipart directory spec, which this plugin does not
     # support.
     #
     # This change still enforce the requirement that the subdirectories must
     # end with plugins/profile directory, as enforced by TensorBoard.
     logdir_path = epath.Path(self.logdir)
-    if '.' not in tb_runs:
-      tb_runs.add('.')
+    tb_runs = {'.'}
+
     if logdir_path.is_dir():
-      for path in find_all_subdirectories(logdir_path):
-        relative_path = path.relative_to(logdir_path)
-        try:
-          *parts, second_last_dir, last_dir = relative_path.parts
-          # Only add subdirectories to runs that are end with plugins/profile.
-          if (
-              len(parts) >= 1  # len(parts) == 0 is the root logdir.
-              and last_dir == PLUGIN_NAME
-              and second_last_dir == TB_NAME
-          ):
-            tb_runs.add(str(epath.Path(*parts)))
-        except ValueError:
-          logger.info('Could not unpack relative path parts: %s', relative_path)
-          pass
+      try:
+        for path in logdir_path.rglob(PLUGIN_NAME):
+          if path.is_dir() and path.parent.name == TB_NAME:
+            tb_run_dir = path.parent.parent
+            tb_run = tb_run_dir.relative_to(logdir_path)
+            tb_runs.add(str(tb_run))
+      except NotImplementedError:
+        # If epath implementation does not support rglob.
+        for path in find_all_subdirectories(logdir_path):
+          relative_path = path.relative_to(logdir_path)
+          try:
+            *parts, second_last_dir, last_dir = relative_path.parts
+            # Only add subdirectories to runs that are end with plugins/profile.
+            if (
+                len(parts) >= 1  # len(parts) == 0 is the root logdir.
+                and last_dir == PLUGIN_NAME
+                and second_last_dir == TB_NAME
+            ):
+              tb_runs.add(str(epath.Path(*parts)))
+          except ValueError:
+            logger.info(
+                'Could not unpack relative path parts: %s', relative_path
+            )
+            pass
     tb_run_names_to_dirs = {
         run: _tb_run_directory(self.logdir, run) for run in tb_runs
     }

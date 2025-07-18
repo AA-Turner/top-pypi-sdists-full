@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-stubs"
-version = "5.2.1"
+version = "5.2.2"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
@@ -33,7 +33,7 @@ classifiers = [
 ]
 dependencies = [
   "django",
-  "django-stubs-ext>=5.2.1",
+  "django-stubs-ext>=5.2.2",
   "tomli; python_version < '3.11'",
   # Types:
   "types-pyyaml",
@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-compatible-mypy = ["mypy>=1.13,<1.17"]
+compatible-mypy = ["mypy>=1.13,<1.18"]
 oracle = ["oracledb"]
 redis = ["redis", "types-redis"]
 
@@ -53,13 +53,13 @@ tests = [
     "pytest-shard==0.1.2",
     "pytest-xdist==3.7.0",
     # Django deps:
-    "django==5.2.1",
+    "django==5.2.4",
     "mysqlclient==2.2.7",
     "psycopg2-binary==2.9.10",
     "jinja2==3.1.6",
     "pyyaml==6.0.2",
     # typing:
-    "mypy==1.16.0",
+    "mypy==1.17.0",
     "django-stubs[compatible-mypy,oracle,redis]",
 ]
 pyright = ["pyright==1.1.401"]

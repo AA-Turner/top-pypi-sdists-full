@@ -16,6 +16,8 @@ from MAVProxy.modules.lib import mp_settings
 from MAVProxy.modules.lib import wxsettings
 from MAVProxy.modules.lib.mp_menu import *
 
+green = (0, 128, 0)
+
 class DisplayItem:
     def __init__(self, fmt, expression, row):
         self.expression = expression.strip('"\'')
@@ -85,6 +87,7 @@ class ConsoleModule(mp_module.MPModule):
         self.vehicle_name_by_sysid = {}
         self.component_name = {}
         self.last_param_sysid_timestamp = None
+        self.flight_information = {}
 
         # create the main menu
         if mp_util.has_wxpython:
@@ -96,6 +99,8 @@ class ConsoleModule(mp_module.MPModule):
                                                MPMenuItem('Show Checklist', 'Load Checklist', '# module load checklist')]))
             self.vehicle_menu = MPMenuSubMenu('Vehicle', items=[])
             self.add_menu(self.vehicle_menu)
+
+        self.shown_agl = False
 
     def cmd_console(self, args):
         usage = 'usage: console <add|list|remove|menu|set>'
@@ -184,6 +189,8 @@ class ConsoleModule(mp_module.MPModule):
 
     def estimated_time_remaining(self, lat, lon, wpnum, speed):
         '''estimate time remaining in mission in seconds'''
+        if self.module('wp') is None:
+            return 0
         idx = wpnum
         if wpnum >= self.module('wp').wploader.count():
             return 0
@@ -350,7 +357,7 @@ class ConsoleModule(mp_module.MPModule):
             nsats = msg.satellites_visible
             fix_type = msg.fix_type
             if fix_type >= 3:
-                self.console.set_status(field, '%s OK%s (%u)' % (prefix, fix_type, nsats), fg='green')
+                self.console.set_status(field, '%s OK%s (%u)' % (prefix, fix_type, nsats), fg=green)
             else:
                 self.console.set_status(field, '%s %u (%u)' % (prefix, fix_type, nsats), fg='red')
             if type == 'GPS_RAW_INT':
@@ -378,43 +385,58 @@ class ConsoleModule(mp_module.MPModule):
                 alt = master.field('GPS_RAW_INT', 'alt', 0) / 1.0e3
             else:
                 alt = master.field('GPS_RAW', 'alt', 0)
-            home = self.module('wp').get_home()
-            if home is not None:
-                home_lat = home.x
-                home_lng = home.y
-            else:
-                home_lat = None
-                home_lng = None
+            home_lat = None
+            home_lng = None
+            if  self.module('wp') is not None:
+                home = self.module('wp').get_home()
+                if home is not None:
+                    home_lat = home.x
+                    home_lng = home.y
+
             lat = master.field('GLOBAL_POSITION_INT', 'lat', 0) * 1.0e-7
             lng = master.field('GLOBAL_POSITION_INT', 'lon', 0) * 1.0e-7
             rel_alt = master.field('GLOBAL_POSITION_INT', 'relative_alt', 0) * 1.0e-3
             agl_alt = None
-            if self.settings.basealt != 0:
-                agl_alt = self.module('terrain').ElevationModel.GetElevation(lat, lng)
+            if self.module('terrain') is not None:
+                elevation_model = self.module('terrain').ElevationModel
+                if self.settings.basealt != 0:
+                    agl_alt = elevation_model.GetElevation(lat, lng)
+                    if agl_alt is not None:
+                        agl_alt = self.settings.basealt - agl_alt
+                else:
+                    try:
+                        agl_alt_home = elevation_model.GetElevation(home_lat, home_lng)
+                    except Exception as ex:
+                        print(ex)
+                        agl_alt_home = None
+                    if agl_alt_home is not None:
+                        agl_alt = elevation_model.GetElevation(lat, lng)
+                    if agl_alt is not None:
+                        agl_alt = agl_alt_home - agl_alt
+            vehicle_agl = master.field('TERRAIN_REPORT', 'current_height', None)
+            if agl_alt is not None or vehicle_agl is not None or self.shown_agl:
+                self.shown_agl = True
                 if agl_alt is not None:
-                    agl_alt = self.settings.basealt - agl_alt
-            else:
-                try:
-                    agl_alt_home = self.module('terrain').ElevationModel.GetElevation(home_lat, home_lng)
-                except Exception as ex:
-                    print(ex)
-                    agl_alt_home = None
-                if agl_alt_home is not None:
-                    agl_alt = self.module('terrain').ElevationModel.GetElevation(lat, lng)
-                if agl_alt is not None:
-                    agl_alt = agl_alt_home - agl_alt
-            if agl_alt is not None:
-                agl_alt += rel_alt
-                vehicle_agl = master.field('TERRAIN_REPORT', 'current_height', None)
+                    agl_alt += rel_alt
+                    agl_alt = self.height_string(agl_alt)
+                else:
+                    agl_alt = "---"
                 if vehicle_agl is None:
                     vehicle_agl = '---'
                 else:
                     vehicle_agl = self.height_string(vehicle_agl)
-                self.console.set_status('AGL', 'AGL %s/%s' % (self.height_string(agl_alt), vehicle_agl))
+                self.console.set_status('AGL', 'AGL %s/%s' % (agl_alt, vehicle_agl))
             self.console.set_status('Alt', 'Alt %s' % self.height_string(rel_alt))
             self.console.set_status('AirSpeed', 'AirSpeed %s' % self.speed_string(msg.airspeed))
             self.console.set_status('GPSSpeed', 'GPSSpeed %s' % self.speed_string(msg.groundspeed))
             self.console.set_status('Thr', 'Thr %u' % msg.throttle)
+
+            sysid = msg.get_srcSystem()
+            if (sysid not in self.flight_information or
+                self.flight_information[sysid].supported != True):
+                    self.update_flight_time_from_vfr_hud(msg)
+
+    def update_flight_time_from_vfr_hud(self, msg):
             t = time.localtime(msg._timestamp)
             flying = False
             if self.mpstate.vehicle_type == 'copter':
@@ -465,9 +487,9 @@ class ConsoleModule(mp_module.MPModule):
                 elif not healthy:
                     fg = 'red'
                 else:
-                    fg = 'green'
+                    fg = green
                 # for terrain show yellow if still loading
-                if s == 'TERR' and fg == 'green' and master.field('TERRAIN_REPORT', 'pending', 0) != 0:
+                if s == 'TERR' and fg == green and master.field('TERRAIN_REPORT', 'pending', 0) != 0:
                     fg = 'yellow'
                 self.console.set_status(s, s, fg=fg)
             announce_unhealthy = {
@@ -516,19 +538,19 @@ class ConsoleModule(mp_module.MPModule):
             elif highest >= 0.5:
                 fg = 'orange'
             else:
-                fg = 'green'
+                fg = green
             self.console.set_status('EKF', 'EKF', fg=fg)
 
     def handle_power_status(self, msg):
             if msg.Vcc >= 4600 and msg.Vcc <= 5300:
-                fg = 'green'
+                fg = green
             else:
                 fg = 'red'
             self.console.set_status('Vcc', 'Vcc %.2f' % (msg.Vcc * 0.001), fg=fg)
             if msg.flags & mavutil.mavlink.MAV_POWER_STATUS_CHANGED:
                 fg = 'red'
             else:
-                fg = 'green'
+                fg = green
             status = 'PWR:'
             if msg.flags & mavutil.mavlink.MAV_POWER_STATUS_USB_CONNECTED:
                 status += 'U'
@@ -541,7 +563,7 @@ class ConsoleModule(mp_module.MPModule):
             if msg.flags & mavutil.mavlink.MAV_POWER_STATUS_PERIPH_HIPOWER_OVERCURRENT:
                 status += 'O2'
             self.console.set_status('PWR', status, fg=fg)
-            self.console.set_status('Srv', 'Srv %.2f' % (msg.Vservo*0.001), fg='green')
+            self.console.set_status('Srv', 'Srv %.2f' % (msg.Vservo*0.001), fg=green)
 
     # this method is called on receipt of any HEARTBEAT so long as it
     # comes from the device we are interested in
@@ -557,7 +579,7 @@ class ConsoleModule(mp_module.MPModule):
             if len(self.vehicle_list) > 1:
                 self.console.set_status('SysID', 'Sys:%u' % sysid, fg='blue')
             if self.master.motors_armed():
-                arm_colour = 'green'
+                arm_colour = green
             else:
                 arm_colour = 'red'
             armstring = 'ARM'
@@ -620,7 +642,10 @@ class ConsoleModule(mp_module.MPModule):
 
     def handle_mission_current(self, msg):
             master = self.master
-            wpmax = self.module('wp').wploader.count()
+            if self.module('wp') is not None:
+                wpmax = self.module('wp').wploader.count()
+            else:
+                wpmax = 0
             if wpmax > 0:
                 wpmax = "/%u" % wpmax
             else:
@@ -692,7 +717,7 @@ class ConsoleModule(mp_module.MPModule):
                 if failed:
                     fg = 'red'
                 else:
-                    fg = 'green'
+                    fg = green
                 self.console.set_status(s, s, fg=fg)
                 
             # do the remaining non-standard system mappings
@@ -700,18 +725,48 @@ class ConsoleModule(mp_module.MPModule):
             if fence_failed:
                 fg = 'red'
             else:
-                fg = 'green'
+                fg = green
             self.console.set_status('Fence', 'FEN', fg=fg)
             gps_failed = ((msg.failure_flags & mavutil.mavlink.HL_FAILURE_FLAG_GPS) == mavutil.mavlink.HL_FAILURE_FLAG_GPS)
             if gps_failed:
                 self.console.set_status('GPS', 'GPS FAILED', fg='red')
             else:
-                self.console.set_status('GPS', 'GPS OK', fg='green')
+                self.console.set_status('GPS', 'GPS OK', fg=green)
             batt_failed = ((msg.failure_flags & mavutil.mavlink.HL_FAILURE_FLAG_GPS) == mavutil.mavlink.HL_FAILURE_FLAG_BATTERY)
             if batt_failed:
                 self.console.set_status('PWR', 'PWR FAILED', fg='red')
             else:
-                self.console.set_status('PWR', 'PWR OK', fg='green')
+                self.console.set_status('PWR', 'PWR OK', fg=green)
+
+    def handle_flight_information(self, msg):
+        sysid = msg.get_srcSystem()
+        if sysid not in self.flight_information:
+            self.flight_information[sysid] = ConsoleModule.FlightInformation(sysid)
+        self.flight_information[sysid].last_seen = time.time()
+
+        # NOTE! the takeoff_time_utc field is misnamed in the XML!
+        if msg.takeoff_time_utc == 0:
+            # 0 is "landed", so don't update so we preserve the last
+            # flight tiem in the display
+            return
+        total_time = (msg.time_boot_ms - msg.takeoff_time_utc*0.001) * 0.001
+        self.console.set_status('FlightTime', 'FlightTime %u:%02u' % (int(total_time)/60, int(total_time)%60))
+
+    def handle_command_ack(self, msg):
+        sysid = msg.get_srcSystem()
+
+        if msg.command != mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL:
+            return
+
+        if sysid not in self.flight_information:
+            return
+
+        fi = self.flight_information[sysid]
+
+        if msg.result == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+            fi.supported = True
+        elif msg.result in [mavutil.mavlink.MAV_RESULT_DENIED, mavutil.mavlink.MAV_RESULT_FAILED]:
+            fi.supported = False
 
     # update user-added console entries; called after a mavlink packet
     # is received:
@@ -808,10 +863,65 @@ class ConsoleModule(mp_module.MPModule):
         elif type == 'PARAM_VALUE':
             self.handle_param_value(msg)
 
+        # note that we also process this as a HEARTBEAT message above!
         if type == 'HIGH_LATENCY2':
             self.handle_high_latency2(msg)
 
+        elif type == 'FLIGHT_INFORMATION':
+            self.handle_flight_information(msg)
+
+        elif type == 'COMMAND_ACK':
+            self.handle_command_ack(msg)
+
         self.update_user_added_keys(msg)
+
+        # we've received a packet from the vehicle; probe for
+        # FLIGHT_INFORMATION support:
+        self.probe_for_flight_information(msg.get_srcSystem(), msg.get_srcComponent())
+
+    class FlightInformation():
+        def __init__(self, sysid):
+            self.sysid = sysid
+            self.supported = None  # don't know
+            self.last_seen = None  # last time we saw FLIGHT_INFORMATION
+            self.last_set_message_interval_sent = None  # last time we sent set-interval
+
+    def probe_for_flight_information(self, sysid, compid):
+        '''if we don't know if this vehicle supports flight information,
+        request it'''
+        if sysid not in self.flight_information:
+            self.flight_information[sysid] = ConsoleModule.FlightInformation(sysid)
+
+        fi = self.flight_information[sysid]
+
+        now  = time.time()
+
+        if fi.supported is not False and (fi.last_seen is None or now - fi.last_seen > 10):
+            # if we stop getting FLIGHT_INFORMATION, re-request it:
+            fi.supported = None
+
+        if fi.supported is True or fi.supported is False:
+            # we know one way or the other
+            return
+
+        # only probe once every 10 seconds
+        if (fi.last_set_message_interval_sent is not None and
+            now - fi.last_set_message_interval_sent < 10):
+            return
+        fi.last_set_message_interval_sent = now
+
+        self.master.mav.command_long_send(
+            sysid,
+            compid,
+            mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL,
+            0,  # confirmation
+            mavutil.mavlink.MAVLINK_MSG_ID_FLIGHT_INFORMATION,  # msg id
+            500000,  # interval - 2Hz
+            0,  # p3
+            0,  # p4
+            0,  # p5
+            0,  # p6
+            0)  # p7
 
     def idle_task(self):
         now = time.time()

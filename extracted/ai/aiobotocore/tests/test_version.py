@@ -33,13 +33,12 @@ _rst_ver_date_str_re = re.compile(
 )
 
 
-# from: https://stackoverflow.com/a/48719723/1241593
+# from: https://stackoverflow.com/a/75996218
 def _parse_rst(text: str) -> docutils.nodes.document:
     parser = docutils.parsers.rst.Parser()
-    components = (docutils.parsers.rst.Parser,)
-    settings = docutils.frontend.OptionParser(
-        components=components
-    ).get_default_values()
+    settings = docutils.frontend.get_default_settings(
+        docutils.parsers.rst.Parser
+    )
     document = docutils.utils.new_document('<rst-doc>', settings=settings)
     parser.parse(text, document)
     return document
@@ -122,9 +121,9 @@ def _get_boto_module_versions(
                 assert False, f'unsupported operator: {spec.operator}'
 
         if ensure_plus_one_patch_range:
-            assert (
-                len(gte.release) == len(lt.release) == 3
-            ), f'{module} gte: {gte} diff len than {lt}'
+            assert len(gte.release) == len(lt.release) == 3, (
+                f'{module} gte: {gte} diff len than {lt}'
+            )
             assert lt.release == tuple(
                 map(operator.add, gte.release, (0, 0, 1))
             ), f'{module} gte: {gte} not one patch off from {lt}'
@@ -176,9 +175,9 @@ def test_release_versions():
         rst_date = datetime.strptime(rst_date, '%Y-%m-%d').date()
         rst_prev_date = datetime.strptime(rst_prev_date, '%Y-%m-%d').date()
 
-        assert (
-            rst_date >= rst_prev_date
-        ), 'Current release must be after last release'
+        assert rst_date >= rst_prev_date, (
+            'Current release must be after last release'
+        )
 
     # get aioboto reqs
     with (_root_path / 'pyproject.toml').open() as f:

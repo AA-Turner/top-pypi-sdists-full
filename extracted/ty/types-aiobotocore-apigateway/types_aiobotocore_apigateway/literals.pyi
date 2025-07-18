@@ -63,6 +63,7 @@ __all__ = (
     "RegionName",
     "ResourceOwnerType",
     "ResourceServiceName",
+    "RoutingModeType",
     "SecurityPolicyType",
     "ServiceName",
     "UnauthorizedCacheControlHeaderStrategyType",
@@ -149,6 +150,9 @@ OpType = Literal["add", "copy", "move", "remove", "replace", "test"]
 PutModeType = Literal["merge", "overwrite"]
 QuotaPeriodTypeType = Literal["DAY", "MONTH", "WEEK"]
 ResourceOwnerType = Literal["OTHER_ACCOUNTS", "SELF"]
+RoutingModeType = Literal[
+    "BASE_PATH_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_BASE_PATH_MAPPING"
+]
 SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
 UnauthorizedCacheControlHeaderStrategyType = Literal[
     "FAIL_WITH_403", "SUCCEED_WITHOUT_RESPONSE_HEADER", "SUCCEED_WITH_RESPONSE_HEADER"
@@ -160,6 +164,7 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "aiops",
     "amp",
     "amplify",
     "amplifybackend",
@@ -300,6 +305,7 @@ ServiceName = Literal[
     "es",
     "events",
     "evidently",
+    "evs",
     "finspace",
     "finspace-data",
     "firehose",
@@ -357,6 +363,7 @@ ServiceName = Literal[
     "kendra",
     "kendra-ranking",
     "keyspaces",
+    "keyspacesstreams",
     "kinesis",
     "kinesis-video-archived-media",
     "kinesis-video-media",
@@ -412,6 +419,7 @@ ServiceName = Literal[
     "migrationhub-config",
     "migrationhuborchestrator",
     "migrationhubstrategy",
+    "mpa",
     "mq",
     "mturk",
     "mwaa",
@@ -556,6 +564,7 @@ ServiceName = Literal[
     "workmail",
     "workmailmessageflow",
     "workspaces",
+    "workspaces-instances",
     "workspaces-thin-client",
     "workspaces-web",
     "xray",
@@ -595,6 +604,7 @@ PaginatorName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

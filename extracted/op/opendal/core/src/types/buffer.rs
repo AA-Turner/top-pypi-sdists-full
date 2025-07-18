@@ -19,8 +19,12 @@ use std::collections::VecDeque;
 use std::convert::Infallible;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::io::BufRead;
 use std::io::IoSlice;
-use std::io::{self, BufRead, Read, Seek, SeekFrom};
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::{self};
 use std::mem;
 use std::ops::Bound;
 use std::ops::RangeBounds;
@@ -259,16 +263,9 @@ impl Buffer {
 
         assert!(
             begin <= end,
-            "range start must not be greater than end: {:?} <= {:?}",
-            begin,
-            end,
+            "range start must not be greater than end: {begin:?} <= {end:?}",
         );
-        assert!(
-            end <= len,
-            "range end out of bounds: {:?} <= {:?}",
-            end,
-            len,
-        );
+        assert!(end <= len, "range end out of bounds: {end:?} <= {len:?}",);
 
         if end == begin {
             return Buffer::new();
@@ -687,9 +684,13 @@ impl BufRead for Buffer {
 
 #[cfg(test)]
 mod tests {
+    use std::io::BufRead;
+    use std::io::Read;
+    use std::io::Seek;
+    use std::io::SeekFrom;
+
     use pretty_assertions::assert_eq;
     use rand::prelude::*;
-    use std::io::{BufRead, Read, Seek, SeekFrom};
 
     use super::*;
 

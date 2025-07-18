@@ -3519,8 +3519,10 @@ class EbsBlockDeviceTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     Throughput: NotRequired[int]
     OutpostArn: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
     Encrypted: NotRequired[bool]
     VolumeInitializationRate: NotRequired[int]
+    AvailabilityZoneId: NotRequired[str]
 
 
 class BlockPublicAccessStatesTypeDef(TypedDict):
@@ -4099,6 +4101,7 @@ class CreateRouteRequestRouteTableCreateRouteTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -4118,6 +4121,7 @@ class CreateRouteRequestTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -7841,6 +7845,7 @@ class ReplaceRouteRequestRouteReplaceTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     GatewayId: NotRequired[str]
     DestinationIpv6CidrBlock: NotRequired[str]
@@ -7860,6 +7865,7 @@ class ReplaceRouteRequestTypeDef(TypedDict):
     LocalGatewayId: NotRequired[str]
     CarrierGatewayId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
     DryRun: NotRequired[bool]
     DestinationCidrBlock: NotRequired[str]
     GatewayId: NotRequired[str]
@@ -8063,6 +8069,7 @@ class RouteTypeDef(TypedDict):
     State: NotRequired[RouteStateType]
     VpcPeeringConnectionId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
+    OdbNetworkArn: NotRequired[str]
 
 
 class S3StorageOutputTypeDef(TypedDict):
@@ -9381,6 +9388,7 @@ class AddressTypeDef(TypedDict):
     CustomerOwnedIp: NotRequired[str]
     CustomerOwnedIpv4Pool: NotRequired[str]
     CarrierIp: NotRequired[str]
+    SubnetId: NotRequired[str]
     ServiceManaged: NotRequired[ServiceManagedType]
     InstanceId: NotRequired[str]
     PublicIp: NotRequired[str]
@@ -17083,6 +17091,7 @@ class ModifyNetworkInterfaceAttributeRequestNetworkInterfaceModifyAttributeTypeD
     EnablePrimaryIpv6: NotRequired[bool]
     ConnectionTrackingSpecification: NotRequired[ConnectionTrackingSpecificationRequestTypeDef]
     AssociatePublicIpAddress: NotRequired[bool]
+    AssociatedSubnetIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
     Description: NotRequired[AttributeValueTypeDef]
     SourceDestCheck: NotRequired[AttributeBooleanValueTypeDef]
@@ -17096,6 +17105,7 @@ class ModifyNetworkInterfaceAttributeRequestTypeDef(TypedDict):
     EnablePrimaryIpv6: NotRequired[bool]
     ConnectionTrackingSpecification: NotRequired[ConnectionTrackingSpecificationRequestTypeDef]
     AssociatePublicIpAddress: NotRequired[bool]
+    AssociatedSubnetIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
     Description: NotRequired[AttributeValueTypeDef]
     SourceDestCheck: NotRequired[AttributeBooleanValueTypeDef]
@@ -17928,29 +17938,34 @@ class DisassociateSubnetCidrBlockResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class SubnetTypeDef(TypedDict):
-    AvailabilityZoneId: NotRequired[str]
-    EnableLniAtDeviceIndex: NotRequired[int]
-    MapCustomerOwnedIpOnLaunch: NotRequired[bool]
-    CustomerOwnedIpv4Pool: NotRequired[str]
-    OwnerId: NotRequired[str]
-    AssignIpv6AddressOnCreation: NotRequired[bool]
-    Ipv6CidrBlockAssociationSet: NotRequired[List[SubnetIpv6CidrBlockAssociationTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
-    SubnetArn: NotRequired[str]
-    OutpostArn: NotRequired[str]
-    EnableDns64: NotRequired[bool]
-    Ipv6Native: NotRequired[bool]
-    PrivateDnsNameOptionsOnLaunch: NotRequired[PrivateDnsNameOptionsOnLaunchTypeDef]
-    BlockPublicAccessStates: NotRequired[BlockPublicAccessStatesTypeDef]
-    SubnetId: NotRequired[str]
-    State: NotRequired[SubnetStateType]
-    VpcId: NotRequired[str]
-    CidrBlock: NotRequired[str]
-    AvailableIpAddressCount: NotRequired[int]
-    AvailabilityZone: NotRequired[str]
-    DefaultForAz: NotRequired[bool]
-    MapPublicIpOnLaunch: NotRequired[bool]
+SubnetTypeDef = TypedDict(
+    "SubnetTypeDef",
+    {
+        "AvailabilityZoneId": NotRequired[str],
+        "EnableLniAtDeviceIndex": NotRequired[int],
+        "MapCustomerOwnedIpOnLaunch": NotRequired[bool],
+        "CustomerOwnedIpv4Pool": NotRequired[str],
+        "OwnerId": NotRequired[str],
+        "AssignIpv6AddressOnCreation": NotRequired[bool],
+        "Ipv6CidrBlockAssociationSet": NotRequired[List[SubnetIpv6CidrBlockAssociationTypeDef]],
+        "Tags": NotRequired[List[TagTypeDef]],
+        "SubnetArn": NotRequired[str],
+        "OutpostArn": NotRequired[str],
+        "EnableDns64": NotRequired[bool],
+        "Ipv6Native": NotRequired[bool],
+        "PrivateDnsNameOptionsOnLaunch": NotRequired[PrivateDnsNameOptionsOnLaunchTypeDef],
+        "BlockPublicAccessStates": NotRequired[BlockPublicAccessStatesTypeDef],
+        "Type": NotRequired[str],
+        "SubnetId": NotRequired[str],
+        "State": NotRequired[SubnetStateType],
+        "VpcId": NotRequired[str],
+        "CidrBlock": NotRequired[str],
+        "AvailableIpAddressCount": NotRequired[int],
+        "AvailabilityZone": NotRequired[str],
+        "DefaultForAz": NotRequired[bool],
+        "MapPublicIpOnLaunch": NotRequired[bool],
+    },
+)
 
 
 class CreateVpcEndpointResultTypeDef(TypedDict):
@@ -18645,6 +18660,7 @@ class CreateFpgaImageRequestTypeDef(TypedDict):
 class CreateImageRequestInstanceCreateImageTypeDef(TypedDict):
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    SnapshotLocation: NotRequired[SnapshotLocationEnumType]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
@@ -18655,6 +18671,7 @@ class CreateImageRequestTypeDef(TypedDict):
     InstanceId: str
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    SnapshotLocation: NotRequired[SnapshotLocationEnumType]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
@@ -19709,6 +19726,7 @@ class NetworkInterfaceTypeDef(TypedDict):
     Ipv6Native: NotRequired[bool]
     Ipv6Address: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
+    AssociatedSubnets: NotRequired[List[str]]
 
 
 class CreateDhcpOptionsResultTypeDef(TypedDict):

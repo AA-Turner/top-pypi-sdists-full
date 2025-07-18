@@ -500,7 +500,7 @@ impl<'lock> PylockToml {
                         .unwrap_or_else(|_| dist.install_path.clone());
                     package.directory = Some(PylockTomlDirectory {
                         path: PortablePathBuf::from(path),
-                        editable: if dist.editable { Some(true) } else { None },
+                        editable: dist.editable,
                         subdirectory: None,
                     });
                 }
@@ -737,7 +737,7 @@ impl<'lock> PylockToml {
                     ),
                     editable: match editable {
                         EditableMode::NonEditable => None,
-                        EditableMode::Editable => Some(sdist.editable),
+                        EditableMode::Editable => sdist.editable,
                     },
                     subdirectory: None,
                 }),
@@ -1152,7 +1152,7 @@ impl<'lock> PylockToml {
             };
 
             let index = graph.add_node(dist);
-            graph.add_edge(root, index, Edge::Prod(package.marker));
+            graph.add_edge(root, index, Edge::Prod);
         }
 
         Ok(Resolution::new(graph))
@@ -1394,8 +1394,8 @@ impl PylockTomlDirectory {
         Ok(DirectorySourceDist {
             name: name.clone(),
             install_path: path.into_boxed_path(),
-            editable: self.editable.unwrap_or(false),
-            r#virtual: false,
+            editable: self.editable,
+            r#virtual: Some(false),
             url,
         })
     }

@@ -1,5 +1,48 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.3
 Name: graphframes-py
-Version: 0.0.0
-Summary: Coming soon
-Author-email: Russell Jurney <russell.jurney@gmail.com>, Ángel Álvarez Pascua <angel.alvarez.pascua@gmail.com>
+Version: 0.9.0
+Summary: GraphFrames: Graph Processing Framework for Apache Spark
+License: Apache 2.0
+Keywords: pyspark,network-analysis,pagerank,pregel,graph
+Author: GraphFrames Contributors
+Author-email: graphframes@googlegroups.com
+Maintainer: Russell Jurney
+Maintainer-email: russell.jurney@gmail.com
+Requires-Python: >=3.10
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: nose (==1.3.7)
+Requires-Dist: numpy (>=1.7)
+Project-URL: Bug Tracker, https://github.com/graphframes/graphframes/issues
+Project-URL: Code Repository, https://github.com/graphframes/graphframes
+Project-URL: Project Homepage, https://graphframes.github.io/graphframes
+Project-URL: PyPi Homepage, https://pypi.org/project/graphframes-py
+Description-Content-Type: text/markdown
+
+# GraphFrames `graphframes-py` Python Package
+
+The is the officila [graphframes-py PyPI package](https://pypi.org/project/graphframes-py/), which is a Python wrapper for the Scala GraphFrames library. This package is maintained by the GraphFrames project and is available on PyPI.
+
+For instructions on GraphFrames, check the project [../README.md](../README.md). See [Installation and Quick-Start](#installation-and-quick-start) for the best way to install and use GraphFrames.
+
+## Running `graphframes-py`
+
+You should use GraphFrames via the `--packages` argument to `pyspark` or `spark-submit`, but this package is helpful in development environments.
+
+```bash
+# Interactive Python
+$ pyspark --packages graphframes:graphframes:0.8.4-spark3.5-s_2.12
+
+# Submit a script in Scala/Java/Python
+$ spark-submit --packages graphframes:graphframes:0.8.4-spark3.5-s_2.12 script.py
+```
+

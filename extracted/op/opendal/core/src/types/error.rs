@@ -298,7 +298,7 @@ impl Debug for Error {
         if let Some(backtrace) = &self.backtrace {
             writeln!(f)?;
             writeln!(f, "Backtrace:")?;
-            writeln!(f, "{}", backtrace)?;
+            writeln!(f, "{backtrace}")?;
         }
 
         Ok(())
@@ -478,11 +478,13 @@ impl From<Error> for io::Error {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use anyhow::anyhow;
-    use pretty_assertions::assert_eq;
     use std::mem::size_of;
     use std::sync::LazyLock;
+
+    use anyhow::anyhow;
+    use pretty_assertions::assert_eq;
+
+    use super::*;
 
     static TEST_ERROR: LazyLock<Error> = LazyLock::new(|| Error {
         kind: ErrorKind::Unexpected,

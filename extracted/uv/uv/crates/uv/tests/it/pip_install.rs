@@ -267,7 +267,7 @@ fn invalid_toml_filename() -> Result<()> {
 }
 
 #[test]
-fn invalid_uv_toml_option_disallowed() -> Result<()> {
+fn invalid_uv_toml_option_disallowed_automatic_discovery() -> Result<()> {
     let context = TestContext::new("3.12");
     let uv_toml = context.temp_dir.child("uv.toml");
     uv_toml.write_str(indoc! {r"
@@ -283,6 +283,30 @@ fn invalid_uv_toml_option_disallowed() -> Result<()> {
     ----- stderr -----
     error: Failed to parse: `uv.toml`. The `managed` field is not allowed in a `uv.toml` file. `managed` is only applicable in the context of a project, and should be placed in a `pyproject.toml` file instead.
     "###
+    );
+
+    Ok(())
+}
+
+#[test]
+fn invalid_uv_toml_option_disallowed_command_line() -> Result<()> {
+    let context = TestContext::new("3.12");
+    let uv_toml = context.temp_dir.child("foo.toml");
+    uv_toml.write_str(indoc! {r"
+        managed = true
+    "})?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("iniconfig")
+        .arg("--config-file")
+        .arg("foo.toml"), @r"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to parse: `foo.toml`. The `managed` field is not allowed in a `uv.toml` file. `managed` is only applicable in the context of a project, and should be placed in a `pyproject.toml` file instead.
+    "
     );
 
     Ok(())
@@ -2835,7 +2859,7 @@ fn install_no_binary_cache() {
     );
 
     // Re-create the virtual environment.
-    context.venv().assert().success();
+    context.venv().arg("--clear").assert().success();
 
     // Re-install. The distribution should be installed from the cache.
     uv_snapshot!(
@@ -2853,7 +2877,7 @@ fn install_no_binary_cache() {
     );
 
     // Re-create the virtual environment.
-    context.venv().assert().success();
+    context.venv().arg("--clear").assert().success();
 
     // Install with `--no-binary`. The distribution should be built from source, despite a binary
     // distribution being available in the cache.
@@ -3064,7 +3088,7 @@ fn cache_priority() {
     );
 
     // Re-create the virtual environment.
-    context.venv().assert().success();
+    context.venv().arg("--clear").assert().success();
 
     // Install `idna` without a version specifier.
     uv_snapshot!(
@@ -8228,6 +8252,7 @@ fn install_relocatable() -> Result<()> {
     context
         .venv()
         .arg(context.venv.as_os_str())
+        .arg("--clear")
         .arg("--python")
         .arg("3.12")
         .arg("--relocatable")
@@ -11658,4 +11683,59 @@ fn strip_shebang_arguments() -> Result<()> {
     });
 
     Ok(())
+}
+
+#[test]
+fn install_python_preference() {
+    let context =
+        TestContext::new_with_versions(&["3.12", "3.11"]).with_versions_as_managed(&["3.12"]);
+
+    // Create a managed interpreter environment
+    uv_snapshot!(context.filters(), context.venv(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Using CPython 3.12.[X] interpreter at: [PYTHON-3.12]
+    Creating virtual environment at: .venv
+    Activate with: source .venv/[BIN]/activate
+    ");
+
+    // Install a package, requesting managed Python
+    uv_snapshot!(context.filters(), context.pip_install().arg("anyio").arg("--managed-python"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==4.3.0
+     + idna==3.6
+     + sniffio==1.3.1
+    ");
+
+    // Install a package, requesting unmanaged Python
+    // This is allowed, because the virtual environment already exists
+    uv_snapshot!(context.filters(), context.pip_install().arg("anyio").arg("--no-managed-python"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Audited 1 package in [TIME]
+    ");
+
+    // This also works with `VIRTUAL_ENV` unset
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("anyio").arg("--no-managed-python").env_remove("VIRTUAL_ENV"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Audited 1 package in [TIME]
+    ");
 }

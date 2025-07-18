@@ -36,6 +36,7 @@ from .literals import (
     LoggingLevelType,
     PassthroughBehaviorType,
     ProtocolTypeType,
+    RoutingModeType,
     SecurityPolicyType,
     VpcLinkStatusType,
 )
@@ -79,6 +80,8 @@ __all__ = (
     "CreateRouteResponseRequestTypeDef",
     "CreateRouteResponseResponseTypeDef",
     "CreateRouteResultTypeDef",
+    "CreateRoutingRuleRequestTypeDef",
+    "CreateRoutingRuleResponseTypeDef",
     "CreateStageRequestTypeDef",
     "CreateStageResponseTypeDef",
     "CreateVpcLinkRequestTypeDef",
@@ -97,6 +100,7 @@ __all__ = (
     "DeleteRouteRequestTypeDef",
     "DeleteRouteResponseRequestTypeDef",
     "DeleteRouteSettingsRequestTypeDef",
+    "DeleteRoutingRuleRequestTypeDef",
     "DeleteStageRequestTypeDef",
     "DeleteVpcLinkRequestTypeDef",
     "DeploymentTypeDef",
@@ -158,6 +162,8 @@ __all__ = (
     "GetRoutesRequestPaginateTypeDef",
     "GetRoutesRequestTypeDef",
     "GetRoutesResponseTypeDef",
+    "GetRoutingRuleRequestTypeDef",
+    "GetRoutingRuleResponseTypeDef",
     "GetStageRequestTypeDef",
     "GetStageResponseTypeDef",
     "GetStagesRequestPaginateTypeDef",
@@ -176,11 +182,16 @@ __all__ = (
     "JWTConfigurationOutputTypeDef",
     "JWTConfigurationTypeDef",
     "JWTConfigurationUnionTypeDef",
+    "ListRoutingRulesRequestPaginateTypeDef",
+    "ListRoutingRulesRequestTypeDef",
+    "ListRoutingRulesResponseTypeDef",
     "ModelTypeDef",
     "MutualTlsAuthenticationInputTypeDef",
     "MutualTlsAuthenticationTypeDef",
     "PaginatorConfigTypeDef",
     "ParameterConstraintsTypeDef",
+    "PutRoutingRuleRequestTypeDef",
+    "PutRoutingRuleResponseTypeDef",
     "ReimportApiRequestTypeDef",
     "ReimportApiResponseTypeDef",
     "ResetAuthorizersCacheRequestTypeDef",
@@ -188,6 +199,19 @@ __all__ = (
     "RouteResponseTypeDef",
     "RouteSettingsTypeDef",
     "RouteTypeDef",
+    "RoutingRuleActionInvokeApiTypeDef",
+    "RoutingRuleActionTypeDef",
+    "RoutingRuleConditionOutputTypeDef",
+    "RoutingRuleConditionTypeDef",
+    "RoutingRuleConditionUnionTypeDef",
+    "RoutingRuleMatchBasePathsOutputTypeDef",
+    "RoutingRuleMatchBasePathsTypeDef",
+    "RoutingRuleMatchBasePathsUnionTypeDef",
+    "RoutingRuleMatchHeaderValueTypeDef",
+    "RoutingRuleMatchHeadersOutputTypeDef",
+    "RoutingRuleMatchHeadersTypeDef",
+    "RoutingRuleMatchHeadersUnionTypeDef",
+    "RoutingRuleTypeDef",
     "StageTypeDef",
     "TagResourceRequestTypeDef",
     "TimestampTypeDef",
@@ -390,6 +414,11 @@ class DeleteRouteSettingsRequestTypeDef(TypedDict):
     RouteKey: str
     StageName: str
 
+class DeleteRoutingRuleRequestTypeDef(TypedDict):
+    DomainName: str
+    RoutingRuleId: str
+    DomainNameId: NotRequired[str]
+
 class DeleteStageRequestTypeDef(TypedDict):
     ApiId: str
     StageName: str
@@ -529,6 +558,11 @@ class GetRoutesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[str]
     NextToken: NotRequired[str]
 
+class GetRoutingRuleRequestTypeDef(TypedDict):
+    DomainName: str
+    RoutingRuleId: str
+    DomainNameId: NotRequired[str]
+
 class GetStageRequestTypeDef(TypedDict):
     ApiId: str
     StageName: str
@@ -568,6 +602,12 @@ class JWTConfigurationTypeDef(TypedDict):
     Audience: NotRequired[Sequence[str]]
     Issuer: NotRequired[str]
 
+class ListRoutingRulesRequestTypeDef(TypedDict):
+    DomainName: str
+    DomainNameId: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ReimportApiRequestTypeDef(TypedDict):
     ApiId: str
     Body: str
@@ -577,6 +617,21 @@ class ReimportApiRequestTypeDef(TypedDict):
 class ResetAuthorizersCacheRequestTypeDef(TypedDict):
     ApiId: str
     StageName: str
+
+class RoutingRuleActionInvokeApiTypeDef(TypedDict):
+    ApiId: str
+    Stage: str
+    StripBasePath: NotRequired[bool]
+
+class RoutingRuleMatchBasePathsOutputTypeDef(TypedDict):
+    AnyOf: List[str]
+
+class RoutingRuleMatchBasePathsTypeDef(TypedDict):
+    AnyOf: Sequence[str]
+
+class RoutingRuleMatchHeaderValueTypeDef(TypedDict):
+    Header: str
+    ValueGlob: str
 
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -954,31 +1009,39 @@ class UpdateVpcLinkResponseTypeDef(TypedDict):
 class CreateDomainNameResponseTypeDef(TypedDict):
     ApiMappingSelectionExpression: str
     DomainName: str
+    DomainNameArn: str
     DomainNameConfigurations: List[DomainNameConfigurationOutputTypeDef]
     MutualTlsAuthentication: MutualTlsAuthenticationTypeDef
+    RoutingMode: RoutingModeType
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainNameTypeDef(TypedDict):
     DomainName: str
     ApiMappingSelectionExpression: NotRequired[str]
+    DomainNameArn: NotRequired[str]
     DomainNameConfigurations: NotRequired[List[DomainNameConfigurationOutputTypeDef]]
     MutualTlsAuthentication: NotRequired[MutualTlsAuthenticationTypeDef]
+    RoutingMode: NotRequired[RoutingModeType]
     Tags: NotRequired[Dict[str, str]]
 
 class GetDomainNameResponseTypeDef(TypedDict):
     ApiMappingSelectionExpression: str
     DomainName: str
+    DomainNameArn: str
     DomainNameConfigurations: List[DomainNameConfigurationOutputTypeDef]
     MutualTlsAuthentication: MutualTlsAuthenticationTypeDef
+    RoutingMode: RoutingModeType
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateDomainNameResponseTypeDef(TypedDict):
     ApiMappingSelectionExpression: str
     DomainName: str
+    DomainNameArn: str
     DomainNameConfigurations: List[DomainNameConfigurationOutputTypeDef]
     MutualTlsAuthentication: MutualTlsAuthenticationTypeDef
+    RoutingMode: RoutingModeType
     Tags: Dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1404,6 +1467,11 @@ class GetStagesRequestPaginateTypeDef(TypedDict):
     ApiId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListRoutingRulesRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    DomainNameId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetIntegrationResponsesResponseTypeDef(TypedDict):
     Items: List[IntegrationResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1420,6 +1488,19 @@ class GetVpcLinksResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 JWTConfigurationUnionTypeDef = Union[JWTConfigurationTypeDef, JWTConfigurationOutputTypeDef]
+
+class RoutingRuleActionTypeDef(TypedDict):
+    InvokeApi: RoutingRuleActionInvokeApiTypeDef
+
+RoutingRuleMatchBasePathsUnionTypeDef = Union[
+    RoutingRuleMatchBasePathsTypeDef, RoutingRuleMatchBasePathsOutputTypeDef
+]
+
+class RoutingRuleMatchHeadersOutputTypeDef(TypedDict):
+    AnyOf: List[RoutingRuleMatchHeaderValueTypeDef]
+
+class RoutingRuleMatchHeadersTypeDef(TypedDict):
+    AnyOf: Sequence[RoutingRuleMatchHeaderValueTypeDef]
 
 class GetApisResponseTypeDef(TypedDict):
     Items: List[ApiTypeDef]
@@ -1518,13 +1599,82 @@ class UpdateAuthorizerRequestTypeDef(TypedDict):
     JwtConfiguration: NotRequired[JWTConfigurationUnionTypeDef]
     Name: NotRequired[str]
 
+class RoutingRuleConditionOutputTypeDef(TypedDict):
+    MatchBasePaths: NotRequired[RoutingRuleMatchBasePathsOutputTypeDef]
+    MatchHeaders: NotRequired[RoutingRuleMatchHeadersOutputTypeDef]
+
+RoutingRuleMatchHeadersUnionTypeDef = Union[
+    RoutingRuleMatchHeadersTypeDef, RoutingRuleMatchHeadersOutputTypeDef
+]
+
 class CreateDomainNameRequestTypeDef(TypedDict):
     DomainName: str
     DomainNameConfigurations: NotRequired[Sequence[DomainNameConfigurationUnionTypeDef]]
     MutualTlsAuthentication: NotRequired[MutualTlsAuthenticationInputTypeDef]
+    RoutingMode: NotRequired[RoutingModeType]
     Tags: NotRequired[Mapping[str, str]]
 
 class UpdateDomainNameRequestTypeDef(TypedDict):
     DomainName: str
     DomainNameConfigurations: NotRequired[Sequence[DomainNameConfigurationUnionTypeDef]]
     MutualTlsAuthentication: NotRequired[MutualTlsAuthenticationInputTypeDef]
+    RoutingMode: NotRequired[RoutingModeType]
+
+class CreateRoutingRuleResponseTypeDef(TypedDict):
+    Actions: List[RoutingRuleActionTypeDef]
+    Conditions: List[RoutingRuleConditionOutputTypeDef]
+    Priority: int
+    RoutingRuleArn: str
+    RoutingRuleId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetRoutingRuleResponseTypeDef(TypedDict):
+    Actions: List[RoutingRuleActionTypeDef]
+    Conditions: List[RoutingRuleConditionOutputTypeDef]
+    Priority: int
+    RoutingRuleArn: str
+    RoutingRuleId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutRoutingRuleResponseTypeDef(TypedDict):
+    Actions: List[RoutingRuleActionTypeDef]
+    Conditions: List[RoutingRuleConditionOutputTypeDef]
+    Priority: int
+    RoutingRuleArn: str
+    RoutingRuleId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RoutingRuleTypeDef(TypedDict):
+    Actions: NotRequired[List[RoutingRuleActionTypeDef]]
+    Conditions: NotRequired[List[RoutingRuleConditionOutputTypeDef]]
+    Priority: NotRequired[int]
+    RoutingRuleArn: NotRequired[str]
+    RoutingRuleId: NotRequired[str]
+
+class RoutingRuleConditionTypeDef(TypedDict):
+    MatchBasePaths: NotRequired[RoutingRuleMatchBasePathsUnionTypeDef]
+    MatchHeaders: NotRequired[RoutingRuleMatchHeadersUnionTypeDef]
+
+class ListRoutingRulesResponseTypeDef(TypedDict):
+    RoutingRules: List[RoutingRuleTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+RoutingRuleConditionUnionTypeDef = Union[
+    RoutingRuleConditionTypeDef, RoutingRuleConditionOutputTypeDef
+]
+
+class CreateRoutingRuleRequestTypeDef(TypedDict):
+    Actions: Sequence[RoutingRuleActionTypeDef]
+    Conditions: Sequence[RoutingRuleConditionUnionTypeDef]
+    DomainName: str
+    Priority: int
+    DomainNameId: NotRequired[str]
+
+class PutRoutingRuleRequestTypeDef(TypedDict):
+    Actions: Sequence[RoutingRuleActionTypeDef]
+    Conditions: Sequence[RoutingRuleConditionUnionTypeDef]
+    DomainName: str
+    Priority: int
+    RoutingRuleId: str
+    DomainNameId: NotRequired[str]

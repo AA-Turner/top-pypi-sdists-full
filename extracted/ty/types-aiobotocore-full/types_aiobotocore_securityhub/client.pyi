@@ -31,12 +31,16 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeActionTargetsPaginator,
     DescribeProductsPaginator,
+    DescribeProductsV2Paginator,
     DescribeStandardsControlsPaginator,
     DescribeStandardsPaginator,
     GetEnabledStandardsPaginator,
     GetFindingHistoryPaginator,
     GetFindingsPaginator,
+    GetFindingsV2Paginator,
     GetInsightsPaginator,
+    GetResourcesV2Paginator,
+    ListAggregatorsV2Paginator,
     ListConfigurationPoliciesPaginator,
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
@@ -70,25 +74,40 @@ from .type_defs import (
     BatchUpdateAutomationRulesResponseTypeDef,
     BatchUpdateFindingsRequestTypeDef,
     BatchUpdateFindingsResponseTypeDef,
+    BatchUpdateFindingsV2RequestTypeDef,
+    BatchUpdateFindingsV2ResponseTypeDef,
     BatchUpdateStandardsControlAssociationsRequestTypeDef,
     BatchUpdateStandardsControlAssociationsResponseTypeDef,
+    ConnectorRegistrationsV2RequestTypeDef,
+    ConnectorRegistrationsV2ResponseTypeDef,
     CreateActionTargetRequestTypeDef,
     CreateActionTargetResponseTypeDef,
+    CreateAggregatorV2RequestTypeDef,
+    CreateAggregatorV2ResponseTypeDef,
     CreateAutomationRuleRequestTypeDef,
     CreateAutomationRuleResponseTypeDef,
+    CreateAutomationRuleV2RequestTypeDef,
+    CreateAutomationRuleV2ResponseTypeDef,
     CreateConfigurationPolicyRequestTypeDef,
     CreateConfigurationPolicyResponseTypeDef,
+    CreateConnectorV2RequestTypeDef,
+    CreateConnectorV2ResponseTypeDef,
     CreateFindingAggregatorRequestTypeDef,
     CreateFindingAggregatorResponseTypeDef,
     CreateInsightRequestTypeDef,
     CreateInsightResponseTypeDef,
     CreateMembersRequestTypeDef,
     CreateMembersResponseTypeDef,
+    CreateTicketV2RequestTypeDef,
+    CreateTicketV2ResponseTypeDef,
     DeclineInvitationsRequestTypeDef,
     DeclineInvitationsResponseTypeDef,
     DeleteActionTargetRequestTypeDef,
     DeleteActionTargetResponseTypeDef,
+    DeleteAggregatorV2RequestTypeDef,
+    DeleteAutomationRuleV2RequestTypeDef,
     DeleteConfigurationPolicyRequestTypeDef,
+    DeleteConnectorV2RequestTypeDef,
     DeleteFindingAggregatorRequestTypeDef,
     DeleteInsightRequestTypeDef,
     DeleteInsightResponseTypeDef,
@@ -103,6 +122,9 @@ from .type_defs import (
     DescribeOrganizationConfigurationResponseTypeDef,
     DescribeProductsRequestTypeDef,
     DescribeProductsResponseTypeDef,
+    DescribeProductsV2RequestTypeDef,
+    DescribeProductsV2ResponseTypeDef,
+    DescribeSecurityHubV2ResponseTypeDef,
     DescribeStandardsControlsRequestTypeDef,
     DescribeStandardsControlsResponseTypeDef,
     DescribeStandardsRequestTypeDef,
@@ -113,12 +135,21 @@ from .type_defs import (
     EnableImportFindingsForProductRequestTypeDef,
     EnableImportFindingsForProductResponseTypeDef,
     EnableOrganizationAdminAccountRequestTypeDef,
+    EnableOrganizationAdminAccountResponseTypeDef,
     EnableSecurityHubRequestTypeDef,
+    EnableSecurityHubV2RequestTypeDef,
+    EnableSecurityHubV2ResponseTypeDef,
     GetAdministratorAccountResponseTypeDef,
+    GetAggregatorV2RequestTypeDef,
+    GetAggregatorV2ResponseTypeDef,
+    GetAutomationRuleV2RequestTypeDef,
+    GetAutomationRuleV2ResponseTypeDef,
     GetConfigurationPolicyAssociationRequestTypeDef,
     GetConfigurationPolicyAssociationResponseTypeDef,
     GetConfigurationPolicyRequestTypeDef,
     GetConfigurationPolicyResponseTypeDef,
+    GetConnectorV2RequestTypeDef,
+    GetConnectorV2ResponseTypeDef,
     GetEnabledStandardsRequestTypeDef,
     GetEnabledStandardsResponseTypeDef,
     GetFindingAggregatorRequestTypeDef,
@@ -127,6 +158,10 @@ from .type_defs import (
     GetFindingHistoryResponseTypeDef,
     GetFindingsRequestTypeDef,
     GetFindingsResponseTypeDef,
+    GetFindingStatisticsV2RequestTypeDef,
+    GetFindingStatisticsV2ResponseTypeDef,
+    GetFindingsV2RequestTypeDef,
+    GetFindingsV2ResponseTypeDef,
     GetInsightResultsRequestTypeDef,
     GetInsightResultsResponseTypeDef,
     GetInsightsRequestTypeDef,
@@ -135,16 +170,26 @@ from .type_defs import (
     GetMasterAccountResponseTypeDef,
     GetMembersRequestTypeDef,
     GetMembersResponseTypeDef,
+    GetResourcesStatisticsV2RequestTypeDef,
+    GetResourcesStatisticsV2ResponseTypeDef,
+    GetResourcesV2RequestTypeDef,
+    GetResourcesV2ResponseTypeDef,
     GetSecurityControlDefinitionRequestTypeDef,
     GetSecurityControlDefinitionResponseTypeDef,
     InviteMembersRequestTypeDef,
     InviteMembersResponseTypeDef,
+    ListAggregatorsV2RequestTypeDef,
+    ListAggregatorsV2ResponseTypeDef,
     ListAutomationRulesRequestTypeDef,
     ListAutomationRulesResponseTypeDef,
+    ListAutomationRulesV2RequestTypeDef,
+    ListAutomationRulesV2ResponseTypeDef,
     ListConfigurationPoliciesRequestTypeDef,
     ListConfigurationPoliciesResponseTypeDef,
     ListConfigurationPolicyAssociationsRequestTypeDef,
     ListConfigurationPolicyAssociationsResponseTypeDef,
+    ListConnectorsV2RequestTypeDef,
+    ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
     ListEnabledProductsForImportResponseTypeDef,
     ListFindingAggregatorsRequestTypeDef,
@@ -167,8 +212,12 @@ from .type_defs import (
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateActionTargetRequestTypeDef,
+    UpdateAggregatorV2RequestTypeDef,
+    UpdateAggregatorV2ResponseTypeDef,
+    UpdateAutomationRuleV2RequestTypeDef,
     UpdateConfigurationPolicyRequestTypeDef,
     UpdateConfigurationPolicyResponseTypeDef,
+    UpdateConnectorV2RequestTypeDef,
     UpdateFindingAggregatorRequestTypeDef,
     UpdateFindingAggregatorResponseTypeDef,
     UpdateFindingsRequestTypeDef,
@@ -195,13 +244,17 @@ __all__ = ("SecurityHubClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: Type[BotocoreClientError]
     ClientError: Type[BotocoreClientError]
+    ConflictException: Type[BotocoreClientError]
     InternalException: Type[BotocoreClientError]
+    InternalServerException: Type[BotocoreClientError]
     InvalidAccessException: Type[BotocoreClientError]
     InvalidInputException: Type[BotocoreClientError]
     LimitExceededException: Type[BotocoreClientError]
     ResourceConflictException: Type[BotocoreClientError]
     ResourceInUseException: Type[BotocoreClientError]
     ResourceNotFoundException: Type[BotocoreClientError]
+    ThrottlingException: Type[BotocoreClientError]
+    ValidationException: Type[BotocoreClientError]
 
 class SecurityHubClient(AioBaseClient):
     """
@@ -360,10 +413,21 @@ class SecurityHubClient(AioBaseClient):
     ) -> BatchUpdateFindingsResponseTypeDef:
         """
         Used by Security Hub customers to update information about their investigation
-        into a finding.
+        into one or more findings.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_findings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#batch_update_findings)
+        """
+
+    async def batch_update_findings_v2(
+        self, **kwargs: Unpack[BatchUpdateFindingsV2RequestTypeDef]
+    ) -> BatchUpdateFindingsV2ResponseTypeDef:
+        """
+        Used by customers to update information about their investigation into a
+        finding.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/batch_update_findings_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#batch_update_findings_v2)
         """
 
     async def batch_update_standards_control_associations(
@@ -377,6 +441,16 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#batch_update_standards_control_associations)
         """
 
+    async def connector_registrations_v2(
+        self, **kwargs: Unpack[ConnectorRegistrationsV2RequestTypeDef]
+    ) -> ConnectorRegistrationsV2ResponseTypeDef:
+        """
+        Grants permission to complete the authorization based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/connector_registrations_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#connector_registrations_v2)
+        """
+
     async def create_action_target(
         self, **kwargs: Unpack[CreateActionTargetRequestTypeDef]
     ) -> CreateActionTargetResponseTypeDef:
@@ -385,6 +459,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_action_target.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_action_target)
+        """
+
+    async def create_aggregator_v2(
+        self, **kwargs: Unpack[CreateAggregatorV2RequestTypeDef]
+    ) -> CreateAggregatorV2ResponseTypeDef:
+        """
+        Enables aggregation across Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_aggregator_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_aggregator_v2)
         """
 
     async def create_automation_rule(
@@ -397,6 +481,16 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_automation_rule)
         """
 
+    async def create_automation_rule_v2(
+        self, **kwargs: Unpack[CreateAutomationRuleV2RequestTypeDef]
+    ) -> CreateAutomationRuleV2ResponseTypeDef:
+        """
+        Creates a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_automation_rule_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_automation_rule_v2)
+        """
+
     async def create_configuration_policy(
         self, **kwargs: Unpack[CreateConfigurationPolicyRequestTypeDef]
     ) -> CreateConfigurationPolicyResponseTypeDef:
@@ -405,6 +499,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_configuration_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_configuration_policy)
+        """
+
+    async def create_connector_v2(
+        self, **kwargs: Unpack[CreateConnectorV2RequestTypeDef]
+    ) -> CreateConnectorV2ResponseTypeDef:
+        """
+        Grants permission to create a connectorV2 based on input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_connector_v2)
         """
 
     async def create_finding_aggregator(
@@ -438,6 +542,17 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_members)
         """
 
+    async def create_ticket_v2(
+        self, **kwargs: Unpack[CreateTicketV2RequestTypeDef]
+    ) -> CreateTicketV2ResponseTypeDef:
+        """
+        Grants permission to create a ticket in the chosen ITSM based on finding
+        information for the provided finding metadata UID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_ticket_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#create_ticket_v2)
+        """
+
     async def decline_invitations(
         self, **kwargs: Unpack[DeclineInvitationsRequestTypeDef]
     ) -> DeclineInvitationsResponseTypeDef:
@@ -459,6 +574,26 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_action_target)
         """
 
+    async def delete_aggregator_v2(
+        self, **kwargs: Unpack[DeleteAggregatorV2RequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes the Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_aggregator_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_aggregator_v2)
+        """
+
+    async def delete_automation_rule_v2(
+        self, **kwargs: Unpack[DeleteAutomationRuleV2RequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_automation_rule_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_automation_rule_v2)
+        """
+
     async def delete_configuration_policy(
         self, **kwargs: Unpack[DeleteConfigurationPolicyRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -467,6 +602,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_configuration_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_configuration_policy)
+        """
+
+    async def delete_connector_v2(
+        self, **kwargs: Unpack[DeleteConnectorV2RequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Grants permission to delete a connectorV2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_connector_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#delete_connector_v2)
         """
 
     async def delete_finding_aggregator(
@@ -552,6 +697,24 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#describe_products)
         """
 
+    async def describe_products_v2(
+        self, **kwargs: Unpack[DescribeProductsV2RequestTypeDef]
+    ) -> DescribeProductsV2ResponseTypeDef:
+        """
+        Gets information about the product integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_products_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#describe_products_v2)
+        """
+
+    async def describe_security_hub_v2(self) -> DescribeSecurityHubV2ResponseTypeDef:
+        """
+        Returns details about the service resource in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/describe_security_hub_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#describe_security_hub_v2)
+        """
+
     async def describe_standards(
         self, **kwargs: Unpack[DescribeStandardsRequestTypeDef]
     ) -> DescribeStandardsResponseTypeDef:
@@ -601,6 +764,15 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#disable_security_hub)
         """
 
+    async def disable_security_hub_v2(self) -> Dict[str, Any]:
+        """
+        Disable the service for the current Amazon Web Services Region or specified
+        Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#disable_security_hub_v2)
+        """
+
     async def disassociate_from_administrator_account(self) -> Dict[str, Any]:
         """
         Disassociates the current Security Hub member account from the associated
@@ -641,7 +813,7 @@ class SecurityHubClient(AioBaseClient):
 
     async def enable_organization_admin_account(
         self, **kwargs: Unpack[EnableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> EnableOrganizationAdminAccountResponseTypeDef:
         """
         Designates the Security Hub administrator account for an organization.
 
@@ -660,6 +832,17 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#enable_security_hub)
         """
 
+    async def enable_security_hub_v2(
+        self, **kwargs: Unpack[EnableSecurityHubV2RequestTypeDef]
+    ) -> EnableSecurityHubV2ResponseTypeDef:
+        """
+        Enables the service in account for the current Amazon Web Services Region or
+        specified Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#enable_security_hub_v2)
+        """
+
     async def get_administrator_account(self) -> GetAdministratorAccountResponseTypeDef:
         """
         Provides the details for the Security Hub administrator account for the current
@@ -667,6 +850,26 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_administrator_account.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_administrator_account)
+        """
+
+    async def get_aggregator_v2(
+        self, **kwargs: Unpack[GetAggregatorV2RequestTypeDef]
+    ) -> GetAggregatorV2ResponseTypeDef:
+        """
+        Returns the configuration of the specified Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_aggregator_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_aggregator_v2)
+        """
+
+    async def get_automation_rule_v2(
+        self, **kwargs: Unpack[GetAutomationRuleV2RequestTypeDef]
+    ) -> GetAutomationRuleV2ResponseTypeDef:
+        """
+        Returns an automation rule for the V2 service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_automation_rule_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_automation_rule_v2)
         """
 
     async def get_configuration_policy(
@@ -688,6 +891,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_configuration_policy_association.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_configuration_policy_association)
+        """
+
+    async def get_connector_v2(
+        self, **kwargs: Unpack[GetConnectorV2RequestTypeDef]
+    ) -> GetConnectorV2ResponseTypeDef:
+        """
+        Grants permission to retrieve details for a connectorV2 based on connector id.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_connector_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_connector_v2)
         """
 
     async def get_enabled_standards(
@@ -714,10 +927,20 @@ class SecurityHubClient(AioBaseClient):
         self, **kwargs: Unpack[GetFindingHistoryRequestTypeDef]
     ) -> GetFindingHistoryResponseTypeDef:
         """
-        Returns history for a Security Hub finding in the last 90 days.
+        Returns the history of a Security Hub finding for the past 90 days.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_history.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_finding_history)
+        """
+
+    async def get_finding_statistics_v2(
+        self, **kwargs: Unpack[GetFindingStatisticsV2RequestTypeDef]
+    ) -> GetFindingStatisticsV2ResponseTypeDef:
+        """
+        Returns aggregated statistical data about findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_finding_statistics_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_finding_statistics_v2)
         """
 
     async def get_findings(
@@ -728,6 +951,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_findings)
+        """
+
+    async def get_findings_v2(
+        self, **kwargs: Unpack[GetFindingsV2RequestTypeDef]
+    ) -> GetFindingsV2ResponseTypeDef:
+        """
+        Return a list of findings that match the specified criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_findings_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_findings_v2)
         """
 
     async def get_insight_results(
@@ -778,6 +1011,27 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_members)
         """
 
+    async def get_resources_statistics_v2(
+        self, **kwargs: Unpack[GetResourcesStatisticsV2RequestTypeDef]
+    ) -> GetResourcesStatisticsV2ResponseTypeDef:
+        """
+        Retrieves statistical information about Amazon Web Services resources and their
+        associated security findings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_statistics_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_resources_statistics_v2)
+        """
+
+    async def get_resources_v2(
+        self, **kwargs: Unpack[GetResourcesV2RequestTypeDef]
+    ) -> GetResourcesV2ResponseTypeDef:
+        """
+        Returns a list of resources.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_resources_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_resources_v2)
+        """
+
     async def get_security_control_definition(
         self, **kwargs: Unpack[GetSecurityControlDefinitionRequestTypeDef]
     ) -> GetSecurityControlDefinitionResponseTypeDef:
@@ -799,6 +1053,16 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#invite_members)
         """
 
+    async def list_aggregators_v2(
+        self, **kwargs: Unpack[ListAggregatorsV2RequestTypeDef]
+    ) -> ListAggregatorsV2ResponseTypeDef:
+        """
+        Retrieves a list of V2 aggregators.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_aggregators_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_aggregators_v2)
+        """
+
     async def list_automation_rules(
         self, **kwargs: Unpack[ListAutomationRulesRequestTypeDef]
     ) -> ListAutomationRulesResponseTypeDef:
@@ -807,6 +1071,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_automation_rules.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_automation_rules)
+        """
+
+    async def list_automation_rules_v2(
+        self, **kwargs: Unpack[ListAutomationRulesV2RequestTypeDef]
+    ) -> ListAutomationRulesV2ResponseTypeDef:
+        """
+        Returns a list of automation rules and metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_automation_rules_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_automation_rules_v2)
         """
 
     async def list_configuration_policies(
@@ -829,6 +1103,17 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_configuration_policy_associations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_configuration_policy_associations)
+        """
+
+    async def list_connectors_v2(
+        self, **kwargs: Unpack[ListConnectorsV2RequestTypeDef]
+    ) -> ListConnectorsV2ResponseTypeDef:
+        """
+        Grants permission to retrieve a list of connectorsV2 and their metadata for the
+        calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_connectors_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#list_connectors_v2)
         """
 
     async def list_enabled_products_for_import(
@@ -965,6 +1250,26 @@ class SecurityHubClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_action_target)
         """
 
+    async def update_aggregator_v2(
+        self, **kwargs: Unpack[UpdateAggregatorV2RequestTypeDef]
+    ) -> UpdateAggregatorV2ResponseTypeDef:
+        """
+        Udpates the configuration for the Aggregator V2.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_aggregator_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_aggregator_v2)
+        """
+
+    async def update_automation_rule_v2(
+        self, **kwargs: Unpack[UpdateAutomationRuleV2RequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates a V2 automation rule.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_automation_rule_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_automation_rule_v2)
+        """
+
     async def update_configuration_policy(
         self, **kwargs: Unpack[UpdateConfigurationPolicyRequestTypeDef]
     ) -> UpdateConfigurationPolicyResponseTypeDef:
@@ -973,6 +1278,16 @@ class SecurityHubClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_configuration_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_configuration_policy)
+        """
+
+    async def update_connector_v2(
+        self, **kwargs: Unpack[UpdateConnectorV2RequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Grants permission to update a connectorV2 based on its id and input parameters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_connector_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#update_connector_v2)
         """
 
     async def update_finding_aggregator(
@@ -1068,6 +1383,17 @@ class SecurityHubClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_products_v2"]
+    ) -> DescribeProductsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_standards_controls"]
     ) -> DescribeStandardsControlsPaginator:
         """
@@ -1123,8 +1449,41 @@ class SecurityHubClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_findings_v2"]
+    ) -> GetFindingsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_insights"]
     ) -> GetInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_resources_v2"]
+    ) -> GetResourcesV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_aggregators_v2"]
+    ) -> ListAggregatorsV2Paginator:
         """
         Create a paginator for an operation.
 

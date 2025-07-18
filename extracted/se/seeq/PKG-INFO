@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: seeq
-Version: 66.29.10.20250716
+Version: 66.30.0.20250717
 Summary: The Seeq SDK for Python
 Home-page: https://www.seeq.com
 Author: Seeq Corporation
@@ -14,7 +14,7 @@ Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
-The **seeq** Python module is used to interface with Seeq Server ([http://www.seeq.com](http://www.seeq.com)).
+The **seeq** Python module is used to interface with Seeq Server API ([https://www.seeq.com](https://www.seeq.com)).
 
 Documentation can be found at
 [https://python-docs.seeq.com](https://python-docs.seeq.com/).
@@ -50,8 +50,9 @@ https://pypi.org/project/seeq/59.0.1.184.25/
 ## When NOT using Seeq Data Lab:
 
 If you are _not_ using **Seeq Data Lab**, you should install the version of the `seeq` module that corresponds
-to the first two numbers in the version of Seeq you are interfacing with. E.g.: `pip install -U seeq~=56.2`. You
-should then upgrade SPy separately via `pip install -U seeq-spy`.
+to the first two numbers in the version of Seeq you are interfacing with. This version can be found at the top
+of the Seeq Server *API Reference* page.
+E.G.: `pip install -U seeq~=65.1`. You should then upgrade SPy separately via `pip install -U seeq-spy`.
 
 # seeq.spy
 

@@ -1,31 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-excel
-Version: 1.7.0
+Version: 1.8.0
 Summary: pytest plugin for generating excel reports
-Home-page: https://github.com/ssrikanta/pytest-excel
-Author: santosh
-Author-email: santosh.srikanta@gmail.com
-License: MIT
-Keywords: py.test pytest excel report
+Project-URL: Homepage, https://github.com/ssrikanta/pytest-excel
+Project-URL: Source, https://github.com/ssrikanta/pytest-excel
+Project-URL: Tracker, https://github.com/ssrikanta/pytest-excel/issues
+Author-email: santosh <santosh.srikanta@gmail.com>
+License-Expression: MIT
+Keywords: excel,pytest,report
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier:  License :: OSI Approved :: MIT License
-Classifier: Operating System :: POSIX
-Classifier: Operating System :: Microsoft :: Windows
+Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Topic :: Software Development :: Testing
-Classifier: Topic :: Software Development :: Quality Assurance
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Utilities
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-License-File: LICENSE
-Requires-Dist: pytest>3.6
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Utilities
+Requires-Python: >=3.11
+Requires-Dist: openpyxl
 Requires-Dist: pandas
+Requires-Dist: pytest
+Description-Content-Type: text/x-rst
 
 pytest-excel
 ================
@@ -38,19 +41,22 @@ to create excel report for test results.
 Requirements
 ------------
 
+
 You will need the following prerequisites in order to use pytest-excel:
 
-- Python 3.9, 3.10, 3.11 and 3.12
-- pytest 
+- Python 3.11 and above
+- pytest
 - pandas
+- openpyxl
 
 
 Installation
 ------------
 
-To install pytest-excel::
 
-    $�pip install pytest-excel
+To install pytest-excel and required dependencies::
+
+    $ pip install pytest-excel openpyxl
 
 Then run your tests with::
 

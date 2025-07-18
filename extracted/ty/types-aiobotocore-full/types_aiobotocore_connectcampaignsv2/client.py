@@ -48,6 +48,8 @@ from .type_defs import (
     GetCampaignStateResponseTypeDef,
     GetConnectInstanceConfigRequestTypeDef,
     GetConnectInstanceConfigResponseTypeDef,
+    GetInstanceCommunicationLimitsRequestTypeDef,
+    GetInstanceCommunicationLimitsResponseTypeDef,
     GetInstanceOnboardingJobStatusRequestTypeDef,
     GetInstanceOnboardingJobStatusResponseTypeDef,
     ListCampaignsRequestTypeDef,
@@ -58,6 +60,7 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     PauseCampaignRequestTypeDef,
     PutConnectInstanceIntegrationRequestTypeDef,
+    PutInstanceCommunicationLimitsRequestTypeDef,
     PutOutboundRequestBatchRequestTypeDef,
     PutOutboundRequestBatchResponseTypeDef,
     PutProfileOutboundRequestBatchRequestTypeDef,
@@ -261,6 +264,16 @@ class ConnectCampaignServiceV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#get_connect_instance_config)
         """
 
+    async def get_instance_communication_limits(
+        self, **kwargs: Unpack[GetInstanceCommunicationLimitsRequestTypeDef]
+    ) -> GetInstanceCommunicationLimitsResponseTypeDef:
+        """
+        Get the instance communication limits.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/get_instance_communication_limits.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#get_instance_communication_limits)
+        """
+
     async def get_instance_onboarding_job_status(
         self, **kwargs: Unpack[GetInstanceOnboardingJobStatusRequestTypeDef]
     ) -> GetInstanceOnboardingJobStatusResponseTypeDef:
@@ -321,6 +334,16 @@ class ConnectCampaignServiceV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/put_connect_instance_integration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#put_connect_instance_integration)
+        """
+
+    async def put_instance_communication_limits(
+        self, **kwargs: Unpack[PutInstanceCommunicationLimitsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Put the instance communication limits.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connectcampaignsv2/client/put_instance_communication_limits.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connectcampaignsv2/client/#put_instance_communication_limits)
         """
 
     async def put_outbound_request_batch(

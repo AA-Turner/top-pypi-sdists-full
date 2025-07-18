@@ -40,7 +40,8 @@ class VLLMApp(App):
     :param subdomain: Custom subdomain for your app.
     :param custom_domain: Custom full domain for your app.
     :param extra_args: Extra args to pass to `vllm serve`. See
-        https://docs.vllm.ai/en/stable/serving/engine_args.html for details.
+        https://docs.vllm.ai/en/stable/serving/engine_args.html
+        or run `vllm serve --help` for details.
     :param model: Artifact URI for model.
         - If `str`, it should start with `flyte://`.
         - Use `ArtifactQuery` to dynamically query an artifact.
@@ -56,7 +57,6 @@ class VLLMApp(App):
     type: str = "vLLM"
     container_image: Optional[Union[str, ImageSpec, PodTemplate]] = None
     extra_args: Union[str, List[str]] = ""
-    # In the future support ArtifactQuery
     model: Union[str, ArtifactQuery] = ""
     model_id: str = ""
     stream_model: bool = True
@@ -92,7 +92,7 @@ class VLLMApp(App):
         elif isinstance(self.model, ArtifactQuery):
             input_type = None
         else:
-            msg = "model must be a string of ArtifactQuery"
+            msg = "model must be a string or ArtifactQuery"
             raise TypeError(msg)
 
         if self.container_image is None:

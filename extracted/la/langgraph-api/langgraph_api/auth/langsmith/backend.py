@@ -1,4 +1,4 @@
-from typing import NotRequired, TypedDict
+from typing import NotRequired
 
 from starlette.authentication import (
     AuthCredentials,
@@ -7,6 +7,7 @@ from starlette.authentication import (
     BaseUser,
 )
 from starlette.requests import HTTPConnection
+from typing_extensions import TypedDict
 
 from langgraph_api.auth.langsmith.client import auth_client
 from langgraph_api.auth.studio_user import StudioUser

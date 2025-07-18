@@ -1,753 +1,466 @@
 """
-Pothole Segmentation use case implementation.
+pothole Monitoring Use Case for Post-Processing
 
-This module provides a structured implementation for pothole segmentation
-with mask and bounding box-based analysis, insights, alerts, and tracking.
+This module provides pothole damage monitoring functionality ,
+zone analysis, and alert generation.
+
 """
 
-from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import asdict
 import time
+from datetime import datetime, timezone
 
-from ..core.base import (
-    BaseProcessor,
-    ProcessingContext,
-    ProcessingResult,
-    ConfigProtocol,
-)
-from ..core.config import BaseConfig, AlertConfig
+from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..utils import (
     filter_by_confidence,
+    filter_by_categories,
     apply_category_mapping,
+    count_objects_by_category,
+    count_objects_in_zones,
     calculate_counting_summary,
     match_results_structure,
     bbox_smoothing,
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
+from dataclasses import dataclass, field
+from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
 
 @dataclass
 class PotholeConfig(BaseConfig):
-    confidence_threshold: float = 0.5
-    pothole_categories: List[str] = field(default_factory=lambda: ["pothole"])
-    alert_config: Optional[AlertConfig] = None
-    time_window_minutes: int = 60
-    enable_unique_counting: bool = True
+    """Configuration for pothole detection use case in pothole monitoring."""
+    # Smoothing configuration
+    enable_smoothing: bool = True
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
 
-    index_to_category: Optional[Dict[int, str]] = field(
-        default_factory=lambda: {0: "pothole"}
+    #confidence thresholds
+    confidence_threshold: float = 0.6
+
+    usecase_categories: List[str] = field(
+        default_factory=lambda: ['pothole']
     )
 
-    # BBox smoothing (optional)
-    enable_smoothing: bool = False
-    smoothing_algorithm: str = "linear"
-    smoothing_window_size: int = 5
-    smoothing_cooldown_frames: int = 10
-    smoothing_confidence_range_factor: float = 0.2
+    target_categories: List[str] = field(
+        default_factory=lambda: ['pothole']
+    )
 
-    # New: mask-based area analysis toggle
-    enable_mask_analysis: bool = True
+    alert_config: Optional[AlertConfig] = None
 
-    def __post_init__(self):
-        if not (0.0 <= self.confidence_threshold <= 1.0):
-            raise ValueError("confidence_threshold must be between 0.0 and 1.0")
+    index_to_category: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {
+           0:"pothole"
 
-        self.pothole_categories = [cat.lower() for cat in self.pothole_categories]
-        if self.index_to_category:
-            self.index_to_category = {k: v.lower() for k, v in self.index_to_category.items()}
+        }
+    )
 
 
 class PotholeSegmentationUseCase(BaseProcessor):
-    def __init__(self):
-        super().__init__("pothole_segmentation")
-        self.category = "infrastructure"
-        self.categories = ["pothole"]
-        self.relevant_categories = ["pothole"]
-
-        # Optional smoothing tracker
-        self.smoothing_tracker = None
-
-        # Optional upstream tracker placeholder (unused here)
-        self.tracker = None
-
-        # --- Tracking counters ---
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-
-        # --- Canonical pothole tracking ---
-        self._total_pothole_track_ids = set()  # All unique canonical pothole track IDs
-        self._current_frame_track_ids = set()  # Current frame's canonical IDs
-
-        # --- Tracking start time (for SINCE reporting) ---
-        self._tracking_start_time = None
-
-        # --- Canonical aliasing to avoid duplicate pothole counts ---
-        self._track_aliases: Dict[Any, Any] = {}
-        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
-
-        # Merge logic thresholds
-        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 = same pothole
-        self._track_merge_time_window: float = 7.0  # Merge if within 7 seconds
-
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get configuration schema for pothole segmentation."""
-        return {
-            "type": "object",
-            "properties": {
-                "confidence_threshold": {
-                    "type": "number",
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "default": 0.5,
-                    "description": "Minimum confidence threshold for detections",
-                },
-                "pothole_categories": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "default": ["pothole"],
-                    "description": "Category names that represent potholes",
-                },
-                "index_to_category": {
-                    "type": "object",
-                    "additionalProperties": {"type": "string"},
-                    "description": "Mapping from category indices to names",
-                },
-                "alert_config": {
-                    "type": "object",
-                    "properties": {
-                        "count_thresholds": {
-                            "type": "object",
-                            "additionalProperties": {"type": "integer", "minimum": 1},
-                            "description": "Count thresholds for alerts",
-                        }
-                    },
-                },
-            },
-            "required": ["confidence_threshold"],
-            "additionalProperties": False,
-        }
-
-    def create_default_config(self, **overrides) -> PotholeConfig:
-        """Create default configuration with optional overrides."""
-        defaults = {
-            "category": self.category,
-            "usecase": self.name,
-            "confidence_threshold": 0.5,
-            "pothole_categories": ["pothole"],
-        }
-        defaults.update(overrides)
-        return PotholeConfig(**defaults)
-
-    def _update_tracking_state(self, detections: List[Dict[str, Any]]) -> None:
+    def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
         """
-        Track unique pothole track_ids for cumulative and per-frame counts.
-        Applies canonical ID merging to avoid duplicate counting when the tracker
-        temporarily loses an object and assigns a new ID.
+        Get detailed information about track IDs (per frame).
         """
-        self._current_frame_track_ids = set()
-
-        for det in detections:
-            cat = det.get("category", "").lower()
-            raw_track_id = det.get("track_id")
-            if cat not in self.categories or raw_track_id is None:
-                continue
-
-            bbox = det.get("bounding_box", det.get("bbox"))
-            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
-            det["track_id"] = canonical_id  # Propagate canonical ID downstream
-
-            self._total_pothole_track_ids.add(canonical_id)
-            self._current_frame_track_ids.add(canonical_id)
-
-    def get_total_pothole_count(self) -> int:
-        """
-        Return the total number of unique potholes detected so far
-        (based on unique track_ids).
-        """
-        return len(self._total_pothole_track_ids)
-
-    def _get_track_ids_info(self, detections: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Extract per-frame and cumulative track ID stats for potholes.
-        Mirrors the license plate implementation exactly.
-        """
+        # Collect all track_ids in this frame
         frame_track_ids = set()
         for det in detections:
-            tid = det.get("track_id")
+            tid = det.get('track_id')
             if tid is not None:
                 frame_track_ids.add(tid)
-
-        # Update total unique pothole track IDs
-        self._total_pothole_track_ids.update(frame_track_ids)
-
+        # Use persistent total set for unique counting
+        total_track_ids = set()
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
+            total_track_ids.update(s)
         return {
-            "frame_track_ids": list(frame_track_ids),  #  JSON-serializable
-            "total_unique_track_ids": list(self._total_pothole_track_ids),
-            "frame_track_ids_count": len(frame_track_ids),
-            "total_unique_count": len(self._total_pothole_track_ids),
+            "total_count": len(total_track_ids),
+            "current_frame_count": len(frame_track_ids),
+            "total_unique_track_ids": len(total_track_ids),
+            "current_frame_track_ids": list(frame_track_ids),
+            "last_update_time": time.time(),
+            "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
+
+
+
+
+
+    def _update_tracking_state(self, detections: list):
+        """
+        Track unique categories track_ids per category for total count after tracking.
+        Applies canonical ID merging to avoid duplicate counting when the underlying
+        tracker loses an object temporarily and assigns a new ID.
+        """
+        # Lazily initialise storage dicts
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
+
+        for det in detections:
+            cat = det.get("category")
+            raw_track_id = det.get("track_id")
+            if cat not in self.target_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            # Propagate canonical ID back to detection so downstream logic uses it
+            det["track_id"] = canonical_id
+
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
+
+    def get_total_counts(self):
+        """
+        Return total unique track_id count for each category.
+        """
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
+
+    def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
+        hours = int(timestamp // 3600)
+        minutes = int((timestamp % 3600) // 60)
+        seconds = timestamp % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _extract_frame_number(self, stream_info: Optional[Dict[str, Any]]) -> Optional[int]:
-        """
-        Extract frame number from stream_info if available.
-        Tries both modern 'frame_number' and fallback to input_settings → start_frame.
-        """
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
         if not stream_info:
-            return None
+            return "00:00:00.00"
 
-        # First try direct frame_number (preferred)
-        if "frame_number" in stream_info:
-            return stream_info["frame_number"]
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
 
-        # Fallback: use start_frame if start == end (used in some input sources)
-        input_settings = stream_info.get("input_settings", {})
-        start_frame = input_settings.get("start_frame")
-        end_frame = input_settings.get("end_frame")
+        # if is_video_chunk:
+        #     # For video chunks, use video_timestamp from stream_info
+        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
+        #     return self._format_timestamp_for_video(video_timestamp)
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, return video timestamp
+            stream_time_str = stream_info.get("video_timestamp", "")
+            return stream_time_str[:8]
+        else:
+            # For streams, use stream_time from stream_info
+            stream_time_str = stream_info.get("stream_time", "")
+            if stream_time_str:
+                # Parse the high precision timestamp string to get timestamp
+                try:
+                    # Remove " UTC" suffix and parse
+                    timestamp_str = stream_time_str.replace(" UTC", "")
+                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
+                    return self._format_timestamp_for_stream(timestamp)
+                except:
+                    # Fallback to current time if parsing fails
+                    return self._format_timestamp_for_stream(time.time())
+            else:
+                return self._format_timestamp_for_stream(time.time())
 
-        if start_frame is not None and end_frame is not None and start_frame == end_frame:
-            return start_frame
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        if not stream_info:
+            return "00:00:00"
 
-        return None
+        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
 
-    def process(
-            self,
-            data: Any,
-            config: ConfigProtocol,
-            context: Optional[ProcessingContext] = None,
-            stream_info: Optional[Dict[str, Any]] = None
-    ) -> ProcessingResult:
-        """
-        Process pothole segmentation use case with tracking, smoothing, summary generation,
-        insights, and human-readable reporting.
-        """
-        start_time = time.time()
+        if is_video_chunk:
+            # For video chunks, start from 00:00:00
+            return "00:00:00"
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            # If video format, start from 00:00:00
+            return "00:00:00"
+        else:
+            # For streams, use tracking start time or current time with minutes/seconds reset
+            if self._tracking_start_time is None:
+                # Try to extract timestamp from stream_time string
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        # Remove " UTC" suffix and parse
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except:
+                        # Fallback to current time if parsing fails
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
 
-        try:
-            # Step 0: Validate config
-            if not isinstance(config, PotholeConfig):
-                return self.create_error_result(
-                    "Invalid configuration type for pothole segmentation",
-                    usecase=self.name,
-                    category=self.category,
-                    context=context,
-                )
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
+            dt = dt.replace(minute=0, second=0, microsecond=0)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-            # Step 1: Init context
-            if context is None:
-                context = ProcessingContext()
-            input_format = match_results_structure(data)
-            context.input_format = input_format
-            context.confidence_threshold = config.confidence_threshold
-            self.logger.info(f"Processing pothole segmentation with format: {input_format.value}")
+    """ Monitoring use case with smoothing and alerting."""
 
-            # Step 2: Preprocessing
-            processed_data = self._preprocess_data(data, config)
+    def __init__(self):
+        super().__init__("pothole_segmentation")
+        self.category = "infrastructure"
 
-            # Normalize category strings (e.g., "0" → "pothole")
-            for det in processed_data:
-                cat = det.get("category")
-                if isinstance(cat, str) and cat.isdigit():
-                    det["category"] = config.index_to_category.get(int(cat), cat)
-
-            # Step 3: Filter to pothole category only
-            processed_data = [
-                d for d in processed_data
-                if d.get("category", "").lower() in self.categories
-            ]
-
-            # Step 4: BBox smoothing (optional)
-            if config.enable_smoothing:
-                processed_data = self._apply_bbox_smoothing(processed_data, config)
-
-            # Step 5: Apply advanced tracker if available
-            try:
-                from ..advanced_tracker import AdvancedTracker
-                from ..advanced_tracker.config import TrackerConfig
-
-                if self.tracker is None:
-                    tracker_config = TrackerConfig()
-                    self.tracker = AdvancedTracker(tracker_config)
-                    self.logger.info("Initialized AdvancedTracker for pothole tracking")
-
-                processed_data = self.tracker.update(processed_data)
-
-            except Exception as e:
-                self.logger.warning(f"AdvancedTracker failed: {e}")
-
-            # Step 6: Internal tracking state update
-            self._update_tracking_state(processed_data)
-
-            # Step 7: Frame tracking and counters
-            frame_number = self._extract_frame_number(stream_info)
-
-            if frame_number is None:
-                frame_number = self._total_frame_counter
-                self._total_frame_counter += 1
-
-            # Step 8: Summary and counts
-            pothole_summary = self._calculate_pothole_summary(processed_data, config)
-            general_summary = calculate_counting_summary(processed_data)
-            pothole_summary["total_pothole_count"] = self.get_total_pothole_count()
-
-            # Step 9: Insights and alerts
-            insights = self._generate_insights(pothole_summary, config)
-            alerts = self._check_alerts(pothole_summary, config)
-            metrics = self._calculate_metrics(pothole_summary, config, context)
-            model_metadata = self._generate_model_metadata(config)
-            stream_info.get("input_settings", {})["model_metadata"] = model_metadata
-            
-            predictions = self._extract_predictions(processed_data, config)
-            summary_text = self._generate_summary(pothole_summary, general_summary, alerts)
-
-            # Step 10: Events and tracking stats
-            events_dict = self._generate_events(pothole_summary, alerts, config, frame_number)
-            tracking_stats_dict = self._generate_tracking_stats(
-                pothole_summary, insights, summary_text, config, frame_number, stream_info
-            )
-
-            # Final result
-            context.processing_time = time.time() - start_time
-            context.mark_completed()
-
-            result = self.create_result(
-                data={
-                    "pothole_summary": pothole_summary,
-                    "general_counting_summary": general_summary,
-                    "alerts": alerts,
-                    "total_pothole_detections": pothole_summary.get("total_objects", 0),
-                    "events": events_dict,
-                    "tracking_stats": tracking_stats_dict,
-                },
-                usecase=self.name,
-                category=self.category,
-                context=context,
-            )
+        # List of  categories to track
+        self.target_categories = ["pothole"]
 
 
-            result.summary = summary_text
-            result.insights = insights
-            result.predictions = predictions
-            result.metrics = metrics
-            
 
-            return result
+        # Initialize smoothing tracker
+        self.smoothing_tracker = None
 
-        except Exception as e:
-            self.logger.error(f"Error in pothole segmentation processing: {str(e)}")
-            return self.create_error_result(
-                f"Pothole segmentation processing failed: {str(e)}",
-                error_type="PotholeProcessingError",
-                usecase=self.name,
-                category=self.category,
-                context=context,
-            )
+        # Initialize advanced tracker (will be created on first use)
+        self.tracker = None
 
-    def _preprocess_data(self, data: Any, config: PotholeConfig) -> List[Dict[str, Any]]:
-        """
-        Apply confidence filtering and category mapping to raw detections.
-        """
-        processed_data = data
-
-        if config.confidence_threshold is not None:
-            processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering: threshold = {config.confidence_threshold}")
-
-        if config.index_to_category:
-            processed_data = apply_category_mapping(processed_data, config.index_to_category)
-            self.logger.debug("Applied index-to-category mapping")
-
-        return processed_data
-
-    def _generate_model_metadata(self, config) -> dict:
-        """
-        Generate model metadata to be included in the processing result.
-
-        Returns:
-            A list of key-value pairs representing model metadata, such as:
-            - index_to_category mapping from config
-            - categories/classes used for detection
-        """
-        model_metadata = {"index_to_category":config.index_to_category,"target_classes": self.relevant_categories }
-        return model_metadata
-
-    def _apply_bbox_smoothing(self, data: List[Dict[str, Any]], config: PotholeConfig) -> List[Dict[str, Any]]:
-        """
-        Apply bounding box smoothing to pothole detections.
-        """
-        if self.smoothing_tracker is None:
-            smoothing_config = BBoxSmoothingConfig(
-                smoothing_algorithm=config.smoothing_algorithm,
-                window_size=config.smoothing_window_size,
-                cooldown_frames=config.smoothing_cooldown_frames,
-                confidence_threshold=config.confidence_threshold,
-                confidence_range_factor=config.smoothing_confidence_range_factor,
-                enable_smoothing=True
-            )
-            self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-
-        pothole_detections = [d for d in data if d.get("category", "").lower() == "pothole"]
-        non_pothole_detections = [d for d in data if d.get("category", "").lower() != "pothole"]
-
-        smoothed_detections = bbox_smoothing(
-            pothole_detections,
-            self.smoothing_tracker.config,
-            self.smoothing_tracker
-        )
-
-        self.logger.debug("Applied bbox smoothing to pothole detections")
-        return non_pothole_detections + smoothed_detections
-
-    def reset_tracker(self) -> None:
-        """
-        Reset the advanced tracker instance.
-        """
-        if self.tracker is not None:
-            self.tracker.reset()
-            self.logger.info("AdvancedTracker reset for new pothole session")
-
-    def reset_tracking_state(self) -> None:
-        """
-        Reset pothole tracking state (total counts, track IDs, etc.).
-        """
-        self._total_pothole_track_ids = set()
+        # Initialize tracking state variables
         self._total_frame_counter = 0
         self._global_frame_offset = 0
+
+        # Track start time for "TOTAL SINCE" calculation
         self._tracking_start_time = None
-        self._track_aliases.clear()
-        self._canonical_tracks.clear()
-        self.logger.info("Pothole tracking state reset")
 
-    def reset_all_tracking(self) -> None:
+        # ------------------------------------------------------------------ #
+        # Canonical tracking aliasing to avoid duplicate counts              #
+        # ------------------------------------------------------------------ #
+        # Maps raw tracker-generated IDs to stable canonical IDs that persist
+        # even if the underlying tracker re-assigns a new ID after a short
+        # interruption. This mirrors the logic used in people_counting to
+        # provide accurate unique counting.
+        self._track_aliases: Dict[Any, Any] = {}
+        self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
+        # Tunable parameters – adjust if necessary for specific scenarios
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
+        self._track_merge_time_window: float = 7.0  # seconds within which to merge
+
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
-        Reset both advanced tracker and internal tracking state.
+        Main entry point for  post-processing.
+        Applies category mapping, smoothing, counting, alerting, and summary generation.
+        Returns a ProcessingResult with all relevant outputs.
         """
-        self.reset_tracker()
-        self.reset_tracking_state()
-        self.logger.info("All pothole tracking state reset")
+        start_time = time.time()
+        # Ensure config is correct type
+        if not isinstance(config, PotholeConfig):
+            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category,
+                                            context=context)
+        if context is None:
+            context = ProcessingContext()
 
-    def _calculate_pothole_summary(self, data: List[Dict[str, Any]], config: PotholeConfig) -> Dict[str, Any]:
-        """
-        Calculate summary statistics for pothole detections, including per-category
-        counts, total objects, and unique pothole count using internal tracking.
-        """
-        summary = {
-            "total_objects": 0,
-            "by_category": {},
-            "detections": [],
-            "total_pothole_count": 0,
-        }
+        # Detect input format and store in context
+        input_format = match_results_structure(data)
+        context.input_format = input_format
+        context.confidence_threshold = config.confidence_threshold
 
-        if not isinstance(data, list):
-            return summary
-
-        valid_category = "pothole"
-        detections = [
-            det for det in data
-            if det.get("category", "").lower() == valid_category
-        ]
-
-        summary["total_objects"] = len(detections)
-        summary["by_category"] = {valid_category: len(detections)}
-        summary["detections"] = detections
-        summary["total_pothole_count"] = self.get_total_pothole_count()
-
-        return summary
-
-    def _generate_insights(self, summary: Dict[str, Any], config: PotholeConfig) -> List[str]:
-        """
-        Generate high-level insights for pothole detection.
-        """
-        insights = []
-
-        total = summary.get("total_objects", 0)
-        detections = summary.get("detections", [])
-
-        if total == 0:
-            insights.append("EVENT: No potholes detected in the scene")
+        if config.confidence_threshold is not None:
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
-            insights.append(f"EVENT: {total} pothole{'s' if total != 1 else ''} detected")
+            processed_data = data
+            self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
 
-            # Calculate area covered using bounding boxes
-            total_area = 0.0
-            for det in detections:
-                bbox = det.get("bounding_box") or det.get("bbox")
-                if bbox:
-                    xmin = bbox.get("xmin")
-                    ymin = bbox.get("ymin")
-                    xmax = bbox.get("xmax")
-                    ymax = bbox.get("ymax")
-                    if None not in (xmin, ymin, xmax, ymax):
-                        width = xmax - xmin
-                        height = ymax - ymin
-                        if width > 0 and height > 0:
-                            total_area += width * height
+        # Step 2: Apply category mapping if provided
+        if config.index_to_category:
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+            self.logger.debug("Applied category mapping")
 
-            threshold_area = 10000.0  # Same base threshold as fire/smoke
-            intensity_pct = min(100.0, (total_area / threshold_area) * 100)
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug(f"Applied  category filtering")
 
-            if intensity_pct < 20:
-                insights.append(f"SEVERITY: Low pothole spread ({intensity_pct:.1f}% area)")
-            elif intensity_pct <= 50:
-                insights.append(f"SEVERITY: Moderate pothole spread ({intensity_pct:.1f}% area)")
-            elif intensity_pct <= 80:
-                insights.append(f"SEVERITY: High pothole spread ({intensity_pct:.1f}% area)")
-            else:
-                insights.append(f"SEVERITY: Severe pothole damage — critical zone ({intensity_pct:.1f}% area)")
+        # Apply bbox smoothing if enabled
+        if config.enable_smoothing:
+            if self.smoothing_tracker is None:
+                smoothing_config = BBoxSmoothingConfig(
+                    smoothing_algorithm=config.smoothing_algorithm,
+                    window_size=config.smoothing_window_size,
+                    cooldown_frames=config.smoothing_cooldown_frames,
+                    confidence_threshold=config.confidence_threshold,  # Use  threshold as default
+                    confidence_range_factor=config.smoothing_confidence_range_factor,
+                    enable_smoothing=True
+                )
+                self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
-        return insights
 
-    def _check_alerts(self, summary: Dict[str, Any], config: PotholeConfig) -> List[Dict[str, Any]]:
-        """
-        Raise alerts if potholes detected with severity based on area spread.
-        """
-        alerts = []
-
-        total = summary.get("total_objects", 0)
-        detections = summary.get("detections", [])
-
-        if total == 0:
-            return []
-
-        # Calculate total bbox area
-        total_area = 0.0
-        for det in detections:
-            bbox = det.get("bounding_box") or det.get("bbox")
-            if bbox:
-                xmin = bbox.get("xmin")
-                ymin = bbox.get("ymin")
-                xmax = bbox.get("xmax")
-                ymax = bbox.get("ymax")
-                if None not in (xmin, ymin, xmax, ymax):
-                    width = xmax - xmin
-                    height = ymax - ymin
-                    if width > 0 and height > 0:
-                        total_area += width * height
-
-        threshold_area = 10000.0
-        intensity_pct = min(100.0, (total_area / threshold_area) * 100)
-
-        # Severity levels (same as fire/smoke)
-        if intensity_pct > 80:
-            severity = "critical"
-        elif intensity_pct > 50:
-            severity = "warning"
-        else:
-            severity = "info"
-
-        alert = {
-            "type": "pothole_alert",
-            "message": f"{total} pothole detection{'s' if total != 1 else ''} with area coverage {intensity_pct:.1f}%",
-            "severity": severity,
-            "detected_potholes": total,
-        }
-
-        alerts.append(alert)
-        return alerts
-
-    def _calculate_metrics(
-            self,
-            summary: Dict[str, Any],
-            config: PotholeConfig,
-            context: ProcessingContext
-    ) -> Dict[str, Any]:
-        """
-        Calculate detailed metrics for pothole detection analytics.
-        """
-        total = summary.get("total_objects", 0)
-        detections = summary.get("detections", [])
-
-        metrics = {
-            "total_detections": total,
-            "processing_time": context.processing_time or 0.0,
-            "confidence_threshold": config.confidence_threshold,
-            "intensity_percentage": 0.0,
-            "damage_level": "unknown",
-        }
-
-        # Total area calculation (using bbox)
-        total_area = 0.0
-        for det in detections:
-            bbox = det.get("bounding_box") or det.get("bbox")
-            if bbox:
-                xmin = bbox.get("xmin")
-                ymin = bbox.get("ymin")
-                xmax = bbox.get("xmax")
-                ymax = bbox.get("ymax")
-                if None not in (xmin, ymin, xmax, ymax):
-                    width = xmax - xmin
-                    height = ymax - ymin
-                    if width > 0 and height > 0:
-                        total_area += width * height
-
-        threshold_area = 10000.0
-        intensity_pct = min(100.0, (total_area / threshold_area) * 100)
-        metrics["intensity_percentage"] = intensity_pct
-
-        # Label based on thresholds
-        if intensity_pct < 20:
-            metrics["damage_level"] = "low"
-        elif intensity_pct < 50:
-            metrics["damage_level"] = "moderate"
-        elif intensity_pct < 80:
-            metrics["damage_level"] = "high"
-        else:
-            metrics["damage_level"] = "critical"
-
-        return metrics
-
-    def _extract_predictions(self, data: Any, config: PotholeConfig) -> List[Dict[str, Any]]:
-        """
-        Extract predictions from processed data including masks for segmentation.
-        """
-        predictions = []
-
+        # Advanced tracking (BYTETracker-like)
         try:
-            if isinstance(data, list):
-                for item in data:
-                    if isinstance(item, dict):
-                        prediction = {
-                            "category": item.get("category", item.get("class", "unknown")),
-                            "confidence": item.get("confidence", item.get("score", 0.0)),
-                            "bounding_box": item.get("bounding_box", item.get("bbox", {})),
-                            "mask": item.get("mask", item.get("masks", None))  # Accept either key
-                        }
-                        predictions.append(prediction)
+            from ..advanced_tracker import AdvancedTracker
+            from ..advanced_tracker.config import TrackerConfig
+
+            # Create tracker instance if it doesn't exist (preserves state across frames)
+            if self.tracker is None:
+                tracker_config = TrackerConfig()
+                self.tracker = AdvancedTracker(tracker_config)
+                self.logger.info("Initialized AdvancedTracker for  Monitoring and tracking")
+
+            # The tracker expects the data in the same format as input
+            # It will add track_id and frame_id to each detection
+            processed_data = self.tracker.update(processed_data)
+
         except Exception as e:
-            self.logger.warning(f"Failed to extract predictions: {str(e)}")
+            # If advanced tracker fails, fallback to unsmoothed detections
+            self.logger.warning(f"AdvancedTracker failed: {e}")
 
-        return predictions
 
-    def _generate_summary(
-            self, summary: Dict, general_summary: Dict, alerts: List
-    ) -> str:
-        """
-        Generate human-readable summary for pothole detection,
-        including total unique pothole count tracked so far.
-        """
-        total = summary.get("total_objects", 0)
-        unique_total = summary.get("total_pothole_count", 0)
 
-        if unique_total == 0:
-            return "No pothole alert raised so far"
 
-        summary_parts = []
+        # Update  tracking state for total count per label
+        self._update_tracking_state(processed_data)
 
-        if total > 0:
-            summary_parts.append(
-                f"{total} pothole{'s' if total != 1 else ''} detected in current frame"
-            )
+        # Update frame counter
+        self._total_frame_counter += 1
 
-        summary_parts.append(
-            f"Total unique pothole{'s' if unique_total != 1 else ''} detected so far: {unique_total}"
+        # Extract frame information from stream_info
+        frame_number = None
+        if stream_info:
+            input_settings = stream_info.get("input_settings", {})
+            start_frame = input_settings.get("start_frame")
+            end_frame = input_settings.get("end_frame")
+            # If start and end frame are the same, it's a single frame
+            if start_frame is not None and end_frame is not None and start_frame == end_frame:
+                frame_number = start_frame
+
+        # Compute summaries and alerts
+        general_counting_summary = calculate_counting_summary(data) #done
+        counting_summary = self._count_categories(processed_data, config) #done
+        # Add total unique  counts after tracking using only local state
+        total_counts = self.get_total_counts() #done
+        counting_summary['total_counts'] = total_counts #done
+        insights = self._generate_insights(counting_summary, config)#done
+        alerts = self._check_alerts(counting_summary, config)#done
+        predictions = self._extract_predictions(processed_data)#done
+        summary = self._generate_summary(counting_summary, alerts)#done
+
+        # Step: Generate structured events and tracking stats with frame-based keys
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)#done
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,
+                                                            stream_info)
+
+        # Extract frame-based dictionaries from the lists
+        events = events_list[0] if events_list else {}
+        tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+
+        context.mark_completed()
+
+        # Build result object
+        result = self.create_result(
+            data={
+                "counting_summary": counting_summary,
+                "general_counting_summary": general_counting_summary,
+                "alerts": alerts,
+                "total_detections": counting_summary.get("total_count", 0),
+                "events": events,
+                "tracking_stats": tracking_stats,
+            },
+            usecase=self.name,
+            category=self.category,
+            context=context
         )
+        result.summary = summary
+        result.insights = insights
+        result.predictions = predictions
+        return result
 
-        if alerts:
-            alert_count = len(alerts)
-            summary_parts.append(
-                f"{alert_count} alert{'s' if alert_count != 1 else ''}"
-            )
 
-        return ", ".join(summary_parts)
 
-    def _generate_events(
-            self,
-            summary: Dict,
-            alerts: List[Dict],
-            config: PotholeConfig,
-            frame_number: Optional[int] = None
-    ) -> List[Dict[str, List[Dict[str, Any]]]]:
-        """
-        Generate structured events for pothole detection output with frame-aware keys,
-        including unique pothole count via tracking.
-        """
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: PotholeConfig,
+                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
+        Dict]:
+        """Generate structured events for the output format with frame-based keys."""
         from datetime import datetime, timezone
 
+        # Use frame number as key, fallback to 'current_frame' if not available
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        events = {frame_key: []}
-        frame_events = events[frame_key]
+        events = [{frame_key: []}]
+        frame_events = events[0][frame_key]
+        total_detections = counting_summary.get("total_count", 0)
 
-        total = summary.get("total_objects", 0)
-        unique_total = summary.get("total_pothole_count", 0)
-        detections = summary.get("detections", [])
+        if total_detections > 0:
+            # Determine event level based on thresholds
+            level = "info"
+            intensity = 5.0
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                intensity = min(10.0, (total_detections / threshold) * 10)
 
-        if total > 0:
-            # Total area via bbox
-            total_area = 0.0
-            for det in detections:
-                bbox = det.get("bounding_box") or det.get("bbox")
-                if bbox:
-                    xmin = bbox.get("xmin")
-                    ymin = bbox.get("ymin")
-                    xmax = bbox.get("xmax")
-                    ymax = bbox.get("ymax")
-                    if None not in (xmin, ymin, xmax, ymax):
-                        width = xmax - xmin
-                        height = ymax - ymin
-                        if width > 0 and height > 0:
-                            total_area += width * height
-
-            threshold_area = 10000.0
-            intensity = min(10.0, (total_area / threshold_area) * 10)
-
-            if intensity >= 7:
-                level = "critical"
-            elif intensity >= 5:
-                level = "warning"
+                if intensity >= 7:
+                    level = "critical"
+                elif intensity >= 5:
+                    level = "warning"
+                else:
+                    level = "info"
             else:
-                level = "info"
+                if total_detections > 25:
+                    level = "critical"
+                    intensity = 9.0
+                elif total_detections > 15:
+                    level = "warning"
+                    intensity = 7.0
+                else:
+                    level = "info"
+                    intensity = min(10.0, total_detections / 3.0)
 
-            human_lines = [
-                f"    - {total} pothole{'s' if total != 1 else ''} detected in current frame",
-                f"    - Total unique potholes detected so far: {unique_total}",
-                f"    - Intensity level: {intensity:.1f} ({level})"
-            ]
+            # Generate human text in new format
+            human_text_lines = ["EVENTS DETECTED:"]
+            human_text_lines.append(f"    - {total_detections}  detected [INFO]")
+            human_text = "\n".join(human_text_lines)
 
-            pothole_event = {
-                "type": "pothole_detection",
+            event = {
+                "type": "pothole_segmentation",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": level,
                 "intensity": round(intensity, 1),
                 "config": {
                     "min_value": 0,
                     "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7},
+                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Pothole Detection System",
-                "application_version": "1.0",
+                "application_name": "pothole detection System",
+                "application_version": "1.2",
                 "location_info": None,
-                "human_text": "\n".join(human_lines),
+                "human_text": human_text
             }
-            frame_events.append(pothole_event)
+            frame_events.append(event)
 
-        # Add alerts (if any)
+        # Add alert events
         for alert in alerts:
-            alert_lines = [
-                "    - pothole detected",
-                f"    - Total unique potholes detected so far: {unique_total}",
-                f"    - Alert type: {alert.get('type', 'pothole_alert')}"
-            ]
+            total_detections = counting_summary.get("total_count", 0)
+            intensity_message = "ALERT: Low congestion in the scene"
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
+                if percentage < 20:
+                    intensity_message = "ALERT: Low congestion in the scene"
+                elif percentage <= 50:
+                    intensity_message = "ALERT: Moderate congestion in the scene"
+                elif percentage <= 70:
+                    intensity_message = "ALERT: Heavy congestion in the scene"
+                else:
+                    intensity_message = "ALERT: Severe congestion in the scene"
+            else:
+                if total_detections > 15:
+                    intensity_message = "ALERT: Heavy congestion in the scene"
+                elif total_detections == 1:
+                    intensity_message = "ALERT: Low congestion in the scene"
+                else:
+                    intensity_message = "ALERT: Moderate congestion in the scene"
 
             alert_event = {
-                "type": alert.get("type", "pothole_alert"),
+                "type": alert.get("type", "congestion_alert"),
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": alert.get("severity", "warning"),
                 "intensity": 8.0,
                 "config": {
                     "min_value": 0,
                     "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7},
+                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Pothole Alert System",
-                "application_version": "1.0",
-                "location_info": None,
-                "human_text": "\n".join(alert_lines),
+                "application_name": "Congestion Alert System",
+                "application_version": "1.2",
+                "location_info": alert.get("zone"),
+                "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
             }
             frame_events.append(alert_event)
 
@@ -755,149 +468,218 @@ class PotholeSegmentationUseCase(BaseProcessor):
 
     def _generate_tracking_stats(
             self,
-            summary: Dict,
+            counting_summary: Dict,
             insights: List[str],
-            summary_text: str,
+            summary: str,
             config: PotholeConfig,
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Generate structured tracking stats with frame-based keys, mirroring the license plate use case.
-        Includes per-frame and cumulative unique pothole counts.
-        """
-        from datetime import datetime, timezone
+    ) -> List[Dict]:
+        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
 
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = {frame_key: []}
-        frame_tracking_stats = tracking_stats[frame_key]
+        tracking_stats = [{frame_key: []}]
+        frame_tracking_stats = tracking_stats[0][frame_key]
 
-        detections = summary.get("detections", [])
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts = counting_summary.get("total_counts", {})
+        cumulative_total = sum(total_counts.values()) if total_counts else 0
+        per_category_count = counting_summary.get("per_category_count", {})
 
-        # Extract track IDs for current frame
-        track_ids = [d.get("track_id") for d in detections if d.get("track_id") is not None]
-        unique_ids_this_frame = set(track_ids)
+        track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
 
-        # Initialize and update global unique pothole ID tracker
-        if not hasattr(self, "_unique_ids_seen"):
-            self._unique_ids_seen = set()
-        self._unique_ids_seen.update(unique_ids_this_frame)
-
-        per_frame_count = len(unique_ids_this_frame)
-        total_unique = len(self._unique_ids_seen)
-
-        # Track ID details
-        track_ids_info = {
-            "frame_track_ids": list(unique_ids_this_frame),
-            "total_unique_track_ids": list(self._unique_ids_seen),
-            "frame_track_ids_count": per_frame_count,
-            "total_unique_count": total_unique,
-        }
-
-        # Get formatted timestamps
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
-        # Build human-readable summary
         human_text_lines = []
 
+        # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if per_frame_count > 0:
-            human_text_lines.append(f"\t- Potholes Detected: {per_frame_count}")
+        if total_detections > 0:
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
+            if len(category_counts) == 1:
+                detection_text = category_counts[0] + " detected"
+            elif len(category_counts) == 2:
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
+            else:
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
         else:
-            human_text_lines.append("\t- No potholes detected")
+            human_text_lines.append(f"\t- No detections")
 
         human_text_lines.append("")  # spacing
 
+        # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        if total_unique > 0:
-            human_text_lines.append(f"\t- Total Unique Potholes Detected: {total_unique}")
-        else:
-            human_text_lines.append(f"\t- No pothole alert raised so far")
+        human_text_lines.append(f"\t- Total  Detected: {cumulative_total}")
+        # Add category-wise counts
+        if total_counts:
+            for cat, count in total_counts.items():
+                if count > 0:  # Only include categories with non-zero counts
+                    human_text_lines.append(f"\t- {cat}: {count}")
 
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "pothole_tracking",
+            "type": "pothole_segmentation",
             "category": "infrastructure",
-            "count": per_frame_count,
+            "count": total_detections,
             "insights": insights,
-            "summary": summary_text,
+            "summary": summary,
             "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
             "human_text": human_text,
             "track_ids_info": track_ids_info,
-            "global_frame_offset": getattr(self, "_global_frame_offset", 0),
-            "local_frame_id": frame_key,
+            "global_frame_offset": getattr(self, '_global_frame_offset', 0),
+            "local_frame_id": frame_key
         }
 
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
-    def _count_unique_tracks(self, summary: Dict) -> Optional[int]:
-        """Count unique track IDs from detections, if tracking info exists."""
-        detections = summary.get("detections", [])
-        if not detections:
-            return None
+    def _count_categories(self, detections: list, config: PotholeConfig) -> dict:
+        """
+        Count the number of detections per category and return a summary dict.
+        The detections list is expected to have 'track_id' (from tracker), 'category', 'bounding_box', etc.
+        Output structure will include 'track_id' for each detection as per AdvancedTracker output.
+        """
+        counts = {}
+        for det in detections:
+            cat = det.get('category', 'unknown')
+            counts[cat] = counts.get(cat, 0) + 1
+        # Each detection dict will now include 'track_id' (and possibly 'frame_id')
+        return {
+            "total_count": sum(counts.values()),
+            "per_category_count": counts,
+            "detections": [
+                {
+                    "bounding_box": det.get("bounding_box"),
+                    "category": det.get("category"),
+                    "confidence": det.get("confidence"),
+                    "track_id": det.get("track_id"),
+                    "frame_id": det.get("frame_id")
+                }
+                for det in detections
+            ]
+        }
 
-        unique_tracks = set()
-        for detection in detections:
-            track_id = detection.get("track_id")
-            if track_id is not None:
-                unique_tracks.add(track_id)
+    # Human-friendly display names for  categories
+    CATEGORY_DISPLAY = {
+        "pothole": "pothole"
+    }
 
-        return len(unique_tracks) if unique_tracks else None
+    def _generate_insights(self, summary: dict, config: PotholeConfig) -> List[str]:
+        """
+        Generate human-readable insights for each category.
+        """
+        insights = []
+        per_cat = summary.get("per_category_count", {})
+        total_detections = summary.get("total_count", 0)
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted current timestamp based on stream type."""
-        if not stream_info:
-            return "00:00:00.00"
+        if total_detections == 0:
+            insights.append("No detections in the scene")
+            return insights
+        insights.append(f"EVENT: Detected {total_detections}  in the scene")
+        # Intensity calculation based on threshold percentage
+        intensity_threshold = None
+        if (config.alert_config and
+                config.alert_config.count_thresholds and
+                "all" in config.alert_config.count_thresholds):
+            intensity_threshold = config.alert_config.count_thresholds["all"]
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            return stream_info.get("video_timestamp", "")[:8]
+        if intensity_threshold is not None:
+            # Calculate percentage relative to threshold
+            percentage = (total_detections / intensity_threshold) * 100
+
+            if percentage < 20:
+                insights.append(f"INTENSITY: Low congestion in the scene ({percentage:.1f}% of capacity)")
+            elif percentage <= 50:
+                insights.append(f"INTENSITY: Moderate congestion in the scene ({percentage:.1f}% of capacity)")
+            elif percentage <= 70:
+                insights.append(f"INTENSITY:  Heavy congestion in the scene ({percentage:.1f}% of capacity)")
+            else:
+                insights.append(f"INTENSITY: Severe congestion in the scene ({percentage:.1f}% of capacity)")
+
+
+        for cat, count in per_cat.items():
+            display = self.CATEGORY_DISPLAY.get(cat, cat)
+            insights.append(f"{display}:{count}")
+        return insights
+
+    def _check_alerts(self, summary: dict, config: PotholeConfig) -> List[Dict]:
+        """
+        Check if any alert thresholds are exceeded and return alert dicts.
+        """
+        alerts = []
+        if not config.alert_config:
+            return alerts
+        total = summary.get("total_count", 0)
+        if config.alert_config.count_thresholds:
+            for category, threshold in config.alert_config.count_thresholds.items():
+                if category == "all" and total >= threshold:
+                    timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
+                    alert_description = f"detections count ({total}) exceeds threshold ({threshold})"
+                    alerts.append({
+                        "type": "count_threshold",
+                        "severity": "warning",
+                        "message": f"Total detections count ({total}) exceeds threshold ({threshold})",
+                        "category": category,
+                        "current_count": total,
+                        "threshold": threshold
+                    })
+                elif category in summary.get("per_category_count", {}):
+                    count = summary.get("per_category_count", {})[category]
+                    if count >= threshold:
+                        alerts.append({
+                            "type": "count_threshold",
+                            "severity": "warning",
+                            "message": f"{category} count ({count}) exceeds threshold ({threshold})",
+                            "category": category,
+                            "current_count": count,
+                            "threshold": threshold
+                        })
+        return alerts
+
+    def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
+        """
+        Extract prediction details for output (category, confidence, bounding box).
+        """
+        return [
+            {
+                "category": det.get("category", "unknown"),
+                "confidence": det.get("confidence", 0.0),
+                "bounding_box": det.get("bounding_box", {}),
+                "mask": det.get("mask", det.get("masks", None))  # Accept either key
+            }
+            for det in detections
+        ]
+
+    def _generate_summary(self, summary: dict, alerts: List) -> str:
+        """
+        Generate a human_text string for the result, including per-category insights if available.
+        Adds a tab before each  label for better formatting.
+        Also always includes the cumulative count so far.
+        """
+        total = summary.get("total_count", 0)
+        per_cat = summary.get("per_category_count", {})
+        cumulative = summary.get("total_counts", {})
+        cumulative_total = sum(cumulative.values()) if cumulative else 0
+        lines = []
+        if total > 0:
+            lines.append(f"{total} detections")
+            if per_cat:
+                lines.append("detections:")
+                for cat, count in per_cat.items():
+                    lines.append(f"\t{cat}:{count}")
         else:
-            stream_time_str = stream_info.get("stream_time", "")
-            if stream_time_str:
-                try:
-                    timestamp_str = stream_time_str.replace(" UTC", "")
-                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-                    return self._format_timestamp_for_stream(timestamp)
-                except:
-                    return self._format_timestamp_for_stream(time.time())
-            else:
-                return self._format_timestamp_for_stream(time.time())
-
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-        """Get formatted start timestamp for 'SINCE' block."""
-        if not stream_info:
-            return "00:00:00"
-
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            return "00:00:00"
-
-        if self._tracking_start_time is None:
-            stream_time_str = stream_info.get("stream_time", "")
-            if stream_time_str:
-                try:
-                    timestamp_str = stream_time_str.replace(" UTC", "")
-                    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-                    self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                except:
-                    self._tracking_start_time = time.time()
-            else:
-                self._tracking_start_time = time.time()
-
-        dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-        dt = dt.replace(minute=0, second=0, microsecond=0)
-        return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-
-
+            lines.append("No  detections")
+        lines.append(f"Total detections: {cumulative_total}")
+        if alerts:
+            lines.append(f"{len(alerts)} alert(s)")
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------ #
-        # Canonical ID helpers                                               #
-        # ------------------------------------------------------------------ #
-
+    # Canonical ID helpers                                               #
+    # ------------------------------------------------------------------ #
     def _compute_iou(self, box1: Any, box2: Any) -> float:
         """Compute IoU between two bounding boxes which may be dicts or lists.
         Falls back to 0 when insufficient data is available."""
@@ -949,7 +731,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
     def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
         """Return a stable canonical ID for a raw tracker ID, merging fragmented
         tracks when IoU and temporal constraints indicate they represent the
-        same physical vehicle."""
+        same physical."""
         if raw_id is None or bbox is None:
             # Nothing to merge
             return raw_id
@@ -1003,4 +785,3 @@ class PotholeSegmentationUseCase(BaseProcessor):
     def _set_tracking_start_time(self) -> None:
         """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()
-

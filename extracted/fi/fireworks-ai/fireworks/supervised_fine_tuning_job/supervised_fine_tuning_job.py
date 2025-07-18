@@ -35,6 +35,7 @@ class SupervisedFineTuningJob:
         llm: "LLM",
         proto: SyncSupervisedFineTuningJob,
         dataset_or_id: Union[Dataset, str],
+        evaluation_dataset: Optional[Union[Dataset, str]] = None,
         api_key: Optional[str] = None,
     ):
         """
@@ -42,10 +43,12 @@ class SupervisedFineTuningJob:
             llm: The LLM object that created this job.
             proto: The proto object that represents the fine-tuning job.
             dataset_or_id: The dataset or dataset ID to use for the fine-tuning job.
+            evaluation_dataset: The evaluation dataset or dataset ID to use for the fine-tuning job.
             api_key: The API key to use for the fine-tuning job.
         """
         self.llm = llm
-        self.dataset_or_id = dataset_or_id if isinstance(dataset_or_id, Dataset) else dataset_or_id
+        self.dataset_or_id = dataset_or_id
+        self.evaluation_dataset = evaluation_dataset
         self._api_key = api_key
         self._gateway = Gateway(api_key=api_key)
         self._proto = proto
@@ -91,8 +94,12 @@ class SupervisedFineTuningJob:
         Creates the job if it doesn't exist, otherwise returns the existing job.
         If previous job failed, deletes it and creates a new one.
         """
+        # Make sure the datasets are synced before creating the job
         if isinstance(self.dataset_or_id, Dataset):
             self.dataset_or_id.sync()
+        if isinstance(self.evaluation_dataset, Dataset):
+            self.evaluation_dataset.sync()
+
         existing_job = self.get()
         if existing_job is not None:
             if (

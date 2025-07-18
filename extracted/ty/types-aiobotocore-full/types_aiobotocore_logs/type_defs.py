@@ -28,6 +28,7 @@ from .literals import (
     DistributionType,
     EntityRejectionErrorTypeType,
     EvaluationFrequencyType,
+    EventSourceType,
     ExportTaskStatusCodeType,
     FlattenedElementType,
     IndexSourceType,
@@ -257,6 +258,7 @@ __all__ = (
     "ParseKeyValueTypeDef",
     "ParsePostgresTypeDef",
     "ParseRoute53TypeDef",
+    "ParseToOCSFTypeDef",
     "ParseVPCTypeDef",
     "ParseWAFTypeDef",
     "PatternTokenTypeDef",
@@ -1105,6 +1107,12 @@ class ParsePostgresTypeDef(TypedDict):
 
 
 class ParseRoute53TypeDef(TypedDict):
+    source: NotRequired[str]
+
+
+class ParseToOCSFTypeDef(TypedDict):
+    eventSource: EventSourceType
+    ocsfVersion: Literal["V1.1"]
     source: NotRequired[str]
 
 
@@ -2048,6 +2056,7 @@ class ProcessorOutputTypeDef(TypedDict):
     parseJSON: NotRequired[ParseJSONTypeDef]
     parseKeyValue: NotRequired[ParseKeyValueTypeDef]
     parseRoute53: NotRequired[ParseRoute53TypeDef]
+    parseToOCSF: NotRequired[ParseToOCSFTypeDef]
     parsePostgres: NotRequired[ParsePostgresTypeDef]
     parseVPC: NotRequired[ParseVPCTypeDef]
     parseWAF: NotRequired[ParseWAFTypeDef]
@@ -2099,6 +2108,7 @@ class ProcessorTypeDef(TypedDict):
     parseJSON: NotRequired[ParseJSONTypeDef]
     parseKeyValue: NotRequired[ParseKeyValueTypeDef]
     parseRoute53: NotRequired[ParseRoute53TypeDef]
+    parseToOCSF: NotRequired[ParseToOCSFTypeDef]
     parsePostgres: NotRequired[ParsePostgresTypeDef]
     parseVPC: NotRequired[ParseVPCTypeDef]
     parseWAF: NotRequired[ParseWAFTypeDef]

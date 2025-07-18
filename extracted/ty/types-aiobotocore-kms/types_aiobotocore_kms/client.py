@@ -54,6 +54,7 @@ from .type_defs import (
     DeleteAliasRequestTypeDef,
     DeleteCustomKeyStoreRequestTypeDef,
     DeleteImportedKeyMaterialRequestTypeDef,
+    DeleteImportedKeyMaterialResponseTypeDef,
     DeriveSharedSecretRequestTypeDef,
     DeriveSharedSecretResponseTypeDef,
     DescribeCustomKeyStoresRequestTypeDef,
@@ -89,6 +90,7 @@ from .type_defs import (
     GetPublicKeyRequestTypeDef,
     GetPublicKeyResponseTypeDef,
     ImportKeyMaterialRequestTypeDef,
+    ImportKeyMaterialResponseTypeDef,
     ListAliasesRequestTypeDef,
     ListAliasesResponseTypeDef,
     ListGrantsRequestTypeDef,
@@ -244,7 +246,7 @@ class KMSClient(AioBaseClient):
     ) -> Dict[str, Any]:
         """
         Connects or reconnects a <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html">custom
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
         key store</a> to its backing key store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/connect_custom_key_store.html)
@@ -266,7 +268,7 @@ class KMSClient(AioBaseClient):
     ) -> CreateCustomKeyStoreResponseTypeDef:
         """
         Creates a <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html">custom
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
         key store</a> backed by a key store that you own and manage.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/create_custom_key_store.html)
@@ -319,7 +321,7 @@ class KMSClient(AioBaseClient):
     ) -> Dict[str, Any]:
         """
         Deletes a <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html">custom
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
         key store</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/delete_custom_key_store.html)
@@ -328,7 +330,7 @@ class KMSClient(AioBaseClient):
 
     async def delete_imported_key_material(
         self, **kwargs: Unpack[DeleteImportedKeyMaterialRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    ) -> DeleteImportedKeyMaterialResponseTypeDef:
         """
         Deletes key material that was previously imported.
 
@@ -351,7 +353,7 @@ class KMSClient(AioBaseClient):
     ) -> DescribeCustomKeyStoresResponseTypeDef:
         """
         Gets information about <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html">custom
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
         key stores</a> in the account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/describe_custom_key_stores.html)
@@ -383,7 +385,7 @@ class KMSClient(AioBaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Disables <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html">automatic
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotating-keys-enable-disable.html">automatic
         rotation of the key material</a> of the specified symmetric encryption KMS key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/disable_key_rotation.html)
@@ -395,7 +397,7 @@ class KMSClient(AioBaseClient):
     ) -> Dict[str, Any]:
         """
         Disconnects the <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/custom-key-store-overview.html">custom
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
         key store</a> from its backing key store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/disconnect_custom_key_store.html)
@@ -417,7 +419,7 @@ class KMSClient(AioBaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Enables <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html#rotating-keys-enable-disable">automatic
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotating-keys-enable-disable.html">automatic
         rotation of the key material</a> of the specified symmetric encryption KMS key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/enable_key_rotation.html)
@@ -509,9 +511,9 @@ class KMSClient(AioBaseClient):
         """
         Provides detailed information about the rotation status for a KMS key,
         including whether <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html">automatic
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/rotating-keys-enable-disable.html">automatic
         rotation of the key material</a> is enabled for the specified KMS key, the <a
-        href="https://docs.aws.amazon.com/kms/l...
+        href="https://docs.aws...
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/get_key_rotation_status.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kms/client/#get_key_rotation_status)
@@ -540,7 +542,7 @@ class KMSClient(AioBaseClient):
 
     async def import_key_material(
         self, **kwargs: Unpack[ImportKeyMaterialRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> ImportKeyMaterialResponseTypeDef:
         """
         Imports or reimports key material into an existing KMS key that was created
         without key material.
@@ -583,8 +585,8 @@ class KMSClient(AioBaseClient):
         self, **kwargs: Unpack[ListKeyRotationsRequestTypeDef]
     ) -> ListKeyRotationsResponseTypeDef:
         """
-        Returns information about all completed key material rotations for the
-        specified KMS key.
+        Returns information about the key materials associated with the specified KMS
+        key.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/list_key_rotations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_kms/client/#list_key_rotations)

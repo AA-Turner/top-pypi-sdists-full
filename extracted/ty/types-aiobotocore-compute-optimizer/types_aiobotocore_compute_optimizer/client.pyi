@@ -245,8 +245,8 @@ class ComputeOptimizerClient(AioBaseClient):
         self, **kwargs: Unpack[ExportRDSDatabaseRecommendationsRequestTypeDef]
     ) -> ExportRDSDatabaseRecommendationsResponseTypeDef:
         """
-        Export optimization recommendations for your Amazon Relational Database Service
-        (Amazon RDS).
+        Export optimization recommendations for your Amazon Aurora and Amazon
+        Relational Database Service (Amazon RDS) databases.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/export_rds_database_recommendations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_compute_optimizer/client/#export_rds_database_recommendations)
@@ -379,7 +379,7 @@ class ComputeOptimizerClient(AioBaseClient):
         self, **kwargs: Unpack[GetRDSDatabaseRecommendationProjectedMetricsRequestTypeDef]
     ) -> GetRDSDatabaseRecommendationProjectedMetricsResponseTypeDef:
         """
-        Returns the projected metrics of Amazon RDS recommendations.
+        Returns the projected metrics of Aurora and RDS database recommendations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/get_rds_database_recommendation_projected_metrics.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_compute_optimizer/client/#get_rds_database_recommendation_projected_metrics)
@@ -389,7 +389,7 @@ class ComputeOptimizerClient(AioBaseClient):
         self, **kwargs: Unpack[GetRDSDatabaseRecommendationsRequestTypeDef]
     ) -> GetRDSDatabaseRecommendationsResponseTypeDef:
         """
-        Returns Amazon RDS recommendations.
+        Returns Amazon Aurora and RDS database recommendations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/compute-optimizer/client/get_rds_database_recommendations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_compute_optimizer/client/#get_rds_database_recommendations)

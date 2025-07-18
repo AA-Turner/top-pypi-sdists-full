@@ -23,10 +23,15 @@ from .pedestrian_detection import PedestrianDetectionUseCase, PedestrianDetectio
 from .age_detection import AgeDetectionUseCase, AgeDetectionConfig
 
 from .weld_defect_detection import WeldDefectConfig,WeldDefectUseCase
+from .banana_defect_detection import BananaMonitoringUseCase,BananaMonitoringConfig
 
 from .car_damage_detection import CarDamageConfig, CarDamageDetectionUseCase
 from .price_tag_detection import PriceTagConfig, PriceTagUseCase
 from .mask_detection import MaskDetectionConfig, MaskDetectionUseCase
+from .distracted_driver_detection import DistractedDriverUseCase, DistractedDriverConfig
+from .emergency_vehicle_detection import EmergencyVehicleUseCase, EmergencyVehicleConfig
+from .solar_panel import SolarPanelUseCase, SolarPanelConfig
+from .chicken_pose_detection import ChickenPoseDetectionConfig,ChickenPoseDetectionUseCase
 
 
 __all__ = [
@@ -37,6 +42,7 @@ __all__ = [
     'LicensePlateUseCase',
     'ColorDetectionUseCase',
     'PPEComplianceUseCase',
+    'BananaMonitoringUseCase',
     'VehicleMonitoringUseCase',
     'ParkingSpaceUseCase',
     'FireSmokeUseCase',
@@ -50,6 +56,10 @@ __all__ = [
     'AgeDetectionUseCase',
     'WeldDefectUseCase',
     'PriceTagUseCase',
+    'DistractedDriverUseCase',
+    'EmergencyVehicleUseCase',
+    'SolarPanelUseCase',
+    'ChickenPoseDetectionUseCase',
     'PeopleCountingConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
@@ -66,7 +76,12 @@ __all__ = [
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',
     'PedestrianDetectionConfig',
+    'ChickenPoseDetectionConfig',
     'AgeDetectionConfig',
+    'BananaMonitoringConfig',
     'WeldDefectConfig',
-    'PriceTagConfig'
+    'PriceTagConfig',
+    'DistractedDriverConfig',
+    'EmergencyVehicleConfig',
+    'SolarPanelConfig'
 ]

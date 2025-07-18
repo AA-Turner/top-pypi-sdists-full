@@ -1206,7 +1206,6 @@ __all__ = [
     'DataSourceCredentials',
     'DataSourceDatabricksParameters',
     'DataSourceErrorInfo',
-    'DataSourceIdentityCenterConfiguration',
     'DataSourceManifestFileLocation',
     'DataSourceMariaDbParameters',
     'DataSourceMySqlParameters',
@@ -37726,8 +37725,20 @@ class CustomPermissionsCapabilities(dict):
             suggest = "create_spice_dataset"
         elif key == "exportToCsv":
             suggest = "export_to_csv"
+        elif key == "exportToCsvInScheduledReports":
+            suggest = "export_to_csv_in_scheduled_reports"
         elif key == "exportToExcel":
             suggest = "export_to_excel"
+        elif key == "exportToExcelInScheduledReports":
+            suggest = "export_to_excel_in_scheduled_reports"
+        elif key == "exportToPdf":
+            suggest = "export_to_pdf"
+        elif key == "exportToPdfInScheduledReports":
+            suggest = "export_to_pdf_in_scheduled_reports"
+        elif key == "includeContentInScheduledReportsEmail":
+            suggest = "include_content_in_scheduled_reports_email"
+        elif key == "printReports":
+            suggest = "print_reports"
         elif key == "renameSharedFolders":
             suggest = "rename_shared_folders"
         elif key == "shareAnalyses":
@@ -37764,7 +37775,13 @@ class CustomPermissionsCapabilities(dict):
                  create_shared_folders: Optional['CustomPermissionsCapabilityState'] = None,
                  create_spice_dataset: Optional['CustomPermissionsCapabilityState'] = None,
                  export_to_csv: Optional['CustomPermissionsCapabilityState'] = None,
+                 export_to_csv_in_scheduled_reports: Optional['CustomPermissionsCapabilityState'] = None,
                  export_to_excel: Optional['CustomPermissionsCapabilityState'] = None,
+                 export_to_excel_in_scheduled_reports: Optional['CustomPermissionsCapabilityState'] = None,
+                 export_to_pdf: Optional['CustomPermissionsCapabilityState'] = None,
+                 export_to_pdf_in_scheduled_reports: Optional['CustomPermissionsCapabilityState'] = None,
+                 include_content_in_scheduled_reports_email: Optional['CustomPermissionsCapabilityState'] = None,
+                 print_reports: Optional['CustomPermissionsCapabilityState'] = None,
                  rename_shared_folders: Optional['CustomPermissionsCapabilityState'] = None,
                  share_analyses: Optional['CustomPermissionsCapabilityState'] = None,
                  share_dashboards: Optional['CustomPermissionsCapabilityState'] = None,
@@ -37781,8 +37798,14 @@ class CustomPermissionsCapabilities(dict):
         :param 'CustomPermissionsCapabilityState' create_and_update_threshold_alerts: The ability to create and update threshold alerts.
         :param 'CustomPermissionsCapabilityState' create_shared_folders: The ability to create shared folders.
         :param 'CustomPermissionsCapabilityState' create_spice_dataset: The ability to create a SPICE dataset.
-        :param 'CustomPermissionsCapabilityState' export_to_csv: The ability to export to CSV files.
-        :param 'CustomPermissionsCapabilityState' export_to_excel: The ability to export to Excel files.
+        :param 'CustomPermissionsCapabilityState' export_to_csv: The ability to export to CSV files from the UI.
+        :param 'CustomPermissionsCapabilityState' export_to_csv_in_scheduled_reports: The ability to export to CSV files in scheduled email reports.
+        :param 'CustomPermissionsCapabilityState' export_to_excel: The ability to export to Excel files from the UI.
+        :param 'CustomPermissionsCapabilityState' export_to_excel_in_scheduled_reports: The ability to export to Excel files in scheduled email reports.
+        :param 'CustomPermissionsCapabilityState' export_to_pdf: The ability to export to PDF files from the UI.
+        :param 'CustomPermissionsCapabilityState' export_to_pdf_in_scheduled_reports: The ability to export to PDF files in scheduled email reports.
+        :param 'CustomPermissionsCapabilityState' include_content_in_scheduled_reports_email: The ability to include content in scheduled email reports.
+        :param 'CustomPermissionsCapabilityState' print_reports: The ability to print reports.
         :param 'CustomPermissionsCapabilityState' rename_shared_folders: The ability to rename shared folders.
         :param 'CustomPermissionsCapabilityState' share_analyses: The ability to share analyses.
         :param 'CustomPermissionsCapabilityState' share_dashboards: The ability to share dashboards.
@@ -37809,8 +37832,20 @@ class CustomPermissionsCapabilities(dict):
             pulumi.set(__self__, "create_spice_dataset", create_spice_dataset)
         if export_to_csv is not None:
             pulumi.set(__self__, "export_to_csv", export_to_csv)
+        if export_to_csv_in_scheduled_reports is not None:
+            pulumi.set(__self__, "export_to_csv_in_scheduled_reports", export_to_csv_in_scheduled_reports)
         if export_to_excel is not None:
             pulumi.set(__self__, "export_to_excel", export_to_excel)
+        if export_to_excel_in_scheduled_reports is not None:
+            pulumi.set(__self__, "export_to_excel_in_scheduled_reports", export_to_excel_in_scheduled_reports)
+        if export_to_pdf is not None:
+            pulumi.set(__self__, "export_to_pdf", export_to_pdf)
+        if export_to_pdf_in_scheduled_reports is not None:
+            pulumi.set(__self__, "export_to_pdf_in_scheduled_reports", export_to_pdf_in_scheduled_reports)
+        if include_content_in_scheduled_reports_email is not None:
+            pulumi.set(__self__, "include_content_in_scheduled_reports_email", include_content_in_scheduled_reports_email)
+        if print_reports is not None:
+            pulumi.set(__self__, "print_reports", print_reports)
         if rename_shared_folders is not None:
             pulumi.set(__self__, "rename_shared_folders", rename_shared_folders)
         if share_analyses is not None:
@@ -37894,17 +37929,65 @@ class CustomPermissionsCapabilities(dict):
     @pulumi.getter(name="exportToCsv")
     def export_to_csv(self) -> Optional['CustomPermissionsCapabilityState']:
         """
-        The ability to export to CSV files.
+        The ability to export to CSV files from the UI.
         """
         return pulumi.get(self, "export_to_csv")
+
+    @property
+    @pulumi.getter(name="exportToCsvInScheduledReports")
+    def export_to_csv_in_scheduled_reports(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to export to CSV files in scheduled email reports.
+        """
+        return pulumi.get(self, "export_to_csv_in_scheduled_reports")
 
     @property
     @pulumi.getter(name="exportToExcel")
     def export_to_excel(self) -> Optional['CustomPermissionsCapabilityState']:
         """
-        The ability to export to Excel files.
+        The ability to export to Excel files from the UI.
         """
         return pulumi.get(self, "export_to_excel")
+
+    @property
+    @pulumi.getter(name="exportToExcelInScheduledReports")
+    def export_to_excel_in_scheduled_reports(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to export to Excel files in scheduled email reports.
+        """
+        return pulumi.get(self, "export_to_excel_in_scheduled_reports")
+
+    @property
+    @pulumi.getter(name="exportToPdf")
+    def export_to_pdf(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to export to PDF files from the UI.
+        """
+        return pulumi.get(self, "export_to_pdf")
+
+    @property
+    @pulumi.getter(name="exportToPdfInScheduledReports")
+    def export_to_pdf_in_scheduled_reports(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to export to PDF files in scheduled email reports.
+        """
+        return pulumi.get(self, "export_to_pdf_in_scheduled_reports")
+
+    @property
+    @pulumi.getter(name="includeContentInScheduledReportsEmail")
+    def include_content_in_scheduled_reports_email(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to include content in scheduled email reports.
+        """
+        return pulumi.get(self, "include_content_in_scheduled_reports_email")
+
+    @property
+    @pulumi.getter(name="printReports")
+    def print_reports(self) -> Optional['CustomPermissionsCapabilityState']:
+        """
+        The ability to print reports.
+        """
+        return pulumi.get(self, "print_reports")
 
     @property
     @pulumi.getter(name="renameSharedFolders")
@@ -78167,46 +78250,6 @@ class DataSourceErrorInfo(dict):
 
 
 @pulumi.output_type
-class DataSourceIdentityCenterConfiguration(dict):
-    """
-    <p>The parameters for an IAM Identity Center configuration.</p>
-    """
-    @staticmethod
-    def __key_warning(key: str):
-        suggest = None
-        if key == "enableIdentityPropagation":
-            suggest = "enable_identity_propagation"
-
-        if suggest:
-            pulumi.log.warn(f"Key '{key}' not found in DataSourceIdentityCenterConfiguration. Access the value via the '{suggest}' property getter instead.")
-
-    def __getitem__(self, key: str) -> Any:
-        DataSourceIdentityCenterConfiguration.__key_warning(key)
-        return super().__getitem__(key)
-
-    def get(self, key: str, default = None) -> Any:
-        DataSourceIdentityCenterConfiguration.__key_warning(key)
-        return super().get(key, default)
-
-    def __init__(__self__, *,
-                 enable_identity_propagation: Optional[builtins.bool] = None):
-        """
-        <p>The parameters for an IAM Identity Center configuration.</p>
-        :param builtins.bool enable_identity_propagation: <p>A Boolean option that controls whether Trusted Identity Propagation should be used.</p>
-        """
-        if enable_identity_propagation is not None:
-            pulumi.set(__self__, "enable_identity_propagation", enable_identity_propagation)
-
-    @property
-    @pulumi.getter(name="enableIdentityPropagation")
-    def enable_identity_propagation(self) -> Optional[builtins.bool]:
-        """
-        <p>A Boolean option that controls whether Trusted Identity Propagation should be used.</p>
-        """
-        return pulumi.get(self, "enable_identity_propagation")
-
-
-@pulumi.output_type
 class DataSourceManifestFileLocation(dict):
     """
     <p>Amazon S3 manifest file location.</p>
@@ -78405,10 +78448,28 @@ class DataSourceOracleParameters(dict):
     """
     <p>The parameters for Oracle.</p>
     """
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "useServiceName":
+            suggest = "use_service_name"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DataSourceOracleParameters. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DataSourceOracleParameters.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DataSourceOracleParameters.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
                  database: builtins.str,
                  host: builtins.str,
-                 port: builtins.float):
+                 port: builtins.float,
+                 use_service_name: Optional[builtins.bool] = None):
         """
         <p>The parameters for Oracle.</p>
         :param builtins.str database: <p>The database.</p>
@@ -78418,6 +78479,8 @@ class DataSourceOracleParameters(dict):
         pulumi.set(__self__, "database", database)
         pulumi.set(__self__, "host", host)
         pulumi.set(__self__, "port", port)
+        if use_service_name is not None:
+            pulumi.set(__self__, "use_service_name", use_service_name)
 
     @property
     @pulumi.getter
@@ -78442,6 +78505,11 @@ class DataSourceOracleParameters(dict):
         <p>The port.</p>
         """
         return pulumi.get(self, "port")
+
+    @property
+    @pulumi.getter(name="useServiceName")
+    def use_service_name(self) -> Optional[builtins.bool]:
+        return pulumi.get(self, "use_service_name")
 
 
 @pulumi.output_type
@@ -79009,7 +79077,7 @@ class DataSourceRedshiftParameters(dict):
                  cluster_id: Optional[builtins.str] = None,
                  host: Optional[builtins.str] = None,
                  iam_parameters: Optional['outputs.DataSourceRedshiftIamParameters'] = None,
-                 identity_center_configuration: Optional['outputs.DataSourceIdentityCenterConfiguration'] = None,
+                 identity_center_configuration: Optional[Any] = None,
                  port: Optional[builtins.float] = None):
         """
         <p>The parameters for Amazon Redshift. The <code>ClusterId</code> field can be blank if
@@ -79019,7 +79087,7 @@ class DataSourceRedshiftParameters(dict):
                            provided.</p>
         :param builtins.str host: <p>Host. This field can be blank if <code>ClusterId</code> is provided.</p>
         :param 'DataSourceRedshiftIamParameters' iam_parameters: An optional parameter that uses IAM authentication to grant Amazon QuickSight access to your cluster. This parameter can be used instead of [DataSourceCredentials](https://docs.aws.amazon.com/quicksight/latest/APIReference/API_DataSourceCredentials.html) .
-        :param 'DataSourceIdentityCenterConfiguration' identity_center_configuration: An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
+        :param Any identity_center_configuration: An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
                
                This parameter can only be specified if your Amazon QuickSight account is configured with IAM Identity Center.
         :param builtins.float port: <p>Port. This field can be blank if the <code>ClusterId</code> is provided.</p>
@@ -79071,7 +79139,7 @@ class DataSourceRedshiftParameters(dict):
 
     @property
     @pulumi.getter(name="identityCenterConfiguration")
-    def identity_center_configuration(self) -> Optional['outputs.DataSourceIdentityCenterConfiguration']:
+    def identity_center_configuration(self) -> Optional[Any]:
         """
         An optional parameter that configures IAM Identity Center authentication to grant Amazon QuickSight access to your cluster.
 

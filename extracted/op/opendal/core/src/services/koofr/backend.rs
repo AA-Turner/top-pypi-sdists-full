@@ -179,9 +179,6 @@ impl Builder for KoofrBuilder {
                         .set_root(&root)
                         .set_native_capability(Capability {
                             stat: true,
-                            stat_has_content_length: true,
-                            stat_has_content_type: true,
-                            stat_has_last_modified: true,
 
                             create_dir: true,
 
@@ -197,9 +194,6 @@ impl Builder for KoofrBuilder {
                             copy: true,
 
                             list: true,
-                            list_has_content_length: true,
-                            list_has_content_type: true,
-                            list_has_last_modified: true,
 
                             shared: true,
 
@@ -236,10 +230,6 @@ impl Access for KoofrBackend {
     type Writer = KoofrWriters;
     type Lister = oio::PageLister<KoofrLister>;
     type Deleter = oio::OneShotDeleter<KoofrDeleter>;
-    type BlockingReader = ();
-    type BlockingWriter = ();
-    type BlockingLister = ();
-    type BlockingDeleter = ();
 
     fn info(&self) -> Arc<AccessorInfo> {
         self.core.info.clone()

@@ -1,12 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: roman
-Version: 5.0
+Version: 5.1
 Summary: Integer to Roman numerals converter
 Home-page: https://github.com/zopefoundation/roman
 Author: Mark Pilgrim
 Maintainer: Zope Foundation and Contributors
 Maintainer-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: roman
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -26,6 +26,18 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://github.com/zopefoundation/roman/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/zopefoundation/roman/actions/workflows/tests.yml
@@ -80,6 +92,13 @@ There are two ways to use this library.
 
 Change log
 ==========
+
+5.1 (2025-07-18)
+----------------
+
+- Hide undocumented special behavior for ``N`` behind method parameter.
+  (`#30 <https://github.com/zopefoundation/roman/issues/30>`_)
+
 
 5.0 (2025-01-15)
 ----------------

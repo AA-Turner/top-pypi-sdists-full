@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: instaloader
-Version: 4.14.1
+Version: 4.14.2
 Summary: Download pictures (or videos) along with their captions and other metadata from Instagram.
 Home-page: https://instaloader.github.io/
 Author: Alexander Graf, André Koch-Kramer
@@ -34,6 +34,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

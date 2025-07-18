@@ -36,6 +36,7 @@ from .literals import (
     ChatModeType,
     ContentTypeType,
     CreatorModeControlType,
+    DataAccessorAuthenticationTypeType,
     DataSourceStatusType,
     DataSourceSyncJobStatusType,
     DocumentAttributeBoostingLevelType,
@@ -188,6 +189,11 @@ __all__ = (
     "CreatorModeConfigurationTypeDef",
     "CustomPluginConfigurationTypeDef",
     "CustomizationConfigurationTypeDef",
+    "DataAccessorAuthenticationConfigurationTypeDef",
+    "DataAccessorAuthenticationDetailOutputTypeDef",
+    "DataAccessorAuthenticationDetailTypeDef",
+    "DataAccessorAuthenticationDetailUnionTypeDef",
+    "DataAccessorIdcTrustedTokenIssuerConfigurationTypeDef",
     "DataAccessorTypeDef",
     "DataSourceSyncJobMetricsTypeDef",
     "DataSourceSyncJobTypeDef",
@@ -351,6 +357,7 @@ __all__ = (
     "OpenIDConnectProviderConfigurationTypeDef",
     "OrchestrationConfigurationTypeDef",
     "PaginatorConfigTypeDef",
+    "PermissionConditionTypeDef",
     "PersonalizationConfigurationTypeDef",
     "PluginAuthConfigurationOutputTypeDef",
     "PluginAuthConfigurationTypeDef",
@@ -472,11 +479,10 @@ class AppliedOrchestrationConfigurationTypeDef(TypedDict):
     control: OrchestrationControlType
 
 
-class AssociatePermissionRequestTypeDef(TypedDict):
-    applicationId: str
-    statementId: str
-    actions: Sequence[str]
-    principal: str
+class PermissionConditionTypeDef(TypedDict):
+    conditionOperator: Literal["StringEquals"]
+    conditionKey: str
+    conditionValues: Sequence[str]
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -684,14 +690,8 @@ class CreatorModeConfigurationTypeDef(TypedDict):
     creatorModeControl: CreatorModeControlType
 
 
-class DataAccessorTypeDef(TypedDict):
-    displayName: NotRequired[str]
-    dataAccessorId: NotRequired[str]
-    dataAccessorArn: NotRequired[str]
-    idcApplicationArn: NotRequired[str]
-    principal: NotRequired[str]
-    createdAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
+class DataAccessorIdcTrustedTokenIssuerConfigurationTypeDef(TypedDict):
+    idcTrustedTokenIssuerArn: str
 
 
 class DataSourceSyncJobMetricsTypeDef(TypedDict):
@@ -1271,6 +1271,14 @@ class ApplicationTypeDef(TypedDict):
     quickSightConfiguration: NotRequired[QuickSightConfigurationTypeDef]
 
 
+class AssociatePermissionRequestTypeDef(TypedDict):
+    applicationId: str
+    statementId: str
+    actions: Sequence[str]
+    principal: str
+    conditions: NotRequired[Sequence[PermissionConditionTypeDef]]
+
+
 class AssociatePermissionResponseTypeDef(TypedDict):
     statement: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1573,10 +1581,10 @@ class UpdateUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class ListDataAccessorsResponseTypeDef(TypedDict):
-    dataAccessors: List[DataAccessorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class DataAccessorAuthenticationConfigurationTypeDef(TypedDict):
+    idcTrustedTokenIssuerConfiguration: NotRequired[
+        DataAccessorIdcTrustedTokenIssuerConfigurationTypeDef
+    ]
 
 
 class DataSourceSyncJobTypeDef(TypedDict):
@@ -1980,6 +1988,18 @@ class ListSubscriptionsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class DataAccessorAuthenticationDetailOutputTypeDef(TypedDict):
+    authenticationType: DataAccessorAuthenticationTypeType
+    authenticationConfiguration: NotRequired[DataAccessorAuthenticationConfigurationTypeDef]
+    externalIds: NotRequired[List[str]]
+
+
+class DataAccessorAuthenticationDetailTypeDef(TypedDict):
+    authenticationType: DataAccessorAuthenticationTypeType
+    authenticationConfiguration: NotRequired[DataAccessorAuthenticationConfigurationTypeDef]
+    externalIds: NotRequired[Sequence[str]]
+
+
 class ListDataSourceSyncJobsResponseTypeDef(TypedDict):
     history: List[DataSourceSyncJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2196,6 +2216,22 @@ class ListAttachmentsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class DataAccessorTypeDef(TypedDict):
+    displayName: NotRequired[str]
+    dataAccessorId: NotRequired[str]
+    dataAccessorArn: NotRequired[str]
+    idcApplicationArn: NotRequired[str]
+    principal: NotRequired[str]
+    authenticationDetail: NotRequired[DataAccessorAuthenticationDetailOutputTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
+DataAccessorAuthenticationDetailUnionTypeDef = Union[
+    DataAccessorAuthenticationDetailTypeDef, DataAccessorAuthenticationDetailOutputTypeDef
+]
+
+
 class DocumentAclTypeDef(TypedDict):
     allowlist: NotRequired[DocumentAclMembershipTypeDef]
     denyList: NotRequired[DocumentAclMembershipTypeDef]
@@ -2295,6 +2331,12 @@ class TopicConfigurationOutputTypeDef(TypedDict):
 
 
 RuleConfigurationUnionTypeDef = Union[RuleConfigurationTypeDef, RuleConfigurationOutputTypeDef]
+
+
+class ListDataAccessorsResponseTypeDef(TypedDict):
+    dataAccessors: List[DataAccessorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class CheckDocumentAccessResponseTypeDef(TypedDict):
@@ -2446,6 +2488,7 @@ class GetDataAccessorResponseTypeDef(TypedDict):
     idcApplicationArn: str
     principal: str
     actionConfigurations: List[ActionConfigurationOutputTypeDef]
+    authenticationDetail: DataAccessorAuthenticationDetailOutputTypeDef
     createdAt: datetime
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2683,6 +2726,7 @@ class CreateDataAccessorRequestTypeDef(TypedDict):
     actionConfigurations: Sequence[ActionConfigurationUnionTypeDef]
     displayName: str
     clientToken: NotRequired[str]
+    authenticationDetail: NotRequired[DataAccessorAuthenticationDetailUnionTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -2690,4 +2734,5 @@ class UpdateDataAccessorRequestTypeDef(TypedDict):
     applicationId: str
     dataAccessorId: str
     actionConfigurations: Sequence[ActionConfigurationUnionTypeDef]
+    authenticationDetail: NotRequired[DataAccessorAuthenticationDetailUnionTypeDef]
     displayName: NotRequired[str]

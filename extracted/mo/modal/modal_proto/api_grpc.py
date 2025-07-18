@@ -95,6 +95,10 @@ class ModalClientBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def AuthTokenGet(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.AuthTokenGetRequest, modal_proto.api_pb2.AuthTokenGetResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def BlobCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.BlobCreateRequest, modal_proto.api_pb2.BlobCreateResponse]') -> None:
         pass
 
@@ -160,6 +164,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def ContainerLog(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ContainerLogRequest, google.protobuf.empty_pb2.Empty]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def ContainerReloadVolumes(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.ContainerReloadVolumesRequest, modal_proto.api_pb2.ContainerReloadVolumesResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -432,6 +440,10 @@ class ModalClientBase(abc.ABC):
 
     @abc.abstractmethod
     async def SandboxCreate(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxCreateRequest, modal_proto.api_pb2.SandboxCreateResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
+    async def SandboxGetFromName(self, stream: 'grpclib.server.Stream[modal_proto.api_pb2.SandboxGetFromNameRequest, modal_proto.api_pb2.SandboxGetFromNameResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -758,6 +770,12 @@ class ModalClientBase(abc.ABC):
                 modal_proto.api_pb2.AttemptStartRequest,
                 modal_proto.api_pb2.AttemptStartResponse,
             ),
+            '/modal.client.ModalClient/AuthTokenGet': grpclib.const.Handler(
+                self.AuthTokenGet,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.AuthTokenGetRequest,
+                modal_proto.api_pb2.AuthTokenGetResponse,
+            ),
             '/modal.client.ModalClient/BlobCreate': grpclib.const.Handler(
                 self.BlobCreate,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -859,6 +877,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.ContainerLogRequest,
                 google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.client.ModalClient/ContainerReloadVolumes': grpclib.const.Handler(
+                self.ContainerReloadVolumes,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.ContainerReloadVolumesRequest,
+                modal_proto.api_pb2.ContainerReloadVolumesResponse,
             ),
             '/modal.client.ModalClient/ContainerStop': grpclib.const.Handler(
                 self.ContainerStop,
@@ -1267,6 +1291,12 @@ class ModalClientBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.api_pb2.SandboxCreateRequest,
                 modal_proto.api_pb2.SandboxCreateResponse,
+            ),
+            '/modal.client.ModalClient/SandboxGetFromName': grpclib.const.Handler(
+                self.SandboxGetFromName,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.api_pb2.SandboxGetFromNameRequest,
+                modal_proto.api_pb2.SandboxGetFromNameResponse,
             ),
             '/modal.client.ModalClient/SandboxGetLogs': grpclib.const.Handler(
                 self.SandboxGetLogs,
@@ -1700,6 +1730,12 @@ class ModalClientStub:
             modal_proto.api_pb2.AttemptStartRequest,
             modal_proto.api_pb2.AttemptStartResponse,
         )
+        self.AuthTokenGet = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/AuthTokenGet',
+            modal_proto.api_pb2.AuthTokenGetRequest,
+            modal_proto.api_pb2.AuthTokenGetResponse,
+        )
         self.BlobCreate = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.client.ModalClient/BlobCreate',
@@ -1801,6 +1837,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/ContainerLog',
             modal_proto.api_pb2.ContainerLogRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.ContainerReloadVolumes = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/ContainerReloadVolumes',
+            modal_proto.api_pb2.ContainerReloadVolumesRequest,
+            modal_proto.api_pb2.ContainerReloadVolumesResponse,
         )
         self.ContainerStop = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -2209,6 +2251,12 @@ class ModalClientStub:
             '/modal.client.ModalClient/SandboxCreate',
             modal_proto.api_pb2.SandboxCreateRequest,
             modal_proto.api_pb2.SandboxCreateResponse,
+        )
+        self.SandboxGetFromName = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.client.ModalClient/SandboxGetFromName',
+            modal_proto.api_pb2.SandboxGetFromNameRequest,
+            modal_proto.api_pb2.SandboxGetFromNameResponse,
         )
         self.SandboxGetLogs = grpclib.client.UnaryStreamMethod(
             channel,
