@@ -7,11 +7,12 @@
 # @WeChat       : meutils
 # @Software     : PyCharm
 # @Description  :
-import os
 
 from meutils.pipe import *
-from meutils.decorators.retry import retrying
 from meutils.caches import rcache
+from meutils.decorators.retry import retrying
+from meutils.config_utils.lark_utils import get_next_token
+
 from httpx import TimeoutException
 
 from openai import OpenAI, AsyncOpenAI
@@ -170,7 +171,7 @@ async def check_token_for_gemini(api_key):
 
 
 @retrying()
-async def check_token_for_ppinfra(api_key, threshold: float = 1): # 1块钱 10000
+async def check_token_for_ppinfra(api_key, threshold: float = 1):  # 1块钱 10000
     if not isinstance(api_key, str):
         return await check_tokens(api_key, partial(check_token_for_ppinfra, threshold=threshold))
     try:
@@ -325,6 +326,13 @@ async def check_token_for_gitee(api_key, threshold: float = 1):
         return False
 
 
+async def get_valid_token_for_fal(feishu_url: Optional[str] = None):
+    feishu_url = feishu_url or "https://xchatllm.feishu.cn/sheets/Z59Js10DbhT8wdt72LachSDlnlf?sheet=iFRwmM"
+    _ = await get_next_token(feishu_url, check_token_for_fal, ttl=600)
+    logger.debug(_)
+    return _
+
+
 if __name__ == '__main__':
     from meutils.config_utils.lark_utils import get_next_token_for_polling, get_series
 
@@ -370,6 +378,8 @@ if __name__ == '__main__':
 
     # arun(check_token_for_fal("56d8a95e-2fe6-44a6-8f7d-f7f9c83eec24:537f06b6044770071f5d86fc7fcd6d6f"))
 
-    arun(check_token_for_ppinfra("sk_ib2EjSVnXfB5hSlVuckpejRNXLIU3MaD1wxvXnsvdxQ", threshold=18000))
+    # arun(check_token_for_ppinfra("sk_ib2EjSVnXfB5hSlVuckpejRNXLIU3MaD1wxvXnsvdxQ", threshold=18000))
 
     # arun(check_token_for_gitee("NWVXUPI38OQVXZGOEL3D23I9YUQWZPV23GVVBW1X"))
+
+    arun(get_valid_token_for_fal())

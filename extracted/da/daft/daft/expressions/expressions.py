@@ -991,12 +991,13 @@ class Expression:
     def shift_right(self, other: Expression) -> Expression:
         """Shifts the bits of an integer expression to the right (``expr >> other``).
 
-        .. NOTE::
+        Args:
+            other: The number of bits to shift the expression to the right
+
+        Note:
             For unsigned integers, this expression perform a logical right shift.
             For signed integers, this expression perform an arithmetic right shift.
 
-        Args:
-            other: The number of bits to shift the expression to the right
         """
         expr = Expression._to_expression(other)
         return Expression._from_pyexpr(self._expr >> expr._expr)
@@ -1992,16 +1993,16 @@ class Expression:
             (Showing first 6 of 6 rows)
             >>>
             >>> # This will error because exploded lengths are different:
-            # df.select(
-            #     df["sentence"]
-            #             .str.split(" ")
-            #             .explode()
-            #             .alias("word"),
-            #     df["sentence"]
-            #             .str.split("a")
-            #             .explode()
-            #             .alias("split_on_a")
-            # ).show()
+            >>> # df.select(
+            >>> #     df["sentence"]
+            >>> #             .str.split(" ")
+            >>> #             .explode()
+            >>> #             .alias("word"),
+            >>> #     df["sentence"]
+            >>> #             .str.split("a")
+            >>> #             .explode()
+            >>> #             .alias("split_on_a")
+            >>> # ).show()
         """
         f = native.get_function_from_registry("explode")
         return Expression._from_pyexpr(f(self._expr))
@@ -4550,6 +4551,7 @@ class ExpressionListNamespace(ExpressionNamespace):
 
         Args:
             expr: Expression to run.  you can select the element with `daft.element()`
+
         Examples:
             >>> import daft
             >>> df = daft.from_pydict({"letters": [["a", "b", "a"], ["b", "c", "b", "c"]]})
@@ -5253,7 +5255,7 @@ class ExpressionJsonNamespace(ExpressionNamespace):
 
         """
         warnings.warn(
-            "This API is deprecated in daft >=0.5.1 and will be removed in >=0.6.0. Users should use `Expression.jq` instead.",
+            "`.json.query` is deprecated in daft >=0.5.1 and will be removed in >=0.6.0. Users should use `.jq` instead. Example: `col('x').jq('query')`",
             DeprecationWarning,
             stacklevel=2,
         )

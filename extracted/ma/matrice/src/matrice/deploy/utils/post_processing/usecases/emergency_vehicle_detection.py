@@ -29,16 +29,12 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 @dataclass
 class EmergencyVehicleConfig(BaseConfig):
     """Configuration for Emergency Vehicle detection use case in vehicle monitoring."""
-    # Smoothing configuration
     enable_smoothing: bool = True
-    smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 20
-    smoothing_cooldown_frames: int = 5
-    smoothing_confidence_range_factor: float = 0.5
-    
-    # Vehicle confidence thresholds
-    confidence_threshold: float = 0.6
-
+    smoothing_algorithm: str = "observability"
+    smoothing_window_size: int = 5  # Reduced from 20 to 5 for faster response
+    smoothing_cooldown_frames: int = 2  # Reduced from 5 to 2 to clear stale tracks
+    smoothing_confidence_range_factor: float = 0.2  # Reduced from 0.5 to 0.2 for sensitivity
+    confidence_threshold: float = 0.5  # Adjusted from 0.6 to capture more detections
     
     vehicle_categories: List[str] = field(
         default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
@@ -267,8 +263,8 @@ class EmergencyVehicleUseCase(BaseProcessor):
         self._track_aliases: Dict[Any, Any] = {}
         self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
         # Tunable parameters – adjust if necessary for specific scenarios
-        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
-        self._track_merge_time_window: float = 7.0    # seconds within which to merge
+        self._track_merge_iou_threshold: float = 0.3  # IoU ≥ 0.3 → same vehicle
+        self._track_merge_time_window: float = 2.0    # seconds within which to merge
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
@@ -470,11 +466,11 @@ class EmergencyVehicleUseCase(BaseProcessor):
             # Generate human text in new format
             human_text_lines = ["EVENTS DETECTED:"]
             # \t , not sure if it affects template 
-            human_text_lines.append(f"    - {total_vehicles} Vehicle(s) detected [INFO]")
+            human_text_lines.append(f"    - {total_vehicles} Emergency Vehicle(s) detected [INFO]")
             human_text = "\n".join(human_text_lines)
 
             event = {
-                "type": "vehicle_monitoring",
+                "type": "emergency_vehicle_detection",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": level,
                 "intensity": round(intensity, 1),

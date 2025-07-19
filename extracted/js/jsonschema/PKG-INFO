@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema
-Version: 4.24.1
+Version: 4.25.0
 Summary: An implementation of JSON Schema validation for Python
 Project-URL: Homepage, https://github.com/python-jsonschema/jsonschema
 Project-URL: Documentation, https://python-jsonschema.readthedocs.io/
@@ -47,6 +47,7 @@ Requires-Dist: isoduration; extra == 'format-nongpl'
 Requires-Dist: jsonpointer>1.13; extra == 'format-nongpl'
 Requires-Dist: rfc3339-validator; extra == 'format-nongpl'
 Requires-Dist: rfc3986-validator>0.1.0; extra == 'format-nongpl'
+Requires-Dist: rfc3987-syntax>=1.1.0; extra == 'format-nongpl'
 Requires-Dist: uri-template; extra == 'format-nongpl'
 Requires-Dist: webcolors>=24.6.0; extra == 'format-nongpl'
 Description-Content-Type: text/x-rst
@@ -163,7 +164,8 @@ And for companies who appreciate ``jsonschema`` and its continued support and gr
 Release Information
 -------------------
 
-v4.24.1
+v4.25.0
 =======
 
-* Properly escape segments in ``ValidationError.json_path`` (#139).
+* Add support for the ``iri`` and ``iri-reference`` formats to the ``format-nongpl`` extra via the MIT-licensed ``rfc3987-syntax``.
+  They were alread supported by the ``format`` extra. (#1388).

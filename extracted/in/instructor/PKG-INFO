@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instructor
-Version: 1.9.2
+Version: 1.10.0
 Summary: structured outputs for llm
 Project-URL: repository, https://github.com/instructor-ai/instructor
 Author-email: Jason Liu <jason@jxnl.co>, Ivan Leo <ivan@jxnl.co>
@@ -8,13 +8,11 @@ License: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: aiohttp<4.0.0,>=3.9.1
+Requires-Dist: diskcache>=5.6.3
 Requires-Dist: docstring-parser<1.0,>=0.16
 Requires-Dist: jinja2<4.0.0,>=3.1.4
 Requires-Dist: jiter<0.11,>=0.6.1
-Requires-Dist: mkdocs-material>=9.5.49
-Requires-Dist: mkdocs>=1.6.1
 Requires-Dist: openai<2.0.0,>=1.70.0
-Requires-Dist: pre-commit>=4.2.0
 Requires-Dist: pydantic-core<3.0.0,>=2.18.0
 Requires-Dist: pydantic<3.0.0,>=2.8.0
 Requires-Dist: requests<3.0.0,>=2.32.3
@@ -35,9 +33,11 @@ Requires-Dist: datasets<4.0.0,>=3.0.1; extra == 'datasets'
 Provides-Extra: dev
 Requires-Dist: coverage<8.0.0,>=7.3.2; extra == 'dev'
 Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'dev'
+Requires-Dist: pre-commit>=4.2.0; extra == 'dev'
 Requires-Dist: pyright<2.0.0; extra == 'dev'
 Requires-Dist: pytest-asyncio<1.0.0,>=0.24.0; extra == 'dev'
 Requires-Dist: pytest-examples>=0.0.15; extra == 'dev'
+Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest<9.0.0,>=8.3.3; extra == 'dev'
 Requires-Dist: python-dotenv>=1.0.1; extra == 'dev'
 Provides-Extra: docs
@@ -57,9 +57,6 @@ Requires-Dist: fireworks-ai<1.0.0,>=0.15.4; extra == 'fireworks-ai'
 Provides-Extra: google-genai
 Requires-Dist: google-genai>=1.5.0; extra == 'google-genai'
 Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'google-genai'
-Provides-Extra: google-generativeai
-Requires-Dist: google-generativeai<1.0.0,>=0.8.2; extra == 'google-generativeai'
-Requires-Dist: jsonref<2.0.0,>=1.1.0; extra == 'google-generativeai'
 Provides-Extra: graphviz
 Requires-Dist: graphviz<1.0.0,>=0.20.3; extra == 'graphviz'
 Provides-Extra: groq
@@ -227,6 +224,11 @@ client = instructor.from_provider("google/gemini-pro")
 
 # Ollama (local)
 client = instructor.from_provider("ollama/llama3.2")
+
+# With API keys directly (no environment variables needed)
+client = instructor.from_provider("openai/gpt-4o", api_key="sk-...")
+client = instructor.from_provider("anthropic/claude-3-5-sonnet", api_key="sk-ant-...")
+client = instructor.from_provider("groq/llama-3.1-8b-instant", api_key="gsk_...")
 
 # All use the same API!
 user = client.chat.completions.create(

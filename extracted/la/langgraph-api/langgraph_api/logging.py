@@ -68,11 +68,31 @@ class AddApiVersion:
 
 
 class AddLoggingContext:
+    def __init__(self):
+        try:
+            from langchain_core.runnables.config import (
+                RunnableConfig,
+                var_child_runnable_config,
+            )
+
+            self.cvar: contextvars.ContextVar[RunnableConfig | None] = (
+                var_child_runnable_config
+            )
+        except Exception:
+            self.cvar = False
+
     def __call__(
         self, logger: logging.Logger, method_name: str, event_dict: EventDict
     ) -> EventDict:
         if (ctx := worker_config.get()) is not None:
             event_dict.update(ctx)
+        if (
+            self.cvar is not None
+            and (conf := self.cvar.get())
+            and (metadata := conf.get("metadata"))
+            and (lgnode := metadata.get("langgraph_node"))
+        ):
+            event_dict["langgraph_node"] = lgnode
         return event_dict
 
 
@@ -128,6 +148,7 @@ class Formatter(structlog.stdlib.ProcessorFormatter):
         super().__init__(
             processors=[
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                AddLoggingContext(),
                 renderer,
             ],
             foreign_pre_chain=shared_processors,
@@ -136,7 +157,6 @@ class Formatter(structlog.stdlib.ProcessorFormatter):
 
 
 # configure structlog
-
 if not structlog.is_configured():
     structlog.configure(
         processors=[

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagger-io
-Version: 0.18.12
+Version: 0.18.14
 Summary: A client package for running Dagger pipelines in Python.
 Project-URL: Homepage, https://dagger.io
 Project-URL: Documentation, https://docs.dagger.io/sdk/python

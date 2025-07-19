@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.5.12
+Version: 0.5.13
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -32,7 +32,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.13
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Provides-Extra: fast
 Requires-Dist: orjson<4,>=3.10.15; extra == 'fast'
 Provides-Extra: urllib3
@@ -41,6 +41,7 @@ Description-Content-Type: text/markdown
 
 # Turbopuffer Python API library  <a href="https://turbopuffer.com"><img src="https://github.com/user-attachments/assets/8d6cca4c-10b7-4d3a-9782-696053baf44e" align="right"></a>
 
+<!-- prettier-ignore -->
 <a href="https://pypi.org/project/turbopuffer/"><img src="https://img.shields.io/pypi/v/turbopuffer.svg?label=pypi%20(stable)" alt="PyPI version" align="right"></a>
 
 The Turbopuffer Python library provides convenient access to the Turbopuffer HTTP API from any Python 3.8+
@@ -182,7 +183,6 @@ pip install turbopuffer[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
-import os
 import asyncio
 from turbopuffer import DefaultAioHttpClient
 from turbopuffer import AsyncTurbopuffer
@@ -190,7 +190,7 @@ from turbopuffer import AsyncTurbopuffer
 
 async def main() -> None:
     async with AsyncTurbopuffer(
-        api_key=os.environ.get("TURBOPUFFER_API_KEY"),  # This is the default and can be omitted
+        api_key="tpuf_A1...",
         http_client=DefaultAioHttpClient(),
     ) as client:
         response = await client.namespaces.write(

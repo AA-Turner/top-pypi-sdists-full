@@ -42,6 +42,9 @@ class FoundEntitlementData(BaseModel):
         default=None, description="Indicates whether this entitlement can be assigned to users."
     )
     label: StrictStr = Field(description="A human-readable label for the entitlement.")
+    description: Optional[StrictStr] = Field(
+        default=None, description="An optional human-readable description of the entitlement."
+    )
     custom_attributes: Optional[Dict[str, StrictStr]] = Field(
         default=None,
         description="Custom attributes associated with the entitlement. See the list_custom_attributes_schema capability.",
@@ -53,6 +56,7 @@ class FoundEntitlementData(BaseModel):
         "integration_specific_resource_id",
         "is_assignable",
         "label",
+        "description",
         "custom_attributes",
     ]
     model_config = ConfigDict(
@@ -106,6 +110,7 @@ class FoundEntitlementData(BaseModel):
                 "integration_specific_resource_id": obj.get("integration_specific_resource_id"),
                 "is_assignable": obj.get("is_assignable"),
                 "label": obj.get("label"),
+                "description": obj.get("description"),
                 "custom_attributes": obj.get("custom_attributes"),
             }
         )

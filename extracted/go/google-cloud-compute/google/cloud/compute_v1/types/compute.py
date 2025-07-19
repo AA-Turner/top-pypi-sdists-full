@@ -1205,6 +1205,8 @@ __protobuf__ = proto.module(
         "ReservationAggregatedList",
         "ReservationBlock",
         "ReservationBlockPhysicalTopology",
+        "ReservationBlockPhysicalTopologyInstance",
+        "ReservationBlockPhysicalTopologyInstancePhysicalHostTopology",
         "ReservationBlocksGetResponse",
         "ReservationBlocksListResponse",
         "ReservationList",
@@ -35120,6 +35122,9 @@ class GetReservationBlockRequest(proto.Message):
     r"""A request message for ReservationBlocks.Get. See the method
     description for details.
 
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
     Attributes:
         project (str):
             Project ID for this request.
@@ -35129,10 +35134,37 @@ class GetReservationBlockRequest(proto.Message):
         reservation_block (str):
             The name of the reservation block. Name
             should conform to RFC1035 or be a resource ID.
+        view (str):
+            View of the Block.
+            Check the View enum for the list of possible
+            values.
+
+            This field is a member of `oneof`_ ``_view``.
         zone (str):
             Name of the zone for this request. Zone name
             should conform to RFC1035.
     """
+
+    class View(proto.Enum):
+        r"""View of the Block.
+
+        Values:
+            UNDEFINED_VIEW (0):
+                A value indicating that the enum field is not
+                set.
+            BASIC (62970894):
+                This view includes basic information about
+                the reservation block
+            BLOCK_VIEW_UNSPECIFIED (275070479):
+                The default / unset value. The API will
+                default to the BASIC view.
+            FULL (2169487):
+                Includes detailed topology view.
+        """
+        UNDEFINED_VIEW = 0
+        BASIC = 62970894
+        BLOCK_VIEW_UNSPECIFIED = 275070479
+        FULL = 2169487
 
     project: str = proto.Field(
         proto.STRING,
@@ -35145,6 +35177,11 @@ class GetReservationBlockRequest(proto.Message):
     reservation_block: str = proto.Field(
         proto.STRING,
         number=532832858,
+    )
+    view: str = proto.Field(
+        proto.STRING,
+        number=3619493,
+        optional=True,
     )
     zone: str = proto.Field(
         proto.STRING,
@@ -92041,6 +92078,9 @@ class ReservationBlockPhysicalTopology(proto.Message):
             The cluster name of the reservation block.
 
             This field is a member of `oneof`_ ``_cluster``.
+        instances (MutableSequence[google.cloud.compute_v1.types.ReservationBlockPhysicalTopologyInstance]):
+            The detailed instances information for a
+            given Block
     """
 
     block: str = proto.Field(
@@ -92051,6 +92091,82 @@ class ReservationBlockPhysicalTopology(proto.Message):
     cluster: str = proto.Field(
         proto.STRING,
         number=335221242,
+        optional=True,
+    )
+    instances: MutableSequence[
+        "ReservationBlockPhysicalTopologyInstance"
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=29097598,
+        message="ReservationBlockPhysicalTopologyInstance",
+    )
+
+
+class ReservationBlockPhysicalTopologyInstance(proto.Message):
+    r"""The instances information for a given Block
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        instance_id (int):
+            The InstanceId of the instance
+
+            This field is a member of `oneof`_ ``_instance_id``.
+        physical_host_topology (google.cloud.compute_v1.types.ReservationBlockPhysicalTopologyInstancePhysicalHostTopology):
+            The PhysicalHostTopology of instances within
+            a Block resource.
+
+            This field is a member of `oneof`_ ``_physical_host_topology``.
+        project_id (int):
+            Project where the instance lives
+
+            This field is a member of `oneof`_ ``_project_id``.
+    """
+
+    instance_id: int = proto.Field(
+        proto.UINT64,
+        number=45488389,
+        optional=True,
+    )
+    physical_host_topology: "ReservationBlockPhysicalTopologyInstancePhysicalHostTopology" = proto.Field(
+        proto.MESSAGE,
+        number=390842814,
+        optional=True,
+        message="ReservationBlockPhysicalTopologyInstancePhysicalHostTopology",
+    )
+    project_id: int = proto.Field(
+        proto.UINT64,
+        number=177513473,
+        optional=True,
+    )
+
+
+class ReservationBlockPhysicalTopologyInstancePhysicalHostTopology(proto.Message):
+    r"""The PhysicalHostTopology of the instance within a Block
+    resource.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        host (str):
+            Host hash for a given instance
+
+            This field is a member of `oneof`_ ``_host``.
+        sub_block (str):
+            Sub block hash for a given instance
+
+            This field is a member of `oneof`_ ``_sub_block``.
+    """
+
+    host: str = proto.Field(
+        proto.STRING,
+        number=3208616,
+        optional=True,
+    )
+    sub_block: str = proto.Field(
+        proto.STRING,
+        number=478033358,
         optional=True,
     )
 

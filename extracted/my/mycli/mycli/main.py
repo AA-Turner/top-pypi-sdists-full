@@ -46,6 +46,7 @@ from mycli.key_bindings import mycli_bindings
 from mycli.lexer import MyCliLexer
 from mycli.packages import special
 from mycli.packages.filepaths import dir_path_exists, guess_socket_location
+from mycli.packages.hybrid_redirection import get_redirect_components, is_redirect_command
 from mycli.packages.parseutils import is_destructive, is_dropping_database
 from mycli.packages.prompt_utils import confirm, confirm_destructive_query
 from mycli.packages.special.favoritequeries import FavoriteQueries
@@ -708,11 +709,11 @@ class MyCli(object):
             if not text.strip():
                 return
 
-            if special.is_redirect_command(text):
-                redirect_sql, redirect_operator, redirect_filename = special.get_redirect_components(text)
-                text = redirect_sql
+            if is_redirect_command(text):
+                sql_part, command_part, file_operator_part, file_part = get_redirect_components(text)
+                text = sql_part
                 try:
-                    special.set_redirect(redirect_filename, redirect_operator)
+                    special.set_redirect(command_part, file_operator_part, file_part)
                 except (FileNotFoundError, OSError, RuntimeError) as e:
                     logger.error("sql: %r, error: %r", text, e)
                     logger.error("traceback: %r", traceback.format_exc())
@@ -799,7 +800,7 @@ class MyCli(object):
                     result_count += 1
                     mutating = mutating or destroy or is_mutating(status)
                 special.unset_once_if_written(self.post_redirect_command)
-                special.flush_pipe_once_if_written()
+                special.flush_pipe_once_if_written(self.post_redirect_command)
             except EOFError as e:
                 raise e
             except KeyboardInterrupt:

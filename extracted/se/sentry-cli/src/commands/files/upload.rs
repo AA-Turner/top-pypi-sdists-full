@@ -143,7 +143,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
                 bail!("Invalid header. Needs to be in key:value format");
             }
             let (key, value) = header.split_once(':').unwrap();
-            headers.insert(key.trim().to_string(), value.trim().to_string());
+            headers.insert(key.trim().to_owned(), value.trim().to_owned());
         }
     };
 
@@ -205,7 +205,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
                 let url = format!("{}/{}{}", url_prefix, path_as_url(local_path), url_suffix);
 
                 (
-                    url.to_string(),
+                    url.clone(),
                     SourceFile {
                         url,
                         path: source.path.clone(),

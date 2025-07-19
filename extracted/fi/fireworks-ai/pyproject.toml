@@ -44,10 +44,11 @@ dependencies = [
     "betterproto-fw[compiler]>=2.0.3",
     "asyncstdlib-fw>=3.13.2",
     "grpcio>=1.71.0",
-    "protobuf==5.29.4",
+    "protobuf==5.29.3",
     "rich>=14.0.0",
     "reward-kit>=0.3.1",
     "toml>=0.10.2",
+    "attrs==23.1.0",
 ]
 name = "fireworks-ai"
 dynamic = []
@@ -60,7 +61,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 3 - Alpha",
 ]
-version = "0.19.2"
+version = "0.19.6"
 
 [project.license]
 text = "MIT"

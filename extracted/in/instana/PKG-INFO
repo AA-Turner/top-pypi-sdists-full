@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instana
-Version: 3.5.0
+Version: 3.6.0
 Summary: Python Distributed Tracing & Metrics Sensor for Instana.
 Project-URL: Documentation, https://www.ibm.com/docs/en/instana-observability/current?topic=technologies-monitoring-python-instana-python-package
 Project-URL: Issues, https://github.com/instana/python-sensor/issues
@@ -33,6 +33,7 @@ Requires-Dist: autowrapt>=1.0
 Requires-Dist: fysom>=2.1.2
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-semantic-conventions>=0.48b0
+Requires-Dist: psutil>=5.9.0; sys_platform == 'win32'
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: requests>=2.6.0
 Requires-Dist: setuptools>=69.0.0; python_version >= '3.12'

@@ -8,7 +8,7 @@ import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
 from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
-from anyscale.compute_config import ComputeConfig
+from anyscale.compute_config import ComputeConfig, MultiDeploymentComputeConfig
 from anyscale.controllers.compute_config_controller import ComputeConfigController
 from anyscale.util import validate_non_negative_arg
 
@@ -105,8 +105,15 @@ def create_compute_config(
     if compute_config_file is not None:
         ComputeConfigController().create(compute_config_file, name)
     elif config_file is not None:
-        config = ComputeConfig.from_yaml(config_file)
-        anyscale.compute_config.create(config, name=name)
+        try:
+            config = ComputeConfig.from_yaml(config_file)
+        except TypeError:
+            config = MultiDeploymentComputeConfig.from_yaml(config_file)
+
+        if isinstance(config, ComputeConfig):
+            anyscale.compute_config.create(config, name=name)
+        elif isinstance(config, MultiDeploymentComputeConfig):
+            anyscale.compute_config.create_multi_deployment(config, name=name)
     else:
         raise click.ClickException(
             "Either the --config-file flag or [COMPUTE_CONFIG_FILE] argument must be provided."

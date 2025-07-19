@@ -32,6 +32,7 @@ __all__ = (
     "CatalogItemStatusType",
     "ComputeAssetStateType",
     "FiberOpticCableTypeType",
+    "GetOutpostBillingInformationPaginatorName",
     "GetOutpostInstanceTypesPaginatorName",
     "GetOutpostSupportedInstanceTypesPaginatorName",
     "LineItemStatusType",
@@ -59,6 +60,8 @@ __all__ = (
     "ResourceServiceName",
     "ServiceName",
     "ShipmentCarrierType",
+    "SubscriptionStatusType",
+    "SubscriptionTypeType",
     "SupportedHardwareTypeType",
     "SupportedStorageEnumType",
     "TaskActionOnBlockingInstancesType",
@@ -90,6 +93,7 @@ CatalogItemClassType = Literal["RACK", "SERVER"]
 CatalogItemStatusType = Literal["AVAILABLE", "DISCONTINUED"]
 ComputeAssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
 FiberOpticCableTypeType = Literal["MULTI_MODE", "SINGLE_MODE"]
+GetOutpostBillingInformationPaginatorName = Literal["get_outpost_billing_information"]
 GetOutpostInstanceTypesPaginatorName = Literal["get_outpost_instance_types"]
 GetOutpostSupportedInstanceTypesPaginatorName = Literal["get_outpost_supported_instance_types"]
 LineItemStatusType = Literal[
@@ -152,6 +156,8 @@ PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWE
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
 ShipmentCarrierType = Literal["DBS", "DHL", "EXPEDITORS", "FEDEX", "UPS"]
+SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE"]
+SubscriptionTypeType = Literal["CAPACITY_INCREASE", "ORIGINAL", "RENEWAL"]
 SupportedHardwareTypeType = Literal["RACK", "SERVER"]
 SupportedStorageEnumType = Literal["EBS", "S3"]
 TaskActionOnBlockingInstancesType = Literal["FAIL_TASK", "WAIT_FOR_EVACUATION"]
@@ -596,6 +602,7 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "get_outpost_billing_information",
     "get_outpost_instance_types",
     "get_outpost_supported_instance_types",
     "list_asset_instances",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fnllm
-Version: 0.3.0
+Version: 0.3.1
 Summary: A function-based LLM protocol and wrapper.
 Author-email: Chris Trevino <chtrevin@microsoft.com>, Rodrigo Racanicci <rracanicci@microsoft.com>
 License:     MIT License

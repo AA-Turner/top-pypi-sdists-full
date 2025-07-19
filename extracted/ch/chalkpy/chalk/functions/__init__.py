@@ -3828,6 +3828,33 @@ def xgboost_regressor(
     )
 
 
+def random(n: int | None = None):
+    """
+    Generate a random number.
+
+    If no arguments are provided, a random float between `[0.0, 1.0)` is returned.
+    If `n` is provided, a random integer between `[0, n)` is returned.
+
+    Parameters
+    ----------
+    n
+        The upper bound for the random integer. If `None`, a random float is returned.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RandomExample:
+    ...    id: int
+    ...    random_float: float = F.random()
+    ...    random_int_bounded: int = F.random(10)
+    """
+    if n is None:
+        return UnderscoreFunction("random")
+    return UnderscoreFunction("random", n)
+
+
 __all__ = (
     "DayOfWeek",
     "Then",
@@ -3841,8 +3868,8 @@ __all__ = (
     "array_join",
     "array_max",
     "array_median",
-    "array_mode",
     "array_min",
+    "array_mode",
     "array_sample_stddev",
     "array_sort",
     "array_stddev",
@@ -3857,6 +3884,8 @@ __all__ = (
     "contains",
     "cos",
     "cosine_similarity",
+    "current_bucket_end",
+    "current_bucket_start",
     "date_trunc",
     "day_of_month",
     "day_of_week",
@@ -3875,12 +3904,12 @@ __all__ = (
     "gunzip",
     "haversine",
     "head",
+    "hour_of_day",
     "http_delete",
     "http_get",
     "http_post",
     "http_put",
     "http_request",
-    "hour_of_day",
     "if_then_else",
     "is_leap_year",
     "is_month_end",
@@ -3908,13 +3937,16 @@ __all__ = (
     "min_by_n",
     "mod",
     "month_of_year",
-    "partial_ratio",
+    "nth_bucket_end",
+    "nth_bucket_start",
     "parse_datetime",
+    "partial_ratio",
     "power",
     "proto_deserialize",
     "proto_serialize",
     "quarter",
     "radians",
+    "random",
     "recover",
     "regexp_extract",
     "regexp_extract_all",
@@ -3952,10 +3984,10 @@ __all__ = (
     "to_iso8601",
     "token_set_ratio",
     "token_sort_ratio",
-    "unidecode_normalize",
-    "unidecode_to_ascii",
     "total_seconds",
     "trim",
+    "unidecode_normalize",
+    "unidecode_to_ascii",
     "unix_milliseconds",
     "unix_seconds",
     "upper",
@@ -3964,10 +3996,6 @@ __all__ = (
     "url_extract_protocol",
     "week_of_year",
     "when",
-    "year",
     "xgboost_regressor",
-    "current_bucket_start",
-    "current_bucket_end",
-    "nth_bucket_start",
-    "nth_bucket_end",
+    "year",
 )

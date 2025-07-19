@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lunary
-Version: 1.4.21
+Version: 1.4.25
 Summary: Python SDK for Lunary, the open-source platform where GenAI teams manage and improve LLM chatbots.
 Keywords: Lunary,lunary.ai,Langchain,AI,Analytics,Monitoring,LLM,GenAI,SDK
 Author: lunary
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: aiohttp (>=3.9.5,<4.0.0)
+Requires-Dist: aiohttp (>=3.11.11,<4.0.0)
 Requires-Dist: chevron (>=0.14.0,<0.15.0)
 Requires-Dist: jsonpickle (>=3.0.4,<4.0.0)
 Requires-Dist: packaging (>=23.2,<24.0)

@@ -79,6 +79,7 @@ from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
 
 
 from .usecases.weld_defect_detection import WeldDefectConfig
+from .usecases.weapon_detection import WeaponDetectionConfig
 
 from .usecases.car_damage_detection import CarDamageConfig
 from .usecases.price_tag_detection import PriceTagConfig
@@ -86,6 +87,13 @@ from .usecases.banana_defect_detection import BananaMonitoringConfig
 from .usecases.distracted_driver_detection import DistractedDriverConfig
 from .usecases.emergency_vehicle_detection import EmergencyVehicleConfig
 from .usecases.solar_panel import SolarPanelConfig
+from .usecases.theft_detection import TheftDetectionConfig
+from .usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
+from .usecases.crop_weed_detection import CropWeedDetectionConfig
+from .usecases.child_monitoring import ChildMonitoringConfig
+from .usecases.gender_detection import GenderDetectionConfig
+from .usecases.concrete_crack_detection import ConcreteCrackConfig, ConcreteCrackUseCase
+from .usecases.fashion_detection import FashionDetectionConfig, FashionDetectionUseCase
 
 # Use case implementations
 from .usecases import (
@@ -113,7 +121,14 @@ from .usecases import (
     DistractedDriverUseCase,
     EmergencyVehicleUseCase,
     SolarPanelUseCase,
-    ChickenPoseDetectionUseCase
+    ChickenPoseDetectionUseCase,
+    TheftDetectionUseCase,
+    TrafficSignMonitoringUseCase,
+    CropWeedDetectionUseCase,
+    ChildMonitoringUseCase,
+    GenderDetectionUseCase,
+    WeaponDetectionUseCase,
+    FashionDetectionUseCase
 )
 
 # Register use cases automatically
@@ -136,6 +151,8 @@ _age_detection = AgeDetectionUseCase()
 _mask_detection = MaskDetectionUseCase()
 _banana_defect_detection = BananaMonitoringUseCase()
 _chicken_pose_detection = ChickenPoseDetectionUseCase()
+_theft_detection = TheftDetectionUseCase()
+_traffic_sign_monitoring = TrafficSignMonitoringUseCase()
 
 _weld_defect_detection = WeldDefectUseCase()
 _pricetag_detection = PriceTagUseCase()
@@ -143,6 +160,12 @@ _car_damage = CarDamageDetectionUseCase()
 _distracted_driver = DistractedDriverUseCase()
 _emergency_vehicle_detection = EmergencyVehicleUseCase()
 _solar_panel = SolarPanelUseCase()
+_crop_weed_detection = CropWeedDetectionUseCase()
+_child_monitoring = ChildMonitoringUseCase()
+_gender_detection = GenderDetectionUseCase()
+_weapon_tracking = WeaponDetectionUseCase()
+_concrete_crack_detection = ConcreteCrackUseCase()
+_fashion_detection = FashionDetectionUseCase()
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -165,13 +188,20 @@ registry.register_use_case(_weld_defect_detection.category, _weld_defect_detecti
 registry.register_use_case(_mask_detection.category, _mask_detection.name, MaskDetectionUseCase)
 registry.register_use_case(_banana_defect_detection.category, _banana_defect_detection.name, BananaMonitoringUseCase)
 registry.register_use_case(_chicken_pose_detection.category, _chicken_pose_detection.name, ChickenPoseDetectionUseCase)
-
+registry.register_use_case(_theft_detection.category, _theft_detection.name, TheftDetectionUseCase)
+registry.register_use_case(_traffic_sign_monitoring.category, _traffic_sign_monitoring.name, TrafficSignMonitoringUseCase)
+registry.register_use_case(_gender_detection.category, _gender_detection.name, GenderDetectionUseCase)
 
 registry.register_use_case(_car_damage.category, _car_damage.name, CarDamageDetectionUseCase)
 registry.register_use_case(_distracted_driver.category, _distracted_driver.name, DistractedDriverUseCase)
 
 registry.register_use_case(_emergency_vehicle_detection.category, _emergency_vehicle_detection.name, EmergencyVehicleUseCase)
 registry.register_use_case(_solar_panel.category, _solar_panel.name, SolarPanelUseCase)
+registry.register_use_case(_crop_weed_detection.category, _crop_weed_detection.name, CropWeedDetectionUseCase)
+registry.register_use_case(_child_monitoring.category, _child_monitoring.name, ChildMonitoringUseCase)
+registry.register_use_case(_weapon_tracking.category, _weapon_tracking.name, WeaponDetectionUseCase)
+registry.register_use_case(_concrete_crack_detection.category, _concrete_crack_detection.name, ConcreteCrackUseCase)
+registry.register_use_case(_fashion_detection.category, _fashion_detection.name, FashionDetectionUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -226,7 +256,8 @@ from .utils import (  # noqa: E402
     validate_zone_polygon,
     get_use_case_examples,
     create_retail_store_zones,
-    create_office_zones
+    create_office_zones,
+
 )
 
 # Convenience functions for backward compatibility and simple usage
@@ -328,6 +359,14 @@ __all__ = [
     'EmergencyVehicleConfig',
     'SolarPanelConfig',
     'ChickenPoseDetectionConfig',
+    'TheftDetectionConfig',
+    'TrafficSignMonitoringConfig',
+    'CropWeedDetectionConfig',
+    'ChildMonitoringConfig',
+    'GenderDetectionConfig',
+    'WeaponDetectionConfig',
+    'ConcreteCrackConfig',
+    'FashionDetectionConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -355,6 +394,15 @@ __all__ = [
     'EmergencyVehicleUseCase',
     'SolarPanelUseCase',
     'ChickenPoseDetectionUseCase',
+    'TheftDetectionUseCase',
+    'TrafficSignMonitoringUseCase',
+    'WeaponDetectionUseCase',
+
+    'CropWeedDetectionUseCase',
+    'ChildMonitoringUseCase',
+    'GenderDetectionUseCase',
+    'ConcreteCrackUseCase',
+    'FashionDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

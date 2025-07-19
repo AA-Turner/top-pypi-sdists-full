@@ -178,6 +178,7 @@ class Generator(metaclass=_Generator):
         exp.PartitionedByBucket: lambda self, e: self.func("BUCKET", e.this, e.expression),
         exp.PartitionByTruncate: lambda self, e: self.func("TRUNCATE", e.this, e.expression),
         exp.PivotAny: lambda self, e: f"ANY{self.sql(e, 'this')}",
+        exp.PositionalColumn: lambda self, e: f"#{self.sql(e, 'this')}",
         exp.ProjectionPolicyColumnConstraint: lambda self,
         e: f"PROJECTION POLICY {self.sql(e, 'this')}",
         exp.Put: lambda self, e: self.get_put_sql(e),
@@ -2406,7 +2407,12 @@ class Generator(metaclass=_Generator):
             self.unsupported("Locking reads using 'FOR UPDATE/SHARE' are not supported")
             return ""
 
-        lock_type = "FOR UPDATE" if expression.args["update"] else "FOR SHARE"
+        update = expression.args["update"]
+        key = expression.args.get("key")
+        if update:
+            lock_type = "FOR NO KEY UPDATE" if key else "FOR UPDATE"
+        else:
+            lock_type = "FOR KEY SHARE" if key else "FOR SHARE"
         expressions = self.expressions(expression, flat=True)
         expressions = f" OF {expressions}" if expressions else ""
         wait = expression.args.get("wait")
@@ -5047,3 +5053,18 @@ class Generator(metaclass=_Generator):
 
         case = exp.Case(ifs=ifs, default=expressions[-1] if len(expressions) % 2 == 1 else None)
         return self.sql(case)
+
+    def semanticview_sql(self, expression: exp.SemanticView) -> str:
+        this = self.sql(expression, "this")
+        this = self.seg(this, sep="")
+        dimensions = self.expressions(
+            expression, "dimensions", dynamic=True, skip_first=True, skip_last=True
+        )
+        dimensions = self.seg(f"DIMENSIONS {dimensions}") if dimensions else ""
+        metrics = self.expressions(
+            expression, "metrics", dynamic=True, skip_first=True, skip_last=True
+        )
+        metrics = self.seg(f"METRICS {metrics}") if metrics else ""
+        where = self.sql(expression, "where")
+        where = self.seg(f"WHERE {where}") if where else ""
+        return f"SEMANTIC_VIEW({self.indent(this + metrics + dimensions + where)}{self.seg(')', sep='')}"

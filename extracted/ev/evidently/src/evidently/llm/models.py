@@ -1,7 +1,10 @@
-from evidently._pydantic_compat import BaseModel
+from typing import Any
+from typing import Dict
+
+from evidently.pydantic_utils import FrozenBaseModel
 
 
-class LLMMessage(BaseModel):
+class LLMMessage(FrozenBaseModel):
     role: str
     content: str
 
@@ -12,3 +15,18 @@ class LLMMessage(BaseModel):
     @classmethod
     def system(cls, message: str):
         return LLMMessage(role="system", content=message)
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate_from_tuple
+
+    @classmethod
+    def validate_from_tuple(cls, value: Any):
+        if isinstance(value, tuple):
+            return cls(**{"role": value[0], "content": value[1]})
+        if isinstance(value, dict):
+            return cls(**value)
+        return value
+
+
+LLMResponse = Dict[str, Any]

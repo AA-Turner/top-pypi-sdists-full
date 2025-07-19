@@ -1276,6 +1276,7 @@ class Parser(metaclass=_Parser):
         TokenType.CONNECT_BY: lambda self: ("connect", self._parse_connect(skip_start_token=True)),
         TokenType.START_WITH: lambda self: ("connect", self._parse_connect()),
     }
+    QUERY_MODIFIER_TOKENS = set(QUERY_MODIFIER_PARSERS)
 
     SET_PARSERS = {
         "GLOBAL": lambda self: self._parse_set_item_assignment("GLOBAL"),
@@ -1528,6 +1529,11 @@ class Parser(metaclass=_Parser):
 
     # Whether TIMESTAMP <literal> can produce a zone-aware timestamp
     ZONE_AWARE_TIMESTAMP_CONSTRUCTOR = False
+
+    # Whether map literals support arbitrary expressions as keys.
+    # When True, allows complex keys like arrays or literals: {[1, 2]: 3}, {1: 2} (e.g. DuckDB).
+    # When False, keys are typically restricted to identifiers.
+    MAP_KEYS_ARE_ARBITRARY_EXPRESSIONS = False
 
     __slots__ = (
         "error_level",
@@ -4347,6 +4353,13 @@ class Parser(metaclass=_Parser):
         self._match_r_paren()
         return self.expression(exp.In, this=value, expressions=exprs)
 
+    def _parse_pivot_aggregation(self) -> t.Optional[exp.Expression]:
+        func = self._parse_function()
+        if not func:
+            self.raise_error("Expecting an aggregation function in PIVOT")
+
+        return self._parse_alias(func)
+
     def _parse_pivot(self) -> t.Optional[exp.Pivot]:
         index = self._index
         include_nulls = None
@@ -4373,7 +4386,7 @@ class Parser(metaclass=_Parser):
         if unpivot:
             expressions = self._parse_csv(self._parse_column)
         else:
-            expressions = self._parse_csv(lambda: self._parse_alias(self._parse_function()))
+            expressions = self._parse_csv(self._parse_pivot_aggregation)
 
         if not expressions:
             self.raise_error("Failed to parse PIVOT's aggregation list")
@@ -4478,6 +4491,9 @@ class Parser(metaclass=_Parser):
             elements["all"] = True
         elif self._match(TokenType.DISTINCT):
             elements["all"] = False
+
+        if self._match_set(self.QUERY_MODIFIER_TOKENS, advance=False):
+            return self.expression(exp.Group, comments=comments, **elements)  # type: ignore
 
         while True:
             index = self._index
@@ -4739,12 +4755,17 @@ class Parser(metaclass=_Parser):
     def _parse_locks(self) -> t.List[exp.Lock]:
         locks = []
         while True:
+            update, key = None, None
             if self._match_text_seq("FOR", "UPDATE"):
                 update = True
             elif self._match_text_seq("FOR", "SHARE") or self._match_text_seq(
                 "LOCK", "IN", "SHARE", "MODE"
             ):
                 update = False
+            elif self._match_text_seq("FOR", "KEY", "SHARE"):
+                update, key = False, True
+            elif self._match_text_seq("FOR", "NO", "KEY", "UPDATE"):
+                update, key = True, True
             else:
                 break
 
@@ -4761,7 +4782,9 @@ class Parser(metaclass=_Parser):
                 wait = False
 
             locks.append(
-                self.expression(exp.Lock, update=update, expressions=expressions, wait=wait)
+                self.expression(
+                    exp.Lock, update=update, expressions=expressions, wait=wait, key=key
+                )
             )
 
         return locks
@@ -5816,7 +5839,9 @@ class Parser(metaclass=_Parser):
     def _to_prop_eq(self, expression: exp.Expression, index: int) -> exp.Expression:
         return expression
 
-    def _kv_to_prop_eq(self, expressions: t.List[exp.Expression]) -> t.List[exp.Expression]:
+    def _kv_to_prop_eq(
+        self, expressions: t.List[exp.Expression], parse_map: bool = False
+    ) -> t.List[exp.Expression]:
         transformed = []
 
         for index, e in enumerate(expressions):
@@ -5826,7 +5851,9 @@ class Parser(metaclass=_Parser):
 
                 if not isinstance(e, exp.PropertyEQ):
                     e = self.expression(
-                        exp.PropertyEQ, this=exp.to_identifier(e.this.name), expression=e.expression
+                        exp.PropertyEQ,
+                        this=e.this if parse_map else exp.to_identifier(e.this.name),
+                        expression=e.expression,
                     )
 
                 if isinstance(e.this, exp.Column):
@@ -6296,6 +6323,12 @@ class Parser(metaclass=_Parser):
         if not self._match_set((TokenType.L_BRACKET, TokenType.L_BRACE)):
             return this
 
+        if self.MAP_KEYS_ARE_ARBITRARY_EXPRESSIONS:
+            map_token = seq_get(self._tokens, self._index - 2)
+            parse_map = map_token is not None and map_token.text.upper() == "MAP"
+        else:
+            parse_map = False
+
         bracket_kind = self._prev.token_type
         if (
             bracket_kind == TokenType.L_BRACE
@@ -6316,7 +6349,10 @@ class Parser(metaclass=_Parser):
 
         # https://duckdb.org/docs/sql/data_types/struct.html#creating-structs
         if bracket_kind == TokenType.L_BRACE:
-            this = self.expression(exp.Struct, expressions=self._kv_to_prop_eq(expressions))
+            this = self.expression(
+                exp.Struct,
+                expressions=self._kv_to_prop_eq(expressions=expressions, parse_map=parse_map),
+            )
         elif not this:
             this = build_array_constructor(
                 exp.Array, args=expressions, bracket_kind=bracket_kind, dialect=self.dialect
@@ -7338,6 +7374,8 @@ class Parser(metaclass=_Parser):
             not self.dialect.ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN
             or self._match_text_seq("COLUMNS")
         ):
+            self._match(TokenType.COLUMN)
+
             schema = self._parse_schema()
 
             return ensure_list(schema) if schema else self._parse_csv(self._parse_field_def)

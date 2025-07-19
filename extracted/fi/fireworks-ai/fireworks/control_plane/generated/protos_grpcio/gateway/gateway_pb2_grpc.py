@@ -40,6 +40,8 @@ from . import sign_in_pb2 as gateway_dot_sign__in__pb2
 from . import snapshot_pb2 as gateway_dot_snapshot__pb2
 from . import supervised_fine_tuning_job_pb2 as gateway_dot_supervised__fine__tuning__job__pb2
 from . import user_pb2 as gateway_dot_user__pb2
+from . import workload_pb2 as gateway_dot_workload__pb2
+from . import workload_shape_pb2 as gateway_dot_workload__shape__pb2
 from ..google.longrunning import operations_pb2 as google_dot_longrunning_dot_operations__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
@@ -961,6 +963,56 @@ class GatewayStub(object):
                 '/gateway.Gateway/GetDeploymentPrerequisites',
                 request_serializer=gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.SerializeToString,
                 response_deserializer=gateway_dot_deployment__pb2.DeploymentPrerequisites.FromString,
+                _registered_method=True)
+        self.CreateWorkloadShape = channel.unary_unary(
+                '/gateway.Gateway/CreateWorkloadShape',
+                request_serializer=gateway_dot_workload__shape__pb2.CreateWorkloadShapeRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+                _registered_method=True)
+        self.GetWorkloadShape = channel.unary_unary(
+                '/gateway.Gateway/GetWorkloadShape',
+                request_serializer=gateway_dot_workload__shape__pb2.GetWorkloadShapeRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+                _registered_method=True)
+        self.ListWorkloadShapes = channel.unary_unary(
+                '/gateway.Gateway/ListWorkloadShapes',
+                request_serializer=gateway_dot_workload__shape__pb2.ListWorkloadShapesRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__shape__pb2.ListWorkloadShapesResponse.FromString,
+                _registered_method=True)
+        self.UpdateWorkloadShape = channel.unary_unary(
+                '/gateway.Gateway/UpdateWorkloadShape',
+                request_serializer=gateway_dot_workload__shape__pb2.UpdateWorkloadShapeRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+                _registered_method=True)
+        self.DeleteWorkloadShape = channel.unary_unary(
+                '/gateway.Gateway/DeleteWorkloadShape',
+                request_serializer=gateway_dot_workload__shape__pb2.DeleteWorkloadShapeRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                _registered_method=True)
+        self.CreateWorkload = channel.unary_unary(
+                '/gateway.Gateway/CreateWorkload',
+                request_serializer=gateway_dot_workload__pb2.CreateWorkloadRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__pb2.Workload.FromString,
+                _registered_method=True)
+        self.GetWorkload = channel.unary_unary(
+                '/gateway.Gateway/GetWorkload',
+                request_serializer=gateway_dot_workload__pb2.GetWorkloadRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__pb2.Workload.FromString,
+                _registered_method=True)
+        self.ListWorkloads = channel.unary_unary(
+                '/gateway.Gateway/ListWorkloads',
+                request_serializer=gateway_dot_workload__pb2.ListWorkloadsRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__pb2.ListWorkloadsResponse.FromString,
+                _registered_method=True)
+        self.UpdateWorkload = channel.unary_unary(
+                '/gateway.Gateway/UpdateWorkload',
+                request_serializer=gateway_dot_workload__pb2.UpdateWorkloadRequest.SerializeToString,
+                response_deserializer=gateway_dot_workload__pb2.Workload.FromString,
+                _registered_method=True)
+        self.DeleteWorkload = channel.unary_unary(
+                '/gateway.Gateway/DeleteWorkload',
+                request_serializer=gateway_dot_workload__pb2.DeleteWorkloadRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
         self.CreateIdentityProvider = channel.unary_unary(
                 '/gateway.Gateway/CreateIdentityProvider',
@@ -2286,6 +2338,78 @@ class GatewayServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateWorkloadShape(self, request, context):
+        """CRUD APIs for workload shapes.
+        Create Workload Shape
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkloadShape(self, request, context):
+        """Get Workload Shape
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkloadShapes(self, request, context):
+        """List Workload Shapes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateWorkloadShape(self, request, context):
+        """Update Workload Shape
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteWorkloadShape(self, request, context):
+        """Delete Workload Shape
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateWorkload(self, request, context):
+        """CRUD APIs for workloads.
+        Create Workload
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetWorkload(self, request, context):
+        """Get Workload
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListWorkloads(self, request, context):
+        """List Workloads
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateWorkload(self, request, context):
+        """Update Workload
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteWorkload(self, request, context):
+        """Delete Workload
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def CreateIdentityProvider(self, request, context):
         """SSO / Identity Provider Management APIs
 
@@ -3252,6 +3376,56 @@ def add_GatewayServicer_to_server(servicer, server):
                     servicer.GetDeploymentPrerequisites,
                     request_deserializer=gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.FromString,
                     response_serializer=gateway_dot_deployment__pb2.DeploymentPrerequisites.SerializeToString,
+            ),
+            'CreateWorkloadShape': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateWorkloadShape,
+                    request_deserializer=gateway_dot_workload__shape__pb2.CreateWorkloadShapeRequest.FromString,
+                    response_serializer=gateway_dot_workload__shape__pb2.WorkloadShape.SerializeToString,
+            ),
+            'GetWorkloadShape': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkloadShape,
+                    request_deserializer=gateway_dot_workload__shape__pb2.GetWorkloadShapeRequest.FromString,
+                    response_serializer=gateway_dot_workload__shape__pb2.WorkloadShape.SerializeToString,
+            ),
+            'ListWorkloadShapes': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkloadShapes,
+                    request_deserializer=gateway_dot_workload__shape__pb2.ListWorkloadShapesRequest.FromString,
+                    response_serializer=gateway_dot_workload__shape__pb2.ListWorkloadShapesResponse.SerializeToString,
+            ),
+            'UpdateWorkloadShape': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkloadShape,
+                    request_deserializer=gateway_dot_workload__shape__pb2.UpdateWorkloadShapeRequest.FromString,
+                    response_serializer=gateway_dot_workload__shape__pb2.WorkloadShape.SerializeToString,
+            ),
+            'DeleteWorkloadShape': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteWorkloadShape,
+                    request_deserializer=gateway_dot_workload__shape__pb2.DeleteWorkloadShapeRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'CreateWorkload': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateWorkload,
+                    request_deserializer=gateway_dot_workload__pb2.CreateWorkloadRequest.FromString,
+                    response_serializer=gateway_dot_workload__pb2.Workload.SerializeToString,
+            ),
+            'GetWorkload': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetWorkload,
+                    request_deserializer=gateway_dot_workload__pb2.GetWorkloadRequest.FromString,
+                    response_serializer=gateway_dot_workload__pb2.Workload.SerializeToString,
+            ),
+            'ListWorkloads': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListWorkloads,
+                    request_deserializer=gateway_dot_workload__pb2.ListWorkloadsRequest.FromString,
+                    response_serializer=gateway_dot_workload__pb2.ListWorkloadsResponse.SerializeToString,
+            ),
+            'UpdateWorkload': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateWorkload,
+                    request_deserializer=gateway_dot_workload__pb2.UpdateWorkloadRequest.FromString,
+                    response_serializer=gateway_dot_workload__pb2.Workload.SerializeToString,
+            ),
+            'DeleteWorkload': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteWorkload,
+                    request_deserializer=gateway_dot_workload__pb2.DeleteWorkloadRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
             'CreateIdentityProvider': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateIdentityProvider,
@@ -8110,6 +8284,276 @@ class Gateway(object):
             '/gateway.Gateway/GetDeploymentPrerequisites',
             gateway_dot_deployment__pb2.GetDeploymentPrerequisitesRequest.SerializeToString,
             gateway_dot_deployment__pb2.DeploymentPrerequisites.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateWorkloadShape(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/CreateWorkloadShape',
+            gateway_dot_workload__shape__pb2.CreateWorkloadShapeRequest.SerializeToString,
+            gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkloadShape(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/GetWorkloadShape',
+            gateway_dot_workload__shape__pb2.GetWorkloadShapeRequest.SerializeToString,
+            gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListWorkloadShapes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ListWorkloadShapes',
+            gateway_dot_workload__shape__pb2.ListWorkloadShapesRequest.SerializeToString,
+            gateway_dot_workload__shape__pb2.ListWorkloadShapesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateWorkloadShape(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/UpdateWorkloadShape',
+            gateway_dot_workload__shape__pb2.UpdateWorkloadShapeRequest.SerializeToString,
+            gateway_dot_workload__shape__pb2.WorkloadShape.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteWorkloadShape(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/DeleteWorkloadShape',
+            gateway_dot_workload__shape__pb2.DeleteWorkloadShapeRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateWorkload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/CreateWorkload',
+            gateway_dot_workload__pb2.CreateWorkloadRequest.SerializeToString,
+            gateway_dot_workload__pb2.Workload.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetWorkload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/GetWorkload',
+            gateway_dot_workload__pb2.GetWorkloadRequest.SerializeToString,
+            gateway_dot_workload__pb2.Workload.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListWorkloads(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/ListWorkloads',
+            gateway_dot_workload__pb2.ListWorkloadsRequest.SerializeToString,
+            gateway_dot_workload__pb2.ListWorkloadsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateWorkload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/UpdateWorkload',
+            gateway_dot_workload__pb2.UpdateWorkloadRequest.SerializeToString,
+            gateway_dot_workload__pb2.Workload.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteWorkload(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/DeleteWorkload',
+            gateway_dot_workload__pb2.DeleteWorkloadRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for DataDog/datadog provider version 3.67.0
+# CDKTF prebuilt bindings for DataDog/datadog provider version 3.68.0
 
-This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.67.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.68.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform datadog provider version 1
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.67.0)
+* [Terraform datadog provider](https://registry.terraform.io/providers/DataDog/datadog/3.68.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -131,6 +131,7 @@ __all__ = [
     "apm_retention_filter",
     "apm_retention_filter_order",
     "app_builder_app",
+    "app_key_registration",
     "application_key",
     "appsec_waf_custom_rule",
     "appsec_waf_exclusion_filter",
@@ -290,6 +291,7 @@ from . import api_key
 from . import apm_retention_filter
 from . import apm_retention_filter_order
 from . import app_builder_app
+from . import app_key_registration
 from . import application_key
 from . import appsec_waf_custom_rule
 from . import appsec_waf_exclusion_filter

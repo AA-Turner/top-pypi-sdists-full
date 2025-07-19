@@ -35,6 +35,8 @@ from . import sign_in_pb2 as _sign_in_pb2
 from . import snapshot_pb2 as _snapshot_pb2
 from . import supervised_fine_tuning_job_pb2 as _supervised_fine_tuning_job_pb2
 from . import user_pb2 as _user_pb2
+from . import workload_pb2 as _workload_pb2
+from . import workload_shape_pb2 as _workload_shape_pb2
 from ..google.api import annotations_pb2 as _annotations_pb2
 from ..google.longrunning import operations_pb2 as _operations_pb2
 from google.protobuf import empty_pb2 as _empty_pb2

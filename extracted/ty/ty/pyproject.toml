@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.1a14"
+version = "0.0.1a15"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -52,6 +52,7 @@ cache-keys = [
 
 [tool.ruff]
 extend-exclude = ["ruff"]
+per-file-target-version = { "scripts/**" = "py313" }
 
 [tool.ruff.lint]
 select = [

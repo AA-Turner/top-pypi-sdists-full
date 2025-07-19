@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.0.0
+Version: 1.0.1
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -9,7 +9,7 @@ Author-email: AWS <opensource@amazon.com>
 License: Apache-2.0
 License-File: LICENSE
 License-File: NOTICE
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -99,7 +99,7 @@ Description-Content-Type: text/markdown
 <div align="center">
   <div>
     <a href="https://strandsagents.com">
-      <img src="https://strandsagents.com/latest/assets/logo-auto.svg" alt="Strands Agents" width="55px" height="105px">
+      <img src="https://strandsagents.com/latest/assets/logo-light.svg" alt="Strands Agents" width="55px" height="105px">
     </a>
   </div>
 
@@ -135,7 +135,7 @@ Strands Agents is a simple yet powerful SDK that takes a model-driven approach t
 ## Feature Overview
 
 - **Lightweight & Flexible**: Simple agent loop that just works and is fully customizable
-- **Model Agnostic**: Support for Amazon Bedrock, Anthropic, LiteLLM, Llama, Ollama, OpenAI, and custom providers
+- **Model Agnostic**: Support for Amazon Bedrock, Anthropic, LiteLLM, Llama, Ollama, OpenAI, Writer, and custom providers
 - **Advanced Capabilities**: Multi-agent systems, autonomous agents, and streaming support
 - **Built-in MCP**: Native support for Model Context Protocol (MCP) servers, enabling access to thousands of pre-built tools
 
@@ -249,6 +249,7 @@ Built-in providers:
  - [LlamaAPI](https://strandsagents.com/latest/user-guide/concepts/model-providers/llamaapi/)
  - [Ollama](https://strandsagents.com/latest/user-guide/concepts/model-providers/ollama/)
  - [OpenAI](https://strandsagents.com/latest/user-guide/concepts/model-providers/openai/)
+ - [Writer](https://strandsagents.com/latest/documentation/docs/user-guide/concepts/model-providers/writer/)
 
 Custom providers can be implemented using [Custom Providers](https://strandsagents.com/latest/user-guide/concepts/model-providers/custom_model_provider/)
 

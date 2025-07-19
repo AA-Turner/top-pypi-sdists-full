@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.2.13
+Version: 0.2.14
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -22,20 +22,21 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: fastapi>=0.115.2
-Requires-Dist: google-api-core>=1.26.0
-Requires-Dist: grpcio-reflection>=1.7.0
-Requires-Dist: grpcio-tools>=1.60
-Requires-Dist: grpcio>=1.60
 Requires-Dist: httpx-sse>=0.4.0
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: opentelemetry-api>=1.33.0
 Requires-Dist: opentelemetry-sdk>=1.33.0
-Requires-Dist: protobuf==5.29.5
 Requires-Dist: pydantic>=2.11.3
 Requires-Dist: sse-starlette
 Requires-Dist: starlette
 Provides-Extra: encryption
 Requires-Dist: cryptography>=43.0.0; extra == 'encryption'
+Provides-Extra: grpc
+Requires-Dist: google-api-core>=1.26.0; extra == 'grpc'
+Requires-Dist: grpcio-reflection>=1.7.0; extra == 'grpc'
+Requires-Dist: grpcio-tools>=1.60; extra == 'grpc'
+Requires-Dist: grpcio>=1.60; extra == 'grpc'
+Requires-Dist: protobuf==5.29.5; extra == 'grpc'
 Provides-Extra: mysql
 Requires-Dist: sqlalchemy[aiomysql,asyncio]>=2.0.0; extra == 'mysql'
 Provides-Extra: postgresql
@@ -59,7 +60,7 @@ Description-Content-Type: text/markdown
    <h2 align="center">
    <img src="https://raw.githubusercontent.com/a2aproject/A2A/refs/heads/main/docs/assets/a2a-logo-black.svg" width="256" alt="A2A Logo"/>
    </h2>
-   <h3 align="center">A Python library that helps run agentic applications as A2AServers following the <a href="https://a2aproject.github.io/A2A">Agent2Agent (A2A) Protocol</a>.</h3>
+   <h3 align="center">A Python library that helps run agentic applications as A2AServers following the <a href="https://a2a-protocol.org">Agent2Agent (A2A) Protocol</a>.</h3>
 </html>
 
 <!-- markdownlint-enable no-inline-html -->

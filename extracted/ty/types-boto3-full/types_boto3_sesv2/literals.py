@@ -198,7 +198,7 @@ VerificationErrorType = Literal[
     "TYPE_NOT_FOUND",
 ]
 VerificationStatusType = Literal["FAILED", "NOT_STARTED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
-WarmupStatusType = Literal["DONE", "IN_PROGRESS"]
+WarmupStatusType = Literal["DONE", "IN_PROGRESS", "NOT_APPLICABLE"]
 SESV2ServiceName = Literal["sesv2"]
 ServiceName = Literal[
     "accessanalyzer",

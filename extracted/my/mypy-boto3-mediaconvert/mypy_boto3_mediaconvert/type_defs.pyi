@@ -400,6 +400,7 @@ from .literals import (
     SimulateReservedQueueType,
     SrtStylePassthroughType,
     StatusUpdateIntervalType,
+    TamsGapHandlingType,
     TeletextPageTypeType,
     TimecodeBurninPositionType,
     TimecodeSourceType,
@@ -622,6 +623,7 @@ __all__ = (
     "InputClippingTypeDef",
     "InputDecryptionSettingsTypeDef",
     "InputOutputTypeDef",
+    "InputTamsSettingsTypeDef",
     "InputTemplateOutputTypeDef",
     "InputTemplateTypeDef",
     "InputTypeDef",
@@ -1461,6 +1463,12 @@ class InputDecryptionSettingsTypeDef(TypedDict):
     EncryptedDecryptionKey: NotRequired[str]
     InitializationVector: NotRequired[str]
     KmsKeyRegion: NotRequired[str]
+
+class InputTamsSettingsTypeDef(TypedDict):
+    AuthConnectionArn: NotRequired[str]
+    GapHandling: NotRequired[TamsGapHandlingType]
+    SourceId: NotRequired[str]
+    Timerange: NotRequired[str]
 
 class InputVideoGeneratorTypeDef(TypedDict):
     Channels: NotRequired[int]
@@ -3198,6 +3206,7 @@ class InputOutputTypeDef(TypedDict):
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
     SupplementalImps: NotRequired[List[str]]
+    TamsSettings: NotRequired[InputTamsSettingsTypeDef]
     TimecodeSource: NotRequired[InputTimecodeSourceType]
     TimecodeStart: NotRequired[str]
     VideoGenerator: NotRequired[InputVideoGeneratorTypeDef]
@@ -3274,6 +3283,7 @@ class InputTypeDef(TypedDict):
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
     SupplementalImps: NotRequired[Sequence[str]]
+    TamsSettings: NotRequired[InputTamsSettingsTypeDef]
     TimecodeSource: NotRequired[InputTimecodeSourceType]
     TimecodeStart: NotRequired[str]
     VideoGenerator: NotRequired[InputVideoGeneratorTypeDef]

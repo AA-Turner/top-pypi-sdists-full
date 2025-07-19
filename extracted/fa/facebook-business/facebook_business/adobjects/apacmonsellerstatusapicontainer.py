@@ -24,9 +24,10 @@ class ApacMonSellerStatusAPIContainer(
         self._api = api
 
     class Field(AbstractObject.Field):
-        pass
+        structured_messaging_commerce = 'structured_messaging_commerce'
 
     _field_types = {
+        'structured_messaging_commerce': 'Object',
     }
     @classmethod
     def _get_field_enum_info(cls):

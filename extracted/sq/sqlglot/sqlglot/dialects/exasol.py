@@ -1,11 +1,52 @@
 from __future__ import annotations
-from sqlglot import exp, generator, parser
-from sqlglot.dialects.dialect import Dialect, rename_func, binary_from_function
+from sqlglot import exp, generator, parser, tokens
+from sqlglot.dialects.dialect import (
+    Dialect,
+    rename_func,
+    binary_from_function,
+    build_formatted_time,
+    timestrtotime_sql,
+)
 from sqlglot.helper import seq_get
 from sqlglot.generator import unsupported_args
+from sqlglot.tokens import TokenType
 
 
 class Exasol(Dialect):
+    TIME_MAPPING = {
+        "yyyy": "%Y",
+        "YYYY": "%Y",
+        "yy": "%y",
+        "YY": "%y",
+        "mm": "%m",
+        "MM": "%m",
+        "MONTH": "%B",
+        "MON": "%b",
+        "dd": "%d",
+        "DD": "%d",
+        "DAY": "%A",
+        "DY": "%a",
+        "H12": "%I",
+        "H24": "%H",
+        "HH": "%H",
+        "ID": "%u",
+        "vW": "%V",
+        "IW": "%V",
+        "vYYY": "%G",
+        "IYYY": "%G",
+        "MI": "%M",
+        "SS": "%S",
+        "uW": "%W",
+        "UW": "%U",
+        "Z": "%z",
+    }
+
+    class Tokenizer(tokens.Tokenizer):
+        KEYWORDS = {
+            **tokens.Tokenizer.KEYWORDS,
+            "USER": TokenType.CURRENT_USER,
+        }
+
     class Parser(parser.Parser):
         FUNCTIONS = {
             **parser.Parser.FUNCTIONS,
@@ -26,7 +67,15 @@ class Exasol(Dialect):
             ),
             "VAR_POP": exp.VariancePop.from_arg_list,
             "APPROXIMATE_COUNT_DISTINCT": exp.ApproxDistinct.from_arg_list,
-            "TO_CHAR": exp.ToChar.from_arg_list,
+            "TO_CHAR": build_formatted_time(exp.ToChar, "exasol"),
+            "TO_DATE": build_formatted_time(exp.TsOrDsToDate, "exasol"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/convert_tz.htm
+            "CONVERT_TZ": lambda args: exp.ConvertTimezone(
+                source_tz=seq_get(args, 1),
+                target_tz=seq_get(args, 2),
+                timestamp=seq_get(args, 0),
+                options=seq_get(args, 3),
+            ),
         }
 
     class Generator(generator.Generator):
@@ -97,5 +146,25 @@ class Exasol(Dialect):
                 rename_func("APPROXIMATE_COUNT_DISTINCT")
             ),
             # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/to_char%20(datetime).htm
-            exp.ToChar: rename_func("TO_CHAR"),
+            exp.ToChar: lambda self, e: self.func("TO_CHAR", e.this, self.format_time(e)),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/to_date.htm
+            exp.TsOrDsToDate: lambda self, e: self.func("TO_DATE", e.this, self.format_time(e)),
+            exp.TimeToStr: lambda self, e: self.func("TO_CHAR", e.this, self.format_time(e)),
+            exp.TimeStrToTime: timestrtotime_sql,
+            exp.StrToTime: lambda self, e: self.func("TO_DATE", e.this, self.format_time(e)),
+            exp.CurrentUser: lambda *_: "CURRENT_USER",
+            exp.AtTimeZone: lambda self, e: self.func(
+                "CONVERT_TZ",
+                e.this,
+                "'UTC'",
+                e.args.get("zone"),
+            ),
         }
+
+        def converttimezone_sql(self, expression: exp.ConvertTimezone) -> str:
+            from_tz = expression.args.get("source_tz")
+            to_tz = expression.args.get("target_tz")
+            datetime = expression.args.get("timestamp")
+            options = expression.args.get("options")
+
+            return self.func("CONVERT_TZ", datetime, from_tz, to_tz, options)

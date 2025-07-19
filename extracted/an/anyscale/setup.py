@@ -75,6 +75,7 @@ setup(
     author="Anyscale Inc.",
     description=("Command Line Interface for Anyscale"),
     long_description=long_description,
+    long_description_content_type="text/markdown",
     packages=[*find_packages(exclude=["tests", "tests.*"])],
     setup_requires=["setuptools_scm"],
     python_requires=">=3.8",

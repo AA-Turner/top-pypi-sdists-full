@@ -46,15 +46,23 @@ from .usecases import (
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
     ChickenPoseDetectionUseCase,
+    TheftDetectionUseCase,
+    TrafficSignMonitoringUseCase,
 
     AgeDetectionUseCase,
     WeldDefectUseCase,
+    WeaponDetectionUseCase,
 
     AgeDetectionUseCase,
     PriceTagUseCase,
     DistractedDriverUseCase,
     EmergencyVehicleUseCase,
-    SolarPanelUseCase
+    SolarPanelUseCase,
+    CropWeedDetectionUseCase,
+    ChildMonitoringUseCase,
+    GenderDetectionUseCase,
+    ConcreteCrackUseCase,
+    FashionDetectionUseCase
 
 
 )
@@ -128,6 +136,8 @@ class PostProcessor:
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
         registry.register_use_case("traffic", "fruit_monitoring", BananaMonitoringUseCase)
+        registry.register_use_case("traffic", "theft_detection", TheftDetectionUseCase)
+        registry.register_use_case("traffic", "traffic_sign_monitoring", TrafficSignMonitoringUseCase)
         
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
         registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
@@ -143,6 +153,12 @@ class PostProcessor:
         registry.register_use_case("traffic", "emergency_vehicle_detection", EmergencyVehicleUseCase)
         registry.register_use_case("energy", "solar_panel", SolarPanelUseCase)
         registry.register_use_case("agriculture", "chicken_pose_detection", ChickenPoseDetectionUseCase)
+        registry.register_use_case("agriculture", "crop_weed_detection", CropWeedDetectionUseCase)
+        registry.register_use_case("security", "child_monitoring", ChildMonitoringUseCase)
+        registry.register_use_case("general", "gender_detection", GenderDetectionUseCase)
+        registry.register_use_case("security", "weapon_tracking", WeaponDetectionUseCase)
+        registry.register_use_case("general", "concrete_crack_detection", ConcreteCrackUseCase)
+        registry.register_use_case("retail", "fashion_detection", FashionDetectionUseCase)
         
         logger.debug("Registered use cases with registry")
     
@@ -241,9 +257,23 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, ChickenPoseDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, TheftDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, TrafficSignMonitoringUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FlareAnalysisUseCase):
                 result = use_case.process(data, parsed_config,input_bytes, context, stream_info)
             elif isinstance(use_case,LicensePlateUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, CropWeedDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, EmergencyVehicleUseCase): 
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, PriceTagUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, GenderDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, FashionDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             else:
                 result = use_case.process(data, parsed_config, context, stream_info)

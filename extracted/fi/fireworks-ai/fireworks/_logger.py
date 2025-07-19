@@ -8,7 +8,7 @@ import sys
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("fireworks-ai")
 handler = logging.StreamHandler(sys.stdout)  # Explicitly use stdout instead of stderr
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
@@ -17,6 +17,9 @@ logger.propagate = False  # Prevent duplicate logs
 
 if os.environ.get("FIREWORKS_SDK_DEBUG"):
     logger.setLevel(logging.DEBUG)
+else:
+    # default to warning level so that we don't spam the console
+    logger.setLevel(logging.WARNING)
 
 
 def log_execution_time(func):

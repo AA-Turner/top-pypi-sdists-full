@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from typing import Callable, Optional, Mapping, Sequence
+from typing import Callable, Dict, List, Optional, Mapping, Sequence, Tuple
 
 from . import winenv
 from .machine_file import strv_to_meson
@@ -15,13 +15,13 @@ from .machine_spec import MachineSpec
 def init_machine_config(machine: MachineSpec,
                         build_machine: MachineSpec,
                         is_cross_build: bool,
-                        environ: dict[str, str],
+                        environ: Dict[str, str],
                         toolchain_prefix: Optional[Path],
                         sdk_prefix: Optional[Path],
                         call_selected_meson: Callable,
                         config: ConfigParser,
-                        outpath: list[str],
-                        outenv: dict[str, str],
+                        outpath: List[str],
+                        outenv: Dict[str, str],
                         outdir: Path):
     allow_undefined_symbols = machine.os == "freebsd"
 
@@ -201,10 +201,9 @@ def init_machine_config(machine: MachineSpec,
         if linker_flavor.startswith("gnu-"):
             linker_flags += ["-static-libgcc"]
             if machine.os != "windows":
-                linker_flags += [
-                    "-Wl,-z,relro",
-                    "-Wl,-z,noexecstack",
-                ]
+                linker_flags += ["-Wl,-z,noexecstack"]
+            if machine.os != "none":
+                linker_flags += ["-Wl,-z,relro"]
             cxx_link_flags += ["-static-libstdc++"]
 
         if linker_flavor == "apple":
@@ -214,6 +213,9 @@ def init_machine_config(machine: MachineSpec,
         if linker_flavor == "gnu-gold":
             linker_flags += ["-Wl,--icf=all"]
 
+        if machine.os == "none":
+            linker_flags += ["-specs=nosys.specs"]
+
     constants = config["constants"]
     constants["common_flags"] = strv_to_meson(common_flags)
     constants["c_like_flags"] = strv_to_meson(c_like_flags)
@@ -222,7 +224,7 @@ def init_machine_config(machine: MachineSpec,
     constants["cxx_link_flags"] = strv_to_meson(cxx_link_flags)
 
 
-def resolve_gcc_binaries(toolprefix: str = "") -> tuple[list[str], dict[str, str]]:
+def resolve_gcc_binaries(toolprefix: str = "") -> Tuple[List[str], Dict[str, str]]:
     cc = None
     binaries = OrderedDict()
 
@@ -255,7 +257,7 @@ def resolve_gcc_binaries(toolprefix: str = "") -> tuple[list[str], dict[str, str
     return (cc, binaries)
 
 
-def detect_linker_flavor(cc: list[str]) -> str:
+def detect_linker_flavor(cc: List[str]) -> str:
     linker_version = subprocess.run(cc + ["-Wl,--version"],
                                     stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT,
@@ -266,7 +268,7 @@ def detect_linker_flavor(cc: list[str]) -> str:
         return "gnu-ld"
     if "GNU gold " in linker_version:
         return "gnu-gold"
-    if linker_version.startswith("LLD "):
+    if linker_version.startswith("LLD ") or "compatible with GNU linkers" in linker_version:
         return "lld"
     if linker_version.startswith("ld: "):
         return "apple"
@@ -304,6 +306,10 @@ ARCH_COMMON_FLAGS_UNIX = {
         "-mtune=cortex-a7",
         "-mfpu=neon-vfpv4",
         "-mthumb",
+    ],
+    "armv6kz": [
+        "-march=armv6kz",
+        "-mcpu=arm1176jzf-s",
     ],
     "arm64": [
         "-march=armv8-a",

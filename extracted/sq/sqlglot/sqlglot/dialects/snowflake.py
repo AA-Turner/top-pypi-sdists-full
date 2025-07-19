@@ -31,8 +31,8 @@ from sqlglot.dialects.dialect import (
     groupconcat_sql,
 )
 from sqlglot.generator import unsupported_args
-from sqlglot.helper import flatten, is_float, is_int, seq_get
-from sqlglot.optimizer.scope import find_all_in_scope
+from sqlglot.helper import find_new_name, flatten, is_float, is_int, seq_get
+from sqlglot.optimizer.scope import build_scope, find_all_in_scope
 from sqlglot.tokens import TokenType
 
 if t.TYPE_CHECKING:
@@ -245,7 +245,7 @@ def _unnest_generate_date_array(unnest: exp.Unnest) -> None:
     # We'll add the next sequence value to the starting date and project the result
     date_add = _build_date_time_add(exp.DateAdd)(
         [unit, exp.cast(sequence_value_name, "int"), exp.cast(start, "date")]
-    ).as_(sequence_value_name)
+    )
 
     # We use DATEDIFF to compute the number of sequence values needed
     number_sequence = Snowflake.Parser.FUNCTIONS["ARRAY_GENERATE_RANGE"](
@@ -253,7 +253,35 @@ def _unnest_generate_date_array(unnest: exp.Unnest) -> None:
     )
 
     unnest.set("expressions", [number_sequence])
-    unnest.replace(exp.select(date_add).from_(unnest.copy()).subquery(unnest_alias))
+
+    unnest_parent = unnest.parent
+    if isinstance(unnest_parent, exp.Join):
+        select = unnest_parent.parent
+        if isinstance(select, exp.Select):
+            replace_column_name = (
+                sequence_value_name
+                if isinstance(sequence_value_name, str)
+                else sequence_value_name.name
+            )
+
+            scope = build_scope(select)
+            if scope:
+                for column in scope.columns:
+                    if column.name.lower() == replace_column_name.lower():
+                        column.replace(
+                            date_add.as_(replace_column_name)
+                            if isinstance(column.parent, exp.Select)
+                            else date_add
+                        )
+
+            lateral = exp.Lateral(this=unnest_parent.this.pop())
+            unnest_parent.replace(exp.Join(this=lateral))
+    else:
+        unnest.replace(
+            exp.select(date_add.as_(sequence_value_name))
+            .from_(unnest.copy())
+            .subquery(unnest_alias)
+        )
 
 
 def _transform_generate_date_array(expression: exp.Expression) -> exp.Expression:
@@ -335,6 +363,91 @@ def _json_extract_value_array_sql(
     return self.func("TRANSFORM", json_extract, transform_lambda)
 
 
+def _qualify_unnested_columns(expression: exp.Expression) -> exp.Expression:
+    if isinstance(expression, exp.Select):
+        scope = build_scope(expression)
+        if not scope:
+            return expression
+
+        unnests = list(scope.find_all(exp.Unnest))
+
+        if not unnests:
+            return expression
+
+        taken_source_names = set(scope.sources)
+        column_source: t.Dict[str, exp.Identifier] = {}
+
+        unnest_identifier: t.Optional[exp.Identifier] = None
+        orig_expression = expression.copy()
+
+        for unnest in unnests:
+            if not isinstance(unnest.parent, (exp.From, exp.Join)):
+                continue
+
+            # Try to infer column names produced by an unnest operator. This is only possible
+            # when we can peek into the (statically known) contents of the unnested value.
+            unnest_columns: t.Set[str] = set()
+            for unnest_expr in unnest.expressions:
+                if not isinstance(unnest_expr, exp.Array):
+                    continue
+
+                for array_expr in unnest_expr.expressions:
+                    if not (
+                        isinstance(array_expr, exp.Struct)
+                        and array_expr.expressions
+                        and all(
+                            isinstance(struct_expr, exp.PropertyEQ)
+                            for struct_expr in array_expr.expressions
+                        )
+                    ):
+                        continue
+
+                    unnest_columns.update(
+                        struct_expr.this.name.lower() for struct_expr in array_expr.expressions
+                    )
+                    break
+
+                if unnest_columns:
+                    break
+
+            unnest_alias = unnest.args.get("alias")
+            if not unnest_alias:
+                alias_name = find_new_name(taken_source_names, "value")
+                taken_source_names.add(alias_name)
+
+                # Produce a `TableAlias` AST similar to what is produced for BigQuery. This
+                # will be corrected later, when we generate SQL for the `Unnest` AST node.
+                aliased_unnest = exp.alias_(unnest, None, table=[alias_name])
+                scope.replace(unnest, aliased_unnest)
+
+                unnest_identifier = aliased_unnest.args["alias"].columns[0]
+            else:
+                alias_columns = getattr(unnest_alias, "columns", [])
+                unnest_identifier = unnest_alias.this or seq_get(alias_columns, 0)
+
+            if not isinstance(unnest_identifier, exp.Identifier):
+                return orig_expression
+
+            column_source.update({c.lower(): unnest_identifier for c in unnest_columns})
+
+        for column in scope.columns:
+            if column.table:
+                continue
+
+            table = column_source.get(column.name.lower())
+            if (
+                unnest_identifier
+                and not table
+                and len(scope.sources) == 1
+                and column.name.lower() != unnest_identifier.name.lower()
+            ):
+                table = unnest_identifier
+
+            column.set("table", table and table.copy())
+
+    return expression
+
+
 def _eliminate_dot_variant_lookup(expression: exp.Expression) -> exp.Expression:
     if isinstance(expression, exp.Select):
         # This transformation is used to facilitate transpilation of BigQuery `UNNEST` operations
@@ -358,7 +471,13 @@ def _eliminate_dot_variant_lookup(expression: exp.Expression) -> exp.Expression:
                 if c.table in unnest_aliases:
                     bracket_lhs = c.args["table"]
                     bracket_rhs = exp.Literal.string(c.name)
-                    c.replace(exp.Bracket(this=bracket_lhs, expressions=[bracket_rhs]))
+                    bracket = exp.Bracket(this=bracket_lhs, expressions=[bracket_rhs])
+
+                    if c.parent is expression:
+                        # Retain column projection names by using aliases
+                        c.replace(exp.alias_(bracket, c.this.copy()))
+                    else:
+                        c.replace(bracket)
 
     return expression
 
@@ -374,6 +493,7 @@ class Snowflake(Dialect):
     TABLESAMPLE_SIZE_IS_PERCENT = True
     COPY_PARAMS_ARE_CSV = False
     ARRAY_AGG_INCLUDES_NULLS = None
+    ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN = False
 
     TIME_MAPPING = {
         "YYYY": "%Y",
@@ -525,6 +645,7 @@ class Snowflake(Dialect):
             "DATE_PART": lambda self: self._parse_date_part(),
             "OBJECT_CONSTRUCT_KEEP_NULL": lambda self: self._parse_json_object(),
             "LISTAGG": lambda self: self._parse_string_agg(),
+            "SEMANTIC_VIEW": lambda self: self._parse_semantic_view(),
         }
         FUNCTION_PARSERS.pop("TRIM")
 
@@ -981,6 +1102,19 @@ class Snowflake(Dialect):
                 expressions=self._parse_wrapped_options(),
             )
 
+        def _parse_semantic_view(self) -> exp.SemanticView:
+            kwargs: t.Dict[str, t.Any] = {"this": self._parse_table_parts()}
+
+            while self._curr and not self._match(TokenType.R_PAREN, advance=False):
+                if self._match_text_seq("DIMENSIONS"):
+                    kwargs["dimensions"] = self._parse_csv(self._parse_disjunction)
+                if self._match_text_seq("METRICS"):
+                    kwargs["metrics"] = self._parse_csv(self._parse_disjunction)
+                if self._match_text_seq("WHERE"):
+                    kwargs["where"] = self._parse_expression()
+
+            return self.expression(exp.SemanticView, **kwargs)
+
     class Tokenizer(tokens.Tokenizer):
         STRING_ESCAPES = ["\\", "'"]
         HEX_STRINGS = [("x'", "'"), ("X'", "'")]
@@ -1129,6 +1263,7 @@ class Snowflake(Dialect):
                     transforms.explode_projection_to_unnest(),
                     transforms.eliminate_semi_and_anti_joins,
                     _transform_generate_date_array,
+                    _qualify_unnested_columns,
                     _eliminate_dot_variant_lookup,
                 ]
             ),
@@ -1297,10 +1432,20 @@ class Snowflake(Dialect):
             if not table_input.startswith("INPUT =>"):
                 table_input = f"INPUT => {table_input}"
 
-            explode = f"TABLE(FLATTEN({table_input}))"
+            expression_parent = expression.parent
+
+            explode = (
+                f"FLATTEN({table_input})"
+                if isinstance(expression_parent, exp.Lateral)
+                else f"TABLE(FLATTEN({table_input}))"
+            )
             alias = self.sql(unnest_alias)
             alias = f" AS {alias}" if alias else ""
-            value = "" if isinstance(expression.parent, (exp.From, exp.Join)) else f"{value} FROM "
+            value = (
+                ""
+                if isinstance(expression_parent, (exp.From, exp.Join, exp.Lateral))
+                else f"{value} FROM "
+            )
 
             return f"{value}{explode}{alias}"
 
@@ -1503,3 +1648,14 @@ class Snowflake(Dialect):
                     return self.sql(first_expr.subquery())
 
             return inline_array_sql(self, expression)
+
+        def currentdate_sql(self, expression: exp.CurrentDate) -> str:
+            zone = self.sql(expression, "this")
+            if not zone:
+                return super().currentdate_sql(expression)
+
+            expr = exp.Cast(
+                this=exp.ConvertTimezone(target_tz=zone, timestamp=exp.CurrentTimestamp()),
+                to=exp.DataType(this=exp.DataType.Type.DATE),
+            )
+            return self.sql(expr)

@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Microsoft Corporation.
+# Copyright (c) 2025 Microsoft Corporation.
 
 
 """OpenAI Configuration class definition."""
@@ -24,6 +24,19 @@ class OpenAIRateLimitBehavior(str, Enum):
 
     SLEEP = "sleep"
     """Perform a task-local sleep until the ratelimit time has elapsed."""
+
+
+class OpenAISpecialTokenBehavior(str, Enum):
+    """The behavior to use when special tokens are encountered."""
+
+    KEEP = "keep"
+    """Keep the special tokens in the input and output."""
+
+    REMOVE = "remove"
+    """Remove the special tokens from the input and output."""
+
+    REPLACE = "replace"
+    """Replace the special tokens with a placeholder in the input and output."""
 
 
 class CommonOpenAIConfig(Config, frozen=True, extra="allow", protected_namespaces=()):
@@ -60,6 +73,11 @@ class CommonOpenAIConfig(Config, frozen=True, extra="allow", protected_namespace
     rate_limit_behavior: OpenAIRateLimitBehavior = Field(
         default=OpenAIRateLimitBehavior.LIMIT,
         description="The rate-limiting behavior to employ when a RateLimitError is encountered.",
+    )
+
+    special_token_behavior: OpenAISpecialTokenBehavior = Field(
+        default=OpenAISpecialTokenBehavior.KEEP,
+        description="The behavior to use when special tokens are encountered.",
     )
 
 

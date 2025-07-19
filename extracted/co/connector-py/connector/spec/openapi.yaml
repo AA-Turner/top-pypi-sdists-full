@@ -3132,6 +3132,9 @@ components:
         label:
           type: string
           description: A human-readable label for the entitlement.
+        description:
+          type: string
+          description: An optional human-readable description of the entitlement.
         custom_attributes:
           type: object
           additionalProperties:
@@ -3165,6 +3168,9 @@ components:
         label:
           type: string
           description: A human-readable label for the resource.
+        description:
+          type: string
+          description: An optional human-readable description of the resource.
         resource_type:
           type: string
           description: Should match a previously declared resource type from this connector.

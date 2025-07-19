@@ -322,6 +322,8 @@ from agilicus_api.model.http_request_extractor_source import HttpRequestExtracto
 from agilicus_api.model.http_rule import HttpRule
 from agilicus_api.model.http_rule_condition import HttpRuleCondition
 from agilicus_api.model.http_rule_condition_type import HttpRuleConditionType
+from agilicus_api.model.hypothetical_license_details import HypotheticalLicenseDetails
+from agilicus_api.model.hypothetical_license_details_query import HypotheticalLicenseDetailsQuery
 from agilicus_api.model.icon import Icon
 from agilicus_api.model.icon_dimensions import IconDimensions
 from agilicus_api.model.icon_purpose import IconPurpose

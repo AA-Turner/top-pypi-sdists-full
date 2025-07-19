@@ -45,9 +45,11 @@ def simulate(
     duration: int = 600,
     kwh_min: float = 30,
     kwh_max: float = 60,
+    pre_charge_delay: float = 0,
     repeat=False,
     threads: int = None,
     daemon: bool = True,
+    interval: float = 5,
     username: str = None,
     password: str = None,
 ):
@@ -58,6 +60,8 @@ def simulate(
     - threads: None/1 for one session; >1 to simulate multiple charge points.
     - username/password: If provided, use HTTP Basic Auth on the WS handshake.
     - kwh_min/kwh_max: approximate energy range per session in kWh.
+    - pre_charge_delay: wait this many seconds before starting a session while
+      still sending Heartbeats.
     """
     host    = gw.resolve(host)
     ws_port = int(gw.resolve(ws_port))
@@ -80,7 +84,9 @@ def simulate(
                     duration,
                     kwh_min,
                     kwh_max,
+                    pre_charge_delay,
                     session_count,
+                    interval,
                     username,
                     password,
                 )
@@ -99,7 +105,9 @@ def simulate(
                     duration,
                     kwh_min,
                     kwh_max,
+                    pre_charge_delay,
                     session_count,
+                    interval,
                     username,
                     password,
                 ))
@@ -132,13 +140,13 @@ def simulate(
         return orchestrate_all()
     else:
         if n_threads == 1:
-            asyncio.run(simulate_cp(0, host, ws_port, rfid, cp_path, duration, kwh_min, kwh_max, session_count, username, password))
+            asyncio.run(simulate_cp(0, host, ws_port, rfid, cp_path, duration, kwh_min, kwh_max, pre_charge_delay, session_count, interval, username, password))
         else:
             threads_list = []
             for idx in range(n_threads):
                 this_cp_path = _unique_cp_path(cp_path, idx, n_threads)
                 t = threading.Thread(target=_thread_runner, args=(
-                    simulate_cp, idx, host, ws_port, rfid, this_cp_path, duration, kwh_min, kwh_max, session_count, username, password
+                    simulate_cp, idx, host, ws_port, rfid, this_cp_path, duration, kwh_min, kwh_max, pre_charge_delay, session_count, interval, username, password
                 ), daemon=True)
                 t.start()
                 threads_list.append(t)
@@ -154,14 +162,19 @@ async def simulate_cp(
         duration,
         kwh_min,
         kwh_max,
+        pre_charge_delay,
         session_count,
+        interval=5,
         username=None,
         password=None,
     ):
     """
-    Simulate a single CP session (possibly many times if session_count>1).
+    Simulate a single CP session (possibly many times if ``session_count`` > 1).
+    ``interval`` controls how often MeterValues are sent.
+    ``pre_charge_delay`` specifies how long to wait before starting a
+    transaction while still sending Heartbeats and idle MeterValues.
     If username/password are provided, use HTTP Basic Auth in the handshake.
-    Energy increments are derived from kwh_min/kwh_max.
+    Energy increments are derived from ``kwh_min``/``kwh_max``.
     """
     cp_name = cp_path
     uri     = f"ws://{host}:{ws_port}/{cp_name}"
@@ -171,53 +184,53 @@ async def simulate_cp(
         b64 = base64.b64encode(userpass.encode("utf-8")).decode("ascii")
         headers["Authorization"] = f"Basic {b64}"
 
-    try:
-        async with websockets.connect(
-            uri,
-            subprotocols=["ocpp1.6"],
-            additional_headers=headers,
-        ) as ws:
-            print(f"[Simulator:{cp_name}] Connected to {uri} (auth={'yes' if headers else 'no'})")
+    loop_count = 0
+    while loop_count < session_count:
+        try:
+            async with websockets.connect(
+                uri,
+                subprotocols=["ocpp1.6"],
+                additional_headers=headers,
+            ) as ws:
+                print(f"[Simulator:{cp_name}] Connected to {uri} (auth={'yes' if headers else 'no'})")
 
-            async def listen_to_csms(stop_event, reset_event):
-                """Handle incoming CSMS messages until cancelled."""
-                try:
-                    while True:
-                        raw = await ws.recv()
-                        print(f"[Simulator:{cp_name} ← CSMS] {raw}")
-                        try:
-                            msg = json.loads(raw)
-                        except json.JSONDecodeError:
-                            print(f"[Simulator:{cp_name}] Warning: Received non-JSON message")
-                            continue
-                        if isinstance(msg, list):
-                            if msg[0] == 2:
-                                msg_id, action = msg[1], msg[2]
-                                await ws.send(json.dumps([3, msg_id, {}]))
-                                if action == "RemoteStopTransaction":
-                                    print(f"[Simulator:{cp_name}] Received RemoteStopTransaction → stopping transaction")
-                                    stop_event.set()
-                                elif action == "Reset":
-                                    reset_type = ""
-                                    if len(msg) > 3 and isinstance(msg[3], dict):
-                                        reset_type = msg[3].get("type", "")
-                                    print(f"[Simulator:{cp_name}] Received Reset ({reset_type}) → restarting session")
-                                    reset_event.set()
-                                    stop_event.set()
-                            elif msg[0] in (3, 4):
-                                # Ignore CallResult and CallError messages
+                async def listen_to_csms(stop_event, reset_event):
+                    """Handle incoming CSMS messages until cancelled."""
+                    try:
+                        while True:
+                            raw = await ws.recv()
+                            print(f"[Simulator:{cp_name} ← CSMS] {raw}")
+                            try:
+                                msg = json.loads(raw)
+                            except json.JSONDecodeError:
+                                print(f"[Simulator:{cp_name}] Warning: Received non-JSON message")
                                 continue
+                            if isinstance(msg, list):
+                                if msg[0] == 2:
+                                    msg_id, action = msg[1], msg[2]
+                                    await ws.send(json.dumps([3, msg_id, {}]))
+                                    if action == "RemoteStopTransaction":
+                                        print(f"[Simulator:{cp_name}] Received RemoteStopTransaction → stopping transaction")
+                                        stop_event.set()
+                                    elif action == "Reset":
+                                        reset_type = ""
+                                        if len(msg) > 3 and isinstance(msg[3], dict):
+                                            reset_type = msg[3].get("type", "")
+                                        print(f"[Simulator:{cp_name}] Received Reset ({reset_type}) → restarting session")
+                                        reset_event.set()
+                                        stop_event.set()
+                                elif msg[0] in (3, 4):
+                                    # Ignore CallResult and CallError messages
+                                    continue
+                                else:
+                                    print(f"[Simulator:{cp_name}] Notice: Unexpected message format", msg)
                             else:
-                                print(f"[Simulator:{cp_name}] Notice: Unexpected message format", msg)
-                        else:
-                            print(f"[Simulator:{cp_name}] Warning: Expected list message", msg)
-                except websockets.ConnectionClosed:
-                    print(f"[Simulator:{cp_name}] Connection closed by server")
-                    _simulator_state["last_status"] = "Connection closed"
-                    stop_event.set()
+                                print(f"[Simulator:{cp_name}] Warning: Expected list message", msg)
+                    except websockets.ConnectionClosed:
+                        print(f"[Simulator:{cp_name}] Connection closed by server")
+                        _simulator_state["last_status"] = "Connection closed"
+                        stop_event.set()
 
-            loop_count = 0
-            while loop_count < session_count:
                 stop_event = asyncio.Event()
                 reset_event = asyncio.Event()
                 # Initial handshake
@@ -229,8 +242,41 @@ async def simulate_cp(
                 await ws.send(json.dumps([2, "auth", "Authorize", {"idTag": rfid}]))
                 await ws.recv()
 
-                # StartTransaction
                 meter_start = random.randint(1000, 2000)
+                actual_duration = random.uniform(duration * 0.75, duration * 1.25)
+                steps = max(1, int(actual_duration / interval))
+                step_min = max(1, int((kwh_min * 1000) / steps))
+                step_max = max(1, int((kwh_max * 1000) / steps))
+
+                if pre_charge_delay > 0:
+                    _simulator_state["last_status"] = "Waiting"
+                    next_meter = meter_start
+                    last_mv = time.monotonic()
+                    start_delay = time.monotonic()
+                    while (time.monotonic() - start_delay) < pre_charge_delay:
+                        await ws.send(json.dumps([2, "hb", "Heartbeat", {}]))
+                        await ws.recv()
+                        await asyncio.sleep(5)
+                        if time.monotonic() - last_mv >= 30:
+                            idle_step_max = max(2, int(step_max / 100))
+                            next_meter += random.randint(0, idle_step_max)
+                            next_kwh = next_meter / 1000.0
+                            await ws.send(json.dumps([2, "meter", "MeterValues", {
+                                "connectorId": 1,
+                                "meterValue": [{
+                                    "timestamp": time.strftime('%Y-%m-%dT%H:%M:%S') + "Z",
+                                    "sampledValue": [{
+                                        "value": f"{next_kwh:.3f}",
+                                        "measurand": "Energy.Active.Import.Register",
+                                        "unit": "kWh",
+                                        "context": "Sample.Clock"
+                                    }]
+                                }]
+                            }]))
+                            await ws.recv()
+                            last_mv = time.monotonic()
+
+                # StartTransaction
                 await ws.send(json.dumps([2, "start", "StartTransaction", {
                     "connectorId": 1,
                     "idTag": rfid,
@@ -245,13 +291,8 @@ async def simulate_cp(
                 listener = asyncio.create_task(listen_to_csms(stop_event, reset_event))
 
                 # MeterValues loop
-                actual_duration = random.uniform(duration * 0.75, duration * 1.25)
-                interval = actual_duration / 10
                 meter = meter_start
-
-                step_min = int((kwh_min * 1000) / 10)
-                step_max = int((kwh_max * 1000) / 10)
-                for _ in range(10):
+                for _ in range(steps):
                     if stop_event.is_set():
                         print(f"[Simulator:{cp_name}] Stop event triggered—ending meter loop")
                         break
@@ -327,10 +368,17 @@ async def simulate_cp(
                 if session_count == float('inf'):
                     continue  # loop forever
 
-            print(f"[Simulator:{cp_name}] Simulation ended.")
-            _simulator_state["last_status"] = "Stopped"
-    except Exception as e:
-        print(f"[Simulator:{cp_name}] Exception: {e}")
+        except websockets.ConnectionClosedError as e:
+            print(f"[Simulator:{cp_name}] Warning: {e} -- reconnecting")
+            _simulator_state["last_status"] = "Reconnecting"
+            await asyncio.sleep(1)
+            continue
+        except Exception as e:
+            print(f"[Simulator:{cp_name}] Exception: {e}")
+            break
+
+    print(f"[Simulator:{cp_name}] Simulation ended.")
+    _simulator_state["last_status"] = "Stopped"
 
 
 # --- Simulator control state ---
@@ -426,8 +474,10 @@ def view_cp_simulator(*args, **kwargs):
                 cp_path = request.forms.get("cp_path") or default_cp_path,
                 rfid = request.forms.get("rfid") or default_rfid,
                 duration = int(request.forms.get("duration") or 600),
+                interval = float(request.forms.get("interval") or 5),
                 kwh_min = float(request.forms.get("kwh_min") or 30),
                 kwh_max = float(request.forms.get("kwh_max") or 60),
+                pre_charge_delay = float(request.forms.get("pre_charge_delay") or 0),
                 repeat = request.forms.get("repeat") or False,
                 daemon = True,
                 username = request.forms.get("username") or None,
@@ -474,6 +524,14 @@ def view_cp_simulator(*args, **kwargs):
             <input name="duration" value="{duration}">
         </div>
         <div>
+            <label>Interval (s):</label>
+            <input name="interval" value="{interval}">
+        </div>
+        <div>
+            <label>Pre-charge Delay (s):</label>
+            <input name="pre_charge_delay" value="{pre_charge_delay}">
+        </div>
+        <div>
             <label>Energy Min (kWh):</label>
             <input name="kwh_min" value="{kwh_min}">
         </div>
@@ -507,6 +565,8 @@ def view_cp_simulator(*args, **kwargs):
         cp_path=params.get('cp_path', default_cp_path),
         rfid=params.get('rfid', default_rfid),
         duration=params.get('duration', 600),
+        interval=params.get('interval', 5),
+        pre_charge_delay=params.get('pre_charge_delay', 0),
         kwh_min=params.get('kwh_min', 30),
         kwh_max=params.get('kwh_max', 60),
         repeat_no='selected' if not params.get('repeat') else '',

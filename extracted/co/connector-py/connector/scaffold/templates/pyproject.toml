@@ -31,6 +31,10 @@ dev = [
     "pytest-asyncio >= 0.23",
     "pytest-cases >= 3",
     "pytest-httpx >= 0.33",
+    "pytest-cov >= 4.0",
+    "coverage >= 7.0",
+    "pytest-cov >= 4.0",
+    "coverage >= 7.0",
     "mypy ~= 1.10",
 ]
 all = ["connector-{hyphenated_name}[dev,fastapi]"]
@@ -62,18 +66,37 @@ branch = true
 parallel = true
 omit = [
     "{name}/__about__.py",
+    "{name}/__main__.py",
+    "tests/*",
+    "*/test_*.py",
 ]
 
 [tool.coverage.paths]
-{name} = ["{name}"]
+{hyphenated_name} = ["{name}"]
 tests = ["tests"]
 
 [tool.coverage.report]
 exclude_lines = [
-    "no cov",
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
     "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+    "no cov",
     "if TYPE_CHECKING:",
 ]
+
+[tool.coverage.html]
+directory = "htmlcov"
+title = "{hyphenated_name} coverage report"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.mypy]
 # more places to look for types

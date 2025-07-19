@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flask-openapi3
-Version: 4.2.0
+Version: 4.2.1
 Summary: Generate REST API and OpenAPI documentation for your Flask project.
 Project-URL: Homepage, https://github.com/luolingchun/flask-openapi3
 Project-URL: Documentation, https://luolingchun.github.io/flask-openapi3

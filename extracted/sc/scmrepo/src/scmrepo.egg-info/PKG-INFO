@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scmrepo
-Version: 3.3.11
+Version: 3.3.12
 Summary: scmrepo
 Author-email: Iterative <support@dvc.org>
 License: Apache-2.0
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: gitpython>3
-Requires-Dist: dulwich>=0.22.1
+Requires-Dist: dulwich>=0.23.1
 Requires-Dist: pygit2>=1.14.0
 Requires-Dist: pygtrie>=2.3.2
 Requires-Dist: fsspec[tqdm]>=2024.2.0
@@ -30,7 +30,7 @@ Provides-Extra: tests
 Requires-Dist: aioresponses<0.8,>=0.7; extra == "tests"
 Requires-Dist: paramiko<4,>=3.4.0; extra == "tests"
 Requires-Dist: pytest<9,>=7; extra == "tests"
-Requires-Dist: pytest-asyncio<1,>=0.23.2; extra == "tests"
+Requires-Dist: pytest-asyncio<2,>=0.23.2; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-docker<4,>=1; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
@@ -38,7 +38,7 @@ Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-test-utils<0.2,>=0.1.0; extra == "tests"
 Requires-Dist: proxy.py; extra == "tests"
 Provides-Extra: dev
-Requires-Dist: mypy==1.15.0; extra == "dev"
+Requires-Dist: mypy==1.17.0; extra == "dev"
 Requires-Dist: scmrepo[tests]; extra == "dev"
 Requires-Dist: types-certifi; extra == "dev"
 Requires-Dist: types-mock; extra == "dev"

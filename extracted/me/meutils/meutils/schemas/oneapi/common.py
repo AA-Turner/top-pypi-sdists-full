@@ -62,6 +62,9 @@ FAL_MODELS = {
     "fal-ai/vidu/q1/start-end-to-video": 0.4 * FAL,
     "fal-ai/vidu/q1/reference-to-video": 0.4 * FAL,
 
+    "fal-ai/vidu/image-to-video": 0.2 * FAL,
+    "fal-ai/vidu/start-end-to-video": 0.2 * FAL,
+    "fal-ai/vidu/reference-to-video": 0.4 * FAL,
 }
 
 FAL_MODELS = {
@@ -235,6 +238,7 @@ MODEL_PRICE = {
     "imagen4-fast": 0.02 * 3,
     "imagen4-ultra": 0.075 * 3,
 
+    "flux-kontext-dev": 0.04,
     "flux-kontext-pro": 0.04 * 3,
     "flux-kontext-max": 0.08 * 3,
 
@@ -1277,6 +1281,7 @@ COMPLETION_RATIO = {
     "gemini-2.5-flash-thinking": 23,
     "gemini-2.5-flash-preview-04-17-thinking": 23,
     "gemini-2.5-flash-preview-05-20-thinking": 23,
+    "gemini-2.5-flash-preview-05-20":8.333,
 
     "gemini-2.5-pro-think": 4,
 

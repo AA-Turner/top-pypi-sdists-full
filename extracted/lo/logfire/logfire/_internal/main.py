@@ -991,17 +991,17 @@ class Logfire:
         include_binary_content: bool | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
-        """Instrument PydanticAI.
+        """Instrument Pydantic AI.
 
         Args:
             obj: What to instrument.
                 By default, all agents are instrumented.
                 You can also pass a specific model or agent.
                 If you pass a model, a new instrumented model will be returned.
-            event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
-                The default is whatever the default is in your version of PydanticAI.
+            event_mode: See the [Pydantic AI docs](https://ai.pydantic.dev/logfire/#data-format).
+                The default is whatever the default is in your version of Pydantic AI.
             include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the events.
-                On by default. Requires PydanticAI 0.2.5 or newer.
+                On by default. Requires Pydantic AI 0.2.5 or newer.
             kwargs: Additional keyword arguments to pass to
                 [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
@@ -1035,6 +1035,7 @@ class Logfire:
         | None = None,
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
+        extra_spans: bool = True,
         **opentelemetry_kwargs: Any,
     ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -1069,6 +1070,7 @@ class Logfire:
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            extra_spans: Whether to include the extra 'FastAPI arguments' and 'endpoint function' spans.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
@@ -1088,6 +1090,7 @@ class Logfire:
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             record_send_receive=record_send_receive,
+            extra_spans=extra_spans,
             **opentelemetry_kwargs,
         )
 

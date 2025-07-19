@@ -2422,7 +2422,7 @@ class Partition(Expression):
 
 
 class PartitionRange(Expression):
-    arg_types = {"this": True, "expression": True}
+    arg_types = {"this": True, "expression": False, "expressions": False}
 
 
 # https://clickhouse.com/docs/en/sql-reference/statements/alter/partition#how-to-set-partition-expression
@@ -3095,6 +3095,10 @@ class SchemaCommentProperty(Property):
     arg_types = {"this": True}
 
 
+class SemanticView(Expression):
+    arg_types = {"this": True, "metrics": False, "dimensions": False, "where": False}
+
+
 class SerdeProperties(Property):
     arg_types = {"expressions": True, "with": False}
 
@@ -3763,7 +3767,7 @@ class Schema(Expression):
 # https://dev.mysql.com/doc/refman/8.0/en/select.html
 # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html
 class Lock(Expression):
-    arg_types = {"update": True, "expressions": False, "wait": False}
+    arg_types = {"update": True, "expressions": False, "wait": False, "key": False}
 
 
 class Select(Query):
@@ -5389,6 +5393,22 @@ class AggFunc(Func):
     pass
 
 
+class BitwiseAndAgg(AggFunc):
+    _sql_names = ["BIT_AND"]
+
+
+class BitwiseOrAgg(AggFunc):
+    _sql_names = ["BIT_OR"]
+
+
+class BitwiseXorAgg(AggFunc):
+    _sql_names = ["BIT_XOR"]
+
+
+class BitwiseCountAgg(AggFunc):
+    _sql_names = ["BIT_COUNT"]
+
+
 class ArrayRemove(Func):
     arg_types = {"this": True, "expression": True}
 
@@ -5468,6 +5488,10 @@ class Array(Func):
     is_var_len_args = True
 
 
+class Ascii(Func):
+    pass
+
+
 # https://docs.snowflake.com/en/sql-reference/functions/to_array
 class ToArray(Func):
     pass
@@ -5525,7 +5549,12 @@ class ConvertToCharset(Func):
 
 
 class ConvertTimezone(Func):
-    arg_types = {"source_tz": False, "target_tz": True, "timestamp": True}
+    arg_types = {
+        "source_tz": False,
+        "target_tz": True,
+        "timestamp": True,
+        "options": False,
+    }
 
 
 class GenerateSeries(Func):
@@ -6086,6 +6115,10 @@ class PosexplodeOuter(Posexplode, ExplodeOuter):
     pass
 
 
+class PositionalColumn(Expression):
+    pass
+
+
 class Unnest(Func, UDTF):
     arg_types = {
         "expressions": True,
@@ -6305,7 +6338,7 @@ class JSONBObjectAgg(AggFunc):
 # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/JSON_ARRAY.html
 class JSONArray(Func):
     arg_types = {
-        "expressions": True,
+        "expressions": False,
         "null_handling": False,
         "return_type": False,
         "strict": False,
@@ -6351,7 +6384,7 @@ class JSONValueArray(Func):
     arg_types = {"this": True, "expression": False}
 
 
-# # https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/JSON_TABLE.html
+# https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/JSON_TABLE.html
 class JSONTable(Func):
     arg_types = {
         "this": True,
@@ -6360,6 +6393,13 @@ class JSONTable(Func):
         "error_handling": False,
         "empty_handling": False,
     }
+
+
+# https://cloud.google.com/bigquery/docs/reference/standard-sql/json_functions#json_type
+# https://doris.apache.org/docs/sql-manual/sql-functions/scalar-functions/json-functions/json-type#description
+class JSONType(Func):
+    arg_types = {"this": True, "expression": False}
+    _sql_names = ["JSON_TYPE"]
 
 
 # https://docs.snowflake.com/en/sql-reference/functions/object_insert
@@ -8495,6 +8535,9 @@ def convert(value: t.Any, copy: bool = False) -> Expression:
     if isinstance(value, datetime.date):
         date_literal = Literal.string(value.strftime("%Y-%m-%d"))
         return DateStrToDate(this=date_literal)
+    if isinstance(value, datetime.time):
+        time_literal = Literal.string(value.isoformat())
+        return TsOrDsToTime(this=time_literal)
     if isinstance(value, tuple):
         if hasattr(value, "_fields"):
             return Struct(

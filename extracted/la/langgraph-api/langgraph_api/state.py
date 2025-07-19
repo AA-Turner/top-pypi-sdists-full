@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 
-from langgraph.types import StateSnapshot
+from langgraph.types import Interrupt, StateSnapshot
 
 from langgraph_api.schema import Checkpoint, ThreadState
 
@@ -38,6 +38,23 @@ def runnable_config_to_checkpoint(
     return checkpoint
 
 
+def state_interrupt_to_thread_interrupt(interrupt: Interrupt | dict) -> dict:
+    # Sometimes the interrupt received in StateSnapshot is a dict.
+    # Let's convert it toan Interrupt object to gain access to dynamic `interrupt_id`.
+    if isinstance(interrupt, dict):
+        interrupt = Interrupt(**interrupt)
+
+    return {
+        "interrupt_id": interrupt.interrupt_id
+        if hasattr(interrupt, "interrupt_id")
+        else None,
+        "value": interrupt.value,
+        "resumable": interrupt.resumable,
+        "ns": interrupt.ns,
+        "when": interrupt.when,
+    }
+
+
 def state_snapshot_to_thread_state(state: StateSnapshot) -> ThreadState:
     return {
         "values": state.values,
@@ -48,7 +65,9 @@ def state_snapshot_to_thread_state(state: StateSnapshot) -> ThreadState:
                 "name": t.name,
                 "path": t.path,
                 "error": t.error,
-                "interrupts": t.interrupts,
+                "interrupts": [
+                    state_interrupt_to_thread_interrupt(i) for i in t.interrupts
+                ],
                 "checkpoint": t.state["configurable"]
                 if t.state is not None and not isinstance(t.state, StateSnapshot)
                 else None,

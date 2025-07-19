@@ -26,6 +26,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetOutpostBillingInformationPaginator,
     GetOutpostInstanceTypesPaginator,
     GetOutpostSupportedInstanceTypesPaginator,
     ListAssetInstancesPaginator,
@@ -56,6 +57,8 @@ from .type_defs import (
     GetConnectionResponseTypeDef,
     GetOrderInputTypeDef,
     GetOrderOutputTypeDef,
+    GetOutpostBillingInformationInputTypeDef,
+    GetOutpostBillingInformationOutputTypeDef,
     GetOutpostInputTypeDef,
     GetOutpostInstanceTypesInputTypeDef,
     GetOutpostInstanceTypesOutputTypeDef,
@@ -266,6 +269,16 @@ class OutpostsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_outpost)
         """
 
+    def get_outpost_billing_information(
+        self, **kwargs: Unpack[GetOutpostBillingInformationInputTypeDef]
+    ) -> GetOutpostBillingInformationOutputTypeDef:
+        """
+        Gets current and historical billing information about the specified Outpost.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_outpost_billing_information.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_outpost_billing_information)
+        """
+
     def get_outpost_instance_types(
         self, **kwargs: Unpack[GetOutpostInstanceTypesInputTypeDef]
     ) -> GetOutpostInstanceTypesOutputTypeDef:
@@ -463,6 +476,17 @@ class OutpostsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/update_site_rack_physical_properties.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#update_site_rack_physical_properties)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_outpost_billing_information"]
+    ) -> GetOutpostBillingInformationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_outposts/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

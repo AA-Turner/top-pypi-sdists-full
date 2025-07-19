@@ -5166,7 +5166,7 @@ class HeikinAshi(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicators.I
         ...
 
 
-class TargetDownsideDeviation(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
+class TargetDownsideDeviation(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider):
     """
     This indicator computes the n-period target downside deviation. The target downside deviation is defined as the
     root-mean-square, or RMS, of the deviations of the realized return’s underperformance from the target return
@@ -5174,6 +5174,16 @@ class TargetDownsideDeviation(QuantConnect.Indicators.WindowIndicator[QuantConne
     
     Reference: https://www.cmegroup.com/education/files/rr-sortino-a-sharper-ratio.pdf
     """
+
+    @property
+    def warm_up_period(self) -> int:
+        """The warm-up period necessary before the TDD indicator is considered ready."""
+        ...
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
 
     @overload
     def __init__(self, period: int, minimum_acceptable_return: float = 0) -> None:
@@ -5206,16 +5216,19 @@ class TargetDownsideDeviation(QuantConnect.Indicators.WindowIndicator[QuantConne
         """
         ...
 
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Indicators.IndicatorDataPoint], input: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+    def compute_next_value(self, input: QuantConnect.Indicators.IndicatorDataPoint) -> float:
         """
         Computes the next value of this indicator from the given state
         
         This method is protected.
         
-        :param window: The window for the input history
         :param input: The input given to the indicator
         :returns: A new value for this indicator.
         """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
         ...
 
 
@@ -7395,6 +7408,21 @@ class SortinoRatio(QuantConnect.Indicators.SharpeRatio):
         :param period: Period of historical observation for Sortino ratio calculation
         :param minimum_acceptable_return: Minimum acceptable return for Sortino ratio calculation
         """
+        ...
+
+    def compute_next_value(self, input: QuantConnect.Indicators.IndicatorDataPoint) -> float:
+        """
+        Computes the next value for this indicator from the given state.
+        
+        This method is protected.
+        
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
         ...
 
 

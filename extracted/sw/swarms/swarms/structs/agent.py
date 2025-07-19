@@ -1110,6 +1110,8 @@ class Agent:
                                     f"Structured Output - Attempting Function Call Execution [{time.strftime('%H:%M:%S')}] \n\n Output: {format_data_structure(response)} ",
                                     loop_count,
                                 )
+                            elif self.streaming_on:
+                                pass
                             else:
                                 self.pretty_print(
                                     response, loop_count
@@ -1239,12 +1241,13 @@ class Agent:
         traceback_info = traceback.format_exc()
 
         logger.error(
-            f"Error detected running your agent {self.agent_name}\n"
+            f"An error occurred while running your agent {self.agent_name}.\n"
             f"Error Type: {error_type}\n"
             f"Error Message: {error_message}\n"
             f"Traceback:\n{traceback_info}\n"
             f"Agent State: {self.to_dict()}\n"
-            f"Optimize your input parameters and or add an issue on the swarms github and contact our team on discord for support ;)"
+            f"Please optimize your input parameters, or create an issue on the Swarms GitHub and contact our team on Discord for support. "
+            f"For technical support, refer to this document: https://docs.swarms.world/en/latest/swarms/support/"
         )
 
         raise error
@@ -1539,15 +1542,16 @@ class Agent:
 
         if self.tools_list_dictionary is not None:
             if not supports_function_calling(self.model_name):
-                raise AgentInitializationError(
+                logger.warning(
                     f"The model '{self.model_name}' does not support function calling. Please use a model that supports function calling."
                 )
 
         try:
             if self.max_tokens > get_max_tokens(self.model_name):
-                raise AgentInitializationError(
+                logger.warning(
                     f"Max tokens is set to {self.max_tokens}, but the model '{self.model_name}' only supports {get_max_tokens(self.model_name)} tokens. Please set max tokens to {get_max_tokens(self.model_name)} or less."
                 )
+
         except Exception:
             pass
 
@@ -2683,8 +2687,17 @@ class Agent:
 
             return output
 
-        except ValueError as e:
+        except AgentRunError as e:
             self._handle_run_error(e)
+
+        except KeyboardInterrupt:
+            logger.warning(
+                f"Keyboard interrupt detected for agent '{self.agent_name}'. "
+                "If autosave is enabled, the agent's state will be saved to the workspace directory. "
+                "To enable autosave, please initialize the agent with Agent(autosave=True)."
+                "For technical support, refer to this document: https://docs.swarms.world/en/latest/swarms/support/"
+            )
+            raise KeyboardInterrupt
 
     def handle_artifacts(
         self, text: str, file_output_path: str, file_extension: str
@@ -2823,6 +2836,9 @@ class Agent:
         # Handle None response
         if response is None:
             response = "No response generated"
+
+        if self.streaming_on:
+            pass
 
         if self.print_on:
             formatter.print_panel(
@@ -3231,13 +3247,3 @@ class Agent:
                 f"Full traceback: {traceback.format_exc()}. "
                 f"Attempting to retry tool execution with 3 attempts"
             )
-
-    def add_tool_schema(self, tool_schema: dict):
-        self.tools_list_dictionary = [tool_schema]
-
-        self.output_type = "dict-all-except-first"
-
-    def add_multiple_tool_schemas(self, tool_schemas: list[dict]):
-        self.tools_list_dictionary = tool_schemas
-
-        self.output_type = "dict-all-except-first"

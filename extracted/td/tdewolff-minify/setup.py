@@ -19,7 +19,7 @@ class build_ext_external(build_ext):
 
 setup(
     name="tdewolff-minify",
-    version="2.20.37",
+    version="2.23.9",
     description="Go minifiers for web formats",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -42,6 +42,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Software Development :: Pre-processors",
         "Topic :: Text Processing :: Markup",

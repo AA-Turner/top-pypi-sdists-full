@@ -39,11 +39,15 @@ async def create_thread(
         )
 
         if supersteps := payload.get("supersteps"):
-            await Threads.State.bulk(
-                conn,
-                config={"configurable": {"thread_id": thread_id}},
-                supersteps=supersteps,
-            )
+            try:
+                await Threads.State.bulk(
+                    conn,
+                    config={"configurable": {"thread_id": thread_id}},
+                    supersteps=supersteps,
+                )
+            except HTTPException as e:
+                detail = f"Thread {thread_id} was created, but there were problems updating the state: {e.detail}"
+                raise HTTPException(status_code=201, detail=detail) from e
 
     return ApiResponse(await fetchone(iter, not_found_code=409))
 

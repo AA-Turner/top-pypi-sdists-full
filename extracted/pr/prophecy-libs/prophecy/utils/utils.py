@@ -5,14 +5,18 @@ import logging
 from threading import Lock
 import time
 from datetime import datetime, date
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 import traceback
 from py4j.protocol import Py4JError, Py4JJavaError
 import uuid
+from pyspark.sql import SparkSession, DataFrame, SQLContext
 
 from prophecy.executionmetrics.in_memory_store import InMemoryStore
 from prophecy.executionmetrics.models import PipelineStatus, RunType
-from prophecy.executionmetrics.schemas.em import SerializableException
+from prophecy.executionmetrics.schemas.em import (
+    SerializableException,
+    TimestampedOutput,
+)
 from prophecy.executionmetrics.schemas.external import (
     InterimKey,
     MetricsTableNames,
@@ -22,6 +26,7 @@ from prophecy.executionmetrics.utils.common import (
     get_spark_property_with_logging,
     is_serverless_env,
     now_millis,
+    get_spark_property,
 )
 from prophecy.executionmetrics.utils.external import add_project_id_to_prophecy_uri
 from prophecy.utils.constants import ProphecySparkConstants
@@ -49,8 +54,22 @@ except ImportError:
     # For Spark version 3.4.0 and later
     from pyspark.errors.exceptions.captured import CapturedException
 
-from prophecy.libs.utils import *
-from prophecy.utils.pipeline_monitoring import *
+from prophecy.libs.utils import (
+    createScalaList,
+    createScalaColumnOption,
+    createScalaMap,
+    createScalaColumnMap,
+    createScalaColumnList,
+    createScalaOption,
+    isBlank,
+)
+from prophecy.utils.pipeline_monitoring import (
+    sendGemProgressEvent2,
+    sendGemProgressEvent3,
+    sendPipelineProgressEvent2,
+    sendPipelineProgressEvent3,
+    get_process_from_gem2,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -825,6 +844,9 @@ class MetricsCollector:
         Placeholder implementation: assumes each part is
         base64-encoded + gzipped bytes of UTF-8 JSON text.
         """
+        import base64
+        import gzip
+
         raw: bytes = base64.b64decode(encoded)
         return gzip.decompress(raw).decode("utf-8")
 
@@ -868,7 +890,7 @@ class MetricsCollector:
                 try:
                     decompressed = cls._decompress(compressed_code)
                     return json.loads(decompressed)
-                except Exception:
+                except Exception as e:
                     logger.error("Failed to parse json using json library", e)
 
         return {}

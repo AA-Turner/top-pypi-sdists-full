@@ -446,10 +446,23 @@ class BigQuery(Dialect):
             )
         },
         exp.ArrayConcat: lambda self, e: self._annotate_by_args(e, "this", "expressions"),
+        exp.Ascii: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.BitwiseAndAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.BitwiseOrAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.BitwiseXorAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
+        exp.BitwiseCountAgg: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
         exp.Concat: _annotate_concat,
         exp.Corr: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.CovarPop: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
         exp.CovarSamp: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.DOUBLE),
+        exp.JSONArray: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.JSON),
+        exp.JSONExtractScalar: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.Type.VARCHAR
+        ),
+        exp.JSONValueArray: lambda self, e: self._annotate_with_type(
+            e, exp.DataType.build("ARRAY<VARCHAR>")
+        ),
+        exp.JSONType: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.VARCHAR),
         exp.Lag: lambda self, e: self._annotate_by_args(e, "this", "default"),
         exp.SHA: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
         exp.SHA2: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BINARY),
@@ -458,6 +471,7 @@ class BigQuery(Dialect):
         exp.TimestampFromParts: lambda self, e: self._annotate_with_type(
             e, exp.DataType.Type.DATETIME
         ),
+        exp.Unicode: lambda self, e: self._annotate_with_type(e, exp.DataType.Type.BIGINT),
     }
 
     def normalize_identifier(self, expression: E) -> E:
@@ -613,6 +627,9 @@ class BigQuery(Dialect):
         FUNCTION_PARSERS = {
             **parser.Parser.FUNCTION_PARSERS,
             "ARRAY": lambda self: self.expression(exp.Array, expressions=[self._parse_statement()]),
+            "JSON_ARRAY": lambda self: self.expression(
+                exp.JSONArray, expressions=self._parse_csv(self._parse_bitwise)
+            ),
             "MAKE_INTERVAL": lambda self: self._parse_make_interval(),
             "FEATURES_AT_TIME": lambda self: self._parse_features_at_time(),
         }

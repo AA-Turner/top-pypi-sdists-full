@@ -108,7 +108,7 @@ static TREE_SITTER_LANGUAGE_BY_LANG: LazyLock<
     add_treesitter_language(
         &mut map,
         "C#",
-        [".cs", "cs"],
+        [".cs", "cs", "csharp"],
         tree_sitter_c_sharp::LANGUAGE,
         [],
     );
@@ -149,6 +149,13 @@ static TREE_SITTER_LANGUAGE_BY_LANG: LazyLock<
         [],
     );
     add_treesitter_language(&mut map, "JSON", [".json"], tree_sitter_json::LANGUAGE, []);
+    add_treesitter_language(
+        &mut map,
+        "Kotlin",
+        [".kt", ".kts"],
+        tree_sitter_kotlin_ng::LANGUAGE,
+        [],
+    );
     add_treesitter_language(
         &mut map,
         "Markdown",

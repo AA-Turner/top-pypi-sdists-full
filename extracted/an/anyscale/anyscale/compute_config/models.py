@@ -417,6 +417,19 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         if cloud is not None and not isinstance(cloud, str):
             raise TypeError("'cloud' must be a string")
 
+    cloud_deployment: Optional[str] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "The cloud deployment to use for this workload. Defaults to the primary deployment of the Cloud.",
+            "customer_hosted_only": True,
+        },
+    )
+
+    def _validate_cloud_deployment(self, cloud_deployment: Optional[str]):
+        if cloud_deployment is not None and not isinstance(cloud_deployment, str):
+            raise TypeError("'cloud_deployment' must be a string")
+
     head_node: Union[HeadNodeConfig, Dict, None] = field(
         default=None,
         repr=False,
@@ -587,6 +600,129 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
 
 
 @dataclass(frozen=True)
+class MultiDeploymentComputeConfig(ModelBase):
+    """EXPERIMENTAL. Compute configuration for a cluster with multiple possible cloud deployments."""
+
+    __doc_py_example__ = """
+from anyscale.compute_config.models import (
+    MultiDeploymentComputeConfig, ComputeConfig, HeadNodeConfig, WorkerNodeGroupConfig
+)
+config = MultiDeploymentComputeConfig(
+    configs=[
+        ComputeConfig(
+            cloud_deployment="vm-aws-us-west-1",
+            head_node=HeadNodeConfig(
+                instance_type="m5.2xlarge",
+            ),
+            worker_nodes=[
+                WorkerNodeGroupConfig(
+                    instance_type="m5.4xlarge",
+                    min_nodes=1,
+                    max_nodes=10,
+                ),
+            ],
+        ),
+        ComputeConfig(
+            cloud_deployment="vm-aws-us-west-2",
+            head_node=HeadNodeConfig(
+                instance_type="m5.2xlarge",
+            ),
+            worker_nodes=[
+                WorkerNodeGroupConfig(
+                    instance_type="m5.4xlarge",
+                    min_nodes=1,
+                    max_nodes=10,
+                ),
+            ],
+        )
+    ]
+)
+"""
+
+    __doc_yaml_example__ = """
+cloud: my-cloud
+configs:
+- cloud_deployment: vm-aws-us-west-1
+  head_node:
+    instance_type: m5.2xlarge
+  worker_nodes:
+  - instance_type: m5.4xlarge
+    min_nodes: 1
+    max_nodes: 10
+- cloud_deployment: vm-aws-us-west-2
+  head_node:
+    instance_type: m5.2xlarge
+  worker_nodes:
+  - instance_type: m5.4xlarge
+    min_nodes: 1
+    max_nodes: 10
+"""
+
+    cloud: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The Anyscale Cloud to run this workload on. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace)."
+        },
+    )
+
+    def _validate_cloud(self, cloud: Optional[str]):
+        if cloud is not None and not isinstance(cloud, str):
+            raise TypeError("'cloud' must be a string")
+
+    configs: List[Union[ComputeConfig, Dict]] = field(
+        default_factory=list,
+        repr=False,
+        metadata={
+            "docstring": "List of compute configurations, one for each cloud deployment.",
+            "customer_hosted_only": True,
+        },
+    )
+
+    def _validate_configs(
+        self, configs: List[Union[ComputeConfig, Dict]]
+    ) -> List[ComputeConfig]:
+        if not isinstance(configs, list) or not all(
+            isinstance(c, (dict, ComputeConfig)) for c in configs
+        ):
+            raise TypeError(
+                "'configs' must be a list of ComputeConfigs or corresponding dicts"
+            )
+
+        config_models: List[ComputeConfig] = []
+        unique_clouds = set()
+        unique_deployments = set()
+        for config in configs:
+            if isinstance(config, dict):
+                config = ComputeConfig.from_dict(config)
+
+            assert isinstance(config, ComputeConfig)
+            config_models.append(config)
+
+            if not config.cloud_deployment:
+                raise ValueError("'cloud_deployment' is required for each config.")
+
+            if config.cloud:
+                unique_clouds.add(config.cloud)
+
+            unique_deployments.add(config.cloud_deployment)
+
+        if len(unique_clouds) > 1:
+            raise ValueError("'cloud' must be the same for all configs.")
+
+        if len(unique_deployments) != len(configs):
+            raise ValueError(
+                "'cloud_deployment' must be unique for each compute configuration."
+            )
+
+        if len(configs) == 0:
+            raise ValueError(
+                "'configs' must include at least one compute configuration."
+            )
+
+        return config_models
+
+
+@dataclass(frozen=True)
 class ComputeConfigVersion(ModelBase):
     """Details of a created version of a compute config.
 
@@ -639,8 +775,29 @@ config:
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
 
-    config: ComputeConfig = field(metadata={"docstring": "The compute configuration."},)
+    config: Optional[ComputeConfig] = field(
+        default=None, metadata={"docstring": "The compute configuration."},
+    )
 
-    def _validate_config(self, config: ComputeConfig):
-        if not isinstance(config, ComputeConfig):
+    def _validate_config(self, config: Optional[ComputeConfig]):
+        if config is not None and not isinstance(config, ComputeConfig):
             raise TypeError("'config' must be a ComputeConfig")
+
+    multi_deployment_config: Optional[MultiDeploymentComputeConfig] = field(
+        default=None,
+        repr=False,
+        metadata={
+            "docstring": "Compute configuration for a cluster with multiple possible cloud deployments.",
+            "customer_hosted_only": True,
+        },
+    )
+
+    def _validate_multi_deployment_config(
+        self, multi_deployment_config: Optional[MultiDeploymentComputeConfig]
+    ):
+        if multi_deployment_config is not None and not isinstance(
+            multi_deployment_config, MultiDeploymentComputeConfig
+        ):
+            raise TypeError(
+                "'multi_deployment_config' must be a MultiDeploymentComputeConfig"
+            )

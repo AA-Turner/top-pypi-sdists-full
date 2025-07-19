@@ -87259,6 +87259,8 @@ scout_compute_api_ErrorCode = int
 
 api_rids_ChunkRid = str
 
+api_rids_ProcedureRid = str
+
 scout_rids_api_CheckAlertRid = str
 
 ingest_api_ContainerizedExtractorRid = str
@@ -87320,6 +87322,8 @@ scout_datasource_connection_api_ConnectionRid = str
 scout_channelvariables_api_ComputeSpecV1 = str
 
 timeseries_logicalseries_api_TableName = str
+
+api_rids_ProcedureExecutionRid = str
 
 scout_rids_api_NotebookRid = str
 

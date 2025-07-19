@@ -16,6 +16,7 @@ PHONE_METADATA_JP = PhoneMetadata(id='JP', country_code=81, international_prefix
     national_prefix_for_parsing='(000[259]\\d{6})$|(?:(?:003768)0?)|0',
     national_prefix_transform_rule='\\1',
     number_format=[NumberFormat(pattern='(\\d{4})(\\d{4})', format='\\1-\\2', leading_digits_pattern=['007', '0077', '00777', '00777[01]']),
+        NumberFormat(pattern='(\\d{8,10})', format='\\1', leading_digits_pattern=['000']),
         NumberFormat(pattern='(\\d{3})(\\d{3})(\\d{3})', format='\\1-\\2-\\3', leading_digits_pattern=['(?:12|57|99)0'], national_prefix_formatting_rule='0\\1'),
         NumberFormat(pattern='(\\d{4})(\\d)(\\d{4})', format='\\1-\\2-\\3', leading_digits_pattern=['1(?:26|3[79]|4[56]|5[4-68]|6[3-5])|499|5(?:76|97)|746|8(?:3[89]|47|51)|9(?:80|9[16])', '1(?:267|3(?:7[247]|9[278])|466|5(?:47|58|64)|6(?:3[245]|48|5[4-68]))|499[2468]|5(?:76|97)9|7468|8(?:3(?:8[7-9]|96)|477|51[2-9])|9(?:802|9(?:1[23]|69))|1(?:45|58)[67]', '1(?:267|3(?:7[247]|9[278])|466|5(?:47|58|64)|6(?:3[245]|48|5[4-68]))|499[2468]|5(?:769|979[2-69])|7468|8(?:3(?:8[7-9]|96[2457-9])|477|51[2-9])|9(?:802|9(?:1[23]|69))|1(?:45|58)[67]'], national_prefix_formatting_rule='0\\1'),
         NumberFormat(pattern='(\\d{2})(\\d{3})(\\d{4})', format='\\1-\\2-\\3', leading_digits_pattern=['60'], national_prefix_formatting_rule='0\\1'),

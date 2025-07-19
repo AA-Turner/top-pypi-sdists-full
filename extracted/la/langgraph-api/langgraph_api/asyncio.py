@@ -141,6 +141,13 @@ def call_soon_in_main_loop(coro: Coroutine[Any, Any, T]) -> asyncio.Future[T]:
     return this_loop_fut
 
 
+def call_soon_threadsafe(callback, *args) -> asyncio.Handle:
+    """Run a coroutine in the main event loop."""
+    if _MAIN_LOOP is None:
+        raise RuntimeError("No event loop set")
+    return _MAIN_LOOP.call_soon_threadsafe(callback, *args)
+
+
 class SimpleTaskGroup(AbstractAsyncContextManager["SimpleTaskGroup"]):
     """An async task group that can be configured to wait and/or cancel tasks on exit.
 

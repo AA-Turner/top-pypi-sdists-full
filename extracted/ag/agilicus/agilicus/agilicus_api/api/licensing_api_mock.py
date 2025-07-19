@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 class LicensingApiMock:
 
     def __init__(self):
+        self.mock_create_hypothetical_license_details_query = MagicMock()
         self.mock_create_license = MagicMock()
         self.mock_create_product_table_version = MagicMock()
         self.mock_delete_license = MagicMock()
@@ -14,6 +15,12 @@ class LicensingApiMock:
         self.mock_list_product_table_versions = MagicMock()
         self.mock_replace_license = MagicMock()
         self.mock_replace_product_table_version = MagicMock()
+
+    def create_hypothetical_license_details_query(self, *args, **kwargs):
+        """
+        This method mocks the original api LicensingApi.create_hypothetical_license_details_query with MagicMock.
+        """
+        return self.mock_create_hypothetical_license_details_query(self, *args, **kwargs)
 
     def create_license(self, *args, **kwargs):
         """

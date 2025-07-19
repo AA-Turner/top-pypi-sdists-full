@@ -32,7 +32,14 @@ from .distracted_driver_detection import DistractedDriverUseCase, DistractedDriv
 from .emergency_vehicle_detection import EmergencyVehicleUseCase, EmergencyVehicleConfig
 from .solar_panel import SolarPanelUseCase, SolarPanelConfig
 from .chicken_pose_detection import ChickenPoseDetectionConfig,ChickenPoseDetectionUseCase
-
+from .traffic_sign_monitoring import TrafficSignMonitoringConfig, TrafficSignMonitoringUseCase
+from .theft_detection import TheftDetectionConfig , TheftDetectionUseCase
+from .crop_weed_detection import CropWeedDetectionConfig, CropWeedDetectionUseCase
+from .child_monitoring import ChildMonitoringUseCase, ChildMonitoringConfig
+from .gender_detection import GenderDetectionUseCase, GenderDetectionConfig
+from .weapon_detection import WeaponDetectionConfig,WeaponDetectionUseCase
+from .concrete_crack_detection import ConcreteCrackUseCase, ConcreteCrackConfig
+from .fashion_detection import FashionDetectionUseCase, FashionDetectionConfig
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -56,10 +63,18 @@ __all__ = [
     'AgeDetectionUseCase',
     'WeldDefectUseCase',
     'PriceTagUseCase',
+    'WeaponDetectionUseCase',
+    'TheftDetectionUseCase',
+    'TrafficSignMonitoringUseCase',
     'DistractedDriverUseCase',
     'EmergencyVehicleUseCase',
     'SolarPanelUseCase',
     'ChickenPoseDetectionUseCase',
+    'CropWeedDetectionUseCase',
+    'ChildMonitoringUseCase',
+    'GenderDetectionUseCase',
+    'ConcreteCrackUseCase',
+    'FashionDetectionUseCase',
     'PeopleCountingConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
@@ -83,5 +98,13 @@ __all__ = [
     'PriceTagConfig',
     'DistractedDriverConfig',
     'EmergencyVehicleConfig',
-    'SolarPanelConfig'
+    'TheftDetectionConfig',
+    'TrafficSignMonitoringConfig',
+    'SolarPanelConfig',
+    'CropWeedDetectionConfig',
+    'ChildMonitoringConfig',
+    'GenderDetectionConfig',
+    'WeaponDetectionConfig',
+    'ConcreteCrackConfig',
+    'FashionDetectionConfig'
 ]

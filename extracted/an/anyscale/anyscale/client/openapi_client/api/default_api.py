@@ -8419,6 +8419,138 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post(self, describe_machine_pool_workloads_request, **kwargs):  # noqa: E501
+        """Describe Machine Pool Workloads  # noqa: E501
+
+        Describe the currently allocated workloads in a machine pool.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post(describe_machine_pool_workloads_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param DescribeMachinePoolWorkloadsRequest describe_machine_pool_workloads_request: (required)
+        :param str paging_token:
+        :param int count:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkloadstateinfoListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post_with_http_info(describe_machine_pool_workloads_request, **kwargs)  # noqa: E501
+
+    def describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post_with_http_info(self, describe_machine_pool_workloads_request, **kwargs):  # noqa: E501
+        """Describe Machine Pool Workloads  # noqa: E501
+
+        Describe the currently allocated workloads in a machine pool.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post_with_http_info(describe_machine_pool_workloads_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param DescribeMachinePoolWorkloadsRequest describe_machine_pool_workloads_request: (required)
+        :param str paging_token:
+        :param int count:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkloadstateinfoListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'describe_machine_pool_workloads_request',
+            'paging_token',
+            'count'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'describe_machine_pool_workloads_request' is set
+        if self.api_client.client_side_validation and ('describe_machine_pool_workloads_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['describe_machine_pool_workloads_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `describe_machine_pool_workloads_request` when calling `describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post`")  # noqa: E501
+
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] > 1000:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post`, must be a value less than or equal to `1000`")  # noqa: E501
+        if self.api_client.client_side_validation and 'count' in local_var_params and local_var_params['count'] < 0:  # noqa: E501
+            raise ApiValueError("Invalid value for parameter `count` when calling `describe_machine_pool_workloads_api_v2_machine_pools_describe_workloads_post`, must be a value greater than or equal to `0`")  # noqa: E501
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'paging_token' in local_var_params and local_var_params['paging_token'] is not None:  # noqa: E501
+            query_params.append(('paging_token', local_var_params['paging_token']))  # noqa: E501
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'describe_machine_pool_workloads_request' in local_var_params:
+            body_params = local_var_params['describe_machine_pool_workloads_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/machine_pools/describe_workloads', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkloadstateinfoListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def describe_system_workload_api_v2_system_workload_cloud_id_describe_post(self, cloud_id, workload_name, **kwargs):  # noqa: E501
         """Describe System Workload  # noqa: E501
 

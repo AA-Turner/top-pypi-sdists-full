@@ -42,6 +42,8 @@ class AppBuildTelemetry(BaseModel):
     name: str = Field(..., description="")
     version: str = Field(..., description="")
     features: Optional["AppFeaturesTelemetry"] = Field(default=None, description="")
+    runtime_features: Optional["FeatureFlags"] = Field(default=None, description="")
+    hnsw_global_config: Optional["HnswGlobalConfig"] = Field(default=None, description="")
     system: Optional["RunningEnvironmentTelemetry"] = Field(default=None, description="")
     jwt_rbac: Optional[bool] = Field(default=None, description="")
     hide_jwt_dashboard: Optional[bool] = Field(default=None, description="")
@@ -50,10 +52,10 @@ class AppBuildTelemetry(BaseModel):
 
 class AppFeaturesTelemetry(BaseModel):
     debug: bool = Field(..., description="")
-    web_feature: bool = Field(..., description="")
     service_debug_feature: bool = Field(..., description="")
     recovery_mode: bool = Field(..., description="")
     gpu: bool = Field(..., description="")
+    rocksdb: bool = Field(..., description="")
 
 
 class Batch(BaseModel, extra="forbid"):
@@ -68,6 +70,24 @@ class BinaryQuantization(BaseModel, extra="forbid"):
 
 class BinaryQuantizationConfig(BaseModel, extra="forbid"):
     always_ram: Optional[bool] = Field(default=None, description="")
+    encoding: Optional["BinaryQuantizationEncoding"] = Field(default=None, description="")
+    query_encoding: Optional["BinaryQuantizationQueryEncoding"] = Field(
+        default=None,
+        description="Asymmetric quantization configuration allows a query to have different quantization than stored vectors. It can increase the accuracy of search at the cost of performance.",
+    )
+
+
+class BinaryQuantizationEncoding(str, Enum):
+    ONE_BIT = "one_bit"
+    TWO_BITS = "two_bits"
+    ONE_AND_HALF_BITS = "one_and_half_bits"
+
+
+class BinaryQuantizationQueryEncoding(str, Enum):
+    DEFAULT = "default"
+    BINARY = "binary"
+    SCALAR4BITS = "scalar4bits"
+    SCALAR8BITS = "scalar8bits"
 
 
 class BoolIndexParams(BaseModel, extra="forbid"):
@@ -305,6 +325,7 @@ class CollectionsResponse(BaseModel):
 
 class CollectionsTelemetry(BaseModel):
     number_of_collections: int = Field(..., description="")
+    max_collections: Optional[int] = Field(default=None, description="")
     collections: Optional[List["CollectionTelemetryEnum"]] = Field(default=None, description="")
 
 
@@ -737,6 +758,41 @@ class FacetValueHit(BaseModel):
     count: int = Field(..., description="")
 
 
+class FeatureFlags(BaseModel):
+    all: Optional[bool] = Field(
+        default=False,
+        description="Magic feature flag that enables all features.  Note that this will only be applied to all flags when passed into [`init_feature_flags`].",
+    )
+    payload_index_skip_rocksdb: Optional[bool] = Field(
+        default=True,
+        description="Skip usage of RocksDB in new immutable payload indices.  First implemented in Qdrant 1.13.5. Enabled by default in Qdrant 1.14.1",
+    )
+    payload_index_skip_mutable_rocksdb: Optional[bool] = Field(
+        default=False, description="Skip usage of RocksDB in new mutable payload indices."
+    )
+    payload_storage_skip_rocksdb: Optional[bool] = Field(
+        default=False,
+        description="Skip usage of RocksDB in new payload storages.  On-disk payload storages never use Gridstore.  First implemented in Qdrant 1.15.0.",
+    )
+    incremental_hnsw_building: Optional[bool] = Field(
+        default=True, description="Use incremental HNSW building.  Enabled by default in Qdrant 1.14.1."
+    )
+    migrate_rocksdb_id_tracker: Optional[bool] = Field(
+        default=True,
+        description="Migrate RocksDB based ID trackers into file based ID tracker on start.  Enabled by default in Qdrant 1.15.0.",
+    )
+    migrate_rocksdb_vector_storage: Optional[bool] = Field(
+        default=False, description="Migrate RocksDB based vector storages into new format on start."
+    )
+    migrate_rocksdb_payload_storage: Optional[bool] = Field(
+        default=False, description="Migrate RocksDB based payload storages into new format on start."
+    )
+    migrate_rocksdb_payload_indices: Optional[bool] = Field(
+        default=False,
+        description="Migrate RocksDB based payload indices into new format on start.  Rebuilds a new payload index from scratch.",
+    )
+
+
 class FieldCondition(BaseModel, extra="forbid"):
     """
     All possible payload filtering conditions
@@ -1000,6 +1056,13 @@ class HnswConfigDiff(BaseModel, extra="forbid"):
     )
 
 
+class HnswGlobalConfig(BaseModel):
+    healing_threshold: Optional[float] = Field(
+        default=0.3,
+        description="Enable HNSW healing if the ratio of missing points is no more than this value. To disable healing completely, set this value to `0.0`.",
+    )
+
+
 class Image(BaseModel, extra="forbid"):
     """
     WARN: Work-in-progress, unimplemented  Image object for embedding. Requires inference infrastructure, unimplemented.
@@ -1059,6 +1122,10 @@ class InferenceObject(BaseModel, extra="forbid"):
     options: Optional[Dict[str, Any]] = Field(
         default=None, description="Parameters for the model Values of the parameters are model-specific"
     )
+
+
+class InferenceUsage(BaseModel):
+    models: Dict[str, "ModelUsage"] = Field(..., description="")
 
 
 class InitFrom(BaseModel, extra="forbid"):
@@ -1258,13 +1325,15 @@ class InlineResponse202(BaseModel):
 
 class IntegerIndexParams(BaseModel, extra="forbid"):
     type: "IntegerIndexType" = Field(..., description="")
-    lookup: Optional[bool] = Field(default=None, description="If true - support direct lookups.")
-    range: Optional[bool] = Field(default=None, description="If true - support ranges filters.")
+    lookup: Optional[bool] = Field(default=None, description="If true - support direct lookups. Default is true.")
+    range: Optional[bool] = Field(default=None, description="If true - support ranges filters. Default is true.")
     is_principal: Optional[bool] = Field(
         default=None,
-        description="If true - use this key to organize storage of the collection data. This option assumes that this key will be used in majority of filtered requests.",
+        description="If true - use this key to organize storage of the collection data. This option assumes that this key will be used in majority of filtered requests. Default is false.",
     )
-    on_disk: Optional[bool] = Field(default=None, description="If true, store the index on disk. Default: false.")
+    on_disk: Optional[bool] = Field(
+        default=None, description="If true, store the index on disk. Default: false. Default is false."
+    )
 
 
 class IntegerIndexType(str, Enum):
@@ -1297,6 +1366,39 @@ class KeywordIndexParams(BaseModel, extra="forbid"):
 
 class KeywordIndexType(str, Enum):
     KEYWORD = "keyword"
+
+
+class Language(str, Enum):
+    ARABIC = "arabic"
+    AZERBAIJANI = "azerbaijani"
+    BASQUE = "basque"
+    BENGALI = "bengali"
+    CATALAN = "catalan"
+    CHINESE = "chinese"
+    DANISH = "danish"
+    DUTCH = "dutch"
+    ENGLISH = "english"
+    FINNISH = "finnish"
+    FRENCH = "french"
+    GERMAN = "german"
+    GREEK = "greek"
+    HEBREW = "hebrew"
+    HINGLISH = "hinglish"
+    HUNGARIAN = "hungarian"
+    INDONESIAN = "indonesian"
+    ITALIAN = "italian"
+    JAPANESE = "japanese"
+    KAZAKH = "kazakh"
+    NEPALI = "nepali"
+    NORWEGIAN = "norwegian"
+    PORTUGUESE = "portuguese"
+    ROMANIAN = "romanian"
+    RUSSIAN = "russian"
+    SLOVENE = "slovene"
+    SPANISH = "spanish"
+    SWEDISH = "swedish"
+    TAJIK = "tajik"
+    TURKISH = "turkish"
 
 
 class LinDecayExpression(BaseModel, extra="forbid"):
@@ -1382,6 +1484,14 @@ class MatchExcept(BaseModel, extra="forbid"):
     )
 
 
+class MatchPhrase(BaseModel, extra="forbid"):
+    """
+    Full-text phrase match of the string.
+    """
+
+    phrase: str = Field(..., description="Full-text phrase match of the string.")
+
+
 class MatchText(BaseModel, extra="forbid"):
     """
     Full-text match of the strings.
@@ -1425,6 +1535,25 @@ class MessageSendErrors(BaseModel):
 class MinShould(BaseModel, extra="forbid"):
     conditions: List["Condition"] = Field(..., description="")
     min_count: int = Field(..., description="")
+
+
+class Mmr(BaseModel, extra="forbid"):
+    """
+    Maximal Marginal Relevance (MMR) algorithm for re-ranking the points.
+    """
+
+    diversity: Optional[float] = Field(
+        default=None,
+        description="Tunable parameter for the MMR algorithm. Determines the balance between diversity and relevance.  A higher value favors diversity (dissimilarity to selected results), while a lower value favors relevance (similarity to the query vector).  Must be in the range [0, 1]. Default value is 0.5.",
+    )
+    candidates_limit: Optional[int] = Field(
+        default=None,
+        description="The maximum number of candidates to consider for re-ranking.  If not specified, the `limit` value is used.",
+    )
+
+
+class ModelUsage(BaseModel):
+    tokens: int = Field(..., description="")
 
 
 class Modifier(str, Enum):
@@ -1484,6 +1613,10 @@ class NamedVector(BaseModel, extra="forbid"):
 
 class NearestQuery(BaseModel, extra="forbid"):
     nearest: "VectorInput" = Field(..., description="")
+    mmr: Optional["Mmr"] = Field(
+        default=None,
+        description="Perform MMR (Maximal Marginal Relevance) reranking after search, using the same vector in this query to calculate relevance.",
+    )
 
 
 class NegExpression(BaseModel, extra="forbid"):
@@ -1549,7 +1682,7 @@ class OptimizersConfig(BaseModel):
     )
     indexing_threshold: Optional[int] = Field(
         default=None,
-        description="Maximum size (in kilobytes) of vectors allowed for plain index, exceeding this threshold will enable vector indexing  Default value is 20,000, based on &lt;https://github.com/google-research/google-research/blob/master/scann/docs/algorithms.md&gt;.  To disable vector indexing, set to `0`.  Note: 1kB = 1 vector of size 256.",
+        description="Maximum size (in kilobytes) of vectors allowed for plain index, exceeding this threshold will enable vector indexing  Default value is 10,000, based on experiments and observations.  To disable vector indexing, set to `0`.  Note: 1kB = 1 vector of size 256.",
     )
     flush_interval_sec: int = Field(..., description="Minimum interval between forced flushes.")
     max_optimization_threads: Optional[int] = Field(
@@ -1631,6 +1764,12 @@ class P2pConfigTelemetry(BaseModel):
     connection_pool_size: int = Field(..., description="")
 
 
+class PartialSnapshotTelemetry(BaseModel):
+    ongoing_create_snapshot_requests: int = Field(..., description="")
+    is_recovering: bool = Field(..., description="")
+    recovery_timestamp: int = Field(..., description="")
+
+
 class PayloadField(BaseModel, extra="forbid"):
     """
     Payload field
@@ -1700,6 +1839,12 @@ class PayloadStorageTypeOneOf1(BaseModel):
 class PayloadStorageTypeOneOf2(BaseModel):
     type: Literal[
         "mmap",
+    ] = Field(..., description="")
+
+
+class PayloadStorageTypeOneOf3(BaseModel):
+    type: Literal[
+        "in_ram_mmap",
     ] = Field(..., description="")
 
 
@@ -2118,6 +2263,7 @@ class ReplicaSetTelemetry(BaseModel):
     local: Optional["LocalShardTelemetry"] = Field(default=None, description="")
     remote: List["RemoteShardTelemetry"] = Field(..., description="")
     replicate_states: Dict[str, "ReplicaState"] = Field(..., description="")
+    partial_snapshot: Optional["PartialSnapshotTelemetry"] = Field(default=None, description="")
 
 
 class ReplicaState(str, Enum):
@@ -2634,6 +2780,44 @@ class SnapshotRecover(BaseModel, extra="forbid"):
     )
 
 
+class Snowball(str, Enum):
+    SNOWBALL = "snowball"
+
+
+class SnowballLanguage(str, Enum):
+    """
+    Languages supported by snowball stemmer.
+    """
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    ARABIC = "arabic"
+    ARMENIAN = "armenian"
+    DANISH = "danish"
+    DUTCH = "dutch"
+    ENGLISH = "english"
+    FINNISH = "finnish"
+    FRENCH = "french"
+    GERMAN = "german"
+    GREEK = "greek"
+    HUNGARIAN = "hungarian"
+    ITALIAN = "italian"
+    NORWEGIAN = "norwegian"
+    PORTUGUESE = "portuguese"
+    ROMANIAN = "romanian"
+    RUSSIAN = "russian"
+    SPANISH = "spanish"
+    SWEDISH = "swedish"
+    TAMIL = "tamil"
+    TURKISH = "turkish"
+
+
+class SnowballParams(BaseModel, extra="forbid"):
+    type: "Snowball" = Field(..., description="")
+    language: "SnowballLanguage" = Field(..., description="")
+
+
 class SparseIndexConfig(BaseModel):
     """
     Configuration for sparse inverted index.
@@ -2736,7 +2920,7 @@ class SparseVectorParams(BaseModel, extra="forbid"):
 
 class SparseVectorStorageTypeOneOf(str, Enum):
     """
-    Storage on disk
+    Storage on disk (rocksdb storage)
     """
 
     def __str__(self) -> str:
@@ -2747,7 +2931,7 @@ class SparseVectorStorageTypeOneOf(str, Enum):
 
 class SparseVectorStorageTypeOneOf1(str, Enum):
     """
-    Storage in memory maps
+    Storage in memory maps (gridstore storage)
     """
 
     def __str__(self) -> str:
@@ -2782,6 +2966,11 @@ class StateRole(str, Enum):
     CANDIDATE = "Candidate"
     LEADER = "Leader"
     PRECANDIDATE = "PreCandidate"
+
+
+class StopwordsSet(BaseModel, extra="forbid"):
+    languages: Optional[List["Language"]] = Field(default=None, description="")
+    custom: Optional[List[str]] = Field(default=None, description="")
 
 
 class StrictModeConfig(BaseModel, extra="forbid"):
@@ -2904,7 +3093,17 @@ class TextIndexParams(BaseModel, extra="forbid"):
     min_token_len: Optional[int] = Field(default=None, description="Minimum characters to be tokenized.")
     max_token_len: Optional[int] = Field(default=None, description="Maximum characters to be tokenized.")
     lowercase: Optional[bool] = Field(default=None, description="If true, lowercase all tokens. Default: true.")
+    phrase_matching: Optional[bool] = Field(
+        default=None, description="If true, support phrase matching. Default: false."
+    )
+    stopwords: Optional["StopwordsInterface"] = Field(
+        default=None,
+        description="Ignore this set of tokens. Can select from predefined languages and/or provide a custom set.",
+    )
     on_disk: Optional[bool] = Field(default=None, description="If true, store the index on disk. Default: false.")
+    stemmer: Optional["StemmingAlgorithm"] = Field(
+        default=None, description="Algorithm for stemming. Default: disabled."
+    )
 
 
 class TextIndexType(str, Enum):
@@ -3005,6 +3204,19 @@ class UpdateVectorsOperation(BaseModel, extra="forbid"):
 
 class UpsertOperation(BaseModel, extra="forbid"):
     upsert: "PointInsertOperations" = Field(..., description="")
+
+
+class Usage(BaseModel):
+    """
+    Usage of the hardware resources, spent to process the request
+    """
+
+    hardware: Optional["HardwareUsage"] = Field(
+        default=None, description="Usage of the hardware resources, spent to process the request"
+    )
+    inference: Optional["InferenceUsage"] = Field(
+        default=None, description="Usage of the hardware resources, spent to process the request"
+    )
 
 
 class UuidIndexParams(BaseModel, extra="forbid"):
@@ -3275,6 +3487,7 @@ Indexes = Union[
 Match = Union[
     MatchValue,
     MatchText,
+    MatchPhrase,
     MatchAny,
     MatchExcept,
 ]
@@ -3317,6 +3530,7 @@ PayloadStorageType = Union[
     PayloadStorageTypeOneOf,
     PayloadStorageTypeOneOf1,
     PayloadStorageTypeOneOf2,
+    PayloadStorageTypeOneOf3,
 ]
 PointInsertOperations = Union[
     PointsBatch,
@@ -3391,6 +3605,13 @@ StartFrom = Union[
     StrictFloat,
     datetime,
     date,
+]
+StemmingAlgorithm = Union[
+    SnowballParams,
+]
+StopwordsInterface = Union[
+    Language,
+    StopwordsSet,
 ]
 TrackerStatus = Union[
     TrackerStatusOneOf,

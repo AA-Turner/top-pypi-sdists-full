@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 
 class DulwichObject(GitObject):
-    def __init__(self, repo, name, mode, sha):
+    def __init__(self, repo, name, mode, sha) -> None:
         self.repo = repo
         self._name = name
         self._mode = mode
@@ -136,7 +136,7 @@ def _get_ssh_vendor() -> "SSHVendor":
 
 
 class DulwichConfig(Config):
-    def __init__(self, config: Union["ConfigFile", "StackedConfig"]):
+    def __init__(self, config: Union["ConfigFile", "StackedConfig"]) -> None:
         self._config = config
 
     @property
@@ -183,7 +183,7 @@ class DulwichBackend(BaseGitBackend):  # pylint:disable=abstract-method
 
     def __init__(  # pylint:disable=W0231
         self, root_dir=os.curdir, search_parent_directories=True
-    ):
+    ) -> None:
         from dulwich.errors import NotGitRepository
         from dulwich.repo import Repo
 
@@ -990,7 +990,7 @@ def ls_remote(url: str) -> dict[str, str]:
     from dulwich.client import HTTPUnauthorized
 
     try:
-        refs = porcelain.ls_remote(url)
+        refs = porcelain.ls_remote(url).refs
         return {os.fsdecode(ref): sha.decode("ascii") for ref, sha in refs.items()}
     except HTTPUnauthorized as exc:
         raise AuthError(url) from exc

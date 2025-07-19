@@ -975,6 +975,8 @@ class TestDuckDB(Validator):
         )
 
         self.validate_identity("ARRAY_SLICE(x, 1, 3, 2)")
+        self.validate_identity("SELECT #2, #1 FROM (VALUES (1, 'foo'))")
+        self.validate_identity("SELECT #2 AS a, #1 AS b FROM (VALUES (1, 'foo'))")
 
     def test_array_index(self):
         with self.assertLogs(helper_logger) as cm:
@@ -1042,10 +1044,10 @@ class TestDuckDB(Validator):
         )
         self.validate_all(
             "SELECT INTERVAL '1 quarter'",
-            write={"duckdb": "SELECT (90 * INTERVAL '1' DAY)"},
+            write={"duckdb": "SELECT INTERVAL '1' QUARTER"},
         )
         self.validate_all(
-            "SELECT ((DATE_TRUNC('DAY', CAST(CAST(DATE_TRUNC('DAY', CURRENT_TIMESTAMP) AS DATE) AS TIMESTAMP) + INTERVAL (0 - ((ISODOW(CAST(CAST(DATE_TRUNC('DAY', CURRENT_TIMESTAMP) AS DATE) AS TIMESTAMP)) % 7) - 1 + 7) % 7) DAY) + (7 * INTERVAL (-5) DAY))) AS t1",
+            "SELECT ((DATE_TRUNC('DAY', CAST(CAST(DATE_TRUNC('DAY', CURRENT_TIMESTAMP) AS DATE) AS TIMESTAMP) + INTERVAL (0 - ((ISODOW(CAST(CAST(DATE_TRUNC('DAY', CURRENT_TIMESTAMP) AS DATE) AS TIMESTAMP)) % 7) - 1 + 7) % 7) DAY) + INTERVAL (-5) WEEK)) AS t1",
             read={
                 "presto": "SELECT ((DATE_ADD('week', -5, DATE_TRUNC('DAY', DATE_ADD('day', (0 - MOD((DAY_OF_WEEK(CAST(CAST(DATE_TRUNC('DAY', NOW()) AS DATE) AS TIMESTAMP)) % 7) - 1 + 7, 7)), CAST(CAST(DATE_TRUNC('DAY', NOW()) AS DATE) AS TIMESTAMP)))))) AS t1",
             },
@@ -1695,3 +1697,8 @@ class TestDuckDB(Validator):
         self.validate_identity("SET VARIABLE location_map = (SELECT foo FROM bar)")
 
         self.validate_identity("SET VARIABLE my_var TO 30", "SET VARIABLE my_var = 30")
+
+    def test_map_struct(self):
+        self.validate_identity("MAP {1: 'a', 2: 'b'}")
+        self.validate_identity("MAP {'1': 'a', '2': 'b'}")
+        self.validate_identity("MAP {[1, 2]: 'a', [3, 4]: 'b'}")

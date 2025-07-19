@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.41.0
+Version: 2.42.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -50,6 +50,7 @@ Requires-Dist: tqdm<5.0.0,>=4.65.0
 Requires-Dist: pluggy<2.0.0,>=1.0.0
 Requires-Dist: pylatexenc<3.0,>=2.10
 Requires-Dist: scipy<2.0.0,>=1.6.0
+Requires-Dist: accelerate<2,>=1.0.0
 Provides-Extra: tesserocr
 Requires-Dist: tesserocr<3.0.0,>=2.7.1; extra == "tesserocr"
 Provides-Extra: ocrmac

@@ -926,6 +926,7 @@ def register_cloud(  # noqa: PLR0913, PLR0912, C901
             nfs_mount_targets=list(nfs_mount_target) if nfs_mount_target else [],
             nfs_mount_path=nfs_mount_path,
             kubernetes_zones=kubernetes_zones.split(",") if kubernetes_zones else [],
+            anyscale_operator_iam_identity=anyscale_operator_iam_identity,
         )
 
     else:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: differt-core
-Version: 0.3.0
+Version: 0.3.1
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: numpy>=1.20
 License-File: LICENSE.md
-Summary: Core backend of DifffeRT implemented in Rust
+Summary: Core backend of DiffeRT implemented in Rust
 Keywords: ray tracing,differentiable,propagation,radio,jax
 Author-email: Jérome Eertmans <jeertmans@icloud.com>
 Requires-Python: >=3.10

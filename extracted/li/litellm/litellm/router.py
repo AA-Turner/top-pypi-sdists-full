@@ -784,6 +784,26 @@ class Router:
         )
 
         #########################################################
+        # Vector Store routes
+        #########################################################
+        from litellm.vector_stores.main import acreate, asearch, create, search
+
+        # async routes
+        self.avector_store_search = self.factory_function(
+            asearch, call_type="avector_store_search"
+        )
+        self.avector_store_create = self.factory_function(
+            acreate, call_type="avector_store_create"
+        )
+        # sync routes
+        self.vector_store_search = self.factory_function(
+            search, call_type="vector_store_search"
+        )
+        self.vector_store_create = self.factory_function(
+            create, call_type="vector_store_create"
+        )
+
+        #########################################################
         # Gemini Native routes
         #########################################################
         from litellm.google_genai import (
@@ -2528,7 +2548,6 @@ class Router:
             self.total_calls[model_name] += 1
 
             ### get custom
-
             response = original_generic_function(
                 **{
                     **data,
@@ -2565,6 +2584,7 @@ class Router:
             verbose_router_logger.info(
                 f"ageneric_api_call_with_fallbacks(model={model_name})\033[32m 200 OK\033[0m"
             )
+
             return response
         except Exception as e:
             verbose_router_logger.info(
@@ -3242,6 +3262,7 @@ class Router:
     async def _pass_through_moderation_endpoint_factory(
         self,
         original_function: Callable,
+        custom_llm_provider: Optional[str] = None,
         **kwargs,
     ):
         # update kwargs with model_group
@@ -3290,6 +3311,10 @@ class Router:
             "generate_content",
             "agenerate_content_stream",
             "generate_content_stream",
+            "avector_store_search",
+            "avector_store_create",
+            "vector_store_search",
+            "vector_store_create",
         ] = "assistants",
     ):
         """
@@ -3300,11 +3325,11 @@ class Router:
             - An asynchronous function for asynchronous call types
         """
         # Handle synchronous call types
-        if call_type in ("responses", "generate_content", "generate_content_stream"):
+        if call_type in ("responses", "generate_content", "generate_content_stream", "vector_store_search", "vector_store_create"):
 
             def sync_wrapper(
                 custom_llm_provider: Optional[
-                    Literal["openai", "azure", "anthropic"]
+                    str
                 ] = None,
                 client: Optional[Any] = None,
                 **kwargs,
@@ -3318,7 +3343,7 @@ class Router:
         # Handle asynchronous call types
         async def async_wrapper(
             custom_llm_provider: Optional[
-                Literal["openai", "azure", "anthropic"]
+                str
             ] = None,
             client: Optional[Any] = None,
             **kwargs,
@@ -3366,6 +3391,15 @@ class Router:
                     original_function=original_function,
                     **kwargs,
                 )
+            elif call_type in (
+                "avector_store_search",
+                "avector_store_create",
+            ):
+                return await self._init_vector_store_api_endpoints(
+                    original_function=original_function,
+                    custom_llm_provider=custom_llm_provider,
+                    **kwargs,
+                )
             elif call_type in ("afile_delete", "afile_content"):
                 return await self._ageneric_api_call_with_fallbacks(
                     original_function=original_function,
@@ -3375,6 +3409,19 @@ class Router:
                 )
 
         return async_wrapper
+    
+    async def _init_vector_store_api_endpoints(
+        self,
+        original_function: Callable,
+        custom_llm_provider: Optional[str] = None,
+        **kwargs,
+    ):
+        """
+        Initialize the Vector Store API endpoints on the router.
+        """
+        if custom_llm_provider and "custom_llm_provider" not in kwargs:
+            kwargs["custom_llm_provider"] = custom_llm_provider
+        return await original_function(**kwargs)
 
     async def _init_responses_api_endpoints(
         self,
@@ -3401,7 +3448,7 @@ class Router:
     async def _pass_through_assistants_endpoint_factory(
         self,
         original_function: Callable,
-        custom_llm_provider: Optional[Literal["openai", "azure", "anthropic"]] = None,
+        custom_llm_provider: Optional[str] = None,
         client: Optional[AsyncOpenAI] = None,
         **kwargs,
     ):

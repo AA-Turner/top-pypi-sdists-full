@@ -1,13 +1,12 @@
-use std::{fmt::Formatter, sync::Arc};
+use std::{fmt::Formatter, path::Path, sync::Arc};
 
-use render::{FileResolver, Input};
 use ruff_diagnostics::Fix;
 use ruff_source_file::{LineColumn, SourceCode, SourceFile};
 
 use ruff_annotate_snippets::Level as AnnotateLevel;
 use ruff_text_size::{Ranged, TextRange, TextSize};
 
-pub use self::render::DisplayDiagnostic;
+pub use self::render::{DisplayDiagnostic, DisplayDiagnostics, FileResolver, Input};
 use crate::{Db, files::File};
 
 mod render;
@@ -83,7 +82,7 @@ impl Diagnostic {
     ///
     /// Note that `message` is stored in the primary annotation, _not_ in the primary diagnostic
     /// message.
-    pub fn syntax_error(
+    pub fn invalid_syntax(
         span: impl Into<Span>,
         message: impl IntoDiagnosticMessage,
         range: impl Ranged,
@@ -309,6 +308,10 @@ impl Diagnostic {
 
     /// Set the fix for this diagnostic.
     pub fn set_fix(&mut self, fix: Fix) {
+        debug_assert!(
+            self.primary_span().is_some(),
+            "Expected a source file for a diagnostic with a fix"
+        );
         Arc::make_mut(&mut self.inner).fix = Some(fix);
     }
 
@@ -365,7 +368,7 @@ impl Diagnostic {
     }
 
     /// Returns `true` if `self` is a syntax error message.
-    pub fn is_syntax_error(&self) -> bool {
+    pub fn is_invalid_syntax(&self) -> bool {
         self.id().is_invalid_syntax()
     }
 
@@ -380,8 +383,8 @@ impl Diagnostic {
     }
 
     /// Returns the URL for the rule documentation, if it exists.
-    pub fn to_url(&self) -> Option<String> {
-        if self.is_syntax_error() {
+    pub fn to_ruff_url(&self) -> Option<String> {
+        if self.is_invalid_syntax() {
             None
         } else {
             Some(format!(
@@ -432,8 +435,9 @@ impl Diagnostic {
     /// Returns the [`SourceFile`] which the message belongs to.
     ///
     /// Panics if the diagnostic has no primary span, or if its file is not a `SourceFile`.
-    pub fn expect_ruff_source_file(&self) -> SourceFile {
-        self.expect_primary_span().expect_ruff_file().clone()
+    pub fn expect_ruff_source_file(&self) -> &SourceFile {
+        self.ruff_source_file()
+            .expect("Expected a ruff source file")
     }
 
     /// Returns the [`TextRange`] for the diagnostic.
@@ -447,20 +451,16 @@ impl Diagnostic {
     pub fn expect_range(&self) -> TextRange {
         self.range().expect("Expected a range for the primary span")
     }
-}
 
-impl Ord for Diagnostic {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
-    }
-}
-
-impl PartialOrd for Diagnostic {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(
-            (self.ruff_source_file()?, self.range()?.start())
-                .cmp(&(other.ruff_source_file()?, other.range()?.start())),
-        )
+    /// Returns the ordering of diagnostics based on the start of their ranges, if they have any.
+    ///
+    /// Panics if either diagnostic has no primary span, if the span has no range, or if its file is
+    /// not a `SourceFile`.
+    pub fn ruff_start_ordering(&self, other: &Self) -> std::cmp::Ordering {
+        (self.expect_ruff_source_file(), self.expect_range().start()).cmp(&(
+            other.expect_ruff_source_file(),
+            other.expect_range().start(),
+        ))
     }
 }
 
@@ -1012,6 +1012,18 @@ impl UnifiedFile {
         }
     }
 
+    /// Return the file's path relative to the current working directory.
+    pub fn relative_path<'a>(&'a self, resolver: &'a dyn FileResolver) -> &'a Path {
+        let cwd = resolver.current_directory();
+        let path = Path::new(self.path(resolver));
+
+        if let Ok(path) = path.strip_prefix(cwd) {
+            return path;
+        }
+
+        path
+    }
+
     fn diagnostic_source(&self, resolver: &dyn FileResolver) -> DiagnosticSource {
         match self {
             UnifiedFile::Ty(file) => DiagnosticSource::Ty(resolver.input(*file)),
@@ -1178,6 +1190,12 @@ pub struct DisplayDiagnosticConfig {
     /// here for now as the most "sensible" place for it to live until
     /// we had more concrete use cases. ---AG
     context: usize,
+    /// Whether to use preview formatting for Ruff diagnostics.
+    #[allow(
+        dead_code,
+        reason = "This is currently only used for JSON but will be needed soon for other formats"
+    )]
+    preview: bool,
 }
 
 impl DisplayDiagnosticConfig {
@@ -1198,6 +1216,14 @@ impl DisplayDiagnosticConfig {
             ..self
         }
     }
+
+    /// Whether to enable preview behavior or not.
+    pub fn preview(self, yes: bool) -> DisplayDiagnosticConfig {
+        DisplayDiagnosticConfig {
+            preview: yes,
+            ..self
+        }
+    }
 }
 
 impl Default for DisplayDiagnosticConfig {
@@ -1206,6 +1232,7 @@ impl Default for DisplayDiagnosticConfig {
             format: DiagnosticFormat::default(),
             color: false,
             context: 2,
+            preview: false,
         }
     }
 }
@@ -1233,6 +1260,31 @@ pub enum DiagnosticFormat {
     ///
     /// This may use color when printing to a `tty`.
     Concise,
+    /// Print diagnostics in the [Azure Pipelines] format.
+    ///
+    /// [Azure Pipelines]: https://learn.microsoft.com/en-us/azure/devops/pipelines/scripts/logging-commands?view=azure-devops&tabs=bash#logissue-log-an-error-or-warning
+    Azure,
+    /// Print diagnostics in JSON format.
+    ///
+    /// Unlike `json-lines`, this prints all of the diagnostics as a JSON array.
+    #[cfg(feature = "serde")]
+    Json,
+    /// Print diagnostics in JSON format, one per line.
+    ///
+    /// This will print each diagnostic as a separate JSON object on its own line. See the `json`
+    /// format for an array of all diagnostics. See <https://jsonlines.org/> for more details.
+    #[cfg(feature = "serde")]
+    JsonLines,
+    /// Print diagnostics in the JSON format expected by [reviewdog].
+    ///
+    /// [reviewdog]: https://github.com/reviewdog/reviewdog
+    #[cfg(feature = "serde")]
+    Rdjson,
+    /// Print diagnostics in the format emitted by Pylint.
+    Pylint,
+    /// Print diagnostics in the format expected by JUnit.
+    #[cfg(feature = "junit")]
+    Junit,
 }
 
 /// A representation of the kinds of messages inside a diagnostic.

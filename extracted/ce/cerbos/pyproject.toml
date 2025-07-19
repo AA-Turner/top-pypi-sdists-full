@@ -21,10 +21,13 @@ dependencies = [
     "types-protobuf>=4.24.0.1",
     "protoc-gen-openapiv2>=0.0.1",
     "googleapis-common-protos>=1.62.0",
+    "protobuf>=6.31.0",
+    "grpcio-status>=1.73.0",
+    "circuitbreaker>=2.1.3",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = []
-version = "0.12.0"
+version = "0.13.0"
 
 [project.license]
 text = "Apache-2.0"
@@ -37,65 +40,23 @@ testcontainers = [
     "testcontainers>=3.5.3",
 ]
 
-[tool.pdm.version]
-source = "scm"
-
-[tool.pdm.dev-dependencies]
-lint = [
-    "black>=22.3.0",
-    "isort>=5.10.1",
+[build-system]
+requires = [
+    "pdm-backend",
 ]
-test = [
-    "pytest>=7.3.1",
-]
-tools = [
-    "unasync>=0.5.0",
-    "setuptools>=63.2.0",
-    "commitizen>=3.2.2",
-    "ptpython>=3.0.23",
-    "pyyaml>=6.0.1",
-]
+build-backend = "pdm.backend"
 
-[tool.pdm.build]
-includes = [
-    "cerbos/",
-    "google/",
-    "buf/",
-]
+[tool.setuptools.package-dir]
+"" = "src"
 
-[tool.pdm.scripts.isort]
-cmd = "isort cerbos/sdk tests"
-
-[tool.pdm.scripts.black]
-cmd = "black cerbos/sdk tests"
-
-[tool.pdm.scripts.format]
-composite = [
-    "isort",
-    "black",
-]
-
-[tool.pdm.scripts.unasync]
-cmd = "python utils/gen_unasync.py"
-
-[tool.pdm.scripts.test]
-cmd = "pytest"
-
-[tool.pdm.scripts.pre_build]
-composite = [
-    "unasync",
-    "format",
-]
-
-[tool.pdm.scripts.pre_test]
-composite = [
-    "unasync",
-    "format",
+[tool.setuptools.packages.find]
+where = [
+    "src",
 ]
 
 [tool.pyprojectx]
 pdm = "pdm"
-black = "black"
+ruff = "ruff"
 isort = "isort"
 twine = "twine"
 cz = "cz"
@@ -107,6 +68,7 @@ run = "pdm run"
 outdated = "pdm update --outdated"
 pytest = "pdm run pytest tests"
 test = "pw@generate && pw@pytest"
+lint = "pdm lint"
 format = "pdm format"
 test_upload = "twine upload -r testpypi dist/*"
 tag_release = "pdm run cz bump --changelog --increment"
@@ -122,6 +84,7 @@ extraPaths = [
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "INFO"
+pythonpath = "src/"
 
 [tool.isort]
 profile = "black"
@@ -149,8 +112,74 @@ enhancement = "Enhancements"
 docs = "Documentation"
 chore = "Chores"
 
-[build-system]
-requires = [
-    "pdm-backend",
+[tool.pdm.version]
+source = "scm"
+
+[tool.pdm.dev-dependencies]
+lint = [
+    "ruff>=0.11.13",
+    "isort>=5.10.1",
 ]
-build-backend = "pdm.backend"
+test = [
+    "pytest>=7.3.1",
+]
+
+[tool.pdm.build]
+includes = [
+    "src/cerbos/",
+    "src/google/",
+    "src/buf/",
+]
+
+[tool.pdm.scripts.isort]
+cmd = "isort src/cerbos/sdk tests"
+
+[tool.pdm.scripts.ruff_format]
+cmd = "ruff format src/cerbos/sdk tests utils"
+
+[tool.pdm.scripts.lint]
+cmd = "ruff check --fix src/cerbos/sdk tests utils"
+
+[tool.pdm.scripts.format]
+composite = [
+    "isort",
+    "ruff_format",
+]
+
+[tool.pdm.scripts.unasync]
+cmd = "python utils/gen_unasync.py"
+
+[tool.pdm.scripts.test]
+cmd = "pytest"
+
+[tool.pdm.scripts.pre_build]
+composite = [
+    "unasync",
+    "format",
+    "lint",
+]
+
+[tool.pdm.scripts.pre_test]
+composite = [
+    "unasync",
+    "format",
+    "lint",
+]
+
+[tool.ruff.lint]
+ignore = [
+    "F403",
+    "F405",
+]
+
+[dependency-groups]
+tools = [
+    "setuptools>=63.2.0",
+    "commitizen>=3.2.2",
+    "ptpython>=3.0.23",
+    "pyyaml>=6.0.1",
+    "ruff>=0.11.13",
+    "jedi-language-server>=0.45.1",
+    "ast-comments>=1.2.2",
+    "tokenize-rt>=6.2.0",
+]

@@ -26,6 +26,8 @@ from .output.table import (
 
 from .licensing.licenses import apply_constraint_and_vars
 
+BILLING_SUBSCRIPTIONS_FILTER_TYPES = ["no-license-id"]
+
 
 def delete_billing_account(ctx, billing_account_id=None, **kwargs):
     client = get_apiclient_from_ctx(ctx)
@@ -132,7 +134,7 @@ def list_accounts(ctx, page_size=100, page_at_id=None, **kwargs):
     )
 
 
-def list_subscriptions(ctx, page_size=100, page_at_id=None, **kwargs):
+def list_subscriptions(ctx, page_size=100, page_at_id=None, filter=None, **kwargs):
     client = get_apiclient_from_ctx(ctx)
     pop_item_if_none(kwargs)
     org_id = get_org_from_input_or_ctx(ctx, **kwargs)
@@ -143,7 +145,7 @@ def list_subscriptions(ctx, page_size=100, page_at_id=None, **kwargs):
 
     if page_at_id is None:
         page_at_id = ""
-    return get_many_entries(
+    results = get_many_entries(
         client.billing_api.list_subscriptions,
         "billing_subscriptions",
         maximum=kwargs.get("limit", None),
@@ -152,6 +154,15 @@ def list_subscriptions(ctx, page_size=100, page_at_id=None, **kwargs):
         page_callback=client.refresh_token,
         **kwargs,
     )
+    if not filter:
+        return results
+    if filter == "no-license-id":
+        new_results = []
+        for subscription in results:
+            if not subscription.spec.license_id:
+                new_results.append(subscription)
+        return new_results
+    return results
 
 
 def format_accounts(

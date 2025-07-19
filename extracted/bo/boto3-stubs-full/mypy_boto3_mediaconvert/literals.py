@@ -417,6 +417,7 @@ __all__ = (
     "SimulateReservedQueueType",
     "SrtStylePassthroughType",
     "StatusUpdateIntervalType",
+    "TamsGapHandlingType",
     "TeletextPageTypeType",
     "TimecodeBurninPositionType",
     "TimecodeSourceType",
@@ -1425,6 +1426,7 @@ StatusUpdateIntervalType = Literal[
     "SECONDS_60",
     "SECONDS_600",
 ]
+TamsGapHandlingType = Literal["FILL_WITH_BLACK", "HOLD_LAST_FRAME", "SKIP_GAPS"]
 TeletextPageTypeType = Literal[
     "PAGE_TYPE_ADDL_INFO",
     "PAGE_TYPE_HEARING_IMPAIRED_SUBTITLE",

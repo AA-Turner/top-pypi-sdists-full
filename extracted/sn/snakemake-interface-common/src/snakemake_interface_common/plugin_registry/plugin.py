@@ -96,7 +96,7 @@ class PluginBase(ABC, Generic[TSettingsBase]):
         return False
 
     def has_settings_cls(self) -> bool:
-        """Determine if a plugin defines custom executor settings"""
+        """Determine if a plugin defines custom settings"""
         return self.settings_cls is not None
 
     def get_settings_info(self) -> List[Dict[str, Any]]:
@@ -151,7 +151,7 @@ class PluginBase(ABC, Generic[TSettingsBase]):
                     self.name, "Fields of ExecutorSettings must have a default value."
                 )
 
-        settings = argparser.add_argument_group(f"{self.name} executor settings")
+        settings = argparser.add_argument_group(f"{self.name} plugin settings")
 
         for thefield in fields(params):
             prefixed_name = self._get_prefixed_name(thefield.name).replace("-", "_")

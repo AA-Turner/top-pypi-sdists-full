@@ -94,3 +94,65 @@ class TestDremio(Validator):
             "SELECT COUNT(DISTINCT a, b) FROM t",
             "SELECT COUNT(DISTINCT CASE WHEN a IS NULL THEN NULL WHEN b IS NULL THEN NULL ELSE (a, b) END) FROM t",
         )
+
+    def test_time_mapping(self):
+        ts = "CAST('2025-06-24 12:34:56' AS TIMESTAMP)"
+
+        self.validate_all(
+            f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+            read={
+                "dremio": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "postgres": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "oracle": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "duckdb": f"SELECT STRFTIME({ts}, '%Y-%m-%d %H:%M:%S')",
+            },
+            write={
+                "dremio": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "postgres": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "oracle": f"SELECT TO_CHAR({ts}, 'YYYY-MM-DD HH24:MI:SS')",
+                "duckdb": f"SELECT STRFTIME({ts}, '%Y-%m-%d %H:%M:%S')",
+            },
+        )
+
+        self.validate_all(
+            f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.FFF TZD')",
+            read={
+                "dremio": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.FFF TZD')",
+                "postgres": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.US TZ')",
+                "oracle": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.FF6 %Z')",
+                "duckdb": f"SELECT STRFTIME({ts}, '%y-%j %H:%M:%S.%f %Z')",
+            },
+            write={
+                "dremio": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.FFF TZD')",
+                "postgres": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.US TZ')",
+                "oracle": f"SELECT TO_CHAR({ts}, 'YY-DDD HH24:MI:SS.FF6 %Z')",
+                "duckdb": f"SELECT STRFTIME({ts}, '%y-%j %H:%M:%S.%f %Z')",
+            },
+        )
+
+    def test_time_diff(self):
+        self.validate_identity("SELECT DATE_ADD(col, 1)")
+        self.validate_identity("SELECT DATE_ADD(col, CAST(1 AS INTERVAL HOUR))")
+        self.validate_identity(
+            "SELECT DATE_ADD(TIMESTAMP '2022-01-01 12:00:00', CAST(-1 AS INTERVAL HOUR))",
+            "SELECT DATE_ADD(CAST('2022-01-01 12:00:00' AS TIMESTAMP), CAST(-1 AS INTERVAL HOUR))",
+        )
+        self.validate_identity(
+            "SELECT DATE_ADD(col, 2, 'HOUR')", "SELECT TIMESTAMPADD(HOUR, 2, col)"
+        )
+
+        self.validate_identity("SELECT DATE_SUB(col, 1)")
+        self.validate_identity("SELECT DATE_SUB(col, CAST(1 AS INTERVAL HOUR))")
+        self.validate_identity(
+            "SELECT DATE_SUB(TIMESTAMP '2022-01-01 12:00:00', CAST(-1 AS INTERVAL HOUR))",
+            "SELECT DATE_SUB(CAST('2022-01-01 12:00:00' AS TIMESTAMP), CAST(-1 AS INTERVAL HOUR))",
+        )
+        self.validate_identity(
+            "SELECT DATE_SUB(col, 2, 'HOUR')", "SELECT TIMESTAMPADD(HOUR, -2, col)"
+        )
+
+        self.validate_identity("SELECT DATE_ADD(col, 2, 'DAY')", "SELECT DATE_ADD(col, 2)")
+
+        self.validate_identity(
+            "SELECT DATE_SUB(col, a, 'HOUR')", "SELECT TIMESTAMPADD(HOUR, a * -1, col)"
+        )

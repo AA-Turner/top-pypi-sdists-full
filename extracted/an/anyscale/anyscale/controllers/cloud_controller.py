@@ -2222,6 +2222,7 @@ class CloudController(BaseController):
         nfs_mount_targets: Optional[List[str]] = None,
         nfs_mount_path: Optional[str] = None,
         kubernetes_zones: Optional[List[str]] = None,
+        anyscale_operator_iam_identity: Optional[str] = None,
     ) -> None:
         cloud_provider = (
             CloudProviders.AZURE if provider == "azure" else CloudProviders.GENERIC
@@ -2315,8 +2316,28 @@ class CloudController(BaseController):
 
         # TODO (shomilj): Fetch & optionally run the Helm installation here.
         cloud_resource_id = cloud_resource.result.cloud_resource.id
+        # For Azure and generic providers, add CLI token to helm command
+        if provider in ["azure", "generic"]:
+            helm_command = self._generate_helm_upgrade_command(
+                provider=provider,
+                cloud_deployment_id=cloud_resource_id,
+                region=region if provider != "generic" else None,
+                kubernetes_zones=kubernetes_zones,
+                operator_iam_identity=anyscale_operator_iam_identity
+                if provider == "azure"
+                else None,
+                anyscale_cli_token=None,  # TODO: use $ANYSCALE_CLI_TOKEN placeholder
+            )
+        else:
+            helm_command = self._generate_helm_upgrade_command(
+                provider=provider,
+                cloud_deployment_id=cloud_resource_id,
+                region=region,
+                kubernetes_zones=kubernetes_zones,
+            )
+
         self.log.info(
-            f"Cloud registration complete! When installing this cloud's Kubernetes Manager, use cloud deployment ID '{cloud_resource_id}'."
+            f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}"
         )
 
     def register_aws_cloud(  # noqa: PLR0913, PLR0912, C901
@@ -2582,8 +2603,14 @@ class CloudController(BaseController):
                 self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.AWS)
             if compute_stack == ComputeStack.K8S:
                 cloud_resource_id = cloud_resource.result.cloud_resource.id
+                helm_command = self._generate_helm_upgrade_command(
+                    provider="aws",
+                    cloud_deployment_id=cloud_resource_id,
+                    region=region,
+                    kubernetes_zones=kubernetes_zones,
+                )
                 self.log.info(
-                    f"For registering this cloud's Kubernetes Manager, use cloud deployment ID '{cloud_resource_id}'."
+                    f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}"
                 )
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True
@@ -2968,8 +2995,20 @@ class CloudController(BaseController):
                 self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.GCP)
             if compute_stack == ComputeStack.K8S:
                 cloud_resource_id = cloud_resource.result.cloud_resource.id
+                helm_command = self._generate_helm_upgrade_command(
+                    provider="gcp",
+                    cloud_deployment_id=cloud_resource_id,
+                    region=region,
+                    kubernetes_zones=kubernetes_zones,
+                    operator_iam_identity=anyscale_service_account_email,
+                )
+                gcloud_command = self._generate_gcp_workload_identity_command(
+                    anyscale_service_account_email=anyscale_service_account_email,
+                    project_id=project_id,
+                    namespace="<namespace>",
+                )
                 self.log.info(
-                    f"For registering this cloud's Kubernetes Manager, use cloud deployment ID '{cloud_resource_id}'."
+                    f"Cloud registration complete! To install the Anyscale operator, run:\n\n{helm_command}\n\nThen configure workload identity by running:\n\n{gcloud_command}"
                 )
             self.cloud_event_producer.produce(
                 CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True
@@ -3683,6 +3722,105 @@ class CloudController(BaseController):
             "gcp-cloud-storage-bucket-id", "gcp-cloud-storage-bucket-name"
         )
         return rollback_cmd
+
+    def _generate_helm_upgrade_command(
+        self,
+        provider: str,
+        cloud_deployment_id: str,
+        region: Optional[str] = None,
+        kubernetes_zones: Optional[List[str]] = None,
+        operator_iam_identity: Optional[str] = None,
+        anyscale_cli_token: Optional[str] = None,
+    ) -> str:
+        """
+        Generate the helm upgrade command for installing the Anyscale operator.
+
+        Args:
+            provider: Cloud provider ('aws', 'gcp', 'azure', 'generic')
+            cloud_deployment_id: The cloud deployment ID from registration
+            region: Cloud region (optional for generic provider)
+            kubernetes_zones: Optional list of Kubernetes zones
+            operator_iam_identity: IAM identity for the operator (GCP service account email, Azure client ID)
+            anyscale_cli_token: CLI token (required for Azure and generic providers)
+
+        Returns:
+            Formatted helm upgrade command string
+        """
+        command_parts = [
+            "helm upgrade <release-name> anyscale/anyscale-operator",
+            f"  --set-string cloudDeploymentId={cloud_deployment_id}",
+            f"  --set-string cloudProvider={provider}",
+        ]
+
+        # Add region for most providers (not for generic)
+        if region and provider != "generic":
+            command_parts.append(f"  --set-string region={region}")
+
+        # Add provider-specific parameters
+        if provider == "gcp" and operator_iam_identity:
+            command_parts.append(
+                f"  --set-string operatorIamIdentity={operator_iam_identity}"
+            )
+        elif provider == "azure":
+            if operator_iam_identity:
+                command_parts.append(
+                    f"  --set-string operatorIamIdentity={operator_iam_identity}"
+                )
+            if anyscale_cli_token:
+                command_parts.append(
+                    f"  --set-string anyscaleCliToken={anyscale_cli_token}"
+                )
+            else:
+                command_parts.append(
+                    "  --set-string anyscaleCliToken=$ANYSCALE_CLI_TOKEN"
+                )
+        elif provider == "generic":
+            if anyscale_cli_token:
+                command_parts.append(
+                    f"  --set-string anyscaleCliToken={anyscale_cli_token}"
+                )
+            else:
+                command_parts.append(
+                    "  --set-string anyscaleCliToken=$ANYSCALE_CLI_TOKEN"
+                )
+
+        # Add common parameters
+        command_parts.extend(
+            [
+                "  --set-string workloadServiceAccountName=anyscale-operator",
+                "  --namespace <namespace>",
+                "  --create-namespace",
+                "  -i",
+            ]
+        )
+
+        # Add zones if provided (mainly for K8s deployments)
+        if kubernetes_zones:
+            zones_str = ",".join(kubernetes_zones)
+            command_parts.append(f"  --set-string zones={zones_str}")
+
+        return " \\\n".join(command_parts)
+
+    def _generate_gcp_workload_identity_command(
+        self,
+        anyscale_service_account_email: str,
+        project_id: str,
+        namespace: str = "<namespace>",
+    ) -> str:
+        """
+        Generate the gcloud command for setting up workload identity for GCP.
+
+        Args:
+            anyscale_service_account_email: The GCP service account email
+            project_id: The GCP project ID
+            namespace: The Kubernetes namespace (defaults to <namespace> placeholder)
+
+        Returns:
+            Formatted gcloud iam service-accounts add-iam-policy-binding command
+        """
+        return f"""gcloud iam service-accounts add-iam-policy-binding {anyscale_service_account_email} \\
+    --role roles/iam.workloadIdentityUser \\
+    --member "serviceAccount:{project_id}.svc.id.goog[{namespace}/anyscale-operator]" """
 
     def _edit_gcp_cloud(  # noqa: PLR0912
         self,

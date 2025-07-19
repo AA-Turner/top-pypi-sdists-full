@@ -276,3 +276,108 @@ class TestExasol(Validator):
                 },
             ),
         )
+
+    def test_datetime_functions(self):
+        formats = {
+            "HH12": "hour_12",
+            "HH24": "hour_24",
+            "ID": "iso_weekday",
+            "IW": "iso_week_number",
+            "uW": "week_number_uW",
+            "VW": "week_number_VW",
+            "IYYY": "iso_year",
+            "MI": "minutes",
+            "SS": "seconds",
+            "DAY": "day_full",
+            "DY": "day_abbr",
+        }
+        self.validate_identity(
+            "SELECT TO_DATE('31-12-1999', 'dd-mm-yyyy') AS TO_DATE",
+            "SELECT TO_DATE('31-12-1999', 'DD-MM-YYYY') AS TO_DATE",
+        )
+        self.validate_identity(
+            "SELECT TO_DATE('31-12-1999', 'dd-mm-YY') AS TO_DATE",
+            "SELECT TO_DATE('31-12-1999', 'DD-MM-YY') AS TO_DATE",
+        )
+        self.validate_identity("SELECT TO_DATE('31-DECEMBER-1999', 'DD-MONTH-YYYY') AS TO_DATE")
+        self.validate_identity("SELECT TO_DATE('31-DEC-1999', 'DD-MON-YYYY') AS TO_DATE")
+
+        for fmt, alias in formats.items():
+            with self.subTest(f"Testing TO_CHAR with format '{fmt}'"):
+                self.validate_identity(
+                    f"SELECT TO_CHAR(CAST('2024-07-08 13:45:00' AS TIMESTAMP), '{fmt}') AS {alias}"
+                )
+
+        self.validate_all(
+            "TO_DATE(x, 'YYYY-MM-DD')",
+            write={
+                "exasol": "TO_DATE(x, 'YYYY-MM-DD')",
+                "duckdb": "CAST(x AS DATE)",
+                "hive": "TO_DATE(x)",
+                "presto": "CAST(CAST(x AS TIMESTAMP) AS DATE)",
+                "spark": "TO_DATE(x)",
+                "snowflake": "TO_DATE(x, 'yyyy-mm-DD')",
+                "databricks": "TO_DATE(x)",
+            },
+        )
+        self.validate_all(
+            "TO_DATE(x, 'YYYY')",
+            write={
+                "exasol": "TO_DATE(x, 'YYYY')",
+                "duckdb": "CAST(STRPTIME(x, '%Y') AS DATE)",
+                "hive": "TO_DATE(x, 'yyyy')",
+                "presto": "CAST(DATE_PARSE(x, '%Y') AS DATE)",
+                "spark": "TO_DATE(x, 'yyyy')",
+                "snowflake": "TO_DATE(x, 'yyyy')",
+                "databricks": "TO_DATE(x, 'yyyy')",
+            },
+        )
+        self.validate_identity(
+            "SELECT CONVERT_TZ(CAST('2012-03-25 02:30:00' AS TIMESTAMP), 'Europe/Berlin', 'UTC', 'INVALID REJECT AMBIGUOUS REJECT') AS CONVERT_TZ"
+        )
+        self.validate_all(
+            "SELECT CONVERT_TZ('2012-05-10 12:00:00', 'Europe/Berlin', 'America/New_York')",
+            read={
+                "exasol": "SELECT CONVERT_TZ('2012-05-10 12:00:00', 'Europe/Berlin', 'America/New_York')",
+                "mysql": "SELECT CONVERT_TZ('2012-05-10 12:00:00', 'Europe/Berlin', 'America/New_York')",
+                "databricks": "SELECT CONVERT_TIMEZONE('Europe/Berlin', 'America/New_York', '2012-05-10 12:00:00')",
+            },
+            write={
+                "exasol": "SELECT CONVERT_TZ('2012-05-10 12:00:00', 'Europe/Berlin', 'America/New_York')",
+                "mysql": "SELECT CONVERT_TZ('2012-05-10 12:00:00', 'Europe/Berlin', 'America/New_York')",
+                "databricks": "SELECT CONVERT_TIMEZONE('Europe/Berlin', 'America/New_York', '2012-05-10 12:00:00')",
+                "snowflake": "SELECT CONVERT_TIMEZONE('Europe/Berlin', 'America/New_York', '2012-05-10 12:00:00')",
+                "spark": "SELECT CONVERT_TIMEZONE('Europe/Berlin', 'America/New_York', '2012-05-10 12:00:00')",
+                "redshift": "SELECT CONVERT_TIMEZONE('Europe/Berlin', 'America/New_York', '2012-05-10 12:00:00')",
+                "duckdb": "SELECT CAST('2012-05-10 12:00:00' AS TIMESTAMP) AT TIME ZONE 'Europe/Berlin' AT TIME ZONE 'America/New_York'",
+            },
+        )
+        self.validate_identity(
+            "TIME_TO_STR(b, '%Y-%m-%d %H:%M:%S')",
+            "TO_CHAR(b, 'YYYY-MM-DD HH:MI:SS')",
+        )
+        self.validate_identity(
+            "SELECT TIME_TO_STR(CAST(STR_TO_TIME(date, '%Y%m%d') AS DATE), '%a') AS day_of_week",
+            "SELECT TO_CHAR(CAST(TO_DATE(date, 'YYYYMMDD') AS DATE), 'DY') AS day_of_week",
+        )
+        self.validate_identity(
+            "SELECT CAST(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP) AT TIME ZONE 'CET' AS DATE) - 1",
+            "SELECT CAST(CONVERT_TZ(CAST(CURRENT_TIMESTAMP() AS TIMESTAMP), 'UTC', 'CET') AS DATE) - 1",
+        )
+
+    def test_scalar(self):
+        self.validate_all(
+            "SELECT CURRENT_USER",
+            read={
+                "exasol": "SELECT USER",
+                "spark": "SELECT CURRENT_USER()",
+                "trino": "SELECT CURRENT_USER",
+                "snowflake": "SELECT CURRENT_USER()",
+            },
+            write={
+                "exasol": "SELECT CURRENT_USER",
+                "spark": "SELECT CURRENT_USER()",
+                "trino": "SELECT CURRENT_USER",
+                "snowflake": "SELECT CURRENT_USER()",
+            },
+        )

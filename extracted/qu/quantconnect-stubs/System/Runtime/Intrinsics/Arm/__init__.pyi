@@ -6958,6 +6958,17 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def abs_saturate(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqabs[_s8]_m(svint8_t inactive, svbool_t pg, svint8_t op)
+        svint8_t svqabs[_s8]_x(svbool_t pg, svint8_t op)
+        svint8_t svqabs[_s8]_z(svbool_t pg, svint8_t op)
+          SQABS Ztied.B, Pg/M, Zop.B
+          SQABS Ztied.B, Pg/M, Ztied.B
+        """
+        ...
+
+    @staticmethod
     def add_carry_widening_even(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint32_t svadclb[_u32](svuint32_t op_1, svuint32_t op_2, svuint32_t op_3)
@@ -7177,6 +7188,70 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def max_number_pairwise(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svmaxnmp[_f64]_m(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+        svfloat64_t svmaxnmp[_f64]_x(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+          FMAXNMP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+          FMAXNMP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def max_pairwise(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svmaxp[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svmaxp[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UMAXP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UMAXP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def max_pairwise(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svmaxp[_f64]_m(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+        svfloat64_t svmaxp[_f64]_x(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+          FMAXP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+          FMAXP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+        """
+        ...
+
+    @staticmethod
+    def min_number_pairwise(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svminnmp[_f64]_m(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+        svfloat64_t svminnmp[_f64]_x(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+          FMINNMP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+          FMINNMP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def min_pairwise(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svuint8_t svminp[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)
+        svuint8_t svminp[_u8]_x(svbool_t pg, svuint8_t op1, svuint8_t op2)
+          UMINP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+          UMINP Ztied1.B, Pg/M, Ztied1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def min_pairwise(left: System.Numerics.Vector[float], right: System.Numerics.Vector[float]) -> System.Numerics.Vector[float]:
+        """
+        svfloat64_t svminp[_f64]_m(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+        svfloat64_t svminp[_f64]_x(svbool_t pg, svfloat64_t op1, svfloat64_t op2)
+          FMINP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+          FMINP Ztied1.D, Pg/M, Ztied1.D, Zop2.D
+        """
+        ...
+
+    @staticmethod
     def multiply_add_by_selected_scalar(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
         """
         svint16_t svmla_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
@@ -7241,6 +7316,86 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def multiply_doubling_widening_and_add_saturate_even(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlalb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLALB Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_and_add_saturate_even_odd(addend: System.Numerics.Vector[int], left_even: System.Numerics.Vector[int], right_odd: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlalbt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLALBT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_and_add_saturate_odd(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlalt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLALT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_and_subtract_saturate_even(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlslb[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLSLB Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_and_subtract_saturate_even_odd(minuend: System.Numerics.Vector[int], left_even: System.Numerics.Vector[int], right_odd: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlslbt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLSLBT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_and_subtract_saturate_odd(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmlslt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
+          SQDMLSLT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_by_selected_scalar_and_add_saturate_even(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmlalb_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQDMLALB Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_by_selected_scalar_and_add_saturate_odd(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmlalt_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQDMLALT Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_by_selected_scalar_and_subtract_saturate_even(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmlslb_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQDMLSLB Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_by_selected_scalar_and_subtract_saturate_odd(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmlslt_lane[_s32](svint32_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQDMLSLT Ztied1.S, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
     def multiply_subtract_by_selected_scalar(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
         """
         svint16_t svmls_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
@@ -7293,6 +7448,17 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         """
         svint16_t svmlslt[_s16](svint16_t op1, svint8_t op2, svint8_t op3)
           SMLSLT Ztied1.H, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def negate_saturate(value: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqneg[_s8]_m(svint8_t inactive, svbool_t pg, svint8_t op)
+        svint8_t svqneg[_s8]_x(svbool_t pg, svint8_t op)
+        svint8_t svqneg[_s8]_z(svbool_t pg, svint8_t op)
+          SQNEG Ztied.B, Pg/M, Zop.B
+          SQNEG Ztied.B, Pg/M, Ztied.B
         """
         ...
 

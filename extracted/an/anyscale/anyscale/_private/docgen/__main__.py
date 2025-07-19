@@ -46,6 +46,7 @@ from anyscale.compute_config.models import (
     ComputeConfigVersion,
     HeadNodeConfig,
     MarketType,
+    MultiDeploymentComputeConfig,
     WorkerNodeGroupConfig,
 )
 from anyscale.image.models import ImageBuild, ImageBuildStatus
@@ -318,6 +319,7 @@ ALL_MODULES = [
             WorkerNodeGroupConfig,
             MarketType,
             CloudDeployment,
+            MultiDeploymentComputeConfig,
             ComputeConfigVersion,
         ],
         legacy_sdk_commands={

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-ibm-models
-Version: 3.8.1
+Version: 3.8.2
 Summary: This package contains the AI models used by the Docling PDF conversion package
 Author-email: Nikos Livathinos <nli@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -38,6 +38,7 @@ Requires-Dist: docling-core<3.0.0,>=2.19.0
 Requires-Dist: transformers<5.0.0,>=4.42.0
 Requires-Dist: numpy<3.0.0,>=1.24.4
 Requires-Dist: rtree>=1.0.0
+Requires-Dist: accelerate<2.0.0,>=1.2.1
 Dynamic: license-file
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-ibm-models)](https://pypi.org/project/docling-ibm-models/)

@@ -42,4 +42,6 @@ async def get_api_key_money(api_key):
 
 
 if __name__ == '__main__':
-    arun(get_api_key_money(os.getenv("OPENAI_API_KEY_GUOCHAN")))
+    # arun(get_api_key_money(os.getenv("OPENAI_API_KEY_GUOCHAN")))
+
+    arun(get_api_key_money(""))

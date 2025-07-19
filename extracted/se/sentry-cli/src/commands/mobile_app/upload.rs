@@ -1,5 +1,9 @@
 use std::borrow::Cow;
+#[cfg(not(windows))]
+use std::fs;
 use std::io::Write;
+#[cfg(not(windows))]
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 use anyhow::{anyhow, bail, Context as _, Result};
@@ -252,9 +256,14 @@ fn normalize_directory(path: &Path) -> Result<TempFile> {
         .filter(|entry| entry.path().is_file())
         .map(|entry| {
             let entry_path = entry.into_path();
-            let relative_path = entry_path.strip_prefix(
-                path.parent().ok_or_else(|| anyhow!("Cannot determine parent directory for path: {}", path.display()))?
-            )?.to_owned();
+            let relative_path = entry_path
+                .strip_prefix(path.parent().ok_or_else(|| {
+                    anyhow!(
+                        "Cannot determine parent directory for path: {}",
+                        path.display()
+                    )
+                })?)?
+                .to_owned();
             Ok((entry_path, relative_path))
         })
         .collect::<Result<Vec<_>>>()?
@@ -270,6 +279,10 @@ fn normalize_directory(path: &Path) -> Result<TempFile> {
 
     for (entry_path, relative_path) in entries {
         debug!("Adding file to zip: {}", relative_path.display());
+
+        #[cfg(not(windows))]
+        // On Unix, we need to preserve the file permissions.
+        let options = options.unix_permissions(fs::metadata(&entry_path)?.permissions().mode());
 
         zip.start_file(relative_path.to_string_lossy(), options)?;
         let file_byteview = ByteView::open(&entry_path)?;

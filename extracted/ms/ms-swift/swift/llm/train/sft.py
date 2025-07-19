@@ -173,7 +173,7 @@ class SwiftSft(SwiftPipeline, TunerMixin):
         })
         if is_master():
             jsonl_path = os.path.join(training_args.output_dir, 'logging.jsonl')
-            append_to_jsonl(jsonl_path, self.train_msg)
+            append_to_jsonl(jsonl_path, self.train_msg, strict=False)
         return self.train_msg
 
     def train(self, trainer):
@@ -227,7 +227,7 @@ class SwiftSft(SwiftPipeline, TunerMixin):
                     num_proc=args.dataset_num_proc,
                     strict=args.strict,
                     load_from_cache_file=args.load_from_cache_file)
-                if val_dataset is not None:
+                if val_dataset is not None and not predict_with_generate:
                     val_dataset = packing_dataset_cls(
                         self.template,
                         val_dataset,

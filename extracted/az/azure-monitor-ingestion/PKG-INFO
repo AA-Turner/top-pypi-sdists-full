@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-monitor-ingestion
-Version: 1.0.4
+Version: 1.1.0
 Summary: Microsoft Azure Monitor Ingestion Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,15 +11,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: azure-core>=1.28.0
+Requires-Dist: isodate>=0.6.0
+Requires-Dist: typing-extensions>=4.0.1
 
 # Azure Monitor Ingestion client library for Python
 
@@ -41,7 +44,7 @@ This library allows you to send data from virtually any source to supported buil
 
 ### Prerequisites
 
-- Python 3.7 or later
+- Python 3.9 or later
 - An [Azure subscription][azure_subscription]
 - An [Azure Log Analytics workspace][azure_monitor_create_using_portal]
 - A [Data Collection Endpoint][data_collection_endpoint]
@@ -85,6 +88,12 @@ from azure.monitor.ingestion.aio import LogsIngestionClient
 endpoint = os.environ['DATA_COLLECTION_ENDPOINT']
 credential = DefaultAzureCredential()
 logs_client = LogsIngestionClient(endpoint, credential)
+```
+
+To use the asynchronous clients, you must also install an async transport, such as [aiohttp](https://pypi.org/project/aiohttp/).
+
+```sh
+pip install aiohttp
 ```
 
 #### Configure clients for non-public Azure clouds
@@ -289,6 +298,16 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 
 # Release History
+
+## 1.1.0 (2025-07-18)
+
+### Bugs Fixed
+
+- Fixed an issue where the package version in operation user agent strings was always set to "unknown" instead of the actual package version. ([#39866](https://github.com/Azure/azure-sdk-for-python/pull/39866))
+
+### Other Changes
+
+- Python 3.9 is now the minimum supported version for this package.
 
 ## 1.0.4 (2024-06-11)
 

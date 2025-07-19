@@ -100,14 +100,86 @@ class ChargerDashboardRefreshTests(unittest.TestCase):
                 )
             )
             await asyncio.sleep(3)
-            resp = await asyncio.to_thread(
-                requests.post,
-                "http://127.0.0.1:18888/render/ocpp/csms/charger-status/charger_list",
+            url = "http://127.0.0.1:18888/ocpp/csms/active-chargers"
+            view_resp = await asyncio.to_thread(
+                requests.get,
+                url,
                 headers=_auth_header(TEST_USER, TEST_PASS),
                 timeout=5,
             )
+            for _ in range(5):
+                if "SIMDASH" in view_resp.text:
+                    break
+                await asyncio.sleep(1)
+                view_resp = await asyncio.to_thread(
+                    requests.get,
+                    url,
+                    headers=_auth_header(TEST_USER, TEST_PASS),
+                    timeout=5,
+                )
+            self.assertIn("SIMDASH", view_resp.text)
+            list_url = "http://127.0.0.1:18888/render/ocpp/csms/active-chargers/charger_list"
+            resp = await asyncio.to_thread(
+                requests.post,
+                list_url,
+                headers=_auth_header(TEST_USER, TEST_PASS),
+                timeout=5,
+            )
+            for _ in range(5):
+                if "SIMDASH" in resp.text:
+                    break
+                await asyncio.sleep(1)
+                resp = await asyncio.to_thread(
+                    requests.post,
+                    list_url,
+                    headers=_auth_header(TEST_USER, TEST_PASS),
+                    timeout=5,
+                )
             self.assertIn("SIMDASH", resp.text)
             self.assertRegex(resp.text, r"kWh\.</td>\s*<td class=\"value\">[0-9.]+")
+            await sim_task
+        asyncio.run(run_sim_and_check())
+
+    @unittest.skipUnless(is_test_flag("ocpp"), "OCPP tests disabled")
+    def test_charger_detail_view_with_simulator(self):
+        async def run_sim_and_check():
+            sim_task = asyncio.create_task(
+                gw.ocpp.evcs.simulate_cp.__wrapped__(
+                    0,
+                    "localhost",
+                    19999,
+                    "FFFFFFFF",
+                    "ocpp/csms/SIMDASH",
+                    2,
+                    1,
+                    1,
+                    1,
+                    username=TEST_USER,
+                    password=TEST_PASS,
+                )
+            )
+            await asyncio.sleep(3)
+            detail_url = (
+                "http://127.0.0.1:18888/ocpp/csms/charger-detail?charger_id=SIMDASH"
+            )
+            resp = await asyncio.to_thread(
+                requests.get,
+                detail_url,
+                headers=_auth_header(TEST_USER, TEST_PASS),
+                timeout=5,
+            )
+            for _ in range(5):
+                if "SIMDASH Details" in resp.text:
+                    break
+                await asyncio.sleep(1)
+                resp = await asyncio.to_thread(
+                    requests.get,
+                    detail_url,
+                    headers=_auth_header(TEST_USER, TEST_PASS),
+                    timeout=5,
+                )
+            self.assertIn("SIMDASH Details", resp.text)
+            self.assertIn("id=\"charger-info\"", resp.text)
             await sim_task
         asyncio.run(run_sim_and_check())
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gflanguages
-Version: 0.7.5
+Version: 0.7.6
 Summary: A python API for evaluating language support in the Google Fonts collection.
 Author-email: Simon Cozens <simon@simon-cozens.org>
 Requires-Python: >=3.8

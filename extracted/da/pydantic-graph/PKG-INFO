@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pydantic-graph
-Version: 0.4.3
+Version: 0.4.4
 Summary: Graph and state machine library
 Project-URL: Homepage, https://ai.pydantic.dev/graph/tree/main/pydantic_graph
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
 Project-URL: Documentation, https://ai.pydantic.dev/graph
 Project-URL: Changelog, https://github.com/pydantic/pydantic-ai/releases
-Author-email: Samuel Colvin <samuel@pydantic.dev>
+Author-email: Samuel Colvin <samuel@pydantic.dev>, Marcelo Trylesinski <marcelotryle@gmail.com>, David Montague <david@pydantic.dev>, Alex Hall <alex@pydantic.dev>, Douwe Maan <douwe@pydantic.dev>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -45,10 +45,10 @@ Description-Content-Type: text/markdown
 
 Graph and finite state machine library.
 
-This library is developed as part of [PydanticAI](https://ai.pydantic.dev), however it has no dependency
-on `pydantic-ai` or related packages and can be considered as a pure graph-based state machine library. You may find it useful whether or not you're using PydanticAI or even building with GenAI.
+This library is developed as part of [Pydantic AI](https://ai.pydantic.dev), however it has no dependency
+on `pydantic-ai` or related packages and can be considered as a pure graph-based state machine library. You may find it useful whether or not you're using Pydantic AI or even building with GenAI.
 
-As with PydanticAI, this library prioritizes type safety and use of common Python syntax over esoteric, domain-specific use of Python syntax.
+As with Pydantic AI, this library prioritizes type safety and use of common Python syntax over esoteric, domain-specific use of Python syntax.
 
 `pydantic-graph` allows you to define graphs using standard Python syntax. In particular, edges are defined using the return type hint of nodes.
 

@@ -445,7 +445,7 @@ class TTSRequest(BaseModel):
 
     speed: Optional[float] = None
 
-    response_format:Union[str, Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "b64_json", "url"]] = "b64_json"
+    response_format:Union[str, Literal["mp3", "opus", "aac", "flac", "wav", "pcm", "b64_json", "url", "hex"]] = "b64_json"
 
     class Config:
         extra = "allow"

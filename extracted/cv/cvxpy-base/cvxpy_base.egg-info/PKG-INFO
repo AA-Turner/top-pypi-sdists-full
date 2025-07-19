@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvxpy-base
-Version: 1.7.0
+Version: 1.7.1
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
 License: Apache License, Version 2.0
@@ -8,11 +8,15 @@ Project-URL: Homepage, https://github.com/cvxpy/cvxpy
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.21.6
-Requires-Dist: scipy>=1.11.0
+Requires-Dist: numpy>=1.22.4
+Requires-Dist: scipy>=1.13.0
 Provides-Extra: cbc
 Requires-Dist: cylp>=0.91.5; extra == "cbc"
 Provides-Extra: clarabel
+Provides-Extra: cuopt
+Requires-Dist: cuopt-cu12>=25.5; extra == "cuopt"
+Requires-Dist: cuopt-sh-client>=25.5; extra == "cuopt"
+Requires-Dist: nvidia-cuda-runtime-cu12<13.0,>=12.8; extra == "cuopt"
 Provides-Extra: cvxopt
 Requires-Dist: cvxopt; extra == "cvxopt"
 Provides-Extra: diffcp
@@ -149,8 +153,8 @@ CVXPY has the following dependencies:
 - Clarabel >= 0.5.0
 - OSQP >= 0.6.2
 - SCS >= 3.2.4.post1
-- NumPy >= 1.21.6
-- SciPy >= 1.11.0
+- NumPy >= 1.22.4
+- SciPy >= 1.13.0
 
 For detailed instructions, see the [installation
 guide](https://www.cvxpy.org/install/index.html).

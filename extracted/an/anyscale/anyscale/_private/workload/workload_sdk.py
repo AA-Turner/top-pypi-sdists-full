@@ -118,6 +118,7 @@ class WorkloadSDK(BaseSDK):
         autopopulate_in_workspace: bool = True,
         additional_py_modules: Optional[List[str]] = None,
         py_executable_override: Optional[str] = None,
+        has_multiple_cloud_deployments: bool = False,
     ) -> List[Dict[str, Any]]:
         """Returns modified runtime_envs with all local dirs converted to remote URIs.
 
@@ -136,6 +137,11 @@ class WorkloadSDK(BaseSDK):
                 return target
             if target in local_path_to_uri:
                 return local_path_to_uri[target]
+
+            if has_multiple_cloud_deployments:
+                raise ValueError(
+                    "Local directory uploads are not supported for compute configurations with multiple cloud deployments."
+                )
 
             self.logger.info(f"Uploading local dir '{target}' to cloud storage.")
             assert cloud_id is not None

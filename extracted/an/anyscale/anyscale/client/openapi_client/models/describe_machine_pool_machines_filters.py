@@ -33,24 +33,29 @@ class DescribeMachinePoolMachinesFilters(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'allocation_states': 'list[MachineAllocationState]'
+        'allocation_states': 'list[MachineAllocationState]',
+        'partitions': 'list[str]'
     }
 
     attribute_map = {
-        'allocation_states': 'allocation_states'
+        'allocation_states': 'allocation_states',
+        'partitions': 'partitions'
     }
 
-    def __init__(self, allocation_states=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, allocation_states=None, partitions=None, local_vars_configuration=None):  # noqa: E501
         """DescribeMachinePoolMachinesFilters - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._allocation_states = None
+        self._partitions = None
         self.discriminator = None
 
         if allocation_states is not None:
             self.allocation_states = allocation_states
+        if partitions is not None:
+            self.partitions = partitions
 
     @property
     def allocation_states(self):
@@ -74,6 +79,29 @@ class DescribeMachinePoolMachinesFilters(object):
         """
 
         self._allocation_states = allocation_states
+
+    @property
+    def partitions(self):
+        """Gets the partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+
+        The partitions to filter by.  # noqa: E501
+
+        :return: The partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._partitions
+
+    @partitions.setter
+    def partitions(self, partitions):
+        """Sets the partitions of this DescribeMachinePoolMachinesFilters.
+
+        The partitions to filter by.  # noqa: E501
+
+        :param partitions: The partitions of this DescribeMachinePoolMachinesFilters.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._partitions = partitions
 
     def to_dict(self):
         """Returns the model properties as a dict"""

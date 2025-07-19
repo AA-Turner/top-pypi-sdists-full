@@ -1,3 +1,5 @@
+from mypy_extensions import VarArg
+
 from monitored_ioloop.exceptions import NoUvLoopInstalled
 
 try:
@@ -8,6 +10,7 @@ except ImportError:
     raise NoUvLoopInstalled() from None
 
 import typing
+import warnings
 
 from asyncio import Handle
 
@@ -17,6 +20,8 @@ from monitored_ioloop.monitoring import (
     IoLoopMonitorState,
     IoLoopInnerState,
 )
+
+_Ts = typing.TypeVarTuple("_Ts")
 
 
 class MonitoredUvloopEventLoop(uvloop.Loop):
@@ -32,8 +37,8 @@ class MonitoredUvloopEventLoop(uvloop.Loop):
 
     def call_soon(
         self,
-        callback: typing.Callable[..., typing.Any],
-        *args: typing.Any,  # type: ignore
+        callback: typing.Callable[[VarArg(*_Ts)], object],
+        *args: *_Ts,
         **kwargs: typing.Any,
     ) -> Handle:
         callback_with_monitoring = wrap_callback_with_monitoring(
@@ -45,15 +50,45 @@ class MonitoredUvloopEventLoop(uvloop.Loop):
 class MonitoredUvloopEventLoopPolicy(BaseMonitoredEventLoopPolicy):
     """Event loop policy.
 
-    The preferred way to make your application use monitored uvloop ioloop:
+    .. deprecated:: 0.0.15
+        Use :func:`monitored_uvloop_loop_factory` instead.
+        The policy-based approach is deprecated in favor of the loop factory approach
+        which is preferred by Python's asyncio documentation.
 
+    Usage example:
     >>> import asyncio
     >>> import monitored_ioloop
     >>> asyncio.set_event_loop_policy(monitored_ioloop.MonitoredUvloopEventLoopPolicy())
     >>> asyncio.get_event_loop()
-    <uvloop.Loop running=False closed=False debug=False>
     """
+
+    def __init__(self, monitor_callback: typing.Callable[[IoLoopMonitorState], None]):
+        warnings.warn(
+            "MonitoredUvloopEventLoopPolicy is deprecated. "
+            "Use monitored_uvloop_loop_factory() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(monitor_callback)
 
     def _loop_factory(self) -> MonitoredUvloopEventLoop:
         loop = MonitoredUvloopEventLoop(self._monitor_callback)
         return loop
+
+
+def monitored_uvloop_loop_factory(
+    monitor_callback: typing.Callable[[IoLoopMonitorState], None],
+) -> typing.Callable[[], MonitoredUvloopEventLoop]:
+    """Create a loop factory function for use with asyncio.run().
+
+    Usage:
+    >>> import asyncio
+    >>> import monitored_ioloop
+    >>> factory = monitored_ioloop.monitored_uvloop_loop_factory(lambda state: print(state))
+    >>> asyncio.run(main(), loop_factory=factory)
+    """
+
+    def loop_factory() -> MonitoredUvloopEventLoop:
+        return MonitoredUvloopEventLoop(monitor_callback)
+
+    return loop_factory

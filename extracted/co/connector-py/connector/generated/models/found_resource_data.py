@@ -28,6 +28,9 @@ class FoundResourceData(BaseModel):
         description='The unique ID within this application of a resource.  May only be unique within the tenant and the resource type.  There will always be a global "account" (i.e. tenant) resource for things like tenant-wide roles.'
     )
     label: StrictStr = Field(description="A human-readable label for the resource.")
+    description: Optional[StrictStr] = Field(
+        default=None, description="An optional human-readable description of the resource."
+    )
     resource_type: StrictStr = Field(
         description="Should match a previously declared resource type from this connector.",
         json_schema_extra={"x-resource-type": True},
@@ -39,6 +42,7 @@ class FoundResourceData(BaseModel):
     __properties: ClassVar[List[str]] = [
         "integration_specific_id",
         "label",
+        "description",
         "resource_type",
         "extra_data",
     ]
@@ -87,6 +91,7 @@ class FoundResourceData(BaseModel):
             {
                 "integration_specific_id": obj.get("integration_specific_id"),
                 "label": obj.get("label"),
+                "description": obj.get("description"),
                 "resource_type": obj.get("resource_type"),
                 "extra_data": obj.get("extra_data"),
             }

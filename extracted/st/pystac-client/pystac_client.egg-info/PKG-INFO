@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pystac-client
-Version: 0.8.6
+Version: 0.9.0
 Summary: Python library for searching SpatioTemporal Asset Catalog (STAC) APIs.
 Author-email: Jon Duckworth <duckontheweb@gmail.com>, Matthew Hanson <matt.a.hanson@gmail.com>
 Maintainer-email: Pete Gadomski <pete.gadomski@gmail.com>
@@ -30,6 +30,7 @@ License-File: LICENSE
 Requires-Dist: requests>=2.28.2
 Requires-Dist: pystac[validation]>=1.10.0
 Requires-Dist: python-dateutil>=2.8.2
+Dynamic: license-file
 
 # pystac-client
 
@@ -43,8 +44,12 @@ A Python client for working with [STAC](https://stacspec.org/) APIs.
 
 ## Installation
 
-Install from PyPi.
-Other than [PySTAC](https://pystac.readthedocs.io) itself, the only dependencies for **pystac-client** are the Python [requests](https://docs.python-requests.org) and [dateutil](https://dateutil.readthedocs.io) libraries.
+PySTAC Client is published to PyPi as [pystac-client](https://pypi.org/project/pystac-client/).
+
+The only direct Python dependencies of **pystac-client** are [PySTAC](https://pystac.readthedocs.io),
+[requests](https://docs.python-requests.org), and [dateutil](https://dateutil.readthedocs.io).
+
+To install with pip, run:
 
 ```shell
 python -m pip install pystac-client

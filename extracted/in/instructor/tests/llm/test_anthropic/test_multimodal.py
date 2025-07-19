@@ -26,10 +26,9 @@ pdf_base64_string = f"data:application/pdf;base64,{pdf_base64}"
 
 
 @pytest.mark.parametrize("model, mode", product(models, modes))
-def test_multimodal_image_description(model, mode, client):
-    client = instructor.from_anthropic(client, mode=mode)
+def test_multimodal_image_description(model, mode):
+    client = instructor.from_provider(model, mode=mode)
     response = client.chat.completions.create(
-        model=model,  # Ensure this is a vision-capable model
         response_model=ImageDescription,
         messages=[
             {
@@ -56,10 +55,9 @@ def test_multimodal_image_description(model, mode, client):
 
 
 @pytest.mark.parametrize("model, mode", product(models, modes))
-def test_multimodal_image_description_autodetect(model, mode, client):
-    client = instructor.from_anthropic(client, mode=mode)
+def test_multimodal_image_description_autodetect(model, mode):
+    client = instructor.from_provider(model, mode=mode)
     response = client.chat.completions.create(
-        model=model,  # Ensure this is a vision-capable model
         response_model=ImageDescription,
         messages=[
             {
@@ -89,10 +87,9 @@ def test_multimodal_image_description_autodetect(model, mode, client):
 
 
 @pytest.mark.parametrize("model, mode", product(models, modes))
-def test_multimodal_image_description_autodetect_image_params(model, mode, client):
-    client = instructor.from_anthropic(client, mode=mode)
+def test_multimodal_image_description_autodetect_image_params(model, mode):
+    client = instructor.from_provider(model, mode=mode)
     response = client.chat.completions.create(
-        model=model,  # Ensure this is a vision-capable model
         response_model=ImageDescription,
         messages=[
             {
@@ -125,12 +122,9 @@ def test_multimodal_image_description_autodetect_image_params(model, mode, clien
 
 
 @pytest.mark.parametrize("model, mode", product(models, modes))
-def test_multimodal_image_description_autodetect_image_params_cache(
-    model, mode, client
-):
-    client = instructor.from_anthropic(client, mode=mode)
+def test_multimodal_image_description_autodetect_image_params_cache(model, mode):
+    client = instructor.from_provider(model, mode=mode)
     messages = client.chat.completions.create(
-        model=model,  # Ensure this is a vision-capable model
         response_model=None,
         messages=[
             {
@@ -167,53 +161,6 @@ def test_multimodal_image_description_autodetect_image_params_cache(
     )
 
 
-@pytest.mark.parametrize("model, mode", product(models, modes))
-def test_multimodal_image_description_autodetect_no_response_model(model, mode, client):
-    client = instructor.from_anthropic(client, mode=mode)
-    system_message = (
-        "You are a helpful assistant that can describe images. "
-        "If looking at an image, reply with 'This is an image' and nothing else."
-    )
-    # Test with OpenAI style messages
-    response = client.chat.completions.create(
-        response_model=None,
-        model=model,  # Ensure this is a vision-capable model
-        messages=[
-            {
-                "role": "system",
-                "content": system_message,
-            },
-            {
-                "role": "user",
-                "content": image_url,
-            },
-        ],
-        max_tokens=1000,
-        temperature=1,
-        autodetect_images=True,
-    )
-
-    assert response.content[0].text.startswith("This is an image")
-
-    # Test with Anthropic style messages
-    response = client.chat.completions.create(
-        response_model=None,
-        model=model,  # Ensure this is a vision-capable model
-        system=system_message,
-        messages=[
-            {
-                "role": "user",
-                "content": image_url,
-            },
-        ],
-        max_tokens=1000,
-        temperature=1,
-        autodetect_images=True,
-    )
-
-    assert response.content[0].text.startswith("This is an image")
-
-
 class LineItem(BaseModel):
     name: str
     price: int
@@ -226,15 +173,14 @@ class Receipt(BaseModel):
 
 
 @pytest.mark.parametrize("pdf_source", [pdf_path, pdf_url, pdf_base64_string])
-@pytest.mark.parametrize("mode", modes)
-def test_multimodal_pdf_file(mode, client, pdf_source):
-    client = instructor.from_anthropic(client, mode=mode)
-    
+@pytest.mark.parametrize("model, mode", product(models, modes))
+def test_multimodal_pdf_file(model, mode, pdf_source):
+    client = instructor.from_provider(model, mode=mode)
+
     # Retry logic for flaky LLM responses
     max_retries = 3
     for attempt in range(max_retries):
         response = client.chat.completions.create(
-            model="claude-3-5-sonnet-20240620",  # Ensure this is a vision-capable model
             messages=[
                 {
                     "role": "system",
@@ -250,23 +196,24 @@ def test_multimodal_pdf_file(mode, client, pdf_source):
             autodetect_images=False,
             response_model=Receipt,
         )
-        
+
         if response.total == 220 and len(response.items) == 2:
             break
         elif attempt == max_retries - 1:
-            pytest.fail(f"After {max_retries} attempts, got total={response.total}, items={response.items}, expected total=220, items=2")
-    
+            pytest.fail(
+                f"After {max_retries} attempts, got total={response.total}, items={response.items}, expected total=220, items=2"
+            )
+
     assert response.total == 220
     assert len(response.items) == 2
 
 
 @pytest.mark.parametrize("pdf_source", [pdf_path, pdf_url, pdf_base64_string])
-@pytest.mark.parametrize("mode", modes)
-def test_multimodal_pdf_file_with_cache_control(mode, client, pdf_source):
-    client = instructor.from_anthropic(client, mode=mode)
+@pytest.mark.parametrize("model, mode", product(models, modes))
+def test_multimodal_pdf_file_with_cache_control(model, mode, pdf_source):
+    client = instructor.from_provider(model, mode=mode)
 
     response, completion = client.chat.completions.create_with_completion(
-        model="claude-3-5-sonnet-20240620",  # Ensure this is a vision-capable model
         messages=[
             {
                 "role": "system",

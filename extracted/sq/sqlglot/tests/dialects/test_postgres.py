@@ -921,6 +921,9 @@ FROM json_data, field_ids""",
             },
         )
 
+        self.validate_identity("SELECT * FROM foo WHERE id = %s")
+        self.validate_identity("SELECT * FROM foo WHERE id = %(id_param)s")
+
     def test_ddl(self):
         # Checks that user-defined types are parsed into DataType instead of Identifier
         self.parse_one("CREATE TABLE t (a udt)").this.expressions[0].args["kind"].assert_is(
@@ -1478,3 +1481,12 @@ CROSS JOIN JSON_ARRAY_ELEMENTS(CAST(JSON_EXTRACT_PATH(tbox, 'boxes') AS JSON)) A
         self.validate_all(
             "ROUND(CAST(x AS DECIMAL(18, 3)), 4)", read={"duckdb": "ROUND(x::DECIMAL, 4)"}
         )
+
+    def test_datatype(self):
+        self.assertEqual(exp.DataType.build("XML", dialect="postgres").sql("postgres"), "XML")
+        self.validate_identity("CREATE TABLE foo (data XML)")
+
+    def test_locks(self):
+        for key_type in ("FOR SHARE", "FOR UPDATE", "FOR NO KEY UPDATE", "FOR KEY SHARE"):
+            with self.subTest(f"Test lock type {key_type}"):
+                self.validate_identity(f"SELECT 1 FROM foo AS x {key_type} OF x")

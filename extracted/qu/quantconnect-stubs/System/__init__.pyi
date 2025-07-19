@@ -1684,6 +1684,18 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
         ...
 
     @staticmethod
+    def big_mul(left: System.IntPtr, right: System.IntPtr, lower: typing.Optional[System.IntPtr]) -> typing.Tuple[System.IntPtr, System.IntPtr]:
+        """
+        Produces the full product of two unsigned native integers.
+        
+        :param left: The integer to multiply with .
+        :param right: The integer to multiply with .
+        :param lower: The lower half of the full product.
+        :returns: The upper half of the full product.
+        """
+        ...
+
+    @staticmethod
     def clamp(value: System.IntPtr, min: System.IntPtr, max: System.IntPtr) -> System.IntPtr:
         ...
 
@@ -5000,6 +5012,18 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
         ...
 
     def __xor__(self, right: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
+    def big_mul(left: System.UInt128, right: System.UInt128, lower: typing.Optional[System.UInt128]) -> typing.Tuple[System.UInt128, System.UInt128]:
+        """
+        Produces the full product of two unsigned native integers.
+        
+        :param left: The integer to multiply with .
+        :param right: The integer to multiply with .
+        :param lower: The lower half of the full product.
+        :returns: The upper half of the full product.
+        """
         ...
 
     @staticmethod
@@ -9354,6 +9378,18 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
 
     @staticmethod
     def abs(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
+    def big_mul(left: System.Int128, right: System.Int128, lower: typing.Optional[System.Int128]) -> typing.Tuple[System.Int128, System.Int128]:
+        """
+        Produces the full product of two unsigned native integers.
+        
+        :param left: The integer to multiply with .
+        :param right: The integer to multiply with .
+        :param lower: The lower half of the full product.
+        :returns: The upper half of the full product.
+        """
         ...
 
     @staticmethod
@@ -20296,6 +20332,18 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
 
     @staticmethod
     def add(pointer: System.UIntPtr, offset: int) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    def big_mul(left: System.UIntPtr, right: System.UIntPtr, lower: typing.Optional[System.UIntPtr]) -> typing.Tuple[System.UIntPtr, System.UIntPtr]:
+        """
+        Produces the full product of two unsigned native integers.
+        
+        :param left: The integer to multiply with .
+        :param right: The integer to multiply with .
+        :param lower: The lower half of the full product.
+        :returns: The upper half of the full product.
+        """
         ...
 
     @staticmethod

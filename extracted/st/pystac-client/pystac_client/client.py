@@ -36,7 +36,12 @@ from pystac_client.item_search import (
 )
 from pystac_client.mixins import QUERYABLES_ENDPOINT, QueryablesMixin
 from pystac_client.stac_api_io import StacApiIO, Timeout
-from pystac_client.warnings import DoesNotConformTo, FallbackToPystac, NoConformsTo
+from pystac_client.warnings import (
+    DoesNotConformTo,
+    FallbackToPystac,
+    NoConformsTo,
+    PystacClientWarning,
+)
 
 if TYPE_CHECKING:
     from pystac.item import Item as Item_Type
@@ -450,13 +455,20 @@ class Client(pystac.Catalog, QueryablesMixin):
 
         Args:
             ids: Zero or more item ids to find.
-            recursive: unused in pystac-client, but needed for falling back to pystac
-
+            recursive: If this client conforms to the ITEM_SEARCH conformance class,
+                this is unused and this will always yield items recursively.
+                Otherwise, this will only return items recursively if True or None.
         Return:
             Iterator[Item]: Iterator of items whose parent is this
                 catalog.
         """
         if self.conforms_to(ConformanceClasses.ITEM_SEARCH):
+            if recursive is False:
+                warnings.warn(
+                    "Getting items recursively using the /search endpoint "
+                    "(the recursive argument is being ignored).",
+                    PystacClientWarning,
+                )
             search = self.search(ids=ids)
             yield from search.items()
         else:
@@ -499,7 +511,7 @@ class Client(pystac.Catalog, QueryablesMixin):
 
         This method returns an :class:`~pystac_client.ItemSearch` instance. See that
         class's documentation for details on how to get the number of matches and
-        iterate over results. The ``url``, `stac_io``, and ``client`` keywords are
+        iterate over results. The ``url``, ``stac_io``, and ``client`` keywords are
         supplied by this Client instance.
 
         .. warning::

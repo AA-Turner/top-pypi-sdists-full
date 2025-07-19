@@ -1,6 +1,6 @@
 [dependencies]
-version = "20250512"
-bootstrap_version = "20250321"
+version = "20250718"
+bootstrap_version = "20250512"
 
 [ninja]
 scope = "toolchain"
@@ -20,7 +20,7 @@ dependencies = [
 [vala]
 scope = "toolchain"
 name = "Vala"
-version = "12aa6728cdd9f9a4653802e021f4cad0289eee26"
+version = "9feabf0f8076c33b702d7cba612edfe0c1e45a00"
 url = "https://github.com/frida/vala.git"
 dependencies = [
     "glib",
@@ -32,7 +32,7 @@ dependencies = [
 # We use Apple's implementation in toolchains to make them smaller.
 when = """ \
        (machine.is_apple and bundle is Bundle.SDK) \
-       or machine.os in {'android', 'qnx'} \
+       or machine.os in {'android', 'qnx', 'none'} \
        or machine.config == 'uclibc' \
        """
 name = "libiconv"
@@ -73,7 +73,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "8f43c78bc4f6a510c610c7738fdf23ecf99c6be8"
+version = "86b3f5fe2ebaa2f1c1954e7c28fdffb6db7c6e35"
 url = "https://github.com/frida/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -87,7 +87,7 @@ options = [
     { value = "-Dglib_checks=false", when = "machine.config_is_optimized" },
     { value = "-Diconv=external", when = """ \
                                          machine.is_apple \
-                                         or machine.os in {'android', 'qnx'} \
+                                         or machine.os in {'android', 'qnx', 'none'} \
                                          or machine.config == 'uclibc' \
                                          """ }
 ]
@@ -97,7 +97,7 @@ dependencies = [
     "zlib",
     { id = "libiconv", when = """ \
                               (machine.is_apple and bundle is Bundle.SDK) \
-                              or machine.os in {'android', 'qnx'} \
+                              or machine.os in {'android', 'qnx', 'none'} \
                               or machine.config == 'uclibc' \
                               """ }
 ]
@@ -112,6 +112,7 @@ options = [
 ]
 
 [xz]
+when = "machine.os != 'none'"
 name = "XZ Utils"
 version = "e70f5800ab5001c9509d374dbf3e7e6b866c43fe"
 url = "https://github.com/frida/xz.git"
@@ -120,11 +121,18 @@ options = [
 ]
 
 [brotli]
+when = "machine.os != 'none'"
 name = "Brotli"
 version = "01d9e2922ca878965ebcd71ee8965d2a7aadb47a"
 url = "https://github.com/frida/brotli.git"
 
+[lzfse]
+name = "LZFSE"
+version = "5cfb7c86919d3c2c636d0d7552b51855a611ba1c"
+url = "https://github.com/frida/lzfse.git"
+
 [minizip-ng]
+when = "machine.os != 'none'"
 name = "minizip-ng"
 version = "dfc1ccc070ff7bb50726c80215cac515253a8ba0"
 url = "https://github.com/frida/minizip-ng.git"
@@ -142,6 +150,7 @@ dependencies = [
 ]
 
 [sqlite]
+when = "machine.os != 'none'"
 name = "SQLite"
 version = "9337327a50008f2d2236112ccb6f44059b1bafbd"
 url = "https://github.com/frida/sqlite.git"
@@ -166,6 +175,7 @@ dependencies = [
 ]
 
 [glib-networking]
+when = "machine.os != 'none'"
 name = "glib-networking"
 version = "af4b017028e695528951c749a7096e96359521d8"
 url = "https://github.com/frida/glib-networking.git"
@@ -182,6 +192,7 @@ dependencies = [
 ]
 
 [libnice]
+when = "machine.os != 'none'"
 name = "libnice"
 version = "e12567b0a16a0c2eb5dfe5e0782baba8496772ff"
 url = "https://github.com/frida/libnice.git"
@@ -205,8 +216,9 @@ version = "ffff4bdfe8faa38cecfad5aab106cae923502d55"
 url = "https://github.com/frida/libusb.git"
 
 [lwip]
+when = "machine.os != 'none'"
 name = "lwIP"
-version = "267d9f082e9e38083b643421a93c03d4a7046fd0"
+version = "13fb5e0f519cc46dc4cd938808430f60a73f03d4"
 url = "https://github.com/frida/lwip.git"
 options = [
     "-Dipv4=disabled",
@@ -224,6 +236,7 @@ dependencies = [
 ]
 
 [usrsctp]
+when = "machine.os != 'none'"
 name = "usrsctp"
 version = "f459ae9d3700c06e59d709901e92c08e31c6e623"
 url = "https://github.com/frida/usrsctp.git"
@@ -234,6 +247,7 @@ options = [
 ]
 
 [libgee]
+when = "machine.os != 'none'"
 name = "libgee"
 version = "ad17ed847039469fcc2dc711ecfee2bbf7d2bf87"
 url = "https://github.com/frida/libgee.git"
@@ -247,7 +261,7 @@ dependencies = [
 
 [json-glib]
 name = "JSON-GLib"
-version = "1f40dc373415b728efa8315af7f975bd5a4e2490"
+version = "ae19eff63b9c141112e8f1e2524852dda0010404"
 url = "https://github.com/frida/json-glib.git"
 options = [
     "-Dintrospection=disabled",
@@ -260,6 +274,7 @@ dependencies = [
 ]
 
 [libpsl]
+when = "machine.os != 'none'"
 name = "libpsl"
 version = "b76c0fed2e27353d5fbb067ecdfdf76d2281eb91"
 url = "https://github.com/frida/libpsl.git"
@@ -270,6 +285,7 @@ options = [
 ]
 
 [libxml2]
+when = "machine.os != 'none'"
 name = "libxml2"
 version = "f09ad5551829b7f2df3666759e701644a0ea8558"
 url = "https://github.com/frida/libxml2.git"
@@ -280,6 +296,7 @@ options = [
 ]
 
 [ngtcp2]
+when = "machine.os != 'none'"
 name = "ngtcp2"
 version = "828dcaed498b40954e1b496664a3309796968db6"
 url = "https://github.com/frida/ngtcp2.git"
@@ -288,11 +305,13 @@ dependencies = [
 ]
 
 [nghttp2]
+when = "machine.os != 'none'"
 name = "nghttp2"
 version = "ae13d24ea59c30e36ca53d1b22c4e664588d0445"
 url = "https://github.com/frida/nghttp2.git"
 
 [libsoup]
+when = "machine.os != 'none'"
 name = "libsoup"
 version = "80dc080951c9037aef51a40ffbe4508d3ce98d1b"
 url = "https://github.com/frida/libsoup.git"
@@ -329,13 +348,14 @@ options = [
 
 [quickjs]
 name = "QuickJS"
-version = "12de2e4904b63405052508c891b215d056962c18"
+version = "f48e71e5240106dbca136e60f751e206d15cdb3f"
 url = "https://github.com/frida/quickjs.git"
 options = [
     "-Dlibc=false",
     "-Dbignum=true",
     "-Datomics=disabled",
     "-Dstack_check=disabled",
+    { value = "-Dstack_mode=optimize", when = "machine.os == 'none'" },
 ]
 
 [tinycc]
@@ -347,10 +367,11 @@ when = """ \
        } \
        """
 name = "TinyCC"
-version = "722c253d8dece3bc9a46b6f510c6682329d838b7"
+version = "517aa684db053997a9a5b4b57a8a210007e2b1c4"
 url = "https://github.com/frida/tinycc.git"
 
 [openssl]
+when = "machine.os != 'none'"
 name = "OpenSSL"
 version = "7b86cb6a0c5cb9d79dca012c98a0a30a58eef5b5"
 url = "https://github.com/frida/openssl.git"
@@ -365,7 +386,7 @@ when = """ \
        and machine.arch != 'arm64beilp32' \
        and not machine.arch.startswith('mips') \
        and not machine.arch.startswith('powerpc') \
-       and machine.os != 'qnx' \
+       and machine.os not in {'none', 'qnx'} \
        """
 name = "V8"
 version = "990fdb00e1506126019493dd3bda4d416c81eaee"

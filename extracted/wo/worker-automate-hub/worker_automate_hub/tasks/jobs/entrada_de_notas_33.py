@@ -5,11 +5,13 @@ import re
 import warnings
 import time
 import uuid
-
+import asyncio
 import pyautogui
+from datetime import datetime
 import pytesseract
 import win32clipboard
 from PIL import Image, ImageEnhance
+from pyscreeze import ImageNotFoundException
 from pywinauto.application import Application
 from pywinauto.keyboard import send_keys
 from pywinauto.timings import wait_until
@@ -139,7 +141,7 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         await worker_sleep(5)
 
         await get_xml(nota.get("nfe"))
-        await worker_sleep(3)
+        await worker_sleep(5)
 
         # VERIFICANDO A EXISTENCIA DE WARNINGS
         warning_pop_up = await is_window_open("Warning")
@@ -303,7 +305,7 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 "A opção 'Manter Natureza de Operação selecionada' selecionado com sucesso... \n"
             )
 
-        await worker_sleep(2)
+        await worker_sleep(3)
         console.print("Clicando em OK... \n")
 
         max_attempts = 3
@@ -320,8 +322,87 @@ async def entrada_de_notas_33(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             except:
                 console.print("Não foi possivel clicar no Botão OK... \n")
 
-            await worker_sleep(3)
+            await worker_sleep(5)
+            
+            # Aguarda a tela de aguarde
+            imagem_alvo = "assets\\entrada_notas\\aguarde.png"
+            timeout = 300  # 5 minutos
+            start_time = time.time()
+           
+            try:
+                console.print("Aguardando a imagem desaparecer da tela (até 5 minutos)...")
 
+                while True:
+                    localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                    if not localizacao:
+                        console.print("Imagem não está mais na tela.")
+                        break
+
+                    if time.time() - start_time > timeout:
+                        console.print("Tempo limite atingido. A imagem ainda está na tela.")
+                        break
+
+                    time.sleep(5)  # Espera 5 segundos antes de verificar novamente
+
+            except:
+                pass
+            
+            await worker_sleep(7)
+            
+                
+            try:
+                app = Application().connect(class_name="TMessageForm", timeout=10)
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                click_yes = main_window.child_window(class_name='TButton', found_index=1).click()
+            except:
+                pass
+            
+            try:
+                # Verifica erro ncm nao encontrado
+                imagem_alvo = "assets\\entrada_notas\\nao_encontrado_ncm.png"
+
+                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                if localizacao:
+                    console.print("Não encontrado o NCM cadastrado no sistema")
+                    return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno="Não encontrado o NCM cadastrado no sistema",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
+                )
+
+            except ImageNotFoundException:
+                console.print(
+                    "Imagem não encontrada continuando"
+                )
+            
+            # Aguarda a tela de aguarde
+            imagem_alvo = "assets\\entrada_notas\\aguarde.png"
+            timeout = 300  # 5 minutos
+            start_time = time.time()
+
+            try:
+                console.print("Aguardando a imagem desaparecer da tela (até 5 minutos)...")
+
+                while True:
+                    localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+
+                    if not localizacao:
+                        console.print("Imagem não está mais na tela.")
+                        break
+
+                    if time.time() - start_time > timeout:
+                        console.print("Tempo limite atingido. A imagem ainda está na tela.")
+                        break
+
+                    time.sleep(2)  # Espera 2 segundos antes de verificar novamente
+
+            except Exception as e:
+                console.print(f"Ocorreu um erro: {e}")
+            
             console.print(
                 "Verificando a existencia da tela Informações para importação da Nota Fiscal Eletrônica...\n"
             )

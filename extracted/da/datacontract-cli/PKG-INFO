@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-cli
-Version: 0.10.30
+Version: 0.10.31
 Summary: The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library.
 Author-email: Jochen Christ <jochen.christ@innoq.com>, Stefan Negele <stefan.negele@innoq.com>, Simon Harrer <simon.harrer@innoq.com>
 License-Expression: MIT
@@ -1018,8 +1018,6 @@ If using Databricks, and an error is thrown when trying to deploy the SQL DDLs w
 
 ```shell
 spark.conf.set(“spark.databricks.delta.schema.typeCheck.enabled”, “false”)
-from datacontract.model import data_contract_specification
-data_contract_specification.DATACONTRACT_TYPES.append(“variant”)
 ```
 
 #### Great Expectations
@@ -2083,7 +2081,6 @@ We are happy to receive your contributions. Propose your change in an issue or d
 - [INNOQ](https://innoq.com)
 - [Data Catering](https://data.catering/)
 - [Oliver Wyman](https://www.oliverwyman.com/)
-- [dmTECH](https://www.dmtech.tech/de)
 - And many more. To add your company, please create a pull request.
 
 ## Related Tools

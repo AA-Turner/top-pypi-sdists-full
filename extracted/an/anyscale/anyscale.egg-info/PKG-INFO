@@ -1,10 +1,11 @@
 Metadata-Version: 2.1
 Name: anyscale
-Version: 0.26.43
+Version: 0.26.44
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
 Requires-Python: >=3.8
+Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: boto3>=1.26.76
@@ -75,5 +76,5 @@ Requires-Dist: tornado; extra == "backend"
 This package contains the command line interface and the sdk for the Anyscale platform.
 
 View Anyscale docs [here](https://docs.anyscale.com)
-View CLI docs [here](https://docs.anyscale.com/reference/cli)
-View SDK docs [here](https://docs.anyscale.com/reference/python-sdk/api)
+View CLI docs [here](https://docs.anyscale.com/reference/#cli)
+View SDK docs [here](https://docs.anyscale.com/reference/#sdk)

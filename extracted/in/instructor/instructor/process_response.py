@@ -17,12 +17,15 @@ from instructor.dsl.iterable import IterableBase, IterableModel
 from instructor.dsl.parallel import (
     ParallelBase,
     ParallelModel,
+    AnthropicParallelBase,
+    AnthropicParallelModel,
     VertexAIParallelBase,
     VertexAIParallelModel,
     get_types_array,
     handle_parallel_model,
+    handle_anthropic_parallel_model,
 )
-from instructor.dsl.partial import PartialBase
+from instructor.dsl.partial import PartialBase, Partial
 from instructor.dsl.simple_type import (
     AdapterBase,
     ModelAdapter,
@@ -214,6 +217,33 @@ def handle_parallel_tools(
     new_kwargs["tools"] = handle_parallel_model(response_model)
     new_kwargs["tool_choice"] = "auto"
     return ParallelModel(typehint=response_model), new_kwargs
+
+
+def handle_anthropic_parallel_tools(
+    response_model: type[Iterable[T]], new_kwargs: dict[str, Any]
+) -> tuple[AnthropicParallelBase, dict[str, Any]]:
+    if new_kwargs.get("stream", False):
+        from instructor.exceptions import ConfigurationError
+
+        raise ConfigurationError(
+            "stream=True is not supported when using ANTHROPIC_PARALLEL_TOOLS mode"
+        )
+
+    new_kwargs["tools"] = handle_anthropic_parallel_model(response_model)
+    new_kwargs["tool_choice"] = {"type": "auto"}
+
+    system_messages = extract_system_messages(new_kwargs.get("messages", []))
+
+    if system_messages:
+        new_kwargs["system"] = combine_system_messages(
+            new_kwargs.get("system"), system_messages
+        )
+
+    new_kwargs["messages"] = [
+        m for m in new_kwargs.get("messages", []) if m["role"] != "system"
+    ]
+
+    return AnthropicParallelModel(typehint=response_model), new_kwargs
 
 
 def handle_functions(
@@ -626,6 +656,10 @@ def handle_genai_structured_outputs(
 ) -> tuple[type[T], dict[str, Any]]:
     from google.genai import types
 
+    # Automatically wrap regular models with Partial when streaming is enabled
+    if new_kwargs.get("stream", False) and not issubclass(response_model, PartialBase):
+        response_model = Partial[response_model]
+
     if new_kwargs.get("system"):
         system_message = new_kwargs.pop("system")
     elif new_kwargs.get("messages"):
@@ -659,6 +693,10 @@ def handle_genai_tools(
     response_model: type[T], new_kwargs: dict[str, Any]
 ) -> tuple[type[T], dict[str, Any]]:
     from google.genai import types
+
+    # Automatically wrap regular models with Partial when streaming is enabled
+    if new_kwargs.get("stream", False) and not issubclass(response_model, PartialBase):
+        response_model = Partial[response_model]
 
     schema = map_to_gemini_function_schema(response_model.model_json_schema())
     function_definition = types.FunctionDeclaration(
@@ -754,6 +792,24 @@ def _prepare_bedrock_converse_kwargs_internal(
 
     See: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/converse.html
     """
+    # Handle Bedrock-native system parameter format: system=[{'text': '...'}]
+    # Convert to OpenAI format by adding to messages as system role
+    if "system" in call_kwargs and isinstance(call_kwargs["system"], list):
+        system_content = call_kwargs.pop("system")
+        if (
+            system_content
+            and isinstance(system_content[0], dict)
+            and "text" in system_content[0]
+        ):
+            # Convert system=[{'text': '...'}] to OpenAI format
+            system_text = system_content[0]["text"]
+            if "messages" not in call_kwargs:
+                call_kwargs["messages"] = []
+            # Insert system message at beginning
+            call_kwargs["messages"].insert(
+                0, {"role": "system", "content": system_text}
+            )
+
     # Bedrock expects 'modelId' over 'model'
     if "model" in call_kwargs and "modelId" not in call_kwargs:
         call_kwargs["modelId"] = call_kwargs.pop("model")
@@ -842,7 +898,15 @@ def _prepare_bedrock_converse_kwargs_internal(
                 if "content" in current_message_for_api:
                     if isinstance(content, str):
                         current_message_for_api["content"] = [{"text": content}]
-                    else:  # Content is not a string (e.g., None, list, int).
+                    elif (
+                        isinstance(content, list)
+                        and content
+                        and isinstance(content[0], dict)
+                        and "text" in content[0]
+                    ):
+                        # Handle Bedrock-native content format: [{'text': "..."}]
+                        current_message_for_api["content"] = content
+                    else:  # Content is not a string or supported list format (e.g., None, int, unsupported list).
                         # This matches the original behavior which raised for any non-string content.
                         raise NotImplementedError(
                             "Non-text prompts are not currently supported in the Bedrock provider."
@@ -1110,6 +1174,34 @@ def handle_response_model(
                     if system_message:
                         new_kwargs["system"] = system_message
 
+            elif mode in {Mode.GENAI_TOOLS, Mode.GENAI_STRUCTURED_OUTPUTS}:
+                # Handle GenAI mode - convert messages to contents and extract system message
+                from instructor.utils import (
+                    convert_to_genai_messages,
+                    extract_genai_system_message,
+                )
+
+                # Convert OpenAI-style messages to GenAI-style contents
+                new_kwargs["contents"] = convert_to_genai_messages(messages)
+
+                # Extract multimodal content for GenAI
+                new_kwargs["contents"] = extract_genai_multimodal_content(
+                    new_kwargs["contents"], autodetect_images
+                )
+
+                # Handle system message for GenAI
+                if "system" not in new_kwargs:
+                    system_message = extract_genai_system_message(messages)
+                    if system_message:
+                        from google.genai import types
+
+                        new_kwargs["config"] = types.GenerateContentConfig(
+                            system_instruction=system_message
+                        )
+
+                # Remove messages since we converted to contents
+                new_kwargs.pop("messages", None)
+
             else:
                 if mode in {
                     Mode.RESPONSES_TOOLS,
@@ -1124,6 +1216,8 @@ def handle_response_model(
         return handle_parallel_tools(response_model, new_kwargs)
     elif mode in {Mode.VERTEXAI_PARALLEL_TOOLS}:
         return handle_vertexai_parallel_tools(response_model, new_kwargs)
+    elif mode in {Mode.ANTHROPIC_PARALLEL_TOOLS}:
+        return handle_anthropic_parallel_tools(response_model, new_kwargs)
 
     response_model = prepare_response_model(response_model)
 

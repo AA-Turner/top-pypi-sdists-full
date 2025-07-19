@@ -20,7 +20,10 @@ token = os.environ.get("CHATFIRE_ONEAPI_TOKEN")
 
 headers = {
     "Authorization": f"Bearer {token}",
-    'rix-api-user': '1'
+    'rix-api-user': '1',
+    'new-api-user': '1',
+    'one-api-user': '1'
+
 }
 
 
@@ -49,7 +52,6 @@ async def get_api_key_log(api_key: str) -> Optional[list]:  # 日志查询会超
         return
 
 
-@rcache(ttl=1 * 24 * 3600)
 async def get_user(user_id):
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers, timeout=30) as client:
         response = await client.get(f"/api/user/{user_id}")
@@ -73,14 +75,27 @@ async def get_user_money(api_key):
 
     logger.debug(onelog)
 
+
 # 补偿
-async def put_user(payload, add_money: float = 0):
+async def put_user(payload, quota: float = 0):
     async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
-        payload['quota'] = max(payload['quota'] + add_money * 500000, 0)  # 1块钱对应50万
+        payload['quota'] = quota  # 1块钱对应50万
 
         response = await client.put("/api/user/", json=payload)
         # logger.debug(response.text)
         # logger.debug(response.status_code)
+
+        return response.json()
+
+
+async def update_user_for_refund(user_id, quota: int = 0):  # 1块钱对应50万tokens
+    data = await get_user(user_id)
+
+    if data := data['data']:
+        data['quota'] += quota
+
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=headers) as client:
+        response = await client.put("/api/user/", json=data)
 
         return response.json()
 
@@ -110,14 +125,16 @@ async def get_user_for_quota(api_key):
 
 if __name__ == '__main__':
     # api-key => get_one_log => get_user => put_user
-    # arun(get_user(11047))
+    # arun(get_user(10988))
     # payload = arun(get_user(1))
     # print(payload)
     # arun(put_user(payload['data'], -1))
-    # arun(get_api_key_log("sk-2KedjhqS6uubaONCS1Dxyq28Tc1P4AtQk3WFfBpzy4enyalH"))
+    # arun(get_api_key_log("sk-"))
 
     # arun(get_api_key_log('sk-iPNbgHSRkQ9VUb6iAcCa7a4539D74255A6462d29619d6519'))
-    arun(get_user_money("sk-DmIQQe32ortrlLUPTQi8PeId27pAFEy8ewhN7KyVhRHv1prM"))
-    # arun(get_user_from_api_key('sk-'))
+    # arun(get_user_money("sk-"))
+    # arun(get_user_from_api_key('sk-idDBqyoDVqCXInnO9uaGLUfwsxY7RhzHSn166z5jOBCBvFmY'))
 
-    # arun(get_user_for_quota("sk-2KedjhqS6uubaONCS1Dxyq28Tc1P4AtQk3WFfBpzy4enyalH"))
+    # arun(get_user_for_quota("sk-"))
+
+    # arun(update_user_for_refund(2, quota=73065879))

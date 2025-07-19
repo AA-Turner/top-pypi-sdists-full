@@ -87,6 +87,9 @@ class PrivateJobSDK(WorkloadSDK):
             autopopulate_in_workspace=autopopulate_in_workspace,
             additional_py_modules=config.py_modules,
             py_executable_override=config.py_executable,
+            has_multiple_cloud_deployments=self._compute_config_has_multiple_cloud_deployments(
+                config.compute_config
+            ),
         )
         [runtime_env] = self.override_and_load_requirements_files(
             [runtime_env],
@@ -98,6 +101,25 @@ class PrivateJobSDK(WorkloadSDK):
         )
 
         return runtime_env or None
+
+    def _compute_config_has_multiple_cloud_deployments(
+        self, compute_config: Union[ComputeConfig, Dict, str, None]
+    ) -> bool:
+        if not isinstance(compute_config, str):
+            # Multi-deployment compute configs are not supported in-line, only by name.
+            return False
+
+        compute_config_id = self._resolve_compute_config_id(
+            compute_config=compute_config
+        )
+        compute_template = self._client.get_compute_config(compute_config_id)
+        if compute_template is None or compute_template.config is None:
+            raise ValueError(f"The compute config '{compute_config}' does not exist.")
+
+        return (
+            compute_template.config.deployment_configs
+            and len(compute_template.config.deployment_configs) > 1
+        )
 
     def get_default_name(self) -> str:
         """Get a default name for the job.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cerbos
-Version: 0.12.0
+Version: 0.13.0
 Summary: SDK for working with Cerbos: an open core, language-agnostic, scalable authorization solution
 Author-Email: Cerbos Developers <sdk+python@cerbos.dev>
 License: Apache-2.0
@@ -9,7 +9,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Libraries
 Project-URL: Homepage, https://cerbos.dev
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: dataclasses-json>=0.5.7
 Requires-Dist: requests-toolbelt>=0.9.1
 Requires-Dist: httpx[http2]>=0.22.0
@@ -19,6 +19,9 @@ Requires-Dist: grpcio-tools>=1.54.2
 Requires-Dist: types-protobuf>=4.24.0.1
 Requires-Dist: protoc-gen-openapiv2>=0.0.1
 Requires-Dist: googleapis-common-protos>=1.62.0
+Requires-Dist: protobuf>=6.31.0
+Requires-Dist: grpcio-status>=1.73.0
+Requires-Dist: circuitbreaker>=2.1.3
 Provides-Extra: testcontainers
 Requires-Dist: testcontainers>=3.5.3; extra == "testcontainers"
 Description-Content-Type: text/markdown
@@ -263,6 +266,26 @@ with container:
 
 
 See the tests available in the `tests` directory for more examples.
+
+### Cerbos Hub
+
+To interact with a [Cerbos Hub](https://www.cerbos.dev/product-cerbos-hub) managed store, obtain a set of credentials for the store from the Cerbos Hub UI. Save the credentials as environment variables named `CERBOS_HUB_CLIENT_ID` and `CERBOS_HUB_CLIENT_SECRET`.
+
+```python
+from cerbos.sdk.hub import util
+from cerbos.sdk.hub.store import AsyncCerbosHubStoreClient
+from cerbos.sdk.hub.store_model import ConditionUnsatisfiedError
+
+# For non-async use cases, use CerbosHubStoreClient instead
+async with AsyncCerbosHubStoreClient() as client:
+    contents = util.zip_directory(Path("your", "policy", "repo"))
+    try:
+        response = await client.replace_files("YOUR_STORE_ID", "Upload policy repo", contents, version_must_equal=42)
+        print(f"New store version is {response.new_store_version()}")
+    except ConditionUnsatisfiedError as e:
+        print(f"Operation failed. Current store version is {e.current_store_version}")
+```
+
 
 ## Contributing
 

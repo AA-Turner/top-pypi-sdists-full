@@ -32,6 +32,10 @@ class RateLimitedClient(AsyncClient):
         self.base_client = base_client
         self.rate_limiter = RateLimiter[Callable[[], Any], Any](rate_limit_config)
 
+    def __getattr__(self, name):
+        """Delegate attribute access to the underlying base_client."""
+        return getattr(self.base_client, name)
+
     async def _execute_request(self, method, *args, **kwargs) -> Response:
         """Execute a request with rate limiting."""
 

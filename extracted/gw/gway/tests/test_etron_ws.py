@@ -141,7 +141,7 @@ class EtronWebSocketTests(unittest.TestCase):
         asyncio.run(run_ws_check())
 
     def test_authorize_valid_rfid(self):
-        """RFID in allowlist with balance >=1 should be Accepted"""
+        """Known RFID should be accepted."""
         self._set_balance(KNOWN_GOOD_TAG, 100)
         uri = "ws://127.0.0.1:19000/tester1?token=foo"
         async def run_authorize_check():
@@ -416,7 +416,7 @@ class EtronWebSocketTests(unittest.TestCase):
                 # Issue Stop from dashboard
                 await asyncio.to_thread(
                     requests.post,
-                    "http://127.0.0.1:18000/ocpp/csms/charger-status",
+                    "http://127.0.0.1:18000/ocpp/csms/active-chargers",
                     data={"charger_id": "stopper", "action": "remote_stop", "do": "send"},
                     timeout=5,
                 )
@@ -449,6 +449,32 @@ class EtronWebSocketTests(unittest.TestCase):
         output = asyncio.run(run_sim())
         self.assertNotIn("cannot call recv", output)
         self.assertIn("Simulation ended", output)
+
+    def test_pre_charge_delay_respected(self):
+        """Simulator should wait the given pre-charge delay before charging."""
+        async def run_sim():
+            import io, contextlib
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                start = time.monotonic()
+                await gw.ocpp.evcs.simulate_cp.__wrapped__(
+                    0,
+                    "127.0.0.1",
+                    19000,
+                    KNOWN_GOOD_TAG,
+                    "SIMDELAY",
+                    1,
+                    1,
+                    1,
+                    1,
+                    pre_charge_delay=2,
+                )
+                elapsed = time.monotonic() - start
+            return elapsed, buf.getvalue()
+
+        duration, out = asyncio.run(run_sim())
+        self.assertIn("Simulation ended", out)
+        self.assertGreaterEqual(duration, 2)
 
 
 if __name__ == "__main__":

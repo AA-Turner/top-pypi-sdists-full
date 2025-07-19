@@ -36,17 +36,19 @@ class FileStorage(object):
         'file_storage_id': 'str',
         'mount_targets': 'list[NFSMountTarget]',
         'mount_path': 'str',
-        'persistent_volume_claim': 'str'
+        'persistent_volume_claim': 'str',
+        'csi_ephemeral_volume_driver': 'str'
     }
 
     attribute_map = {
         'file_storage_id': 'file_storage_id',
         'mount_targets': 'mount_targets',
         'mount_path': 'mount_path',
-        'persistent_volume_claim': 'persistent_volume_claim'
+        'persistent_volume_claim': 'persistent_volume_claim',
+        'csi_ephemeral_volume_driver': 'csi_ephemeral_volume_driver'
     }
 
-    def __init__(self, file_storage_id=None, mount_targets=None, mount_path=None, persistent_volume_claim=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, file_storage_id=None, mount_targets=None, mount_path=None, persistent_volume_claim=None, csi_ephemeral_volume_driver=None, local_vars_configuration=None):  # noqa: E501
         """FileStorage - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class FileStorage(object):
         self._mount_targets = None
         self._mount_path = None
         self._persistent_volume_claim = None
+        self._csi_ephemeral_volume_driver = None
         self.discriminator = None
 
         if file_storage_id is not None:
@@ -66,6 +69,8 @@ class FileStorage(object):
             self.mount_path = mount_path
         if persistent_volume_claim is not None:
             self.persistent_volume_claim = persistent_volume_claim
+        if csi_ephemeral_volume_driver is not None:
+            self.csi_ephemeral_volume_driver = csi_ephemeral_volume_driver
 
     @property
     def file_storage_id(self):
@@ -140,7 +145,7 @@ class FileStorage(object):
     def persistent_volume_claim(self):
         """Gets the persistent_volume_claim of this FileStorage.  # noqa: E501
 
-        For Kubernetes deployments, the name of the persistent volume claim used to mount NFS into pods.  # noqa: E501
+        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
 
         :return: The persistent_volume_claim of this FileStorage.  # noqa: E501
         :rtype: str
@@ -151,13 +156,36 @@ class FileStorage(object):
     def persistent_volume_claim(self, persistent_volume_claim):
         """Sets the persistent_volume_claim of this FileStorage.
 
-        For Kubernetes deployments, the name of the persistent volume claim used to mount NFS into pods.  # noqa: E501
+        For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods.  # noqa: E501
 
         :param persistent_volume_claim: The persistent_volume_claim of this FileStorage.  # noqa: E501
         :type: str
         """
 
         self._persistent_volume_claim = persistent_volume_claim
+
+    @property
+    def csi_ephemeral_volume_driver(self):
+        """Gets the csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
+
+        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+
+        :return: The csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
+        :rtype: str
+        """
+        return self._csi_ephemeral_volume_driver
+
+    @csi_ephemeral_volume_driver.setter
+    def csi_ephemeral_volume_driver(self, csi_ephemeral_volume_driver):
+        """Sets the csi_ephemeral_volume_driver of this FileStorage.
+
+        For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods.  # noqa: E501
+
+        :param csi_ephemeral_volume_driver: The csi_ephemeral_volume_driver of this FileStorage.  # noqa: E501
+        :type: str
+        """
+
+        self._csi_ephemeral_volume_driver = csi_ephemeral_volume_driver
 
     def to_dict(self):
         """Returns the model properties as a dict"""

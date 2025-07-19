@@ -50,8 +50,8 @@ backend-path = ["."]
 name = "cvxpy-base"
 description = "A domain-specific language for modeling convex optimization problems in Python."
 dependencies = [
-    "numpy >= 1.21.6",
-    "scipy >= 1.11.0",
+    "numpy >= 1.22.4",
+    "scipy >= 1.13.0",
 ]
 requires-python = ">=3.9"
 urls = {Homepage = "https://github.com/cvxpy/cvxpy"}
@@ -66,6 +66,7 @@ dynamic = ["version"]
 # Solver names as in cvxpy.settings = pip-installable distribution providing it
 CBC = ["cylp>=0.91.5"]
 CLARABEL = []
+CUOPT = ["cuopt-cu12>=25.5", "cuopt-sh-client>=25.5", "nvidia-cuda-runtime-cu12>=12.8,<13.0"]
 CVXOPT = ["cvxopt"]
 DIFFCP = ["diffcp"]
 ECOS = ["ecos"]

@@ -2,7 +2,7 @@
 authors = ["Armin Ronacher <armin.ronacher@active-4.com>"]
 build = "build.rs"
 name = "sentry-cli"
-version = "2.47.1"
+version = "2.50.0"
 edition = "2021"
 rust-version = "1.86"
 
@@ -100,6 +100,8 @@ unstable-mobile-app = ["apple-catalog-parsing"]
 
 [workspace.lints.clippy]
 allow-attributes = "warn"
+str-to-string = "warn"
+string-to-string = "warn"
 unnecessary-wraps = "warn"
 unwrap-used = "warn"
 

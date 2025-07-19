@@ -32,12 +32,12 @@ class WeldDefectConfig(BaseConfig):
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: "Bad Welding",
-            1: "Crack",
-            2: "Good Welding",
+            0: "Good Welding",
+            1: "Reinforcement",
+            2: "Spatters",
             3: "Porosity",
-            4: "Reinforcement",
-            5: "Spatters"
+            4: "Bad Welding",
+            5: "Crack"
         }
     )
 

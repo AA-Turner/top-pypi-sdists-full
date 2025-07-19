@@ -69,52 +69,111 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         global_frame_offset = getattr(self, 'global_frame_offset', 0)
         # For each frame, build event and tracking_stats dicts
         for frame_id, detections in processed_data.items():
-            # Count staff/customers in this frame
             staff_count = sum(1 for d in detections if d.get('category') == 'staff')
             customer_count = sum(1 for d in detections if d.get('category') == 'customer')
             total_people = staff_count + customer_count
-            # Event (match people_counting)
+
+            # --- Gather analytics for human_text ---
+            queue_analytics = analytics_results.get("customer_queue_analytics", {})
+            staff_analytics = analytics_results.get("staff_management_analytics", {})
+            service_analytics = analytics_results.get("service_area_analytics", {})
+            journey_analytics = analytics_results.get("customer_journey_analytics", {})
+            business_metrics = analytics_results.get("business_metrics", {})
+
+            # --- Timestamps ---
+            current_timestamp = self._get_current_timestamp_str(stream_info)
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+
+            # --- Per-frame stats ---
+            active_customers = queue_analytics.get("active_customers", 0)
+            customers_queuing = queue_analytics.get("customers_queuing", 0)
+            customers_being_served = queue_analytics.get("customers_being_served", 0)
+            active_staff = staff_analytics.get("active_staff", 0)
+            active_service_areas = service_analytics.get("total_active_services", 0)
+            service_areas_status = service_analytics.get("service_areas_status", {})
+
+            # --- Cumulative stats ---
+            total_journeys = journey_analytics.get("total_journeys", 0)
+            total_staff = staff_analytics.get("total_staff", 0)
+            customers_completed = queue_analytics.get("customers_completed", 0)
+            customers_left = journey_analytics.get("journey_states", {}).get("left", 0)
+            avg_wait_time = queue_analytics.get("average_wait_time", 0)
+            avg_service_time = 0.0
+            if analytics_results.get("service_times"):
+                times = [t.get("service_time", 0.0) for t in analytics_results["service_times"]]
+                if times:
+                    avg_service_time = sum(times) / len(times)
+            avg_journey_time = journey_analytics.get("average_journey_time", 0)
+
+            customer_staff_ratio = business_metrics.get("customer_to_staff_ratio", 0)
+            service_efficiency = business_metrics.get("service_efficiency", 0)
+            queue_performance = business_metrics.get("queue_performance", 0)
+            staff_productivity = business_metrics.get("staff_productivity", 0)
+            overall_performance = business_metrics.get("overall_performance", 0)
+
+            # --- Build human_text ---
+            human_text_lines = []
+            human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+            human_text_lines.append(f"\t- Active Customers: {active_customers}")
+            human_text_lines.append(f"\t\t- Queuing: {customers_queuing}")
+            human_text_lines.append(f"\t\t- Being Served: {customers_being_served}")
+            human_text_lines.append(f"\t\t- Completed: {customers_completed}")
+            human_text_lines.append(f"\t\t- Left: {customers_left}")
+            human_text_lines.append(f"\t- Active Staff: {active_staff}")
+            human_text_lines.append(f"\t- Active Service Areas: {active_service_areas}")
+            for area_name, area_info in service_areas_status.items():
+                n_customers = area_info.get("customers", 0)
+                n_staff = area_info.get("staff", 0)
+                human_text_lines.append(f"\t\t- {area_name}: {n_customers} customers, {n_staff} staff")
+
+            human_text_lines.append("")
+            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+            human_text_lines.append(f"\t- Total Journeys: {total_journeys}")
+            for state in ["entering", "queuing", "being_served", "completed", "left"]:
+                count = journey_analytics.get("journey_states", {}).get(state, 0)
+                human_text_lines.append(f"\t\t- {state.replace('_', ' ').title()}: {count}")
+            human_text_lines.append(f"\t- Total Unique Staff: {total_staff}")
+            human_text_lines.append(f"\t- Average Wait Time: {avg_wait_time:.1f}s")
+            human_text_lines.append(f"\t- Average Service Time: {avg_service_time:.1f}s")
+            human_text_lines.append(f"\t- Average Journey Time: {avg_journey_time:.1f}s")
+            human_text_lines.append(f"\t- Business Metrics:")
+            human_text_lines.append(f"\t\t- Customer/Staff Ratio: {customer_staff_ratio:.2f}")
+            human_text_lines.append(f"\t\t- Service Efficiency: {service_efficiency*100:.1f}%")
+            human_text_lines.append(f"\t\t- Queue Performance: {queue_performance*100:.1f}%")
+            human_text_lines.append(f"\t\t- Staff Productivity: {staff_productivity:.2f} services/staff")
+            human_text_lines.append(f"\t\t- Overall Performance: {overall_performance:.2f} / 1.0")
+
+            human_text = "\n".join(human_text_lines)
+
             event = {
                 "type": "advanced_customer_service",
-                "stream_time": datetime.datetime.utcnow().strftime("%Y-%m-%d-%H:%M:%S UTC"),
+                "stream_time": current_timestamp,
                 "application_name": "Advanced Customer Service System",
                 "application_version": "1.0",
                 "location_info": None,
-                "human_text": f"EVENTS DETECTED:\n\t- Staff Detected: {staff_count}\n\t- Customers Detected: {customer_count}",
+                "human_text": human_text,
                 "frame_id": str(frame_id)
             }
             frame_events[str(frame_id)] = [event]
-            # Tracking stats (match people_counting fields)
-            # Use the full summary for each frame's human_text, but exclude queue_lengths_by_area, service_proximity_threshold, and real_time_occupancy
-            # Prepare a filtered analytics_results for summary
-            filtered_analytics = dict(analytics_results)
-            if "customer_queue_analytics" in filtered_analytics:
-                filtered_analytics["customer_queue_analytics"] = dict(filtered_analytics["customer_queue_analytics"])
-                filtered_analytics["customer_queue_analytics"].pop("queue_lengths_by_area", None)
-            if "service_area_analytics" in filtered_analytics:
-                filtered_analytics["service_area_analytics"] = dict(filtered_analytics["service_area_analytics"])
-                filtered_analytics["service_area_analytics"].pop("service_proximity_threshold", None)
-            filtered_analytics.pop("real_time_occupancy", None)
-            full_summary = self._generate_summary(filtered_analytics, [])
+
             tracking_stat = {
-                "tracking_start_time": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+                "tracking_start_time": start_timestamp,
                 "all_results_for_tracking": {
                     "total_people": total_people,
                     "staff_count": staff_count,
                     "customer_count": customer_count,
                     "detections": detections,
                     "business_metrics": analytics_results.get("business_metrics", {}),
-                    "customer_queue_analytics": filtered_analytics.get("customer_queue_analytics", {}),
-                    "staff_management_analytics": analytics_results.get("staff_management_analytics", {}),
-                    "service_area_analytics": filtered_analytics.get("service_area_analytics", {}),
-                    "customer_journey_analytics": analytics_results.get("customer_journey_analytics", {}),
-                    # "real_time_occupancy": analytics_results.get("real_time_occupancy", {}),
+                    "customer_queue_analytics": queue_analytics,
+                    "staff_management_analytics": staff_analytics,
+                    "service_area_analytics": service_analytics,
+                    "customer_journey_analytics": journey_analytics,
                     "service_times": analytics_results.get("service_times", []),
                     "global_frame_offset": global_frame_offset,
                     "local_frame_id": str(frame_id)
                 },
-                "human_text": full_summary,
-                "frame_id": str(frame_id),
+                "human_text": human_text,
+                "local_frame_id": str(frame_id),
                 "frames_in_this_call": 1,
                 "total_frames_processed": total_frames_processed + int(frame_id),
                 "current_frame_number": str(frame_id),
@@ -856,7 +915,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         # Calculate average_wait_time: (sum of completed + ongoing) / total
         total_waits = [w['wait_time'] for w in wait_times_completed] + [w['wait_time'] for w in wait_times_ongoing]
         n_total = customers_completed + customers_queuing
-        average_wait_time = sum(total_waits) / n_total if n_total > 0 else 0.0
+        average_wait_time = sum(total_waits) / n_total if n_total > 0 else 1.0
 
         queue_analytics = {
             "active_customers": active_customers,
@@ -1032,11 +1091,14 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 customers_being_served += 1
 
         # Use global staff count (unique staff IDs)
-        total_staff = len(self.global_staff_ids)
+        # Use active_staff from staff_management_analytics for real-time ratio
+        staff_analytics = self._get_staff_management_results()
+        active_staff = staff_analytics.get("active_staff", 0)
+        total_staff = staff_analytics.get("total_staff", 0)
 
         metrics = {
             # Now using per-chunk customer count for ratio
-            "customer_to_staff_ratio": (customers_queuing + customers_being_served) / max(total_staff, 1),
+            "customer_to_staff_ratio": (customers_queuing + customers_being_served) / max(active_staff, 1),
             "service_efficiency": 0.0,
             "queue_performance": 0.0,
             "staff_productivity": 0.0,
@@ -1178,72 +1240,51 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         
         return insights
 
-    # def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-    #     """Get formatted current timestamp based on stream type."""
-    #     if not stream_info:
-    #         return "00:00:00.00"
-        
-    #     is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-    #     # if is_video_chunk and stream_info.get("input_settings", {}).get("stream_type","video_file")!="video_file":
-    #     #     # For video chunks, use video_timestamp from stream_info
-    #     #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-    #     #     return self._format_timestamp_for_stream(video_timestamp)
-    #     if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
-    #         # If video format, return video timestamp
-    #         stream_time_str = stream_info.get("video_timestamp", "")
-    #         return stream_time_str[:8]
-    #     else:
-    #         # For streams, use stream_time from stream_info
-    #         stream_time_str = stream_info.get("stream_time", "")
-    #         if stream_time_str:
-    #             # Parse the high precision timestamp string to get timestamp
-    #             try:
-    #                 # Remove " UTC" suffix and parse
-    #                 timestamp_str = stream_time_str.replace(" UTC", "")
-    #                 dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-    #                 timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
-    #                 return self._format_timestamp_for_stream(timestamp)
-    #             except:
-    #                 # Fallback to current time if parsing fails
-    #                 return self._format_timestamp_for_stream(time.time())
-    #         else:
-    #             return self._format_timestamp_for_stream(time.time())
+    def _get_current_timestamp_str(self, stream_info: Optional[dict]) -> str:
+        """Get formatted current timestamp based on stream type (video or stream)."""
+        if not stream_info:
+            return "00:00:00.00"
+        input_settings = stream_info.get("input_settings", {})
+        stream_type = input_settings.get("stream_type", "video_file")
+        if stream_type == "video_file":
+            # For video files, use video_timestamp
+            video_timestamp = stream_info.get("video_timestamp", "")
+            return video_timestamp[:8] if video_timestamp else "00:00:00.00"
+        else:
+            # For streams, use stream_time
+            stream_time_str = stream_info.get("stream_time", "")
+            return stream_time_str[:8] if stream_time_str else "00:00:00.00"
 
-    # def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
-    #     """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
-    #     if not stream_info:
-    #         return "00:00:00"
-        
-    #     is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-    #     # if is_video_chunk:
-    #     #     # For video chunks, start from 00:00:00
-    #     #     return "00:00:00"
-    #     if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
-    #         # If video format, start from 00:00:00
-    #         return "00:00:00"
-    #     else:
-    #         # For streams, use tracking start time or current time with minutes/seconds reset
-    #         if self._tracking_start_time is None:
-    #             # Try to extract timestamp from stream_time string
-    #             stream_time_str = stream_info.get("stream_time", "")
-    #             if stream_time_str:
-    #                 try:
-    #                     # Remove " UTC" suffix and parse
-    #                     timestamp_str = stream_time_str.replace(" UTC", "")
-    #                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
-    #                     self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-    #                 except:
-    #                     # Fallback to current time if parsing fails
-    #                     self._tracking_start_time = time.time()
-    #             else:
-    #                 self._tracking_start_time = time.time()
-            
-    #         dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
-    #         # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
-    #         dt = dt.replace(minute=0, second=0, microsecond=0)
-    #         return dt.strftime('%Y:%m:%d %H:%M:%S')
+    def _get_start_timestamp_str(self, stream_info: Optional[dict]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
+        # For video, use start_video_timestamp if available, else 00:00:00
+        if not stream_info:
+            return "00:00:00.00"
+        input_settings = stream_info.get("input_settings", {})
+        stream_type = input_settings.get("stream_type", "video_file")
+        if stream_type == "video_file":
+            start_video_timestamp = stream_info.get("start_video_timestamp", None)
+            if start_video_timestamp:
+                return start_video_timestamp[:8]
+            else:
+                return "00:00:00.00"
+        else:
+            # For streams, persist the first stream_time as tracking start time
+            if not hasattr(self, "_tracking_start_time") or self._tracking_start_time is None:
+                stream_time_str = stream_info.get("stream_time", "")
+                if stream_time_str:
+                    try:
+                        from datetime import datetime, timezone
+                        timestamp_str = stream_time_str.replace(" UTC", "")
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
+                        self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
+                    except Exception:
+                        self._tracking_start_time = time.time()
+                else:
+                    self._tracking_start_time = time.time()
+            from datetime import datetime, timezone
+            dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
     
     def _generate_summary(self, analytics_results: Dict, alerts: List) -> str:
         """Generate human-readable summary."""

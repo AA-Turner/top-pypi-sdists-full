@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpm
-Version: 2.5.0
+Version: 2.6.0
 Summary: MCPM - Model Context Protocol Manager
 Project-URL: Homepage, https://mcpm.sh
 Project-URL: Repository, https://github.com/pathintegral-institute/mcpm.sh
@@ -188,11 +188,14 @@ The MCP Registry is a central repository of available MCP servers that can be in
 - [x] Registry integration and server discovery
 - [x] Direct server execution and sharing
 - [x] Import from existing client configurations
+- [x] Additional client support (gemini-cli, codex, etc.)
 
 ### 🔮 Future Enhancements
 - [ ] Advanced Server access monitoring and analytics
-- [ ] Additional client support (gemini-cli, codex, etc.)
 - [ ] Execution in docker
+- [ ] Expose MCPM functionality as an MCP server (search, install, profile management etc.)
+- [ ] TUI interface for MCP inspect
+- [ ] TUI interface for MCP & profile management
 
 
 ## 📦 Other Installation Methods

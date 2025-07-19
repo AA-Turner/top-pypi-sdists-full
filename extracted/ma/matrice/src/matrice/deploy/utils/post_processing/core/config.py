@@ -405,7 +405,17 @@ class ConfigManager:
             "weld_defect_detection" : None,
             "banana_defect_detection" : None,
             "chicken_pose_detection" : None,
-
+            "traffic_sign_monitoring" : None,
+            "theft_detection" : None,
+            "gender_detection": None,
+            "solar_panel": None,
+            "crop_weed_detection": None,
+            "emergency_vehicle_detection": None,
+            "price_tag_detection": None,
+            "child_monitoring": None,
+            "weapon_tracking" : None,
+            "concrete_crack_detection": None,
+            "fashion_detection": None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -436,6 +446,30 @@ class ConfigManager:
         except ImportError:
             return None
         
+    def theft_detection_config_class(self):
+        """Get  theft detection class to avoid circular imports."""
+        try:
+            from ..usecases.theft_detection import TheftDetectionConfig
+            return TheftDetectionConfig
+        except ImportError:
+            return None
+        
+    def weapon_tracking_config_class(self):
+        """Get  weapon detection class to avoid circular imports."""
+        try:
+            from ..usecases.weapon_detection import WeaponDetectionConfig
+            return WeaponDetectionConfig
+        except ImportError:
+            return None
+        
+    def traffic_sign_monitoring_config_class(self):
+        """Get traffic sign monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
+            return TrafficSignMonitoringConfig
+        except ImportError:
+            return None
+        
     def chicken_pose_detection_config_class(self):
         """Get Chicken pose monitoring class to avoid circular imports."""
         try:
@@ -452,13 +486,6 @@ class ConfigManager:
         except ImportError:
             return None
     
-    def _get_solar_panel_config_class(self):
-        """Register a configuration class for a use case."""
-        try:
-            from ..usecases.solar_panel import SolarPanelConfig
-            return SolarPanelConfig
-        except ImportError:
-            return None
 
     def _get_car_damage_config_class(self):
         """Register a configuration class for a use case."""
@@ -561,6 +588,54 @@ class ConfigManager:
         try:
             from ..usecases.emergency_vehicle_detection import EmergencyVehicleConfig
             return EmergencyVehicleConfig
+        except ImportError:
+            return None
+    
+    def solar_panel_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.solar_panel import SolarPanelConfig
+            return SolarPanelConfig
+        except ImportError:
+            return None
+        
+    def crop_weed_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.crop_weed_detection import CropWeedDetectionConfig
+            return CropWeedDetectionConfig
+        except ImportError:
+            return None
+    
+    def child_monitoring_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.child_monitoring import ChildMonitoringConfig
+            return ChildMonitoringConfig
+        except ImportError:
+            return None
+        
+    def gender_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.gender_detection import GenderDetectionConfig
+            return GenderDetectionConfig
+        except ImportError:
+            return None
+    
+    def concrete_crack_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.concrete_crack_detection import ConcreteCrackConfig
+            return ConcreteCrackConfig
+        except ImportError:
+            return None
+        
+    def fashion_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.fashion_detection import FashionDetectionConfig
+            return FashionDetectionConfig
         except ImportError:
             return None
 
@@ -811,6 +886,54 @@ class ConfigManager:
                 **kwargs
             )
 
+        elif usecase == "theft_detection":
+            # Import here to avoid circular import
+            from ..usecases.theft_detection import TheftDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = TheftDetectionConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "weapon_tracking":
+            # Import here to avoid circular import
+            from ..usecases.weapon_detection import WeaponDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WeaponDetectionConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "traffic_sign_monitoring ":
+            # Import here to avoid circular import
+            from ..usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = TrafficSignMonitoringConfig(
+                category=category or "traffic",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
         elif usecase == "vehicle_monitoring":
             # Import here to avoid circular import
             from ..usecases.vehicle_monitoring import VehicleMonitoringConfig
@@ -1002,6 +1125,86 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+
+        elif usecase == "crop_weed_detection":
+            # Import here to avoid circular import
+            from ..usecases.crop_weed_detection import CropWeedDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = CropWeedDetectionConfig(
+                category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "child_monitoring":
+            # Import here to avoid circular import
+            from ..usecases.child_monitoring import ChildMonitoringConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ChildMonitoringConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "gender_detection":
+            # Import here to avoid circular import 
+            from ..usecases.gender_detection import GenderDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+            
+            config = GenderDetectionConfig(
+                category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "concrete_crack_detection":
+            # Import here to avoid circular import
+            from ..usecases.concrete_crack_detection import ConcreteCrackConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ConcreteCrackConfig(
+                category=category or "general",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "fashion_detection":
+            # Import here to avoid circular import
+            from ..usecases.fashion_detection import FashionDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FashionDetectionConfig(
+                category=category or "retail",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -1156,6 +1359,24 @@ class ConfigManager:
             default_config = BananaMonitoringConfig()
             return default_config.to_dict()
         
+        elif usecase == "traffic_sign_monitoring":
+            # Import here to avoid circular import
+            from ..usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
+            default_config = TrafficSignMonitoringConfig()
+            return default_config.to_dict()
+
+        elif usecase == "theft_detection":
+            # Import here to avoid circular import
+            from ..usecases.theft_detection import TheftDetectionConfig
+            default_config = TheftDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "weapon_tracking":
+            # Import here to avoid circular import
+            from ..usecases.weapon_detection import WeaponDetectionConfig
+            default_config = WeaponDetectionConfig()
+            return default_config.to_dict()
+        
         elif usecase == "weld_defect_detection":
             # Import here to avoid circular import
             from ..usecases.weld_defect_detection import WeldDefectConfig
@@ -1214,6 +1435,32 @@ class ConfigManager:
             from ..usecases.emergency_vehicle_detection import EmergencyVehicleConfig
             default_config = EmergencyVehicleConfig()
             return default_config.to_dict()
+        elif usecase == "crop_weed_detection":
+            # Import here to avoid circular import
+            from ..usecases.crop_weed_detection import CropWeedDetectionConfig
+            default_config = CropWeedDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "child_monitoring":
+            # Import here to avoid circular import
+            from ..usecases.child_monitoring import ChildMonitoringConfig
+            default_config = ChildMonitoringConfig()
+            return default_config.to_dict()
+        elif usecase == "gender_detection":
+            # Import here to avoid circular import
+            from ..usecases.gender_detection import GenderDetectionConfig
+            default_config = GenderDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "concrete_crack_detection":
+            # Import here to avoid circular import
+            from ..usecases.concrete_crack_detection import ConcreteCrackConfig
+            default_config = ConcreteCrackConfig()
+            return default_config.to_dict()
+        elif usecase == "fashion_detection":
+            # Import here to avoid circular import
+            from ..usecases.fashion_detection import FashionDetectionConfig
+            default_config = FashionDetectionConfig()
+            return default_config.to_dict()
+
         elif usecase not in self._config_classes:
             raise ConfigValidationError(f"Unsupported use case: {usecase}")
 

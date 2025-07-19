@@ -16,6 +16,7 @@ from ..output.table import (
 )
 
 from .formatters import constraint_columns
+from ..licensing.product_table_versions import list_product_table_versions
 
 
 def list_licenses(ctx, **kwargs):
@@ -152,3 +153,51 @@ def format_license_details(ctx, resources):
     ]
 
     return format_table(ctx, resources, columns)
+
+
+def get_licensed_product(product_label, product_table):
+    if not product_label:
+        return None
+
+    product_tokens = product_label.split("-")
+
+    if len(product_tokens) < 2:
+        return None
+    elif len(product_tokens) == 2:
+        normalized_product_name = product_tokens[0]
+    else:
+        normalized_product_name = "-".join(product_tokens[0:2])
+
+    for licensed_product in product_table["products"]:
+        if str(licensed_product["name"]) == normalized_product_name:
+            return licensed_product
+    return None
+
+
+def add_license_to_billing_sub(ctx, bsub, product_name=None, product_table_version=None):
+    if bsub.spec.license_id:
+        raise Exception("subscription already has a license_id set!")
+
+    product_table = list_product_table_versions(ctx, published=True, limit=1)
+    product_version = product_table[0]
+
+    if not product_table_version:
+        product_table_version = product_version["spec"]["version"]
+
+    product_table = product_version["spec"].get("product_table")
+    if not product_name:
+        product_name = get_licensed_product(
+            bsub.status.product.spec.label, product_table
+        )
+        if not product_name:
+            raise Exception(
+                "could not find a suitable licensed for product label: "
+                f"{bsub.status.product.spec.label}"
+            )
+
+    result = add_license(
+        ctx,
+        product_table_version=str(product_table_version),
+        product_name=str(product_name),
+    )
+    bsub.spec.license_id = result.metadata.id

@@ -2,7 +2,11 @@ from typing import Optional
 
 from anyscale._private.sdk import sdk_command
 from anyscale.compute_config._private.compute_config_sdk import PrivateComputeConfigSDK
-from anyscale.compute_config.models import ComputeConfig, ComputeConfigVersion
+from anyscale.compute_config.models import (
+    ComputeConfig,
+    ComputeConfigVersion,
+    MultiDeploymentComputeConfig,
+)
 
 
 _COMPUTE_CONFIG_SDK_SINGLETON_KEY = "compute_config_sdk"
@@ -55,6 +59,67 @@ def create(
     Returns the full name of the registered compute config, including the version.
     """
     full_name, _ = _private_sdk.create_compute_config(config, name=name)  # type: ignore
+    return full_name
+
+
+_CREATE_MULTI_DEPLOYMENT_EXAMPLE = """
+import anyscale
+from anyscale.compute_config.models import MultiDeploymentComputeConfig, ComputeConfig, HeadNodeConfig, WorkerNodeGroupConfig
+config = MultiDeploymentComputeConfig(
+    configs=[
+        ComputeConfig(
+            cloud_deployment="vm-aws-us-west-1",
+            head_node=HeadNodeConfig(
+                instance_type="m5.2xlarge",
+            ),
+            worker_nodes=[
+                WorkerNodeGroupConfig(
+                    instance_type="m5.4xlarge",
+                    min_nodes=1,
+                    max_nodes=10,
+                ),
+            ],
+        ),
+        ComputeConfig(
+            cloud_deployment="vm-aws-us-west-2",
+            head_node=HeadNodeConfig(
+                instance_type="m5.2xlarge",
+            ),
+            worker_nodes=[
+                WorkerNodeGroupConfig(
+                    instance_type="m5.4xlarge",
+                    min_nodes=1,
+                    max_nodes=10,
+                ),
+            ],
+        )
+    ]
+)
+full_name: str = anyscale.compute_config.create_multi_deployment(config, name="my-compute-config")
+"""
+
+_CREATE_MULTI_DEPLOYMENT_ARG_DOCSTRINGS = {
+    "config": "The config options defining the multi-deployment compute config.",
+    "name": "The name of the compute config. This should *not* include a version tag. If a name is not provided, one will be automatically generated.",
+}
+
+
+@sdk_command(
+    _COMPUTE_CONFIG_SDK_SINGLETON_KEY,
+    PrivateComputeConfigSDK,
+    doc_py_example=_CREATE_MULTI_DEPLOYMENT_EXAMPLE,
+    arg_docstrings=_CREATE_MULTI_DEPLOYMENT_ARG_DOCSTRINGS,
+)
+def create_multi_deployment(
+    config: MultiDeploymentComputeConfig,
+    *,
+    name: Optional[str],
+    _private_sdk: Optional[PrivateComputeConfigSDK] = None,
+) -> str:
+    """EXPERIMENTAL. Create a new version of a compute config with multiple possible cloud deployments.
+    Returns the full name of the registered compute config, including the version.
+    """
+    full_name, _ = _private_sdk.create_multi_deployment_compute_config(config, name=name)  # type: ignore
     return full_name
 
 

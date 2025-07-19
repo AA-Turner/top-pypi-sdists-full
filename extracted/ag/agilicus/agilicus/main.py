@@ -87,6 +87,7 @@ from .credentials_commands import credentials_main
 from .files_pkg import files_main
 from .policy_config import policy_config_main
 from .licensing import licensing_main
+from .licensing.licenses import add_license_to_billing_sub
 
 from .version import __version__
 
@@ -7070,14 +7071,15 @@ def list_billing_accounts(ctx, **kwargs):
 @cli.command(name="list-billing-subscriptions")
 @click.option("--org-id", default=None)
 @click.option("--billing-account-id", default=None)
-@click.option("--limit", default=500, type=int)
-@click.option("--page-at-id", default=None)
+@click.option("--limit", default=None, type=int)
+@click.option("--page-at-id", default="")
 @click.option("--page-size", default=100, type=int)
 @click.option("--get-subscription-data", is_flag=True, default=False)
 @click.option("--get-usage-metrics", is_flag=True, default=False)
 @click.option("--get-stripe-status", is_flag=True, default=False)
 @click.option("--has-cancel-detail", is_flag=True, default=None)
 @click.option("--active-orgs-since", default=None, type=click.DateTime())
+@click.option("--filter", type=click.Choice(billing.BILLING_SUBSCRIPTIONS_FILTER_TYPES))
 @click.pass_context
 def list_billing_subscriptions(ctx, get_stripe_status=False, **kwargs):
     if get_stripe_status:
@@ -7299,6 +7301,19 @@ def override_replace(
 @click.option("--trial-period", type=int, default=None)
 @click.option("--dev-mode", is_flag=True, default=None)
 @click.option("--license-id", default=None)
+@click.option("--add-license", is_flag=True)
+@click.option(
+    "--product-table-version",
+    type=str,
+    default=None,
+    help="when adding license, override a table version",
+)
+@click.option(
+    "--product-name",
+    type=str,
+    default=None,
+    help="when adding license, override a product name",
+)
 @click.pass_context
 def update_subscription(
     ctx,
@@ -7310,6 +7325,9 @@ def update_subscription(
     subscription_reconcile=None,
     dev_mode=None,
     license_id=None,
+    add_license=None,
+    product_table_version=None,
+    product_name=None,
     **kwargs,
 ):
     """Update the min/max overrides in a customer subscription."""
@@ -7371,6 +7389,9 @@ def update_subscription(
     params = {}
     if subscription_reconcile is not None:
         params["subscription_reconcile"] = subscription_reconcile
+
+    if add_license:
+        add_license_to_billing_sub(ctx, bsub, product_name, product_table_version)
 
     sub = billing.update_subscription(
         ctx,
@@ -8665,6 +8686,7 @@ def delete_connector_services(ctx, *args, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--user-id", default=None)
 @click.option("--supporting-user-org-id", default=None)
+@click.option("--expired", default=None, type=bool)
 @click.option("--limit", default=500)
 @click.pass_context
 def list_support_requests(ctx, **kwargs):

@@ -3,7 +3,6 @@ from instructor.multimodal import Image, Audio
 import instructor
 from pydantic import Field, BaseModel
 from itertools import product
-from .util import models, modes
 import requests
 from pathlib import Path
 import base64
@@ -17,6 +16,11 @@ curr_file = os.path.dirname(__file__)
 pdf_path = os.path.join(curr_file, "../../assets/invoice.pdf")
 pdf_base64 = base64.b64encode(open(pdf_path, "rb").read()).decode("utf-8")
 pdf_base64_string = f"data:application/pdf;base64,{pdf_base64}"
+
+models = ["gpt-4.1-nano"]
+modes = [
+    instructor.Mode.TOOLS,
+]
 
 
 class LineItem(BaseModel):
@@ -175,7 +179,7 @@ def test_multimodal_image_description_autodetect_no_response_model(model, mode, 
 @pytest.mark.parametrize("model, mode", product(models, modes))
 def test_multimodal_pdf_file(model, mode, client, pdf_source):
     client = instructor.from_openai(client, mode=mode)
-    
+
     # Retry logic for flaky LLM responses
     max_retries = 3
     for attempt in range(max_retries):
@@ -195,11 +199,13 @@ def test_multimodal_pdf_file(model, mode, client, pdf_source):
             response_model=Receipt,
             temperature=0,  # Keep for consistent responses
         )
-        
+
         if response.total == 220 and len(response.items) == 2:
             break
         elif attempt == max_retries - 1:
-            pytest.fail(f"After {max_retries} attempts, got total={response.total}, items={response.items}, expected total=220, items=2")
-    
+            pytest.fail(
+                f"After {max_retries} attempts, got total={response.total}, items={response.items}, expected total=220, items=2"
+            )
+
     assert response.total == 220
     assert len(response.items) == 2

@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing as t
 
 from sqlglot import exp, generator, parser, tokens, transforms
+
 from sqlglot.expressions import DATA_TYPE
 from sqlglot.dialects.dialect import (
     Dialect,
@@ -181,8 +182,15 @@ def _struct_sql(self: DuckDB.Generator, expression: exp.Struct) -> str:
         if is_bq_inline_struct:
             args.append(self.sql(value))
         else:
-            key = expr.name if is_property_eq else f"_{i}"
-            args.append(f"{self.sql(exp.Literal.string(key))}: {self.sql(value)}")
+            if is_property_eq:
+                if isinstance(expr.this, exp.Identifier):
+                    key = self.sql(exp.Literal.string(expr.name))
+                else:
+                    key = self.sql(expr.this)
+            else:
+                key = self.sql(exp.Literal.string(f"_{i}"))
+
+            args.append(f"{key}: {self.sql(value)}")
 
     csv_args = ", ".join(args)
 
@@ -358,6 +366,8 @@ class DuckDB(Dialect):
         COMMANDS = tokens.Tokenizer.COMMANDS - {TokenType.SHOW}
 
     class Parser(parser.Parser):
+        MAP_KEYS_ARE_ARBITRARY_EXPRESSIONS = True
+
         BITWISE = {
             **parser.Parser.BITWISE,
             TokenType.TILDA: exp.RegexpLike,
@@ -617,6 +627,12 @@ class DuckDB(Dialect):
 
         def _parse_show_duckdb(self, this: str) -> exp.Show:
             return self.expression(exp.Show, this=this)
+
+        def _parse_primary(self) -> t.Optional[exp.Expression]:
+            if self._match_pair(TokenType.HASH, TokenType.NUMBER):
+                return exp.PositionalColumn(this=exp.Literal.number(self._prev.text))
+
+            return super()._parse_primary()
 
     class Generator(generator.Generator):
         PARAMETER_TOKEN = "$"
@@ -990,20 +1006,6 @@ class DuckDB(Dialect):
                     expression.set("method", exp.var("RESERVOIR"))
 
             return super().tablesample_sql(expression, tablesample_keyword=tablesample_keyword)
-
-        def interval_sql(self, expression: exp.Interval) -> str:
-            multiplier: t.Optional[int] = None
-            unit = expression.text("unit").lower()
-
-            if unit.startswith("week"):
-                multiplier = 7
-            if unit.startswith("quarter"):
-                multiplier = 90
-
-            if multiplier:
-                return f"({multiplier} * {super().interval_sql(exp.Interval(this=expression.this, unit=exp.var('DAY')))})"
-
-            return super().interval_sql(expression)
 
         def columndef_sql(self, expression: exp.ColumnDef, sep: str = " ") -> str:
             if isinstance(expression.parent, exp.UserDefinedFunction):

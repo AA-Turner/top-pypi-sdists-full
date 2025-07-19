@@ -1,7 +1,7 @@
 r'''
 # `pagerduty_service_custom_field_value`
 
-Refer to the Terraform Registry for docs: [`pagerduty_service_custom_field_value`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value).
+Refer to the Terraform Registry for docs: [`pagerduty_service_custom_field_value`](https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ServiceCustomFieldValue(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-pagerduty.serviceCustomFieldValue.ServiceCustomFieldValue",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value pagerduty_service_custom_field_value}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value pagerduty_service_custom_field_value}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class ServiceCustomFieldValue(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value pagerduty_service_custom_field_value} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value pagerduty_service_custom_field_value} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param custom_fields: The custom field values to set for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
-        :param service_id: The ID of the service to set custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
+        :param custom_fields: The custom field values to set for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
+        :param service_id: The ID of the service to set custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class ServiceCustomFieldValue(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ServiceCustomFieldValue to import.
-        :param import_from_id: The id of the existing ServiceCustomFieldValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ServiceCustomFieldValue that should be imported. Refer to the {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ServiceCustomFieldValue to import is found.
         '''
         if __debug__:
@@ -215,8 +215,8 @@ class ServiceCustomFieldValueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param custom_fields: The custom field values to set for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
-        :param service_id: The ID of the service to set custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
+        :param custom_fields: The custom field values to set for the service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
+        :param service_id: The ID of the service to set custom field values for. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -320,7 +320,7 @@ class ServiceCustomFieldValueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ServiceCustomFieldValueCustomFields"]]:
         '''The custom field values to set for the service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#custom_fields ServiceCustomFieldValue#custom_fields}
         '''
         result = self._values.get("custom_fields")
         assert result is not None, "Required property 'custom_fields' is missing"
@@ -330,7 +330,7 @@ class ServiceCustomFieldValueConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def service_id(self) -> builtins.str:
         '''The ID of the service to set custom field values for.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#service_id ServiceCustomFieldValue#service_id}
         '''
         result = self._values.get("service_id")
         assert result is not None, "Required property 'service_id' is missing"
@@ -362,9 +362,9 @@ class ServiceCustomFieldValueCustomFields:
         value: builtins.str,
     ) -> None:
         '''
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#id ServiceCustomFieldValue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#name ServiceCustomFieldValue#name}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#value ServiceCustomFieldValue#value}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#id ServiceCustomFieldValue#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#name ServiceCustomFieldValue#name}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#value ServiceCustomFieldValue#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a997b0cd69352268423eb80db60d5824fcdbb4c26f3c05f277662774b8eb9ed2)
@@ -379,7 +379,7 @@ class ServiceCustomFieldValueCustomFields:
 
     @builtins.property
     def id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#id ServiceCustomFieldValue#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#id ServiceCustomFieldValue#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -390,14 +390,14 @@ class ServiceCustomFieldValueCustomFields:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#name ServiceCustomFieldValue#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#name ServiceCustomFieldValue#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.1/docs/resources/service_custom_field_value#value ServiceCustomFieldValue#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/pagerduty/pagerduty/3.27.2/docs/resources/service_custom_field_value#value ServiceCustomFieldValue#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)

@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdktf/provider-pagerduty",
-    "14.1.1",
+    "14.1.2",
     __name__[0:-6],
-    "provider-pagerduty@14.1.1.jsii.tgz",
+    "provider-pagerduty@14.1.2.jsii.tgz",
 )
 
 __all__ = [

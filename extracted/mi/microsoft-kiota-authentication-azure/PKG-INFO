@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: microsoft-kiota-authentication-azure
-Version: 1.9.4
+Version: 1.9.5
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 Keywords: kiota,openAPI,Microsoft,Graph
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: aiohttp (>=3.8.0)
 Requires-Dist: azure-core (>=1.21.1)
-Requires-Dist: microsoft-kiota-abstractions (>=1.9.4,<1.10.0)
+Requires-Dist: microsoft-kiota-abstractions (>=1.9.5,<1.10.0)
 Requires-Dist: opentelemetry-api (>=1.27.0)
 Requires-Dist: opentelemetry-sdk (>=1.27.0)
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/

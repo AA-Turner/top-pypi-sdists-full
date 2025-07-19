@@ -978,6 +978,7 @@ class TestDialect(Validator):
             "DATE_ADD(x, 1, 'DAY')",
             read={
                 "snowflake": "DATEADD('DAY', 1, x)",
+                "dremio": "DATE_ADD(x, 1)",
             },
             write={
                 "bigquery": "DATE_ADD(x, INTERVAL 1 DAY)",
@@ -994,6 +995,7 @@ class TestDialect(Validator):
                 "starrocks": "DATE_ADD(x, INTERVAL 1 DAY)",
                 "tsql": "DATEADD(DAY, 1, x)",
                 "doris": "DATE_ADD(x, INTERVAL 1 DAY)",
+                "dremio": "DATE_ADD(x, 1)",
             },
         )
         self.validate_all(
@@ -1008,6 +1010,7 @@ class TestDialect(Validator):
                 "spark": "DATE_ADD(x, 1)",
                 "starrocks": "DATE_ADD(x, INTERVAL 1 DAY)",
                 "doris": "DATE_ADD(x, INTERVAL 1 DAY)",
+                "dremio": "DATE_ADD(x, 1)",
             },
         )
         self.validate_all(
@@ -1196,6 +1199,7 @@ class TestDialect(Validator):
                 "hive": "DATE_ADD(CAST('2020-01-01' AS DATE), 1)",
                 "presto": "DATE_ADD('DAY', 1, CAST('2020-01-01' AS DATE))",
                 "spark": "DATE_ADD(CAST('2020-01-01' AS DATE), 1)",
+                "dremio": "DATE_ADD(CAST('2020-01-01' AS DATE), 1)",
             },
         )
         self.validate_all(
@@ -3213,12 +3217,12 @@ FROM subquery2""",
             write={
                 "bigquery": "SELECT * FROM UNNEST(GENERATE_DATE_ARRAY(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), INTERVAL '1' WEEK))",
                 "databricks": "SELECT * FROM EXPLODE(SEQUENCE(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), INTERVAL '1' WEEK))",
-                "duckdb": "SELECT * FROM UNNEST(CAST(GENERATE_SERIES(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), (7 * INTERVAL '1' DAY)) AS DATE[]))",
+                "duckdb": "SELECT * FROM UNNEST(CAST(GENERATE_SERIES(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), INTERVAL '1' WEEK) AS DATE[]))",
                 "mysql": "WITH RECURSIVE _generated_dates(date_value) AS (SELECT CAST('2020-01-01' AS DATE) AS date_value UNION ALL SELECT CAST(DATE_ADD(date_value, INTERVAL 1 WEEK) AS DATE) FROM _generated_dates WHERE CAST(DATE_ADD(date_value, INTERVAL 1 WEEK) AS DATE) <= CAST('2020-02-01' AS DATE)) SELECT * FROM (SELECT date_value FROM _generated_dates) AS _generated_dates",
                 "postgres": "SELECT * FROM (SELECT CAST(value AS DATE) FROM GENERATE_SERIES(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), INTERVAL '1 WEEK') AS _t(value)) AS _unnested_generate_series",
                 "presto": "SELECT * FROM UNNEST(SEQUENCE(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), (1 * INTERVAL '7' DAY)))",
                 "redshift": "WITH RECURSIVE _generated_dates(date_value) AS (SELECT CAST('2020-01-01' AS DATE) AS date_value UNION ALL SELECT CAST(DATEADD(WEEK, 1, date_value) AS DATE) FROM _generated_dates WHERE CAST(DATEADD(WEEK, 1, date_value) AS DATE) <= CAST('2020-02-01' AS DATE)) SELECT * FROM (SELECT date_value FROM _generated_dates) AS _generated_dates",
-                "snowflake": "SELECT * FROM (SELECT DATEADD(WEEK, CAST(value AS INT), CAST('2020-01-01' AS DATE)) AS value FROM TABLE(FLATTEN(INPUT => ARRAY_GENERATE_RANGE(0, (DATEDIFF(WEEK, CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE)) + 1 - 1) + 1))) AS _u(seq, key, path, index, value, this))",
+                "snowflake": "SELECT * FROM (SELECT DATEADD(WEEK, CAST(value AS INT), CAST('2020-01-01' AS DATE)) AS value FROM TABLE(FLATTEN(INPUT => ARRAY_GENERATE_RANGE(0, (DATEDIFF(WEEK, CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE)) + 1 - 1) + 1))) AS _t0(seq, key, path, index, value, this))",
                 "spark": "SELECT * FROM EXPLODE(SEQUENCE(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), INTERVAL '1' WEEK))",
                 "trino": "SELECT * FROM UNNEST(SEQUENCE(CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE), (1 * INTERVAL '7' DAY)))",
                 "tsql": "WITH _generated_dates(date_value) AS (SELECT CAST('2020-01-01' AS DATE) AS date_value UNION ALL SELECT CAST(DATEADD(WEEK, 1, date_value) AS DATE) FROM _generated_dates WHERE CAST(DATEADD(WEEK, 1, date_value) AS DATE) <= CAST('2020-02-01' AS DATE)) SELECT * FROM (SELECT date_value AS date_value FROM _generated_dates) AS _generated_dates",
@@ -3253,7 +3257,7 @@ FROM subquery2""",
         self.validate_all(
             "SELECT ARRAY_LENGTH(GENERATE_DATE_ARRAY(DATE '2020-01-01', DATE '2020-02-01', INTERVAL 1 WEEK))",
             write={
-                "snowflake": "SELECT ARRAY_SIZE((SELECT ARRAY_AGG(*) FROM (SELECT DATEADD(WEEK, CAST(value AS INT), CAST('2020-01-01' AS DATE)) AS value FROM TABLE(FLATTEN(INPUT => ARRAY_GENERATE_RANGE(0, (DATEDIFF(WEEK, CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE)) + 1 - 1) + 1))) AS _u(seq, key, path, index, value, this))))",
+                "snowflake": "SELECT ARRAY_SIZE((SELECT ARRAY_AGG(*) FROM (SELECT DATEADD(WEEK, CAST(value AS INT), CAST('2020-01-01' AS DATE)) AS value FROM TABLE(FLATTEN(INPUT => ARRAY_GENERATE_RANGE(0, (DATEDIFF(WEEK, CAST('2020-01-01' AS DATE), CAST('2020-02-01' AS DATE)) + 1 - 1) + 1))) AS _t0(seq, key, path, index, value, this))))",
             },
         )
 
@@ -3558,3 +3562,96 @@ FROM subquery2""",
                     parse_one("SELECT 0xCC", read=read_dialect).sql(other_integer_dialects),
                     "SELECT 0xCC",
                 )
+
+    def test_ascii(self):
+        self.validate_all(
+            "ASCII('A')",
+            read={
+                "bigquery": "ASCII('A')",
+                "clickhouse": "ASCII('A')",
+                "databricks": "ASCII('A')",
+                "hive": "ASCII('A')",
+                "mysql": "ASCII('A')",
+                "postgres": "ASCII('A')",
+                "redshift": "ASCII('A')",
+                "snowflake": "ASCII('A')",
+                "tsql": "ASCII('A')",
+            },
+            write={
+                "bigquery": "ASCII('A')",
+                "clickhouse": "ASCII('A')",
+                "databricks": "ASCII('A')",
+                "hive": "ASCII('A')",
+                "mysql": "ASCII('A')",
+                "postgres": "ASCII('A')",
+                "redshift": "ASCII('A')",
+                "snowflake": "ASCII('A')",
+                "tsql": "ASCII('A')",
+            },
+        )
+
+    def test_bit_aggs(self):
+        self.validate_all(
+            "BIT_AND(x)",
+            read={
+                "bigquery": "BIT_AND(x)",
+                "spark": "BIT_AND(x)",
+                "databricks": "BIT_AND(x)",
+                "mysql": "BIT_AND(x)",
+                "dremio": "BIT_AND(x)",
+            },
+            write={
+                "bigquery": "BIT_AND(x)",
+                "spark": "BIT_AND(x)",
+                "databricks": "BIT_AND(x)",
+                "mysql": "BIT_AND(x)",
+                "dremio": "BIT_AND(x)",
+            },
+        )
+        self.validate_all(
+            "BIT_OR(x)",
+            read={
+                "bigquery": "BIT_OR(x)",
+                "spark": "BIT_OR(x)",
+                "databricks": "BIT_OR(x)",
+                "mysql": "BIT_OR(x)",
+                "dremio": "BIT_OR(x)",
+            },
+            write={
+                "bigquery": "BIT_OR(x)",
+                "spark": "BIT_OR(x)",
+                "databricks": "BIT_OR(x)",
+                "mysql": "BIT_OR(x)",
+                "dremio": "BIT_OR(x)",
+            },
+        )
+        self.validate_all(
+            "BIT_XOR(x)",
+            read={
+                "bigquery": "BIT_XOR(x)",
+                "spark": "BIT_XOR(x)",
+                "databricks": "BIT_XOR(x)",
+                "mysql": "BIT_XOR(x)",
+            },
+            write={
+                "bigquery": "BIT_XOR(x)",
+                "spark": "BIT_XOR(x)",
+                "databricks": "BIT_XOR(x)",
+                "mysql": "BIT_XOR(x)",
+            },
+        )
+        self.validate_all(
+            "BIT_COUNT(x)",
+            read={
+                "bigquery": "BIT_COUNT(x)",
+                "spark": "BIT_COUNT(x)",
+                "databricks": "BIT_COUNT(x)",
+                "mysql": "BIT_COUNT(x)",
+            },
+            write={
+                "bigquery": "BIT_COUNT(x)",
+                "spark": "BIT_COUNT(x)",
+                "databricks": "BIT_COUNT(x)",
+                "mysql": "BIT_COUNT(x)",
+            },
+        )

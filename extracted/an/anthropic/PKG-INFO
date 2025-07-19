@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 0.57.1
+Version: 0.58.2
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.8
@@ -30,7 +31,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.28.57; extra == 'bedrock'
 Requires-Dist: botocore>=1.31.57; extra == 'bedrock'
@@ -40,7 +41,8 @@ Description-Content-Type: text/markdown
 
 # Anthropic Python API library
 
-[![PyPI version](https://github.com/anthropics/anthropic-sdk-python/tree/main/<https://img.shields.io/pypi/v/anthropic.svg?label=pypi%20(stable)>)](https://pypi.org/project/anthropic/)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/anthropic.svg?label=pypi%20(stable))](https://pypi.org/project/anthropic/)
 
 The Anthropic Python library provides convenient access to the Anthropic REST API from any Python 3.8+
 application. It includes type definitions for all request params and response fields,
@@ -134,7 +136,6 @@ pip install anthropic[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
-import os
 import asyncio
 from anthropic import DefaultAioHttpClient
 from anthropic import AsyncAnthropic
@@ -142,7 +143,7 @@ from anthropic import AsyncAnthropic
 
 async def main() -> None:
     async with AsyncAnthropic(
-        api_key=os.environ.get("ANTHROPIC_API_KEY"),  # This is the default and can be omitted
+        api_key="my-anthropic-api-key",
         http_client=DefaultAioHttpClient(),
     ) as client:
         message = await client.messages.create(
@@ -329,7 +330,7 @@ message = client.messages.create(
             "content": "Hello!",
         }
     ],
-    model="anthropic.claude-sonnet-4-20250514-v2:0",
+    model="anthropic.claude-sonnet-4-20250514-v1:0",
 )
 print(message)
 ```

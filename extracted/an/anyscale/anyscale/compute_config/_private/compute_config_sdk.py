@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from anyscale._private.sdk.base_sdk import BaseSDK
 from anyscale.client.openapi_client.models import (
     Cloud,
-    CloudProviders,
+    CloudDeploymentComputeConfig,
     ComputeNodeType,
     ComputeTemplateConfig,
     DecoratedComputeTemplate,
@@ -19,6 +19,7 @@ from anyscale.compute_config.models import (
     ComputeConfigVersion,
     HeadNodeConfig,
     MarketType,
+    MultiDeploymentComputeConfig,
     WorkerNodeGroupConfig,
 )
 from anyscale.sdk.anyscale_client.models import ClusterComputeConfig
@@ -31,26 +32,6 @@ UNSCHEDULABLE_RESOURCES = Resources(cpu=0, gpu=0)
 
 
 class PrivateComputeConfigSDK(BaseSDK):
-    def _populate_advanced_instance_config(
-        self,
-        config: Union[ComputeConfig, HeadNodeConfig, WorkerNodeGroupConfig],
-        api_model: Union[ComputeTemplateConfig, ComputeNodeType, WorkerNodeType],
-        *,
-        cloud: Cloud,
-    ):
-        """Populates the appropriate advanced instance config field of the API model in place."""
-        if not config.advanced_instance_config:
-            return
-
-        # Always pass the advanced configuration through `advanced_configurations_json`.
-        # After fully migrated, we can stop setting the cloud-specific advanced configurations here.
-        api_model.advanced_configurations_json = config.advanced_instance_config
-
-        if cloud.provider == CloudProviders.AWS:
-            api_model.aws_advanced_configurations_json = config.advanced_instance_config
-        elif cloud.provider == CloudProviders.GCP:
-            api_model.gcp_advanced_configurations_json = config.advanced_instance_config
-
     def _convert_resource_dict_to_api_model(
         self, resource_dict: Optional[Dict[str, float]]
     ) -> Optional[Resources]:
@@ -103,18 +84,13 @@ class PrivateComputeConfigSDK(BaseSDK):
                 if config.resources is not None or schedulable_by_default
                 else UNSCHEDULABLE_RESOURCES,
                 flags=flags or None,
-            )
-            self._populate_advanced_instance_config(
-                config, api_model, cloud=cloud,
+                advanced_configurations_json=config.advanced_instance_config or None,
             )
 
         return api_model
 
     def _convert_worker_node_group_configs_to_api_models(
-        self,
-        configs: Optional[List[Union[Dict, WorkerNodeGroupConfig]]],
-        *,
-        cloud: Cloud,
+        self, configs: Optional[List[Union[Dict, WorkerNodeGroupConfig]]],
     ) -> Optional[List[WorkerNodeType]]:
         if configs is None:
             return None
@@ -139,9 +115,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                 in {MarketType.SPOT, MarketType.PREFER_SPOT},
                 fallback_to_ondemand=config.market_type == MarketType.PREFER_SPOT,
                 flags=flags or None,
-            )
-            self._populate_advanced_instance_config(
-                config, api_model, cloud=cloud,
+                advanced_configurations_json=config.advanced_instance_config or None,
             )
             api_models.append(api_model)
 
@@ -149,7 +123,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
     def _convert_compute_config_to_api_model(
         self, compute_config: ComputeConfig
-    ) -> ComputeTemplateConfig:
+    ) -> CloudDeploymentComputeConfig:
         # We should only make the head node schedulable when it's the *only* node in the cluster.
         # `worker_nodes=None` uses the default serverless config, so this only happens if `worker_nodes`
         # is explicitly set to an empty list.
@@ -172,10 +146,9 @@ class PrivateComputeConfigSDK(BaseSDK):
         if compute_config.max_resources:
             flags["max_resources"] = compute_config.max_resources
 
-        api_model = ComputeTemplateConfig(
-            cloud_id=cloud_id,
+        return CloudDeploymentComputeConfig(
+            cloud_deployment=compute_config.cloud_deployment,
             allowed_azs=compute_config.zones,
-            region="",
             head_node_type=self._convert_head_node_config_to_api_model(
                 compute_config.head_node,
                 cloud=cloud,
@@ -185,19 +158,19 @@ class PrivateComputeConfigSDK(BaseSDK):
                 ),
             ),
             worker_node_types=self._convert_worker_node_group_configs_to_api_models(
-                compute_config.worker_nodes, cloud=cloud,
+                compute_config.worker_nodes,
             ),
             auto_select_worker_config=compute_config.auto_select_worker_config,
             flags=flags,
+            advanced_configurations_json=compute_config.advanced_instance_config
+            or None,
         )
-        self._populate_advanced_instance_config(
-            compute_config, api_model, cloud=cloud,
-        )
-        return api_model
 
     def create_compute_config(
         self, compute_config: ComputeConfig, *, name: Optional[str] = None
     ) -> Tuple[str, str]:
+        """Register the provided compute config and return its internal ID."""
+
         if name is not None:
             _, version = parse_cluster_compute_name_version(name)
             if version is not None:
@@ -206,35 +179,101 @@ class PrivateComputeConfigSDK(BaseSDK):
                     "The latest version tag will be generated and returned."
                 )
 
-        """Register the provided compute config and return its internal ID."""
-        compute_config_api_model = self._convert_compute_config_to_api_model(
-            compute_config
+        # Returns the default cloud if user-provided cloud is not specified (`None`).
+        cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
+
+        deployment_config = self._convert_compute_config_to_api_model(compute_config)
+
+        compute_config_api_model = ComputeTemplateConfig(
+            cloud_id=cloud_id,
+            deployment_configs=[deployment_config],
+            # For compatibility, continue setting the top-level fields.
+            allowed_azs=deployment_config.allowed_azs,
+            head_node_type=deployment_config.head_node_type,
+            worker_node_types=deployment_config.worker_node_types,
+            auto_select_worker_config=deployment_config.auto_select_worker_config,
+            flags=deployment_config.flags,
+            advanced_configurations_json=deployment_config.advanced_configurations_json
+            or None,
         )
+
         full_name, compute_config_id = self.client.create_compute_config(
             compute_config_api_model, name=name
         )
         self.logger.info(f"Created compute config: '{full_name}'")
         ui_url = self.client.get_compute_config_ui_url(
-            compute_config_id, cloud_id=compute_config_api_model.cloud_id
+            compute_config_id, cloud_id=cloud_id
         )
         self.logger.info(f"View the compute config in the UI: '{ui_url}'")
         return full_name, compute_config_id
 
+    def create_multi_deployment_compute_config(
+        self,
+        compute_config: MultiDeploymentComputeConfig,
+        *,
+        name: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        """Register the provided multi-deployment compute config and return its internal ID."""
+        if name is not None:
+            _, version = parse_cluster_compute_name_version(name)
+            if version is not None:
+                raise ValueError(
+                    "A version tag cannot be provided when creating a compute config. "
+                    "The latest version tag will be generated and returned."
+                )
+
+        # Returns the default cloud if user-provided cloud is not specified (`None`).
+        cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
+
+        # Convert each compute config to the CloudDeploymentComputeConfig API model.
+        assert compute_config.configs
+        deployment_configs = []
+        for config in compute_config.configs:
+            assert isinstance(config, ComputeConfig)
+            deployment_configs.append(self._convert_compute_config_to_api_model(config))
+        default_config = deployment_configs[0]
+
+        compute_config_api_model = ComputeTemplateConfig(
+            cloud_id=cloud_id,
+            deployment_configs=deployment_configs,
+            # For compatibility, use the first deployment config to set the top-level fields.
+            allowed_azs=default_config.allowed_azs,
+            head_node_type=default_config.head_node_type,
+            worker_node_types=default_config.worker_node_types,
+            auto_select_worker_config=default_config.auto_select_worker_config,
+            flags=default_config.flags,
+            advanced_configurations_json=default_config.advanced_configurations_json
+            or None,
+        )
+        full_name, compute_config_id = self.client.create_compute_config(
+            compute_config_api_model, name=name
+        )
+        self.logger.info(f"Created compute config: '{full_name}'")
+
+        # TODO(janet): add this back after the UI has been updated to support multi-deployment compute configs.
+        # ui_url = self.client.get_compute_config_ui_url(
+        #     compute_config_id, cloud_id=cloud_id
+        # )
+        # self.logger.info(f"View the compute config in the UI: '{ui_url}'")
+
+        return full_name, compute_config_id
+
     def _convert_api_model_to_advanced_instance_config(
         self,
-        api_model: Union[DecoratedComputeTemplate, ComputeNodeType, WorkerNodeType],
-        *,
-        cloud: Cloud,
+        api_model: Union[
+            DecoratedComputeTemplateConfig, ComputeNodeType, WorkerNodeType
+        ],
     ) -> Optional[Dict]:
         if api_model.advanced_configurations_json:
             return api_model.advanced_configurations_json
 
-        if cloud.provider == CloudProviders.AWS:
-            return api_model.aws_advanced_configurations_json or None
-        elif cloud.provider == CloudProviders.GCP:
-            return api_model.gcp_advanced_configurations_json or None
-        else:
-            return None
+        # Only one of aws_advanced_configurations_json or gcp_advanced_configurations_json will be set.
+        if api_model.aws_advanced_configurations_json:
+            return api_model.aws_advanced_configurations_json
+        if api_model.gcp_advanced_configurations_json:
+            return api_model.gcp_advanced_configurations_json
+
+        return None
 
     def _convert_api_model_to_resource_dict(
         self, resources: Optional[Resources]
@@ -256,7 +295,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         }
 
     def _convert_api_model_to_head_node_config(
-        self, api_model: ComputeNodeType, *, cloud: Cloud
+        self, api_model: ComputeNodeType
     ) -> HeadNodeConfig:
         flags: Dict[str, Any] = deepcopy(api_model.flags) or {}
 
@@ -271,14 +310,14 @@ class PrivateComputeConfigSDK(BaseSDK):
             instance_type=api_model.instance_type,
             resources=self._convert_api_model_to_resource_dict(api_model.resources),
             advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
-                api_model, cloud=cloud,
+                api_model,
             ),
             flags=flags or None,
             cloud_deployment=cloud_deployment,
         )
 
     def _convert_api_models_to_worker_node_group_configs(
-        self, api_models: List[WorkerNodeType], *, cloud: Cloud
+        self, api_models: List[WorkerNodeType]
     ) -> List[WorkerNodeGroupConfig]:
         # TODO(edoakes): support advanced_instance_config.
         configs = []
@@ -318,7 +357,7 @@ class PrivateComputeConfigSDK(BaseSDK):
                         api_model.resources
                     ),
                     advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
-                        api_model, cloud=cloud,
+                        api_model,
                     ),
                     min_nodes=min_nodes,
                     max_nodes=max_nodes,
@@ -329,6 +368,54 @@ class PrivateComputeConfigSDK(BaseSDK):
             )
 
         return configs
+
+    def _convert_cloud_deployment_compute_config_api_model_to_compute_config(
+        self, cloud_name: str, api_model: CloudDeploymentComputeConfig,
+    ) -> ComputeConfig:
+        worker_nodes = None
+        if not api_model.auto_select_worker_config:
+            if api_model.worker_node_types is not None:
+                # Convert worker node types when they are present.
+                worker_nodes = self._convert_api_models_to_worker_node_group_configs(
+                    api_model.worker_node_types
+                )
+            else:
+                # An explicit head-node-only cluster (no worker nodes configured).
+                worker_nodes = []
+
+        zones = None
+        # NOTE(edoakes): the API returns '["any"]' if no AZs are passed in on the creation path.
+        if api_model.allowed_azs not in [["any"], []]:
+            zones = api_model.allowed_azs
+
+        enable_cross_zone_scaling = False
+        flags: Dict[str, Any] = deepcopy(api_model.flags) or {}
+        enable_cross_zone_scaling = flags.pop("allow-cross-zone-autoscaling", False)
+        min_resources = flags.pop("min_resources", None)
+        max_resources = flags.pop("max_resources", None)
+        if max_resources is None:
+            max_resources = {}
+            max_cpus = flags.pop("max-cpus", None)
+            if max_cpus:
+                max_resources["CPU"] = max_cpus
+            max_gpus = flags.pop("max-gpus", None)
+            if max_gpus:
+                max_resources["GPU"] = max_gpus
+
+        return ComputeConfig(
+            cloud=cloud_name,
+            cloud_deployment=api_model.cloud_deployment,
+            zones=zones,
+            advanced_instance_config=api_model.advanced_configurations_json or None,
+            enable_cross_zone_scaling=enable_cross_zone_scaling,
+            head_node=self._convert_api_model_to_head_node_config(
+                api_model.head_node_type
+            ),
+            worker_nodes=worker_nodes,
+            min_resources=min_resources,
+            max_resources=max_resources or None,
+            flags=flags,
+        )
 
     def _convert_api_model_to_compute_config_version(
         self, api_model: DecoratedComputeTemplate  # noqa: ARG002
@@ -341,12 +428,37 @@ class PrivateComputeConfigSDK(BaseSDK):
                 "This should never happen; please reach out to Anyscale support."
             )
 
+        configs = None
+        if api_model_config.deployment_configs:
+            configs = [
+                self._convert_cloud_deployment_compute_config_api_model_to_compute_config(
+                    cloud.name, config
+                )
+                for config in api_model_config.deployment_configs
+            ]
+            if len(configs) == 1:
+                # If there's only one deployment config, return it directly.
+                return ComputeConfigVersion(
+                    name=f"{api_model.name}:{api_model.version}",
+                    id=api_model.id,
+                    config=configs[0],
+                )
+            return ComputeConfigVersion(
+                name=f"{api_model.name}:{api_model.version}",
+                id=api_model.id,
+                multi_deployment_config=MultiDeploymentComputeConfig(
+                    cloud=cloud.name, configs=configs,
+                ),
+            )
+
+        # If there are no deployment configs, this is a compute config for a single cloud deployment - parse the top-level fields.
+
         worker_nodes = None
         if not api_model_config.auto_select_worker_config:
             if api_model_config.worker_node_types is not None:
                 # Convert worker node types when they are present.
                 worker_nodes = self._convert_api_models_to_worker_node_group_configs(
-                    api_model_config.worker_node_types, cloud=cloud,
+                    api_model_config.worker_node_types
                 )
             else:
                 # An explicit head-node-only cluster (no worker nodes configured).
@@ -378,11 +490,11 @@ class PrivateComputeConfigSDK(BaseSDK):
                 cloud=cloud.name,
                 zones=zones,
                 advanced_instance_config=self._convert_api_model_to_advanced_instance_config(
-                    api_model_config, cloud=cloud,
+                    api_model_config
                 ),
                 enable_cross_zone_scaling=enable_cross_zone_scaling,
                 head_node=self._convert_api_model_to_head_node_config(
-                    api_model_config.head_node_type, cloud=cloud
+                    api_model_config.head_node_type
                 ),
                 worker_nodes=worker_nodes,  # type: ignore
                 min_resources=min_resources,

@@ -14,7 +14,6 @@ from meutils.apis.utils import make_request
 from meutils.schemas.hailuo_types import VideoRequest, VideoResponse, Video
 from meutils.config_utils.lark_utils import get_series, get_next_token_for_polling, get_next_token
 from meutils.llm.check_utils import check_token_for_ppinfra as check_token
-from meutils.notice.feishu import send_message_for_volc as send_message
 
 from fastapi import APIRouter, File, UploadFile, Query, Form, Depends, Request, HTTPException, status, BackgroundTasks
 

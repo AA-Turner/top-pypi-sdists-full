@@ -42,6 +42,8 @@ from .literals import (
     PowerFeedDropType,
     PowerPhaseType,
     ShipmentCarrierType,
+    SubscriptionStatusType,
+    SubscriptionTypeType,
     SupportedHardwareTypeType,
     SupportedStorageEnumType,
     TaskActionOnBlockingInstancesType,
@@ -91,6 +93,9 @@ __all__ = (
     "GetConnectionResponseTypeDef",
     "GetOrderInputTypeDef",
     "GetOrderOutputTypeDef",
+    "GetOutpostBillingInformationInputPaginateTypeDef",
+    "GetOutpostBillingInformationInputTypeDef",
+    "GetOutpostBillingInformationOutputTypeDef",
     "GetOutpostInputTypeDef",
     "GetOutpostInstanceTypesInputPaginateTypeDef",
     "GetOutpostInstanceTypesInputTypeDef",
@@ -149,6 +154,7 @@ __all__ = (
     "StartCapacityTaskOutputTypeDef",
     "StartConnectionRequestTypeDef",
     "StartConnectionResponseTypeDef",
+    "SubscriptionTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateOutpostInputTypeDef",
@@ -304,13 +310,28 @@ class GetConnectionRequestTypeDef(TypedDict):
 class GetOrderInputTypeDef(TypedDict):
     OrderId: str
 
-class GetOutpostInputTypeDef(TypedDict):
-    OutpostId: str
-
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class GetOutpostBillingInformationInputTypeDef(TypedDict):
+    OutpostIdentifier: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class SubscriptionTypeDef(TypedDict):
+    SubscriptionId: NotRequired[str]
+    SubscriptionType: NotRequired[SubscriptionTypeType]
+    SubscriptionStatus: NotRequired[SubscriptionStatusType]
+    OrderIds: NotRequired[List[str]]
+    BeginDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    MonthlyRecurringPrice: NotRequired[float]
+    UpfrontPrice: NotRequired[float]
+
+class GetOutpostInputTypeDef(TypedDict):
+    OutpostId: str
 
 class GetOutpostInstanceTypesInputTypeDef(TypedDict):
     OutpostId: str
@@ -590,6 +611,10 @@ class StartCapacityTaskOutputTypeDef(TypedDict):
     TaskActionOnBlockingInstances: TaskActionOnBlockingInstancesType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetOutpostBillingInformationInputPaginateTypeDef(TypedDict):
+    OutpostIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class GetOutpostInstanceTypesInputPaginateTypeDef(TypedDict):
     OutpostId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -645,6 +670,12 @@ class ListSitesInputPaginateTypeDef(TypedDict):
     OperatingAddressStateOrRegionFilter: NotRequired[Sequence[str]]
     OperatingAddressCityFilter: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class GetOutpostBillingInformationOutputTypeDef(TypedDict):
+    Subscriptions: List[SubscriptionTypeDef]
+    ContractEndDate: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class GetOutpostInstanceTypesOutputTypeDef(TypedDict):
     InstanceTypes: List[InstanceTypeItemTypeDef]

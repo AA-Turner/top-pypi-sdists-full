@@ -196,7 +196,7 @@ VerificationErrorType = Literal[
     "TYPE_NOT_FOUND",
 ]
 VerificationStatusType = Literal["FAILED", "NOT_STARTED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
-WarmupStatusType = Literal["DONE", "IN_PROGRESS"]
+WarmupStatusType = Literal["DONE", "IN_PROGRESS", "NOT_APPLICABLE"]
 SESV2ServiceName = Literal["sesv2"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -241,6 +241,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -473,6 +475,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -533,6 +536,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
