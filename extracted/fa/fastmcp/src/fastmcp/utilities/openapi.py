@@ -1068,15 +1068,16 @@ def _replace_ref_with_defs(
     """
     schema = info.copy()
     if ref_path := schema.get("$ref"):
-        if ref_path.startswith("#/components/schemas/"):
-            schema_name = ref_path.split("/")[-1]
-            schema["$ref"] = f"#/$defs/{schema_name}"
-        elif not ref_path.startswith("#/"):
-            raise ValueError(
-                f"External or non-local reference not supported: {ref_path}. "
-                f"FastMCP only supports local schema references starting with '#/'. "
-                f"Please include all schema definitions within the OpenAPI document."
-            )
+        if isinstance(ref_path, str):
+            if ref_path.startswith("#/components/schemas/"):
+                schema_name = ref_path.split("/")[-1]
+                schema["$ref"] = f"#/$defs/{schema_name}"
+            elif not ref_path.startswith("#/"):
+                raise ValueError(
+                    f"External or non-local reference not supported: {ref_path}. "
+                    f"FastMCP only supports local schema references starting with '#/'. "
+                    f"Please include all schema definitions within the OpenAPI document."
+                )
     elif properties := schema.get("properties"):
         if "$ref" in properties:
             schema["properties"] = _replace_ref_with_defs(properties)
@@ -1092,6 +1093,81 @@ def _replace_ref_with_defs(
             schema[section][i] = _replace_ref_with_defs(item)
     if info.get("description", description) and not schema.get("description"):
         schema["description"] = description
+    return schema
+
+
+def _make_optional_parameter_nullable(schema: dict[str, Any]) -> dict[str, Any]:
+    """
+    Make an optional parameter schema nullable to allow None values.
+
+    For optional parameters, we need to allow null values in addition to the
+    specified type to handle cases where None is passed for optional parameters.
+    """
+    # If schema already has multiple types or is already nullable, don't modify
+    if "anyOf" in schema or "oneOf" in schema or "allOf" in schema:
+        return schema
+
+    # If it's already nullable (type includes null), don't modify
+    if isinstance(schema.get("type"), list) and "null" in schema["type"]:
+        return schema
+
+    # Create a new schema that allows null in addition to the original type
+    if "type" in schema:
+        original_type = schema["type"]
+
+        if isinstance(original_type, str):
+            # Single type - make it a union with null
+            nullable_schema = schema.copy()
+
+            nested_non_nullable_schema = {
+                "type": original_type,
+            }
+
+            # If the original type is an array, move the array-specific properties into the now-nested schema
+            # https://json-schema.org/understanding-json-schema/reference/array
+            if original_type == "array":
+                for array_property in [
+                    "items",
+                    "prefixItems",
+                    "unevaluatedItems",
+                    "contains",
+                    "minContains",
+                    "maxContains",
+                    "minItems",
+                    "maxItems",
+                    "uniqueItems",
+                ]:
+                    if array_property in nullable_schema:
+                        nested_non_nullable_schema[array_property] = nullable_schema[
+                            array_property
+                        ]
+                        del nullable_schema[array_property]
+
+            # If the original type is an object, move the object-specific properties into the now-nested schema
+            # https://json-schema.org/understanding-json-schema/reference/object
+            elif original_type == "object":
+                for object_property in [
+                    "properties",
+                    "patternProperties",
+                    "additionalProperties",
+                    "unevaluatedProperties",
+                    "required",
+                    "propertyNames",
+                    "minProperties",
+                    "maxProperties",
+                ]:
+                    if object_property in nullable_schema:
+                        nested_non_nullable_schema[object_property] = nullable_schema[
+                            object_property
+                        ]
+                        del nullable_schema[object_property]
+
+            nullable_schema["anyOf"] = [nested_non_nullable_schema, {"type": "null"}]
+
+            # Remove the original type since we're using anyOf
+            del nullable_schema["type"]
+            return nullable_schema
+
     return schema
 
 
@@ -1156,14 +1232,24 @@ def _combine_schemas(route: HTTPRoute) -> dict[str, Any]:
             else:
                 param_schema["description"] = location_desc
 
+            # Make optional parameters nullable to allow None values
+            if not param.required:
+                param_schema = _make_optional_parameter_nullable(param_schema)
+
             properties[suffixed_name] = param_schema
         else:
             # No collision, use original name
             if param.required:
                 required.append(param.name)
-            properties[param.name] = _replace_ref_with_defs(
+            param_schema = _replace_ref_with_defs(
                 param.schema_.copy(), param.description
             )
+
+            # Make optional parameters nullable to allow None values
+            if not param.required:
+                param_schema = _make_optional_parameter_nullable(param_schema)
+
+            properties[param.name] = param_schema
 
     # Add request body properties (no suffixes for body parameters)
     if route.request_body and route.request_body.content_schema:

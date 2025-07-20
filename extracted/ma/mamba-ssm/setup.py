@@ -188,6 +188,9 @@ if not SKIP_CUDA_BUILD:
         if bare_metal_version >= Version("11.8"):
             cc_flag.append("-gencode")
             cc_flag.append("arch=compute_90,code=sm_90")
+        if bare_metal_version >= Version("12.8"):
+            cc_flag.append("-gencode")
+            cc_flag.append("arch=compute_100,code=sm_100")
 
 
     # HACK: The compiler flag -D_GLIBCXX_USE_CXX11_ABI is set to be the same as
@@ -356,7 +359,7 @@ setup(
     url="https://github.com/state-spaces/mamba",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
     ],
     ext_modules=ext_modules,
@@ -371,7 +374,7 @@ setup(
         "packaging",
         "ninja",
         "einops",
-        # "triton",
+        "triton",
         "transformers",
         # "causal_conv1d>=1.4.0",
     ],

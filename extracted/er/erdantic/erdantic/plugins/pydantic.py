@@ -1,6 +1,6 @@
 import re
 import sys
-from typing import Any, List, Optional, Type
+from typing import Any, Optional, Type
 
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
@@ -31,18 +31,18 @@ def is_pydantic_model(obj: Any) -> TypeGuard[PydanticModel]:
     return isinstance(obj, type) and issubclass(obj, pydantic.BaseModel)
 
 
-def get_fields_from_pydantic_model(model: PydanticModel) -> List[FieldInfo]:
+def get_fields_from_pydantic_model(model: PydanticModel) -> list[FieldInfo]:
     """Given a Pydantic model, return a list of FieldInfo instances for each field in the model.
 
     Args:
         model (PydanticModel): The Pydantic model to get fields from.
 
     Returns:
-        List[FieldInfo]: List of FieldInfo instances for each field in the model
+        list[FieldInfo]: List of FieldInfo instances for each field in the model
     """
     try:
         # Rebuild model schema to resolve forward references
-        model.model_rebuild()
+        model.model_rebuild(force=True)
     except pydantic.errors.PydanticUndefinedAnnotation as e:
         model_full_name = FullyQualifiedName.from_object(model)
         forward_ref = e.name
@@ -88,14 +88,14 @@ def is_pydantic_v1_model(obj) -> TypeGuard[PydanticV1Model]:
     return isinstance(obj, type) and issubclass(obj, pydantic.v1.BaseModel)
 
 
-def get_fields_from_pydantic_v1_model(model: PydanticV1Model) -> List[FieldInfo]:
+def get_fields_from_pydantic_v1_model(model: PydanticV1Model) -> list[FieldInfo]:
     """Given a Pydantic V1 model, return a list of FieldInfo instances for each field in the model.
 
     Args:
         model (PydanticV1Model): The Pydantic V1 model to get fields from.
 
     Returns:
-        List[FieldInfo]: List of FieldInfo instances for each field in the model
+        list[FieldInfo]: List of FieldInfo instances for each field in the model
     """
     try:
         model.update_forward_refs()

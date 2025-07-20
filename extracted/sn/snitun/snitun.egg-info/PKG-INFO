@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snitun
-Version: 0.42.0
+Version: 0.43.0
 Summary: SNI proxy with TCP multiplexer
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3
@@ -23,14 +23,14 @@ License-File: LICENSE
 Requires-Dist: aiohttp>=3.9.3
 Requires-Dist: cryptography>=2.5
 Provides-Extra: lint
-Requires-Dist: ruff==0.11.2; extra == "lint"
+Requires-Dist: ruff==0.12.4; extra == "lint"
 Provides-Extra: test
 Requires-Dist: covdefaults==2.3.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
 Requires-Dist: pytest-codspeed==3.2.0; extra == "test"
-Requires-Dist: pytest-cov==6.1.0; extra == "test"
-Requires-Dist: pytest-timeout==2.3.1; extra == "test"
-Requires-Dist: pytest==8.3.5; extra == "test"
+Requires-Dist: pytest-cov==6.2.1; extra == "test"
+Requires-Dist: pytest-timeout==2.4.0; extra == "test"
+Requires-Dist: pytest==8.4.1; extra == "test"
 Dynamic: license-file
 
 # SniTun
@@ -103,6 +103,7 @@ Message Flags/Types:
 The following environment variables, which, to be effective, must be set before importing this package, are available to override internal defaults:
 
 - `MULTIPLEXER_INCOMING_QUEUE_MAX_BYTES_CHANNEL` - The maximum number of bytes allowed in the incoming queue for each multiplexer channel.
+- `MULTIPLEXER_INCOMING_QUEUE_MAX_BYTES_CHANNEL_V0` - The maximum number of bytes allowed in the incoming queue for protocol version 0 channels (default: 256MB, larger than standard channels since v0 lacks flow control).
 - `MULTIPLEXER_INCOMING_QUEUE_LOW_WATERMARK` - The low watermark threshold, in bytes, for the incoming queue for each multiplexer channel.
 - `MULTIPLEXER_INCOMING_QUEUE_HIGH_WATERMARK` - The high watermark threshold, in bytes, for the incoming queue for each multiplexer channel.
 - `MULTIPLEXER_OUTGOING_QUEUE_MAX_BYTES_CHANNEL` - The maximum number of bytes allowed in the outgoing queue for the multiplexer channel.

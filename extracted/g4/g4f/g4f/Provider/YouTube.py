@@ -10,7 +10,7 @@ except ImportError:
 
 from ..typing import AsyncResult, Messages
 from .base_provider import AsyncGeneratorProvider, ProviderModelMixin
-from ..providers.response import AudioResponse, VideoResponse, YouTube as YouTubeResponse
+from ..providers.response import AudioResponse, VideoResponse, YouTubeResponse
 from ..image.copy_images import get_media_dir
 from .helper import format_media_prompt
 
@@ -53,8 +53,8 @@ class YouTube(AsyncGeneratorProvider, ProviderModelMixin):
         if model == "search":
             yield YouTubeResponse([result["id"] for result in new_results[:5]], True)
         else:
-            for result in results[:2]:
-                video_url = result['url']
+            if new_results:
+                video_url = new_results[0]['url']
                 path = await provider.download(video_url, model=model, output_dir=get_media_dir())
                 if path.endswith('.mp3'):
                     yield AudioResponse(f"/media/{os.path.basename(path)}")

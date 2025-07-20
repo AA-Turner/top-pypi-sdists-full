@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cobs
-Version: 1.2.1
+Version: 1.2.2
 Summary: Consistent Overhead Byte Stuffing (COBS)
 Author-email: Craig McQueen <python@craig.mcqueen.id.au>
 License: ----------------------------------------------------------------------------
@@ -37,6 +37,7 @@ Classifier: Topic :: Communications
 Requires-Python: >=3.6
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: license-file
 
 ========================================
 Consistent Overhead Byte Stuffing (COBS)
@@ -184,10 +185,10 @@ application.
 Supported Python Versions
 -------------------------
 
-Python >= 3.6 are supported, and have both a C extension and a pure Python
+Python >= 3.10 are supported, and have both a C extension and a pure Python
 implementation.
 
-Python versions < 3.6 might work, but have not been tested.
+Python versions < 3.10 might work, but have not been tested.
 
 
 ------------

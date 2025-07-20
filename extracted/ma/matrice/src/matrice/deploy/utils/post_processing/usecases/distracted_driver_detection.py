@@ -25,12 +25,12 @@ class DistractedDriverConfig(BaseConfig):
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 20
+    smoothing_window_size: int = 5
     smoothing_cooldown_frames: int = 5
-    smoothing_confidence_range_factor: float = 0.5
+    smoothing_confidence_range_factor: float = 0.3
     
     # Driver confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.2
 
     
     driver_categories: List[str] = field(
@@ -539,13 +539,13 @@ class DistractedDriverUseCase(BaseProcessor):
                 drivers_text = f"\t{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
             human_text_lines.append(f"\t- {drivers_text}")
         else:
-            human_text_lines.append(f"\t- No drivers detected")
+            human_text_lines.append(f"\t- No Violations detected")
 
         human_text_lines.append("")  # spacing
 
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total Drivers Detected: {cumulative_total}")
+        human_text_lines.append(f"\t- Total Violations Detected: {cumulative_total}")
         # Add category-wise driver counts
         if total_driver_counts:
             for cat, count in total_driver_counts.items():
@@ -617,9 +617,9 @@ class DistractedDriverUseCase(BaseProcessor):
         total_drivers = summary.get("total_count", 0)
 
         if total_drivers == 0:
-            insights.append("No drivers detected in the scene")
+            insights.append("No Violations detected in the scene")
             return insights
-        insights.append(f"EVENT: Detected {total_drivers} drivers in the scene")
+        insights.append(f"EVENT: Detected {total_drivers} Violations in the scene")
         # Intensity calculation based on threshold percentage
         intensity_threshold = None
         if (config.alert_config and 
@@ -632,13 +632,13 @@ class DistractedDriverUseCase(BaseProcessor):
             percentage = (total_drivers / intensity_threshold) * 100
             
             if percentage < 20:
-                insights.append(f"INTENSITY: Low congestion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Low Violations in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate congestion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Moderate Violations in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 70:
-                insights.append(f"INTENSITY:  Heavy congestion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY:  Heavy Violations in the scene ({percentage:.1f}% of capacity)")
             else:
-                insights.append(f"INTENSITY: Severe congestion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Severe Violations in the scene ({percentage:.1f}% of capacity)")
         # else:
         #     # Fallback to hardcoded thresholds if no alert config is set
         #     if total_drivers > 15:
@@ -663,7 +663,7 @@ class DistractedDriverUseCase(BaseProcessor):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total >= threshold:
                     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
-                    alert_description = f"Drivers count ({total}) exceeds threshold ({threshold})"
+                    alert_description = f"Violations count ({total}) exceeds threshold ({threshold})"
                     alerts.append({
                     "type": "count_threshold",
                     "severity": "warning",
@@ -710,14 +710,14 @@ class DistractedDriverUseCase(BaseProcessor):
         cumulative_total = sum(cumulative.values()) if cumulative else 0
         lines = []
         if total > 0:
-            lines.append(f"{total} Driver(s) detected")
+            lines.append(f"{total} Violations(s) detected")
             if per_cat:
                 lines.append("Driver:")
                 for cat, count in per_cat.items():
                     lines.append(f"\t{cat}:{count}")
         else:
-            lines.append("No driver detected")
-        lines.append(f"Total drivers detected: {cumulative_total}")
+            lines.append("No Violations detected")
+        lines.append(f"Total Violations detected: {cumulative_total}")
         if alerts:
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)

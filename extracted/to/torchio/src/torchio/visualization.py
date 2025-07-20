@@ -1,16 +1,24 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+from einops import rearrange
 
 from .data.image import Image
 from .data.image import LabelMap
+from .data.image import ScalarImage
 from .data.subject import Subject
+from .external.imports import get_ffmpeg
 from .transforms.preprocessing.intensity.rescale import RescaleIntensity
+from .transforms.preprocessing.intensity.to import To
+from .transforms.preprocessing.spatial.ensure_shape_multiple import EnsureShapeMultiple
+from .transforms.preprocessing.spatial.resample import Resample
 from .transforms.preprocessing.spatial.to_canonical import ToCanonical
+from .transforms.preprocessing.spatial.to_orientation import ToOrientation
 from .types import TypePath
 
 if TYPE_CHECKING:
@@ -26,9 +34,9 @@ def import_mpl_plt():
     return mpl, plt
 
 
-def rotate(image, radiological=True, n=-1):
+def rotate(image: np.ndarray, *, radiological: bool = True, n: int = -1) -> np.ndarray:
     # Rotate for visualization purposes
-    image = np.rot90(image, n)
+    image = np.rot90(image, n, axes=(0, 1))
     if radiological:
         image = np.fliplr(image)
     return image
@@ -52,17 +60,18 @@ def _create_categorical_colormap(data: torch.Tensor) -> ListedColormap:
 def plot_volume(
     image: Image,
     radiological=True,
-    channel=-1,  # default to foreground for binary maps
+    channel=None,
     axes=None,
     cmap=None,
     output_path=None,
     show=True,
     xlabels=True,
-    percentiles: tuple[float, float] = (0.5, 99.5),
+    percentiles: tuple[float, float] = (0, 100),
     figsize=None,
     title=None,
     reorient=True,
     indices=None,
+    rgb=True,
     **imshow_kwargs,
 ):
     _, plt = import_mpl_plt()
@@ -73,14 +82,26 @@ def plot_volume(
 
     if reorient:
         image = ToCanonical()(image)  # type: ignore[assignment]
-    data = image.data[channel]
-    if indices is None:
-        indices = np.array(data.shape) // 2
-    i, j, k = indices
-    slice_x = rotate(data[i, :, :], radiological=radiological)
-    slice_y = rotate(data[:, j, :], radiological=radiological)
-    slice_z = rotate(data[:, :, k], radiological=radiological)
+
     is_label = isinstance(image, LabelMap)
+    if is_label:  # probabilistic label map
+        data = image.data[np.newaxis, -1]
+    elif rgb and image.num_channels == 3:
+        data = image.data  # keep image as it is
+    elif channel is None:
+        data = image.data[0:1]  # just use the first channel
+    else:
+        data = image.data[np.newaxis, channel]
+    data = rearrange(data, 'c x y z -> x y z c')
+    data_numpy: np.ndarray = data.cpu().numpy()
+
+    if indices is None:
+        indices = np.array(data_numpy.shape[:3]) // 2
+    i, j, k = indices
+    slice_x = rotate(data_numpy[i, :, :], radiological=radiological)
+    slice_y = rotate(data_numpy[:, j, :], radiological=radiological)
+    slice_z = rotate(data_numpy[:, :, k], radiological=radiological)
+
     if isinstance(cmap, dict):
         slices = slice_x, slice_y, slice_z
         slice_x, slice_y, slice_z = color_labels(slices, cmap)
@@ -91,17 +112,31 @@ def plot_volume(
 
     if is_label:
         imshow_kwargs['interpolation'] = 'none'
+    else:
+        if 'interpolation' not in imshow_kwargs:
+            imshow_kwargs['interpolation'] = 'bicubic'
 
     sr, sa, ss = image.spacing
     imshow_kwargs['origin'] = 'lower'
 
-    if percentiles is not None and not is_label:
-        p1, p2 = np.percentile(data, percentiles)
+    if not is_label:
+        displayed_data = np.concatenate(
+            [
+                slice_x.flatten(),
+                slice_y.flatten(),
+                slice_z.flatten(),
+            ]
+        )
+        p1, p2 = np.percentile(displayed_data, percentiles)
         imshow_kwargs['vmin'] = p1
         imshow_kwargs['vmax'] = p2
 
     sag_aspect = ss / sa
-    sag_axis.imshow(slice_x, aspect=sag_aspect, **imshow_kwargs)
+    sag_axis.imshow(
+        slice_x,
+        aspect=sag_aspect,
+        **imshow_kwargs,
+    )
     if xlabels:
         sag_axis.set_xlabel('A')
     sag_axis.set_ylabel('S')
@@ -109,7 +144,11 @@ def plot_volume(
     sag_axis.set_title('Sagittal')
 
     cor_aspect = ss / sr
-    cor_axis.imshow(slice_y, aspect=cor_aspect, **imshow_kwargs)
+    cor_axis.imshow(
+        slice_y,
+        aspect=cor_aspect,
+        **imshow_kwargs,
+    )
     if xlabels:
         cor_axis.set_xlabel('R')
     cor_axis.set_ylabel('S')
@@ -117,7 +156,11 @@ def plot_volume(
     cor_axis.set_title('Coronal')
 
     axi_aspect = sa / sr
-    axi_axis.imshow(slice_z, aspect=axi_aspect, **imshow_kwargs)
+    axi_axis.imshow(
+        slice_z,
+        aspect=axi_aspect,
+        **imshow_kwargs,
+    )
     if xlabels:
         axi_axis.set_xlabel('R')
     axi_axis.set_ylabel('A')
@@ -216,15 +259,15 @@ def plot_histogram(x: np.ndarray, show=True, **kwargs) -> None:
 
 def color_labels(arrays, cmap_dict):
     results = []
-    for array in arrays:
-        si, sj = array.shape
+    for slice_array in arrays:
+        si, sj, _ = slice_array.shape
         rgb = np.zeros((si, sj, 3), dtype=np.uint8)
         for label, color in cmap_dict.items():
             if isinstance(color, str):
                 mpl, _ = import_mpl_plt()
                 color = mpl.colors.to_rgb(color)
                 color = [255 * n for n in color]
-            rgb[array == label] = color
+            rgb[slice_array[..., 0] == label] = color
         results.append(rgb)
     return results
 
@@ -282,3 +325,122 @@ def make_gif(
         duration=frame_duration_ms,
         loop=loop,
     )
+
+
+def make_video(
+    image: ScalarImage,
+    output_path: TypePath,
+    seconds: float | None = None,
+    frame_rate: float | None = None,
+    direction: str = 'I',
+    verbosity: str = 'error',
+) -> None:
+    ffmpeg = get_ffmpeg()
+
+    if seconds is None and frame_rate is None:
+        message = 'Either seconds or frame_rate must be provided.'
+        raise ValueError(message)
+    if seconds is not None and frame_rate is not None:
+        message = 'Provide either seconds or frame_rate, not both.'
+        raise ValueError(message)
+    if image.num_channels > 1:
+        message = 'Only single-channel tensors are supported for video output for now.'
+        raise ValueError(message)
+    tmin, tmax = image.data.min(), image.data.max()
+    if tmin < 0 or tmax > 255:
+        message = (
+            'The tensor must be in the range [0, 256) for video output.'
+            ' The image data will be rescaled to this range.'
+        )
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        image = RescaleIntensity((0, 255))(image)
+    if image.data.dtype != torch.uint8:
+        message = (
+            'Only uint8 tensors are supported for video output. The image data'
+            ' will be cast to uint8.'
+        )
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        image = To(torch.uint8)(image)
+
+    # Reorient so the output looks like in typical visualization software
+    direction = direction.upper()
+    if direction == 'I':  # axial top to bottom
+        target = 'IPL'
+    elif direction == 'S':  # axial bottom to top
+        target = 'SPL'
+    elif direction == 'A':  # coronal back to front
+        target = 'AIL'
+    elif direction == 'P':  # coronal front to back
+        target = 'PIL'
+    elif direction == 'R':  # sagittal left to right
+        target = 'RIP'
+    elif direction == 'L':  # sagittal right to left
+        target = 'LIP'
+    else:
+        message = (
+            'Direction must be one of "I", "S", "P", "A", "R" or "L".'
+            f' Got {direction!r}.'
+        )
+        raise ValueError(message)
+    image = ToOrientation(target)(image)
+
+    # Check isotropy
+    spacing_f, spacing_h, spacing_w = image.spacing
+    if spacing_h != spacing_w:
+        message = (
+            'The height and width spacings should be the same video output.'
+            f' Got {spacing_h:.2f} and {spacing_w:.2f}.'
+            f' Resampling both to {spacing_f:.2f}.'
+        )
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        spacing_iso = min(spacing_h, spacing_w)
+        target_spacing = spacing_f, spacing_iso, spacing_iso
+        image = Resample(target_spacing)(image)  # type: ignore[assignment]
+
+    # Check that height and width are multiples of 2 for H.265 encoding
+    num_frames, height, width = image.spatial_shape
+    if height % 2 != 0 or width % 2 != 0:
+        message = (
+            f'The height ({height}) and width ({width}) must be even.'
+            ' The image will be cropped to the nearest even number.'
+        )
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        image = EnsureShapeMultiple((1, 2, 2), method='crop')(image)
+
+    if seconds is not None:
+        frame_rate = num_frames / seconds
+
+    output_path = Path(output_path)
+    if output_path.suffix.lower() != '.mp4':
+        message = 'Only .mp4 files are supported for video output.'
+        raise NotImplementedError(message)
+
+    frames = image.numpy()[0]
+    first = frames[0]
+    height, width = first.shape
+
+    process = (
+        ffmpeg.input(
+            'pipe:',
+            format='rawvideo',
+            pix_fmt='gray',
+            s=f'{width}x{height}',
+            framerate=frame_rate,
+        )
+        .output(
+            str(output_path),
+            vcodec='libx265',
+            pix_fmt='yuv420p',
+            loglevel=verbosity,
+            **{'x265-params': f'log-level={verbosity}'},
+        )
+        .overwrite_output()
+        .run_async(pipe_stdin=True)
+    )
+
+    for array in frames:
+        buffer = array.tobytes()
+        process.stdin.write(buffer)
+
+    process.stdin.close()
+    process.wait()

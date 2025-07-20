@@ -25,6 +25,7 @@ from llama_index.core.agent.workflow.workflow_events import (
     AgentSetup,
     AgentOutput,
     AgentWorkflowStartEvent,
+    AgentStreamStructuredOutput,
 )
 from llama_index.core.llms import ChatMessage, TextBlock
 from llama_index.core.llms.llm import LLM
@@ -469,6 +470,9 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
                         output.structured_response = cast(
                             Dict[str, Any], self.structured_output_fn(messages)
                         )
+                    ctx.write_event_to_stream(
+                        AgentStreamStructuredOutput(output=output.structured_response)
+                    )
                 except Exception as e:
                     warnings.warn(
                         f"There was a problem with the generation of the structured output: {e}"
@@ -477,6 +481,9 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
                 try:
                     output.structured_response = await generate_structured_response(
                         messages=messages, llm=agent.llm, output_cls=self.output_cls
+                    )
+                    ctx.write_event_to_stream(
+                        AgentStreamStructuredOutput(output=output.structured_response)
                     )
                 except Exception as e:
                     warnings.warn(
@@ -572,13 +579,15 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
             await ctx.store.set("next_agent", None)
 
         if any(
-            tool_call_result.return_direct for tool_call_result in tool_call_results
+            tool_call_result.return_direct and not tool_call_result.tool_output.is_error
+            for tool_call_result in tool_call_results
         ):
-            # if any tool calls return directly, take the first one
+            # if any tool calls return directly and it's not an error tool call, take the first one
             return_direct_tool = next(
                 tool_call_result
                 for tool_call_result in tool_call_results
                 if tool_call_result.return_direct
+                and not tool_call_result.tool_output.is_error
             )
 
             # always finalize the agent, even if we're just handing off
@@ -623,6 +632,7 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
         stepwise: bool = False,
         checkpoint_callback: Optional[CheckpointCallback] = None,
         max_iterations: Optional[int] = None,
+        start_event: Optional[AgentWorkflowStartEvent] = None,
         **kwargs: Any,
     ) -> WorkflowHandler:
         # Detect if hitl is needed
@@ -634,14 +644,15 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
                 **kwargs,
             )
         else:
+            start_event = start_event or AgentWorkflowStartEvent(
+                user_msg=user_msg,
+                chat_history=chat_history,
+                memory=memory,
+                max_iterations=max_iterations,
+                **kwargs,
+            )
             return super().run(
-                start_event=AgentWorkflowStartEvent(
-                    user_msg=user_msg,
-                    chat_history=chat_history,
-                    memory=memory,
-                    max_iterations=max_iterations,
-                    **kwargs,
-                ),
+                start_event=start_event,
                 ctx=ctx,
                 stepwise=stepwise,
                 checkpoint_callback=checkpoint_callback,
@@ -655,6 +666,10 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
         system_prompt: Optional[str] = None,
         state_prompt: Optional[Union[str, BasePromptTemplate]] = None,
         initial_state: Optional[dict] = None,
+        output_cls: Optional[Type[BaseModel]] = None,
+        structured_output_fn: Optional[
+            Callable[[List[ChatMessage]], Dict[str, Any]]
+        ] = None,
         timeout: Optional[float] = None,
         verbose: bool = False,
     ) -> "AgentWorkflow":
@@ -687,6 +702,8 @@ class AgentWorkflow(Workflow, PromptMixin, metaclass=AgentWorkflowMeta):
                     system_prompt=system_prompt,
                 )
             ],
+            output_cls=output_cls,
+            structured_output_fn=structured_output_fn,
             state_prompt=state_prompt,
             initial_state=initial_state,
             timeout=timeout,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rust-just
-Version: 1.42.2
+Version: 1.42.3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -3826,10 +3826,9 @@ Available recipes:
     foo ... # foo is a great module!
 ```
 
-Modules are still missing a lot of features, for example, the ability to depend
-on recipes and refer to variables in other modules. See the
-[module improvement tracking issue](https://github.com/casey/just/issues/2252)
-for more information.
+Modules are still missing a lot of features, for example, the ability to refer
+to variables in other modules. See the [module improvement tracking
+issue](https://github.com/casey/just/issues/2252) for more information.
 
 ### Hiding `justfile`s
 

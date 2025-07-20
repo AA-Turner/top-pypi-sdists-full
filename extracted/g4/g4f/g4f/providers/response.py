@@ -268,7 +268,7 @@ class SourceLink(ResponseType):
         title = f"[{self.title}]"
         return f" {format_link(self.url, title)}"
 
-class YouTube(HiddenResponse):
+class YouTubeResponse(HiddenResponse):
     def __init__(self, ids: List[str], add_links: bool = False) -> None:
         """Initialize with a list of YouTube IDs."""
         self.ids = ids
@@ -295,6 +295,8 @@ class AudioResponse(ResponseType):
 
     def to_uri(self) -> str:
         if isinstance(self.data, str):
+            if self.data.startswith("/media/"):
+                return quote(self.data, '/?&=')
             return self.data
         """Return audio data as a base64-encoded data URI."""
         data_base64 = base64.b64encode(self.data).decode()
@@ -363,7 +365,8 @@ class ImageResponse(MediaResponse):
         """Return images as markdown."""
         if self.get("width") and self.get("height"):
             return "\n".join([
-                f'<a href="{html.escape(url)}" data-width="{self.get("width")}" data-height="{self.get("height")}"><img src="{url.replace("/media/", "/thumbnail/")}" alt="{html.escape(self.alt)}"></a>'
+                f'<a href="{html.escape(url)}" data-width="{self.get("width")}" data-height="{self.get("height")}" data-source="{html.escape(self.get("source_url", ""))}">'
+                + f'<img src="{url.replace("/media/", "/thumbnail/")}" alt="{html.escape(self.alt)}"></a>'
                 for url in self.get_list()
             ])
         return format_images_markdown(self.urls, self.alt, self.get("preview"))

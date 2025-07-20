@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 2.10.5
+Version: 2.10.6
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/jlowin/fastmcp
@@ -38,7 +38,7 @@ Description-Content-Type: text/markdown
 
 <strong>The fast, Pythonic way to build MCP servers and clients.</strong>
 
-*FastMCP is made with 💙 by [Prefect](https://www.prefect.io/)*
+*FastMCP is made with ☕️ by [Prefect](https://www.prefect.io/)*
 
 [![Docs](https://img.shields.io/badge/docs-gofastmcp.com-blue)](https://gofastmcp.com)
 [![PyPI - Version](https://img.shields.io/pypi/v/fastmcp.svg)](https://pypi.org/project/fastmcp)

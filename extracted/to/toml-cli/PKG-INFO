@@ -1,36 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: toml-cli
-Version: 0.7.0
+Version: 0.8.1
 Summary: Command line interface to read and write keys/values to/from toml files
-Home-page: https://github.com/mrijken/toml-cli
-License: MIT
-Author: Marc Rijken
-Author-email: marc@rijken.org
-Requires-Python: >=3.8
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: regex (>=2020.7.14)
-Requires-Dist: tomlkit (>=0.12.1)
-Requires-Dist: typer (>=0.3.2)
 Project-URL: Repository, https://github.com/mrijken/toml-cli
+Author-email: Marc Rijken <marc@rijken.org>
+License-Expression: MIT AND (Apache-2.0 OR BSD-2-Clause)
+License-File: LICENSE
+Requires-Python: >=3.10
+Requires-Dist: jmespath>=1.0.1
+Requires-Dist: regex>=2020.7.14
+Requires-Dist: tomlkit>=0.13.3
+Requires-Dist: typer>=0.16.0
 Description-Content-Type: text/markdown
 
 # toml-cli
 
 ![Build](https://github.com/mrijken/toml-cli/workflows/CI/badge.svg)
-![Hits](https://hitcounter.pythonanywhere.com/count/tag.svg?url=https%3A%2F%2Fgithub.com%2Fmrijken%toml-cli)
 
 Command line interface for toml files.
 
 This can be usefull for getting or setting parts of a toml file without an editor.
 Which can be convinient when values have to be read by a script for example in
 continuous development steps.
-
 
 ## Install
 
@@ -39,12 +30,19 @@ continuous development steps.
 ## Get a value
 
 `toml get --toml-path pyproject.toml tool.poetry.name`
+
 `toml get --toml-path pyproject.toml tool.poetry.authors[0]`
+
 `toml get --toml-path pyproject.toml tool.poetry.name --default marc`
+
+## Search with [JMESPath](https://jmespath.org/)
+
+`toml search --toml-path pyproject.toml tool.uv.index[*].name`
 
 ## Set a value
 
 `toml set --toml-path pyproject.toml tool.poetry.version 0.2.0`
+
 `toml set --toml-path pyproject.toml tool.poetry.authors[0] "Marc Rijken <marc@rijken.org>"`
 
 When the index exists, the item is changed.  Otherwise, the item will be added to the list.
@@ -56,4 +54,3 @@ When the index exists, the item is changed.  Otherwise, the item will be added t
 ## Unset a value
 
 `toml unset --toml-path pyproject.toml tool.poetry.version`
-

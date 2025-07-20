@@ -1,6 +1,4 @@
 from .augmentation.composition import Compose
-
-# Augmentation
 from .augmentation.composition import OneOf
 from .augmentation.intensity import BiasField
 from .augmentation.intensity import Blur
@@ -31,9 +29,8 @@ from .augmentation.spatial import RandomElasticDeformation
 from .augmentation.spatial import RandomFlip
 from .fourier import FourierTransform
 from .intensity_transform import IntensityTransform
-
-# Generic
 from .lambda_transform import Lambda
+from .preprocessing import PCA
 from .preprocessing import Clamp
 from .preprocessing import Contour
 from .preprocessing import CopyAffine
@@ -44,8 +41,6 @@ from .preprocessing import HistogramStandardization
 from .preprocessing import KeepLargestComponent
 from .preprocessing import Mask
 from .preprocessing import OneHot
-
-# Preprocessing
 from .preprocessing import Pad
 from .preprocessing import RemapLabels
 from .preprocessing import RemoveLabels
@@ -53,8 +48,11 @@ from .preprocessing import Resample
 from .preprocessing import RescaleIntensity
 from .preprocessing import Resize
 from .preprocessing import SequentialLabels
+from .preprocessing import To
 from .preprocessing import ToCanonical
 from .preprocessing import ToOrientation
+from .preprocessing import ToReferenceSpace
+from .preprocessing import Transpose
 from .preprocessing import ZNormalization
 from .preprocessing.intensity.histogram_standardization import train_histogram
 from .preprocessing.label.label_transform import LabelTransform
@@ -101,11 +99,15 @@ __all__ = [
     'Crop',
     'Resize',
     'Resample',
+    'To',
     'ToCanonical',
     'ToOrientation',
+    'ToReferenceSpace',
+    'Transpose',
     'ZNormalization',
     'HistogramStandardization',
     'RescaleIntensity',
+    'PCA',
     'Clamp',
     'Mask',
     'CropOrPad',

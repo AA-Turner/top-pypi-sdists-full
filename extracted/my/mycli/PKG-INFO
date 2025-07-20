@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 1.35.0
+Version: 1.36.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author-email: Mycli Core Team <mycli-dev@googlegroups.com>
 License: BSD
@@ -28,6 +28,7 @@ Requires-Dist: sshtunnel; extra == "ssh"
 Provides-Extra: dev
 Requires-Dist: behave>=1.2.6; extra == "dev"
 Requires-Dist: coverage>=7.2.7; extra == "dev"
+Requires-Dist: mypy>=1.16.1; extra == "dev"
 Requires-Dist: pexpect>=4.9.0; extra == "dev"
 Requires-Dist: pytest>=7.4.4; extra == "dev"
 Requires-Dist: pytest-cov>=4.1.0; extra == "dev"

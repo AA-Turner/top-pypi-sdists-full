@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-use
-Version: 1.3.6
+Version: 1.3.7
 Summary: MCP Library for LLMs
 Author-email: Pietro Zullo <pietro.zullo@gmail.com>
 License: MIT
@@ -28,7 +28,7 @@ Requires-Dist: langchain-anthropic; extra == 'anthropic'
 Provides-Extra: dev
 Requires-Dist: black>=23.9.0; extra == 'dev'
 Requires-Dist: fastapi; extra == 'dev'
-Requires-Dist: fastmcp==2.8.0; extra == 'dev'
+Requires-Dist: fastmcp==2.10.5; extra == 'dev'
 Requires-Dist: isort>=5.12.0; extra == 'dev'
 Requires-Dist: mypy>=1.5.0; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0; extra == 'dev'
@@ -89,7 +89,12 @@ Description-Content-Type: text/markdown
 
 💬 Get started quickly - chat with your servers on our <b>hosted version</b>! [Try mcp-use chat (beta)](https://chat.mcp-use.com).
 
-# Features
+| Supports  | |
+| :--- | :--- |
+| **Primitives** | [![Tools](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=primitive-tools&label=Tools&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![Resources](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=primitive-resources&label=Resources&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![Prompts](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=primitive-prompts&label=Prompts&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![Sampling](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=primitive-sampling&label=Sampling&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![Elicitation](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=primitive-elicitation&label=Elicitation&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) |
+| **Transports** | [![Stdio](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=transport-stdio&label=Stdio&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![SSE](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=transport-sse&label=SSE&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) [![Streamable HTTP](https://img.shields.io/github/actions/workflow/status/pietrozullo/mcp-use/tests.yml?job=transport-streamableHttp&label=Streamable%20HTTP&style=flat)](https://github.com/pietrozullo/mcp-use/actions/workflows/tests.yml) |
+
+## Features
 
 <table>
   <tr>

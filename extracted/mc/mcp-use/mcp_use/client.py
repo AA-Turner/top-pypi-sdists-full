@@ -9,6 +9,8 @@ import json
 import warnings
 from typing import Any
 
+from mcp.client.session import ElicitationFnT, SamplingFnT
+
 from mcp_use.types.sandbox import SandboxOptions
 
 from .config import create_connector_from_config, load_config_file
@@ -28,6 +30,8 @@ class MCPClient:
         config: str | dict[str, Any] | None = None,
         sandbox: bool = False,
         sandbox_options: SandboxOptions | None = None,
+        sampling_callback: SamplingFnT | None = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ) -> None:
         """Initialize a new MCP client.
 
@@ -36,13 +40,15 @@ class MCPClient:
                    If None, an empty configuration is used.
             sandbox: Whether to use sandboxed execution mode for running MCP servers.
             sandbox_options: Optional sandbox configuration options.
+            sampling_callback: Optional sampling callback function.
         """
         self.config: dict[str, Any] = {}
         self.sandbox = sandbox
         self.sandbox_options = sandbox_options
         self.sessions: dict[str, MCPSession] = {}
         self.active_sessions: list[str] = []
-
+        self.sampling_callback = sampling_callback
+        self.elicitation_callback = elicitation_callback
         # Load configuration if provided
         if config is not None:
             if isinstance(config, str):
@@ -56,6 +62,8 @@ class MCPClient:
         config: dict[str, Any],
         sandbox: bool = False,
         sandbox_options: SandboxOptions | None = None,
+        sampling_callback: SamplingFnT | None = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ) -> "MCPClient":
         """Create a MCPClient from a dictionary.
 
@@ -63,12 +71,25 @@ class MCPClient:
             config: The configuration dictionary.
             sandbox: Whether to use sandboxed execution mode for running MCP servers.
             sandbox_options: Optional sandbox configuration options.
+            sampling_callback: Optional sampling callback function.
+            elicitation_callback: Optional elicitation callback function.
         """
-        return cls(config=config, sandbox=sandbox, sandbox_options=sandbox_options)
+        return cls(
+            config=config,
+            sandbox=sandbox,
+            sandbox_options=sandbox_options,
+            sampling_callback=sampling_callback,
+            elicitation_callback=elicitation_callback,
+        )
 
     @classmethod
     def from_config_file(
-        cls, filepath: str, sandbox: bool = False, sandbox_options: SandboxOptions | None = None
+        cls,
+        filepath: str,
+        sandbox: bool = False,
+        sandbox_options: SandboxOptions | None = None,
+        sampling_callback: SamplingFnT | None = None,
+        elicitation_callback: ElicitationFnT | None = None,
     ) -> "MCPClient":
         """Create a MCPClient from a configuration file.
 
@@ -76,8 +97,16 @@ class MCPClient:
             filepath: The path to the configuration file.
             sandbox: Whether to use sandboxed execution mode for running MCP servers.
             sandbox_options: Optional sandbox configuration options.
+            sampling_callback: Optional sampling callback function.
+            elicitation_callback: Optional elicitation callback function.
         """
-        return cls(config=load_config_file(filepath), sandbox=sandbox, sandbox_options=sandbox_options)
+        return cls(
+            config=load_config_file(filepath),
+            sandbox=sandbox,
+            sandbox_options=sandbox_options,
+            sampling_callback=sampling_callback,
+            elicitation_callback=elicitation_callback,
+        )
 
     def add_server(
         self,
@@ -151,7 +180,11 @@ class MCPClient:
 
         # Create connector with options
         connector = create_connector_from_config(
-            server_config, sandbox=self.sandbox, sandbox_options=self.sandbox_options
+            server_config,
+            sandbox=self.sandbox,
+            sandbox_options=self.sandbox_options,
+            sampling_callback=self.sampling_callback,
+            elicitation_callback=self.elicitation_callback,
         )
 
         # Create the session

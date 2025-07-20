@@ -19,18 +19,19 @@ from ..utils import (
 from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
+
 @dataclass
 class ConcreteCrackConfig(BaseConfig):
-    """Configuration for concrete crack detection use case."""
+    """Configuration for concrete crack detection use case in concrete crack monitoring."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 20
+    smoothing_window_size: int = 10
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.2
 
     #confidence thresholds
-    confidence_threshold: float = 0.2
+    confidence_threshold: float = 0.3
 
     usecase_categories: List[str] = field(
         default_factory=lambda: ['Cracks']
@@ -44,7 +45,8 @@ class ConcreteCrackConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-           0: "Cracks"
+           0:"Cracks"
+
         }
     )
 
@@ -72,6 +74,9 @@ class ConcreteCrackUseCase(BaseProcessor):
             "last_update_time": time.time(),
             "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
+
+
+
 
 
     def _update_tracking_state(self, detections: list):
@@ -192,6 +197,8 @@ class ConcreteCrackUseCase(BaseProcessor):
         # List of  categories to track
         self.target_categories = ["Cracks"]
 
+
+
         # Initialize smoothing tracker
         self.smoothing_tracker = None
 
@@ -222,8 +229,8 @@ class ConcreteCrackUseCase(BaseProcessor):
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
         Main entry point for  post-processing.
-        Applies the concrete crack detection use case logic.
-        Returns a ProcessingResult containing with all relevant outputs.
+        Applies category mapping, smoothing, counting, alerting, and summary generation.
+        Returns a ProcessingResult with all relevant outputs.
         """
         start_time = time.time()
         # Ensure config is correct type
@@ -261,7 +268,7 @@ class ConcreteCrackUseCase(BaseProcessor):
                     smoothing_algorithm=config.smoothing_algorithm,
                     window_size=config.smoothing_window_size,
                     cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,  # Use crack threshold as default
+                    confidence_threshold=config.confidence_threshold,  # Use concrete_crack threshold as default
                     confidence_range_factor=config.smoothing_confidence_range_factor,
                     enable_smoothing=True
                 )
@@ -389,8 +396,7 @@ class ConcreteCrackUseCase(BaseProcessor):
 
             # Generate human text in new format
             human_text_lines = ["EVENTS DETECTED:"]
-            # concrete crack detected --> '' detected
-            human_text_lines.append(f"    - {total_detections} detected [INFO]")
+            human_text_lines.append(f"    - {total_detections}  detected [INFO]")
             human_text = "\n".join(human_text_lines)
 
             event = {
@@ -403,8 +409,8 @@ class ConcreteCrackUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "concrete crack Detection System",
-                "application_version": "1.0",
+                "application_name": "Concrete Crack detection System",
+                "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
             }
@@ -434,8 +440,7 @@ class ConcreteCrackUseCase(BaseProcessor):
                     intensity_message = "ALERT: Moderate congestion in the scene"
 
             alert_event = {
-                # "type": alert.get("type", "congestion_alert"),
-                "type": alert.get("type", "crack_alert"),
+                "type": alert.get("type", "congestion_alert"),
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": alert.get("severity", "warning"),
                 "intensity": 8.0,
@@ -444,8 +449,8 @@ class ConcreteCrackUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Concrete Crack Detection System",
-                "application_version": "1.0",
+                "application_name": "Congestion Alert System",
+                "application_version": "1.2",
                 "location_info": alert.get("zone"),
                 "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
             }
@@ -508,8 +513,8 @@ class ConcreteCrackUseCase(BaseProcessor):
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "concrete_crack_detection",
-            "category": "general",
+            "type": "concrete_crack_tracking",
+            "category": "concrete_crack",
             "count": total_detections,
             "insights": insights,
             "summary": summary,
@@ -565,7 +570,7 @@ class ConcreteCrackUseCase(BaseProcessor):
         if total_detections == 0:
             insights.append("No detections in the scene")
             return insights
-        insights.append(f"EVENT: Detected {total_detections} concrete crack in the scene")
+        insights.append(f"EVENT: Detected {total_detections}  in the scene")
         # Intensity calculation based on threshold percentage
         intensity_threshold = None
         if (config.alert_config and

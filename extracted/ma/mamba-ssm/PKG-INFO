@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mamba_ssm
-Version: 2.2.4
+Version: 2.2.5
 Summary: Mamba state-space model
 Home-page: https://github.com/state-spaces/mamba
 Author: Tri Dao, Albert Gu
@@ -210,7 +210,7 @@ License:                                  Apache License
 Project-URL: Repository, https://github.com/state-spaces/mamba
 Keywords: cuda,pytorch,state-space model
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: BSD License
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Unix
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

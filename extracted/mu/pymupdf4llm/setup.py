@@ -14,12 +14,12 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
-version = "0.0.26"
+version = "0.0.27"
 requires = ["pymupdf>=1.26.3"]
 
 text = requires[0].split("=")[1]
 text = tuple(map(int, text.split(".")))
-text = f"MINIMUM_PYMUPDF_VERSION = {text}\nVERSION = '{version}'\n"
+text = f"# Generated file - do not edit.\nMINIMUM_PYMUPDF_VERSION = {text}\nVERSION = '{version}'\n"
 Path("pymupdf4llm/versions_file.py").write_text(text)
 
 setuptools.setup(

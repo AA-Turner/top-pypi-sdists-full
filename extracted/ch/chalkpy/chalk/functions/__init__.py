@@ -822,6 +822,148 @@ def strrpos(expr: Any, substring: Any):
     return UnderscoreFunction("strrpos", expr, substring) - 1
 
 
+def chr(code: Underscore | Any):
+    """
+    Convert Unicode code point to character.
+
+    Parameters
+    ----------
+    code
+        The Unicode code point as integer.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Unicode:
+    ...    id: str
+    ...    code_point: int
+    ...    character: str = F.chr(_.code_point)
+    """
+    return UnderscoreFunction("chr", code)
+
+
+def codepoint(expr: Underscore | Any):
+    """
+    Get the Unicode code point of the first character in a string.
+
+    Parameters
+    ----------
+    expr
+        The string to get the code point from.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class TextAnalysis:
+    ...    id: str
+    ...    text: str
+    ...    first_char_code: int = F.codepoint(_.text)
+    """
+    return UnderscoreFunction("codepoint", expr)
+
+
+def lpad(string: Underscore | Any, size: Underscore | Any, padstring: Underscore | Any):
+    """
+    Left-pad string to specified length with pad string.
+
+    Parameters
+    ----------
+    string
+        The string to pad.
+    size
+        The target length.
+    padstring
+        The string to pad with.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class AccountID:
+    ...    id: str
+    ...    account_number: str
+    ...    padded_id: str = F.lpad(_.account_number, 10, "0")
+    """
+    return UnderscoreFunction("lpad", string, size, padstring)
+
+
+def normalize(string: Underscore | Any, form: Underscore | Any):
+    """
+    Normalize Unicode string using specified normalization form.
+
+    Parameters
+    ----------
+    string
+        The string to normalize.
+    form
+        The normalization form (NFC, NFD, NFKC, NFKD).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class TextNormalization:
+    ...    id: str
+    ...    user_input: str
+    ...    normalized_text: str = F.normalize(_.user_input, "NFC")
+    """
+    return UnderscoreFunction("normalize", string, form)
+
+
+def rpad(string: Underscore | Any, size: Underscore | Any, padstring: Underscore | Any):
+    """
+    Right-pad string to specified length with pad string.
+
+    Parameters
+    ----------
+    string
+        The string to pad.
+    size
+        The target length.
+    padstring
+        The string to pad with.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ProductCode:
+    ...    id: str
+    ...    base_code: str
+    ...    formatted_code: str = F.rpad(_.base_code, 15, "-")
+    """
+    return UnderscoreFunction("rpad", string, size, padstring)
+
+
+def word_stem(string: Underscore | Any):
+    """
+    Extract the stem of a word using basic stemming rules.
+
+    Parameters
+    ----------
+    string
+        The word to stem.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class TextProcessing:
+    ...    id: str
+    ...    word: str
+    ...    stemmed_word: str = F.word_stem(_.word)
+    """
+    return UnderscoreFunction("word_stem", string)
+
+
 ########################################################################################################################
 # URLs                                                                                                                 #
 ########################################################################################################################
@@ -1846,12 +1988,194 @@ def exp(expr: Underscore | Any):
     >>> import chalk.functions as F
     >>> from chalk.features import _, features
     >>> @features
-    ... class Triangle:
+    ... class CompoundGrowth:
     ...    id: str
-    ...    x: float
-    ...    e_to_x: float = F.exp(_.x)
+    ...    growth_rate: float
+    ...    compound_factor: float = F.exp(_.growth_rate)
     """
     return UnderscoreFunction("exp", expr)
+
+
+def atan(expr: Underscore | Any):
+    """
+    Compute the arctangent of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the arctangent of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class TradingSignal:
+    ...    id: str
+    ...    momentum: float
+    ...    angle: float = F.atan(_.momentum)
+    """
+    return UnderscoreFunction("atan", expr)
+
+
+def atan2(y: Underscore | Any, x: Underscore | Any):
+    """
+    Compute the arctangent of y/x using the signs of the arguments to determine the quadrant.
+
+    Parameters
+    ----------
+    y
+        The y-coordinate.
+    x
+        The x-coordinate.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class MarketPosition:
+    ...    id: str
+    ...    profit: float
+    ...    risk: float
+    ...    portfolio_angle: float = F.atan2(_.profit, _.risk)
+    """
+    return UnderscoreFunction("atan2", y, x)
+
+
+def cbrt(expr: Underscore | Any):
+    """
+    Compute the cube root of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the cube root of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RiskMetric:
+    ...    id: str
+    ...    volume: float
+    ...    volatility_factor: float = F.cbrt(_.volume)
+    """
+    return UnderscoreFunction("cbrt", expr)
+
+
+def cosh(expr: Underscore | Any):
+    """
+    Compute the hyperbolic cosine of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the hyperbolic cosine of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class InterestRate:
+    ...    id: str
+    ...    rate: float
+    ...    hyperbolic_growth: float = F.cosh(_.rate)
+    """
+    return UnderscoreFunction("cosh", expr)
+
+
+def degrees(expr: Underscore | Any):
+    """
+    Convert angle from radians to degrees.
+
+    Parameters
+    ----------
+    expr
+        The angle in radians to convert.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class TrendAnalysis:
+    ...    id: str
+    ...    slope_radians: float
+    ...    slope_degrees: float = F.degrees(_.slope_radians)
+    """
+    return UnderscoreFunction("degrees", expr)
+
+
+def tanh(expr: Underscore | Any):
+    """
+    Compute the hyperbolic tangent of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the hyperbolic tangent of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ActivationFunction:
+    ...    id: str
+    ...    input_score: float
+    ...    normalized_score: float = F.tanh(_.input_score)
+    """
+    return UnderscoreFunction("tanh", expr)
+
+
+def sign(expr: Underscore | Any):
+    """
+    Compute the sign of a number (-1, 0, or 1).
+
+    Parameters
+    ----------
+    expr
+        The number to compute the sign of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class PriceMovement:
+    ...    id: str
+    ...    price_change: float
+    ...    direction: float = F.sign(_.price_change)
+    """
+    return UnderscoreFunction("sign", expr)
+
+
+def pow(base: Underscore | Any, exponent: Underscore | Any):
+    """
+    Raise base to the power of exponent.
+
+    Parameters
+    ----------
+    base
+        The base number.
+    exponent
+        The exponent.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Portfolio:
+    ...    id: str
+    ...    initial_value: float
+    ...    growth_rate: float
+    ...    final_value: float = F.pow(_.initial_value, _.growth_rate)
+    """
+    return UnderscoreFunction("pow", base, exponent)
 
 
 def sigmoid(expr: Underscore | Any):
@@ -1874,6 +2198,185 @@ def sigmoid(expr: Underscore | Any):
     ...    sigmoid_of_x: float = F.sigmoid(_.x)
     """
     return 1 / (1 + exp(-1 * expr))
+
+
+def clamp(expr: Underscore | Any, min_val: Underscore | Any, max_val: Underscore | Any):
+    """
+    Clamp a value between a minimum and maximum range.
+
+    Parameters
+    ----------
+    expr
+        The value to clamp.
+    min_val
+        The minimum value.
+    max_val
+        The maximum value.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RiskModel:
+    ...    id: str
+    ...    raw_score: float
+    ...    risk_score: float = F.clamp(_.raw_score, 0.0, 1.0)
+    """
+    return UnderscoreFunction("clamp", expr, min_val, max_val)
+
+
+def e():
+    """
+    Return Euler's number (e ≈ 2.718).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class CompoundInterest:
+    ...    id: str
+    ...    rate: float
+    ...    time: float
+    ...    e_constant: float = F.e()
+    """
+    return UnderscoreFunction("e")
+
+
+def greatest(*args: Underscore | Any):
+    """
+    Return the greatest value among the arguments, ignoring null values.
+
+    Parameters
+    ----------
+    *args
+        The values to compare.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Portfolio:
+    ...    id: str
+    ...    return_1y: float
+    ...    return_3y: float
+    ...    return_5y: float
+    ...    best_return: float = F.greatest(_.return_1y, _.return_3y, _.return_5y)
+    """
+    return UnderscoreFunction("greatest", *args)
+
+
+def least(*args: Underscore | Any):
+    """
+    Return the smallest value among the arguments, ignoring null values.
+
+    Parameters
+    ----------
+    *args
+        The values to compare.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Portfolio:
+    ...    id: str
+    ...    return_1y: float
+    ...    return_3y: float
+    ...    return_5y: float
+    ...    worst_return: float = F.least(_.return_1y, _.return_3y, _.return_5y)
+    """
+    return UnderscoreFunction("least", *args)
+
+
+def pi():
+    """
+    Return the value of π (pi ≈ 3.14159).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Geometry:
+    ...    id: str
+    ...    radius: float
+    ...    circumference: float = 2 * F.pi() * _.radius
+    """
+    return UnderscoreFunction("pi")
+
+
+def rand():
+    """
+    Return a random number between 0 and 1.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Sampling:
+    ...    id: str
+    ...    random_weight: float = F.rand()
+    """
+    return UnderscoreFunction("rand")
+
+
+def to_base(number: Underscore | Any, base: Underscore | Any):
+    """
+    Convert a number to its string representation in the specified base.
+
+    Parameters
+    ----------
+    number
+        The number to convert.
+    base
+        The base to convert to (2-36).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Encoding:
+    ...    id: str
+    ...    decimal_id: int
+    ...    hex_id: str = F.to_base(_.decimal_id, 16)
+    """
+    return UnderscoreFunction("to_base", number, base)
+
+
+def width_bucket(
+    operand: Underscore | Any, bound1: Underscore | Any, bound2: Underscore | Any, bucket_count: Underscore | Any
+):
+    """
+    Assign a bucket number to a value based on histogram buckets.
+
+    Parameters
+    ----------
+    operand
+        The value to assign to a bucket.
+    bound1
+        The lower bound of the range.
+    bound2
+        The upper bound of the range.
+    bucket_count
+        The number of buckets.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class CustomerSegmentation:
+    ...    id: str
+    ...    transaction_amount: float
+    ...    amount_bucket: int = F.width_bucket(_.transaction_amount, 0.0, 1000.0, 10)
+    """
+    return UnderscoreFunction("width_bucket", operand, bound1, bound2, bucket_count)
 
 
 ########################################################################################################################
@@ -3855,6 +4358,409 @@ def random(n: int | None = None):
     return UnderscoreFunction("random", n)
 
 
+def between(value: Underscore | Any, low: Underscore | Any, high: Underscore | Any):
+    """
+    Check if a value is between two bounds (inclusive).
+
+    Parameters
+    ----------
+    value
+        The value to check.
+    low
+        The lower bound (inclusive).
+    high
+        The upper bound (inclusive).
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RiskAssessment:
+    ...    id: str
+    ...    score: float
+    ...    is_moderate_risk: bool = F.between(_.score, 0.3, 0.7)
+    """
+    return UnderscoreFunction("between", value, low, high)
+
+
+def distinct_from(value1: Underscore | Any, value2: Underscore | Any):
+    """
+    Check if two values are distinct from each other (including null semantics).
+
+    Parameters
+    ----------
+    value1
+        First value to compare.
+    value2
+        Second value to compare.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataComparison:
+    ...    id: str
+    ...    current_value: float | None
+    ...    previous_value: float | None
+    ...    has_changed: bool = F.distinct_from(_.current_value, _.previous_value)
+    """
+    return UnderscoreFunction("distinct_from", value1, value2)
+
+
+def secure_random(min_val: Any = None, max_val: Any = None):
+    """
+    Generate a cryptographically secure random number.
+
+    If no arguments are provided, a random float between `[0.0, 1.0)` is returned.
+    If two arguments are provided, a random number between `[min_val, max_val)` is returned.
+
+    Parameters
+    ----------
+    min_val
+        The minimum bound for the random number. If `None`, returns float in [0.0, 1.0).
+    max_val
+        The maximum bound for the random number. Required if min_val is provided.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class SecurityToken:
+    ...    id: str
+    ...    token_seed: float = F.secure_random()
+    ...    random_score: int = F.secure_random(1, 100)
+    """
+    if min_val is None and max_val is None:
+        return UnderscoreFunction("secure_random")
+    elif min_val is not None and max_val is not None:
+        return UnderscoreFunction("secure_random", min_val, max_val)
+    else:
+        raise ValueError("Both min_val and max_val must be provided together")
+
+
+########################################################################################################################
+# Bitwise Functions                                                                                                   #
+########################################################################################################################
+
+
+def bit_count(value: Underscore):
+    """
+    Count the number of set bits (1-bits) in an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to count bits for.
+
+    Returns
+    -------
+    The number of bits set to 1 in the integer value.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class BitwiseAnalytics:
+    ...     id: str
+    ...     feature_flags: int
+    ...     active_features_count: int = F.bit_count(_.feature_flags)
+    """
+    return UnderscoreFunction("bit_count", value)
+
+
+def bitwise_and(left: Underscore, right: Underscore):
+    """
+    Perform bitwise AND operation on two integer values.
+
+    Parameters
+    ----------
+    left
+        The left integer operand.
+    right
+        The right integer operand.
+
+    Returns
+    -------
+    The result of bitwise AND operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class PermissionCheck:
+    ...     id: str
+    ...     user_permissions: int
+    ...     required_permissions: int
+    ...     has_permission: int = F.bitwise_and(_.user_permissions, _.required_permissions)
+    """
+    return UnderscoreFunction("bitwise_and", left, right)
+
+
+def bitwise_arithmetic_shift_right(value: Underscore, shift: Underscore):
+    """
+    Perform arithmetic right bit shift operation on an integer value.
+    Preserves the sign bit by filling with the sign bit.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift right.
+
+    Returns
+    -------
+    The result of arithmetic right shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataCompression:
+    ...     id: str
+    ...     encoded_value: int
+    ...     level_shift: int
+    ...     decoded_value: int = F.bitwise_arithmetic_shift_right(_.encoded_value, _.level_shift)
+    """
+    return UnderscoreFunction("bitwise_arithmetic_shift_right", value, shift)
+
+
+def bitwise_left_shift(value: Underscore, shift: Underscore):
+    """
+    Perform left bit shift operation on an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift left.
+
+    Returns
+    -------
+    The result of left shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ScalingCalculation:
+    ...     id: str
+    ...     base_amount: int
+    ...     scale_factor: int
+    ...     scaled_amount: int = F.bitwise_left_shift(_.base_amount, _.scale_factor)
+    """
+    return UnderscoreFunction("bitwise_left_shift", value, shift)
+
+
+def bitwise_logical_shift_right(value: Underscore, shift: Underscore):
+    """
+    Perform logical right bit shift operation on an integer value.
+    Fills with zeros regardless of the sign bit.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift right.
+
+    Returns
+    -------
+    The result of logical right shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class HashDistribution:
+    ...     id: str
+    ...     hash_value: int
+    ...     bucket_bits: int
+    ...     bucket_id: int = F.bitwise_logical_shift_right(_.hash_value, _.bucket_bits)
+    """
+    return UnderscoreFunction("bitwise_logical_shift_right", value, shift)
+
+
+def bitwise_not(value: Underscore):
+    """
+    Perform bitwise NOT operation on an integer value (one's complement).
+
+    Parameters
+    ----------
+    value
+        The integer value to invert.
+
+    Returns
+    -------
+    The result of bitwise NOT operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class FeatureToggle:
+    ...     id: str
+    ...     enabled_features: int
+    ...     disabled_features: int = F.bitwise_not(_.enabled_features)
+    """
+    return UnderscoreFunction("bitwise_not", value)
+
+
+def bitwise_or(left: Underscore, right: Underscore):
+    """
+    Perform bitwise OR operation on two integer values.
+
+    Parameters
+    ----------
+    left
+        The left integer operand.
+    right
+        The right integer operand.
+
+    Returns
+    -------
+    The result of bitwise OR operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class PermissionMerge:
+    ...     id: str
+    ...     base_permissions: int
+    ...     additional_permissions: int
+    ...     combined_permissions: int = F.bitwise_or(_.base_permissions, _.additional_permissions)
+    """
+    return UnderscoreFunction("bitwise_or", left, right)
+
+
+def bitwise_right_shift(value: Underscore, shift: Underscore):
+    """
+    Perform right bit shift operation on an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift right.
+
+    Returns
+    -------
+    The result of right shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataReduction:
+    ...     id: str
+    ...     full_precision: int
+    ...     reduction_level: int
+    ...     reduced_precision: int = F.bitwise_right_shift(_.full_precision, _.reduction_level)
+    """
+    return UnderscoreFunction("bitwise_right_shift", value, shift)
+
+
+def bitwise_right_shift_arithmetic(value: Underscore, shift: Underscore):
+    """
+    Perform arithmetic right bit shift operation on an integer value.
+    Preserves the sign bit by filling with the sign bit.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift right.
+
+    Returns
+    -------
+    The result of arithmetic right shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class SignedDataShift:
+    ...     id: str
+    ...     signed_value: int
+    ...     shift_amount: int
+    ...     shifted_value: int = F.bitwise_right_shift_arithmetic(_.signed_value, _.shift_amount)
+    """
+    return UnderscoreFunction("bitwise_right_shift_arithmetic", value, shift)
+
+
+def bitwise_shift_left(value: Underscore, shift: Underscore):
+    """
+    Perform left bit shift operation on an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift left.
+
+    Returns
+    -------
+    The result of left shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class BitMasking:
+    ...     id: str
+    ...     position: int
+    ...     bit_mask: int = F.bitwise_shift_left(1, _.position)
+    """
+    return UnderscoreFunction("bitwise_shift_left", value, shift)
+
+
+def bitwise_xor(left: Underscore, right: Underscore):
+    """
+    Perform bitwise XOR operation on two integer values.
+
+    Parameters
+    ----------
+    left
+        The left integer operand.
+    right
+        The right integer operand.
+
+    Returns
+    -------
+    The result of bitwise XOR operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataEncryption:
+    ...     id: str
+    ...     plaintext: int
+    ...     encryption_key: int
+    ...     ciphertext: int = F.bitwise_xor(_.plaintext, _.encryption_key)
+    """
+    return UnderscoreFunction("bitwise_xor", left, right)
+
+
 __all__ = (
     "DayOfWeek",
     "Then",
@@ -3876,10 +4782,25 @@ __all__ = (
     "array_sum",
     "asin",
     "bankers_round",
+    "between",
+    "bit_count",
+    "bitwise_and",
+    "bitwise_arithmetic_shift_right",
+    "bitwise_left_shift",
+    "bitwise_logical_shift_right",
+    "bitwise_not",
+    "bitwise_or",
+    "bitwise_right_shift",
+    "bitwise_right_shift_arithmetic",
+    "bitwise_shift_left",
+    "bitwise_xor",
     "bytes_to_string",
     "cardinality",
     "cast",
     "ceil",
+    "chr",
+    "clamp",
+    "codepoint",
     "coalesce",
     "contains",
     "cos",
@@ -3890,6 +4811,8 @@ __all__ = (
     "day_of_month",
     "day_of_week",
     "day_of_year",
+    "distinct_from",
+    "e",
     "element_at",
     "ends_with",
     "exp",
@@ -3901,6 +4824,7 @@ __all__ = (
     "from_iso8601_timestamp",
     "from_unix_milliseconds",
     "from_unix_seconds",
+    "greatest",
     "gunzip",
     "haversine",
     "head",
@@ -3921,11 +4845,13 @@ __all__ = (
     "json_extract_array",
     "json_value",
     "last_day_of_month",
+    "least",
     "length",
     "levenshtein_distance",
     "like",
     "ln",
     "lower",
+    "lpad",
     "map_dict",
     "map_get",
     "max",
@@ -3937,15 +4863,18 @@ __all__ = (
     "min_by_n",
     "mod",
     "month_of_year",
+    "normalize",
     "nth_bucket_end",
     "nth_bucket_start",
     "parse_datetime",
     "partial_ratio",
+    "pi",
     "power",
     "proto_deserialize",
     "proto_serialize",
     "quarter",
     "radians",
+    "rand",
     "random",
     "recover",
     "regexp_extract",
@@ -3955,8 +4884,10 @@ __all__ = (
     "replace",
     "reverse",
     "round",
+    "rpad",
     "safe_divide",
     "sagemaker_predict",
+    "secure_random",
     "sequence_matcher_ratio",
     "sha1",
     "sha256",
@@ -3981,6 +4912,7 @@ __all__ = (
     "strrpos",
     "struct_pack",
     "substr",
+    "to_base",
     "to_iso8601",
     "token_set_ratio",
     "token_sort_ratio",
@@ -3996,6 +4928,8 @@ __all__ = (
     "url_extract_protocol",
     "week_of_year",
     "when",
+    "width_bucket",
+    "word_stem",
     "xgboost_regressor",
     "year",
 )

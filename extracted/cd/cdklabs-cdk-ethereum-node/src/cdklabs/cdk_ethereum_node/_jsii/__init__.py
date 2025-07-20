@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@cdklabs/cdk-ethereum-node",
-    "0.0.663",
+    "0.0.664",
     __name__[0:-6],
-    "cdk-ethereum-node@0.0.663.jsii.tgz",
+    "cdk-ethereum-node@0.0.664.jsii.tgz",
 )
 
 __all__ = [

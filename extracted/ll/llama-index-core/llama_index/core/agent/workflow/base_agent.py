@@ -10,6 +10,7 @@ from llama_index.core.agent.workflow.workflow_events import (
     AgentInput,
     AgentSetup,
     AgentWorkflowStartEvent,
+    AgentStreamStructuredOutput,
     ToolCall,
     ToolCallResult,
 )
@@ -438,6 +439,9 @@ class BaseWorkflowAgent(
                         output.structured_response = cast(
                             Dict[str, Any], self.structured_output_fn(messages)
                         )
+                    ctx.write_event_to_stream(
+                        AgentStreamStructuredOutput(output=output.structured_response)
+                    )
                 except Exception as e:
                     warnings.warn(
                         f"There was a problem with the generation of the structured output: {e}"
@@ -446,6 +450,9 @@ class BaseWorkflowAgent(
                 try:
                     output.structured_response = await generate_structured_response(
                         messages=messages, llm=self.llm, output_cls=self.output_cls
+                    )
+                    ctx.write_event_to_stream(
+                        AgentStreamStructuredOutput(output=output.structured_response)
                     )
                 except Exception as e:
                     warnings.warn(
@@ -533,13 +540,15 @@ class BaseWorkflowAgent(
         await self.handle_tool_call_results(ctx, tool_call_results, memory)
 
         if any(
-            tool_call_result.return_direct for tool_call_result in tool_call_results
+            tool_call_result.return_direct and not tool_call_result.tool_output.is_error
+            for tool_call_result in tool_call_results
         ):
-            # if any tool calls return directly, take the first one
+            # if any tool calls return directly and it's not an error tool call, take the first one
             return_direct_tool = next(
                 tool_call_result
                 for tool_call_result in tool_call_results
                 if tool_call_result.return_direct
+                and not tool_call_result.tool_output.is_error
             )
 
             # always finalize the agent, even if we're just handing off
@@ -560,6 +569,10 @@ class BaseWorkflowAgent(
                 current_agent_name=self.name,
             )
             result = await self.finalize(ctx, result, memory)
+            # we don't want to stop the system if we're just handing off
+            if return_direct_tool.tool_name != "handoff":
+                await ctx.store.set("current_tool_calls", [])
+                return StopEvent(result=result)
 
         user_msg_str = await ctx.store.get("user_msg_str")
         input_messages = await memory.aget(input=user_msg_str)
@@ -575,6 +588,7 @@ class BaseWorkflowAgent(
         stepwise: bool = False,
         checkpoint_callback: Optional[CheckpointCallback] = None,
         max_iterations: Optional[int] = None,
+        start_event: Optional[AgentWorkflowStartEvent] = None,
         **kwargs: Any,
     ) -> WorkflowHandler:
         # Detect if hitl is needed
@@ -586,14 +600,15 @@ class BaseWorkflowAgent(
                 **kwargs,
             )
         else:
+            start_event = start_event or AgentWorkflowStartEvent(
+                user_msg=user_msg,
+                chat_history=chat_history,
+                memory=memory,
+                max_iterations=max_iterations,
+                **kwargs,
+            )
             return super().run(
-                start_event=AgentWorkflowStartEvent(
-                    user_msg=user_msg,
-                    chat_history=chat_history,
-                    memory=memory,
-                    max_iterations=max_iterations,
-                    **kwargs,
-                ),
+                start_event=start_event,
                 ctx=ctx,
                 stepwise=stepwise,
                 checkpoint_callback=checkpoint_callback,

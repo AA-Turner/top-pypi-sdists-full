@@ -1,6 +1,6 @@
 """A clean customisable Sphinx documentation theme."""
 
-__version__ = "2024.08.06"
+__version__ = "2025.07.19"
 
 import hashlib
 import logging
@@ -51,17 +51,17 @@ class WrapTableAndMathInAContainerTransform(SphinxPostTransform):
             if hasattr(self.document, "findall")
             else self.document.traverse  # docutils <= 0.17.x
         )
-        for node in list(get_nodes(nodes.table)):
+        for table_node in list(get_nodes(nodes.table)):
             new_node = nodes.container(classes=["table-wrapper"])
-            new_node.update_all_atts(node)
-            node.parent.replace(node, new_node)
-            new_node.append(node)
+            new_node.update_all_atts(table_node)
+            table_node.parent.replace(table_node, new_node)
+            new_node.append(table_node)
 
-        for node in list(get_nodes(nodes.math_block)):
+        for math_node in list(get_nodes(nodes.math_block)):
             new_node = nodes.container(classes=["math-wrapper"])
-            new_node.update_all_atts(node)
-            node.parent.replace(node, new_node)
-            new_node.append(node)
+            new_node.update_all_atts(math_node)
+            math_node.parent.replace(math_node, new_node)
+            new_node.append(math_node)
 
 
 def has_not_enough_items_to_show_toc(
@@ -326,8 +326,8 @@ def _get_styles(formatter: "HtmlFormatter[str]", *, prefix: str) -> Iterator[str
     """Get styles out of a formatter, where everything has the correct prefix."""
     for line in formatter.get_linenos_style_defs():  # type: ignore[no-untyped-call]
         yield f"{prefix} {line}"
-    yield from formatter.get_background_style_defs(prefix)
-    yield from formatter.get_token_style_defs(prefix)
+    yield from formatter.get_background_style_defs(prefix)  # type: ignore[no-untyped-call]
+    yield from formatter.get_token_style_defs(prefix)  # type: ignore[no-untyped-call]
 
 
 def get_pygments_stylesheet() -> str:
@@ -380,7 +380,7 @@ def setup(app: sphinx.application.Sphinx) -> Dict[str, Any]:
     app.require_sphinx("6.0")
 
     app.add_config_value(
-        "pygments_dark_style", default="native", rebuild="env", types=[str]
+        "pygments_dark_style", default="a11y-dark", rebuild="env", types=[str]
     )
 
     app.add_html_theme("furo", str(THEME_PATH))

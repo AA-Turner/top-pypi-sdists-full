@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-webui
-Version: 0.6.16
+Version: 0.6.18
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
@@ -37,6 +37,7 @@ License: Copyright (c) 2023-2025 Timothy Jaeryang Baek (Open WebUI)
         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
+License-File: LICENSE_HISTORY
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
@@ -106,6 +107,7 @@ Requires-Dist: pgvector==0.4.0
 Requires-Dist: pillow==11.2.1
 Requires-Dist: pinecone==6.0.2
 Requires-Dist: playwright==1.49.1
+Requires-Dist: posthog==5.4.0
 Requires-Dist: psutil
 Requires-Dist: psycopg2-binary==2.9.9
 Requires-Dist: pycrdt==0.12.25

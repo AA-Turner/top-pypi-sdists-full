@@ -6,12 +6,16 @@ must implement.
 """
 
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from typing import Any
 
-from mcp import ClientSession
+from mcp import ClientSession, Implementation
+from mcp.client.session import ElicitationFnT, SamplingFnT
 from mcp.shared.exceptions import McpError
 from mcp.types import CallToolResult, GetPromptResult, Prompt, ReadResourceResult, Resource, Tool
 from pydantic import AnyUrl
+
+import mcp_use
 
 from ..logging import logger
 from ..task_managers import ConnectionManager
@@ -23,7 +27,11 @@ class BaseConnector(ABC):
     This class defines the interface that all MCP connectors must implement.
     """
 
-    def __init__(self):
+    def __init__(
+        self,
+        sampling_callback: SamplingFnT | None = None,
+        elicitation_callback: ElicitationFnT | None = None,
+    ):
         """Initialize base connector with common attributes."""
         self.client_session: ClientSession | None = None
         self._connection_manager: ConnectionManager | None = None
@@ -33,6 +41,17 @@ class BaseConnector(ABC):
         self._connected = False
         self._initialized = False  # Track if client_session.initialize() has been called
         self.auto_reconnect = True  # Whether to automatically reconnect on connection loss (not configurable for now)
+        self.sampling_callback = sampling_callback
+        self.elicitation_callback = elicitation_callback
+
+    @property
+    def client_info(self) -> Implementation:
+        """Get the client info for the connector."""
+        return Implementation(
+            name="mcp-use",
+            version=mcp_use.__version__,
+            url="https://github.com/mcp-use/mcp-use",
+        )
 
     @abstractmethod
     async def connect(self) -> None:
@@ -110,28 +129,41 @@ class BaseConnector(ABC):
 
         if server_capabilities.tools:
             # Get available tools directly from client session
-            tools_result = await self.client_session.list_tools()
-            self._tools = tools_result.tools if tools_result else []
+            try:
+                tools_result = await self.client_session.list_tools()
+                self._tools = tools_result.tools if tools_result else []
+            except Exception as e:
+                logger.error(f"Error listing tools: {e}")
+                self._tools = []
         else:
             self._tools = []
 
         if server_capabilities.resources:
             # Get available resources directly from client session
-            resources_result = await self.client_session.list_resources()
-            self._resources = resources_result.resources if resources_result else []
+            try:
+                resources_result = await self.client_session.list_resources()
+                self._resources = resources_result.resources if resources_result else []
+            except Exception as e:
+                logger.error(f"Error listing resources: {e}")
+                self._resources = []
         else:
             self._resources = []
 
         if server_capabilities.prompts:
             # Get available prompts directly from client session
-            prompts_result = await self.client_session.list_prompts()
-            self._prompts = prompts_result.prompts if prompts_result else []
+            try:
+                prompts_result = await self.client_session.list_prompts()
+                self._prompts = prompts_result.prompts if prompts_result else []
+            except Exception as e:
+                logger.error(f"Error listing prompts: {e}")
+                self._prompts = []
         else:
             self._prompts = []
 
         logger.debug(
             f"MCP session initialized with {len(self._tools)} tools, "
-            "{len(self._resources)} resources, and {len(self._prompts)} prompts"
+            f"{len(self._resources)} resources, "
+            f"and {len(self._prompts)} prompts"
         )
 
         return result
@@ -235,12 +267,15 @@ class BaseConnector(ABC):
                     "Connection to MCP server has been lost. Auto-reconnection is disabled. Please reconnect manually."
                 )
 
-    async def call_tool(self, name: str, arguments: dict[str, Any]) -> CallToolResult:
+    async def call_tool(
+        self, name: str, arguments: dict[str, Any], read_timeout_seconds: timedelta | None = None
+    ) -> CallToolResult:
         """Call an MCP tool with automatic reconnection handling.
 
         Args:
             name: The name of the tool to call.
             arguments: The arguments to pass to the tool.
+            read_timeout_seconds: timeout seconds when calling tool
 
         Returns:
             The result of the tool call.
@@ -254,7 +289,7 @@ class BaseConnector(ABC):
 
         logger.debug(f"Calling tool '{name}' with arguments: {arguments}")
         try:
-            result = await self.client_session.call_tool(name, arguments)
+            result = await self.client_session.call_tool(name, arguments, read_timeout_seconds)
             logger.debug(f"Tool '{name}' called with result: {result}")
             return result
         except Exception as e:

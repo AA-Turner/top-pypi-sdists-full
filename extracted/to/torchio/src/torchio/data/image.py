@@ -121,8 +121,8 @@ class Image(dict):
         >>> image = tio.ScalarImage('t1.npy', reader=numpy_reader)
 
     .. _lazy loaders: https://en.wikipedia.org/wiki/Lazy_loading
-    .. _preprocessing: https://torchio.readthedocs.io/transforms/preprocessing.html#intensity
-    .. _augmentation: https://torchio.readthedocs.io/transforms/augmentation.html#intensity
+    .. _preprocessing: https://torchio-project.github.io/torchio/transforms/preprocessing.html#intensity
+    .. _augmentation: https://torchio-project.github.io/torchio/transforms/augmentation.html#intensity
     .. _NiBabel docs: https://nipy.org/nibabel/image_orientation.html
     .. _NiBabel docs on coordinates: https://nipy.org/nibabel/coordinate_systems.html#the-affine-matrix-as-a-transformation-between-spaces
     .. _3D Slicer wiki: https://www.slicer.org/wiki/Coordinate_systems
@@ -190,7 +190,7 @@ class Image(dict):
             [
                 f'shape: {self.shape}',
                 f'spacing: {self.get_spacing_string()}',
-                f'orientation: {"".join(self.orientation)}+',
+                f'orientation: {self.orientation_str}+',
             ]
         )
         if self._loaded:
@@ -253,6 +253,7 @@ class Image(dict):
             tensor: 4D tensor with dimensions :math:`(C, W, H, D)`.
         """
         self[DATA] = self._parse_tensor(tensor, none_ok=False)
+        self._loaded = True
 
     @property
     def tensor(self) -> torch.Tensor:
@@ -324,7 +325,12 @@ class Image(dict):
     @property
     def orientation(self) -> tuple[str, str, str]:
         """Orientation codes."""
-        return nib.aff2axcodes(self.affine)
+        return nib.orientations.aff2axcodes(self.affine)
+
+    @property
+    def orientation_str(self) -> str:
+        """Orientation as a string."""
+        return ''.join(self.orientation)
 
     @property
     def direction(self) -> TypeDirection3D:
@@ -339,7 +345,7 @@ class Image(dict):
         """Voxel spacing in mm."""
         _, spacing = get_rotation_and_spacing_from_affine(self.affine)
         sx, sy, sz = spacing
-        return sx, sy, sz
+        return float(sx), float(sy), float(sz)
 
     @property
     def origin(self) -> tuple[float, float, float]:
@@ -742,6 +748,13 @@ class Image(dict):
             reverse=reverse,
         )
 
+    def to_ras(self) -> Image:
+        if self.orientation_str != 'RAS':
+            from ..transforms.preprocessing.spatial.to_canonical import ToCanonical
+
+            return ToCanonical()(self)
+        return self
+
     def get_center(self, lps: bool = False) -> TypeTripletFloat:
         """Get image center in RAS+ or LPS+ coordinates.
 
@@ -879,6 +892,36 @@ class ScalarImage(Image):
 
         x = self.data.flatten().numpy()
         plot_histogram(x, **kwargs)
+
+    def to_video(
+        self,
+        output_path: TypePath,
+        frame_rate: float | None = 15,
+        seconds: float | None = None,
+        direction: str = 'I',
+        verbosity: str = 'error',
+    ) -> None:
+        """Create a video showing all image slices along a specified direction.
+
+        Args:
+            output_path: Path to the output video file.
+            frame_rate: Number of frames per second (FPS).
+            seconds: Target duration of the full video.
+            direction:
+            verbosity:
+
+        .. note:: Only ``frame_rate`` or ``seconds`` may (and must) be specified.
+        """
+        from ..visualization import make_video  # avoid circular import
+
+        make_video(
+            self.to_ras(),  # type: ignore[arg-type]
+            output_path,
+            frame_rate=frame_rate,
+            seconds=seconds,
+            direction=direction,
+            verbosity=verbosity,
+        )
 
 
 class LabelMap(Image):

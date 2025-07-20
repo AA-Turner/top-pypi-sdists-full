@@ -4,7 +4,7 @@ Unit tests for the HttpConnector class.
 
 import unittest
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import aiohttp
 from mcp import McpError
@@ -195,7 +195,13 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         mock_cm_instance.start.assert_called_once()
 
         # Verify client session was created and initialized
-        mock_client_session_class.assert_called_once_with("read_stream", "write_stream", sampling_callback=None)
+        mock_client_session_class.assert_called_once_with(
+            "read_stream",
+            "write_stream",
+            sampling_callback=None,
+            elicitation_callback=None,
+            client_info=ANY,
+        )
         mock_client_session_instance.__aenter__.assert_called_once()
         mock_client_session_instance.initialize.assert_called_once()
 
@@ -310,7 +316,7 @@ class TestHttpConnectorOperations(IsolatedAsyncioTestCase):
 
         result = await self.connector.call_tool("test_tool", {"param": "value"})
 
-        self.connector.client_session.call_tool.assert_called_once_with("test_tool", {"param": "value"})
+        self.connector.client_session.call_tool.assert_called_once_with("test_tool", {"param": "value"}, None)
         self.assertEqual(result, {"result": "success"})
 
     async def test_call_tool_no_client(self, _):

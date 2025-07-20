@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: selectolax
-Version: 0.3.31
+Version: 0.3.32
 Summary: Fast HTML5 parser with CSS selectors.
 Home-page: https://github.com/rushter/selectolax
 Author: Artem Golubin
@@ -167,12 +167,12 @@ selectolax (Lexbor)           2.39 sec.
 Links
 -----
 
-*  `selectolax API reference <http://selectolax.readthedocs.io/en/latest/parser.html>`_
+*  `selectolax API reference <https://selectolax.readthedocs.io/en/latest/index.html>`_
 *  `Video introduction to web scraping using selectolax <https://youtu.be/HpRsfpPuUzE>`_
 *  `How to Scrape 7k Products with Python using selectolax and httpx <https://www.youtube.com/watch?v=XpGvq755J2U>`_
 *  `Detailed overview <https://github.com/rushter/selectolax/blob/master/examples/walkthrough.ipynb>`_
 *  `Modest introduction <https://lexborisov.github.io/Modest/>`_
-*  `Modest benchmark <http://lexborisov.github.io/benchmark-html-persers/>`_
+*  `Modest benchmark <https://lexborisov.github.io/benchmark-html-parsers/>`_
 *  `Python benchmark <https://rushter.com/blog/python-fast-html-parser/>`_
 *  `Another Python benchmark <https://www.peterbe.com/plog/selectolax-or-pyquery>`_
 
